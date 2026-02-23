@@ -181,6 +181,14 @@ public class VendorService {
 			return "redirect:/vendor/login";
 		}
 
+		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Product product = productRepository.findById(id).orElse(null);
+
+		if (product == null || product.getVendor() == null || product.getVendor().getId() != vendor.getId()) {
+			session.setAttribute("failure", "You can delete only your own products");
+			return "redirect:/manage-products";
+		}
+
 		productRepository.deleteById(id);
 		session.setAttribute("success", "Product Deleted Successfully");
 		return "redirect:/manage-products";
@@ -194,7 +202,15 @@ public class VendorService {
 			return "redirect:/vendor/login";
 		}
 
-		map.put("product", productRepository.findById(id).orElseThrow());
+		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Product product = productRepository.findById(id).orElse(null);
+
+		if (product == null || product.getVendor() == null || product.getVendor().getId() != vendor.getId()) {
+			session.setAttribute("failure", "You can edit only your own products");
+			return "redirect:/manage-products";
+		}
+
+		map.put("product", product);
 		return "edit-product.html";
 	}
 
@@ -206,7 +222,26 @@ public class VendorService {
 			return "redirect:/vendor/login";
 		}
 
-		productRepository.save(product);
+		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Product existingProduct = productRepository.findById(product.getId()).orElse(null);
+
+		if (existingProduct == null || existingProduct.getVendor() == null
+				|| existingProduct.getVendor().getId() != vendor.getId()) {
+			session.setAttribute("failure", "You can update only your own products");
+			return "redirect:/manage-products";
+		}
+
+		existingProduct.setName(product.getName());
+		existingProduct.setDescription(product.getDescription());
+		existingProduct.setPrice(product.getPrice());
+		existingProduct.setCategory(product.getCategory());
+		existingProduct.setStock(product.getStock());
+
+		if (product.getImage() != null && !product.getImage().isEmpty()) {
+			existingProduct.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
+		}
+
+		productRepository.save(existingProduct);
 		session.setAttribute("success", "Product Updated Successfully");
 		return "redirect:/manage-products";
 	}
