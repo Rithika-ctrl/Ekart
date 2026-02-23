@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -60,6 +60,7 @@
             color: #334155;
         }
     </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
 <body>
 
@@ -72,7 +73,7 @@
         
         <div class="amount-box">
             <div class="text-muted small">Total Payable Amount</div>
-            <div class="amount-value">₹ <span th:text="${amount}">0.0</span></div>
+            <div class="amount-value">Rs. <span th:text="${amount}">0.0</span></div>
         </div>
 
         <form action="/success" method="post">
@@ -90,3 +91,4 @@
 
 </body>
 </html>
+

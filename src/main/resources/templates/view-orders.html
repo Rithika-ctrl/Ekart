@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Orders - Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background: #f8fafc;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 2rem auto;
+        }
+
+        .order-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .item-chip {
+            display: inline-block;
+            padding: 0.35rem 0.7rem;
+            border-radius: 20px;
+            background: #eef2ff;
+            color: #1e3a8a;
+            margin: 0.2rem;
+            font-size: 0.85rem;
+        }
+
+        .empty-box {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2 class="mb-4"><i class="fas fa-truck mr-2"></i>Order Tracking</h2>
+
+        <div class="alert alert-success" th:if="${session.success}" th:text="${session.success}"></div>
+        <div class="alert alert-danger" th:if="${session.failure}" th:text="${session.failure}"></div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+
+        <div th:if="${orders != null and !orders.isEmpty()}">
+            <div class="order-card" th:each="o : ${orders}">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div>
+                        <strong>Order #</strong> <span th:text="${o.id}"></span>
+                    </div>
+                    <div>
+                        <strong>Date:</strong> <span th:text="${#temporals.format(o.orderDate,'dd MMM yyyy HH:mm')}"></span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <strong>Amount:</strong> Rs. <span th:text="${o.amount}"></span>
+                </div>
+                <div class="mt-2">
+                    <strong>Status:</strong> <span class="text-success">Placed</span>
+                </div>
+                <div class="mt-2" th:if="${o.items != null and !o.items.isEmpty()}">
+                    <strong>Items:</strong>
+                    <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' x ' + ${it.quantity}"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-box" th:if="${orders == null or orders.isEmpty()}">
+            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+            <h4>No Orders Yet</h4>
+            <p class="text-muted">Your placed orders will appear here for tracking.</p>
+            <a href="/view-products" class="btn btn-primary">Start Shopping</a>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="/customer/home" class="btn btn-outline-primary"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        </div>
+    </div>
+</body>
+
+</html>

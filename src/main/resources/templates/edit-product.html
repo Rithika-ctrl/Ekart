@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -160,6 +160,7 @@
             animation: fadeIn 0.8s ease-out forwards;
         }
     </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
 
 <body>
@@ -203,6 +204,15 @@
                     <input type="number" th:value="${product.stock}" class="form-control" id="stock" name="stock" required>
                 </div>
                 <div class="form-group">
+                    <label for="stockAlertThreshold">Stock Alert Threshold</label>
+                    <input type="number" th:value="${product.stockAlertThreshold}" class="form-control" 
+                           id="stockAlertThreshold" name="stockAlertThreshold" 
+                           placeholder="Get notified when stock falls below this level" min="1">
+                    <small class="form-text text-muted">
+                        <i class="fas fa-info-circle"></i> You'll receive an email alert when stock drops below this threshold
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="image">Product Image</label>
                     <div class="custom-file">
                         <input type="file" class="custom-file-input" id="image" name="image">
@@ -217,7 +227,7 @@
 
     <footer class="text-center text-lg-start mt-auto">
         <div class="text-center p-3">
-            © 2025 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
+            Â© 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
         </div>
     </footer>
 
@@ -233,3 +243,5 @@
 </body>
 
 </html>
+
+

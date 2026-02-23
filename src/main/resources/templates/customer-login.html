@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -159,6 +159,7 @@
             
         }
     </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
 
 <body>
@@ -199,13 +200,13 @@
         <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}" role="alert">
             <span th:text="${session.success}"></span>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
+                <span aria-hidden="true">Ã—</span>
             </button>
         </div>
         <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}" role="alert">
             <span th:text="${session.failure}"></span>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
+                <span aria-hidden="true">Ã—</span>
             </button>
         </div>
         <th:block th:text="${@messageRemover.remove()}"></th:block>
@@ -221,6 +222,9 @@
                     <label for="password"><i class="fas fa-key mr-2"></i>Password:</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
+                <div class="text-right mb-3">
+                    <a href="/customer/forgot-password">Forgot Password?</a>
+                </div>
                 <button class="btn btn-primary"><i class="fas fa-sign-in-alt mr-2"></i>Login</button>
             </form>
         </div>
@@ -228,7 +232,7 @@
 
     <footer class="text-center text-lg-start mt-auto">
         <div class="text-center p-3">
-            © 2025 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
+            Â© 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
         </div>
     </footer>
 
@@ -245,3 +249,5 @@
 </body>
 
 </html>
+
+

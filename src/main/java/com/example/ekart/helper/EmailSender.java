@@ -8,6 +8,7 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import com.example.ekart.dto.Customer;
+import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
 
 import jakarta.mail.internet.MimeMessage;
@@ -112,5 +113,40 @@ public void sendOrderConfirmation(Customer customer, double amount, int orderId)
         e.printStackTrace();
     }
 }
+
+    // ===================== SEND STOCK ALERT TO VENDOR =====================
+    public void sendStockAlert(Vendor vendor, Product product, int currentStock) {
+        String email = vendor.getEmail();
+        String name = vendor.getName();
+        
+        // ✅ SHOW ALERT IN CONSOLE
+        System.out.println("⚠️ STOCK ALERT: Product '" + product.getName() + "' is low on stock (" + currentStock + " units)");
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setFrom("dwarakeeshtalavar@gmail.com", "Ekart Stock Alert");
+            helper.setTo(email);
+            helper.setSubject("⚠️ Low Stock Alert - " + product.getName());
+
+            Context context = new Context();
+            context.setVariable("vendorName", name);
+            context.setVariable("productName", product.getName());
+            context.setVariable("currentStock", currentStock);
+            context.setVariable("threshold", product.getStockAlertThreshold());
+            context.setVariable("productId", product.getId());
+
+            String html = templateEngine.process("stock-alert-email.html", context);
+            helper.setText(html, true);
+
+            mailSender.send(message);
+            System.out.println("✅ Stock alert email sent to " + email);
+
+        } catch (Exception e) {
+            System.err.println("❌ Stock alert email failed, alert logged in console");
+            e.printStackTrace();
+        }
+    }
     }
 

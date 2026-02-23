@@ -16,6 +16,7 @@ import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Order; 
 import com.example.ekart.helper.AES;
+import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
@@ -39,6 +40,12 @@ public class CustomerService {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private StockAlertService stockAlertService;
+
+    @Autowired
+    private EmailSender emailSender;
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
@@ -65,9 +72,11 @@ public class CustomerService {
         customer.setOtp(otp);
         customer.setPassword(AES.encrypt(customer.getPassword()));
         customerRepository.save(customer);
-        System.out.println("Customer OTP: " + customer.getOtp());
+        
+        // 🔥 SEND OTP EMAIL
+        emailSender.send(customer);
 
-        session.setAttribute("success", "Otp Sent Successfully");
+        session.setAttribute("success", "OTP Sent Successfully to your email");
         return "redirect:/customer/otp/" + customer.getId();
     }
 
@@ -116,6 +125,62 @@ public class CustomerService {
         session.setAttribute("customer", customer);
         session.setAttribute("success", "Login Successful");
         return "redirect:/customer/home";
+    }
+
+    public String loadForgotPasswordPage() {
+        return "customer-forgot-password.html";
+    }
+
+    public String sendResetOtp(String email, HttpSession session) {
+        Customer customer = customerRepository.findByEmail(email);
+        if (customer == null) {
+            session.setAttribute("failure", "No account found with this email");
+            return "redirect:/customer/forgot-password";
+        }
+
+        int otp = new Random().nextInt(100000, 1000000);
+        customer.setOtp(otp);
+        customerRepository.save(customer);
+        emailSender.send(customer);
+
+        session.setAttribute("success", "OTP sent to your registered email");
+        return "redirect:/customer/reset-password/" + customer.getId();
+    }
+
+    public String loadResetPasswordPage(int id, ModelMap map) {
+        map.put("id", id);
+        return "customer-reset-password.html";
+    }
+
+    public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
+        Customer customer = customerRepository.findById(id).orElse(null);
+        if (customer == null) {
+            session.setAttribute("failure", "Invalid reset request");
+            return "redirect:/customer/forgot-password";
+        }
+
+        if (customer.getOtp() != otp) {
+            session.setAttribute("failure", "Invalid OTP");
+            return "redirect:/customer/reset-password/" + id;
+        }
+
+        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+            session.setAttribute("failure", "Password and Confirm Password should match");
+            return "redirect:/customer/reset-password/" + id;
+        }
+
+        String passwordRegex = "^.*(?=.{8,})(?=..*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$";
+        if (!password.matches(passwordRegex)) {
+            session.setAttribute("failure",
+                    "Password must have 8+ characters with uppercase, lowercase, number and special character");
+            return "redirect:/customer/reset-password/" + id;
+        }
+
+        customer.setPassword(AES.encrypt(password));
+        customerRepository.save(customer);
+
+        session.setAttribute("success", "Password reset successful. Please login");
+        return "redirect:/customer/login";
     }
 
     public String loadCustomerHome(HttpSession session) {
@@ -193,6 +258,7 @@ public class CustomerService {
         item.setImageLink(product.getImageLink());
         item.setPrice(product.getPrice());
         item.setQuantity(1);
+        item.setProductId(product.getId()); // 🔥 Track product ID
 
         item.setCart(cart);
         cart.getItems().add(item);
@@ -308,24 +374,81 @@ public class CustomerService {
     }
 
     public String paymentSuccess(Order order, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
-        customer = customerRepository.findById(customer.getId()).orElseThrow();
-        
-        order.setCustomer(customer);
-        order.setOrderDate(java.time.LocalDateTime.now());
-        
-        // Copy items from Cart to Order
-        List<Item> orderItems = new ArrayList<>(customer.getCart().getItems());
-        order.setItems(orderItems);
-        
-        orderRepository.save(order);
-        
-        // Clear Cart
-        customer.getCart().getItems().clear();
-        customerRepository.save(customer);
+        try {
+            Customer sessionCustomer = (Customer) session.getAttribute("customer");
+            if (sessionCustomer == null) {
+                session.setAttribute("failure", "Login First");
+                return "redirect:/customer/login";
+            }
 
-        session.setAttribute("success", "Order Placed Successfully!");
-        return "redirect:/customer/home";
+            Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+            List<Item> cartItems = customer.getCart().getItems();
+
+            if (cartItems == null || cartItems.isEmpty()) {
+                session.setAttribute("failure", "Your cart is empty");
+                return "redirect:/view-cart";
+            }
+
+            List<Item> cartItemsSnapshot = new ArrayList<>(cartItems);
+
+            Order savedOrder = new Order();
+            savedOrder.setCustomer(customer);
+            savedOrder.setOrderDate(java.time.LocalDateTime.now());
+            savedOrder.setRazorpay_order_id(order.getRazorpay_order_id());
+            savedOrder.setRazorpay_payment_id(order.getRazorpay_payment_id());
+
+            List<Item> orderItems = new ArrayList<>();
+            double totalAmount = 0;
+
+            for (Item cartItem : cartItemsSnapshot) {
+                Item orderItem = new Item();
+                orderItem.setName(cartItem.getName());
+                orderItem.setDescription(cartItem.getDescription());
+                orderItem.setCategory(cartItem.getCategory());
+                orderItem.setPrice(cartItem.getPrice());
+                orderItem.setQuantity(cartItem.getQuantity());
+                orderItem.setImageLink(cartItem.getImageLink());
+                orderItem.setProductId(cartItem.getProductId());
+                // Save item first to get an ID before adding to order
+                orderItem = itemRepository.save(orderItem);
+                orderItems.add(orderItem);
+                totalAmount += cartItem.getPrice();
+            }
+
+            savedOrder.setItems(orderItems);
+            savedOrder.setTotalPrice(totalAmount);
+            savedOrder.setAmount(totalAmount);
+            savedOrder = orderRepository.save(savedOrder);
+
+            // 🔥 Check stock levels for all products in the order
+            for (Item item : orderItems) {
+                if (item.getProductId() != null && item.getProductId() > 0) {
+                    Product product = productRepository.findById(item.getProductId()).orElse(null);
+                    if (product != null) {
+                        stockAlertService.checkStockLevel(product);
+                    }
+                }
+            }
+
+            // Clear Cart by removing old cart items
+            itemRepository.deleteAll(cartItemsSnapshot);
+            customer.getCart().getItems().clear();
+            customerRepository.save(customer);
+
+            // Send confirmation email after successful save
+            try {
+                emailSender.sendOrderConfirmation(customer, totalAmount, savedOrder.getId());
+            } catch (Exception e) {
+                System.err.println("Order email failed but order was successful.");
+            }
+
+            session.setAttribute("success", "Order Placed Successfully!");
+            return "redirect:/order-success";
+        } catch (Exception e) {
+            e.printStackTrace();
+            session.setAttribute("failure", "Order could not be completed. Please try again.");
+            return "redirect:/view-cart";
+        }
     }
 
     // ---------------- VIEW ORDERS ----------------

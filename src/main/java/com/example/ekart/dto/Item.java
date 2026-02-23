@@ -23,6 +23,9 @@ public class Item {
 	private int quantity;
 	private String imageLink;
 
+	// 🔥 Track which product this item came from (for stock alerts)
+	private Integer productId; // nullable for backward compatibility
+
 	// 🔥 THIS IS THE MOST IMPORTANT FIX
 	@ManyToOne
 	@JoinColumn(name = "cart_id")

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -91,12 +91,13 @@
         }
 
         footer {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, #1e40af, var(--primary-color));
             color: white;
-            text-align: center;
-            padding: 1rem 0;
+            padding: 1.25rem 0;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
         }
     </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
 
 <body>
@@ -145,13 +146,16 @@
                     <label for="password">Password:</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
+                <div class="text-right mb-3">
+                    <a href="/vendor/forgot-password">Forgot Password?</a>
+                </div>
                 <button class="btn btn-primary btn-block">Login</button>
             </form>
         </div>
     </div>
 
-    <footer>
-        <div>&copy; 2025 Ekart. All rights reserved. | Made with ❤️</div>
+    <footer class="text-center">
+        <div>&copy; 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion</div>
     </footer>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
@@ -160,3 +164,6 @@
 </body>
 
 </html>
+
+
+

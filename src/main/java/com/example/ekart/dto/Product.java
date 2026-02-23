@@ -29,6 +29,9 @@ public class Product {
 	private String category;
 	private int stock;
 
+	// 🔥 Stock alert threshold - notify when stock drops below this level
+	private Integer stockAlertThreshold = 10; // default threshold (nullable for existing data)
+
 	// Cloudinary image URL
 	private String imageLink;
 

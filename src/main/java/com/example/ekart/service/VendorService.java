@@ -13,6 +13,7 @@ import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.CloudinaryHelper;
+import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.VendorRepository;
 
@@ -30,6 +31,12 @@ public class VendorService {
 
 	@Autowired
 	private CloudinaryHelper cloudinaryHelper;
+
+	@Autowired
+	private StockAlertService stockAlertService;
+
+	@Autowired
+	private EmailSender emailSender;
 
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
@@ -57,10 +64,10 @@ public class VendorService {
 
 		vendorRepository.save(vendor);
 
-		// 🔥 PRINT OTP IN TERMINAL (DEV MODE)
-		System.out.println("Vendor OTP (Registration): " + vendor.getOtp());
+		// 🔥 SEND OTP EMAIL
+		emailSender.send(vendor);
 
-		session.setAttribute("success", "OTP Sent Successfully");
+		session.setAttribute("success", "OTP Sent Successfully to your email");
 		return "redirect:/vendor/otp/" + vendor.getId();
 	}
 
@@ -108,10 +115,10 @@ public class VendorService {
 			vendor.setOtp(otp);
 			vendorRepository.save(vendor);
 
-			// 🔥 PRINT OTP IN TERMINAL (DEV MODE)
-			System.out.println("Vendor OTP (Login): " + vendor.getOtp());
+			// 🔥 SEND OTP EMAIL
+			emailSender.send(vendor);
 
-			session.setAttribute("success", "OTP Sent. Please verify first.");
+			session.setAttribute("success", "OTP Sent to your email. Please verify first.");
 			return "redirect:/vendor/otp/" + vendor.getId();
 		}
 
@@ -121,6 +128,62 @@ public class VendorService {
 		return "redirect:/vendor/home";
 	}
 
+	public String loadForgotPasswordPage() {
+		return "vendor-forgot-password.html";
+	}
+
+	public String sendResetOtp(String email, HttpSession session) {
+		Vendor vendor = vendorRepository.findByEmail(email);
+		if (vendor == null) {
+			session.setAttribute("failure", "No account found with this email");
+			return "redirect:/vendor/forgot-password";
+		}
+
+		int otp = new Random().nextInt(100000, 1000000);
+		vendor.setOtp(otp);
+		vendorRepository.save(vendor);
+		emailSender.send(vendor);
+
+		session.setAttribute("success", "OTP sent to your registered email");
+		return "redirect:/vendor/reset-password/" + vendor.getId();
+	}
+
+	public String loadResetPasswordPage(int id, ModelMap map) {
+		map.put("id", id);
+		return "vendor-reset-password.html";
+	}
+
+	public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
+		Vendor vendor = vendorRepository.findById(id).orElse(null);
+		if (vendor == null) {
+			session.setAttribute("failure", "Invalid reset request");
+			return "redirect:/vendor/forgot-password";
+		}
+
+		if (vendor.getOtp() != otp) {
+			session.setAttribute("failure", "Invalid OTP");
+			return "redirect:/vendor/reset-password/" + id;
+		}
+
+		if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+			session.setAttribute("failure", "Password and Confirm Password should match");
+			return "redirect:/vendor/reset-password/" + id;
+		}
+
+		String passwordRegex = "^.*(?=.{8,})(?=..*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$";
+		if (!password.matches(passwordRegex)) {
+			session.setAttribute("failure",
+					"Password must have 8+ characters with uppercase, lowercase, number and special character");
+			return "redirect:/vendor/reset-password/" + id;
+		}
+
+		vendor.setPassword(AES.encrypt(password));
+		vendorRepository.save(vendor);
+
+		session.setAttribute("success", "Password reset successful. Please login");
+		return "redirect:/vendor/login";
+	}
+
 	// ---------------- HOME ----------------
 	public String loadHome(HttpSession session) {
 		if (session.getAttribute("vendor") != null)
@@ -128,6 +191,78 @@ public class VendorService {
 
 		session.setAttribute("failure", "Login First");
 		return "redirect:/vendor/login";
+	}
+
+	// 🔥 Load vendor home with stock alert count
+	public String loadHome(HttpSession session, ModelMap map) {
+		if (session.getAttribute("vendor") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/vendor/login";
+		}
+
+		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		int alertCount = stockAlertService.getUnacknowledgedAlerts(vendor).size();
+		map.put("alertCount", alertCount);
+
+		return "vendor-home.html";
+	}
+
+	// ---------------- STORE FRONT (PROFILE) ----------------
+	public String loadStoreFront(HttpSession session, ModelMap map) {
+
+		if (session.getAttribute("vendor") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/vendor/login";
+		}
+
+		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = vendorRepository.findById(sessionVendor.getId()).orElse(sessionVendor);
+		session.setAttribute("vendor", vendor);
+
+		int productCount = productRepository.findByVendor(vendor).size();
+		int alertCount = stockAlertService.getUnacknowledgedAlerts(vendor).size();
+
+		map.put("vendor", vendor);
+		map.put("productCount", productCount);
+		map.put("alertCount", alertCount);
+
+		return "vendor-store-front.html";
+	}
+
+	public String updateStoreFront(String name, long mobile, HttpSession session) {
+
+		if (session.getAttribute("vendor") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/vendor/login";
+		}
+
+		String updatedName = name == null ? "" : name.trim();
+		if (updatedName.length() < 5 || updatedName.length() > 30) {
+			session.setAttribute("failure", "Name must be between 5 and 30 characters");
+			return "redirect:/vendor/store-front";
+		}
+
+		if (mobile < 6000000000L || mobile > 9999999999L) {
+			session.setAttribute("failure", "Enter a valid mobile number");
+			return "redirect:/vendor/store-front";
+		}
+
+		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = vendorRepository.findById(sessionVendor.getId()).orElse(sessionVendor);
+
+		Vendor existingMobileVendor = vendorRepository.findByMobile(mobile);
+		if (existingMobileVendor != null && existingMobileVendor.getId() != vendor.getId()) {
+			session.setAttribute("failure", "Mobile number already exists");
+			return "redirect:/vendor/store-front";
+		}
+
+		vendor.setName(updatedName);
+		vendor.setMobile(mobile);
+		vendorRepository.save(vendor);
+		session.setAttribute("vendor", vendor);
+
+		session.setAttribute("success", "Vendor profile updated successfully");
+		return "redirect:/vendor/store-front";
 	}
 
 	// ---------------- ADD PRODUCT ----------------
@@ -153,6 +288,9 @@ public class VendorService {
 		product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 
 		productRepository.save(product);
+
+		// 🔥 Check stock level after adding product
+		stockAlertService.checkStockLevel(product);
 
 		session.setAttribute("success", "Product added. Waiting for admin approval.");
 		return "redirect:/vendor/home";
@@ -236,12 +374,23 @@ public class VendorService {
 		existingProduct.setPrice(product.getPrice());
 		existingProduct.setCategory(product.getCategory());
 		existingProduct.setStock(product.getStock());
+		
+		// Update stock alert threshold if provided
+		if (product.getStockAlertThreshold() != null && product.getStockAlertThreshold() > 0) {
+			existingProduct.setStockAlertThreshold(product.getStockAlertThreshold());
+		} else if (existingProduct.getStockAlertThreshold() == null) {
+			existingProduct.setStockAlertThreshold(10); // set default if missing
+		}
 
 		if (product.getImage() != null && !product.getImage().isEmpty()) {
 			existingProduct.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 		}
 
 		productRepository.save(existingProduct);
+		
+		// 🔥 Check stock level after update
+		stockAlertService.checkStockLevel(existingProduct);
+
 		session.setAttribute("success", "Product Updated Successfully");
 		return "redirect:/manage-products";
 	}

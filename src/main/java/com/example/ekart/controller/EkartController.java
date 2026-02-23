@@ -61,6 +61,9 @@ public class EkartController {
 	@Autowired
     com.example.ekart.helper.EmailSender emailSender; // Add this line
 
+	@Autowired
+	com.example.ekart.service.StockAlertService stockAlertService;
+
 	@GetMapping
 	public String loadHomePage() {
 		return "home.html";
@@ -96,14 +99,45 @@ public String removeFromCart(@PathVariable int id, HttpSession session) {
 		return "vendor-login.html";
 	}
 
+	@GetMapping("/vendor/forgot-password")
+	public String loadVendorForgotPassword() {
+		return vendorService.loadForgotPasswordPage();
+	}
+
+	@PostMapping("/vendor/forgot-password")
+	public String vendorForgotPassword(@RequestParam String email, HttpSession session) {
+		return vendorService.sendResetOtp(email, session);
+	}
+
+	@GetMapping("/vendor/reset-password/{id}")
+	public String loadVendorResetPassword(@PathVariable int id, ModelMap map) {
+		return vendorService.loadResetPasswordPage(id, map);
+	}
+
+	@PostMapping("/vendor/reset-password")
+	public String vendorResetPassword(@RequestParam int id, @RequestParam int otp, @RequestParam String password,
+			@RequestParam String confirmPassword, HttpSession session) {
+		return vendorService.resetPassword(id, otp, password, confirmPassword, session);
+	}
+
 	@PostMapping("/vendor/login")
 	public String login(@RequestParam String email, @RequestParam String password, HttpSession session) {
 		return  vendorService.login(email, password, session);
 	}
 
 	@GetMapping("/vendor/home")
-	public String loadHome(HttpSession session) {
-		return vendorService.loadHome(session);
+	public String loadHome(HttpSession session, ModelMap map) {
+		return vendorService.loadHome(session, map);
+	}
+
+	@GetMapping("/vendor/store-front")
+	public String loadVendorStoreFront(HttpSession session, ModelMap map) {
+		return vendorService.loadStoreFront(session, map);
+	}
+
+	@PostMapping("/vendor/store-front/update")
+	public String updateVendorStoreFront(@RequestParam String name, @RequestParam long mobile, HttpSession session) {
+		return vendorService.updateStoreFront(name, mobile, session);
 	}
 
 	@GetMapping("/logout")
@@ -156,6 +190,27 @@ public String removeFromCart(@PathVariable int id, HttpSession session) {
 	@GetMapping("/customer/login")
 	public String loadCustomerLogin() {
 		return "customer-login.html";
+	}
+
+	@GetMapping("/customer/forgot-password")
+	public String loadCustomerForgotPassword() {
+		return customerService.loadForgotPasswordPage();
+	}
+
+	@PostMapping("/customer/forgot-password")
+	public String customerForgotPassword(@RequestParam String email, HttpSession session) {
+		return customerService.sendResetOtp(email, session);
+	}
+
+	@GetMapping("/customer/reset-password/{id}")
+	public String loadCustomerResetPassword(@PathVariable int id, ModelMap map) {
+		return customerService.loadResetPasswordPage(id, map);
+	}
+
+	@PostMapping("/customer/reset-password")
+	public String customerResetPassword(@RequestParam int id, @RequestParam int otp, @RequestParam String password,
+			@RequestParam String confirmPassword, HttpSession session) {
+		return customerService.resetPassword(id, otp, password, confirmPassword, session);
 	}
 
 	@PostMapping("/customer/login")
@@ -243,28 +298,40 @@ public String removeFromCart(@PathVariable int id, HttpSession session) {
 		return customerService.payment(session,map);
 	}
 
+	@GetMapping("/success")
+	public String paymentSuccessPage(HttpSession session) {
+		if (session.getAttribute("customer") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/customer/login";
+		}
+		return "redirect:/customer/home";
+	}
+
+	@GetMapping("/order-success")
+	public String orderSuccessPage(HttpSession session) {
+		if (session.getAttribute("customer") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/customer/login";
+		}
+		return "order-success.html";
+	}
+
 	@PostMapping("/success")
     public String paymentSuccess(com.example.ekart.dto.Order order, HttpSession session) {
-    // 1. Let the service save the order first
-    String result = customerService.paymentSuccess(order, session);
-    
-    // 2. Get the customer from session to get their email
-    Customer customer = (Customer) session.getAttribute("customer");
-    
-    // 3. Trigger the email task
-    if (customer != null && result.contains("home")) { 
-        try {
-            // Passing customer, total amount, and order ID
-            emailSender.sendOrderConfirmation(customer, order.getAmount(), order.getId());
-        } catch (Exception e) {
-            System.err.println("Order email failed but order was successful.");
-        }
-    }
-    
-    return result;
+	return customerService.paymentSuccess(order, session);
 }
 	@GetMapping("/view-orders")
 	public String viewOrders(HttpSession session, ModelMap map) {
 		return customerService.viewOrders(session,map);
+	}
+
+	@GetMapping("/stock-alerts")
+	public String viewStockAlerts(HttpSession session, ModelMap map) {
+		return stockAlertService.viewStockAlerts(session, map);
+	}
+
+	@GetMapping("/acknowledge-alert/{id}")
+	public String acknowledgeAlert(@PathVariable int id, HttpSession session) {
+		return stockAlertService.acknowledgeAlert(id, session);
 	}
 }

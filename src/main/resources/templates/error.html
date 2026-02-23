@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Something Went Wrong</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .error-card {
+            max-width: 560px;
+            width: 95%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            color: #ef4444;
+        }
+
+        .title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 0.75rem;
+        }
+
+        .message {
+            color: #64748b;
+            margin: 0.75rem 0 1.25rem;
+        }
+
+        .btn-home {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.7rem 1.4rem;
+            font-weight: 600;
+        }
+
+        .btn-home:hover {
+            background: #1e40af;
+            color: white;
+        }
+    </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
+</head>
+
+<body>
+    <div class="error-card">
+        <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
+        <div class="title">Oops! Something went wrong</div>
+        <p class="message">The page could not be processed. Please go back to home and try again.</p>
+        <a href="/" class="btn btn-home"><i class="fas fa-home mr-2"></i>Go to Home</a>
+    </div>
+</body>
+
+</html>

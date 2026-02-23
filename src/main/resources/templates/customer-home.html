@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -143,6 +143,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
 
 <body>
@@ -165,13 +166,13 @@
         <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}" role="alert">
             <span th:text="${session.success}"></span>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
+                <span aria-hidden="true">Ã—</span>
             </button>
         </div>
         <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}" role="alert">
             <span th:text="${session.failure}"></span>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
+                <span aria-hidden="true">Ã—</span>
             </button>
         </div>
         <th:block th:text="${@messageRemover.remove()}"></th:block>
@@ -182,14 +183,14 @@
                 <a href="/view-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Products</button></a>
                 <a href="/search-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>Search Products</button></a>
                 <a href="/view-cart"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Cart</button></a>
-                <a href="/view-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Previous Orders</button></a>
+                <a href="/view-orders"><button class="btn-custom"><i class="fas fa-truck mr-2"></i>Track Orders</button></a>
            </div>
         </div>
     </div>
 
     <footer class="text-center text-lg-start mt-auto">
         <div class="text-center p-3">
-            © 2024 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
+            © 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
         </div>
     </footer>
 
@@ -207,3 +208,4 @@
 </body>
 
 </html>
+
