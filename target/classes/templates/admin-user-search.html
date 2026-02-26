@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Users - Ekart Admin</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/common-layout.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; }
+        .page-header { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 2rem; border-radius: 0 0 20px 20px; margin-bottom: 2rem; }
+        .search-box { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
+        .search-input { border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; font-size: 0.95rem; width: 100%; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #2563eb; }
+        .filter-btn { border: 2px solid #e2e8f0; border-radius: 8px; padding: 8px 18px; background: white; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; color: #64748b; }
+        .filter-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .user-card { background: white; border-radius: 12px; padding: 1.2rem 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; transition: box-shadow 0.2s; }
+        .user-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .user-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800; color: white; flex-shrink: 0; }
+        .avatar-customer { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+        .avatar-vendor   { background: linear-gradient(135deg, #10b981, #059669); }
+        .user-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; margin-bottom: 2px; }
+        .user-email { font-size: 0.82rem; color: #64748b; }
+        .user-badge { padding: 3px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .badge-customer { background: #dbeafe; color: #1e40af; }
+        .badge-vendor   { background: #d1fae5; color: #065f46; }
+        .badge-verified { background: #dcfce7; color: #166534; }
+        .badge-unverified { background: #fee2e2; color: #991b1b; }
+        .stat-pill { background: #f1f5f9; border-radius: 8px; padding: 4px 12px; font-size: 0.78rem; color: #475569; font-weight: 600; }
+        .results-count { font-size: 0.88rem; color: #64748b; font-weight: 600; margin-bottom: 1rem; }
+        .no-results { text-align: center; padding: 3rem; color: #94a3b8; background: white; border-radius: 14px; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #2563eb, #1e40af); padding: 1rem 2rem;">
+    <a class="navbar-brand text-white font-weight-bold" style="font-size:1.5rem;" href="/admin/home">
+        <i class="fas fa-shopping-cart mr-2"></i>Ekart Admin
+    </a>
+    <div class="ml-auto">
+        <a href="/admin/home" class="text-white mr-4"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+        <a href="/logout" class="text-white"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="page-header">
+    <div class="container">
+        <h2 class="mb-1"><i class="fas fa-users mr-2"></i>Search Users & Vendors</h2>
+        <p class="mb-0 opacity-75">Find and inspect customer and vendor accounts</p>
+    </div>
+</div>
+
+<div class="container pb-5">
+
+    <!-- Search Box -->
+    <div class="search-box">
+        <div class="row align-items-center">
+            <div class="col-md-7 mb-3 mb-md-0">
+                <div class="position-relative">
+                    <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;"></i>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search by name, email or mobile..."
+                           style="padding-left:42px;" oninput="filterUsers()">
+                </div>
+            </div>
+            <div class="col-md-5 d-flex" style="gap:0.5rem;">
+                <button class="filter-btn active" id="filter-all"      onclick="setFilter('all')">All</button>
+                <button class="filter-btn"        id="filter-customers" onclick="setFilter('customers')"><i class="fas fa-user mr-1"></i>Customers</button>
+                <button class="filter-btn"        id="filter-vendors"   onclick="setFilter('vendors')"><i class="fas fa-store mr-1"></i>Vendors</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Pills -->
+    <div class="d-flex mb-3" style="gap:0.5rem; flex-wrap:wrap;">
+        <span class="stat-pill"><i class="fas fa-users mr-1"></i>Total: <strong id="pill-total">0</strong></span>
+        <span class="stat-pill"><i class="fas fa-user mr-1"></i>Customers: <strong id="pill-customers">0</strong></span>
+        <span class="stat-pill"><i class="fas fa-store mr-1"></i>Vendors: <strong id="pill-vendors">0</strong></span>
+        <span class="stat-pill text-success"><i class="fas fa-check-circle mr-1"></i>Verified: <strong id="pill-verified">0</strong></span>
+    </div>
+
+    <div class="results-count" id="results-count">Showing all users</div>
+
+    <!-- Results -->
+    <div id="results-container"></div>
+</div>
+
+<script th:inline="javascript">
+    var customers = /*[[${customersJson}]]*/ [];
+    var vendors   = /*[[${vendorsJson}]]*/ [];
+    var currentFilter = 'all';
+
+    // Update pills
+    document.getElementById('pill-total').textContent     = customers.length + vendors.length;
+    document.getElementById('pill-customers').textContent = customers.length;
+    document.getElementById('pill-vendors').textContent   = vendors.length;
+    var verified = customers.filter(c => c.verified).length + vendors.filter(v => v.verified).length;
+    document.getElementById('pill-verified').textContent  = verified;
+
+    function setFilter(f) {
+        currentFilter = f;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('filter-' + f).classList.add('active');
+        filterUsers();
+    }
+
+    function filterUsers() {
+        var q = document.getElementById('searchInput').value.toLowerCase().trim();
+        var results = [];
+
+        if (currentFilter !== 'vendors') {
+            customers.forEach(c => {
+                var searchable = (c.name + c.email + c.mobile).toLowerCase();
+                if (!q || searchable.includes(q)) results.push({...c, type: 'customer'});
+            });
+        }
+        if (currentFilter !== 'customers') {
+            vendors.forEach(v => {
+                var searchable = (v.name + v.email + v.mobile).toLowerCase();
+                if (!q || searchable.includes(q)) results.push({...v, type: 'vendor'});
+            });
+        }
+
+        var count = q ? `Showing ${results.length} result(s) for "<strong>${q}</strong>"` : `Showing all ${results.length} users`;
+        document.getElementById('results-count').innerHTML = count;
+
+        var container = document.getElementById('results-container');
+        if (results.length === 0) {
+            container.innerHTML = `<div class="no-results">
+                <i class="fas fa-user-slash fa-3x mb-3 d-block"></i>
+                No users found matching your search
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = results.map(u => {
+            var initial = u.name ? u.name.charAt(0).toUpperCase() : '?';
+            var isVendor = u.type === 'vendor';
+            var avatarClass = isVendor ? 'avatar-vendor' : 'avatar-customer';
+            var typeLabel   = isVendor
+                ? '<span class="user-badge badge-vendor ml-2"><i class="fas fa-store mr-1"></i>Vendor</span>'
+                : '<span class="user-badge badge-customer ml-2"><i class="fas fa-user mr-1"></i>Customer</span>';
+            var verifyLabel = u.verified
+                ? '<span class="user-badge badge-verified ml-1"><i class="fas fa-check mr-1"></i>Verified</span>'
+                : '<span class="user-badge badge-unverified ml-1"><i class="fas fa-times mr-1"></i>Unverified</span>';
+            return `<div class="user-card">
+                <div class="user-avatar ${avatarClass}">${initial}</div>
+                <div class="flex-grow-1">
+                    <div class="user-name">${u.name || 'Unknown'} ${typeLabel} ${verifyLabel}</div>
+                    <div class="user-email"><i class="fas fa-envelope mr-1"></i>${u.email}
+                        &nbsp;|&nbsp; <i class="fas fa-phone mr-1"></i>${u.mobile}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div style="font-size:0.78rem; color:#94a3b8;">ID: #${u.id}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    filterUsers();
+</script>
+</body>
+</html>

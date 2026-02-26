@@ -1,0 +1,589 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Search Products</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23000000' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
+            --accent-color: #ef4444;
+            --text-color: #1e293b;
+            --light-text: #64748b;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #1e40af);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white !important;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-link {
+            color: white !important;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            margin: 0 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-label {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-right: 0.5rem;
+        }
+
+        .btn-custom {
+            padding: 1rem 2rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background-color: #1e40af;
+            color: white;
+            text-decoration: none;
+        }
+
+        .search-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--primary-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .search-button {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .search-button:hover {
+            background-color: #1e40af;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .products-container {
+            margin-top: 2rem;
+            border: none !important;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        /* 🔥 ADVANCED FILTER PANEL */
+        .filter-panel {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 1.4rem 1.6rem;
+            margin-bottom: 1.5rem;
+        }
+        .filter-panel .filter-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        .filter-group label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.3rem;
+            display: block;
+        }
+        .filter-group select,
+        .filter-group input[type=number] {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            background: #f8fafc;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        .filter-group select:focus,
+        .filter-group input[type=number]:focus {
+            border-color: #2563eb;
+        }
+        .filter-group .price-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .filter-group .price-row span {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        .btn-apply-filter {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.55rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .btn-apply-filter:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+        }
+        .btn-clear-filter {
+            background: none;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #64748b;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-clear-filter:hover { border-color: #94a3b8; color: #1e293b; }
+        .stock-toggle { display: flex; align-items: center; gap: 0.5rem; }
+        .stock-toggle input[type=checkbox] { accent-color: #2563eb; width: 16px; height: 16px; }
+        .result-info {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+        }
+        .no-results-box {
+            text-align: center;
+            padding: 2.5rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        .product-hidden { display: none !important; }
+    </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-cart mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="search-container">
+            <div class="search-container">
+    <form action="/search-products" method="post" id="searchForm">
+        <div class="position-relative mb-3">
+            <input th:value="${query}" type="text" name="query" id="searchInput" 
+                   placeholder="Enter Name or Category" class="search-input mb-0" style="padding-right: 50px;">
+            
+            <button type="button" id="voiceBtn" class="btn btn-link position-absolute" 
+                    style="right: 15px; top: 50%; transform: translateY(-50%); z-index: 10; padding: 0;">
+                <i class="fas fa-microphone text-primary" id="micIcon" style="font-size: 1.2rem;"></i>
+            </button>
+        </div>
+        
+        <p id="voiceStatus" class="small text-muted text-center" style="display: none;">
+            <i class="fas fa-circle text-danger fa-pulse mr-1"></i> Listening...
+        </p>
+
+        <button class="search-button"><i class="fas fa-search mr-2"></i>Search</button>
+    </form>
+</div>
+        </div>
+        <div th:if="${query}">
+            <div th:if="${products}" class="products-container">
+
+                <!-- 🔥 ADVANCED FILTER PANEL -->
+                <div class="filter-panel" id="filterPanel">
+                    <div class="filter-title">
+                        <i class="fas fa-sliders-h text-primary"></i> Advanced Filters
+                    </div>
+                    <div class="filter-grid">
+                        <!-- Category -->
+                        <div class="filter-group">
+                            <label>Category</label>
+                            <select id="filterCategory" onchange="applyFilters()">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <!-- Min Price -->
+                        <div class="filter-group">
+                            <label>Min Price (₹)</label>
+                            <input type="number" id="filterMinPrice" min="0" placeholder="0" oninput="applyFilters()">
+                        </div>
+                        <!-- Max Price -->
+                        <div class="filter-group">
+                            <label>Max Price (₹)</label>
+                            <input type="number" id="filterMaxPrice" min="0" placeholder="Any" oninput="applyFilters()">
+                        </div>
+                        <!-- Sort -->
+                        <div class="filter-group">
+                            <label>Sort By</label>
+                            <select id="filterSort" onchange="applyFilters()">
+                                <option value="">Default</option>
+                                <option value="price-asc">Price: Low to High</option>
+                                <option value="price-desc">Price: High to Low</option>
+                                <option value="name-asc">Name: A → Z</option>
+                                <option value="name-desc">Name: Z → A</option>
+                            </select>
+                        </div>
+                        <!-- In Stock -->
+                        <div class="filter-group">
+                            <label>Availability</label>
+                            <div class="stock-toggle mt-1">
+                                <input type="checkbox" id="filterInStock" onchange="applyFilters()">
+                                <span style="font-size:0.88rem; color:#1e293b; font-weight:600;">In Stock Only</span>
+                            </div>
+                        </div>
+                        <!-- Buttons -->
+                        <div class="filter-group">
+                            <label>&nbsp;</label>
+                            <button class="btn-clear-filter" onclick="clearFilters()">
+                                <i class="fas fa-times mr-1"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-info" id="resultInfo"></div>
+
+                <div class="row" id="productGrid">
+                    <div class="col-md-4 mb-4 product-item"
+                         th:each="p:${products}"
+                         th:attr="data-name=${p.name}, data-category=${p.category}, data-price=${p.price}, data-stock=${p.stock}">
+                        <div class="card animate-in">
+                            <img class="card-image" th:src="${p.imageLink}">
+                            <div class="card-content">
+                                <div class="mb-2">
+                                    <span class="card-label">Name:</span>
+                                    <span th:text="${p.name}"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="card-label">Description:</span>
+                                    <span th:text="${p.description}"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="card-label">Stock:</span>
+                                    <span th:text="${p.stock}+' Units'"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="card-label">Price:</span>
+                                    <span th:text="${p.price}"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <span class="card-label">Category:</span>
+                                    <span th:text="${p.category}"></span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <a th:href="'/add-cart/'+${p.id}"><button class="btn-custom"><i
+                                                class="fas fa-check mr-2"></i>Add to Cart</button></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- No results after filter -->
+                <div class="no-results-box" id="noResultsBox" style="display:none;">
+                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                    <h5>No products match your filters</h5>
+                    <p class="text-muted">Try adjusting the price range or category</p>
+                    <button class="btn-apply-filter" style="max-width:180px;" onclick="clearFilters()">Clear Filters</button>
+                </div>
+
+            </div>
+            <div th:if="${#lists.isEmpty(products)}" class="products-container">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-exclamation-circle mr-2"></i>No products found
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center text-lg-start mt-auto">
+        <div class="text-center p-3">
+            Â© 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+    // 🔥 ADVANCED FILTER LOGIC
+    function buildCategoryOptions() {
+        var cats = new Set();
+        document.querySelectorAll('.product-item').forEach(function(el) {
+            var c = el.getAttribute('data-category');
+            if (c) cats.add(c.trim());
+        });
+        var sel = document.getElementById('filterCategory');
+        cats.forEach(function(c) {
+            var opt = document.createElement('option');
+            opt.value = c.toLowerCase();
+            opt.textContent = c;
+            sel.appendChild(opt);
+        });
+    }
+
+    function applyFilters() {
+        var category  = document.getElementById('filterCategory').value.toLowerCase();
+        var minPrice  = parseFloat(document.getElementById('filterMinPrice').value) || 0;
+        var maxPrice  = parseFloat(document.getElementById('filterMaxPrice').value) || Infinity;
+        var sortVal   = document.getElementById('filterSort').value;
+        var inStock   = document.getElementById('filterInStock').checked;
+
+        var grid  = document.getElementById('productGrid');
+        var cards = Array.from(document.querySelectorAll('.product-item'));
+        var shown = 0;
+
+        // Sort
+        if (sortVal) {
+            cards.sort(function(a, b) {
+                var pa = parseFloat(a.getAttribute('data-price')) || 0;
+                var pb = parseFloat(b.getAttribute('data-price')) || 0;
+                var na = a.getAttribute('data-name') || '';
+                var nb = b.getAttribute('data-name') || '';
+                if (sortVal === 'price-asc')  return pa - pb;
+                if (sortVal === 'price-desc') return pb - pa;
+                if (sortVal === 'name-asc')   return na.localeCompare(nb);
+                if (sortVal === 'name-desc')  return nb.localeCompare(na);
+                return 0;
+            });
+            cards.forEach(function(c) { grid.appendChild(c); });
+        }
+
+        // Filter
+        cards.forEach(function(el) {
+            var price = parseFloat(el.getAttribute('data-price')) || 0;
+            var cat   = (el.getAttribute('data-category') || '').toLowerCase();
+            var stock = parseInt(el.getAttribute('data-stock')) || 0;
+
+            var show = true;
+            if (category && cat !== category) show = false;
+            if (price < minPrice || price > maxPrice) show = false;
+            if (inStock && stock <= 0) show = false;
+
+            el.classList.toggle('product-hidden', !show);
+            if (show) shown++;
+        });
+
+        // Result info
+        var total = cards.length;
+        document.getElementById('resultInfo').textContent =
+            shown === total ? 'Showing all ' + total + ' results' :
+            'Showing ' + shown + ' of ' + total + ' products';
+
+        // No results box
+        document.getElementById('noResultsBox').style.display = shown === 0 ? 'block' : 'none';
+    }
+
+    function clearFilters() {
+        document.getElementById('filterCategory').value  = '';
+        document.getElementById('filterMinPrice').value  = '';
+        document.getElementById('filterMaxPrice').value  = '';
+        document.getElementById('filterSort').value      = '';
+        document.getElementById('filterInStock').checked = false;
+        document.querySelectorAll('.product-item').forEach(function(el) {
+            el.classList.remove('product-hidden');
+        });
+        var total = document.querySelectorAll('.product-item').length;
+        document.getElementById('resultInfo').textContent = 'Showing all ' + total + ' results';
+        document.getElementById('noResultsBox').style.display = 'none';
+    }
+
+    // Build categories on load
+    window.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('filterPanel')) {
+            buildCategoryOptions();
+            var total = document.querySelectorAll('.product-item').length;
+            if (total > 0) {
+                document.getElementById('resultInfo').textContent = 'Showing all ' + total + ' results';
+            }
+        }
+    });
+    </script>
+
+    <script>
+    const voiceBtn = document.getElementById('voiceBtn');
+    const micIcon = document.getElementById('micIcon');
+    const searchInput = document.getElementById('searchInput');
+    const voiceStatus = document.getElementById('voiceStatus');
+    const searchForm = document.getElementById('searchForm');
+
+    // Initialize Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+
+        voiceBtn.addEventListener('click', () => {
+            recognition.start();
+            voiceStatus.style.display = 'block';
+            micIcon.classList.replace('text-primary', 'text-danger');
+        });
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            searchInput.value = transcript; // Maps voice to text
+            
+            voiceStatus.style.display = 'none';
+            micIcon.classList.replace('text-danger', 'text-primary');
+            
+            // Auto-submit after voice is captured
+            searchForm.submit(); 
+        };
+
+        recognition.onspeechend = () => {
+            recognition.stop();
+            voiceStatus.style.display = 'none';
+            micIcon.classList.replace('text-danger', 'text-primary');
+        };
+
+        recognition.onerror = () => {
+            voiceStatus.style.display = 'none';
+            micIcon.classList.replace('text-danger', 'text-primary');
+            alert("Voice search failed. Please try typing manually.");
+        };
+    } else {
+        voiceBtn.style.display = 'none'; // Hide if browser doesn't support it
+    }
+</script>
+</body>
+
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History - Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/common-layout.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; }
+        .container { max-width: 1100px; margin: 2rem auto; }
+        .order-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+        .item-chip {
+            display: inline-block;
+            padding: 0.35rem 0.7rem;
+            border-radius: 20px;
+            background: #eef2ff;
+            color: #1e3a8a;
+            margin: 0.2rem;
+            font-size: 0.85rem;
+        }
+        .empty-box {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+        }
+        /* 🔥 RETRY PAYMENT BUTTON */
+        .btn-retry {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            font-weight: 700;
+        }
+        /* 🔥 REPLACEMENT BADGE */
+        .replacement-requested-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: #f5f3ff;
+            border: 1.5px solid #c4b5fd;
+            color: #7c3aed;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="mb-4"><i class="fas fa-truck mr-2"></i>Order History</h2>
+
+        <div class="alert alert-success" th:if="${session.success}" th:text="${session.success}"></div>
+        <div class="alert alert-danger" th:if="${session.failure}" th:text="${session.failure}"></div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+
+        <div th:if="${orders != null and !orders.isEmpty()}">
+            <div class="order-card" th:each="o : ${orders}">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div><strong>Order #</strong> <span th:text="${o.id}"></span></div>
+                    <div><strong>Date:</strong>
+                        <span th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate,'dd MMM yyyy HH:mm')}"></span>
+                        <span th:unless="${o.orderDate != null}" class="text-muted">N/A</span>
+                    </div>
+                </div>
+                <div class="mt-2"><strong>Amount:</strong> Rs. <span th:text="${o.amount}"></span></div>
+                <div class="mt-2"><strong>Status:</strong> <span class="text-success">Placed</span></div>
+                <div class="mt-2" th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                    <strong>Delivery Slot:</strong> <span th:text="${o.deliveryTime}"></span>
+                </div>
+                <div class="mt-2" th:if="${o.items != null and !o.items.isEmpty()}">
+                    <strong>Items:</strong>
+                    <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' x ' + ${it.quantity}"></span>
+                </div>
+                <div class="mt-2">
+                    <span th:if="${returnEligibleMap[o.id]}"
+                          class="badge badge-success px-3 py-2">
+                        <i class="fas fa-undo mr-1"></i> Return Eligible (within 7 days)
+                    </span>
+                    <span th:unless="${returnEligibleMap[o.id]}"
+                          class="badge badge-secondary px-3 py-2">
+                        <i class="fas fa-times-circle mr-1"></i> Not Eligible for Return
+                    </span>
+                </div>
+                <div class="mt-3 d-flex flex-wrap gap-2" style="gap: 0.5rem;">
+                    <!-- Cancel button -->
+                    <a th:href="@{'/cancel-order/' + ${o.id}}"
+                       class="btn btn-danger btn-sm"
+                       onclick="return confirm('Do you really want to cancel this order?')">
+                        <i class="fas fa-times mr-1"></i> Cancel Order
+                    </a>
+
+                    <!-- 🔥 RETRY PAYMENT — shown for COD orders within 24 hours -->
+                    <a th:if="${o.razorpay_payment_id == 'COD_NA' and o.orderDate != null and o.orderDate.isAfter(T(java.time.LocalDateTime).now().minusHours(24))}"
+                       href="/payment"
+                       class="btn btn-sm"
+                       style="background:#f59e0b; color:white; border:none;">
+                        <i class="fas fa-redo mr-1"></i> Switch to Online Payment
+                    </a>
+
+                    <!-- Replace button — only if return eligible and not already requested -->
+                    <a th:if="${returnEligibleMap[o.id] and !replacementRequestedMap[o.id]}"
+                       th:href="@{'/request-replacement/' + ${o.id}}"
+                       class="btn btn-sm"
+                       style="background:#7c3aed; color:white; border:none;"
+                       onclick="return confirm('Request a replacement for this order?')">
+                        <i class="fas fa-exchange-alt mr-1"></i> Request Replacement
+                    </a>
+
+                    <!-- Already requested badge -->
+                    <span th:if="${replacementRequestedMap[o.id]}"
+                          class="replacement-requested-badge">
+                        <i class="fas fa-check-circle"></i> Replacement Requested
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-box" th:if="${orders == null or orders.isEmpty()}">
+            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+            <h4>No Orders Yet</h4>
+            <p class="text-muted">Your placed orders will appear here.</p>
+            <a href="/view-products" class="btn btn-primary">Start Shopping</a>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="/customer/home" class="btn btn-outline-primary"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

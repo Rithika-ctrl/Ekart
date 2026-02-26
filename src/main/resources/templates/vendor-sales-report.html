@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Report - Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="stylesheet" href="/css/common-layout.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Poppins', sans-serif; }
+        .page-header { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 2rem; border-radius: 0 0 20px 20px; margin-bottom: 2rem; }
+        .stat-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); border-left: 5px solid; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-card.blue  { border-color: #2563eb; }
+        .stat-card.green { border-color: #10b981; }
+        .stat-card.orange{ border-color: #f59e0b; }
+        .stat-card.purple{ border-color: #7c3aed; }
+        .stat-val { font-size: 1.9rem; font-weight: 800; color: #1e293b; }
+        .stat-label { font-size: 0.82rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
+        .tab-btn { border: 2px solid #e2e8f0; border-radius: 8px; padding: 8px 20px; background: white; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; color: #64748b; }
+        .tab-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .table-card { background: white; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
+        .table thead th { background: #f1f5f9; font-size: 0.82rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border: none; padding: 14px 16px; }
+        .table tbody td { padding: 14px 16px; vertical-align: middle; border-color: #f1f5f9; font-size: 0.9rem; }
+        .badge-revenue { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.82rem; }
+        .period-highlight { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: 10px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid #bfdbfe; }
+        .empty-chart { text-align: center; padding: 3rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #2563eb, #1e40af); padding: 1rem 2rem;">
+    <a class="navbar-brand text-white font-weight-bold" style="font-size:1.5rem;" href="/vendor/home">
+        <i class="fas fa-shopping-cart mr-2"></i>Ekart
+    </a>
+    <div class="ml-auto">
+        <a href="/vendor/home" class="text-white mr-4"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+        <a href="/logout" class="text-white"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="page-header">
+    <div class="container">
+        <h2 class="mb-1"><i class="fas fa-chart-line mr-2"></i>Sales Report</h2>
+        <p class="mb-0 opacity-75">Daily, Weekly & Monthly breakdown of your store performance</p>
+    </div>
+</div>
+
+<div class="container pb-5">
+
+    <!-- Period Tabs -->
+    <div class="d-flex gap-2 mb-4" style="gap:0.5rem;">
+        <button class="tab-btn active" id="tab-daily"   onclick="switchTab('daily')">📅 Daily</button>
+        <button class="tab-btn"        id="tab-weekly"  onclick="switchTab('weekly')">📆 Weekly</button>
+        <button class="tab-btn"        id="tab-monthly" onclick="switchTab('monthly')">🗓️ Monthly</button>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4" id="stats-row">
+        <div class="col-6 col-md-3 mb-3">
+            <div class="stat-card blue">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-val" id="stat-orders">0</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="stat-card green">
+                <div class="stat-label">Revenue</div>
+                <div class="stat-val" id="stat-revenue">₹0</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="stat-card orange">
+                <div class="stat-label">Items Sold</div>
+                <div class="stat-val" id="stat-items">0</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="stat-card purple">
+                <div class="stat-label">Avg Order Value</div>
+                <div class="stat-val" id="stat-avg">₹0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card mb-4">
+        <h6 class="font-weight-bold mb-3 text-secondary"><i class="fas fa-chart-bar mr-2"></i>Revenue Over Time</h6>
+        <canvas id="revenueChart" height="120"></canvas>
+        <div class="empty-chart d-none" id="empty-chart">
+            <i class="fas fa-chart-bar fa-3x mb-3 d-block"></i>
+            No sales data yet for this period
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="table-card">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+            <h6 class="font-weight-bold mb-0"><i class="fas fa-list mr-2"></i>Order Details</h6>
+            <span class="badge badge-primary" id="order-count-badge">0 orders</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Date</th>
+                        <th>Items</th>
+                        <th>Amount</th>
+                        <th>Delivery</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbody">
+                    <tr><td colspan="5" class="text-center text-muted py-4">No orders in this period</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    // Pass all orders from backend as JSON
+    var allOrders = /*[[${ordersJson}]]*/ [];
+
+    var chart = null;
+
+    function switchTab(period) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + period).classList.add('active');
+        renderReport(period);
+    }
+
+    function renderReport(period) {
+        var now = new Date();
+        var filtered = [];
+        var labels = [];
+        var revenueMap = {};
+
+        if (period === 'daily') {
+            // Last 7 days
+            for (var i = 6; i >= 0; i--) {
+                var d = new Date(now);
+                d.setDate(now.getDate() - i);
+                var key = d.toISOString().split('T')[0];
+                labels.push(key.substring(5)); // MM-DD
+                revenueMap[key] = 0;
+            }
+            filtered = allOrders.filter(o => {
+                var d = new Date(o.orderDate);
+                var diff = (now - d) / (1000 * 60 * 60 * 24);
+                return diff <= 7;
+            });
+            filtered.forEach(o => {
+                var key = new Date(o.orderDate).toISOString().split('T')[0];
+                if (revenueMap[key] !== undefined) revenueMap[key] += o.amount;
+            });
+
+        } else if (period === 'weekly') {
+            // Last 8 weeks
+            for (var i = 7; i >= 0; i--) {
+                var d = new Date(now);
+                d.setDate(now.getDate() - (i * 7));
+                var week = 'W' + getWeekNum(d);
+                labels.push(week);
+                revenueMap[week] = 0;
+            }
+            filtered = allOrders.filter(o => {
+                var diff = (now - new Date(o.orderDate)) / (1000 * 60 * 60 * 24);
+                return diff <= 56;
+            });
+            filtered.forEach(o => {
+                var week = 'W' + getWeekNum(new Date(o.orderDate));
+                if (revenueMap[week] !== undefined) revenueMap[week] += o.amount;
+            });
+
+        } else {
+            // Last 6 months
+            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            for (var i = 5; i >= 0; i--) {
+                var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                var key = months[d.getMonth()] + ' ' + d.getFullYear();
+                labels.push(key);
+                revenueMap[key] = 0;
+            }
+            filtered = allOrders.filter(o => {
+                var diff = (now - new Date(o.orderDate)) / (1000 * 60 * 60 * 24);
+                return diff <= 180;
+            });
+            filtered.forEach(o => {
+                var d = new Date(o.orderDate);
+                var key = months[d.getMonth()] + ' ' + d.getFullYear();
+                if (revenueMap[key] !== undefined) revenueMap[key] += o.amount;
+            });
+        }
+
+        // Stats
+        var totalRevenue = filtered.reduce((s, o) => s + o.amount, 0);
+        var totalItems   = filtered.reduce((s, o) => s + (o.itemCount || 0), 0);
+        var avgOrder     = filtered.length ? (totalRevenue / filtered.length) : 0;
+
+        document.getElementById('stat-orders').textContent  = filtered.length;
+        document.getElementById('stat-revenue').textContent = '₹' + totalRevenue.toFixed(0);
+        document.getElementById('stat-items').textContent   = totalItems;
+        document.getElementById('stat-avg').textContent     = '₹' + avgOrder.toFixed(0);
+        document.getElementById('order-count-badge').textContent = filtered.length + ' orders';
+
+        // Chart
+        var data = labels.map(l => revenueMap[l] || 0);
+        var hasData = data.some(v => v > 0);
+
+        if (chart) chart.destroy();
+        if (!hasData) {
+            document.getElementById('revenueChart').classList.add('d-none');
+            document.getElementById('empty-chart').classList.remove('d-none');
+        } else {
+            document.getElementById('revenueChart').classList.remove('d-none');
+            document.getElementById('empty-chart').classList.add('d-none');
+            var ctx = document.getElementById('revenueChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: data,
+                        backgroundColor: 'rgba(37,99,235,0.75)',
+                        borderColor: '#2563eb',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v } } }
+                }
+            });
+        }
+
+        // Table
+        var tbody = document.getElementById('orders-tbody');
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No orders in this period</td></tr>';
+        } else {
+            tbody.innerHTML = filtered.sort((a,b) => new Date(b.orderDate) - new Date(a.orderDate)).map(o => `
+                <tr>
+                    <td><strong>#${o.id}</strong></td>
+                    <td>${new Date(o.orderDate).toLocaleDateString('en-IN')}</td>
+                    <td>${o.itemCount || 0} item(s)</td>
+                    <td><span class="badge-revenue">₹${o.amount.toFixed(0)}</span></td>
+                    <td><small class="text-muted">${o.deliveryTime || 'Standard'}</small></td>
+                </tr>`).join('');
+        }
+    }
+
+    function getWeekNum(d) {
+        var onejan = new Date(d.getFullYear(), 0, 1);
+        return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    }
+
+    // Init
+    renderReport('daily');
+</script>
+</body>
+</html>

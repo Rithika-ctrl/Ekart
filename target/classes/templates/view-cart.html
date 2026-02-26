@@ -1,0 +1,446 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - View Cart</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23000000' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
+            --accent-color: #ef4444;
+            --text-color: #1e293b;
+            --light-text: #64748b;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #1e40af);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+        }
+
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white !important;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-link {
+            color: white !important;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            margin: 0 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-label {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-right: 0.5rem;
+        }
+
+        .btn-custom {
+            padding: 1rem 2rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background-color: #1e40af;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-delete {
+            background-color: var(--accent-color);
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-delete:hover {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+            color: white;
+            text-decoration: none;
+        }
+
+        .alert {
+            margin-bottom: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+
+        footer {
+            background: linear-gradient(135deg, #1e40af, var(--primary-color));
+            color: white;
+            padding: 2rem 0;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        footer a {
+            transition: all 0.3s ease;
+        }
+
+        footer a:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        /* 🔥 GAMIFICATION PROGRESS BAR */
+        .progress-bar-wrapper {
+            background: linear-gradient(135deg, #fff7ed, #fffbeb);
+            border: 2px solid #fed7aa;
+            border-radius: 1rem;
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);
+        }
+        .progress-bar-wrapper .milestone-text {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #92400e;
+            margin-bottom: 0.5rem;
+        }
+        .progress-bar-wrapper .milestone-text span {
+            color: #dc2626;
+            font-size: 1.05rem;
+        }
+        .progress-bar-wrapper .unlocked-text {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #15803d;
+        }
+        .progress {
+            height: 18px;
+            border-radius: 50px;
+            background-color: #fde68a;
+        }
+        .progress-bar {
+            border-radius: 50px;
+            background: linear-gradient(90deg, #f97316, #ef4444);
+            transition: width 0.6s ease;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .progress-bar.bg-success {
+            background: linear-gradient(90deg, #22c55e, #15803d) !important;
+        }
+        .progress-emoji {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        /* 🔥 EXPRESS CHECKOUT */
+        .express-checkout-box {
+            background: linear-gradient(135deg, #fefce8, #fef9c3);
+            border: 2px solid #fde047;
+            border-radius: 1rem;
+            padding: 1.4rem 1.8rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            box-shadow: 0 4px 12px rgba(234,179,8,0.15);
+        }
+        .express-checkout-box .express-left {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        .express-checkout-box .express-icon {
+            font-size: 2.2rem;
+        }
+        .express-checkout-box .express-title {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #92400e;
+            margin: 0;
+        }
+        .express-checkout-box .express-sub {
+            font-size: 0.82rem;
+            color: #a16207;
+            margin: 0;
+        }
+        .btn-express {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.7rem 1.8rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+        .btn-express:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(217,119,6,0.4);
+            color: white;
+            text-decoration: none;
+        }
+        .btn-express:disabled, .btn-express.disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/css/common-layout.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-cart mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}" role="alert">
+             <span th:text="${session.success}"></span>
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">Ã—</span>
+            </button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}" role="alert">
+            <span th:text="${session.failure}"></span>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">Ã—</span>
+            </button>
+        </div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+     
+        <!-- 🔥 GAMIFICATION: FREE DELIVERY PROGRESS BAR -->
+        <div class="progress-bar-wrapper" th:if="${items != null and !items.isEmpty()}">
+            <!-- Not yet unlocked -->
+            <div th:if="${totalPrice < 500}">
+                <div class="milestone-text">
+                    <span class="progress-emoji">🚚</span>
+                    Spend <span>₹<th:block th:text="${#numbers.formatDecimal(500 - totalPrice, 1, 'COMMA', 0, 'POINT')}"></th:block></span> more to unlock <strong>FREE Delivery!</strong>
+                </div>
+                <div class="progress mt-2">
+                    <div class="progress-bar"
+                         role="progressbar"
+                         th:style="'width: ' + ${(totalPrice / 500) * 100} + '%'"
+                         th:attr="aria-valuenow=${totalPrice},aria-valuemin=0,aria-valuemax=500">
+                        <th:block th:text="${#numbers.formatDecimal((totalPrice / 500) * 100, 1, 'COMMA', 0, 'POINT')}"></th:block>%
+                    </div>
+                </div>
+                <small class="text-muted mt-1 d-block">₹<th:block th:text="${#numbers.formatDecimal(totalPrice,1,'COMMA',0,'POINT')}"></th:block> / ₹500</small>
+            </div>
+            <!-- Unlocked -->
+            <div th:unless="${totalPrice < 500}">
+                <div class="unlocked-text">
+                    <span class="progress-emoji">🎉</span> You've unlocked <strong>FREE Delivery!</strong>
+                </div>
+                <div class="progress mt-2">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%"
+                         aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                        FREE DELIVERY UNLOCKED ✓
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-4" th:each="p:${items}">
+                <div class="card animate-in">
+                    <img class="card-image" th:src="${p.imageLink}">
+                    <div class="card-content">
+                        <div class="mb-2">
+                            <span class="card-label">Name:</span>
+                            <span th:text="${p.name}"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="card-label">Description:</span>
+                            <span th:text="${p.description}"></span>
+                        </div>
+                       
+                        <div class="mb-2">
+                            <span class="card-label">Price:</span>
+                            <span th:text="${p.price / p.quantity}"></span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="card-label">Category:</span>
+                            <span th:text="${p.category}"></span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="btn-group align-items-center">
+                                <a th:href="'/decrease/'+${p.id}" class="btn btn-outline-secondary btn-sm font-weight-bold" style="width: 32px;">-</a>
+                                
+                                <span class="mx-3 font-weight-bold" style="font-size: 1.2rem;" th:text="${p.quantity}"></span>
+                                
+                                <a th:href="'/increase/'+${p.id}" class="btn btn-outline-secondary btn-sm font-weight-bold" style="width: 32px;">+</a>
+                            </div>
+
+                            <a th:href="'/remove-from-cart/'+${p.id}" class="btn btn-delete text-white btn-sm px-3 py-2">
+                                <i class="fas fa-trash-alt mr-1"></i> Remove
+                            </a>
+                        </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+        
+
+        <div class="text-center mb-5">
+            <h3 class="mb-4">Total : <span th:text="${totalPrice}"></span> ₹</h3>
+
+            <th:block th:if="${totalPrice > 0}">
+
+                <!-- 🔥 EXPRESS CHECKOUT BOX -->
+                <div class="express-checkout-box">
+                    <div class="express-left">
+                        <span class="express-icon">⚡</span>
+                        <div>
+                            <p class="express-title">Express Checkout</p>
+                            <p class="express-sub">Skip the steps — pay instantly with your saved address</p>
+                        </div>
+                    </div>
+                    <a href="/payment" class="btn-express">
+                        <i class="fas fa-bolt"></i> Buy Now
+                    </a>
+                </div>
+
+                <!-- Normal Checkout -->
+                <a href="/customer/address" class="btn btn-primary btn-lg px-5 shadow"
+                   style="border-radius: 10px; font-weight: 600;">
+                    PROCEED TO CHECKOUT <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+
+            </th:block>
+
+            <th:block th:unless="${totalPrice > 0}">
+                <button class="btn btn-secondary btn-lg px-5" disabled>
+                    Your Cart is Empty <i class="fas fa-shopping-basket ml-2"></i>
+                </button>
+            </th:block>
+        </div>
+
+        
+        <div class="text-center mt-2">
+            <a href="/customer/home" class="btn-link"><i class="fas fa-arrow-left mr-2"></i>Back to Dashboard</a>
+        </div>
+    </div>
+
+    <footer class="text-center text-lg-start mt-auto">
+        <div class="text-center p-3">
+            Â© 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        window.setTimeout(function () {
+            $(".alert").fadeTo(500, 0).slideUp(500, function () {
+                $(this).remove();
+            });
+        }, 2000);
+    </script>
+</body>
+
+</html>
