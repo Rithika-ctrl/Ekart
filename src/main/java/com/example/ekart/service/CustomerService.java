@@ -414,21 +414,39 @@ public String payment(HttpSession session, ModelMap map) {
     }
     
     double cartTotal = 0;
-    String lastCategory = "";
-    String lastName = "";
-    
+
+    // 🔥 Collect ALL unique categories from cart items
+    java.util.LinkedHashSet<String> categorySet = new java.util.LinkedHashSet<>();
+    java.util.Set<String> cartItemNames = new java.util.HashSet<>();
+
     for (Item item : items) {
         cartTotal += item.getPrice();
-        lastCategory = item.getCategory();
-        lastName = item.getName();
+        if (item.getCategory() != null && !item.getCategory().isBlank()) {
+            categorySet.add(item.getCategory());
+        }
+        cartItemNames.add(item.getName());
     }
-    
+
+    // 🔥 Fetch up to 4 recommendations across all categories, excluding cart items
+    java.util.List<Product> recommendations = new java.util.ArrayList<>();
+    for (String cat : categorySet) {
+        List<Product> catProducts = productRepository.findByCategoryAndApprovedTrue(cat);
+        for (Product p : catProducts) {
+            if (!cartItemNames.contains(p.getName()) && recommendations.stream().noneMatch(r -> r.getId() == p.getId())) {
+                recommendations.add(p);
+                if (recommendations.size() >= 4) break;
+            }
+        }
+        if (recommendations.size() >= 4) break;
+    }
+
+    // Label: "Electronics & Clothing" or just "Electronics"
+    String categoryLabel = String.join(" & ", categorySet);
+
     // 🔥 NEW DELIVERY LOGIC
     // Free delivery for orders above 500, otherwise 40
     double deliveryCharge = (cartTotal >= 500) ? 0 : 40; 
     double finalAmount = cartTotal + deliveryCharge;
-    
-    List<Product> recommendations = getProductsByCategory(lastCategory, lastName);
     
     // Send separate values so HTML can show the breakdown
     map.put("cartTotal", cartTotal);
@@ -436,6 +454,7 @@ public String payment(HttpSession session, ModelMap map) {
     map.put("amount", finalAmount); 
     map.put("customer", customer);
     map.put("recommendedProducts", recommendations);
+    map.put("cartItemCategory", categoryLabel);
     
     return "payment.html";
 }
