@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Orders - Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/common-layout.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; }
+        .container { max-width: 1000px; margin: 2rem auto; }
+        .track-card { background: white; border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.08); padding: 1.6rem; margin-bottom: 1.5rem; }
+        .order-header { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; margin-bottom: 1.2rem; padding-bottom: 0.8rem; border-bottom: 1px solid #e2e8f0; }
+        .order-id-label { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+        .order-date-label { font-size: 0.88rem; color: #64748b; }
+        .tracking-wrapper { position: relative; margin: 1.5rem 0 1rem; padding: 0 0.5rem; }
+        .track-line-bg { position: absolute; top: 19px; left: 9%; right: 9%; height: 4px; background: #e2e8f0; border-radius: 2px; z-index: 0; }
+        .track-line-fill { position: absolute; top: 19px; left: 9%; height: 4px; background: linear-gradient(90deg, #22c55e, #3b82f6); border-radius: 2px; z-index: 1; }
+        .tracking-steps { display: flex; justify-content: space-between; position: relative; z-index: 2; }
+        .track-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .step-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; border: 3px solid #e2e8f0; background: white; }
+        .step-done { background: #22c55e !important; border-color: #22c55e !important; color: white !important; }
+        .step-active { background: #3b82f6 !important; border-color: #3b82f6 !important; color: white !important; box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
+        .step-pending { background: white; border-color: #cbd5e1 !important; color: #94a3b8 !important; }
+        .step-label { font-size: 0.70rem; font-weight: 600; text-align: center; margin-top: 0.4rem; color: #475569; max-width: 72px; line-height: 1.3; }
+        .step-time { font-size: 0.62rem; color: #94a3b8; text-align: center; margin-top: 0.1rem; }
+        .delivery-info { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 0.8rem 1.2rem; margin-top: 1rem; font-size: 0.9rem; color: #0369a1; }
+        .item-chip { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 20px; background: #eef2ff; color: #1e3a8a; margin: 0.2rem; font-size: 0.8rem; font-weight: 600; }
+        .empty-box { text-align: center; background: white; padding: 3rem 2rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.07); }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #4a90e2, #2c5282); padding: 1rem 2rem;">
+        <a class="navbar-brand" href="/customer/home" style="color:white; font-size:1.5rem; font-weight:800; text-transform:uppercase; letter-spacing:1px;">
+            <i class="fas fa-shopping-cart mr-2"></i>Ekart
+        </a>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="mb-1" style="font-weight:700; color:#1e293b;"><i class="fas fa-truck mr-2 text-primary"></i>Track Orders</h2>
+        <p class="text-muted mb-4">Live delivery status for all your orders</p>
+
+        <div th:if="${session.success}" class="alert alert-success" th:text="${session.success}"></div>
+        <div th:if="${session.failure}" class="alert alert-danger" th:text="${session.failure}"></div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+
+        <div th:if="${orders != null and !orders.isEmpty()}">
+            <div class="track-card" th:each="o : ${orders}">
+
+                <div class="order-header">
+                    <div>
+                        <div class="order-id-label">
+                            <i class="fas fa-box mr-1 text-primary"></i> Order #<span th:text="${o.id}"></span>
+                        </div>
+                        <div class="order-date-label">
+                            Placed:
+                            <span th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
+                            <span th:unless="${o.orderDate != null}">Unknown</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div style="font-weight:700; color:#1e3a8a;">Rs. <span th:text="${o.amount}"></span></div>
+                        <div>
+                            <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' x ' + ${it.quantity}"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tracking Progress Bar -->
+                <div class="tracking-wrapper">
+                    <div class="track-line-bg"></div>
+                    <div class="track-line-fill" th:style="'width: ' + ${progressWidthMap[o.id]} + '%'"></div>
+
+                    <div class="tracking-steps">
+
+                        <!-- Step 0: Placed - always done -->
+                        <div class="track-step">
+                            <div class="step-icon step-done"><i class="fas fa-check"></i></div>
+                            <div class="step-label">Order Placed</div>
+                            <div class="step-time" th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM')}"></div>
+                        </div>
+
+                        <!-- Step 1: Confirmed -->
+                        <div class="track-step">
+                            <div class="step-icon"
+                                 th:classappend="${trackingStepMap[o.id] > 1} ? 'step-done' : (${trackingStepMap[o.id]} == 1 ? 'step-active' : 'step-pending')">
+                                <i class="fas" th:classappend="${trackingStepMap[o.id] >= 1} ? 'fa-check' : 'fa-clipboard-check'"></i>
+                            </div>
+                            <div class="step-label">Confirmed</div>
+                            <div class="step-time" th:if="${trackingStepMap[o.id] >= 1}">~1h</div>
+                        </div>
+
+                        <!-- Step 2: Packed -->
+                        <div class="track-step">
+                            <div class="step-icon"
+                                 th:classappend="${trackingStepMap[o.id] > 2} ? 'step-done' : (${trackingStepMap[o.id]} == 2 ? 'step-active' : 'step-pending')">
+                                <i class="fas" th:classappend="${trackingStepMap[o.id] > 2} ? 'fa-check' : 'fa-box'"></i>
+                            </div>
+                            <div class="step-label">Packed</div>
+                            <div class="step-time" th:if="${trackingStepMap[o.id] >= 2}">~3h</div>
+                        </div>
+
+                        <!-- Step 3: Shipped -->
+                        <div class="track-step">
+                            <div class="step-icon"
+                                 th:classappend="${trackingStepMap[o.id] > 3} ? 'step-done' : (${trackingStepMap[o.id]} == 3 ? 'step-active' : 'step-pending')">
+                                <i class="fas" th:classappend="${trackingStepMap[o.id] > 3} ? 'fa-check' : 'fa-shipping-fast'"></i>
+                            </div>
+                            <div class="step-label">Shipped</div>
+                            <div class="step-time" th:if="${trackingStepMap[o.id] >= 3}">~6h</div>
+                        </div>
+
+                        <!-- Step 4: Out for Delivery -->
+                        <div class="track-step">
+                            <div class="step-icon"
+                                 th:classappend="${trackingStepMap[o.id] > 4} ? 'step-done' : (${trackingStepMap[o.id]} == 4 ? 'step-active' : 'step-pending')">
+                                <i class="fas" th:classappend="${trackingStepMap[o.id] > 4} ? 'fa-check' : 'fa-truck'"></i>
+                            </div>
+                            <div class="step-label">Out for Delivery</div>
+                            <div class="step-time" th:if="${trackingStepMap[o.id] >= 4}">~12h</div>
+                        </div>
+
+                        <!-- Step 5: Delivered -->
+                        <div class="track-step">
+                            <div class="step-icon"
+                                 th:classappend="${trackingStepMap[o.id] == 5} ? 'step-done' : 'step-pending'">
+                                <i class="fas" th:classappend="${trackingStepMap[o.id] == 5} ? 'fa-check' : 'fa-home'"></i>
+                            </div>
+                            <div class="step-label">Delivered</div>
+                            <div class="step-time" th:if="${trackingStepMap[o.id] == 5}">Done!</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Delivery Slot -->
+                <div class="delivery-info" th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                    <i class="fas fa-calendar-check mr-1"></i>
+                    <strong>Expected Delivery Slot:</strong> <span th:text="${o.deliveryTime}"></span>
+                </div>
+                <div class="delivery-info" th:unless="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}"
+                     style="background:#fff7ed; border-color:#fed7aa; color:#9a3412;">
+                    <i class="fas fa-info-circle mr-1"></i> No delivery slot was selected for this order.
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Empty -->
+        <div class="empty-box" th:if="${orders == null or orders.isEmpty()}">
+            <i class="fas fa-truck fa-3x text-muted mb-3"></i>
+            <h4>No Orders to Track</h4>
+            <p class="text-muted">Place an order to start tracking deliveries here.</p>
+            <a href="/view-products" class="btn btn-primary mt-2">Shop Now</a>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/customer/home" class="btn btn-outline-primary"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

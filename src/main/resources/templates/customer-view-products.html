@@ -293,8 +293,32 @@
             <div class="col-md-4 mb-4 product-card-wrapper" th:each="p:${products}" th:attr="data-price=${p.price}">
                 <div class="card animate-in">
                     <div style="position:relative;">
-                        <img class="card-image" th:src="${p.imageLink}">
+                        <!-- Main image -->
+                        <img class="card-image" th:src="${p.imageLink}" th:id="'mainImg-' + ${p.id}">
                         <span class="budget-badge">✓ Within Budget</span>
+                    </div>
+
+                    <!-- 🔥 Extra image thumbnails -->
+                    <div th:if="${p.extraImageList != null and !p.extraImageList.isEmpty()}"
+                         style="display:flex; gap:4px; padding:6px 8px; background:#f8fafc; overflow-x:auto;">
+                        <!-- Main image thumbnail -->
+                        <img th:src="${p.imageLink}"
+                             th:onclick="'document.getElementById(\'mainImg-\' + ' + ${p.id} + ').src=this.src'"
+                             style="width:44px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #4a90e2;">
+                        <!-- Extra thumbnails -->
+                        <img th:each="url : ${p.extraImageList}"
+                             th:src="${url}"
+                             th:onclick="'document.getElementById(\'mainImg-\' + ' + ${p.id} + ').src=this.src'"
+                             style="width:44px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #e2e8f0;">
+                    </div>
+
+                    <!-- 🔥 Video player -->
+                    <div th:if="${p.videoLink != null and !#strings.isEmpty(p.videoLink)}"
+                         style="padding:0 8px 6px;">
+                        <video controls style="width:100%; border-radius:8px; max-height:180px;">
+                            <source th:src="${p.videoLink}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                     <div class="card-content">
                         <div class="mb-2">

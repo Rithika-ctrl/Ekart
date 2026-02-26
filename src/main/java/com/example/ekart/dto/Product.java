@@ -13,6 +13,7 @@ import jakarta.persistence.Transient;
 import lombok.Data;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 
 @Data
 @Entity
@@ -36,8 +37,15 @@ public class Product {
 	// 🔥 Stock alert threshold - notify when stock drops below this level
 	private Integer stockAlertThreshold = 10; // default threshold (nullable for existing data)
 
-	// Cloudinary image URL
+	// Cloudinary main image URL
 	private String imageLink;
+
+	// 🔥 Extra images (stored as comma-separated URLs in DB)
+	@Column(length = 2000)
+	private String extraImageLinks; // comma-separated URLs
+
+	// 🔥 Product video URL (Cloudinary)
+	private String videoLink;
 
 	// 🔥 Admin approval flag
 	private boolean approved = false;
@@ -49,6 +57,20 @@ public class Product {
 	// Image upload (not stored in DB)
 	@Transient
 	private MultipartFile image;
+
+	// 🔥 Extra image uploads (not stored in DB)
+	@Transient
+	private java.util.List<MultipartFile> extraImages;
+
+	// 🔥 Video upload (not stored in DB)
+	@Transient
+	private MultipartFile video;
+
+	// Helper: get extra image URLs as a list
+	public java.util.List<String> getExtraImageList() {
+		if (extraImageLinks == null || extraImageLinks.isBlank()) return new java.util.ArrayList<>();
+		return java.util.Arrays.asList(extraImageLinks.split(","));
+	}
 
 	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
 private java.util.List<Review> reviews;

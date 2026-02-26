@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History - Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/common-layout.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; }
+        .container { max-width: 1000px; margin: 2rem auto; }
+        h2 { font-weight: 700; color: #1e293b; }
+
+        .history-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+            padding: 1.4rem 1.6rem;
+            margin-bottom: 1.2rem;
+            border-left: 5px solid #4a90e2;
+            transition: transform 0.2s;
+        }
+        .history-card:hover { transform: translateY(-2px); }
+
+        .order-meta {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+        .order-id { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+        .order-date { color: #64748b; font-size: 0.9rem; }
+
+        .detail-row { margin: 0.3rem 0; font-size: 0.95rem; color: #334155; }
+        .detail-row strong { color: #1e3a8a; }
+
+        .item-chip {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            background: #eef2ff;
+            color: #1e3a8a;
+            margin: 0.2rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .amount-badge {
+            background: #dcfce7;
+            color: #166534;
+            font-weight: 700;
+            padding: 0.3rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .delivery-badge {
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.82rem;
+            padding: 0.25rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .status-placed {
+            background: #d1fae5;
+            color: #065f46;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 0.25rem 0.8rem;
+            border-radius: 20px;
+        }
+
+        .empty-box {
+            text-align: center;
+            background: white;
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+        }
+
+        .summary-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .summary-stat { text-align: center; }
+        .summary-stat .num { font-size: 1.6rem; font-weight: 800; color: #1e3a8a; }
+        .summary-stat .label { font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #4a90e2, #2c5282); padding: 1rem 2rem;">
+        <a class="navbar-brand" href="/customer/home" style="color:white; font-size:1.5rem; font-weight:800; text-transform:uppercase; letter-spacing:1px;">
+            <i class="fas fa-shopping-cart mr-2"></i>Ekart
+        </a>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="mb-1"><i class="fas fa-history mr-2 text-primary"></i>Order History</h2>
+        <p class="text-muted mb-4">A complete record of all your past purchases</p>
+
+        <div th:if="${session.success}" class="alert alert-success" th:text="${session.success}"></div>
+        <div th:if="${session.failure}" class="alert alert-danger" th:text="${session.failure}"></div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+
+        <!-- Summary Bar -->
+        <div class="summary-bar" th:if="${orders != null and !orders.isEmpty()}">
+            <div class="summary-stat">
+                <div class="num" th:text="${orders.size()}">0</div>
+                <div class="label">Total Orders</div>
+            </div>
+            <div class="summary-stat">
+                <div class="num" th:text="'Rs. ' + ${#aggregates.sum(orders.![amount])}">0</div>
+                <div class="label">Total Spent</div>
+            </div>
+            <div class="summary-stat">
+                <div class="num" th:text="${#aggregates.sum(orders.![items.size()])}">0</div>
+                <div class="label">Total Items</div>
+            </div>
+        </div>
+
+        <!-- Order Cards -->
+        <div th:if="${orders != null and !orders.isEmpty()}">
+            <div class="history-card" th:each="o : ${orders}">
+                <div class="order-meta">
+                    <div class="order-id">
+                        <i class="fas fa-receipt mr-1 text-primary"></i> Order #<span th:text="${o.id}"></span>
+                    </div>
+                    <div class="order-date">
+                        <i class="fas fa-calendar-alt mr-1"></i>
+                        <span th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
+                        <span th:unless="${o.orderDate != null}" class="text-muted">Date not available</span>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="gap:0.5rem;">
+                    <span class="status-placed"><i class="fas fa-check-circle mr-1"></i>Placed</span>
+                    <span class="amount-badge">Rs. <span th:text="${o.amount}"></span></span>
+                    <span class="delivery-badge" th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                        <i class="fas fa-clock mr-1"></i><span th:text="${o.deliveryTime}"></span>
+                    </span>
+                </div>
+
+                <div class="detail-row" th:if="${o.totalPrice > 0}">
+                    <strong>Subtotal:</strong> Rs. <span th:text="${o.totalPrice}"></span>
+                    <span th:if="${o.deliveryCharge > 0}" class="text-muted ml-2">
+                        + Rs. <span th:text="${o.deliveryCharge}"></span> delivery
+                    </span>
+                    <span th:if="${o.deliveryCharge == 0}" class="text-success ml-2 font-weight-bold">
+                        <i class="fas fa-gift mr-1"></i>Free Delivery
+                    </span>
+                </div>
+
+                <div class="detail-row" th:if="${o.items != null and !o.items.isEmpty()}">
+                    <strong>Items:</strong>
+                    <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' × ' + ${it.quantity}"></span>
+                </div>
+
+                <div class="detail-row" th:if="${o.razorpay_payment_id != null and o.razorpay_payment_id != 'COD_NA' and !#strings.isEmpty(o.razorpay_payment_id)}">
+                    <strong>Payment ID:</strong>
+                    <code style="font-size:0.8rem;" th:text="${o.razorpay_payment_id}"></code>
+                </div>
+                <div class="detail-row" th:if="${o.razorpay_payment_id == 'COD_NA'}">
+                    <strong>Payment:</strong> <span class="text-warning font-weight-bold">Cash on Delivery</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-box" th:if="${orders == null or orders.isEmpty()}">
+            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+            <h4>No Order History</h4>
+            <p class="text-muted">Your completed orders will appear here once you start shopping.</p>
+            <a href="/view-products" class="btn btn-primary mt-2">Browse Products</a>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/customer/home" class="btn btn-outline-primary"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

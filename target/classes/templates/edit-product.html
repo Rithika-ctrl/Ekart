@@ -213,12 +213,46 @@
                     </small>
                 </div>
                 <div class="form-group">
-                    <label for="image">Product Image</label>
-                    <div class="custom-file">
-                        <input type="file" class="custom-file-input" id="image" name="image">
-                        <label class="custom-file-label" for="image">Choose file</label>
+                    <label>Main Product Image</label>
+                    <div class="mb-2">
+                        <img height="100px" width="100px" style="border-radius:8px; object-fit:cover; border:2px solid #e2e8f0;" th:src="${product.imageLink}">
+                        <small class="d-block text-muted mt-1">Current main image</small>
                     </div>
-                    <img height="100px" width="100px" th:src="${product.imageLink}">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="image" name="image" accept="image/*">
+                        <label class="custom-file-label" for="image">Replace main image</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Current Extra Images</label>
+                    <div class="d-flex flex-wrap mb-2" th:if="${product.extraImageList != null and !product.extraImageList.isEmpty()}">
+                        <img th:each="url : ${product.extraImageList}"
+                             th:src="${url}" height="80px" width="80px"
+                             style="border-radius:8px; object-fit:cover; margin:4px; border:2px solid #e2e8f0;">
+                    </div>
+                    <p class="text-muted" style="font-size:0.85rem;" th:unless="${product.extraImageList != null and !product.extraImageList.isEmpty()}">No extra images yet.</p>
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="extraImages" name="extraImages" accept="image/*" multiple>
+                        <label class="custom-file-label" for="extraImages">Replace extra images</label>
+                    </div>
+                    <small class="form-text text-muted">Hold Ctrl / Cmd to select multiple. This will replace existing extra images.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Product Video</label>
+                    <div class="mb-2" th:if="${product.videoLink != null and !#strings.isEmpty(product.videoLink)}">
+                        <video height="120" controls style="border-radius:8px; border:2px solid #e2e8f0;">
+                            <source th:src="${product.videoLink}" type="video/mp4">
+                        </video>
+                        <small class="d-block text-muted mt-1">Current video</small>
+                    </div>
+                    <p class="text-muted" style="font-size:0.85rem;" th:unless="${product.videoLink != null and !#strings.isEmpty(product.videoLink)}">No video uploaded yet.</p>
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="video" name="video" accept="video/*">
+                        <label class="custom-file-label" for="video">Replace video</label>
+                    </div>
+                    <small class="form-text text-muted">MP4, MOV or AVI. Max 100MB.</small>
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-2"></i>Update Product</button>
             </form>
@@ -236,12 +270,11 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
         $('.custom-file-input').on('change', function() {
-            let fileName = $(this).val().split('\\').pop();
-            $(this).next('.custom-file-label').addClass("selected").html(fileName);
+            let files = $(this)[0].files;
+            let label = files.length > 1 ? files.length + ' files selected' : files[0].name;
+            $(this).next('.custom-file-label').addClass("selected").html(label);
         });
     </script>
 </body>
 
 </html>
-
-

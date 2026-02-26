@@ -337,6 +337,16 @@ public String removeFromCart(@PathVariable int id, HttpSession session) {
 		return customerService.viewOrders(session,map);
 	}
 
+	@GetMapping("/order-history")
+	public String orderHistory(HttpSession session, ModelMap map) {
+		return customerService.viewOrderHistory(session, map);
+	}
+
+	@GetMapping("/track-orders")
+	public String trackOrders(HttpSession session, ModelMap map) {
+		return customerService.trackOrders(session, map);
+	}
+
 	@GetMapping("/stock-alerts")
 	public String viewStockAlerts(HttpSession session, ModelMap map) {
 		return stockAlertService.viewStockAlerts(session, map);

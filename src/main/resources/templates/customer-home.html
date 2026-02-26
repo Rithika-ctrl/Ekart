@@ -266,8 +266,8 @@
                 <a href="/view-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Products</button></a>
                 <a href="/search-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>Search Products</button></a>
                 <a href="/view-cart"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Cart</button></a>
-                <a href="/view-orders"><button class="btn-custom"><i class="fas fa-truck mr-2"></i>Track Orders</button></a>
-                <a href="/view-orders"><button class="btn-custom"><i class="fas fa-history mr-2"></i>Order History</button></a>
+                <a href="/track-orders"><button class="btn-custom"><i class="fas fa-truck mr-2"></i>Track Orders</button></a>
+                <a href="/order-history"><button class="btn-custom"><i class="fas fa-history mr-2"></i>Order History</button></a>
                 <a href="/view-orders"><button class="btn-custom"><i class="fas fa-box mr-2"></i>View Orders</button></a>
            </div>
         </div>
@@ -308,21 +308,20 @@
             });
         }, 2000);
 
-        // 🔥 PENDING CART POPUP — show after 1.5s if not dismissed
-        var popup = document.getElementById('cartPopup');
-        if (popup && !sessionStorage.getItem('cartPopupDismissed')) {
-            setTimeout(function() {
-                popup.classList.add('show');
-            }, 1500);
-        }
+        // 🔥 PENDING CART POPUP — show after 1.5s every time they visit with items in cart
+var popup = document.getElementById('cartPopup');
+if (popup) {
+    setTimeout(function() {
+        popup.classList.add('show');
+    }, 1500);
+}
 
-        function dismissPopup() {
-            var popup = document.getElementById('cartPopup');
-            if (popup) {
-                popup.classList.remove('show');
-                sessionStorage.setItem('cartPopupDismissed', 'true');
-            }
-        }
+function dismissPopup() {
+    var popup = document.getElementById('cartPopup');
+    if (popup) {
+        popup.classList.remove('show');
+    }
+}
     </script>
 </body>
 

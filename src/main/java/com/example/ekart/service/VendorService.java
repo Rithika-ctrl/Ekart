@@ -301,12 +301,32 @@ public class VendorService {
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
 
 		product.setVendor(vendor);
-		product.setApproved(false); // 🔥 admin approval required
-		product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
+		product.setApproved(false);
+
+		// Upload main image
+		if (product.getImage() != null && !product.getImage().isEmpty()) {
+			product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
+		}
+
+		// 🔥 Upload extra images
+		if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
+			java.util.List<String> extraUrls = new java.util.ArrayList<>();
+			for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
+				if (img != null && !img.isEmpty()) {
+					extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
+				}
+			}
+			if (!extraUrls.isEmpty()) {
+				product.setExtraImageLinks(String.join(",", extraUrls));
+			}
+		}
+
+		// 🔥 Upload video
+		if (product.getVideo() != null && !product.getVideo().isEmpty()) {
+			product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
+		}
 
 		productRepository.save(product);
-
-		// 🔥 Check stock level after adding product
 		stockAlertService.checkStockLevel(product);
 
 		session.setAttribute("success", "Product added. Waiting for admin approval.");
@@ -406,6 +426,24 @@ public class VendorService {
 
 		if (product.getImage() != null && !product.getImage().isEmpty()) {
 			existingProduct.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
+		}
+
+		// 🔥 Update extra images (append to existing or replace)
+		if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
+			java.util.List<String> extraUrls = new java.util.ArrayList<>();
+			for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
+				if (img != null && !img.isEmpty()) {
+					extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
+				}
+			}
+			if (!extraUrls.isEmpty()) {
+				existingProduct.setExtraImageLinks(String.join(",", extraUrls));
+			}
+		}
+
+		// 🔥 Update video
+		if (product.getVideo() != null && !product.getVideo().isEmpty()) {
+			existingProduct.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
 		}
 
 		productRepository.save(existingProduct);

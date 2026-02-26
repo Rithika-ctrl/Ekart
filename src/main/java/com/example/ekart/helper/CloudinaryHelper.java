@@ -26,12 +26,20 @@ public String saveToCloudinary(MultipartFile file) throws IOException {
     Map<String, Object> uploadOptions = new HashMap<>();
     uploadOptions.put("folder", "Products");
 
-    // The library returns a raw Map, so we use it here
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
-
-    // Get the URL and return it
     return (String) map.get("url");
+}
 
+// 🔥 Upload video to Cloudinary
+@SuppressWarnings("rawtypes")
+public String saveVideoToCloudinary(MultipartFile file) throws IOException {
+    Cloudinary cloudinary = new Cloudinary("cloudinary://" + key + ":" + secret + "@" + cloudname + "");
+    Map<String, Object> uploadOptions = new HashMap<>();
+    uploadOptions.put("folder", "Products/Videos");
+    uploadOptions.put("resource_type", "video");
+
+    Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
+    return (String) map.get("url");
 }
 
 }

@@ -628,6 +628,57 @@ public List<Product> getProductsByCategory(String category, String currentName) 
     return list.size() > 2 ? list.subList(0, 2) : list;
 }
 
+// ---------------- ORDER HISTORY ----------------
+public String viewOrderHistory(HttpSession session, ModelMap map) {
+    Customer customer = (Customer) session.getAttribute("customer");
+    if (customer == null) {
+        session.setAttribute("failure", "Login First");
+        return "redirect:/customer/login";
+    }
+    List<Order> orders = orderRepository.findByCustomer(customer);
+    map.put("orders", orders);
+    return "order-history.html";
+}
+
+// ---------------- TRACK ORDERS ----------------
+public String trackOrders(HttpSession session, ModelMap map) {
+    Customer customer = (Customer) session.getAttribute("customer");
+    if (customer == null) {
+        session.setAttribute("failure", "Login First");
+        return "redirect:/customer/login";
+    }
+    List<Order> orders = orderRepository.findByCustomer(customer);
+
+    // For each order, compute which tracking steps are done/active/pending
+    // Steps: 0=Placed(always done), 1=Confirmed(1h), 2=Packed(3h), 3=Shipped(6h), 4=OutForDelivery(12h), 5=Delivered(48h)
+    // We pass a map of orderId -> stepIndex (0-5) representing current step
+    java.util.Map<Integer, Integer> trackingStepMap = new java.util.HashMap<>();
+    java.util.Map<Integer, Integer> progressWidthMap = new java.util.HashMap<>();
+
+    for (Order order : orders) {
+        long hrs = 0;
+        if (order.getOrderDate() != null) {
+            hrs = java.time.Duration.between(order.getOrderDate(), java.time.LocalDateTime.now()).toHours();
+        }
+        int step;
+        int width;
+        if (hrs >= 48) { step = 5; width = 80; }
+        else if (hrs >= 12) { step = 4; width = 64; }
+        else if (hrs >= 6)  { step = 3; width = 48; }
+        else if (hrs >= 3)  { step = 2; width = 32; }
+        else if (hrs >= 1)  { step = 1; width = 16; }
+        else               { step = 0; width = 0; }
+
+        trackingStepMap.put(order.getId(), step);
+        progressWidthMap.put(order.getId(), width);
+    }
+
+    map.put("orders", orders);
+    map.put("trackingStepMap", trackingStepMap);
+    map.put("progressWidthMap", progressWidthMap);
+    return "track-orders.html";
+}
+
 // Method to load the address page with fresh data
 public String loadAddressPage(HttpSession session, ModelMap map) {
     Customer sessionCustomer = (Customer) session.getAttribute("customer");
