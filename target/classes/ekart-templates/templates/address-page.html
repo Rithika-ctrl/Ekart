@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Address — Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-bag mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item"><a class="nav-link" href="/view-products"><i class="fas fa-box-open mr-1"></i>Products</a></li>
+                <li class="nav-item"><a class="nav-link" href="/search-products"><i class="fas fa-search mr-1"></i>Search</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-cart"><i class="fas fa-shopping-cart mr-1"></i>Cart</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-orders"><i class="fas fa-box mr-1"></i>Orders</a></li>
+                <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}">
+            <i class="fas fa-check-circle"></i><span th:text="${session.success}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}">
+            <i class="fas fa-exclamation-circle"></i><span th:text="${session.failure}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+        <div class="form-container animate-in" style="max-width:600px;">
+            <div class="text-center mb-4">
+                <div class="page-icon-wrap violet"><i class="fas fa-map-marker-alt"></i></div>
+                <h2>Delivery Address</h2>
+                <p style="color:var(--t2);font-size:0.9rem;">Where should we deliver your order?</p>
+            </div>
+            <form action="/address-page" method="post" th:object="${address}">
+                <div class="form-group">
+                    <label><i class="fas fa-home mr-1"></i> Street Address</label>
+                    <input type="text" class="form-control" th:field="*{street}" name="street" placeholder="House no, Street, Area" required>
+                    <small class="text-danger" th:errors="*{street}"></small>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label><i class="fas fa-city mr-1"></i> City</label>
+                            <input type="text" class="form-control" th:field="*{city}" name="city" placeholder="City" required>
+                            <small class="text-danger" th:errors="*{city}"></small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label><i class="fas fa-map mr-1"></i> State</label>
+                            <input type="text" class="form-control" th:field="*{state}" name="state" placeholder="State" required>
+                            <small class="text-danger" th:errors="*{state}"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label><i class="fas fa-mail-bulk mr-1"></i> Pincode</label>
+                            <input type="text" class="form-control" th:field="*{pincode}" name="pincode" placeholder="6-digit pincode" required>
+                            <small class="text-danger" th:errors="*{pincode}"></small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label><i class="fas fa-phone mr-1"></i> Contact Number</label>
+                            <input type="tel" class="form-control" th:field="*{contactNumber}" name="contactNumber" placeholder="Mobile number" required>
+                            <small class="text-danger" th:errors="*{contactNumber}"></small>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-2">
+                    <i class="fas fa-arrow-right mr-2"></i>Continue to Payment
+                </button>
+            </form>
+        </div>
+    </div>
+    <footer class="text-center mt-auto">
+        <div class="p-3">© 2026 Ekart. All rights reserved. &nbsp;|&nbsp; <i class="fas fa-heart text-danger"></i> Made with passion</div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        setTimeout(function(){ $(".alert").fadeTo(400,0).slideUp(400,function(){ $(this).remove(); }); }, 3500);
+    </script>
+</body>
+</html>

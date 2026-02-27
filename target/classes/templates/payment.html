@@ -1,516 +1,114 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ekart - Payment Options</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600&display=swap" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; }
+/* EKART PREMIUM UNIFIED THEME */
+:root {
+    /* Color Palette - Decent & Deep */
+    --bg-dark: #0f172a;        /* Deep Slate Base */
+    --accent-emerald: #10b981; /* Primary Action (Emerald) */
+    --accent-blue: #3b82f6;    /* Secondary Action (Blue) */
+    --text-main: #f1f5f9;      /* High contrast text */
+    --text-muted: #94a3b8;     /* Subdued slate text */
 
-        body {
-            background: #f0f4f8;
-            font-family: 'DM Sans', sans-serif;
-            margin: 0;
-            min-height: 100vh;
-        }
+    /* Glassmorphism Tokens */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: blur(16px);
 
-        /* PAGE WRAPPER */
-        .page-wrapper {
-            display: flex;
-            gap: 24px;
-            align-items: flex-start;
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 32px 20px;
-        }
+    /* Neumorphism Tokens (Dark Elevation) */
+    --neo-shadow-out: 10px 10px 20px #070b14, -10px -10px 20px #172340;
+    --neo-shadow-inset: inset 6px 6px 12px #070b14, inset -6px -6px 12px #172340;
+}
 
-        /* LEFT: PAYMENT CARD */
-        .payment-col {
-            flex: 0 0 460px;
-            max-width: 460px;
-        }
-        .payment-card {
-            background: white;
-            padding: 28px;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.09);
-            text-align: center;
-        }
-        .amount-box { background: #f1f5f9; padding: 14px; border-radius: 10px; margin: 16px 0; }
-        .amount-value { font-size: 24px; font-weight: 800; color: #2563eb; }
-        .btn-pay { font-weight: 600; padding: 12px 20px; border-radius: 10px; width: 100%; border: none; font-size: 15px; transition: 0.2s; margin-bottom: 10px; cursor: pointer; }
-        .btn-online { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; }
-        .btn-online:hover { opacity: 0.9; }
-        .btn-cod { background: linear-gradient(135deg, #10b981, #059669); color: white; }
-        .btn-cod:hover { opacity: 0.9; }
-        .cancel-link { display: block; margin-top: 12px; color: #94a3b8; text-decoration: none; font-size: 0.85rem; }
-        .cancel-link:hover { color: #64748b; }
-        .delivery-section { margin-bottom: 14px; }
-        .delivery-label { font-size: 0.9rem; margin-bottom: 8px; display: block; }
-        .delivery-option { border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; background: #fff; text-align: left; }
-        .delivery-option:hover { border-color: #93c5fd; background: #f0f7ff; }
-        .delivery-option.selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
-        .delivery-badge { padding: 2px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; display: inline-block; margin-bottom: 3px; }
-        .badge-standard { background: #dcfce7; color: #166534; }
-        .badge-tomorrow { background: #fee2e2; color: #7f1d1d; }
-        .delivery-date-text { font-weight: 600; font-size: 0.88rem; color: #1e293b; margin: 2px 0; }
-        .delivery-price-tag { font-size: 0.92rem; font-weight: 700; white-space: nowrap; }
-        .slot-section { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
-        .delivery-option.selected .slot-section { display: block; }
-        .slot-select { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.85rem; background: #f8fafc; cursor: pointer; outline: none; }
-        .slot-select:focus { border-color: #2563eb; }
-        .final-box { background: #eef4ff; border: 1.5px solid #c7d9ff; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
-        .express-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-size: 0.76rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; }
+/* --- Layout & Sticky Footer --- */
+html, body {
+    height: 100%;
+}
 
-        /* RIGHT: RECOMMENDATIONS — dark editorial style */
-        .reco-col {
-            flex: 1;
-            min-width: 0;
-        }
-        .reco-panel {
-            position: sticky;
-            top: 24px;
-            background: #0f0e17;
-            border-radius: 20px;
-            padding: 28px 24px;
-            overflow: hidden;
-        }
-        .reco-panel .glow-top {
-            position: absolute;
-            top: -80px; left: -60px;
-            width: 260px; height: 260px;
-            background: radial-gradient(circle, rgba(99,102,241,0.4) 0%, transparent 70%);
-            pointer-events: none;
-        }
-        .reco-panel .glow-bottom {
-            position: absolute;
-            bottom: -60px; right: -40px;
-            width: 200px; height: 200px;
-            background: radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%);
-            pointer-events: none;
-        }
-        .reco-inner { position: relative; z-index: 1; }
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Poppins', 'Segoe UI', sans-serif;
+    background-attachment: fixed;
+}
 
-        .reco-eyebrow {
-            font-size: 0.65rem;
-            font-weight: 600;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            color: #a78bfa;
-            margin-bottom: 4px;
-        }
-        .reco-heading {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.45rem;
-            font-weight: 800;
-            color: #fff;
-            line-height: 1.15;
-            margin-bottom: 4px;
-        }
-        .reco-heading span { color: #a78bfa; }
-        .reco-sub {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-bottom: 6px;
-        }
-        .reco-category-tag {
-            display: inline-block;
-            background: rgba(167,139,250,0.12);
-            color: #a78bfa;
-            border: 1px solid rgba(167,139,250,0.28);
-            border-radius: 20px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            padding: 3px 12px;
-            margin-bottom: 18px;
-        }
+/* Glassmorphic Navbar */
+.navbar {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 1rem 2rem;
+    z-index: 1000;
+}
 
-        /* Row cards */
-        .reco-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .reco-card {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 10px 12px;
-            text-decoration: none;
-            transition: background 0.25s, transform 0.25s, border-color 0.25s, box-shadow 0.25s;
-            opacity: 0;
-            animation: slideUp 0.45s ease forwards;
-            position: relative;
-            overflow: hidden;
-        }
-        .reco-card:nth-child(1) { animation-delay: 0.06s; }
-        .reco-card:nth-child(2) { animation-delay: 0.14s; }
-        .reco-card:nth-child(3) { animation-delay: 0.22s; }
-        .reco-card:nth-child(4) { animation-delay: 0.30s; }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(16px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .reco-card:hover {
-            background: rgba(167,139,250,0.1);
-            border-color: rgba(167,139,250,0.35);
-            transform: translateX(5px);
-            box-shadow: 0 0 20px rgba(99,102,241,0.2);
-            text-decoration: none;
-        }
-        /* shimmer sweep */
-        .reco-card::after {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 60%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            transition: left 0.5s;
-        }
-        .reco-card:hover::after { left: 140%; }
+.container {
+    flex: 1 0 auto;
+    padding: 2rem 1rem;
+    background: transparent !important;
+}
 
-        .reco-img-wrap {
-            width: 60px;
-            height: 60px;
-            border-radius: 10px;
-            overflow: hidden;
-            flex-shrink: 0;
-            border: 1.5px solid rgba(255,255,255,0.1);
-        }
-        .reco-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+/* Sticky Footer */
+footer {
+    flex-shrink: 0;
+    margin-top: auto !important;
+    width: 100%;
+    background: linear-gradient(135deg, #1e40af, #2563eb) !important;
+    padding: 1.5rem 0 !important;
+    box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-        .reco-info { flex: 1; min-width: 0; }
-        .reco-name {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: #e5e7eb;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 2px;
-        }
-        .reco-desc {
-            font-size: 0.7rem;
-            color: #4b5563;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 4px;
-        }
-        .reco-price {
-            font-family: 'Syne', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #a78bfa;
-        }
+/* --- Glassmorphic Components (Products & Forms) --- */
+.card, .history-card, .track-card, .form-container, .registration-form, .order-card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
 
-        .reco-add-btn {
-            flex-shrink: 0;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 7px 14px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: opacity 0.2s, transform 0.2s;
-            white-space: nowrap;
-        }
-        .reco-add-btn:hover { opacity: 0.85; transform: scale(1.06); color: white; text-decoration: none; }
+.card:hover {
+    transform: translateY(-12px);
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
 
-        /* Divider line */
-        .reco-divider {
-            height: 1px;
-            background: linear-gradient(90deg, rgba(167,139,250,0.4), transparent);
-            margin: 18px 0 16px;
-        }
+/* --- Neumorphic Bento Dashboard --- */
+.d-flex.flex-wrap.justify-content-center {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 24px;
+    padding: 20px 0;
+}
 
-        /* Mobile */
-        @media (max-width: 768px) {
-            .page-wrapper { flex-direction: column; padding: 16px; }
-            .payment-col { flex: 1; max-width: 100%; }
-            .reco-panel { position: static; }
-        }
-    </style>
-    <link rel="stylesheet" href="/css/common-layout.css">
-</head>
-<body>
+.btn-custom {
+    height: 140px;
+    background: var(--bg-dark) !important;
+    box-shadow: var(--neo-shadow-out);
+    border: none !important;
+    border-radius: 20px;
+    color: var(--accent-emerald) !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    margin: 0 !important;
+    transition: all 0.3s ease;
+}
 
-<div class="page-wrapper">
+.btn-custom:active {
+    box-shadow: var(--neo-shadow-inset);
+    transform: scale(0.95);
+}
 
-    <!-- LEFT: PAYMENT -->
-    <div class="payment-col">
-        <div class="payment-card">
-            <div class="mb-2">
-                <i class="fas fa-credit-card fa-3x text-primary"></i>
-            </div>
-            <h3 class="mb-3" style="font-size:1.3rem; font-weight:700;">Select Payment Method</h3>
-
-            <!-- Shipping Address -->
-            <div class="mb-3 text-left border-bottom pb-2">
-                <h6 class="text-muted small font-weight-bold text-uppercase mb-1">
-                    <i class="fas fa-map-marker-alt mr-1"></i> Shipping To:
-                </h6>
-                <p class="mb-1 text-dark font-weight-bold"
-                   th:if="${customer.addresses != null and !customer.addresses.isEmpty()}"
-                   th:text="${customer.addresses.get(customer.addresses.size() - 1).details}"></p>
-                <p class="mb-1 text-danger small"
-                   th:if="${customer.addresses == null or customer.addresses.isEmpty()}">
-                    &#9888; No address found. Please add one.
-                </p>
-                <a href="/customer/address" class="small text-primary">Change Address</a>
-            </div>
-
-            <!-- Price Breakdown -->
-            <div class="amount-box text-left">
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted small">Cart Subtotal:</span>
-                    <span class="font-weight-bold" th:text="'&#8377;' + ${cartTotal}"></span>
-                </div>
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted small">Delivery Charge:</span>
-                    <span class="font-weight-bold"
-                          th:classappend="${deliveryCharge == 0 ? 'text-success' : 'text-danger'}"
-                          th:text="${deliveryCharge == 0 ? 'FREE' : '&#8377;' + deliveryCharge}"></span>
-                </div>
-                <hr class="my-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="text-muted small">Base Total:</span>
-                    <span class="amount-value">&#8377; <span th:text="${amount}"></span></span>
-                </div>
-            </div>
-
-            <!-- Delivery Speed + Time Slot -->
-            <div class="delivery-section text-left">
-                <label class="delivery-label">
-                    <i class="fas fa-shipping-fast mr-1 text-primary"></i>
-                    <strong>Choose Delivery Speed &amp; Time Slot:</strong>
-                </label>
-                <div class="delivery-option" id="opt-standard" onclick="selectDelivery('standard')">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="delivery-badge badge-standard">&#128230; Standard</span>
-                            <div class="delivery-date-text" id="date-standard">Calculating...</div>
-                            <small class="text-muted">5&#8211;7 business days</small>
-                        </div>
-                        <span class="delivery-price-tag text-success font-weight-bold">FREE</span>
-                    </div>
-                    <div class="slot-section">
-                        <label class="small text-muted mb-1"><i class="fas fa-clock mr-1"></i> Pick a time slot:</label>
-                        <select class="slot-select" id="slot-standard" onclick="event.stopPropagation()" onchange="updateDeliveryLabel()">
-                            <option value="" disabled selected>Choose a time slot...</option>
-                            <option value="Morning (9 AM - 12 PM)">Morning (9 AM &#8211; 12 PM)</option>
-                            <option value="Afternoon (1 PM - 4 PM)">Afternoon (1 PM &#8211; 4 PM)</option>
-                            <option value="Evening (5 PM - 8 PM)">Evening (5 PM &#8211; 8 PM)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="delivery-option" id="opt-tomorrow" onclick="selectDelivery('tomorrow')">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="delivery-badge badge-tomorrow">&#128640; Tomorrow</span>
-                            <div class="delivery-date-text" id="date-tomorrow">Calculating...</div>
-                            <small class="text-muted">Order before 12 AM</small>
-                        </div>
-                        <span class="delivery-price-tag text-danger"><span id="tomorrow-price-display">+&#8377;129</span></span>
-                    </div>
-                    <div class="slot-section">
-                        <label class="small text-muted mb-1"><i class="fas fa-clock mr-1"></i> Pick a time slot:</label>
-                        <select class="slot-select" id="slot-tomorrow" onclick="event.stopPropagation()" onchange="updateDeliveryLabel()">
-                            <option value="" disabled selected>Choose a time slot...</option>
-                            <option value="Morning (9 AM - 12 PM)">Morning (9 AM &#8211; 12 PM)</option>
-                            <option value="Afternoon (1 PM - 4 PM)">Afternoon (1 PM &#8211; 4 PM)</option>
-                            <option value="Evening (5 PM - 8 PM)">Evening (5 PM &#8211; 8 PM)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Final Total -->
-            <div class="final-box text-left">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="text-muted small">Final Total (incl. surcharge):</span>
-                    <span class="amount-value">&#8377; <span id="finalTotal" th:text="${amount}">0</span></span>
-                </div>
-            </div>
-
-            <button class="btn-pay btn-online" onclick="handleOnlinePay(event)">
-                <i class="fas fa-globe mr-2"></i> Pay Online
-            </button>
-
-            <form action="/success" method="post" id="cod-form" onsubmit="return handleCODSubmit()">
-                <input type="hidden" name="amount"              id="cod-amount"        th:value="${amount}">
-                <input type="hidden" name="paymentMode"         value="Cash on Delivery">
-                <input type="hidden" name="razorpay_payment_id" value="COD_NA">
-                <input type="hidden" name="razorpay_order_id"   value="COD_ORDER">
-                <input type="hidden" name="deliveryTime"        id="cod-delivery-time" value="">
-                <button type="submit" class="btn-pay btn-cod">
-                    <i class="fas fa-hand-holding-usd mr-2"></i> Cash on Delivery
-                </button>
-            </form>
-
-            <a href="/view-cart" class="cancel-link"><i class="fas fa-arrow-left mr-1"></i> Cancel and Go Back</a>
-        </div>
-    </div>
-
-    <!-- RIGHT: RECOMMENDATIONS -->
-    <div class="reco-col" th:if="${recommendedProducts != null and !#lists.isEmpty(recommendedProducts)}">
-        <div class="reco-panel">
-            <div class="glow-top"></div>
-            <div class="glow-bottom"></div>
-            <div class="reco-inner">
-                <div class="reco-eyebrow">&#10024; Continue Shopping</div>
-                <div class="reco-heading">
-                    You'll love these<br><span th:text="${cartItemCategory}"></span> too
-                </div>
-                <div class="reco-sub">Handpicked from the same category</div>
-                <div class="reco-divider"></div>
-
-                <div class="reco-grid">
-                    <div class="reco-card" th:each="rp : ${recommendedProducts}">
-                        <div class="reco-img-wrap">
-                            <img th:src="${rp.imageLink}" th:alt="${rp.name}">
-                        </div>
-                        <div class="reco-info">
-                            <div class="reco-name" th:text="${rp.name}"></div>
-                            <div class="reco-desc" th:text="${rp.description}"></div>
-                            <div class="reco-price">&#8377;<span th:text="${rp.price}"></span></div>
-                        </div>
-                        <a th:href="'/add-cart/' + ${rp.id}" class="reco-add-btn">
-                            <i class="fas fa-plus"></i> Add
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<script>
-    if (document.referrer.includes('/view-cart') || sessionStorage.getItem('expressCheckout')) {
-        sessionStorage.setItem('expressCheckout', 'true');
-        var badge = document.createElement('div');
-        badge.className = 'express-badge';
-        badge.innerHTML = '&#9889; Express Checkout &mdash; Almost done!';
-        var card = document.querySelector('.payment-card h3');
-        if (card) card.parentNode.insertBefore(badge, card);
-        window.addEventListener('load', function() {
-            setTimeout(function() { selectDelivery('standard'); }, 300);
-        });
-    } else {
-        sessionStorage.removeItem('expressCheckout');
-    }
-</script>
-
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script th:inline="javascript">
-    var baseAmount     = /*[[${amount}]]*/ 0;
-    var tomorrowCharge = 129;
-    var customerName   = /*[[${customer.name}]]*/ 'Customer';
-    var customerEmail  = /*[[${customer.email}]]*/ 'email@example.com';
-    var selectedType   = null;
-
-    window.addEventListener('DOMContentLoaded', function() {
-        var tag = document.getElementById('tomorrow-price-display');
-        if (tag) tag.textContent = '+₹' + tomorrowCharge;
-    });
-
-    function formatDate(d) {
-        var days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return days[d.getDay()] + ', ' + d.getDate() + ' ' + months[d.getMonth()];
-    }
-    function addBusinessDays(date, n) {
-        var d = new Date(date), added = 0;
-        while (added < n) {
-            d.setDate(d.getDate() + 1);
-            if (d.getDay() !== 0 && d.getDay() !== 6) added++;
-        }
-        return d;
-    }
-    window.onload = function () {
-        var today = new Date();
-        var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-        document.getElementById('date-standard').textContent = 'Expected by ' + formatDate(addBusinessDays(today, 5));
-        document.getElementById('date-tomorrow').textContent = 'Expected by ' + formatDate(tomorrow);
-    };
-    function selectDelivery(type) {
-        selectedType = type;
-        document.querySelectorAll('.delivery-option').forEach(function(el) { el.classList.remove('selected'); });
-        document.getElementById('opt-' + type).classList.add('selected');
-        var extra    = (type === 'tomorrow') ? tomorrowCharge : 0;
-        var newTotal = (baseAmount + extra).toFixed(1);
-        document.getElementById('finalTotal').textContent = newTotal;
-        document.getElementById('cod-amount').value       = newTotal;
-        updateDeliveryLabel();
-    }
-    function updateDeliveryLabel() {
-        if (!selectedType) return;
-        var today = new Date();
-        var datePart;
-        if (selectedType === 'standard') {
-            datePart = 'Standard | Expected by ' + formatDate(addBusinessDays(today, 5));
-        } else {
-            var t = new Date(today); t.setDate(today.getDate() + 1);
-            datePart = 'Tomorrow | Expected by ' + formatDate(t);
-        }
-        var slotEl = document.getElementById('slot-' + selectedType);
-        var slot   = slotEl ? slotEl.value : '';
-        document.getElementById('cod-delivery-time').value = slot ? datePart + ' | ' + slot : datePart;
-    }
-    function validateSelection() {
-        if (!selectedType) { alert('Please select a delivery speed!'); return false; }
-        var slot = document.getElementById('slot-' + selectedType).value;
-        if (!slot) { alert('Please choose a delivery time slot!'); return false; }
-        return true;
-    }
-    function handleOnlinePay(e) {
-        e.preventDefault();
-        if (!validateSelection()) return;
-        var payAmount     = parseFloat(document.getElementById('cod-amount').value);
-        var deliveryLabel = document.getElementById('cod-delivery-time').value;
-        var options = {
-            "key": "YOUR_RAZORPAY_KEY_ID",
-            "amount": payAmount * 100,
-            "currency": "INR",
-            "name": "Ekart Shop",
-            "description": "Order Payment",
-            "handler": function(response) {
-                var form = document.createElement('form');
-                form.method = 'POST'; form.action = '/success';
-                var fields = {
-                    'amount': payAmount, 'paymentMode': 'Online',
-                    'razorpay_payment_id': response.razorpay_payment_id,
-                    'razorpay_order_id': response.razorpay_order_id,
-                    'deliveryTime': deliveryLabel
-                };
-                for (var key in fields) {
-                    var inp = document.createElement('input');
-                    inp.type = 'hidden'; inp.name = key; inp.value = fields[key];
-                    form.appendChild(inp);
-                }
-                document.body.appendChild(form); form.submit();
-            },
-            "prefill": { "name": customerName, "email": customerEmail },
-            "theme": { "color": "#2563eb" }
-        };
-        new Razorpay(options).open();
-    }
-    function handleCODSubmit() { return validateSelection(); }
-</script>
-</body>
-</html>
+/* --- Tactile Form Inputs --- */
+.form-control {
+    background: var(--bg-dark) !important;
+    box-shadow: var(--neo-shadow-inset) !important;
+    border: 1px solid transparent !important;
+    color: #fff !important;
+    border-radius: 12px !important;
+    padding: 0.8rem 1.2rem !important;
+}

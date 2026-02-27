@@ -1,328 +1,515 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ekart - Customer Home</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Ekart - Customer Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary-color: #4a90e2;
-            --secondary-color: #f8f9fa;
-            --accent-color: #ff6b6b;
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
         }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f8;
         }
 
-        .container {
-            flex: 1;
-            padding: 2rem;
+        /* ── BACKGROUND ── */
+        .bg-layer {
+            position: fixed; inset: 0; z-index: -1;
+            overflow: hidden;
+        }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(5, 8, 20, 0.82) 0%,
+                rgba(8, 12, 28, 0.78) 40%,
+                rgba(5, 8, 20, 0.88) 100%
+            );
         }
 
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-color), #2c5282);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1rem 2rem;
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+        .nav-cart {
+            position: relative;
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border);
+            transition: all 0.2s;
+        }
+        .nav-cart:hover { color: white; background: rgba(255,255,255,0.1); }
+        .cart-badge {
+            position: absolute; top: -4px; right: -4px;
+            background: var(--yellow); color: #1a1000;
+            font-size: 0.6rem; font-weight: 800;
+            width: 16px; height: 16px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        .navbar-brand {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: white !important;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3);
+            transition: all 0.2s;
         }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
-        .nav-link {
-            color: white !important;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            padding: 0.5rem 1rem;
-            margin: 0 0.5rem;
-            border-radius: 4px;
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
         }
-
-        .nav-link:hover {
-            background-color: rgba(255,255,255,0.1);
-            transform: translateY(-2px);
-        }
-
-        .navbar-toggler {
-            border-color: rgba(255,255,255,0.5);
-        }
-
-        .navbar-toggler-icon {
-            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3e%3cpath stroke='rgba(255, 255, 255, 0.9)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-        }
-
         .alert {
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+        @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 7rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
         }
 
-        .alert-success {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
+        /* ── WELCOME BANNER ── */
+        .welcome-banner {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+            animation: fadeUp 0.5s ease both;
+        }
+        .welcome-text h1 {
+            font-size: clamp(1.4rem, 2.5vw, 2rem);
+            font-weight: 700; margin-bottom: 0.35rem;
+        }
+        .welcome-text h1 span { color: var(--yellow); }
+        .welcome-text p { font-size: 0.875rem; color: var(--text-dim); }
+
+        .welcome-icon {
+            width: 72px; height: 72px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem; flex-shrink: 0;
         }
 
-        .alert-danger {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
+        /* ── DASHBOARD GRID ── */
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
         }
 
-        .content-section {
-            background-color: #ffffff;
-            border-radius: 10px;
-            padding: 30px;
-            margin: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            animation: fadeIn 0.5s ease-out;
+        .dash-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 2rem 1.75rem;
+            text-decoration: none;
+            color: var(--text-white);
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+            animation: fadeUp 0.5s ease both;
+        }
+        /* stagger animation */
+        .dash-card:nth-child(1) { animation-delay: 0.05s; }
+        .dash-card:nth-child(2) { animation-delay: 0.10s; }
+        .dash-card:nth-child(3) { animation-delay: 0.15s; }
+        .dash-card:nth-child(4) { animation-delay: 0.20s; }
+        .dash-card:nth-child(5) { animation-delay: 0.25s; }
+        .dash-card:nth-child(6) { animation-delay: 0.30s; }
+
+        .dash-card::before {
+            content: '';
+            position: absolute; inset: 0; border-radius: 18px;
+            background: linear-gradient(135deg, rgba(245,168,0,0.08), transparent);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .dash-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(245,168,0,0.45);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+        .dash-card:hover::before { opacity: 1; }
+
+        .dash-card-icon {
+            width: 48px; height: 48px;
+            background: rgba(245,168,0,0.15);
+            border: 1px solid rgba(245,168,0,0.3);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.15rem; color: var(--yellow);
+            transition: all 0.3s;
+        }
+        .dash-card:hover .dash-card-icon {
+            background: var(--yellow);
+            color: #1a1000;
+            border-color: var(--yellow);
         }
 
-        .btn-custom {
-            margin: 10px;
-            padding: 12px 25px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .dash-card-body h3 {
+            font-size: 1rem; font-weight: 600;
+            color: white; margin-bottom: 0.3rem;
+        }
+        .dash-card-body p {
+            font-size: 0.775rem; color: var(--text-dim);
+            line-height: 1.55;
         }
 
-        .btn-custom:hover {
-            background-color: #2c5282;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .dash-card-arrow {
+            position: absolute; bottom: 1.25rem; right: 1.5rem;
+            color: rgba(255,255,255,0.15); font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+        .dash-card:hover .dash-card-arrow {
+            color: var(--yellow);
+            transform: translate(3px, -3px);
         }
 
+        /* ── FOOTER ── */
         footer {
-            background: var(--secondary-color);
-            color: #333;
-            padding: 1.5rem 0;
-            box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
         }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @media (max-width: 768px) {
-            .navbar {
-                padding: 0.5rem 1rem;
-            }
-            
-            .navbar-brand {
-                font-size: 1.5rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .btn-custom {
-                margin: 5px;
-                padding: 10px 20px;
-                width: 100%;
-                max-width: 250px;
-            }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 🔥 PENDING CART POPUP */
+        /* ── CART POPUP ── */
         .cart-popup-overlay {
             display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.45);
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
             z-index: 9999;
             justify-content: center;
             align-items: center;
         }
-        .cart-popup-overlay.show {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
+        .cart-popup-overlay.show { display: flex; }
+
         .cart-popup-box {
-            background: white;
-            border-radius: 16px;
-            padding: 2rem 2.5rem;
-            max-width: 420px;
-            width: 90%;
+            background: rgba(15, 18, 40, 0.95);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem 2.5rem 2rem;
+            max-width: 400px; width: 90%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
             position: relative;
+            animation: popIn 0.35s cubic-bezier(0.23,1,0.32,1) both;
         }
-        .cart-popup-box .cart-icon {
-            font-size: 3.5rem;
-            margin-bottom: 0.75rem;
-            animation: bounce 1s infinite;
+        @keyframes popIn {
+            from { opacity:0; transform:scale(0.85) translateY(20px); }
+            to   { opacity:1; transform:scale(1) translateY(0); }
         }
-        .cart-popup-box h4 {
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 0.5rem;
+
+        .popup-close {
+            position: absolute; top: 1rem; right: 1.25rem;
+            background: none; border: none;
+            color: var(--text-dim); font-size: 1.25rem;
+            cursor: pointer; transition: color 0.2s;
         }
-        .cart-popup-box p {
-            color: #64748b;
-            margin-bottom: 1.5rem;
-        }
-        .cart-popup-box .btn-checkout {
-            background: linear-gradient(135deg, #2563eb, #1e40af);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0.65rem 1.8rem;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .cart-popup-box .btn-checkout:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(37,99,235,0.4);
-            color: white;
-            text-decoration: none;
-        }
-        .cart-popup-box .btn-dismiss {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin-top: 0.75rem;
-            cursor: pointer;
-            display: block;
-            width: 100%;
-        }
-        .cart-popup-box .btn-dismiss:hover { color: #64748b; }
-        .cart-popup-close {
-            position: absolute;
-            top: 0.8rem;
-            right: 1rem;
-            font-size: 1.4rem;
-            color: #94a3b8;
-            cursor: pointer;
-            background: none;
-            border: none;
+        .popup-close:hover { color: white; }
+
+        .popup-cart-icon {
+            font-size: 3rem; margin-bottom: 1rem;
+            animation: bounce 1.2s ease-in-out infinite;
         }
         @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+
+        .cart-popup-box h4 {
+            font-size: 1.25rem; font-weight: 700;
+            color: white; margin-bottom: 0.5rem;
+        }
+        .cart-popup-box p {
+            font-size: 0.85rem; color: var(--text-dim);
+            line-height: 1.65; margin-bottom: 1.75rem;
+        }
+        .cart-popup-box p strong { color: var(--yellow); }
+
+        .btn-popup-checkout {
+            background: var(--yellow); color: #1a1000;
+            text-decoration: none; border: none;
+            padding: 0.8rem 2rem; border-radius: 50px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.875rem; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            cursor: pointer; transition: all 0.3s;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            box-shadow: 0 6px 24px rgba(245,168,0,0.35);
+        }
+        .btn-popup-checkout:hover {
+            background: var(--yellow-d);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(245,168,0,0.5);
+            color: #1a1000; text-decoration: none;
+        }
+
+        .btn-popup-dismiss {
+            display: block; width: 100%;
+            background: none; border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.775rem; color: var(--text-dim);
+            margin-top: 0.875rem; cursor: pointer;
+            transition: color 0.2s;
+        }
+        .btn-popup-dismiss:hover { color: var(--text-light); }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(20px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width: 900px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1.25rem 2rem; }
+            .welcome-banner { flex-direction: column; text-align: center; }
+            .dash-grid { grid-template-columns: 1fr 1fr; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+        @media(max-width: 560px) {
+            .dash-grid { grid-template-columns: 1fr; }
         }
     </style>
-    <link rel="stylesheet" href="/css/common-layout.css">
 </head>
-
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-cart mr-2"></i>Ekart</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-               
-                <li class="nav-item">
-                    <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
 
-    <div class="container mt-4">
-        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}" role="alert">
-            <span th:text="${session.success}"></span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">Ã—</span>
-            </button>
-        </div>
-        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}" role="alert">
-            <span th:text="${session.failure}"></span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">Ã—</span>
-            </button>
-        </div>
-        <th:block th:text="${@messageRemover.remove()}"></th:block>
+<div class="bg-layer"></div>
 
-        <div class="content-section text-center">
-            <h1>Welcome to Customer Dashboard</h1>
-            <div class="d-flex flex-wrap justify-content-center">
-                <a href="/view-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Products</button></a>
-                <a href="/search-products"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>Search Products</button></a>
-                <a href="/view-cart"><button class="btn-custom"><i class="fas fa-tasks mr-2"></i>View Cart</button></a>
-                <a href="/track-orders"><button class="btn-custom"><i class="fas fa-truck mr-2"></i>Track Orders</button></a>
-                <a href="/order-history"><button class="btn-custom"><i class="fas fa-history mr-2"></i>Order History</button></a>
-                <a href="/view-orders"><button class="btn-custom"><i class="fas fa-box mr-2"></i>View Orders</button></a>
-           </div>
+<!-- Thymeleaf Alerts -->
+<div class="alert-stack">
+    <div class="alert alert-success" th:if="${session.success}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
+    <div class="nav-right">
+        <a href="/view-cart" class="nav-cart">
+            <i class="fas fa-shopping-cart"></i> Cart
+            <span class="cart-badge" th:if="${cartCount != null and cartCount > 0}" th:text="${cartCount}"></span>
+        </a>
+        <a href="/logout" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</nav>
+
+<!-- ── PAGE ── -->
+<main class="page">
+
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+        <div class="welcome-text">
+            <h1>Welcome to your <span>Dashboard</span> 👋</h1>
+            <p>Manage your orders, browse products, and track deliveries — all in one place.</p>
         </div>
+        <div class="welcome-icon">🛍️</div>
     </div>
 
-    <footer class="text-center text-lg-start mt-auto">
-        <div class="text-center p-3">
-            © 2026 Ekart. All rights reserved. | <i class="fas fa-heart text-danger"></i> Made with passion
-        </div>
-    </footer>
+    <!-- Dashboard Cards -->
+    <div class="dash-grid">
 
-    <!-- 🔥 PENDING CART POPUP MODAL -->
-    <div class="cart-popup-overlay" id="cartPopup" th:if="${cartCount != null and cartCount > 0}">
-        <div class="cart-popup-box">
-            <button class="cart-popup-close" onclick="dismissPopup()">&#x2715;</button>
-            <div class="cart-icon">🛒</div>
-            <h4>You left something behind!</h4>
-            <p>
-                You have <strong th:text="${cartCount}"></strong>
-                item<span th:if="${cartCount > 1}">s</span> waiting in your cart.<br>
-                Don't let them get away!
-            </p>
-            <a href="/view-cart" class="btn-checkout">
-                <i class="fas fa-shopping-cart mr-2"></i> View My Cart
-            </a>
-            <button class="btn-dismiss" onclick="dismissPopup()">No thanks, I'll shop later</button>
-        </div>
+        <a href="/view-products" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-th-large"></i></div>
+            <div class="dash-card-body">
+                <h3>View Products</h3>
+                <p>Browse our full catalogue of products from verified vendors.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/search-products" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-search"></i></div>
+            <div class="dash-card-body">
+                <h3>Search Products</h3>
+                <p>Find exactly what you're looking for with smart search.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/view-cart" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-shopping-cart"></i></div>
+            <div class="dash-card-body">
+                <h3>View Cart</h3>
+                <p>Review items in your cart and proceed to checkout.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/track-orders" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-truck"></i></div>
+            <div class="dash-card-body">
+                <h3>Track Orders</h3>
+                <p>Get live updates on the status and location of your orders.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/order-history" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-history"></i></div>
+            <div class="dash-card-body">
+                <h3>Order History</h3>
+                <p>View all your past purchases and download invoices.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/view-orders" class="dash-card">
+            <div class="dash-card-icon"><i class="fas fa-box-open"></i></div>
+            <div class="dash-card-body">
+                <h3>View Orders</h3>
+                <p>Check the details and status of your current active orders.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
     </div>
+</main>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script>
-        // Auto-dismiss alerts after 2 seconds
-        window.setTimeout(function() {
-            $(".alert").fadeTo(500, 0).slideUp(500, function(){
-                $(this).remove(); 
-            });
-        }, 2000);
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand">Ekart</div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
 
-        // 🔥 PENDING CART POPUP — show after 1.5s every time they visit with items in cart
-var popup = document.getElementById('cartPopup');
-if (popup) {
-    setTimeout(function() {
-        popup.classList.add('show');
-    }, 1500);
-}
+<!-- ── CART POPUP ── -->
+<div class="cart-popup-overlay" id="cartPopup" th:if="${cartCount != null and cartCount > 0}">
+    <div class="cart-popup-box">
+        <button class="popup-close" onclick="dismissPopup()">&#x2715;</button>
+        <div class="popup-cart-icon">🛒</div>
+        <h4>You left something behind!</h4>
+        <p>
+            You have <strong th:text="${cartCount}"></strong>
+            item<span th:if="${cartCount > 1}">s</span> waiting in your cart.<br>
+            Don't let them get away!
+        </p>
+        <a href="/view-cart" class="btn-popup-checkout">
+            <i class="fas fa-shopping-cart"></i> View My Cart
+        </a>
+        <button class="btn-popup-dismiss" onclick="dismissPopup()">No thanks, I'll shop later</button>
+    </div>
+</div>
 
-function dismissPopup() {
-    var popup = document.getElementById('cartPopup');
+<script>
+    // Nav shadow on scroll
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Cart popup
+    const popup = document.getElementById('cartPopup');
     if (popup) {
-        popup.classList.remove('show');
+        setTimeout(() => popup.classList.add('show'), 1500);
     }
-}
-    </script>
-</body>
+    function dismissPopup() {
+        const p = document.getElementById('cartPopup');
+        if (p) p.classList.remove('show');
+    }
 
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+</script>
+
+</body>
 </html>

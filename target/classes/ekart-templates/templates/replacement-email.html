@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+  .wrapper { max-width: 600px; margin: auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .header { background: #7c3aed; color: white; padding: 24px 30px; }
+  .header h1 { margin: 0; font-size: 24px; }
+  .header p { margin: 4px 0 0; opacity: 0.85; font-size: 14px; }
+  .body { padding: 30px; }
+  .info-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+  .info-box p { margin: 6px 0; font-size: 14px; color: #334155; }
+  .info-box strong { color: #1e293b; }
+  .steps { background: #fafafa; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+  .steps h4 { color: #7c3aed; margin-bottom: 12px; font-size: 15px; }
+  .step { display: flex; gap: 12px; margin-bottom: 10px; font-size: 13px; color: #334155; }
+  .step-num { background: #7c3aed; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { background: #7c3aed; color: white; padding: 10px 12px; text-align: left; font-size: 13px; }
+  td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155; }
+  tr:last-child td { border-bottom: none; }
+  .total-row td { font-weight: bold; background: #f5f3ff; color: #7c3aed; font-size: 14px; }
+  .footer { background: #f8fafc; text-align: center; padding: 16px; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+</style>
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1>🔄 Replacement Requested</h1>
+    <p>We've received your replacement request</p>
+  </div>
+  <div class="body">
+    <p>Hi <strong th:text="${name}">Customer</strong>,</p>
+    <p>Your replacement request has been submitted successfully. Our team will review it and get back to you within <strong>24–48 hours</strong>.</p>
+
+    <div class="info-box">
+      <p><strong>Order ID:</strong> #<span th:text="${orderId}"></span></p>
+      <p><strong>Order Amount:</strong> &#8377;<span th:text="${amount}"></span></p>
+      <p><strong>Status:</strong> <span style="color:#7c3aed; font-weight:700;">Replacement Under Review</span></p>
+    </div>
+
+    <div class="steps">
+      <h4>📦 What happens next?</h4>
+      <div class="step"><span class="step-num">1</span><span>Our team reviews your replacement request within 24 hours.</span></div>
+      <div class="step"><span class="step-num">2</span><span>You'll receive a confirmation call or email from us.</span></div>
+      <div class="step"><span class="step-num">3</span><span>A pickup of the original item will be scheduled at your address.</span></div>
+      <div class="step"><span class="step-num">4</span><span>Your replacement product will be dispatched within 2–3 business days.</span></div>
+    </div>
+
+    <h3 style="margin-bottom:8px; color:#1e293b;">📋 Items in this Order</h3>
+    <table>
+      <thead>
+        <tr><th>Product</th><th>Qty</th><th>Price</th></tr>
+      </thead>
+      <tbody>
+        <tr th:each="item : ${items}">
+          <td th:text="${item.name}">Product</td>
+          <td th:text="${item.quantity}">1</td>
+          <td>&#8377;<span th:text="${item.price}">0.0</span></td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="2">Order Total</td>
+          <td>&#8377;<span th:text="${amount}">0.0</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top:24px; color:#64748b; font-size:13px;">
+      If you have any questions, please reply to this email or contact our support team.
+    </p>
+    <p>Regards,<br><strong>Ekart Team</strong></p>
+  </div>
+  <div class="footer">&#169; Ekart. All rights reserved.</div>
+</div>
+</body>
+</html>

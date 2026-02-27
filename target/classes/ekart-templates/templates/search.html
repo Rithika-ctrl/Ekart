@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Products — Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-bag mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item"><a class="nav-link" href="/view-products"><i class="fas fa-box-open mr-1"></i>Products</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-cart"><i class="fas fa-shopping-cart mr-1"></i>Cart</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-orders"><i class="fas fa-box mr-1"></i>Orders</a></li>
+                <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}">
+            <i class="fas fa-check-circle"></i><span th:text="${session.success}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}">
+            <i class="fas fa-exclamation-circle"></i><span th:text="${session.failure}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+        <!-- Search bar -->
+        <div class="content-section animate-in mb-4" style="padding:1.5rem;">
+            <form action="/search-products" method="get">
+                <div class="input-group" style="border-radius:var(--r-pill);overflow:hidden;">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" style="border-radius:var(--r-pill) 0 0 var(--r-pill);padding:0 1.25rem;"><i class="fas fa-search"></i></span>
+                    </div>
+                    <input type="text" name="query" class="form-control" th:value="${query}" placeholder="Search for products, categories, brands..." style="border-radius:0;border-left:none;">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary" style="border-radius:0 var(--r-pill) var(--r-pill) 0;padding:0 1.5rem;">Search</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results -->
+        <div th:if="${products != null and !#lists.isEmpty(products)}">
+            <p style="color:var(--t2);font-size:0.88rem;margin-bottom:1.25rem;">
+                Found <strong style="color:var(--violet-lt);" th:text="${#lists.size(products)}"></strong> results for "<span th:text="${query}"></span>"
+            </p>
+            <div class="row">
+                <div class="col-md-4 mb-4 animate-in" th:each="p:${products}">
+                    <div class="card" style="padding:0;overflow:hidden;">
+                        <div style="position:relative;">
+                            <img class="card-image" th:src="${p.imageLink}" style="border-radius:0;margin:0;">
+                            <div style="position:absolute;bottom:10px;right:10px;background:rgba(5,7,15,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:4px 12px;">
+                                <span style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;color:var(--violet-lt);">₹<span th:text="${p.price}"></span></span>
+                            </div>
+                        </div>
+                        <div style="padding:1.25rem;">
+                            <h4 style="margin-bottom:0.25rem;font-size:1rem;" th:text="${p.name}"></h4>
+                            <p style="font-size:0.8rem;color:var(--t2);margin-bottom:0.75rem;" th:text="${p.description}"></p>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                                <span class="badge badge-info" th:text="${p.category}"></span>
+                                <span style="font-size:0.78rem;color:var(--t3);"><i class="fas fa-cubes mr-1"></i><span th:text="${p.stock}"></span></span>
+                            </div>
+                            <a th:href="'/add-cart/'+${p.id}" class="btn btn-primary btn-block btn-sm">
+                                <i class="fas fa-cart-plus mr-1"></i>Add to Cart
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${products == null or #lists.isEmpty(products)}" class="text-center py-5">
+            <div style="font-size:4rem;opacity:0.3;margin-bottom:1rem;">🔍</div>
+            <h4 style="color:var(--t2);" th:if="${query != null and !query.isEmpty()}">No results for "<span th:text="${query}"></span>"</h4>
+            <h4 style="color:var(--t2);" th:unless="${query != null and !query.isEmpty()}">Search for products above</h4>
+        </div>
+    </div>
+    <footer class="text-center mt-auto">
+        <div class="p-3">© 2026 Ekart. All rights reserved. &nbsp;|&nbsp; <i class="fas fa-heart text-danger"></i> Made with passion</div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>setTimeout(function(){$(".alert").fadeTo(400,0).slideUp(400,function(){$(this).remove();});},3500);</script>
+</body>
+</html>

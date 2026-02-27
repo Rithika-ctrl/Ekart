@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Registration — Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <a class="navbar-brand" href="/"><i class="fas fa-shopping-bag mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="fas fa-user-circle mr-1"></i> Account</a>
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <a class="dropdown-item" href="/customer/login"><i class="fas fa-user mr-2"></i>Customer Login</a>
+                        <a class="dropdown-item" href="/customer/register"><i class="fas fa-user-plus mr-2"></i>Customer Register</a>
+                        <div class="dropdown-divider" style="border-color:rgba(255,255,255,0.08)"></div>
+                        <a class="dropdown-item" href="/vendor/login"><i class="fas fa-store mr-2"></i>Vendor Login</a>
+                        <a class="dropdown-item" href="/vendor/register"><i class="fas fa-store mr-2"></i>Vendor Register</a>
+                        <div class="dropdown-divider" style="border-color:rgba(255,255,255,0.08)"></div>
+                        <a class="dropdown-item" href="/admin/login"><i class="fas fa-shield-alt mr-2"></i>Admin Login</a>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="form-container animate-in">
+            <div class="text-center mb-4">
+                <div class="page-icon-wrap rose"><i class="fas fa-store"></i></div>
+                <h2>Register Your Store</h2>
+                <p style="color:var(--t2);font-size:0.9rem;margin-top:0.4rem;">Join our marketplace and start selling to thousands of customers.</p>
+            </div>
+            <form action="/vendor/register" method="post" th:object="${vendor}">
+                <div class="form-group">
+                    <label><i class="fas fa-user mr-1"></i> Full Name</label>
+                    <input type="text" class="form-control" th:field="*{name}" name="name" placeholder="Your full name">
+                    <small class="text-danger" th:errors="*{name}"></small>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope mr-1"></i> Email Address</label>
+                    <input type="email" class="form-control" th:field="*{email}" name="email" placeholder="you@example.com">
+                    <small class="text-danger" th:errors="*{email}"></small>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-phone mr-1"></i> Mobile Number</label>
+                    <input type="tel" class="form-control" th:field="*{mobile}" name="mobile" placeholder="+91 XXXXX XXXXX">
+                    <small class="text-danger" th:errors="*{mobile}"></small>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-lock mr-1"></i> Password</label>
+                    <input type="password" class="form-control" th:field="*{password}" name="password" placeholder="Min 6 chars with A, a, 1, @" onkeyup="checkStrength(this.value)">
+                    <small class="text-danger" th:errors="*{password}"></small>
+                    <div class="progress mt-2" style="height:5px;">
+                        <div id="sbar" class="progress-bar" style="width:0%;transition:width 0.3s;"></div>
+                    </div>
+                    <small id="stxt" style="color:var(--t3);font-size:0.75rem;">Strength: None</small>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock mr-1"></i> Confirm Password</label>
+                    <input type="password" class="form-control" th:field="*{confirmPassword}" name="confirmPassword" placeholder="Repeat password">
+                    <small class="text-danger" th:errors="*{confirmPassword}"></small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-2">Register</button>
+            </form>
+            <p class="text-center mt-4" style="font-size:0.85rem;color:var(--t2);">Already registered? <a href="/vendor/login">Sign in</a></p>
+        </div>
+    </div>
+    <footer class="text-center mt-auto">
+        <div class="p-3">© 2026 Ekart. All rights reserved. &nbsp;|&nbsp; <i class="fas fa-heart text-danger"></i> Made with passion</div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        setTimeout(function(){ $(".alert").fadeTo(400,0).slideUp(400,function(){ $(this).remove(); }); }, 3500);
+    </script>
+    <script>
+    function checkStrength(p) {
+        var s=0, bar=document.getElementById('sbar'), txt=document.getElementById('stxt');
+        if(p.length>=6)s+=20; if(/[A-Z]/.test(p))s+=20; if(/[a-z]/.test(p))s+=20;
+        if(/[0-9]/.test(p))s+=20; if(/[@$!%*?&]/.test(p))s+=20;
+        bar.style.width=s+'%';
+        var map={0:['','None'],40:['bg-danger','Weak'],60:['bg-warning','Medium'],100:['bg-success','Strong ✓']};
+        var lvl=s<=20?0:s<=40?40:s<100?60:100;
+        bar.className='progress-bar '+map[lvl][0]; txt.textContent='Strength: '+map[lvl][1];
+    }
+    </script>
+</body>
+</html>

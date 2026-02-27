@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment — Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <a class="navbar-brand" href="/customer/home"><i class="fas fa-shopping-bag mr-2"></i>Ekart</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item"><a class="nav-link" href="/view-products"><i class="fas fa-box-open mr-1"></i>Products</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-cart"><i class="fas fa-shopping-cart mr-1"></i>Cart</a></li>
+                <li class="nav-item"><a class="nav-link" href="/view-orders"><i class="fas fa-box mr-1"></i>Orders</a></li>
+                <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}">
+            <i class="fas fa-check-circle"></i><span th:text="${session.success}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}">
+            <i class="fas fa-exclamation-circle"></i><span th:text="${session.failure}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+        <div class="row">
+            <div class="col-lg-7 mb-4">
+                <div class="content-section animate-in">
+                    <h2 class="mb-4"><i class="fas fa-credit-card mr-2" style="color:var(--violet-lt);"></i>Payment</h2>
+
+                    <!-- Order Summary top -->
+                    <div class="content-section mb-4" style="padding:1.25rem;border-radius:14px;">
+                        <div style="font-size:0.78rem;color:var(--t3);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.75rem;">Order Summary</div>
+                        <div th:each="item:${cartItems}" style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex;align-items:center;gap:0.75rem;">
+                                <img th:src="${item.product.imageLink}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">
+                                <span style="font-size:0.88rem;" th:text="${item.product.name}"></span>
+                            </div>
+                            <span style="font-weight:600;color:var(--violet-lt);">₹<span th:text="${item.product.price}"></span></span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.08);">
+                            <span style="font-weight:700;">Total</span>
+                            <span style="font-family:'Clash Display',sans-serif;font-size:1.2rem;font-weight:700;color:var(--violet-lt);">₹<span th:text="${totalPrice}"></span></span>
+                        </div>
+                    </div>
+
+                    <!-- Delivery address -->
+                    <div class="content-section mb-4" style="padding:1.25rem;border-radius:14px;">
+                        <div style="font-size:0.78rem;color:var(--t3);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.5rem;"><i class="fas fa-map-marker-alt mr-1"></i>Delivery Address</div>
+                        <p style="font-size:0.9rem;margin:0;" th:text="${address.street + ', ' + address.city + ', ' + address.state + ' - ' + address.pincode}"></p>
+                    </div>
+
+                    <!-- Payment methods -->
+                    <form action="/payment" method="post">
+                        <div style="font-size:0.78rem;color:var(--t3);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:1rem;">Payment Method</div>
+
+                        <label style="display:flex;align-items:center;gap:1rem;padding:1.1rem 1.25rem;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:14px;cursor:pointer;margin-bottom:0.75rem;transition:all 0.2s;text-transform:none;letter-spacing:0;">
+                            <input type="radio" name="paymentMethod" value="COD" checked style="accent-color:var(--violet);width:18px;height:18px;">
+                            <div>
+                                <div style="font-weight:600;color:var(--t1);font-size:0.95rem;">💵 Cash on Delivery</div>
+                                <div style="font-size:0.78rem;color:var(--t3);">Pay when you receive the order</div>
+                            </div>
+                        </label>
+
+                        <label style="display:flex;align-items:center;gap:1rem;padding:1.1rem 1.25rem;background:rgba(29,78,216,0.08);border:1px solid rgba(29,78,216,0.25);border-radius:14px;cursor:pointer;margin-bottom:1.5rem;transition:all 0.2s;text-transform:none;letter-spacing:0;">
+                            <input type="radio" name="paymentMethod" value="ONLINE" style="accent-color:var(--sapphire);width:18px;height:18px;">
+                            <div>
+                                <div style="font-weight:600;color:var(--t1);font-size:0.95rem;">💳 Online Payment</div>
+                                <div style="font-size:0.78rem;color:var(--t3);">Razorpay — Cards, UPI, NetBanking</div>
+                            </div>
+                        </label>
+
+                        <button type="submit" class="btn btn-primary btn-block btn-lg">
+                            <i class="fas fa-lock mr-2"></i>Place Order Securely
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-5 mb-4">
+                <div class="content-section" style="position:sticky;top:80px;padding:1.5rem;">
+                    <div style="font-size:0.78rem;color:var(--t3);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:1rem;">Why shop with Ekart?</div>
+                    <div style="display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:1rem;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(13,148,136,0.15);border:1px solid rgba(13,148,136,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--teal-lt);"><i class="fas fa-truck"></i></div>
+                        <div><div style="font-weight:600;font-size:0.9rem;">Fast Delivery</div><div style="font-size:0.78rem;color:var(--t3);">Free delivery on orders over ₹500</div></div>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:1rem;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--violet-lt);"><i class="fas fa-shield-alt"></i></div>
+                        <div><div style="font-weight:600;font-size:0.9rem;">Secure Payment</div><div style="font-size:0.78rem;color:var(--t3);">256-bit AES encryption</div></div>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(217,119,6,0.15);border:1px solid rgba(217,119,6,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--amber-lt);"><i class="fas fa-undo"></i></div>
+                        <div><div style="font-weight:600;font-size:0.9rem;">7-Day Returns</div><div style="font-size:0.78rem;color:var(--t3);">Hassle-free replacement policy</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="text-center mt-auto">
+        <div class="p-3">© 2026 Ekart. All rights reserved. &nbsp;|&nbsp; <i class="fas fa-heart text-danger"></i> Made with passion</div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>setTimeout(function(){$(".alert").fadeTo(400,0).slideUp(400,function(){$(this).remove();});},3500);</script>
+</body>
+</html>

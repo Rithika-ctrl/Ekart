@@ -1,92 +1,191 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
-    <title>Ekart - Shipping Address</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping — Ekart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
     <style>
-        body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .address-card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
-        .btn-confirm { background: #007bff; color: white; border-radius: 10px; padding: 12px; width: 100%; font-weight: bold; border: none; width: 100%; }
-        .address-item { transition: transform 0.2s; }
-        .address-item:hover { transform: scale(1.02); }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            /* REFINED PALETTE: Deep colors, no black, not "too bright" */
+            --bg-deep: #13162b; /* Deep Navy Charcoal */
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --input-bg: rgba(30, 35, 60, 0.6);
+            --accent-violet: #a78bfa;
+            --accent-mint: #34d399;
+            --text-main: #f1f5f9;
+            --text-muted: rgba(241, 245, 249, 0.55);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            background: var(--bg-deep);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ── REFINED BACKGROUND ORBS ── */
+        .bg-canvas { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+        .bg-canvas::before {
+            content: ''; position: absolute; width: 700px; height: 700px;
+            background: radial-gradient(circle, rgba(167, 139, 250, 0.12) 0%, transparent 70%);
+            top: -150px; left: -150px; animation: drift 18s infinite alternate;
+        }
+        .grid-overlay {
+            position: fixed; inset: 0; z-index: 0;
+            background-image: linear-gradient(rgba(167, 139, 250, 0.03) 1px, transparent 1px), 
+                              linear-gradient(90deg, rgba(167, 139, 250, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        @keyframes drift { from { transform: translate(0,0); } to { transform: translate(80px, 80px); } }
+
+        /* ── PAGE CONTENT ── */
+        .page-wrapper { position: relative; z-index: 1; flex: 1; padding: 5rem 1.5rem; display: flex; align-items: center; justify-content: center; }
+
+        .address-panel {
+            width: 100%; max-width: 520px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 3rem;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+            animation: fadeInUp 0.8s ease both;
+        }
+
+        h3 { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; margin-bottom: 2.5rem; text-align: center; color: #fff; }
+
+        /* ── SAVED ADDRESSES ── */
+        .address-item {
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 1.5rem;
+            margin-bottom: 1.2rem;
+            transition: all 0.3s ease;
+        }
+        .address-item:hover { border-color: var(--accent-violet); transform: translateY(-4px); background: rgba(167, 139, 250, 0.05); }
+        .address-text { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.2rem; }
+
+        .btn-use {
+            background: var(--accent-violet); color: #fff; border: none; padding: 0.5rem 1.2rem;
+            border-radius: 50px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            text-decoration: none; transition: 0.3s;
+        }
+        .btn-use:hover { background: #8b5cf6; box-shadow: 0 8px 20px rgba(167, 139, 250, 0.3); }
+
+        .btn-delete { color: #f87171; font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: 0.2s; }
+        .btn-delete:hover { color: #fca5a5; opacity: 0.8; }
+
+        /* ── FORM ELEMENTS ── */
+        .label-heading { font-size: 0.75rem; font-weight: 700; color: var(--accent-violet); letter-spacing: 0.12em; margin-bottom: 1rem; display: block; }
+        
+        .textarea-glass {
+            width: 100%; background: var(--input-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 1.2rem; color: #fff; font-family: inherit; font-size: 0.95rem;
+            resize: none; transition: 0.3s;
+        }
+        .textarea-glass::placeholder { color: var(--text-muted); }
+        .textarea-glass:focus { outline: none; border-color: var(--accent-violet); background: rgba(167, 139, 250, 0.1); }
+
+        .btn-geo {
+            background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);
+            color: var(--accent-mint); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.7rem;
+            font-weight: 700; cursor: pointer; transition: 0.3s; margin-bottom: 0.8rem;
+        }
+        .btn-geo:hover { background: rgba(52, 211, 153, 0.2); transform: scale(1.05); }
+
+        .btn-confirm {
+            width: 100%; padding: 1.1rem; margin-top: 1.5rem; border-radius: 14px; border: none;
+            background: linear-gradient(135deg, #a78bfa, #f472b6);
+            color: white; font-weight: 700; font-family: 'Syne', sans-serif;
+            text-transform: uppercase; cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(167, 139, 250, 0.25);
+        }
+        .btn-confirm:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(167, 139, 250, 0.4); }
+
+        .back-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; margin-top: 2rem; }
+        .back-link:hover { color: #fff; }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
+
 <body>
+    <div class="bg-canvas"></div>
+    <div class="grid-overlay"></div>
 
-<div class="address-card">
-    <h3 class="font-weight-bold mb-4">Shipping Details</h3>
-    
-    <div th:each="addr : ${customer.addresses}" class="address-item border p-3 mb-3 text-left rounded shadow-sm">
-        <p class="mb-2" th:text="${addr.details}"></p>
-        <div class="d-flex justify-content-between align-items-center">
-            <a href="/payment" class="btn btn-sm btn-primary">Use This Address</a>
-            <a th:href="'/customer/delete-address/' + ${addr.id}" 
-               class="text-danger small" 
-               onclick="return confirm('Are you sure you want to delete this address?')">Delete</a>
-        </div>
-    </div>
-
-    <hr th:if="${!customer.addresses.isEmpty()}">
-
-    <form action="/customer/save-address" method="post" class="text-left">
-        <div class="text-right mb-2">
-            <button type="button" class="btn btn-sm btn-outline-info" onclick="getLocation()">
-                <i class="fas fa-map-marker-alt"></i> Use Current Location
-            </button>
-        </div>
-        <div class="form-group">
-            <label class="font-weight-bold small text-muted">ADD NEW ADDRESS</label>
-            <textarea id="addressTextarea" name="address" class="form-control" rows="4" required placeholder="Enter full address details..."></textarea>
-        </div>
-        <button type="submit" class="btn-confirm mt-3">Save & Proceed</button>
-    </form>
-
-    <div class="mt-4">
-        <a href="/view-cart" class="text-muted small">
-            <i class="fas fa-arrow-left"></i> < Back to Cart
-        </a>
-    </div>
-</div>
-
-<script>
-    function getLocation() {
-        const textarea = document.getElementById("addressTextarea");
-        if (navigator.geolocation) {
-            textarea.value = "Locating..."; 
+    <div class="page-wrapper">
+        <div class="address-panel">
+            <h3>Shipping Details</h3>
             
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
+            <div th:each="addr : ${customer.addresses}" class="address-item">
+                <p class="address-text" th:text="${addr.details}"></p>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <a href="/payment" class="btn-use">Use This Address</a>
+                    <a th:href="'/customer/delete-address/' + ${addr.id}" 
+                       class="btn-delete" 
+                       onclick="return confirm('Delete this address?')">
+                       <i class="fa-solid fa-trash-can"></i> Delete
+                    </a>
+                </div>
+            </div>
 
-                    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, {
-                        headers: {
-                            'User-Agent': 'Ekart-App-Rithika-v1' 
-                        }
-                    })
-                    .then(response => {
-                        if (!response.ok) throw new Error("API Limit reached");
-                        return response.json();
-                    })
-                    .then(data => {
-                        textarea.value = data.display_name;
-                    })
-                    .catch(err => {
-                        textarea.value = "";
-                        alert("The address server is busy. Please type manually or try again in a few seconds.");
-                    });
-                }, // End of success callback
-                (error) => { // Optional error callback
-                    textarea.value = "";
-                    alert("Location access denied or unavailable.");
-                }
-            ); // This closing parenthesis was missing
-        } else {
-            alert("Geolocation is not supported by this browser.");
+            <hr style="border: none; border-top: 1px solid var(--glass-border); margin: 2rem 0;" th:if="${!customer.addresses.isEmpty()}">
+
+            <form action="/customer/save-address" method="post">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="label-heading">DELIVERY DESTINATION</span>
+                    <button type="button" class="btn-geo" onclick="getLocation()">
+                        <i class="fa-solid fa-location-crosshairs"></i> Auto-Detect
+                    </button>
+                </div>
+                
+                <textarea id="addressTextarea" name="address" class="textarea-glass" rows="4" required placeholder="Enter your full street address..."></textarea>
+                
+                <button type="submit" class="btn-confirm">
+                    Continue to Payment <i class="fa-solid fa-chevron-right" style="margin-left: 8px; font-size: 0.8rem;"></i>
+                </button>
+            </form>
+
+            <a href="/view-cart" class="back-link">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Cart
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function getLocation() {
+            const textarea = document.getElementById("addressTextarea");
+            if (navigator.geolocation) {
+                textarea.value = "Detecting location..."; 
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`, {
+                            headers: { 'User-Agent': 'Ekart-App-Rithika-v2' }
+                        })
+                        .then(res => res.json())
+                        .then(data => { textarea.value = data.display_name; })
+                        .catch(() => { textarea.value = ""; alert("Address server busy. Please type manually."); });
+                    },
+                    () => { textarea.value = ""; alert("Location access denied."); }
+                );
+            } else { alert("Geolocation not supported."); }
         }
-    } // This closing brace was missing
-</script>
+    </script>
 </body>
 </html>

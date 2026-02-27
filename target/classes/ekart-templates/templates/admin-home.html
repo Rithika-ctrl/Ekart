@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — Ekart</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="/css/ekart-glass.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <a class="navbar-brand" href="/admin/home"><i class="fas fa-shield-alt mr-2"></i>Ekart Admin</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item"><a class="nav-link" href="/admin/view-products"><i class="fas fa-boxes mr-1"></i>Products</a></li>
+                <li class="nav-item"><a class="nav-link" href="/admin/view-users"><i class="fas fa-users mr-1"></i>Users</a></li>
+                <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="alert alert-success alert-dismissible fade show" th:if="${session.success}">
+            <i class="fas fa-check-circle"></i><span th:text="${session.success}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show" th:if="${session.failure}">
+            <i class="fas fa-exclamation-circle"></i><span th:text="${session.failure}"></span>
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+        <th:block th:text="${@messageRemover.remove()}"></th:block>
+        <div class="content-section animate-in mb-4" style="padding:2rem;">
+            <h2 class="mb-1"><i class="fas fa-shield-alt mr-2" style="color:var(--teal-lt);"></i>Admin Dashboard</h2>
+            <p style="font-size:0.9rem;">Manage the entire Ekart platform from here.</p>
+        </div>
+        <div class="row stagger">
+            <div class="col-6 col-md-4 mb-4">
+                <a class="qa-card" href="/admin/view-products">
+                    <div class="qa-icon" style="background:rgba(13,148,136,0.15);color:var(--teal-lt);"><i class="fas fa-boxes"></i></div>
+                    <div class="qa-label">All Products</div>
+                    <div class="qa-sub">Review & approve</div>
+                </a>
+            </div>
+            <div class="col-6 col-md-4 mb-4">
+                <a class="qa-card" href="/admin/view-users">
+                    <div class="qa-icon" style="background:rgba(124,58,237,0.15);color:var(--violet-lt);"><i class="fas fa-users"></i></div>
+                    <div class="qa-label">All Users</div>
+                    <div class="qa-sub">Customers & vendors</div>
+                </a>
+            </div>
+            <div class="col-6 col-md-4 mb-4">
+                <a class="qa-card" href="/admin/user-search">
+                    <div class="qa-icon" style="background:rgba(29,78,216,0.15);color:var(--sapphire-lt);"><i class="fas fa-user-search"></i></div>
+                    <div class="qa-label">Search Users</div>
+                    <div class="qa-sub">Find any account</div>
+                </a>
+            </div>
+        </div>
+    </div>
+    <footer class="text-center mt-auto">
+        <div class="p-3">© 2026 Ekart. All rights reserved. &nbsp;|&nbsp; <i class="fas fa-heart text-danger"></i> Made with passion</div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        setTimeout(function(){ $(".alert").fadeTo(400,0).slideUp(400,function(){ $(this).remove(); }); }, 3500);
+    </script>
+</body>
+</html>
