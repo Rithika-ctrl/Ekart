@@ -4,192 +4,563 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order History - Ekart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="/css/common-layout.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; }
-        .container { max-width: 1000px; margin: 2rem auto; }
-        h2 { font-weight: 700; color: #1e293b; }
-
-        .history-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
-            padding: 1.4rem 1.6rem;
-            margin-bottom: 1.2rem;
-            border-left: 5px solid #4a90e2;
-            transition: transform 0.2s;
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255,255,255,0.22);
+            --glass-card:   rgba(255,255,255,0.13);
+            --glass-nav:    rgba(0,0,0,0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
         }
-        .history-card:hover { transform: translateY(-2px); }
 
-        .order-meta {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
             display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-bottom: 0.8rem;
+            flex-direction: column;
         }
-        .order-id { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
-        .order-date { color: #64748b; font-size: 0.9rem; }
 
-        .detail-row { margin: 0.3rem 0; font-size: 0.95rem; color: #334155; }
-        .detail-row strong { color: #1e3a8a; }
+        /* blurred bg */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg,
+                rgba(5,8,20,0.82) 0%,
+                rgba(8,12,28,0.78) 40%,
+                rgba(5,8,20,0.88) 100%);
+        }
 
-        .item-chip {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
+        /* ── NAVBAR ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); text-decoration: none; }
+        .nav-link-btn.active { color: var(--yellow); border-color: rgba(245,168,0,0.4); background: rgba(245,168,0,0.08); }
+
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); text-decoration: none; }
+
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .ek-alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .ek-alert-success { border-color: rgba(245,168,0,0.4); color: var(--yellow); }
+        .ek-alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 1.5rem;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
             border-radius: 20px;
-            background: #eef2ff;
-            color: #1e3a8a;
-            margin: 0.2rem;
-            font-size: 0.82rem;
-            font-weight: 600;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 820px;
+            animation: fadeUp 0.5s ease both;
+            position: relative; overflow: hidden;
+        }
+        .page-header::before {
+            content: '';
+            position: absolute; top: -50px; right: -50px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, rgba(245,168,0,0.1), transparent 70%);
+            border-radius: 50%;
+        }
+        .page-header-left h1 {
+            font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem;
+        }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.12);
+            border: 2px solid rgba(245,168,0,0.28);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
         }
 
-        .amount-badge {
-            background: #dcfce7;
-            color: #166534;
-            font-weight: 700;
-            padding: 0.3rem 0.9rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-        }
-
-        .delivery-badge {
-            background: #fef3c7;
-            color: #92400e;
-            font-size: 0.82rem;
-            padding: 0.25rem 0.8rem;
-            border-radius: 20px;
-            font-weight: 600;
-        }
-
-        .status-placed {
-            background: #d1fae5;
-            color: #065f46;
-            font-size: 0.82rem;
-            font-weight: 700;
-            padding: 0.25rem 0.8rem;
-            border-radius: 20px;
-        }
-
-        .empty-box {
-            text-align: center;
-            background: white;
-            padding: 3rem 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
-        }
-
+        /* ── SUMMARY BAR ── */
         .summary-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.07);
-            display: flex;
-            gap: 2rem;
-            flex-wrap: wrap;
-            align-items: center;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%; max-width: 820px;
+            animation: fadeUp 0.5s ease 0.05s both;
         }
-        .summary-stat { text-align: center; }
-        .summary-stat .num { font-size: 1.6rem; font-weight: 800; color: #1e3a8a; }
-        .summary-stat .label { font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        @media(max-width:500px) { .summary-bar { grid-template-columns: 1fr 1fr; } }
+
+        .summary-stat {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            position: relative; overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .summary-stat::after {
+            content: '';
+            position: absolute; top: -24px; right: -24px;
+            width: 80px; height: 80px;
+            background: radial-gradient(circle, rgba(245,168,0,0.1), transparent 70%);
+            border-radius: 50%;
+        }
+        .summary-stat:hover { border-color: rgba(245,168,0,0.35); transform: translateY(-2px); }
+        .summary-num {
+            font-size: 26px; font-weight: 800;
+            color: var(--yellow); line-height: 1.1;
+        }
+        .summary-label {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-dim); margin-top: 4px;
+        }
+
+        /* ── SECTION TITLE ── */
+        .section-title {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow);
+            width: 100%; max-width: 820px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── ORDER CARD ── */
+        .order-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 22px 26px;
+            width: 100%; max-width: 820px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            transition: border-color 0.25s, transform 0.25s;
+            animation: fadeUp 0.5s ease both;
+        }
+        .order-card::before {
+            content: '';
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, var(--yellow), rgba(245,168,0,0.2));
+            border-radius: 3px 0 0 3px;
+        }
+        .order-card:hover {
+            border-color: rgba(245,168,0,0.35);
+            transform: translateY(-2px);
+        }
+
+        /* card top */
+        .card-top {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; flex-wrap: wrap;
+            gap: 8px; margin-bottom: 14px;
+        }
+        .order-id {
+            font-size: 15px; font-weight: 700;
+            color: var(--text-white);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .id-chip {
+            background: rgba(245,168,0,0.12);
+            border: 1px solid rgba(245,168,0,0.28);
+            color: var(--yellow);
+            font-size: 11px; font-weight: 700;
+            padding: 3px 10px; border-radius: 50px;
+        }
+        .order-date {
+            font-size: 12px; color: var(--text-dim);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        /* badges */
+        .badge-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 50px;
+            font-size: 11px; font-weight: 700;
+            border: 1px solid;
+        }
+        /* only gold and white — no other colours */
+        .badge-placed {
+            background: rgba(245,168,0,0.1);
+            border-color: rgba(245,168,0,0.28);
+            color: var(--yellow);
+        }
+        .badge-amount {
+            background: rgba(255,255,255,0.07);
+            border-color: var(--glass-border);
+            color: var(--text-light);
+            font-size: 12px;
+        }
+        .badge-delivery {
+            background: rgba(255,255,255,0.06);
+            border-color: var(--glass-border);
+            color: var(--text-dim);
+        }
+        .badge-free {
+            background: rgba(245,168,0,0.08);
+            border-color: rgba(245,168,0,0.22);
+            color: var(--yellow);
+        }
+        .badge-cod {
+            background: rgba(245,168,0,0.08);
+            border-color: rgba(245,168,0,0.22);
+            color: var(--yellow);
+        }
+
+        /* divider */
+        .card-divider { height: 1px; background: var(--glass-border); margin: 14px 0; }
+
+        /* detail rows */
+        .detail-row {
+            display: flex; align-items: baseline; gap: 10px;
+            font-size: 13px; color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+        .detail-row:last-child { margin-bottom: 0; }
+        .detail-key {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.28);
+            min-width: 62px; flex-shrink: 0;
+        }
+
+        /* item chips */
+        .item-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .item-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 3px 10px; border-radius: 50px;
+            font-size: 11.5px; font-weight: 500;
+        }
+
+        /* payment code */
+        .pay-code {
+            font-family: 'Courier New', monospace; font-size: 11.5px;
+            color: var(--yellow);
+            background: rgba(245,168,0,0.08);
+            border: 1px solid rgba(245,168,0,0.2);
+            padding: 2px 8px; border-radius: 6px;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 52px 32px; text-align: center;
+            width: 100%; max-width: 820px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            animation: fadeUp 0.5s ease both;
+        }
+        .empty-icon {
+            width: 72px; height: 72px;
+            background: rgba(245,168,0,0.1);
+            border: 2px solid rgba(245,168,0,0.25);
+            border-radius: 18px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 28px; color: var(--yellow);
+            margin-bottom: 18px;
+        }
+        .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text-white); margin-bottom: 8px; }
+        .empty-state p  { font-size: 13.5px; color: var(--text-dim); margin-bottom: 22px; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 11px 22px; border-radius: 12px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px; font-weight: 700;
+            text-decoration: none; transition: all 0.25s;
+            border: none; cursor: pointer; letter-spacing: 0.03em;
+        }
+        .btn-primary {
+            background: var(--yellow); color: #1a1000;
+            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
+        }
+        .btn-primary:hover {
+            background: var(--yellow-d); transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(245,168,0,0.42);
+            color: #1a1000; text-decoration: none;
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.11);
+            border-color: rgba(255,255,255,0.35);
+            color: var(--text-white); text-decoration: none;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: var(--text-white); }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
+
+        @media(max-width:700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #4a90e2, #2c5282); padding: 1rem 2rem;">
-        <a class="navbar-brand" href="/customer/home" style="color:white; font-size:1.5rem; font-weight:800; text-transform:uppercase; letter-spacing:1px;">
-            <i class="fas fa-shopping-cart mr-2"></i>Ekart
-        </a>
-    </nav>
 
-    <div class="container mt-4">
-        <h2 class="mb-1"><i class="fas fa-history mr-2 text-primary"></i>Order History</h2>
-        <p class="text-muted mb-4">A complete record of all your past purchases</p>
+<div class="bg-layer"></div>
 
-        <div th:if="${session.success}" class="alert alert-success" th:text="${session.success}"></div>
-        <div th:if="${session.failure}" class="alert alert-danger" th:text="${session.failure}"></div>
-        <th:block th:text="${@messageRemover.remove()}"></th:block>
+<!-- ── ALERTS ── -->
+<div class="alert-stack">
+    <div class="ek-alert ek-alert-success" th:if="${session.success != null}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="ek-alert ek-alert-danger" th:if="${session.failure != null}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
 
-        <!-- Summary Bar -->
-        <div class="summary-bar" th:if="${orders != null and !orders.isEmpty()}">
-            <div class="summary-stat">
-                <div class="num" th:text="${orders.size()}">0</div>
-                <div class="label">Total Orders</div>
-            </div>
-            <div class="summary-stat">
-                <div class="num" th:text="'Rs. ' + ${#aggregates.sum(orders.![amount])}">0</div>
-                <div class="label">Total Spent</div>
-            </div>
-            <div class="summary-stat">
-                <div class="num" th:text="${#aggregates.sum(orders.![items.size()])}">0</div>
-                <div class="label">Total Items</div>
-            </div>
+<!-- ── NAVBAR ── -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        <span>Ekart</span>
+    </a>
+    <div class="nav-right">
+        <a href="/customer/view-products" class="nav-link-btn"><i class="fas fa-store"></i> Shop</a>
+        <a href="/customer/view-cart"     class="nav-link-btn"><i class="fas fa-shopping-cart"></i> Cart</a>
+        <a href="/customer/order-history" class="nav-link-btn active"><i class="fas fa-history"></i> Orders</a>
+        <a href="/customer/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</nav>
+
+<!-- ── PAGE ── -->
+<main class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Order <span>History</span> 📦</h1>
+            <p>A complete record of all your past purchases.</p>
         </div>
+        <div class="page-header-icon">🧾</div>
+    </div>
 
-        <!-- Order Cards -->
-        <div th:if="${orders != null and !orders.isEmpty()}">
-            <div class="history-card" th:each="o : ${orders}">
-                <div class="order-meta">
-                    <div class="order-id">
-                        <i class="fas fa-receipt mr-1 text-primary"></i> Order #<span th:text="${o.id}"></span>
-                    </div>
-                    <div class="order-date">
-                        <i class="fas fa-calendar-alt mr-1"></i>
-                        <span th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
-                        <span th:unless="${o.orderDate != null}" class="text-muted">Date not available</span>
-                    </div>
-                </div>
-
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="gap:0.5rem;">
-                    <span class="status-placed"><i class="fas fa-check-circle mr-1"></i>Placed</span>
-                    <span class="amount-badge">Rs. <span th:text="${o.amount}"></span></span>
-                    <span class="delivery-badge" th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
-                        <i class="fas fa-clock mr-1"></i><span th:text="${o.deliveryTime}"></span>
-                    </span>
-                </div>
-
-                <div class="detail-row" th:if="${o.totalPrice > 0}">
-                    <strong>Subtotal:</strong> Rs. <span th:text="${o.totalPrice}"></span>
-                    <span th:if="${o.deliveryCharge > 0}" class="text-muted ml-2">
-                        + Rs. <span th:text="${o.deliveryCharge}"></span> delivery
-                    </span>
-                    <span th:if="${o.deliveryCharge == 0}" class="text-success ml-2 font-weight-bold">
-                        <i class="fas fa-gift mr-1"></i>Free Delivery
-                    </span>
-                </div>
-
-                <div class="detail-row" th:if="${o.items != null and !o.items.isEmpty()}">
-                    <strong>Items:</strong>
-                    <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' × ' + ${it.quantity}"></span>
-                </div>
-
-                <div class="detail-row" th:if="${o.razorpay_payment_id != null and o.razorpay_payment_id != 'COD_NA' and !#strings.isEmpty(o.razorpay_payment_id)}">
-                    <strong>Payment ID:</strong>
-                    <code style="font-size:0.8rem;" th:text="${o.razorpay_payment_id}"></code>
-                </div>
-                <div class="detail-row" th:if="${o.razorpay_payment_id == 'COD_NA'}">
-                    <strong>Payment:</strong> <span class="text-warning font-weight-bold">Cash on Delivery</span>
-                </div>
-            </div>
+    <!-- Summary Bar -->
+    <div class="summary-bar" th:if="${orders != null and !orders.isEmpty()}">
+        <div class="summary-stat">
+            <div class="summary-num" th:text="${orders.size()}">0</div>
+            <div class="summary-label">Total Orders</div>
         </div>
-
-        <!-- Empty State -->
-        <div class="empty-box" th:if="${orders == null or orders.isEmpty()}">
-            <i class="fas fa-history fa-3x text-muted mb-3"></i>
-            <h4>No Order History</h4>
-            <p class="text-muted">Your completed orders will appear here once you start shopping.</p>
-            <a href="/view-products" class="btn btn-primary mt-2">Browse Products</a>
+        <div class="summary-stat">
+            <div class="summary-num" th:text="'₹' + ${#aggregates.sum(orders.![amount])}">₹0</div>
+            <div class="summary-label">Total Spent</div>
         </div>
-
-        <div class="mt-4 text-center">
-            <a href="/customer/home" class="btn btn-outline-primary"><i class="fas fa-arrow-left mr-2"></i>Back to Home</a>
+        <div class="summary-stat">
+            <div class="summary-num" th:text="${#aggregates.sum(orders.![items.size()])}">0</div>
+            <div class="summary-label">Items Bought</div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Section label -->
+    <div class="section-title" th:if="${orders != null and !orders.isEmpty()}">
+        <i class="fas fa-truck"></i> Your Orders
+    </div>
+
+    <!-- ── ORDER CARDS ── -->
+    <th:block th:if="${orders != null and !orders.isEmpty()}">
+        <div class="order-card" th:each="o : ${orders}">
+
+            <div class="card-top">
+                <div class="order-id">
+                    <i class="fas fa-receipt" style="color:var(--yellow);font-size:14px;"></i>
+                    Order <span class="id-chip">#<span th:text="${o.id}"></span></span>
+                </div>
+                <div class="order-date">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span th:if="${o.orderDate != null}"
+                          th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
+                    <span th:unless="${o.orderDate != null}">Date unavailable</span>
+                </div>
+            </div>
+
+            <div class="badge-row">
+                <span class="badge badge-placed"><i class="fas fa-check-circle"></i> Placed</span>
+                <span class="badge badge-amount">₹<span th:text="${o.amount}"></span></span>
+                <span class="badge badge-delivery"
+                      th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                    <i class="fas fa-clock"></i><span th:text="${o.deliveryTime}"></span>
+                </span>
+                <span class="badge badge-free" th:if="${o.deliveryCharge == 0}">
+                    <i class="fas fa-gift"></i> Free Delivery
+                </span>
+            </div>
+
+            <div class="card-divider"></div>
+
+            <div class="detail-row" th:if="${o.totalPrice > 0}">
+                <span class="detail-key">Subtotal</span>
+                <span>
+                    ₹<span th:text="${o.totalPrice}"></span>
+                    <span th:if="${o.deliveryCharge > 0}"
+                          style="color:rgba(255,255,255,0.28); margin-left:6px;">
+                        + ₹<span th:text="${o.deliveryCharge}"></span> delivery
+                    </span>
+                </span>
+            </div>
+
+            <div class="detail-row" th:if="${o.items != null and !o.items.isEmpty()}">
+                <span class="detail-key">Items</span>
+                <div class="item-chips">
+                    <span class="item-chip" th:each="it : ${o.items}">
+                        <i class="fas fa-box" style="font-size:9px;opacity:0.45;"></i>
+                        <span th:text="${it.name} + ' × ' + ${it.quantity}"></span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="detail-row"
+                 th:if="${o.razorpay_payment_id != null and o.razorpay_payment_id != 'COD_NA' and !#strings.isEmpty(o.razorpay_payment_id)}">
+                <span class="detail-key">Pay ID</span>
+                <span class="pay-code" th:text="${o.razorpay_payment_id}"></span>
+            </div>
+            <div class="detail-row" th:if="${o.razorpay_payment_id == 'COD_NA'}">
+                <span class="detail-key">Payment</span>
+                <span class="badge badge-cod"><i class="fas fa-money-bill-wave"></i> Cash on Delivery</span>
+            </div>
+
+        </div>
+    </th:block>
+
+    <!-- Empty State -->
+    <div class="empty-state" th:if="${orders == null or orders.isEmpty()}">
+        <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+        <h3>No Orders Yet</h3>
+        <p>Your past purchases will show up here once you start shopping.</p>
+        <a href="/customer/view-products" class="btn btn-primary">
+            <i class="fas fa-store"></i> Browse Products
+        </a>
+    </div>
+
+    <!-- Back -->
+    <a href="/customer/home" class="btn btn-ghost">
+        <i class="fas fa-arrow-left"></i> Back to Home
+    </a>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<script>
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .ek-alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+</script>
 </body>
 </html>
