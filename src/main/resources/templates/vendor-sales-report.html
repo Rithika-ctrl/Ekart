@@ -3,128 +3,378 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Report - Ekart</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Ekart - Sales Report</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <link rel="stylesheet" href="/css/common-layout.css">
     <style>
-        body { background: #f8fafc; font-family: 'Poppins', sans-serif; }
-        .page-header { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; padding: 2rem; border-radius: 0 0 20px 20px; margin-bottom: 2rem; }
-        .stat-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); border-left: 5px solid; transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-4px); }
-        .stat-card.blue  { border-color: #2563eb; }
-        .stat-card.green { border-color: #10b981; }
-        .stat-card.orange{ border-color: #f59e0b; }
-        .stat-card.purple{ border-color: #7c3aed; }
-        .stat-val { font-size: 1.9rem; font-weight: 800; color: #1e293b; }
-        .stat-label { font-size: 0.82rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .chart-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
-        .tab-btn { border: 2px solid #e2e8f0; border-radius: 8px; padding: 8px 20px; background: white; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; color: #64748b; }
-        .tab-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
-        .table-card { background: white; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
-        .table thead th { background: #f1f5f9; font-size: 0.82rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border: none; padding: 14px 16px; }
-        .table tbody td { padding: 14px 16px; vertical-align: middle; border-color: #f1f5f9; font-size: 0.9rem; }
-        .badge-revenue { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.82rem; }
-        .period-highlight { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: 10px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid #bfdbfe; }
-        .empty-chart { text-align: center; padding: 3rem; color: #94a3b8; }
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-card-s: rgba(255, 255, 255, 0.08);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex; flex-direction: column;
+        }
+
+        /* ── Background ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px); transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── Navbar ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── Page ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 1.75rem;
+        }
+        .inner { width: 100%; max-width: 1100px; display: flex; flex-direction: column; gap: 1.75rem; }
+
+        /* ── Page Header ── */
+        .page-header {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem;
+            animation: fadeUp 0.45s ease both;
+        }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+
+        /* ── Section Label ── */
+        .section-label {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow); margin-bottom: 1.25rem;
+        }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── Tab Buttons ── */
+        .tab-row {
+            display: flex; gap: 0.6rem; flex-wrap: wrap;
+            animation: fadeUp 0.45s ease 0.05s both;
+        }
+        .tab-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            padding: 0.55rem 1.25rem; border-radius: 10px; cursor: pointer;
+            font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-card-s);
+            color: var(--text-dim);
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--text-light); background: rgba(255,255,255,0.12); }
+        .tab-btn.active {
+            background: var(--yellow); color: #1a1000;
+            border-color: var(--yellow);
+            box-shadow: 0 4px 16px rgba(245,168,0,0.3);
+        }
+
+        /* ── Stat Cards ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+            animation: fadeUp 0.45s ease 0.1s both;
+        }
+        .stat-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 1.4rem 1.5rem;
+            position: relative; overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 4px; height: 100%; border-radius: 4px 0 0 4px;
+        }
+        .stat-card.blue::before   { background: #3b82f6; }
+        .stat-card.green::before  { background: #22c55e; }
+        .stat-card.orange::before { background: var(--yellow); }
+        .stat-card.purple::before { background: #a855f7; }
+
+        .stat-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; margin-bottom: 0.9rem;
+        }
+        .stat-card.blue   .stat-icon { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .stat-card.green  .stat-icon { background: rgba(34,197,94,0.15);  color: #22c55e; }
+        .stat-card.orange .stat-icon { background: rgba(245,168,0,0.15);  color: var(--yellow); }
+        .stat-card.purple .stat-icon { background: rgba(168,85,247,0.15); color: #a855f7; }
+
+        .stat-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 0.3rem; }
+        .stat-val   { font-size: 1.7rem; font-weight: 800; color: var(--text-white); line-height: 1; }
+
+        /* ── Glass Card ── */
+        .glass-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            animation: fadeUp 0.45s ease 0.15s both;
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+            text-align: center; padding: 3rem 1rem;
+            color: var(--text-dim); display: none;
+        }
+        .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 0.75rem; color: rgba(245,168,0,0.35); }
+        .empty-state p { font-size: 0.85rem; }
+
+        /* ── Table ── */
+        .table-wrap { overflow-x: auto; border-radius: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        thead tr { border-bottom: 1px solid var(--glass-border); }
+        thead th {
+            padding: 0.85rem 1rem;
+            font-size: 0.68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-dim); white-space: nowrap;
+        }
+        tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.05); }
+        tbody td { padding: 0.9rem 1rem; color: var(--text-light); vertical-align: middle; }
+        tbody td strong { color: var(--text-white); }
+
+        .badge-orders {
+            background: rgba(245,168,0,0.15); color: var(--yellow);
+            border: 1px solid rgba(245,168,0,0.3);
+            padding: 0.2rem 0.65rem; border-radius: 20px;
+            font-size: 0.72rem; font-weight: 700;
+        }
+        .badge-revenue {
+            background: rgba(34,197,94,0.12); color: #22c55e;
+            border: 1px solid rgba(34,197,94,0.25);
+            padding: 0.25rem 0.75rem; border-radius: 20px;
+            font-size: 0.78rem; font-weight: 700;
+        }
+        .empty-row td { text-align: center; color: var(--text-dim); padding: 2.5rem; }
+
+        /* ── Footer ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ── Responsive ── */
+        @media(max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media(max-width: 600px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .glass-card { padding: 1.5rem 1rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg" style="background: linear-gradient(135deg, #2563eb, #1e40af); padding: 1rem 2rem;">
-    <a class="navbar-brand text-white font-weight-bold" style="font-size:1.5rem;" href="/vendor/home">
-        <i class="fas fa-shopping-cart mr-2"></i>Ekart
+
+<div class="bg-layer"></div>
+
+<!-- Navbar -->
+<nav id="nav">
+    <a href="/vendor/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        <span>Ekart</span>
     </a>
-    <div class="ml-auto">
-        <a href="/vendor/home" class="text-white mr-4"><i class="fas fa-arrow-left mr-1"></i> Back</a>
-        <a href="/logout" class="text-white"><i class="fas fa-sign-out-alt mr-1"></i> Logout</a>
+    <div class="nav-right">
+        <a href="/vendor/home" class="nav-link-btn"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 </nav>
 
-<div class="page-header">
-    <div class="container">
-        <h2 class="mb-1"><i class="fas fa-chart-line mr-2"></i>Sales Report</h2>
-        <p class="mb-0 opacity-75">Daily, Weekly & Monthly breakdown of your store performance</p>
-    </div>
-</div>
+<main class="page">
+    <div class="inner">
 
-<div class="container pb-5">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-header-left">
+                <h1><span>Sales</span> Report 📊</h1>
+                <p>Daily, Weekly &amp; Monthly breakdown of your store performance.</p>
+            </div>
+            <div class="page-header-icon">📈</div>
+        </div>
 
-    <!-- Period Tabs -->
-    <div class="d-flex gap-2 mb-4" style="gap:0.5rem;">
-        <button class="tab-btn active" id="tab-daily"   onclick="switchTab('daily')">📅 Daily</button>
-        <button class="tab-btn"        id="tab-weekly"  onclick="switchTab('weekly')">📆 Weekly</button>
-        <button class="tab-btn"        id="tab-monthly" onclick="switchTab('monthly')">🗓️ Monthly</button>
-    </div>
+        <!-- Period Tabs -->
+        <div class="tab-row">
+            <button class="tab-btn active" id="tab-daily"   onclick="switchTab('daily')">
+                <i class="fas fa-calendar-day"></i> Daily
+            </button>
+            <button class="tab-btn" id="tab-weekly"  onclick="switchTab('weekly')">
+                <i class="fas fa-calendar-week"></i> Weekly
+            </button>
+            <button class="tab-btn" id="tab-monthly" onclick="switchTab('monthly')">
+                <i class="fas fa-calendar-alt"></i> Monthly
+            </button>
+        </div>
 
-    <!-- Stats Row -->
-    <div class="row mb-4" id="stats-row">
-        <div class="col-6 col-md-3 mb-3">
+        <!-- Stat Cards -->
+        <div class="stats-grid">
             <div class="stat-card blue">
+                <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
                 <div class="stat-label">Total Orders</div>
                 <div class="stat-val" id="stat-orders">0</div>
             </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
             <div class="stat-card green">
+                <div class="stat-icon"><i class="fas fa-rupee-sign"></i></div>
                 <div class="stat-label">Revenue</div>
                 <div class="stat-val" id="stat-revenue">₹0</div>
             </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
             <div class="stat-card orange">
+                <div class="stat-icon"><i class="fas fa-boxes"></i></div>
                 <div class="stat-label">Items Sold</div>
                 <div class="stat-val" id="stat-items">0</div>
             </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
             <div class="stat-card purple">
+                <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                 <div class="stat-label">Avg Order Value</div>
                 <div class="stat-val" id="stat-avg">₹0</div>
             </div>
         </div>
-    </div>
 
-    <!-- Chart -->
-    <div class="chart-card mb-4">
-        <h6 class="font-weight-bold mb-3 text-secondary"><i class="fas fa-chart-bar mr-2"></i>Revenue Over Time</h6>
-        <canvas id="revenueChart" height="120"></canvas>
-        <div class="empty-chart d-none" id="empty-chart">
-            <i class="fas fa-chart-bar fa-3x mb-3 d-block"></i>
-            No sales data yet for this period
+        <!-- Chart Card -->
+        <div class="glass-card">
+            <div class="section-label"><i class="fas fa-chart-bar"></i> Revenue Over Time</div>
+            <canvas id="revenueChart" height="110"></canvas>
+            <div class="empty-state" id="empty-chart">
+                <i class="fas fa-chart-bar"></i>
+                <p>No sales data yet for this period</p>
+            </div>
         </div>
-    </div>
 
-    <!-- Orders Table -->
-    <div class="table-card">
-        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-            <h6 class="font-weight-bold mb-0"><i class="fas fa-list mr-2"></i>Order Details</h6>
-            <span class="badge badge-primary" id="order-count-badge">0 orders</span>
+        <!-- Orders Table -->
+        <div class="glass-card">
+            <div class="section-label" style="margin-bottom:1rem;">
+                <i class="fas fa-list-ul"></i> Order Details
+                <span class="badge-orders" id="order-count-badge" style="text-transform:none;letter-spacing:0;">0 orders</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Date</th>
+                            <th>Items</th>
+                            <th>Amount</th>
+                            <th>Delivery</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-tbody">
+                        <tr class="empty-row"><td colspan="5">No orders in this period</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="table-responsive">
-            <table class="table mb-0">
-                <thead>
-                    <tr>
-                        <th>Order #</th>
-                        <th>Date</th>
-                        <th>Items</th>
-                        <th>Amount</th>
-                        <th>Delivery</th>
-                    </tr>
-                </thead>
-                <tbody id="orders-tbody">
-                    <tr><td colspan="5" class="text-center text-muted py-4">No orders in this period</td></tr>
-                </tbody>
-            </table>
-        </div>
+
     </div>
-</div>
+</main>
+
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
 
 <script th:inline="javascript">
-    // Pass all orders from backend as JSON
     var allOrders = /*[[${ordersJson}]]*/ [];
-
     var chart = null;
+
+    /* ── Navbar scroll ── */
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
 
     function switchTab(period) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -139,55 +389,37 @@
         var revenueMap = {};
 
         if (period === 'daily') {
-            // Last 7 days
             for (var i = 6; i >= 0; i--) {
-                var d = new Date(now);
-                d.setDate(now.getDate() - i);
+                var d = new Date(now); d.setDate(now.getDate() - i);
                 var key = d.toISOString().split('T')[0];
-                labels.push(key.substring(5)); // MM-DD
-                revenueMap[key] = 0;
+                labels.push(key.substring(5)); revenueMap[key] = 0;
             }
-            filtered = allOrders.filter(o => {
-                var d = new Date(o.orderDate);
-                var diff = (now - d) / (1000 * 60 * 60 * 24);
-                return diff <= 7;
-            });
+            filtered = allOrders.filter(o => (now - new Date(o.orderDate)) / 86400000 <= 7);
             filtered.forEach(o => {
                 var key = new Date(o.orderDate).toISOString().split('T')[0];
                 if (revenueMap[key] !== undefined) revenueMap[key] += o.amount;
             });
 
         } else if (period === 'weekly') {
-            // Last 8 weeks
             for (var i = 7; i >= 0; i--) {
-                var d = new Date(now);
-                d.setDate(now.getDate() - (i * 7));
+                var d = new Date(now); d.setDate(now.getDate() - i * 7);
                 var week = 'W' + getWeekNum(d);
-                labels.push(week);
-                revenueMap[week] = 0;
+                labels.push(week); revenueMap[week] = 0;
             }
-            filtered = allOrders.filter(o => {
-                var diff = (now - new Date(o.orderDate)) / (1000 * 60 * 60 * 24);
-                return diff <= 56;
-            });
+            filtered = allOrders.filter(o => (now - new Date(o.orderDate)) / 86400000 <= 56);
             filtered.forEach(o => {
                 var week = 'W' + getWeekNum(new Date(o.orderDate));
                 if (revenueMap[week] !== undefined) revenueMap[week] += o.amount;
             });
 
         } else {
-            // Last 6 months
             var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             for (var i = 5; i >= 0; i--) {
                 var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 var key = months[d.getMonth()] + ' ' + d.getFullYear();
-                labels.push(key);
-                revenueMap[key] = 0;
+                labels.push(key); revenueMap[key] = 0;
             }
-            filtered = allOrders.filter(o => {
-                var diff = (now - new Date(o.orderDate)) / (1000 * 60 * 60 * 24);
-                return diff <= 180;
-            });
+            filtered = allOrders.filter(o => (now - new Date(o.orderDate)) / 86400000 <= 180);
             filtered.forEach(o => {
                 var d = new Date(o.orderDate);
                 var key = months[d.getMonth()] + ' ' + d.getFullYear();
@@ -195,10 +427,10 @@
             });
         }
 
-        // Stats
+        /* Stats */
         var totalRevenue = filtered.reduce((s, o) => s + o.amount, 0);
         var totalItems   = filtered.reduce((s, o) => s + (o.itemCount || 0), 0);
-        var avgOrder     = filtered.length ? (totalRevenue / filtered.length) : 0;
+        var avgOrder     = filtered.length ? totalRevenue / filtered.length : 0;
 
         document.getElementById('stat-orders').textContent  = filtered.length;
         document.getElementById('stat-revenue').textContent = '₹' + totalRevenue.toFixed(0);
@@ -206,17 +438,18 @@
         document.getElementById('stat-avg').textContent     = '₹' + avgOrder.toFixed(0);
         document.getElementById('order-count-badge').textContent = filtered.length + ' orders';
 
-        // Chart
-        var data = labels.map(l => revenueMap[l] || 0);
+        /* Chart */
+        var data    = labels.map(l => revenueMap[l] || 0);
         var hasData = data.some(v => v > 0);
 
-        if (chart) chart.destroy();
+        if (chart) { chart.destroy(); chart = null; }
+
         if (!hasData) {
-            document.getElementById('revenueChart').classList.add('d-none');
-            document.getElementById('empty-chart').classList.remove('d-none');
+            document.getElementById('revenueChart').style.display = 'none';
+            document.getElementById('empty-chart').style.display  = 'block';
         } else {
-            document.getElementById('revenueChart').classList.remove('d-none');
-            document.getElementById('empty-chart').classList.add('d-none');
+            document.getElementById('revenueChart').style.display = 'block';
+            document.getElementById('empty-chart').style.display  = 'none';
             var ctx = document.getElementById('revenueChart').getContext('2d');
             chart = new Chart(ctx, {
                 type: 'bar',
@@ -225,32 +458,60 @@
                     datasets: [{
                         label: 'Revenue (₹)',
                         data: data,
-                        backgroundColor: 'rgba(37,99,235,0.75)',
-                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(245,168,0,0.55)',
+                        borderColor: '#f5a800',
                         borderWidth: 2,
-                        borderRadius: 6
+                        borderRadius: 8,
+                        hoverBackgroundColor: 'rgba(245,168,0,0.8)'
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v } } }
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(10,12,30,0.92)',
+                            titleColor: '#f5a800',
+                            bodyColor: 'rgba(255,255,255,0.8)',
+                            borderColor: 'rgba(245,168,0,0.3)',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: { label: ctx => ' ₹' + ctx.parsed.y.toFixed(0) }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.06)' },
+                            ticks: { color: 'rgba(255,255,255,0.45)', font: { family: 'Poppins', size: 11 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.06)' },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.45)',
+                                font: { family: 'Poppins', size: 11 },
+                                callback: v => '₹' + v
+                            }
+                        }
+                    }
                 }
             });
         }
 
-        // Table
+        /* Table */
         var tbody = document.getElementById('orders-tbody');
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No orders in this period</td></tr>';
+        if (!filtered.length) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No orders in this period</td></tr>';
         } else {
-            tbody.innerHTML = filtered.sort((a,b) => new Date(b.orderDate) - new Date(a.orderDate)).map(o => `
+            tbody.innerHTML = filtered
+                .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+                .map(o => `
                 <tr>
                     <td><strong>#${o.id}</strong></td>
                     <td>${new Date(o.orderDate).toLocaleDateString('en-IN')}</td>
                     <td>${o.itemCount || 0} item(s)</td>
                     <td><span class="badge-revenue">₹${o.amount.toFixed(0)}</span></td>
-                    <td><small class="text-muted">${o.deliveryTime || 'Standard'}</small></td>
+                    <td style="color:var(--text-dim);font-size:0.8rem;">${o.deliveryTime || 'Standard'}</td>
                 </tr>`).join('');
         }
     }
@@ -260,7 +521,6 @@
         return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
     }
 
-    // Init
     renderReport('daily');
 </script>
 </body>
