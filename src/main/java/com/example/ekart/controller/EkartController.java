@@ -51,6 +51,9 @@ public class EkartController {
     @Autowired
     com.example.ekart.service.StockAlertService stockAlertService;
 
+    @Autowired
+    com.example.ekart.service.OrderTrackingService orderTrackingService;
+
     // ── HOME ──────────────────────────────────────────────────────────────────
 
     @GetMapping
@@ -227,7 +230,7 @@ public class EkartController {
         return customerService.loadCustomerHome(session, map);
     }
 
-    @GetMapping("/view-products")
+    @GetMapping({"/view-products", "/customer/view-products"})
     public String viewProducts(HttpSession session, ModelMap map) {
         return customerService.viewProducts(session, map);
     }
@@ -242,7 +245,7 @@ public class EkartController {
         return customerService.search(query, session, map);
     }
 
-    @GetMapping("/view-cart")
+    @GetMapping({"/view-cart", "/customer/view-cart"})
     public String viewCart(HttpSession session, ModelMap map) {
         return customerService.viewCart(session, map);
     }
@@ -325,14 +328,41 @@ public class EkartController {
         return customerService.viewOrders(session, map);
     }
 
-    @GetMapping("/order-history")
+    @GetMapping({"/order-history", "/customer/order-history"})
     public String orderHistory(HttpSession session, ModelMap map) {
         return customerService.viewOrderHistory(session, map);
     }
 
-    @GetMapping("/track-orders")
+    @GetMapping({"/track-orders", "/customer/track-orders"})
     public String trackOrders(HttpSession session, ModelMap map) {
         return customerService.trackOrders(session, map);
+    }
+
+    // ── SINGLE ORDER TRACKING ──────────────────────────────────────────────────
+    @GetMapping("/track/{orderId}")
+    public String trackSingleOrder(@PathVariable int orderId, HttpSession session, ModelMap map) {
+        com.example.ekart.dto.Customer customer = (com.example.ekart.dto.Customer) session.getAttribute("customer");
+        if (customer == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/customer/login";
+        }
+
+        com.example.ekart.dto.Order order = orderTrackingService.getOrderForCustomer(orderId, session);
+        if (order == null) {
+            session.setAttribute("failure", "Order not found or access denied");
+            return "redirect:/customer/order-history";
+        }
+
+        map.put("order", order);
+        map.put("trackingStatus", order.getTrackingStatus());
+        map.put("progressPercent", order.getTrackingStatus().getProgressPercent());
+        
+        // Calculate estimated delivery (48 hours from order date)
+        if (order.getOrderDate() != null && order.getTrackingStatus() != com.example.ekart.dto.TrackingStatus.DELIVERED) {
+            map.put("estimatedDelivery", order.getOrderDate().plusHours(48));
+        }
+
+        return "track-single-order.html";
     }
 
     @GetMapping("/cancel-order/{id}")
@@ -399,9 +429,45 @@ public class EkartController {
         return adminService.searchUsers(session, map);
     }
 
+    @GetMapping("/refund-management")
+    public String refundManagement(HttpSession session, ModelMap map) {
+        return adminService.refundManagement(session, map);
+    }
+
+    @PostMapping("/process-refund/{orderId}")
+    public String processRefund(@PathVariable int orderId, @RequestParam String action, HttpSession session) {
+        return adminService.processRefund(orderId, action, session);
+    }
+
+    @GetMapping("/content-management")
+    public String contentManagement(HttpSession session, ModelMap map) {
+        return adminService.contentManagement(session, map);
+    }
+
+    @PostMapping("/update-banner")
+    public String updateBanner(@RequestParam String bannerTitle, @RequestParam String bannerSubtitle, HttpSession session) {
+        return adminService.updateBanner(bannerTitle, bannerSubtitle, session);
+    }
+
+    @GetMapping("/security-settings")
+    public String securitySettings(HttpSession session, ModelMap map) {
+        return adminService.securitySettings(session, map);
+    }
+
+    @PostMapping("/update-admin-password")
+    public String updateAdminPassword(@RequestParam String currentPassword, @RequestParam String newPassword, 
+                                       @RequestParam String confirmPassword, HttpSession session) {
+        return adminService.updateAdminPassword(currentPassword, newPassword, confirmPassword, session);
+    }
+
+    @GetMapping("/analytics")
+    public String analytics(HttpSession session, ModelMap map) {
+        return adminService.analytics(session, map);
+    }
+
     // ── SHARED ────────────────────────────────────────────────────────────────
 
-    @GetMapping("/logout")
+    @GetMapping({"/logout", "/customer/logout", "/admin/logout", "/vendor/logout"})
     public String logout(HttpSession session) {
         return adminService.logout(session);
     }
