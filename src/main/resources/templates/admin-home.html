@@ -307,6 +307,36 @@
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>
 
+        <!-- ADMIN-ONLY: Refund Management -->
+        <a href="/refund-management" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-undo-alt"></i></div>
+            <div class="dash-card-body">
+                <h3>Refund Management</h3>
+                <p>Process refund requests and manage return policies.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <!-- ADMIN-ONLY: Content Management -->
+        <a href="/content-management" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-edit"></i></div>
+            <div class="dash-card-body">
+                <h3>Content Management</h3>
+                <p>Edit banners, announcements, and site-wide content.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <!-- ADMIN-ONLY: Security Settings -->
+        <a href="/security-settings" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-shield-alt"></i></div>
+            <div class="dash-card-body">
+                <h3>Security Settings</h3>
+                <p>Configure authentication, roles, and access permissions.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
     </div>
 
 </main>

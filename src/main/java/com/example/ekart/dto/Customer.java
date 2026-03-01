@@ -6,6 +6,8 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -51,6 +53,11 @@ public class Customer {
 	private int otp;
 
 	private boolean verified;
+
+	// Role-Based Access Control (RBAC) - defaults to CUSTOMER
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private Role role = Role.CUSTOMER;
 
 	// OAuth2 fields for social login (nullable - optional for email/password users)
 	@Column(nullable = true)
