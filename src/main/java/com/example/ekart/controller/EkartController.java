@@ -58,6 +58,13 @@ public class EkartController {
         return "home.html";
     }
 
+    // ── ERROR PAGES ───────────────────────────────────────────────────────────
+
+    @GetMapping("/403")
+    public String loadForbiddenPage() {
+        return "403.html";
+    }
+
     // ── VENDOR ───────────────────────────────────────────────────────────────
 
     @GetMapping("/vendor/register")
