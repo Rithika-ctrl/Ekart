@@ -346,6 +346,215 @@
             transform: translateY(-1px);
         }
 
+        /* ── REORDER BUTTON ── */
+        .btn-reorder {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 12px; font-weight: 600;
+            background: rgba(245, 168, 0, 0.12);
+            border: 1px solid rgba(245, 168, 0, 0.3);
+            color: var(--yellow);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-reorder:hover {
+            background: rgba(245, 168, 0, 0.2);
+            border-color: rgba(245, 168, 0, 0.5);
+            transform: translateY(-1px);
+        }
+        .btn-reorder:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-reorder .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(245, 168, 0, 0.3);
+            border-top-color: var(--yellow);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── TOAST NOTIFICATIONS ── */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 1.5rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .toast {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            font-size: 0.825rem;
+            min-width: 280px;
+            max-width: 400px;
+            animation: toastIn 0.3s ease both;
+        }
+        .toast-success {
+            border-color: rgba(34, 197, 94, 0.45);
+            color: #22c55e;
+        }
+        .toast-warning {
+            border-color: rgba(245, 168, 0, 0.45);
+            color: var(--yellow);
+        }
+        .toast-error {
+            border-color: rgba(255, 100, 80, 0.45);
+            color: #ff8060;
+        }
+        .toast-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.6;
+            font-size: 1rem;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── REORDER MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: rgba(20,20,40,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon {
+            width: 60px; height: 60px;
+            margin: 0 auto 1.5rem;
+            background: rgba(245, 168, 0, 0.15);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem;
+            color: var(--yellow);
+        }
+        .modal h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        .modal p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        .modal-items {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            font-size: 0.85rem;
+        }
+        .modal-item:last-child { border-bottom: none; }
+        .modal-item-name { color: var(--text-light); }
+        .modal-item-status {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .modal-item-status.in-stock {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+        .modal-item-status.out-of-stock {
+            background: rgba(255, 100, 80, 0.15);
+            color: #ff8060;
+        }
+        .modal-item-status.partial {
+            background: rgba(245, 168, 0, 0.15);
+            color: var(--yellow);
+        }
+        .modal-warning {
+            font-size: 0.8rem;
+            color: var(--yellow);
+            background: rgba(245, 168, 0, 0.1);
+            border: 1px solid rgba(245, 168, 0, 0.3);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .modal-btns {
+            display: flex;
+            gap: 1rem;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .modal-btn.cancel {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+        }
+        .modal-btn.cancel:hover { background: rgba(255,255,255,0.15); }
+        .modal-btn.confirm {
+            background: var(--yellow);
+            border: none;
+            color: #1a1000;
+        }
+        .modal-btn.confirm:hover { background: var(--yellow-d); }
+        .modal-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         /* ── EMPTY STATE ── */
         .empty-state {
             background: var(--glass-card);
@@ -557,6 +766,13 @@
                 </a>
             </div>
 
+            <!-- Re-Order Button - Show for DELIVERED orders -->
+            <div class="card-actions" th:if="${o.trackingStatus != null and o.trackingStatus.name() == 'DELIVERED'}">
+                <button type="button" class="btn-reorder" th:data-orderid="${o.id}" onclick="initiateReorder(this)">
+                    <i class="fas fa-redo"></i> Re-Order
+                </button>
+            </div>
+
         </div>
     </th:block>
 
@@ -583,10 +799,40 @@
     <div class="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
 </footer>
 
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── REORDER CONFIRMATION MODAL ── -->
+<div class="modal-overlay" id="reorderModal">
+    <div class="modal">
+        <div class="modal-icon">
+            <i class="fas fa-redo"></i>
+        </div>
+        <h3>Re-Order Items</h3>
+        <p>This will replace your current cart with items from this order:</p>
+        <div class="modal-items" id="modalItems">
+            <!-- Items will be populated by JS -->
+        </div>
+        <div class="modal-warning" id="modalWarning" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="warningText">Some items may have limited stock.</span>
+        </div>
+        <div class="modal-btns">
+            <button class="modal-btn cancel" onclick="closeReorderModal()">Cancel</button>
+            <button class="modal-btn confirm" id="confirmReorderBtn" onclick="confirmReorder()">
+                <i class="fas fa-check"></i> Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Nav scroll effect
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
     });
+
+    // Auto-dismiss alerts
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .ek-alert').forEach(el => {
             el.style.transition = 'opacity 0.5s';
@@ -594,6 +840,163 @@
             setTimeout(() => el.remove(), 500);
         });
     }, 2500);
+
+    // =========================
+    // RE-ORDER FUNCTIONALITY
+    // =========================
+    let currentOrderId = null;
+    let currentButton = null;
+
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        const icon = type === 'success' ? 'check-circle' : 
+                     type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle';
+        
+        toast.innerHTML = `
+            <i class="fas fa-${icon}"></i>
+            <span>${message}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            toast.style.transition = 'opacity 0.3s';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
+    // Initiate reorder - check stock and show modal
+    async function initiateReorder(button) {
+        const orderId = button.dataset.orderid;
+        currentOrderId = orderId;
+        currentButton = button;
+
+        // Show loading spinner on button
+        const originalHTML = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span> Checking...';
+
+        try {
+            const response = await fetch(`/api/orders/${orderId}/check-stock`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                showToast(data.message || 'Failed to check stock', 'error');
+                button.innerHTML = originalHTML;
+                button.disabled = false;
+                return;
+            }
+
+            // Populate modal with items
+            const modalItems = document.getElementById('modalItems');
+            modalItems.innerHTML = '';
+
+            data.items.forEach(item => {
+                const statusClass = item.status === 'in_stock' ? 'in-stock' : 
+                                   item.status === 'out_of_stock' ? 'out-of-stock' : 'partial';
+                const statusText = item.status === 'in_stock' ? 'In Stock' : 
+                                  item.status === 'out_of_stock' ? 'Out of Stock' : 
+                                  `Only ${item.currentStock} left`;
+                
+                modalItems.innerHTML += `
+                    <div class="modal-item">
+                        <span class="modal-item-name">${item.name} × ${item.quantity}</span>
+                        <span class="modal-item-status ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            });
+
+            // Show warning if some items are out of stock
+            const warningDiv = document.getElementById('modalWarning');
+            if (data.hasOutOfStock) {
+                warningDiv.style.display = 'flex';
+                document.getElementById('warningText').textContent = 
+                    'Some items are out of stock or have limited availability. Available items will still be added to your cart.';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+
+            // Show modal
+            document.getElementById('reorderModal').classList.add('active');
+
+        } catch (error) {
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            button.innerHTML = originalHTML;
+            button.disabled = false;
+        }
+    }
+
+    // Close reorder modal
+    function closeReorderModal() {
+        document.getElementById('reorderModal').classList.remove('active');
+        currentOrderId = null;
+        currentButton = null;
+    }
+
+    // Confirm and process reorder
+    async function confirmReorder() {
+        if (!currentOrderId) return;
+
+        const confirmBtn = document.getElementById('confirmReorderBtn');
+        const originalHTML = confirmBtn.innerHTML;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span> Processing...';
+
+        try {
+            const response = await fetch(`/api/orders/${currentOrderId}/reorder`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+
+            closeReorderModal();
+
+            if (data.success) {
+                // Show success message
+                if (data.outOfStockItems && data.outOfStockItems.length > 0) {
+                    showToast(`${data.totalItemsAdded} items added to cart. Some items were unavailable.`, 'warning');
+                    // Show individual out of stock toasts
+                    data.outOfStockItems.forEach(item => {
+                        setTimeout(() => showToast(item, 'warning'), 500);
+                    });
+                } else {
+                    showToast(data.message, 'success');
+                }
+
+                // Redirect to checkout after short delay
+                setTimeout(() => {
+                    window.location.href = '/customer/view-cart';
+                }, 1500);
+            } else {
+                showToast(data.message || 'Failed to reorder', 'error');
+            }
+
+        } catch (error) {
+            closeReorderModal();
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            confirmBtn.innerHTML = originalHTML;
+            confirmBtn.disabled = false;
+        }
+    }
+
+    // Close modal on outside click
+    document.getElementById('reorderModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReorderModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeReorderModal();
+    });
 </script>
 </body>
 </html>
