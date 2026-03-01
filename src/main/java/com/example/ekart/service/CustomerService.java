@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
 
+import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.dto.Cart;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
@@ -460,30 +461,34 @@ public String payment(HttpSession session, ModelMap map) {
 }
 
     // ---------------- PAYMENT SUCCESS (CLONING LOGIC) ----------------
-    // ---------------- PAYMENT SUCCESS (CLONING LOGIC) ----------------
 public String paymentSuccess(Order order, HttpSession session) {
     Customer sessionCustomer = (Customer) session.getAttribute("customer");
+    if (sessionCustomer == null) {
+        session.setAttribute("failure", "Login First");
+        return "redirect:/customer/login";
+    }
+
+    // Always fetch fresh from DB — never trust stale session object
     Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-    
+
     order.setCustomer(customer);
     order.setOrderDate(java.time.LocalDateTime.now());
-    
-    // 1. Calculate the Subtotal (Sum of item prices in cart)
+
+    // 1. Calculate subtotal from cart
     double subtotal = 0;
     for (Item cartItem : customer.getCart().getItems()) {
         subtotal += cartItem.getPrice();
     }
-    
-    // 2. Apply the Delivery Charge Logic (Match the logic in your payment method)
+
+    // 2. Delivery charge logic
     double deliveryFee = (subtotal < 500) ? 40.0 : 0.0;
-    double grandTotal = subtotal + deliveryFee;
+    double grandTotal  = subtotal + deliveryFee;
 
-    // 3. Set the values into your Order object
-    order.setTotalPrice(subtotal); // The price of items only
-    order.setDeliveryCharge(deliveryFee); // The new feature field
-    order.setAmount(grandTotal); // The final total paid
+    order.setTotalPrice(subtotal);
+    order.setDeliveryCharge(deliveryFee);
+    order.setAmount(grandTotal);
 
-    // 4. Clone items for order history
+    // 3. Clone cart items into order (preserves history even after cart clear)
     List<Item> orderItems = new ArrayList<>();
     for (Item cartItem : customer.getCart().getItems()) {
         Item newItem = new Item();
@@ -493,16 +498,24 @@ public String paymentSuccess(Order order, HttpSession session) {
         newItem.setCategory(cartItem.getCategory());
         newItem.setDescription(cartItem.getDescription());
         newItem.setImageLink(cartItem.getImageLink());
+        newItem.setProductId(cartItem.getProductId());
         orderItems.add(newItem);
     }
-    
     order.setItems(orderItems);
-    
-    // 5. Clear the cart and save
-    customer.getCart().getItems().clear();
-    
+
+    // 4. Save order first
     orderRepository.save(order);
-    customerRepository.save(customer);
+
+    // 5. 🔥 FIX: Properly delete cart items from DB, then clear the list
+    List<Item> cartItems = new ArrayList<>(customer.getCart().getItems());
+    customer.getCart().getItems().clear();
+    customerRepository.save(customer);               // save with empty cart
+    itemRepository.deleteAll(cartItems);             // delete from DB
+    itemRepository.flush();                          // force immediate DB delete
+
+    // 6. 🔥 FIX: Update session with fresh customer so cart count shows 0
+    Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
+    session.setAttribute("customer", updatedCustomer);
 
     session.setAttribute("success", "Order Placed Successfully!");
     return "redirect:/customer/home";
