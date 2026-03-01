@@ -293,6 +293,66 @@
             margin-top: 0.3rem;
         }
 
+        /* ── RBAC LINK CARD ── */
+        .rbac-link-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .rbac-link-card:hover {
+            border-color: rgba(139,92,246,0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139,92,246,0.2);
+        }
+        .rbac-link-content {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+        .rbac-icon {
+            width: 56px; height: 56px;
+            background: rgba(139,92,246,0.2);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #8b5cf6;
+        }
+        .rbac-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-white);
+            margin-bottom: 0.25rem;
+        }
+        .rbac-text p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            max-width: 400px;
+        }
+        .rbac-arrow {
+            width: 40px; height: 40px;
+            background: rgba(139,92,246,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b5cf6;
+            transition: all 0.3s;
+        }
+        .rbac-link-card:hover .rbac-arrow {
+            background: #8b5cf6;
+            color: white;
+            transform: translateX(4px);
+        }
+
         /* ── FOOTER ── */
         footer {
             background: rgba(0,0,0,0.5);
@@ -404,6 +464,18 @@
             </div>
         </div>
     </div>
+
+    <!-- RBAC Management Link -->
+    <a href="/admin/security" class="rbac-link-card">
+        <div class="rbac-link-content">
+            <div class="rbac-icon"><i class="fas fa-user-shield"></i></div>
+            <div class="rbac-text">
+                <h3>Role-Based Access Control (RBAC)</h3>
+                <p>Manage user roles, view permissions matrix, and assign Admin/Order Manager roles to users.</p>
+            </div>
+        </div>
+        <div class="rbac-arrow"><i class="fas fa-arrow-right"></i></div>
+    </a>
 
     <!-- Change Password Form -->
     <div class="form-card">

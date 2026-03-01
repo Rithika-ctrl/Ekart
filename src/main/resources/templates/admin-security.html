@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - User Role Management</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
+        .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+
+        .nav-link {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
+        .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
+
+        .nav-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 0.5rem; }
+
+        .nav-badge {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-size: 0.72rem; font-weight: 700;
+            padding: 0.3rem 0.8rem; border-radius: 50px;
+            background: rgba(245,168,0,0.15);
+            border: 1px solid rgba(245,168,0,0.3);
+            color: var(--yellow);
+        }
+
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3);
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; }
+
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 7rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+        }
+        .page-header h1 { font-size: 1.75rem; font-weight: 700; }
+        .page-header h1 span { color: var(--yellow); }
+        .page-header p { font-size: 0.9rem; color: var(--text-dim); margin-top: 0.3rem; }
+
+        /* ── STATS ROW ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
+        .stat-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .stat-card-icon {
+            width: 48px; height: 48px;
+            margin: 0 auto 0.75rem;
+            background: rgba(245,168,0,0.15);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem;
+            color: var(--yellow);
+        }
+        .stat-card-icon.admin { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+        .stat-card-icon.manager { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .stat-card-icon.customer { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .stat-card-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-white);
+        }
+        .stat-card-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── SECTION CARD ── */
+        .section-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+        .section-card h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-card h2 i { color: var(--yellow); }
+
+        /* ── SEARCH BAR ── */
+        .search-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .search-input {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            padding-left: 2.5rem;
+            font-size: 0.9rem;
+            color: var(--text-white);
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--yellow);
+            background: rgba(0,0,0,0.4);
+        }
+        .search-input::placeholder { color: var(--text-dim); }
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+        }
+        .search-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+        }
+
+        /* ── TABLE ── */
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .user-table th, .user-table td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .user-table th {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .user-table td {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+        .user-table tr:last-child td { border-bottom: none; }
+        .user-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+        .user-name {
+            font-weight: 500;
+            color: var(--text-white);
+        }
+        .user-email {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+        .user-provider {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .user-provider i.fa-google { color: #ea4335; }
+        .user-provider i.fa-github { color: #fff; }
+
+        /* ── ROLE BADGE ── */
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.35rem 0.8rem;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .role-badge.admin {
+            background: rgba(139,92,246,0.15);
+            color: #8b5cf6;
+            border: 1px solid rgba(139,92,246,0.3);
+        }
+        .role-badge.order_manager {
+            background: rgba(59,130,246,0.15);
+            color: #3b82f6;
+            border: 1px solid rgba(59,130,246,0.3);
+        }
+        .role-badge.customer {
+            background: rgba(34,197,94,0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34,197,94,0.3);
+        }
+
+        /* ── ROLE SELECT ── */
+        .role-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            color: var(--text-white);
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 150px;
+        }
+        .role-select:focus {
+            outline: none;
+            border-color: var(--yellow);
+        }
+        .role-select option {
+            background: #1a1a2e;
+            color: var(--text-white);
+        }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: rgba(20,20,40,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon {
+            width: 60px; height: 60px;
+            margin: 0 auto 1.5rem;
+            background: rgba(255,193,7,0.15);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem;
+            color: #ffc107;
+        }
+        .modal-icon.danger {
+            background: rgba(255,80,80,0.15);
+            color: #ff5050;
+        }
+        .modal h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        .modal p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .modal-highlight {
+            color: var(--yellow);
+            font-weight: 600;
+        }
+        .modal-btns {
+            display: flex;
+            gap: 1rem;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .modal-btn.cancel {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+        }
+        .modal-btn.cancel:hover { background: rgba(255,255,255,0.15); }
+        .modal-btn.confirm {
+            background: var(--yellow);
+            border: none;
+            color: #1a1000;
+        }
+        .modal-btn.confirm:hover { background: var(--yellow-d); }
+        .modal-btn.confirm.danger {
+            background: #ff5050;
+            color: white;
+        }
+        .modal-btn.confirm.danger:hover { background: #e04040; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-dim);
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state p { font-size: 0.95rem; }
+
+        /* ── PERMISSIONS MATRIX ── */
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+        .permission-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .permission-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .permission-card-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+        }
+        .permission-card-icon.admin { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+        .permission-card-icon.manager { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .permission-card-icon.customer { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .permission-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-white);
+        }
+        .permission-card-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+        .permission-list {
+            list-style: none;
+        }
+        .permission-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-light);
+            padding: 0.4rem 0;
+        }
+        .permission-list li i.fa-check { color: #22c55e; font-size: 0.7rem; }
+        .permission-list li i.fa-times { color: #ff5050; font-size: 0.7rem; }
+        .permission-list li i.fa-lock { color: var(--yellow); font-size: 0.7rem; }
+        .access-routes {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .access-routes-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .route-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-family: monospace;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin: 0.15rem;
+            color: var(--text-light);
+        }
+        @media(max-width: 1024px) {
+            .permissions-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @media(max-width: 1024px) {
+            .nav-links { display: none; }
+            .nav-divider { display: none; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media(max-width: 768px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1.25rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .stats-row { grid-template-columns: 1fr 1fr; }
+            .user-table { display: block; overflow-x: auto; }
+            footer { flex-direction: column; text-align: center; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- ── FLOATING ALERTS ── -->
+<div class="alert-stack">
+    <div class="alert alert-success" th:if="${session.success}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+    <a href="/admin/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
+    <div class="nav-right">
+        <div class="nav-links">
+            <a href="/admin/home" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="/approve-products" class="nav-link"><i class="fas fa-tasks"></i> Approvals</a>
+            <a href="/admin/search-users" class="nav-link"><i class="fas fa-users"></i> Users</a>
+            <a href="/admin/content" class="nav-link"><i class="fas fa-images"></i> Banners</a>
+            <a href="/admin/security" class="nav-link active"><i class="fas fa-shield-alt"></i> RBAC</a>
+        </div>
+        <div class="nav-divider"></div>
+        <span class="nav-badge"><i class="fas fa-shield-alt"></i> Admin</span>
+        <a href="/admin/logout" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</nav>
+
+<!-- ── PAGE ── -->
+<main class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1><span>Role-Based</span> Access Control</h1>
+            <p>Manage user roles and permissions across the platform.</p>
+        </div>
+        <i class="fas fa-user-shield" style="font-size: 2.5rem; color: var(--yellow);"></i>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-card-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-card-value" th:text="${totalUsers}">0</div>
+            <div class="stat-card-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon admin"><i class="fas fa-crown"></i></div>
+            <div class="stat-card-value" th:text="${adminCount}">0</div>
+            <div class="stat-card-label">Admins</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon manager"><i class="fas fa-clipboard-list"></i></div>
+            <div class="stat-card-value" th:text="${orderManagerCount}">0</div>
+            <div class="stat-card-label">Order Managers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon customer"><i class="fas fa-user"></i></div>
+            <div class="stat-card-value" th:text="${customerCount}">0</div>
+            <div class="stat-card-label">Customers</div>
+        </div>
+    </div>
+
+    <!-- Role Permissions Matrix -->
+    <div class="section-card">
+        <h2><i class="fas fa-key"></i> Role Permissions Matrix</h2>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1.5rem;">
+            Overview of access permissions for each role. Use this as a reference when assigning roles.
+        </p>
+        <div class="permissions-grid">
+            <!-- ADMIN -->
+            <div class="permission-card">
+                <div class="permission-card-header">
+                    <div class="permission-card-icon admin"><i class="fas fa-crown"></i></div>
+                    <div>
+                        <div class="permission-card-title">ADMIN</div>
+                        <div class="permission-card-subtitle">Full System Access</div>
+                    </div>
+                </div>
+                <ul class="permission-list">
+                    <li><i class="fas fa-check"></i> Manage all users & vendors</li>
+                    <li><i class="fas fa-check"></i> Approve/reject products</li>
+                    <li><i class="fas fa-check"></i> Content management (banners)</li>
+                    <li><i class="fas fa-check"></i> Process refunds & returns</li>
+                    <li><i class="fas fa-check"></i> RBAC / Security settings</li>
+                    <li><i class="fas fa-check"></i> View platform analytics</li>
+                </ul>
+                <div class="access-routes">
+                    <div class="access-routes-label">Protected Routes</div>
+                    <span class="route-tag">/admin/*</span>
+                    <span class="route-tag">/approve-products</span>
+                    <span class="route-tag">/admin/refunds</span>
+                    <span class="route-tag">/admin/security</span>
+                </div>
+            </div>
+            <!-- ORDER_MANAGER -->
+            <div class="permission-card">
+                <div class="permission-card-header">
+                    <div class="permission-card-icon manager"><i class="fas fa-clipboard-list"></i></div>
+                    <div>
+                        <div class="permission-card-title">ORDER_MANAGER</div>
+                        <div class="permission-card-subtitle">Order Operations</div>
+                    </div>
+                </div>
+                <ul class="permission-list">
+                    <li><i class="fas fa-check"></i> View all orders</li>
+                    <li><i class="fas fa-check"></i> Update order status</li>
+                    <li><i class="fas fa-check"></i> Track shipments</li>
+                    <li><i class="fas fa-check"></i> Handle cancellations</li>
+                    <li><i class="fas fa-times"></i> No admin panel access</li>
+                    <li><i class="fas fa-times"></i> Cannot manage users</li>
+                </ul>
+                <div class="access-routes">
+                    <div class="access-routes-label">Protected Routes</div>
+                    <span class="route-tag">/orders/*</span>
+                    <span class="route-tag">/track-order/*</span>
+                    <span class="route-tag">/cancel-order/*</span>
+                </div>
+            </div>
+            <!-- CUSTOMER -->
+            <div class="permission-card">
+                <div class="permission-card-header">
+                    <div class="permission-card-icon customer"><i class="fas fa-user"></i></div>
+                    <div>
+                        <div class="permission-card-title">CUSTOMER</div>
+                        <div class="permission-card-subtitle">Standard User</div>
+                    </div>
+                </div>
+                <ul class="permission-list">
+                    <li><i class="fas fa-check"></i> Browse & search products</li>
+                    <li><i class="fas fa-check"></i> Add to cart & checkout</li>
+                    <li><i class="fas fa-check"></i> View own order history</li>
+                    <li><i class="fas fa-check"></i> Manage addresses</li>
+                    <li><i class="fas fa-times"></i> No admin access</li>
+                    <li><i class="fas fa-times"></i> No order management</li>
+                </ul>
+                <div class="access-routes">
+                    <div class="access-routes-label">Accessible Routes</div>
+                    <span class="route-tag">/customer/*</span>
+                    <span class="route-tag">/cart</span>
+                    <span class="route-tag">/checkout</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User List -->
+    <div class="section-card">
+        <h2><i class="fas fa-users-cog"></i> User Role Management</h2>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search by name or email..." onkeyup="filterUsers()">
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(users)}" class="empty-state">
+            <i class="fas fa-users"></i>
+            <p>No users registered yet.</p>
+        </div>
+
+        <table class="user-table" th:if="${not #lists.isEmpty(users)}" id="usersTable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Provider</th>
+                    <th>Current Role</th>
+                    <th>Change Role</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="user : ${users}" th:data-name="${user.name}" th:data-email="${user.email}">
+                    <td>
+                        <div class="user-name" th:text="${user.name ?: 'Unnamed User'}">John Doe</div>
+                    </td>
+                    <td>
+                        <div class="user-email" th:text="${user.email}">john@example.com</div>
+                    </td>
+                    <td>
+                        <div class="user-provider" th:if="${user.provider != null}">
+                            <i th:class="${user.provider == 'google' ? 'fab fa-google' : 'fab fa-github'}"></i>
+                            <span th:text="${#strings.capitalize(user.provider)}">Google</span>
+                        </div>
+                        <div class="user-provider" th:unless="${user.provider != null}">
+                            <i class="fas fa-envelope"></i>
+                            <span>Email</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="role-badge" 
+                              th:classappend="${user.role.name().toLowerCase()}"
+                              th:text="${user.role.name()}">CUSTOMER</span>
+                    </td>
+                    <td>
+                        <select class="role-select" 
+                                th:data-userid="${user.id}"
+                                th:data-username="${user.name}"
+                                th:data-current="${user.role.name()}"
+                                onchange="confirmRoleChange(this)">
+                            <option th:each="role : ${roles}" 
+                                    th:value="${role.name()}" 
+                                    th:text="${role.name()}"
+                                    th:selected="${role == user.role}">ROLE</option>
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</main>
+
+<!-- ── CONFIRMATION MODAL ── -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+        <div class="modal-icon" id="modalIcon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 id="modalTitle">Confirm Role Change</h3>
+        <p id="modalMessage">
+            Are you sure you want to change the role?
+        </p>
+        <div class="modal-btns">
+            <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+            <button class="modal-btn confirm" id="confirmBtn" onclick="submitRoleChange()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── HIDDEN FORM FOR ROLE UPDATE ── -->
+<form id="roleForm" method="post" style="display:none;">
+    <input type="hidden" name="role" id="roleInput">
+</form>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand">Ekart</div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<script>
+    // State for pending role change
+    let pendingChange = null;
+
+    // Filter users by search input
+    function filterUsers() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#usersTable tbody tr');
+        
+        rows.forEach(row => {
+            const name = (row.dataset.name || '').toLowerCase();
+            const email = (row.dataset.email || '').toLowerCase();
+            const match = name.includes(query) || email.includes(query);
+            row.style.display = match ? '' : 'none';
+        });
+    }
+
+    // Show confirmation modal before changing role
+    function confirmRoleChange(select) {
+        const userId = select.dataset.userid;
+        const userName = select.dataset.username;
+        const currentRole = select.dataset.current;
+        const newRole = select.value;
+
+        // If same role, do nothing
+        if (currentRole === newRole) return;
+
+        // Store pending change
+        pendingChange = { userId, userName, currentRole, newRole, select };
+
+        // Update modal content based on role change
+        const modal = document.getElementById('confirmModal');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const confirmBtn = document.getElementById('confirmBtn');
+
+        if (newRole === 'ADMIN') {
+            modalIcon.innerHTML = '<i class="fas fa-crown"></i>';
+            modalIcon.className = 'modal-icon';
+            modalIcon.style.background = 'rgba(139,92,246,0.15)';
+            modalIcon.style.color = '#8b5cf6';
+            modalTitle.textContent = 'Grant Admin Access?';
+            modalMessage.innerHTML = `
+                You are about to grant <span class="modal-highlight">ADMIN</span> privileges to 
+                <span class="modal-highlight">${userName || 'this user'}</span>.<br><br>
+                This will give them full access to:<br>
+                • Content Management<br>
+                • Refund Management<br>
+                • Security Settings<br>
+                • All admin features
+            `;
+            confirmBtn.className = 'modal-btn confirm';
+        } else if (currentRole === 'ADMIN' && newRole !== 'ADMIN') {
+            modalIcon.innerHTML = '<i class="fas fa-user-minus"></i>';
+            modalIcon.className = 'modal-icon danger';
+            modalTitle.textContent = 'Revoke Admin Access?';
+            modalMessage.innerHTML = `
+                You are about to <span class="modal-highlight">downgrade</span> 
+                <span class="modal-highlight">${userName || 'this user'}</span> 
+                from ADMIN to ${newRole}.<br><br>
+                They will immediately lose access to all /admin/* routes.
+            `;
+            confirmBtn.className = 'modal-btn confirm danger';
+        } else {
+            modalIcon.innerHTML = '<i class="fas fa-exchange-alt"></i>';
+            modalIcon.className = 'modal-icon';
+            modalIcon.style.background = 'rgba(59,130,246,0.15)';
+            modalIcon.style.color = '#3b82f6';
+            modalTitle.textContent = 'Confirm Role Change';
+            modalMessage.innerHTML = `
+                Change <span class="modal-highlight">${userName || 'this user'}</span>'s role 
+                from <span class="modal-highlight">${currentRole}</span> 
+                to <span class="modal-highlight">${newRole}</span>?
+            `;
+            confirmBtn.className = 'modal-btn confirm';
+        }
+
+        modal.classList.add('active');
+    }
+
+    // Close modal and revert select
+    function closeModal() {
+        const modal = document.getElementById('confirmModal');
+        modal.classList.remove('active');
+        
+        // Revert select to original value
+        if (pendingChange) {
+            pendingChange.select.value = pendingChange.currentRole;
+            pendingChange = null;
+        }
+    }
+
+    // Submit the role change
+    function submitRoleChange() {
+        if (!pendingChange) return;
+
+        const form = document.getElementById('roleForm');
+        const roleInput = document.getElementById('roleInput');
+        
+        form.action = `/admin/security/update-role/${pendingChange.userId}`;
+        roleInput.value = pendingChange.newRole;
+        form.submit();
+    }
+
+    // Close modal on outside click
+    document.getElementById('confirmModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 3000);
+</script>
+
+</body>
+</html>

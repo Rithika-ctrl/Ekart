@@ -58,6 +58,9 @@ public class EkartController {
     @Autowired
     BannerService bannerService;
 
+    @Autowired
+    com.example.ekart.service.UserAdminService userAdminService;
+
     // ── HOME ──────────────────────────────────────────────────────────────────
 
     @GetMapping
@@ -499,6 +502,18 @@ public class EkartController {
                                        @RequestParam String imageUrl, @RequestParam(required = false) String linkUrl,
                                        HttpSession session) {
         return bannerService.updateBanner(id, title, imageUrl, linkUrl, session);
+    }
+
+    // ── USER ADMIN / RBAC MANAGEMENT (Admin Only) ─────────────────────────────
+
+    @GetMapping("/admin/security")
+    public String adminSecurity(HttpSession session, ModelMap map) {
+        return userAdminService.loadSecurityPage(session, map);
+    }
+
+    @PostMapping("/admin/security/update-role/{id}")
+    public String updateUserRole(@PathVariable int id, @RequestParam String role, HttpSession session) {
+        return userAdminService.updateUserRole(id, role, session);
     }
 
     // ── SHARED ────────────────────────────────────────────────────────────────
