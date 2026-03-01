@@ -258,6 +258,12 @@
         }
         .btn-replace:hover { background: #a855f7; color: white; text-decoration: none; transform: translateY(-1px); }
 
+        .btn-track {
+            background: rgba(34,197,94,0.12); color: #22c55e;
+            border-color: rgba(34,197,94,0.3);
+        }
+        .btn-track:hover { background: #22c55e; color: white; text-decoration: none; transform: translateY(-1px); }
+
         /* ── Empty State ── */
         .empty-state {
             text-align: center; padding: 4rem 2rem;
@@ -437,6 +443,13 @@
 
                 <!-- Footer actions -->
                 <div class="order-card-footer">
+
+                    <!-- Track Order - Show for active shipments (not delivered) -->
+                    <a th:if="${o.trackingStatus == null or o.trackingStatus.name() != 'DELIVERED'}"
+                       th:href="@{'/track/' + ${o.id}}"
+                       class="action-btn btn-track">
+                        <i class="fas fa-truck"></i> Track Order
+                    </a>
 
                     <!-- Cancel -->
                     <a th:href="@{'/cancel-order/' + ${o.id}}"

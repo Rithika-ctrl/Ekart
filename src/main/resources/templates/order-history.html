@@ -320,6 +320,32 @@
             padding: 2px 8px; border-radius: 6px;
         }
 
+        /* card actions */
+        .card-actions {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            gap: 10px;
+        }
+        .btn-track {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 12px; font-weight: 600;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-track:hover {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #22c55e;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
         /* ── EMPTY STATE ── */
         .empty-state {
             background: var(--glass-card);
@@ -522,6 +548,13 @@
             <div class="detail-row" th:if="${o.razorpay_payment_id == 'COD_NA'}">
                 <span class="detail-key">Payment</span>
                 <span class="badge badge-cod"><i class="fas fa-money-bill-wave"></i> Cash on Delivery</span>
+            </div>
+
+            <!-- Track Order Button - Show for active orders (not delivered) -->
+            <div class="card-actions" th:if="${o.trackingStatus == null or o.trackingStatus.name() != 'DELIVERED'}">
+                <a th:href="@{'/track/' + ${o.id}}" class="btn btn-track">
+                    <i class="fas fa-truck"></i> Track Order
+                </a>
             </div>
 
         </div>

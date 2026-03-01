@@ -7,7 +7,10 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,6 +44,14 @@ public class Order {
 
     // 🔥 REPLACEMENT REQUEST — stored in DB
     private boolean replacementRequested = false;
+
+    // 🔥 REAL-TIME TRACKING — tracking status for shipment
+    @Enumerated(EnumType.STRING)
+    private TrackingStatus trackingStatus = TrackingStatus.PROCESSING;
+
+    // 🔥 CURRENT CITY — location tracking for shipment
+    @Column(length = 100)
+    private String currentCity;
 
     // 🔥 RETURN ELIGIBILITY — not stored in DB, computed at runtime
     @Transient
@@ -129,6 +140,21 @@ public class Order {
     }
     public void setReplacementRequested(boolean replacementRequested) {
         this.replacementRequested = replacementRequested;
+    }
+
+    public TrackingStatus getTrackingStatus() {
+        // Return default PROCESSING if null (for existing orders before tracking was added)
+        return trackingStatus != null ? trackingStatus : TrackingStatus.PROCESSING;
+    }
+    public void setTrackingStatus(TrackingStatus trackingStatus) {
+        this.trackingStatus = trackingStatus;
+    }
+
+    public String getCurrentCity() {
+        return currentCity;
+    }
+    public void setCurrentCity(String currentCity) {
+        this.currentCity = currentCity;
     }
 
     public boolean isReturnEligible() {
