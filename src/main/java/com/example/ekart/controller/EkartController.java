@@ -18,6 +18,7 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.service.AdminService;
+import com.example.ekart.service.BannerService;
 import com.example.ekart.service.CustomerService;
 import com.example.ekart.service.VendorService;
 
@@ -54,10 +55,15 @@ public class EkartController {
     @Autowired
     com.example.ekart.service.OrderTrackingService orderTrackingService;
 
+    @Autowired
+    BannerService bannerService;
+
     // ── HOME ──────────────────────────────────────────────────────────────────
 
     @GetMapping
-    public String loadHomePage() {
+    public String loadHomePage(ModelMap map) {
+        // Load active banners for carousel
+        map.put("banners", bannerService.getActiveBanners());
         return "home.html";
     }
 
@@ -463,6 +469,36 @@ public class EkartController {
     @GetMapping("/analytics")
     public String analytics(HttpSession session, ModelMap map) {
         return adminService.analytics(session, map);
+    }
+
+    // ── BANNER CONTENT MANAGEMENT (Admin Only) ─────────────────────────────────
+
+    @GetMapping("/admin/content")
+    public String adminContent(HttpSession session, ModelMap map) {
+        return bannerService.loadContentPage(session, map);
+    }
+
+    @PostMapping("/admin/content/add")
+    public String addBanner(@RequestParam String title, @RequestParam String imageUrl,
+                            @RequestParam(required = false) String linkUrl, HttpSession session) {
+        return bannerService.addBanner(title, imageUrl, linkUrl, session);
+    }
+
+    @PostMapping("/admin/content/toggle/{id}")
+    public String toggleBanner(@PathVariable int id, HttpSession session) {
+        return bannerService.toggleBanner(id, session);
+    }
+
+    @PostMapping("/admin/content/delete/{id}")
+    public String deleteBanner(@PathVariable int id, HttpSession session) {
+        return bannerService.deleteBanner(id, session);
+    }
+
+    @PostMapping("/admin/content/update/{id}")
+    public String updateBannerDetails(@PathVariable int id, @RequestParam String title, 
+                                       @RequestParam String imageUrl, @RequestParam(required = false) String linkUrl,
+                                       HttpSession session) {
+        return bannerService.updateBanner(id, title, imageUrl, linkUrl, session);
     }
 
     // ── SHARED ────────────────────────────────────────────────────────────────

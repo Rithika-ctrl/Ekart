@@ -392,11 +392,11 @@
         </a>
 
         <!-- ADMIN-ONLY: Content Management -->
-        <a href="/content-management" class="dash-card" th:if="${session.admin != null}">
-            <div class="dash-card-icon"><i class="fas fa-edit"></i></div>
+        <a href="/admin/content" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-images"></i></div>
             <div class="dash-card-body">
                 <h3>Content Management</h3>
-                <p>Edit banners, announcements, and site-wide content.</p>
+                <p>Manage promotional banners for the home page carousel.</p>
             </div>
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>

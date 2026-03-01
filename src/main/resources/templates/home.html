@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -361,6 +361,112 @@
         .reveal.visible { opacity:1; transform:translateY(0); }
 
         /* ── RESPONSIVE ── */
+        /* ── PROMO BANNER CAROUSEL ── */
+        .promo-section {
+            padding: 3rem 4rem;
+            background: transparent;
+        }
+        .promo-carousel {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .promo-slides {
+            display: flex;
+            transition: transform 0.5s ease;
+        }
+        .promo-slide {
+            min-width: 100%;
+            position: relative;
+        }
+        .promo-slide img {
+            width: 100%;
+            height: 350px;
+            object-fit: cover;
+            display: block;
+        }
+        .promo-slide-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 3rem;
+        }
+        .promo-slide-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1rem;
+            max-width: 400px;
+        }
+        .promo-slide-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--yellow);
+            color: #1a1000;
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            width: fit-content;
+            transition: all 0.3s;
+        }
+        .promo-slide-btn:hover {
+            background: var(--yellow-d);
+            transform: translateY(-2px);
+        }
+        .promo-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 46px;
+            height: 46px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+        .promo-nav:hover {
+            background: rgba(255,255,255,0.25);
+        }
+        .promo-nav.prev { left: 1.5rem; }
+        .promo-nav.next { right: 1.5rem; }
+        .promo-dots {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+        .promo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .promo-dot.active {
+            background: var(--yellow);
+            transform: scale(1.2);
+        }
+
         @media(max-width: 900px) {
             nav { padding: 0.875rem 1.5rem; }
             section { padding: 4rem 1.5rem; }
@@ -368,6 +474,11 @@
             .feat-cards { grid-template-columns: 1fr 1fr; }
             .cats-grid { grid-template-columns: 1fr 1fr; }
             footer { padding: 1.5rem; flex-direction: column; text-align: center; }
+            .promo-section { padding: 2rem 1.5rem; }
+            .promo-slide img { height: 250px; }
+            .promo-slide-overlay { padding: 1.5rem; }
+            .promo-slide-title { font-size: 1.4rem; }
+            .promo-nav { width: 38px; height: 38px; }
         }
     </style>
 </head>
@@ -458,6 +569,27 @@
     <div class="scroll-hint">
         <span>Scroll</span>
         <i class="fas fa-chevron-down"></i>
+    </div>
+</section>
+
+<!-- ── PROMO BANNER CAROUSEL ── -->
+<section class="promo-section reveal" th:if="${not #lists.isEmpty(banners)}">
+    <div class="promo-carousel">
+        <div class="promo-slides" id="promoSlides">
+            <div class="promo-slide" th:each="banner : ${banners}">
+                <img th:src="${banner.imageUrl}" th:alt="${banner.title}" 
+                     onerror="this.src='https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=80'">
+                <div class="promo-slide-overlay">
+                    <h3 class="promo-slide-title" th:text="${banner.title}">Promotional Banner</h3>
+                    <a th:href="${banner.linkUrl ?: '/products'}" class="promo-slide-btn">
+                        Shop Now <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <button class="promo-nav prev" onclick="moveSlide(-1)"><i class="fas fa-chevron-left"></i></button>
+        <button class="promo-nav next" onclick="moveSlide(1)"><i class="fas fa-chevron-right"></i></button>
+        <div class="promo-dots" id="promoDots"></div>
     </div>
 </section>
 
@@ -579,6 +711,49 @@
             setTimeout(() => el.remove(), 500);
         });
     }, 2500);
+
+    // ── PROMO BANNER CAROUSEL ──
+    (function() {
+        const slides = document.getElementById('promoSlides');
+        const dotsContainer = document.getElementById('promoDots');
+        if (!slides || slides.children.length === 0) return;
+
+        let currentSlide = 0;
+        const totalSlides = slides.children.length;
+
+        // Create dots
+        for (let i = 0; i < totalSlides; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'promo-dot' + (i === 0 ? ' active' : '');
+            dot.onclick = () => goToSlide(i);
+            dotsContainer.appendChild(dot);
+        }
+
+        function updateSlide() {
+            slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+            document.querySelectorAll('.promo-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === currentSlide);
+            });
+        }
+
+        window.moveSlide = function(dir) {
+            currentSlide = (currentSlide + dir + totalSlides) % totalSlides;
+            updateSlide();
+        };
+
+        window.goToSlide = function(index) {
+            currentSlide = index;
+            updateSlide();
+        };
+
+        // Auto-play carousel
+        if (totalSlides > 1) {
+            setInterval(() => {
+                currentSlide = (currentSlide + 1) % totalSlides;
+                updateSlide();
+            }, 5000);
+        }
+    })();
 </script>
 </body>
 </html>
