@@ -12,4 +12,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
 	Customer findByEmail(String email);
 
+	// OAuth2 lookup
+	Customer findByProviderAndProviderId(String provider, String providerId);
+
 }

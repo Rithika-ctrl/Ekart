@@ -14,4 +14,7 @@ public interface VendorRepository extends JpaRepository<Vendor, Integer> {
 
 	Vendor findByEmail(String email);
 
+	// OAuth2 lookup
+	Vendor findByProviderAndProviderId(String provider, String providerId);
+
 }
