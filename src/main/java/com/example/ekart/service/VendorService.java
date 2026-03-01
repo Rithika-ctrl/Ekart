@@ -21,6 +21,12 @@ import com.example.ekart.repository.VendorRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import com.example.ekart.dto.SalesReport;
+import com.example.ekart.repository.SalesReportRepository;
+import java.time.LocalDate;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
+import java.util.stream.Collectors;
 
 import com.example.ekart.dto.Item;
 
@@ -49,11 +55,19 @@ public class VendorService {
 	@Autowired
 	private ItemRepository itemRepository;
 
+	@Autowired
+    private SalesReportRepository salesReportRepository;
+
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
 		map.put("vendor", vendor);
 		return "vendor-register.html";
 	}
+	// 🔥 NEW: Generate unique vendor code like VND-00001
+    // Add this private method inside VendorService class
+    private String generateVendorCode(int vendorId) {
+        return String.format("VND-%05d", vendorId);
+    }
 
 	public String registration(@Valid Vendor vendor, BindingResult result, HttpSession session) {
 
@@ -74,6 +88,11 @@ public class VendorService {
 		vendor.setVerified(false);
 
 		vendorRepository.save(vendor);
+
+// 🔥 Generate unique Vendor ID after save (we need the DB id first)
+        String vendorCode = generateVendorCode(vendor.getId());
+        vendor.setVendorCode(vendorCode);
+        vendorRepository.save(vendor);
 
 		try {
 			emailSender.send(vendor);
@@ -456,6 +475,7 @@ public class VendorService {
 	}
 
     // 🔥 SALES REPORT
+    // 🔥 SALES REPORT — FIXED (vendor-filtered, DB-persisted)
     public String loadSalesReport(HttpSession session, org.springframework.ui.ModelMap map) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
@@ -463,22 +483,61 @@ public class VendorService {
             return "redirect:/vendor/login";
         }
 
-        // Get all orders, build JSON array for the frontend chart
-        java.util.List<com.example.ekart.dto.Order> allOrders = orderRepository.findAll();
+        java.time.LocalDate today = java.time.LocalDate.now();
 
+        // ── Date ranges ──────────────────────────────────────────
+        java.time.LocalDateTime todayStart   = today.atStartOfDay();
+        java.time.LocalDateTime todayEnd     = today.atTime(23, 59, 59);
+
+        java.time.LocalDate weekStart        = today.with(DayOfWeek.MONDAY);
+        java.time.LocalDateTime weekStartDT  = weekStart.atStartOfDay();
+
+        java.time.LocalDate monthStart       = today.with(TemporalAdjusters.firstDayOfMonth());
+        java.time.LocalDateTime monthStartDT = monthStart.atStartOfDay();
+
+        // ── Fetch vendor-specific orders ─────────────────────────
+        List<com.example.ekart.dto.Order> dailyOrders   = orderRepository.findOrdersByVendorAndDateRange(vendor, todayStart, todayEnd);
+        List<com.example.ekart.dto.Order> weeklyOrders  = orderRepository.findOrdersByVendorAndDateRange(vendor, weekStartDT, todayEnd);
+        List<com.example.ekart.dto.Order> monthlyOrders = orderRepository.findOrdersByVendorAndDateRange(vendor, monthStartDT, todayEnd);
+        List<com.example.ekart.dto.Order> allOrders     = orderRepository.findOrdersByVendor(vendor);
+
+        // ── Get this vendor's product IDs ─────────────────────────
+        java.util.Set<Integer> vendorProductIds = productRepository.findByVendor(vendor)
+            .stream()
+            .map(p -> p.getId())
+            .collect(Collectors.toSet());
+
+        // ── Build summary stats ───────────────────────────────────
+        java.util.Map<String, Object> daily   = buildSummary(dailyOrders,   vendorProductIds);
+        java.util.Map<String, Object> weekly  = buildSummary(weeklyOrders,  vendorProductIds);
+        java.util.Map<String, Object> monthly = buildSummary(monthlyOrders, vendorProductIds);
+        java.util.Map<String, Object> overall = buildSummary(allOrders,     vendorProductIds);
+
+        // ── Save to DB ────────────────────────────────────────────
+        saveSalesReport(vendor, "DAILY",   today,      daily);
+        saveSalesReport(vendor, "WEEKLY",  weekStart,  weekly);
+        saveSalesReport(vendor, "MONTHLY", monthStart, monthly);
+
+        // ── Build JSON for chart (vendor-filtered only) ───────────
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
-        // Build a simplified list for the template
         java.util.List<java.util.Map<String, Object>> ordersJson = new java.util.ArrayList<>();
         for (com.example.ekart.dto.Order o : allOrders) {
             if (o.getOrderDate() == null) continue;
+            double vendorRevenue = o.getItems().stream()
+                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
+                .mapToDouble(i -> i.getPrice())
+                .sum();
+            long vendorItemCount = o.getItems().stream()
+                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
+                .count();
             java.util.Map<String, Object> m = new java.util.HashMap<>();
-            m.put("id", o.getId());
-            m.put("amount", o.getAmount());
-            m.put("orderDate", o.getOrderDate().toString());
+            m.put("id",           o.getId());
+            m.put("amount",       vendorRevenue);
+            m.put("orderDate",    o.getOrderDate().toString());
             m.put("deliveryTime", o.getDeliveryTime() != null ? o.getDeliveryTime() : "Standard");
-            m.put("itemCount", o.getItems() != null ? o.getItems().size() : 0);
+            m.put("itemCount",    vendorItemCount);
             ordersJson.add(m);
         }
 
@@ -487,5 +546,55 @@ public class VendorService {
 
         map.put("ordersJson", json);
         return "vendor-sales-report.html";
+    }
+
+    // ── Helper: calculate summary from order list ─────────────────
+    private java.util.Map<String, Object> buildSummary(
+            List<com.example.ekart.dto.Order> orders,
+            java.util.Set<Integer> vendorProductIds) {
+
+        double revenue   = 0;
+        int    itemsSold = 0;
+
+        for (com.example.ekart.dto.Order o : orders) {
+            for (Item item : o.getItems()) {
+                if (item.getProductId() != null && vendorProductIds.contains(item.getProductId())) {
+                    revenue   += item.getPrice();
+                    itemsSold += item.getQuantity();
+                }
+            }
+        }
+
+        double avg = orders.isEmpty() ? 0 : revenue / orders.size();
+
+        java.util.Map<String, Object> summary = new java.util.HashMap<>();
+        summary.put("totalRevenue",   revenue);
+        summary.put("totalOrders",    orders.size());
+        summary.put("totalItemsSold", itemsSold);
+        summary.put("avgOrderValue",  Math.round(avg * 100.0) / 100.0);
+        return summary;
+    }
+
+    // ── Helper: save or update SalesReport in DB ──────────────────
+    private void saveSalesReport(Vendor vendor, String type,
+            java.time.LocalDate date, java.util.Map<String, Object> summary) {
+        try {
+            SalesReport report = salesReportRepository
+                .findByVendorAndReportTypeAndReportDate(vendor, type, date)
+                .orElse(new SalesReport());
+
+            report.setVendor(vendor);
+            report.setReportType(type);
+            report.setReportDate(date);
+            report.setTotalRevenue((double) summary.get("totalRevenue"));
+            report.setTotalOrders((int)    summary.get("totalOrders"));
+            report.setTotalItemsSold((int) summary.get("totalItemsSold"));
+            report.setAvgOrderValue((double) summary.get("avgOrderValue"));
+            report.setGeneratedAt(java.time.LocalDateTime.now());
+
+            salesReportRepository.save(report);
+        } catch (Exception e) {
+            System.err.println("Failed to save SalesReport: " + e.getMessage());
+        }
     }
 }
