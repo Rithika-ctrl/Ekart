@@ -1,5 +1,6 @@
 package com.example.ekart.dto;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -34,6 +35,13 @@ public class Vendor {
 	private String confirmPassword;
 	private int otp;
 	private boolean verified;
+
+	// OAuth2 fields for social login (nullable - optional for email/password users)
+	@Column(nullable = true)
+	private String provider; // e.g., "google", "github", or null for email/password
+	
+	@Column(nullable = true)
+	private String providerId; // unique id from OAuth provider
 	public int getId() {
 		return id;
 	}
