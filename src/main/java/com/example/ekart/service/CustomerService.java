@@ -373,52 +373,27 @@ public class CustomerService {
 
     // ---------------- REMOVE FROM CART ----------------
     @Transactional
-public String removeFromCart(int id, HttpSession session) {
-    // 1. Fetch the Item
-    Item item = itemRepository.findById(id).orElseThrow();
-    
-    // 2. Restore Stock
-    List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
-    if (!products.isEmpty()) {
-        Product product = products.get(0);
-        product.setStock(product.getStock() + item.getQuantity());
-        productRepository.save(product);
+    public String removeFromCart(int id, HttpSession session) {
+        Item item = itemRepository.findById(id).orElseThrow();
+
+        // Restore stock
+        List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
+        if (!products.isEmpty()) {
+            Product product = products.get(0);
+            product.setStock(product.getStock() + item.getQuantity());
+            productRepository.save(product);
+        }
+
+        // Detach from cart list first, then delete
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        customer.getCart().getItems().removeIf(i -> i.getId() == id);
+        customerRepository.save(customer);
+        itemRepository.deleteById(id);
+
+        session.setAttribute("success", "Item Removed from Cart");
+        return "redirect:/view-cart";
     }
-
-    // 🔥 DELETE THIS: itemRepository.delete(item); 
-    // 🔥 REPLACE WITH THIS:
-    @Transactional
-public String removeFromCart(int id, HttpSession session) {
-    Item item = itemRepository.findById(id).orElseThrow();
-
-    // Restore stock
-    List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
-    if (!products.isEmpty()) {
-        Product product = products.get(0);
-        product.setStock(product.getStock() + item.getQuantity());
-        productRepository.save(product);
-    }
-
-    // Detach from cart list first, then delete
-    Customer sessionCustomer = (Customer) session.getAttribute("customer");
-    Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-    customer.getCart().getItems().removeIf(i -> i.getId() == id);
-    customerRepository.save(customer);
-    itemRepository.deleteById(id);   // ← Actually delete the row ✅
-
-    session.setAttribute("success", "Item Removed from Cart");
-    return "redirect:/view-cart";
-}
-
-    // 3. Clear from the Session list
-    Customer sessionCustomer = (Customer) session.getAttribute("customer");
-    Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-    customer.getCart().getItems().removeIf(i -> i.getId() == id);
-    customerRepository.save(customer);
-
-    session.setAttribute("success", "Item Removed from Cart");
-    return "redirect:/view-cart";
-}
 
     // ---------------- PAYMENT PAGE ----------------
 // ---------------- PAYMENT PAGE ----------------
@@ -564,13 +539,12 @@ public String paymentSuccess(Order order, HttpSession session) {
             boolean eligible = order.getOrderDate() != null && order.getOrderDate().isAfter(cutoff);
             returnEligibleMap.put(order.getId(), eligible);
 
-            // Try to read replacementRequested safely via reflection — works whether field exists or not
+            // Check if replacement was requested
             boolean replaced = false;
             try {
-                java.lang.reflect.Method m = order.getClass().getMethod("isReplacementRequested");
-                boolean replaced = order.isReplacementRequested(); // ✅ direct call
+                replaced = order.isReplacementRequested();
             } catch (Exception e) {
-                replaced = false; // field doesn't exist yet — treat as not requested
+                replaced = false;
             }
             replacementRequestedMap.put(order.getId(), replaced);
         }

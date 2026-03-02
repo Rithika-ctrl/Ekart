@@ -1,6 +1,7 @@
 package com.example.ekart.controller;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.example.ekart.dto.Customer;
+import com.example.ekart.dto.Item;
+import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.repository.CustomerRepository;
