@@ -23,6 +23,7 @@ import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.service.AdminService;
 import com.example.ekart.service.BannerService;
 import com.example.ekart.service.CustomerService;
+import com.example.ekart.service.GuestService;
 import com.example.ekart.service.VendorService;
 
 import jakarta.servlet.http.HttpSession;
@@ -63,6 +64,33 @@ public class EkartController {
 
     @Autowired
     com.example.ekart.service.UserAdminService userAdminService;
+
+    @Autowired
+    GuestService guestService;
+
+    // ── GUEST ─────────────────────────────────────────────────────────────────
+
+    @GetMapping("/guest/start")
+    public String startGuest(HttpSession session) {
+        return guestService.startGuestSession(session);
+    }
+
+    @GetMapping("/guest/browse")
+    public String guestBrowse(HttpSession session, ModelMap map) {
+        return guestService.loadGuestBrowse(session, map);
+    }
+
+    @GetMapping("/guest/search")
+    public String guestSearch(@RequestParam(required = false, defaultValue = "") String query,
+                               HttpSession session, ModelMap map) {
+        return guestService.guestSearch(query, session, map);
+    }
+
+    @GetMapping("/guest/exit")
+    public String exitGuest(HttpSession session) {
+        session.removeAttribute("guest");
+        return "redirect:/";
+    }
 
     // ── HOME ──────────────────────────────────────────────────────────────────
 

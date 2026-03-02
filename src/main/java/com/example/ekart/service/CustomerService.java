@@ -137,6 +137,8 @@ public class CustomerService {
             customerRepository.save(customer);
         }
 
+        // Clear guest session if present
+        session.removeAttribute("guest");
         session.setAttribute("customer", customer);
         session.setAttribute("success", "Login Successful");
         return "redirect:/customer/home";
