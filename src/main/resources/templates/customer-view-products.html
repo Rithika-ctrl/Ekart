@@ -263,6 +263,76 @@
             text-transform: uppercase; letter-spacing: 0.06em;
         }
 
+        /* ── WISHLIST HEART ICON ── */
+        .btn-wishlist {
+            position: absolute; top: 12px; right: 55px;
+            width: 36px; height: 36px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            color: var(--text-dim);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 15;
+        }
+        .btn-wishlist:hover {
+            background: rgba(239,68,68,0.2);
+            color: #ef4444;
+            border-color: rgba(239,68,68,0.4);
+            transform: scale(1.1);
+        }
+        .btn-wishlist.active {
+            background: rgba(239,68,68,0.9);
+            color: white;
+            border-color: #ef4444;
+        }
+        .btn-wishlist.active:hover {
+            background: #ef4444;
+        }
+        .btn-wishlist i {
+            transition: transform 0.3s;
+        }
+        .btn-wishlist:active i {
+            transform: scale(1.3);
+        }
+
+        /* ── TOAST NOTIFICATIONS ── */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .toast {
+            background: rgba(10,12,30,0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.85rem;
+            animation: slideInRight 0.3s ease both;
+            min-width: 260px;
+        }
+        .toast.success { border-color: rgba(34,197,94,0.5); }
+        .toast.success i { color: #22c55e; }
+        .toast.error { border-color: rgba(239,68,68,0.5); }
+        .toast.error i { color: #ef4444; }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
         /* ── MEDIA TRAY ── */
         .media-tray {
             background: rgba(0,0,0,0.3);
@@ -468,6 +538,9 @@
 
 <div class="bg-layer"></div>
 
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-container" id="toastContainer"></div>
+
 <!-- ── FLOATING ALERTS ── -->
 <div class="alert-stack">
     <div class="alert alert-success" th:if="${session.success}">
@@ -490,6 +563,9 @@
         Ekart
     </a>
     <div class="nav-right">
+        <a href="/account/wishlist" class="nav-link-btn" style="border-color: rgba(239,68,68,0.3);">
+            <i class="fas fa-heart" style="color: #ef4444;"></i> Wishlist
+        </a>
         <a href="/view-cart" class="nav-link-btn">
             <i class="fas fa-shopping-cart"></i> Cart
         </a>
@@ -538,6 +614,10 @@
                 <div class="img-area">
                     <img class="card-image" th:src="${p.imageLink}" th:id="'mainImg-' + ${p.id}" alt="">
                     <span class="category-pill" th:text="${p.category}"></span>
+                    <button class="btn-wishlist" th:id="'wishlist-' + ${p.id}" th:onclick="'toggleWishlist(' + ${p.id} + ')'"
+                            title="Add to Wishlist">
+                        <i class="far fa-heart"></i>
+                    </button>
                     <span class="budget-badge"><i class="fas fa-check-double"></i> In Budget</span>
                 </div>
 
@@ -693,6 +773,83 @@
             el.querySelector('.product-card').classList.remove('within-budget');
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WISHLIST FUNCTIONALITY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Toast notification
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <span>${message}</span>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Load wishlist state on page load
+    async function loadWishlistState() {
+        try {
+            const response = await fetch('/api/wishlist/ids');
+            const data = await response.json();
+            if (data.success && data.productIds) {
+                data.productIds.forEach(id => {
+                    const btn = document.getElementById(`wishlist-${id}`);
+                    if (btn) {
+                        btn.classList.add('active');
+                        btn.querySelector('i').className = 'fas fa-heart';
+                        btn.title = 'Remove from Wishlist';
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Failed to load wishlist state:', error);
+        }
+    }
+
+    // Toggle wishlist
+    async function toggleWishlist(productId) {
+        const btn = document.getElementById(`wishlist-${productId}`);
+        const icon = btn.querySelector('i');
+        
+        // Optimistic UI update
+        const wasActive = btn.classList.contains('active');
+        btn.classList.toggle('active');
+        icon.className = wasActive ? 'far fa-heart' : 'fas fa-heart';
+        btn.title = wasActive ? 'Add to Wishlist' : 'Remove from Wishlist';
+
+        try {
+            const response = await fetch('/api/wishlist/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId: productId })
+            });
+            const data = await response.json();
+            
+            if (!data.success) {
+                // Revert on failure
+                btn.classList.toggle('active');
+                icon.className = wasActive ? 'fas fa-heart' : 'far fa-heart';
+                btn.title = wasActive ? 'Remove from Wishlist' : 'Add to Wishlist';
+                showToast(data.message || 'Failed to update wishlist', 'error');
+            } else {
+                showToast(data.message, 'success');
+            }
+        } catch (error) {
+            // Revert on error
+            btn.classList.toggle('active');
+            icon.className = wasActive ? 'fas fa-heart' : 'far fa-heart';
+            btn.title = wasActive ? 'Remove from Wishlist' : 'Add to Wishlist';
+            showToast('Something went wrong', 'error');
+        }
+    }
+
+    // Initialize wishlist state on page load
+    document.addEventListener('DOMContentLoaded', loadWishlistState);
 </script>
 
 </body>
