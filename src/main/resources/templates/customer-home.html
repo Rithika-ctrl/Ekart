@@ -379,6 +379,9 @@
         Ekart
     </a>
     <div class="nav-right">
+        <a href="/account/wishlist" class="nav-wishlist">
+            <i class="fas fa-heart"></i> Wishlist
+        </a>
         <a href="/view-cart" class="nav-cart">
             <i class="fas fa-shopping-cart"></i> Cart
             <span class="cart-badge" th:if="${cartCount != null and cartCount > 0}" th:text="${cartCount}"></span>
@@ -454,6 +457,17 @@
             <div class="dash-card-body">
                 <h3>View Orders</h3>
                 <p>Check the details and status of your current active orders.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <a href="/account/wishlist" class="dash-card">
+            <div class="dash-card-icon" style="background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.25);">
+                <i class="fas fa-heart" style="color: #ef4444;"></i>
+            </div>
+            <div class="dash-card-body">
+                <h3>My Wishlist</h3>
+                <p>View and manage products you've saved for later.</p>
             </div>
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>
