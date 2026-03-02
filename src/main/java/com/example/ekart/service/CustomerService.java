@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
 
-import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.dto.Cart;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
@@ -325,8 +324,13 @@ public class CustomerService {
     // ---------------- INCREASE QUANTITY ----------------
     public String increase(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
-        Product product = productRepository.findByNameContainingIgnoreCase(item.getName()).get(0);
+        List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
 
+        if (products.isEmpty()) {              // ← ADD THIS CHECK
+        session.setAttribute("failure", "This product is no longer available.");
+        return "redirect:/view-cart";
+        }
+        Product product = products.get(0);
         item.setQuantity(item.getQuantity() + 1);
         item.setPrice(item.getPrice() + product.getPrice());
 
@@ -383,8 +387,28 @@ public String removeFromCart(int id, HttpSession session) {
 
     // 🔥 DELETE THIS: itemRepository.delete(item); 
     // 🔥 REPLACE WITH THIS:
-    item.setCart(null); 
-    itemRepository.save(item); 
+    @Transactional
+public String removeFromCart(int id, HttpSession session) {
+    Item item = itemRepository.findById(id).orElseThrow();
+
+    // Restore stock
+    List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
+    if (!products.isEmpty()) {
+        Product product = products.get(0);
+        product.setStock(product.getStock() + item.getQuantity());
+        productRepository.save(product);
+    }
+
+    // Detach from cart list first, then delete
+    Customer sessionCustomer = (Customer) session.getAttribute("customer");
+    Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+    customer.getCart().getItems().removeIf(i -> i.getId() == id);
+    customerRepository.save(customer);
+    itemRepository.deleteById(id);   // ← Actually delete the row ✅
+
+    session.setAttribute("success", "Item Removed from Cart");
+    return "redirect:/view-cart";
+}
 
     // 3. Clear from the Session list
     Customer sessionCustomer = (Customer) session.getAttribute("customer");
@@ -544,7 +568,7 @@ public String paymentSuccess(Order order, HttpSession session) {
             boolean replaced = false;
             try {
                 java.lang.reflect.Method m = order.getClass().getMethod("isReplacementRequested");
-                replaced = (boolean) m.invoke(order);
+                boolean replaced = order.isReplacementRequested(); // ✅ direct call
             } catch (Exception e) {
                 replaced = false; // field doesn't exist yet — treat as not requested
             }

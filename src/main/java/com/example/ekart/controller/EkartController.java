@@ -303,34 +303,29 @@ public class EkartController {
     }
 
     @PostMapping("/success")
-    public String paymentSuccess(com.example.ekart.dto.Order order,
-            @RequestParam(required = false, defaultValue = "Cash on Delivery") String paymentMode,
-            HttpSession session) {
-
-        Customer customer = (Customer) session.getAttribute("customer");
-        java.util.List<com.example.ekart.dto.Item> cartItems = new java.util.ArrayList<>();
-        double finalAmount = 0;
-
-        if (customer != null && customer.getCart() != null && customer.getCart().getItems() != null) {
-            for (com.example.ekart.dto.Item item : customer.getCart().getItems()) {
-                finalAmount += item.getPrice();
-                cartItems.add(item);
-            }
-        }
-
-        order.setAmount(finalAmount);
-        String result = customerService.paymentSuccess(order, session);
-
-        if (customer != null && result.contains("home")) {
-            try {
-                emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
-                        paymentMode, order.getDeliveryTime(), cartItems);
-            } catch (Exception e) {
-                System.err.println("Order confirmation email failed: " + e.getMessage());
-            }
-        }
-        return result;
+public String paymentSuccess(Order order, @RequestParam(required=false, defaultValue="Cash on Delivery") String paymentMode, HttpSession session) {
+    Customer customer = (Customer) session.getAttribute("customer");
+    double finalAmount = 0;
+    if (customer != null && customer.getCart() != null) {
+        for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
     }
+    order.setAmount(finalAmount);
+
+    String result = customerService.paymentSuccess(order, session);  // clears cart, saves order
+
+    // ✅ Fetch the saved order to get the cloned items
+    if (customer != null && result.contains("home")) {
+        try {
+            Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
+            List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
+            emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
+                    paymentMode, order.getDeliveryTime(), orderItems);
+        } catch (Exception e) {
+            System.err.println("Order confirmation email failed: " + e.getMessage());
+        }
+    }
+    return result;
+}
 
     @GetMapping("/view-orders")
     public String viewOrders(HttpSession session, ModelMap map) {
