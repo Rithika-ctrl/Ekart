@@ -543,7 +543,11 @@ public class VendorService {
 
         String json = "[]";
         try { json = mapper.writeValueAsString(ordersJson); } catch (Exception e) { /* skip */ }
-
+        
+		map.put("daily",   daily);
+        map.put("weekly",  weekly);
+        map.put("monthly", monthly);
+        map.put("overall", overall);
         map.put("ordersJson", json);
         return "vendor-sales-report.html";
     }
