@@ -483,6 +483,11 @@ public class VendorService {
             return "redirect:/vendor/login";
         }
 
+        // 🔥 Add vendor info to header
+        map.put("vendorId", vendor.getId());
+        map.put("vendorName", vendor.getName());
+        map.put("vendorCode", vendor.getVendorCode());
+
         java.time.LocalDate today = java.time.LocalDate.now();
 
         // ── Date ranges ──────────────────────────────────────────
@@ -559,21 +564,25 @@ public class VendorService {
 
         double revenue   = 0;
         int    itemsSold = 0;
+        int    vendorOrderCount = 0; // 🔥 Count only orders with vendor items
 
         for (com.example.ekart.dto.Order o : orders) {
+            boolean hasVendorItem = false;
             for (Item item : o.getItems()) {
                 if (item.getProductId() != null && vendorProductIds.contains(item.getProductId())) {
                     revenue   += item.getPrice();
                     itemsSold += item.getQuantity();
+                    hasVendorItem = true;
                 }
             }
+            if (hasVendorItem) vendorOrderCount++; // 🔥 Count orders with vendor items
         }
 
-        double avg = orders.isEmpty() ? 0 : revenue / orders.size();
+        double avg = vendorOrderCount == 0 ? 0 : revenue / vendorOrderCount;
 
         java.util.Map<String, Object> summary = new java.util.HashMap<>();
         summary.put("totalRevenue",   revenue);
-        summary.put("totalOrders",    orders.size());
+        summary.put("totalOrders",    vendorOrderCount); // 🔥 Use vendor order count
         summary.put("totalItemsSold", itemsSold);
         summary.put("avgOrderValue",  Math.round(avg * 100.0) / 100.0);
         return summary;
