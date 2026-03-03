@@ -34,14 +34,14 @@
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: 0;
-            background: url('/css/ekart-bg.svg') center/cover no-repeat;
-             
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px); transform: scale(1.08);
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: rgba(255,255,255,0.10);
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
         /* ── Navbar ── */
@@ -50,7 +50,7 @@
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
             background: var(--glass-nav);
-            backdrop-
+            backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--glass-border);
             transition: background 0.3s;
         }
@@ -87,7 +87,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(255,255,255,0.97); backdrop-
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -109,7 +109,7 @@
         /* ── Page Header ── */
         .page-header {
             background: var(--glass-card);
-            backdrop-
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2rem 2.5rem;
@@ -140,7 +140,7 @@
         /* ── Glass Card ── */
         .glass-card {
             background: var(--glass-card);
-            backdrop-
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2.5rem;
@@ -215,7 +215,7 @@
 
         .stat-card {
             background: var(--glass-card);
-            backdrop-
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 16px; padding: 1.4rem 1.5rem;
             display: flex; align-items: center; gap: 1rem;
@@ -284,7 +284,7 @@
 
         /* ── Footer ── */
         footer {
-            background: rgba(0,0,0,0.5); backdrop-
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;

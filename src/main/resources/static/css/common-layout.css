@@ -1,67 +1,38 @@
 :root {
     --primary-gradient: linear-gradient(135deg, #2563eb, #1e40af);
-    --surface-color: rgba(255, 255, 255, 0.92);
+    --surface-color: #ffffff;
     --bg-color: #f8fafc;
     --text-main: #1e293b;
     --text-muted: #64748b;
-    --accent-blue: #2563eb;
-    --accent-yellow: #F5A800;
-    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+    --accent-red: #ef4444;
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
     --radius: 16px;
 }
 
 body {
-    background-color: #f8fafc;
+    background-color: var(--bg-color);
     color: var(--text-main);
     font-family: 'Poppins', sans-serif;
     line-height: 1.6;
-    min-height: 100vh;
 }
 
-/* ── BACKGROUND LAYER ── */
-.bg-layer {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-}
-
-.bg-layer::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: url('/css/ekart-bg.svg') center/cover no-repeat;
-    filter: none;
-    transform: none;
-}
-
-.bg-layer::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.10);
-}
-
-/* ── CARDS & FORMS ── */
+/* Glassmorphism Card Style - Replaces red/gray borders */
 .form-container, .registration-form, .card, .success-card {
-    background: rgba(255, 255, 255, 0.92) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: var(--surface-color) !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
     border-radius: var(--radius) !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10) !important;
-    backdrop-filter: blur(12px) !important;
+    box-shadow: var(--shadow-lg) !important;
     padding: 2.5rem !important;
-    transition: all 0.3s ease;
-    color: var(--text-main) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
-    border-color: rgba(37, 99, 235, 0.3) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* ── BUTTONS ── */
+/* Premium Button Interactions */
 .btn-primary, .btn-custom, .search-button {
     background: var(--primary-gradient) !important;
     border: none !important;
@@ -69,324 +40,30 @@ body {
     padding: 0.8rem 1.5rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.5px;
-    color: white !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3) !important;
 }
 
-.btn-primary:hover, .btn-custom:hover, .search-button:hover {
+.btn-primary:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5) !important;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4) !important;
 }
 
-.btn-secondary, .btn-outline-secondary, .btn-ghost {
-    background: rgba(255,255,255,0.7) !important;
-    border: 1.5px solid rgba(0,0,0,0.15) !important;
-    color: #1e293b !important;
-    border-radius: 12px !important;
-}
-
-/* ── FORM INPUTS ── */
-.form-control, input, select, textarea {
-    border: 1.5px solid rgba(0, 0, 0, 0.15) !important;
+/* Styled Form Inputs */
+.form-control {
+    border: 2px solid #e2e8f0 !important;
     border-radius: 10px !important;
     padding: 0.75rem 1rem !important;
-    background: rgba(255, 255, 255, 0.9) !important;
-    color: #1e293b !important;
-    transition: all 0.2s ease;
-    font-size: 1rem;
+    transition: border-color 0.2s ease;
 }
 
-.form-control:focus, input:focus, select:focus, textarea:focus {
-    border-color: var(--accent-blue) !important;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
-    background: white !important;
-    color: #1e293b !important;
+.form-control:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
 }
 
-.form-control::placeholder, input::placeholder {
-    color: #94a3b8 !important;
-}
-
-/* ── TEXT ── */
-h1, h2, h3, h4, h5, h6 {
-    color: #0f172a !important;
-    text-shadow: none !important;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.5rem; }
-
-p, span, li, td, th, div, label, small {
-    color: #1e293b !important;
-}
-
-.text-muted {
-    color: #64748b !important;
-}
-
-.text-danger {
-    color: #ef4444 !important;
-}
-
-a {
-    color: #2563eb !important;
-}
-
-a:hover {
-    color: #1d4ed8 !important;
-}
-
-/* ── NAVBAR ── */
-.navbar, nav {
-    background: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(14px) !important;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
-    border-bottom: 1px solid rgba(0,0,0,0.07) !important;
-    padding: 1rem 2rem;
-}
-
-.navbar-brand, .nav-brand {
-    color: #0f172a !important;
-    font-weight: 700;
-}
-
-.nav-link, .navbar-nav .nav-link {
-    color: #334155 !important;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.nav-link:hover {
-    color: #2563eb !important;
-}
-
-/* ── DROPDOWN ── */
-.dropdown-menu {
-    background: rgba(255,255,255,0.97) !important;
-    border: 1px solid rgba(0,0,0,0.10) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important;
-}
-
-.dropdown-menu a, .dropdown-item {
-    color: #334155 !important;
-}
-
-.dropdown-item:hover {
-    background: rgba(37,99,235,0.07) !important;
-    color: #1e40af !important;
-}
-
-/* ── TABLES ── */
-.table {
-    background: rgba(255,255,255,0.92);
-    border-radius: var(--radius);
-    overflow: hidden;
-    color: #1e293b !important;
-}
-
-.table thead th {
-    background: var(--primary-gradient);
-    color: white !important;
-    border: none;
-    font-weight: 600;
-    padding: 1.25rem;
-}
-
-.table tbody tr {
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    transition: background 0.2s ease;
-    color: #1e293b !important;
-}
-
-.table tbody tr:hover {
-    background: rgba(37, 99, 235, 0.05) !important;
-}
-
-/* ── BADGES ── */
-.badge {
-    padding: 0.5rem 1rem;
-    border-radius: 50px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
-.badge-primary {
+/* Navbar Upgrade */
+.navbar {
     background: var(--primary-gradient) !important;
-    color: white !important;
-}
-
-/* ── ALERTS ── */
-.alert {
-    border-radius: var(--radius);
-    border: none;
-    backdrop-filter: blur(4px);
-    color: #1e293b !important;
-}
-
-.alert-danger {
-    background: rgba(239, 68, 68, 0.12) !important;
-    color: #dc2626 !important;
-    border: 1px solid rgba(239, 68, 68, 0.25) !important;
-}
-
-.alert-success {
-    background: rgba(34, 197, 94, 0.12) !important;
-    color: #15803d !important;
-    border: 1px solid rgba(34, 197, 94, 0.25) !important;
-}
-
-/* ── MODAL ── */
-.modal-content {
-    background: rgba(255,255,255,0.97) !important;
-    border: 1px solid rgba(0,0,0,0.10) !important;
-    border-radius: var(--radius);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.20) !important;
-    color: #1e293b !important;
-}
-
-.modal-header {
-    background: var(--primary-gradient);
-    color: white !important;
-    border-bottom: none;
-}
-
-.modal-header .btn-close {
-    filter: brightness(0) invert(1);
-}
-
-.modal-body, .modal-footer {
-    color: #1e293b !important;
-}
-
-/* ── FOOTER ── */
-footer {
-    background: rgba(255,255,255,0.80) !important;
-    color: #475569 !important;
-    border-top: 1px solid rgba(0,0,0,0.08) !important;
-    backdrop-filter: blur(10px) !important;
-}
-
-footer a {
-    color: #64748b !important;
-}
-
-footer a:hover {
-    color: #1e293b !important;
-}
-
-/* ── SIDEBAR / ADMIN ── */
-.sidebar, [class*="sidebar"] {
-    background: rgba(255,255,255,0.90) !important;
-    color: #1e293b !important;
-    border-right: 1px solid rgba(0,0,0,0.08) !important;
-}
-
-/* ── HERO SECTION TEXT VISIBILITY FIX ── */
-.hero-section p,
-.hero-section span,
-.hero-section h1,
-.hero-section h2,
-.hero-section h3,
-.hero-section div,
-.hero p,
-.hero span,
-.hero h1,
-.hero h2,
-.hero div,
-section p,
-section span,
-section div {
-    color: #1e293b !important;
-    text-shadow: none !important;
-}
-
-/* ── BADGE / PILL TEXT FIX ── */
-.badge,
-[class*="badge"],
-.pill,
-.tag,
-.label {
-    color: #1e293b !important;
-    background: rgba(255, 255, 255, 0.75) !important;
-    border: 1px solid rgba(37, 99, 235, 0.3) !important;
-}
-/* ── STATS / COUNTER TEXT FIX ── */
-.stats,
-[class*="stat"],
-.counter,
-.number,
-[class*="count"] {
-    color: #1e293b !important;
-}
-/* ── GLOBAL TEXT VISIBILITY (applies to entire website) ── */
-body * {
-    color: #1e293b;
-}
-
-/* Exceptions — keep white text where needed */
-.btn-primary *,
-.btn-custom *,
-.search-button *,
-.table thead th,
-.table thead th *,
-.modal-header,
-.modal-header *,
-.badge-primary,
-.navbar .btn,
-.navbar .btn * {
-    color: white !important;
-}
-
-/* Keep accent yellow color for highlighted words */
-.text-accent,
-.highlight,
-[class*="accent"],
-[class*="yellow"] {
-    color: #F5A800 !important;
-}
-
-/* Keep muted text color */
-.text-muted {
-    color: #64748b !important;
-}
-
-/* Keep link color */
-a {
-    color: #2563eb !important;
-}
-
-a:hover {
-    color: #1d4ed8 !important;
-}
-
-/* Keep danger/error color */
-.text-danger,
-.alert-danger,
-.alert-danger * {
-    color: #dc2626 !important;
-}
-
-/* Keep success color */
-.alert-success,
-.alert-success * {
-    color: #15803d !important;
-}
-/* FIX WHITE TEXT EVERYWHERE */
-
-body {
-    color: #1e293b !important;
-}
-
-.text-white,
-.text-light {
-    color: #1e293b !important;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    color: #0f172a !important;
+    padding: 1rem 2rem;
+    backdrop-filter: blur(10px);
 }
