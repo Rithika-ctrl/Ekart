@@ -22,11 +22,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF for simplicity (existing app doesn't use it)
+            // CSRF disabled for stateless API operations (existing app uses custom session auth)
             .csrf(csrf -> csrf.disable())
             
-            // Permit all requests - existing auth is session-based, not Spring Security
+            // Authorization: Allow public endpoints, custom session-based auth for protected routes
             .authorizeHttpRequests(auth -> auth
+                // Public endpoints
+                .requestMatchers("/", "/guest/**", "/customer/login", "/customer/register", 
+                                "/customer/otp/**", "/customer/forgot-password", "/customer/reset-password/**",
+                                "/vendor/login", "/vendor/register", "/vendor/otp/**", "/vendor/forgot-password",
+                                "/vendor/reset-password/**", "/admin/login", "/admin-login.html",
+                                "/static/**", "/css/**", "/js/**", "/api/**")
+                    .permitAll()
+                // All other requests allowed (existing app uses custom HttpSession-based auth in controllers)
                 .anyRequest().permitAll()
             )
             
