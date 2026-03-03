@@ -506,6 +506,7 @@ public String paymentSuccess(Order order, HttpSession session) {
 
     // 4. Save order first
     orderRepository.save(order);
+    orderRepository.flush(); // 🔥 ENSURE items are persisted to DB immediately
 
     // 5. 🔥 FIX: Properly delete cart items from DB, then clear the list
     List<Item> cartItems = new ArrayList<>(customer.getCart().getItems());
