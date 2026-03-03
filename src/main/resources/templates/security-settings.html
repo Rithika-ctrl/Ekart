@@ -13,9 +13,9 @@
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card: rgba(255, 255, 255, 0.13);
-            --glass-nav: rgba(0, 0, 0, 0.25);
-            --text-white: #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --glass-nav:    rgba(255,255,255,0.85);
+            --text-white: #0f172a;
             --text-light: rgba(255,255,255,0.80);
             --text-dim: rgba(255,255,255,0.50);
         }
@@ -26,7 +26,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
-            color: var(--text-white);
+            color: #0f172a;
             display: flex;
             flex-direction: column;
         }
@@ -34,14 +34,14 @@
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px); transform: scale(1.08);
+            position: absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+             
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── NAV ── */
@@ -49,14 +49,14 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav);
-            backdrop-filter: blur(14px);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--glass-border);
         }
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
+            color: #0f172a; text-decoration: none;
             display: flex; align-items: center; gap: 0.5rem;
         }
 
@@ -65,7 +65,7 @@
 
         .nav-link {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid transparent;
@@ -87,7 +87,7 @@
 
         .btn-logout {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid rgba(255,100,80,0.3);
@@ -102,7 +102,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.97);            backdrop-filter: blur(12px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -128,20 +128,20 @@
         .page-header {
             display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2rem 2.5rem;
         }
         .page-header h1 { font-size: 1.75rem; font-weight: 700; }
         .page-header h1 span { color: var(--yellow); }
-        .page-header p { font-size: 0.9rem; color: var(--text-dim); margin-top: 0.3rem; }
+        .page-header p { font-size: 0.9rem; color: #64748b; margin-top: 0.3rem; }
         .page-header-icon { font-size: 2.5rem; }
 
         /* ── SECURITY INFO CARD ── */
         .info-card {
             background: var(--glass-card);
-            backdrop-filter: blur(18px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 16px;
             padding: 2rem;
@@ -166,7 +166,7 @@
         .info-row:last-child { border-bottom: none; }
         .info-row-label {
             font-size: 0.85rem;
-            color: var(--text-dim);
+            color: #64748b;
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -175,7 +175,7 @@
         .info-row-value {
             font-size: 0.9rem;
             font-weight: 500;
-            color: var(--text-white);
+            color: #0f172a;
         }
 
         .status-badge {
@@ -193,7 +193,7 @@
         /* ── FORM CARD ── */
         .form-card {
             background: var(--glass-card);
-            backdrop-filter: blur(18px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 16px;
             padding: 2rem;
@@ -215,7 +215,7 @@
             display: block;
             font-size: 0.8rem;
             font-weight: 500;
-            color: var(--text-dim);
+            color: #64748b;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -223,10 +223,10 @@
         .form-group input {
             width: 100%;
             padding: 0.875rem 1rem;
-            background: rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.75);
             border: 1px solid var(--glass-border);
             border-radius: 10px;
-            color: white;
+            color: #0f172a;
             font-family: inherit;
             font-size: 0.9rem;
             transition: border-color 0.2s;
@@ -277,7 +277,7 @@
             gap: 1rem;
         }
         .stat-card {
-            background: rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.75);
             border-radius: 12px;
             padding: 1.5rem;
             text-align: center;
@@ -289,7 +289,7 @@
         }
         .stat-card-label {
             font-size: 0.8rem;
-            color: var(--text-dim);
+            color: #64748b;
             margin-top: 0.3rem;
         }
 
@@ -299,7 +299,7 @@
             align-items: center;
             justify-content: space-between;
             background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
-            backdrop-filter: blur(18px);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(139,92,246,0.3);
             border-radius: 16px;
             padding: 1.5rem 2rem;
@@ -329,12 +329,12 @@
         .rbac-text h3 {
             font-size: 1rem;
             font-weight: 600;
-            color: var(--text-white);
+            color: #0f172a;
             margin-bottom: 0.25rem;
         }
         .rbac-text p {
             font-size: 0.8rem;
-            color: var(--text-dim);
+            color: #64748b;
             max-width: 400px;
         }
         .rbac-arrow {
@@ -349,20 +349,20 @@
         }
         .rbac-link-card:hover .rbac-arrow {
             background: #8b5cf6;
-            color: white;
+            color: #0f172a;
             transform: translateX(4px);
         }
 
         /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.80);
+            backdrop-filter: blur(12px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+        .footer-copy { font-size: 0.72rem; color: #64748b; }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(14px); }
@@ -438,7 +438,7 @@
         <h2><i class="fas fa-user-shield"></i> Admin Account</h2>
         <div class="info-row">
             <span class="info-row-label"><i class="fas fa-envelope"></i> Email</span>
-            <span class="info-row-value" th:text="${adminEmail}">admin@ekart.com</span>
+            <span class="info-row-value" th:text="${adminEmail}"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bfdedbd2d6d1ffdad4decdcb91dcd0d2">[email&#160;protected]</a></span>
         </div>
         <div class="info-row">
             <span class="info-row-label"><i class="fas fa-clock"></i> Last Login</span>
@@ -518,15 +518,6 @@
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     setTimeout(() => {
-        document.querySelectorAll('.alert-stack .alert').forEach(el => {
-            el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 500);
-        });
-    }, 2500);
-</script>
-
-</body>
-</html>
+        document.querySelectorAll(

@@ -12,8 +12,8 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
-            --glass-card:   rgba(255,255,255,0.13);
-            --text-white:   #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --text-white:   #0f172a;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
             --input-bg:     rgba(255,255,255,0.07);
@@ -32,13 +32,13 @@
         /* ── BACKGROUND ── */
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
-            content:''; position:absolute; inset:-20px;
-            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter:blur(6px); transform:scale(1.08);
+            content:''; position:absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+            
         }
         .bg-layer::after {
             content:''; position:absolute; inset:0;
-            background:linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── NAV ── */
@@ -46,7 +46,7 @@
             position:fixed; top:0; left:0; right:0; z-index:100;
             padding:1rem 3rem;
             display:flex; align-items:center; justify-content:space-between;
-            background:rgba(0,0,0,0.25); backdrop-filter:blur(14px);
+            background:rgba(255,255,255,0.75);            backdrop-filter: blur(12px);
             border-bottom:1px solid var(--glass-border); transition:background 0.3s;
         }
         nav.scrolled { background:rgba(0,0,0,0.5); }
@@ -81,7 +81,7 @@
 
         /* ── PAGE HEADER ── */
         .page-header {
-            background:var(--glass-card); backdrop-filter:blur(20px);
+            background:var(--glass-card);            backdrop-filter: blur(12px);
             border:1px solid var(--glass-border); border-radius:20px;
             padding:2rem 2.5rem;
             display:flex; align-items:center; justify-content:space-between; gap:1.5rem;
@@ -100,7 +100,7 @@
 
         /* ── SEARCH BOX ── */
         .search-card {
-            background:var(--glass-card); backdrop-filter:blur(20px);
+            background:var(--glass-card);            backdrop-filter: blur(12px);
             border:1px solid var(--glass-border); border-radius:20px;
             padding:2rem 2.5rem;
             width:100%; max-width:1100px;
@@ -165,7 +165,7 @@
 
         /* ── FILTER PANEL ── */
         .filter-card {
-            background:var(--glass-card); backdrop-filter:blur(20px);
+            background:var(--glass-card);            backdrop-filter: blur(12px);
             border:1px solid var(--glass-border); border-radius:20px;
             padding:1.75rem 2.5rem;
             width:100%; max-width:1100px;
@@ -234,7 +234,7 @@
         }
 
         .product-card {
-            background:var(--glass-card); backdrop-filter:blur(16px);
+            background:var(--glass-card);            backdrop-filter: blur(12px);
             border:1px solid var(--glass-border); border-radius:18px;
             overflow:hidden; transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
             position:relative;
@@ -293,7 +293,7 @@
 
         /* ── EMPTY STATES ── */
         .empty-box {
-            background:var(--glass-card); backdrop-filter:blur(16px);
+            background:var(--glass-card);            backdrop-filter: blur(12px);
             border:1px solid var(--glass-border); border-radius:18px;
             padding:3rem 2rem; text-align:center;
         }
@@ -303,7 +303,7 @@
 
         /* ── FOOTER ── */
         footer {
-            background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
+            background:rgba(0,0,0,0.5);            backdrop-filter: blur(12px);
             border-top:1px solid var(--glass-border); padding:1.25rem 3rem;
             display:flex; align-items:center; justify-content:space-between;
             flex-wrap:wrap; gap:0.75rem;

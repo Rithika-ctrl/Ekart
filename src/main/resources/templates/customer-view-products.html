@@ -13,9 +13,9 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255, 255, 255, 0.13);
-            --glass-nav:    rgba(0, 0, 0, 0.25);
-            --text-white:   #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --glass-nav:    rgba(255,255,255,0.85);
+            --text-white:   #0f172a;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
         }
@@ -26,7 +26,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
-            color: var(--text-white);
+            color: #0f172a;
             display: flex;
             flex-direction: column;
         }
@@ -35,15 +35,15 @@
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            position: absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+            
+            
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── NAV ── */
@@ -51,8 +51,8 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav);
-            backdrop-filter: blur(14px);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--glass-border);
             transition: background 0.3s;
         }
@@ -60,7 +60,7 @@
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
+            color: #0f172a; text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
         }
@@ -70,17 +70,17 @@
 
         .nav-link-btn {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid var(--glass-border);
             transition: all 0.2s;
         }
-        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-link-btn:hover { color: #0f172a; background: rgba(255,255,255,0.1); }
 
         .btn-logout {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid rgba(255,100,80,0.3);
@@ -95,7 +95,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.97);            backdrop-filter: blur(12px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -120,7 +120,7 @@
         /* ── PAGE HEADER ── */
         .page-header {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2rem 2.5rem;
@@ -136,7 +136,7 @@
             font-weight: 700; margin-bottom: 0.25rem;
         }
         .page-header-left h1 span { color: var(--yellow); }
-        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-left p { font-size: 0.825rem; color: #64748b; }
 
         .page-header-icon {
             width: 60px; height: 60px;
@@ -150,7 +150,7 @@
         /* ── BUDGET BAR ── */
         .budget-bar {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 1.5rem 2.5rem;
@@ -176,11 +176,11 @@
 
         .budget-value {
             font-weight: 800; font-size: 1.1rem;
-            color: white; white-space: nowrap; min-width: 130px;
+            color: #0f172a; white-space: nowrap; min-width: 130px;
         }
 
         .budget-count {
-            color: var(--text-dim); font-size: 0.78rem;
+            color: #64748b; font-size: 0.78rem;
             white-space: nowrap;
         }
 
@@ -208,13 +208,13 @@
         .product-card-wrapper { transition: opacity 0.4s, transform 0.4s, filter 0.4s; }
         .product-card-wrapper.product-over-budget {
             opacity: 0.2; filter: grayscale(1);
-            pointer-events: none; transform: scale(0.96);
+            pointer-events: none; 
         }
 
         /* ── PRODUCT CARD ── */
         .product-card {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 22px;
             overflow: hidden;
@@ -241,12 +241,12 @@
         /* ── IMAGE AREA ── */
         .img-area { position: relative; height: 230px; overflow: hidden; flex-shrink: 0; }
         .card-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
-        .product-card:hover .card-image { transform: scale(1.07); }
+        .product-card:hover .card-image {  }
 
         .budget-badge {
             position: absolute; top: 12px; right: 12px;
             background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: white;
+            color: #0f172a;
             font-size: 0.68rem; font-weight: 800;
             padding: 4px 12px; border-radius: 50px;
             display: none; z-index: 10;
@@ -256,7 +256,7 @@
 
         .category-pill {
             position: absolute; top: 12px; left: 12px;
-            background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.55);            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             color: var(--yellow); font-size: 0.65rem; font-weight: 700;
             padding: 4px 10px; border-radius: 20px;
@@ -268,10 +268,10 @@
             position: absolute; top: 12px; right: 55px;
             width: 36px; height: 36px;
             background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 50%;
-            color: var(--text-dim);
+            color: #64748b;
             font-size: 1rem;
             cursor: pointer;
             display: flex;
@@ -284,11 +284,11 @@
             background: rgba(239,68,68,0.2);
             color: #ef4444;
             border-color: rgba(239,68,68,0.4);
-            transform: scale(1.1);
+            
         }
         .btn-wishlist.active {
             background: rgba(239,68,68,0.9);
-            color: white;
+            color: #0f172a;
             border-color: #ef4444;
         }
         .btn-wishlist.active:hover {
@@ -298,7 +298,7 @@
             transition: transform 0.3s;
         }
         .btn-wishlist:active i {
-            transform: scale(1.3);
+            
         }
 
         /* ── TOAST NOTIFICATIONS ── */
@@ -313,7 +313,7 @@
         }
         .toast {
             background: rgba(10,12,30,0.95);
-            backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             padding: 1rem 1.5rem;
@@ -335,7 +335,7 @@
 
         /* ── MEDIA TRAY ── */
         .media-tray {
-            background: rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.75);
             padding: 8px 12px;
             display: flex; gap: 8px;
             overflow-x: auto;
@@ -348,7 +348,7 @@
             border: 2px solid transparent;
             object-fit: cover; transition: all 0.2s; flex-shrink: 0;
         }
-        .media-tray img:hover { border-color: var(--yellow); transform: scale(1.1); }
+        .media-tray img:hover { border-color: var(--yellow);  }
 
         /* ── VIDEO ── */
         .video-box { padding: 10px 12px 0; }
@@ -366,11 +366,11 @@
         }
 
         .product-name {
-            font-size: 1rem; font-weight: 700; color: white; line-height: 1.3;
+            font-size: 1rem; font-weight: 700; color: #0f172a; line-height: 1.3;
         }
 
         .product-description {
-            font-size: 0.78rem; color: var(--text-dim); line-height: 1.55;
+            font-size: 0.78rem; color: #64748b; line-height: 1.55;
         }
 
         .product-meta {
@@ -378,7 +378,7 @@
             font-size: 0.78rem;
         }
         .meta-label { font-weight: 700; color: var(--yellow); }
-        .meta-val { color: white; }
+        .meta-val { color: #0f172a; }
 
         .price-tag {
             font-size: 1.65rem; font-weight: 800; color: var(--yellow);
@@ -396,7 +396,7 @@
         /* ── REVIEWS ── */
         .reviews-header {
             display: flex; align-items: center; gap: 0.5rem;
-            font-size: 0.78rem; font-weight: 700; color: white;
+            font-size: 0.78rem; font-weight: 700; color: #0f172a;
             margin-bottom: 0.5rem;
         }
         .reviews-header i { color: var(--yellow); }
@@ -412,8 +412,8 @@
             margin-bottom: 4px;
         }
         .review-stars { color: var(--yellow); font-size: 0.6rem; }
-        .review-customer { font-size: 0.72rem; font-weight: 700; color: white; }
-        .review-comment { font-size: 0.72rem; color: var(--text-dim); line-height: 1.45; }
+        .review-customer { font-size: 0.72rem; font-weight: 700; color: #0f172a; }
+        .review-comment { font-size: 0.72rem; color: #64748b; line-height: 1.45; }
 
         /* ── REVIEW FORM ── */
         .review-form { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
@@ -422,7 +422,7 @@
             background: rgba(255,255,255,0.07);
             border: 1px solid var(--glass-border);
             border-radius: 8px;
-            color: white;
+            color: #0f172a;
             font-family: 'Poppins', sans-serif;
             font-size: 0.75rem;
             padding: 0.45rem 0.65rem;
@@ -479,27 +479,27 @@
             display: inline-flex; align-items: center; gap: 0.5rem;
             background: transparent;
             border: 1px solid var(--glass-border);
-            color: var(--text-light);
+            color: #334155;
             padding: 0.75rem 2rem; border-radius: 12px;
             font-family: 'Poppins', sans-serif;
             font-size: 0.85rem; font-weight: 600;
             text-decoration: none;
             transition: all 0.25s;
         }
-        .btn-back:hover { background: rgba(255,255,255,0.08); color: white; border-color: rgba(255,255,255,0.35); }
+        .btn-back:hover { background: rgba(255,255,255,0.08); color: #0f172a; border-color: rgba(255,255,255,0.35); }
 
         /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.80);
+            backdrop-filter: blur(12px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
             flex-wrap: wrap; gap: 0.75rem;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
         .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-copy { font-size: 0.72rem; color: #64748b; }
 
         /* ── ANIMATIONS ── */
         @keyframes fadeUp {

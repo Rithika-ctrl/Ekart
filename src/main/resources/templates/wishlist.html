@@ -13,9 +13,9 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255, 255, 255, 0.13);
-            --glass-nav:    rgba(0, 0, 0, 0.25);
-            --text-white:   #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --glass-nav:    rgba(255,255,255,0.85);
+            --text-white:   #0f172a;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
             --red:          #ef4444;
@@ -28,7 +28,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
-            color: var(--text-white);
+            color: #0f172a;
             display: flex;
             flex-direction: column;
         }
@@ -37,15 +37,15 @@
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            position: absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+            
+            
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── NAV ── */
@@ -53,8 +53,8 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav);
-            backdrop-filter: blur(14px);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--glass-border);
             transition: background 0.3s;
         }
@@ -62,7 +62,7 @@
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
+            color: #0f172a; text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
         }
@@ -72,18 +72,18 @@
 
         .nav-link-btn {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid var(--glass-border);
             transition: all 0.2s;
         }
-        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-link-btn:hover { color: #0f172a; background: rgba(255,255,255,0.1); }
         .nav-link-btn.active { color: var(--yellow); border-color: rgba(245,168,0,0.4); }
 
         .btn-logout {
             display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
+            color: #334155; text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid rgba(255,100,80,0.3);
@@ -98,7 +98,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.97);            backdrop-filter: blur(12px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -123,7 +123,7 @@
         /* ── PAGE HEADER ── */
         .page-header {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2rem 2.5rem;
@@ -139,7 +139,7 @@
             font-weight: 700; margin-bottom: 0.25rem;
         }
         .page-header-left h1 span { color: var(--yellow); }
-        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-left p { font-size: 0.825rem; color: #64748b; }
 
         .page-header-icon {
             width: 60px; height: 60px;
@@ -156,14 +156,14 @@
             text-align: center;
             padding: 4rem 2rem;
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             animation: fadeUp 0.5s ease both;
         }
         .empty-state i {
             font-size: 4rem;
-            color: var(--text-dim);
+            color: #64748b;
             margin-bottom: 1.5rem;
         }
         .empty-state h2 {
@@ -172,7 +172,7 @@
             margin-bottom: 0.5rem;
         }
         .empty-state p {
-            color: var(--text-dim);
+            color: #64748b;
             margin-bottom: 2rem;
         }
         .btn-browse {
@@ -203,7 +203,7 @@
         /* ── PRODUCT CARD ── */
         .product-card {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 22px;
             overflow: hidden;
@@ -223,11 +223,11 @@
         /* ── IMAGE AREA ── */
         .img-area { position: relative; height: 200px; overflow: hidden; flex-shrink: 0; }
         .card-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
-        .product-card:hover .card-image { transform: scale(1.07); }
+        .product-card:hover .card-image {  }
 
         .category-pill {
             position: absolute; top: 12px; left: 12px;
-            background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.55);            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             color: var(--yellow); font-size: 0.65rem; font-weight: 700;
             padding: 4px 10px; border-radius: 20px;
@@ -240,7 +240,7 @@
             background: rgba(239,68,68,0.9);
             border: none;
             border-radius: 50%;
-            color: white;
+            color: #0f172a;
             font-size: 1rem;
             cursor: pointer;
             display: flex;
@@ -251,7 +251,7 @@
         }
         .btn-remove-wishlist:hover {
             background: var(--red);
-            transform: scale(1.1);
+            
         }
 
         /* ── CARD BODY ── */
@@ -262,11 +262,11 @@
         }
 
         .product-name {
-            font-size: 1rem; font-weight: 700; color: white; line-height: 1.3;
+            font-size: 1rem; font-weight: 700; color: #0f172a; line-height: 1.3;
         }
 
         .product-description {
-            font-size: 0.75rem; color: var(--text-dim); line-height: 1.55;
+            font-size: 0.75rem; color: #64748b; line-height: 1.55;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -278,7 +278,7 @@
             font-size: 0.75rem;
         }
         .meta-label { font-weight: 700; color: var(--yellow); }
-        .meta-val { color: white; }
+        .meta-val { color: #0f172a; }
 
         .price-row {
             display: flex;
@@ -342,7 +342,7 @@
         }
         .btn-add-cart:disabled {
             background: rgba(255,255,255,0.1);
-            color: var(--text-dim);
+            color: #64748b;
             cursor: not-allowed;
             transform: none;
         }
@@ -380,7 +380,7 @@
         }
         .toast {
             background: rgba(10,12,30,0.95);
-            backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             padding: 1rem 1.5rem;
@@ -407,7 +407,7 @@
             position: fixed;
             inset: 0;
             background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(12px);
             z-index: 10000;
             justify-content: center;
             align-items: center;
@@ -416,7 +416,7 @@
 
         .modal {
             background: rgba(15, 18, 40, 0.95);
-            backdrop-filter: blur(24px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 2rem 2.5rem;
@@ -427,8 +427,8 @@
         }
 
         @keyframes popIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
+            from { opacity: 0;  }
+            to { opacity: 1;  }
         }
 
         .modal h3 {
@@ -436,7 +436,7 @@
             margin-bottom: 0.5rem;
         }
         .modal p {
-            color: var(--text-dim);
+            color: #64748b;
             font-size: 0.85rem;
             margin-bottom: 1.5rem;
         }
@@ -464,7 +464,7 @@
         }
         .modal-btn.secondary {
             background: rgba(255,255,255,0.1);
-            color: var(--text-light);
+            color: #334155;
             border: 1px solid var(--glass-border);
         }
         .modal-btn.secondary:hover {
@@ -477,10 +477,10 @@
             padding: 1.5rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
             border-top: 1px solid var(--glass-border);
-            background: rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.75);
         }
         .footer-brand { font-weight: 700; font-size: 1rem; }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-copy { font-size: 0.72rem; color: #64748b; }
 
         /* ── ANIMATIONS ── */
         @keyframes fadeUp {

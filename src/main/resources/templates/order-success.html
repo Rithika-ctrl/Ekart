@@ -12,9 +12,9 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
-            --glass-card:   rgba(255,255,255,0.13);
-            --glass-nav:    rgba(0,0,0,0.25);
-            --text-white:   #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --glass-nav:    rgba(255,255,255,0.85);
+            --text-white:   #0f172a;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
         }
@@ -28,7 +28,7 @@
             align-items: center;
             justify-content: center;
             padding: 24px;
-            color: var(--text-white);
+            color: #0f172a;
             overflow: hidden;
         }
 
@@ -36,25 +36,22 @@
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            position: absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+            
+            
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(180deg,
-                rgba(5,8,20,0.82) 0%,
-                rgba(8,12,28,0.78) 40%,
-                rgba(5,8,20,0.88) 100%);
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── CARD ── */
         .card {
             background: var(--glass-card);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             width: 95%; max-width: 500px;
@@ -91,7 +88,7 @@
 
         .header-brand {
             font-size: 12px; font-weight: 700;
-            color: var(--text-dim); letter-spacing: 0.1em;
+            color: #64748b; letter-spacing: 0.1em;
             text-transform: uppercase; margin-bottom: 18px;
             position: relative; z-index: 1;
         }
@@ -133,11 +130,11 @@
 
         .card-header h2 {
             font-size: 20px; font-weight: 700;
-            color: var(--text-white); letter-spacing: -0.01em;
+            color: #0f172a; letter-spacing: -0.01em;
             margin-bottom: 6px; position: relative; z-index: 1;
         }
         .card-header p {
-            font-size: 13px; color: var(--text-dim);
+            font-size: 13px; color: #64748b;
             line-height: 1.6; margin: 0; position: relative; z-index: 1;
         }
 
@@ -149,9 +146,9 @@
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             padding: 14px 18px; margin-bottom: 24px;
-            font-size: 13px; color: var(--text-dim); line-height: 1.6;
+            font-size: 13px; color: #64748b; line-height: 1.6;
         }
-        .notice-box strong { color: var(--text-light); }
+        .notice-box strong { color: #334155; }
 
         .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -177,24 +174,24 @@
         .btn-ghost {
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--glass-border);
-            color: var(--text-light);
+            color: #334155;
         }
         .btn-ghost:hover {
             background: rgba(255,255,255,0.11);
             border-color: rgba(255,255,255,0.35);
-            color: var(--text-white); text-decoration: none;
+            color: #0f172a; text-decoration: none;
         }
 
         /* ── FOOTER ── */
         .card-footer {
-            background: rgba(0,0,0,0.25);
+            background: rgba(255,255,255,0.75);
             border-top: 1px solid var(--glass-border);
             padding: 14px 32px;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .footer-brand { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+        .footer-brand { font-size: 12px; font-weight: 700; color: #64748b; }
         .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 11px; color: var(--text-dim); opacity: 0.6; }
+        .footer-copy { font-size: 11px; color: #64748b; opacity: 0.6; }
     </style>
 </head>
 <body>

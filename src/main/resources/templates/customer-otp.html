@@ -12,12 +12,12 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255, 255, 255, 0.13);
-            --text-white:   #ffffff;
+            --glass-card:   rgba(255,255,255,0.88);
+            --text-white:   #0f172a;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
-            --input-bg:     rgba(255, 255, 255, 0.08);
-            --input-border: rgba(255, 255, 255, 0.20);
+            --input-bg:     rgba(255,255,255,0.90);
+            --input-border: rgba(0,0,0,0.15);
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -25,7 +25,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
-            color: var(--text-white);
+            color: #0f172a;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -40,20 +40,15 @@
         }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            position: absolute; inset: 0;
+            background: url('/css/ekart-bg.svg') center/cover no-repeat;
+            
+            
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(
-                180deg,
-                rgba(5, 8, 20, 0.82) 0%,
-                rgba(8, 12, 28, 0.78) 40%,
-                rgba(5, 8, 20, 0.88) 100%
-            );
+            background: rgba(255,255,255,0.10);
         }
 
         /* ── ALERTS ── */
@@ -63,7 +58,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.97);            backdrop-filter: blur(12px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -80,7 +75,7 @@
         /* ── CARD ── */
         .otp-card {
             background: var(--glass-card);
-            backdrop-filter: blur(22px);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 3rem 2.5rem;
@@ -112,10 +107,10 @@
 
         .otp-card h1 {
             font-size: 1.6rem; font-weight: 700;
-            color: white; margin-bottom: 0.5rem;
+            color: #0f172a; margin-bottom: 0.5rem;
         }
         .otp-card .subtitle {
-            font-size: 0.82rem; color: var(--text-dim);
+            font-size: 0.82rem; color: #64748b;
             line-height: 1.65; margin-bottom: 2.25rem;
         }
         .otp-card .subtitle span { color: var(--yellow); font-weight: 600; }
@@ -132,7 +127,7 @@
             border-radius: 12px;
             font-family: 'Poppins', sans-serif;
             font-size: 1.5rem; font-weight: 700;
-            color: white; text-align: center;
+            color: #0f172a; text-align: center;
             outline: none; transition: all 0.25s;
             /* hide arrows on number input */
             -moz-appearance: textfield;
@@ -152,7 +147,7 @@
 
         /* timer */
         .otp-timer {
-            font-size: 0.78rem; color: var(--text-dim);
+            font-size: 0.78rem; color: #64748b;
             margin-bottom: 1.75rem;
         }
         .otp-timer span { color: var(--yellow); font-weight: 600; }
@@ -189,15 +184,15 @@
         .back-link {
             display: inline-flex; align-items: center; gap: 0.4rem;
             margin-top: 1.5rem; font-size: 0.78rem;
-            color: var(--text-dim); text-decoration: none;
+            color: #64748b; text-decoration: none;
             transition: color 0.2s;
         }
-        .back-link:hover { color: var(--text-white); }
+        .back-link:hover { color: #0f172a; }
 
         /* brand watermark bottom */
         .brand-mark {
             position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
-            font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.1em;
+            font-size: 0.75rem; color: #64748b; letter-spacing: 0.1em;
         }
         .brand-mark span { color: var(--yellow); font-weight: 700; }
     </style>
