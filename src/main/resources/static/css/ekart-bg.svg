@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#FFFFFF"/>
+    <stop offset="50%" stop-color="#F5F7FF"/>
+    <stop offset="100%" stop-color="#EEF2FF"/>
+  </linearGradient>
+  <filter id="bagblur"><feGaussianBlur stdDeviation="6"/></filter>
+  <filter id="bagblur2"><feGaussianBlur stdDeviation="9"/></filter>
+  <filter id="bagblur3"><feGaussianBlur stdDeviation="4"/></filter>
+  <filter id="blob"><feGaussianBlur stdDeviation="40"/></filter>
+  <clipPath id="clip"><rect width="1920" height="1080"/></clipPath>
+
+  <!-- Realistic tote/shopping bag shape -->
+  <symbol id="bag-L" viewBox="0 0 160 200">
+    <!-- bag body - tall rectangle with rounded bottom -->
+    <path d="M18,55 L18,170 Q18,185 30,185 L130,185 Q142,185 142,170 L142,55 Z"
+          fill="currentColor" stroke="none"/>
+    <!-- top rim / opening band -->
+    <rect x="14" y="48" width="132" height="16" rx="4" fill="currentColor" opacity="0.7"/>
+    <!-- left handle -->
+    <path d="M45,48 Q40,18 55,12 Q70,6 72,28 L68,28 Q66,14 55,18 Q46,24 50,48 Z"
+          fill="currentColor"/>
+    <!-- right handle -->
+    <path d="M115,48 Q120,18 105,12 Q90,6 88,28 L92,28 Q94,14 105,18 Q114,24 110,48 Z"
+          fill="currentColor"/>
+    <!-- fold crease lines on body -->
+    <line x1="18" y1="85"  x2="142" y2="85"  stroke="white" stroke-width="1.5" opacity="0.2"/>
+    <!-- brand patch -->
+    <rect x="38" y="100" width="84" height="46" rx="6" fill="white" opacity="0.12"/>
+    <!-- logo lines on patch -->
+    <line x1="52" y1="115" x2="126" y2="115" stroke="white" stroke-width="2" opacity="0.25"/>
+    <line x1="52" y1="124" x2="110" y2="124" stroke="white" stroke-width="2" opacity="0.25"/>
+    <line x1="52" y1="133" x2="118" y2="133" stroke="white" stroke-width="2" opacity="0.25"/>
+    <!-- bottom fold -->
+    <line x1="18"  y1="165" x2="142" y2="165" stroke="white" stroke-width="1.5" opacity="0.15"/>
+    <!-- side gusset lines -->
+    <line x1="38"  y1="55"  x2="38"  y2="185" stroke="white" stroke-width="1" opacity="0.12"/>
+    <line x1="122" y1="55"  x2="122" y2="185" stroke="white" stroke-width="1" opacity="0.12"/>
+  </symbol>
+
+  <symbol id="bag-M" viewBox="0 0 120 155">
+    <path d="M14,42 L14,130 Q14,142 24,142 L96,142 Q106,142 106,130 L106,42 Z"
+          fill="currentColor"/>
+    <rect x="10" y="36" width="100" height="13" rx="3" fill="currentColor" opacity="0.7"/>
+    <path d="M33,36 Q28,13 42,8 Q54,4 55,22 L51,22 Q50,10 42,14 Q34,18 38,36 Z"
+          fill="currentColor"/>
+    <path d="M87,36 Q92,13 78,8 Q66,4 65,22 L69,22 Q70,10 78,14 Q86,18 82,36 Z"
+          fill="currentColor"/>
+    <line x1="14" y1="63"  x2="106" y2="63"  stroke="white" stroke-width="1.2" opacity="0.2"/>
+    <rect x="28" y="76" width="64" height="36" rx="5" fill="white" opacity="0.11"/>
+    <line x1="38" y1="88"  x2="92" y2="88"  stroke="white" stroke-width="1.5" opacity="0.22"/>
+    <line x1="38" y1="96"  x2="82" y2="96"  stroke="white" stroke-width="1.5" opacity="0.22"/>
+    <line x1="14" y1="126" x2="106" y2="126" stroke="white" stroke-width="1.2" opacity="0.13"/>
+    <line x1="30" y1="42"  x2="30"  y2="142" stroke="white" stroke-width="0.8" opacity="0.10"/>
+    <line x1="90" y1="42"  x2="90"  y2="142" stroke="white" stroke-width="0.8" opacity="0.10"/>
+  </symbol>
+
+  <symbol id="bag-S" viewBox="0 0 90 115">
+    <path d="M10,32 L10,96 Q10,106 19,106 L71,106 Q80,106 80,96 L80,32 Z"
+          fill="currentColor"/>
+    <rect x="7" y="27" width="76" height="10" rx="3" fill="currentColor" opacity="0.7"/>
+    <path d="M25,27 Q21,10 31,6 Q40,3 41,16 L38,16 Q37,8 31,10 Q26,14 28,27 Z"
+          fill="currentColor"/>
+    <path d="M65,27 Q69,10 59,6 Q50,3 49,16 L52,16 Q53,8 59,10 Q64,14 62,27 Z"
+          fill="currentColor"/>
+    <line x1="10" y1="48" x2="80" y2="48" stroke="white" stroke-width="1" opacity="0.18"/>
+    <rect x="20" y="56" width="50" height="28" rx="4" fill="white" opacity="0.10"/>
+    <line x1="28" y1="66" x2="62" y2="66" stroke="white" stroke-width="1.2" opacity="0.20"/>
+    <line x1="28" y1="74" x2="54" y2="74" stroke="white" stroke-width="1.2" opacity="0.20"/>
+    <line x1="10" y1="94" x2="80" y2="94" stroke="white" stroke-width="1" opacity="0.12"/>
+  </symbol>
+</defs>
+
+<g clip-path="url(#clip)">
+
+  <!-- BASE -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- Soft ambient blobs -->
+  <ellipse cx="200"  cy="150"  rx="500" ry="380" fill="#DBEAFE" opacity="0.55" filter="url(#blob)"/>
+  <ellipse cx="1720" cy="950"  rx="500" ry="380" fill="#FED7AA" opacity="0.50" filter="url(#blob)"/>
+  <ellipse cx="1750" cy="180"  rx="400" ry="320" fill="#FEF3C7" opacity="0.45" filter="url(#blob)"/>
+  <ellipse cx="180"  cy="900"  rx="400" ry="300" fill="#E0E7FF" opacity="0.45" filter="url(#blob)"/>
+  <ellipse cx="960"  cy="540"  rx="600" ry="400" fill="#F0F9FF" opacity="0.35" filter="url(#blob)"/>
+
+  <!-- ══════════════════════════════════
+       SHOPPING BAGS — blurred, scattered
+       Colors: blue #2563EB, orange #F97316, 
+               yellow/amber #F59E0B, teal #0D9488
+       opacity 0.13–0.22 so they read as 
+       ghosted shapes, not distracting
+  ══════════════════════════════════ -->
+
+  <!-- ROW 1 — top edge, partially cropped -->
+  <g filter="url(#bagblur2)" opacity="0.14" color="#2563EB">
+    <use href="#bag-L" x="-20"  y="-60" width="160" height="200" transform="rotate(-15,-20,40)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.16" color="#F97316">
+    <use href="#bag-M" x="200"  y="-40" width="120" height="155" transform="rotate(10,260,38)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.13" color="#0D9488">
+    <use href="#bag-S" x="440"  y="-20" width="90"  height="115" transform="rotate(-8,485,38)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-L" x="650"  y="-70" width="160" height="200" transform="rotate(12,730,30)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.14" color="#2563EB">
+    <use href="#bag-M" x="920"  y="-50" width="120" height="155" transform="rotate(-6,980,28)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.16" color="#F97316">
+    <use href="#bag-S" x="1160" y="-30" width="90"  height="115" transform="rotate(14,1205,28)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.13" color="#0D9488">
+    <use href="#bag-L" x="1360" y="-65" width="160" height="200" transform="rotate(-10,1440,35)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-M" x="1620" y="-45" width="120" height="155" transform="rotate(8,1680,33)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.14" color="#2563EB">
+    <use href="#bag-S" x="1840" y="-25" width="90"  height="115" transform="rotate(-12,1885,33)"/>
+  </g>
+
+  <!-- ROW 2 -->
+  <g filter="url(#bagblur)" opacity="0.15" color="#F97316">
+    <use href="#bag-L" x="80"   y="140" width="160" height="200" transform="rotate(8,160,240)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.13" color="#2563EB">
+    <use href="#bag-S" x="330"  y="180" width="90"  height="115" transform="rotate(-14,375,238)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.16" color="#F59E0B">
+    <use href="#bag-M" x="530"  y="150" width="120" height="155" transform="rotate(6,590,228)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.14" color="#0D9488">
+    <use href="#bag-L" x="790"  y="130" width="160" height="200" transform="rotate(-9,870,230)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.15" color="#F97316">
+    <use href="#bag-S" x="1060" y="165" width="90"  height="115" transform="rotate(11,1105,223)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.13" color="#2563EB">
+    <use href="#bag-M" x="1240" y="145" width="120" height="155" transform="rotate(-7,1300,223)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.16" color="#F59E0B">
+    <use href="#bag-L" x="1490" y="135" width="160" height="200" transform="rotate(13,1570,235)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.14" color="#0D9488">
+    <use href="#bag-S" x="1760" y="170" width="90"  height="115" transform="rotate(-5,1805,228)"/>
+  </g>
+
+  <!-- ROW 3 — middle -->
+  <g filter="url(#bagblur2)" opacity="0.13" color="#0D9488">
+    <use href="#bag-M" x="-10"  y="390" width="120" height="155" transform="rotate(9,50,468)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-L" x="200"  y="360" width="160" height="200" transform="rotate(-11,280,460)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.16" color="#2563EB">
+    <use href="#bag-S" x="480"  y="400" width="90"  height="115" transform="rotate(7,525,458)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.14" color="#F97316">
+    <use href="#bag-M" x="680"  y="370" width="120" height="155" transform="rotate(-12,740,448)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.13" color="#F59E0B">
+    <use href="#bag-L" x="940"  y="355" width="160" height="200" transform="rotate(10,1020,455)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.15" color="#0D9488">
+    <use href="#bag-S" x="1210" y="390" width="90"  height="115" transform="rotate(-8,1255,448)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.16" color="#2563EB">
+    <use href="#bag-M" x="1390" y="365" width="120" height="155" transform="rotate(14,1450,443)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.14" color="#F97316">
+    <use href="#bag-L" x="1640" y="375" width="160" height="200" transform="rotate(-6,1720,475)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.13" color="#F59E0B">
+    <use href="#bag-S" x="1880" y="400" width="90"  height="115" transform="rotate(9,1925,458)"/>
+  </g>
+
+  <!-- ROW 4 -->
+  <g filter="url(#bagblur)" opacity="0.16" color="#2563EB">
+    <use href="#bag-S" x="40"   y="600" width="90"  height="115" transform="rotate(-10,85,658)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.14" color="#F97316">
+    <use href="#bag-L" x="200"  y="570" width="160" height="200" transform="rotate(7,280,670)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.15" color="#0D9488">
+    <use href="#bag-M" x="490"  y="605" width="120" height="155" transform="rotate(-13,550,683)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.13" color="#F59E0B">
+    <use href="#bag-S" x="730"  y="590" width="90"  height="115" transform="rotate(11,775,648)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.16" color="#2563EB">
+    <use href="#bag-L" x="890"  y="565" width="160" height="200" transform="rotate(-7,970,665)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.14" color="#F97316">
+    <use href="#bag-M" x="1160" y="595" width="120" height="155" transform="rotate(9,1220,673)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-L" x="1370" y="570" width="160" height="200" transform="rotate(-12,1450,670)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.13" color="#0D9488">
+    <use href="#bag-S" x="1640" y="600" width="90"  height="115" transform="rotate(6,1685,658)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.16" color="#2563EB">
+    <use href="#bag-M" x="1790" y="575" width="120" height="155" transform="rotate(-9,1850,653)"/>
+  </g>
+
+  <!-- ROW 5 — bottom -->
+  <g filter="url(#bagblur2)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-M" x="0"    y="800" width="120" height="155" transform="rotate(11,60,878)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.14" color="#0D9488">
+    <use href="#bag-L" x="220"  y="810" width="160" height="200" transform="rotate(-8,300,910)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.16" color="#F97316">
+    <use href="#bag-S" x="510"  y="840" width="90"  height="115" transform="rotate(13,555,898)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.13" color="#2563EB">
+    <use href="#bag-M" x="680"  y="815" width="120" height="155" transform="rotate(-6,740,893)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-L" x="920"  y="800" width="160" height="200" transform="rotate(9,1000,900)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.14" color="#0D9488">
+    <use href="#bag-S" x="1190" y="840" width="90"  height="115" transform="rotate(-11,1235,898)"/>
+  </g>
+  <g filter="url(#bagblur2)" opacity="0.16" color="#F97316">
+    <use href="#bag-M" x="1360" y="810" width="120" height="155" transform="rotate(7,1420,888)"/>
+  </g>
+  <g filter="url(#bagblur)" opacity="0.13" color="#2563EB">
+    <use href="#bag-L" x="1580" y="800" width="160" height="200" transform="rotate(-14,1660,900)"/>
+  </g>
+  <g filter="url(#bagblur3)" opacity="0.15" color="#F59E0B">
+    <use href="#bag-S" x="1860" y="835" width="90"  height="115" transform="rotate(10,1905,893)"/>
+  </g>
+
+  <!-- TOP ACCENT BAR -->
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#2563EB" stop-opacity="0"/>
+      <stop offset="20%"  stop-color="#2563EB" stop-opacity="1"/>
+      <stop offset="50%"  stop-color="#F97316" stop-opacity="1"/>
+      <stop offset="80%"  stop-color="#2563EB" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0"    width="1920" height="4" fill="url(#topBar)"/>
+  <rect x="0" y="1076" width="1920" height="4" fill="url(#topBar)" opacity="0.4"/>
+
+</g>
+</svg>
