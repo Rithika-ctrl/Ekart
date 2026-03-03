@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -209,6 +210,12 @@ public class EkartController {
     @GetMapping("/vendor/sales-report")
     public String vendorSalesReport(HttpSession session, ModelMap map) {
         return vendorService.loadSalesReport(session, map);
+    }
+
+    // 🔥 NEW: API endpoint for AJAX polling (returns JSON only)
+    @GetMapping("/vendor/sales-report-api")
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> vendorSalesReportAPI(HttpSession session) {
+        return vendorService.getSalesReportJSON(session);
     }
 
     // ── CUSTOMER ─────────────────────────────────────────────────────────────

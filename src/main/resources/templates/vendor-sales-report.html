@@ -524,6 +524,29 @@
         return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
     }
 
+    // 🔥 AUTO-REFRESH: Fetch latest orders every 5 seconds (FAST!)
+    function refreshSalesData() {
+        fetch('/vendor/sales-report-api')
+            .then(response => response.json())
+            .then(data => {
+                if (data.ordersJson && data.ordersJson.length > 0) {
+                    allOrders = data.ordersJson;  // Update with latest orders
+                    var activeTab = document.querySelector('.tab-btn.active');
+                    if (activeTab) {
+                        var tabPeriod = activeTab.id.replace('tab-', '');
+                        renderReport(tabPeriod);  // Re-render current tab
+                    }
+                }
+            })
+            .catch(error => console.error('Failed to refresh sales data:', error));
+    }
+
+    // Load data IMMEDIATELY on page load (no waiting!)
+    refreshSalesData();
+    
+    // Poll for updates every 5 seconds (FAST REAL-TIME!)
+    setInterval(refreshSalesData, 5000);
+
     renderReport('daily');
 </script>
 </body>

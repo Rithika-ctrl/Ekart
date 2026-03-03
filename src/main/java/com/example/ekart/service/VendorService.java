@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -609,5 +611,53 @@ public class VendorService {
         } catch (Exception e) {
             System.err.println("Failed to save SalesReport: " + e.getMessage());
         }
+    }
+
+    // 🔥 NEW: API endpoint for AJAX polling - returns JSON data only (no HTML)
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> getSalesReportJSON(jakarta.servlet.http.HttpSession session) {
+        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        if (vendor == null) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(new java.util.HashMap<>());
+        }
+
+        // Get all orders for this vendor
+        List<com.example.ekart.dto.Order> allOrders = orderRepository.findOrdersByVendor(vendor);
+        java.util.Set<Integer> vendorProductIds = productRepository.findByVendor(vendor)
+            .stream()
+            .map(p -> p.getId())
+            .collect(Collectors.toSet());
+
+        // Build JSON array for orders
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+
+        java.util.List<java.util.Map<String, Object>> ordersJson = new java.util.ArrayList<>();
+        for (com.example.ekart.dto.Order o : allOrders) {
+            if (o.getOrderDate() == null) continue;
+            double vendorRevenue = o.getItems().stream()
+                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
+                .mapToDouble(i -> i.getPrice())
+                .sum();
+            long vendorItemCount = o.getItems().stream()
+                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
+                .count();
+            
+            if (vendorRevenue > 0) { // Only include orders with vendor items
+                java.util.Map<String, Object> m = new java.util.HashMap<>();
+                m.put("id", o.getId());
+                m.put("amount", vendorRevenue);
+                m.put("orderDate", o.getOrderDate().toString());
+                m.put("deliveryTime", o.getDeliveryTime() != null ? o.getDeliveryTime() : "Standard");
+                m.put("itemCount", vendorItemCount);
+                ordersJson.add(m);
+            }
+        }
+
+        // Return JSON response
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("ordersJson", ordersJson);
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        
+        return org.springframework.http.ResponseEntity.ok(response);
     }
 }

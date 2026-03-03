@@ -27,12 +27,12 @@ public class EmailSender {
 
     // ===================== SEND OTP TO VENDOR =====================
     public void send(Vendor vendor) {
-        System.out.println("🔐 VENDOR OTP IS: " + vendor.getOtp());
+        // OTP sent to email - log only in debug mode
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("holeyappaece2024@gmail.com", "Ekart");
+            helper.setFrom("${spring.mail.username}", "Ekart");
             helper.setTo(vendor.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
 
@@ -43,7 +43,6 @@ public class EmailSender {
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Vendor OTP email sent to: " + vendor.getEmail());
         } catch (Exception e) {
             System.err.println("❌ Vendor OTP email failed: " + e.getMessage());
         }
@@ -51,12 +50,12 @@ public class EmailSender {
 
     // ===================== SEND OTP TO CUSTOMER =====================
     public void send(Customer customer) {
-        System.out.println("🔐 CUSTOMER OTP IS: " + customer.getOtp());
+        // OTP sent to email - log only in debug mode
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("holeyappaece2024@gmail.com", "Ekart");
+            helper.setFrom("${spring.mail.username}", "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
 
@@ -67,7 +66,6 @@ public class EmailSender {
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Customer OTP email sent to: " + customer.getEmail());
         } catch (Exception e) {
             System.err.println("❌ Customer OTP email failed: " + e.getMessage());
         }
@@ -80,7 +78,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("holeyappaece2024@gmail.com", "Ekart");
+            helper.setFrom("${spring.mail.username}", "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Confirmed 🛍️ - Order #" + orderId);
 
@@ -95,7 +93,6 @@ public class EmailSender {
             String html = templateEngine.process("order-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Order confirmation email sent to: " + customer.getEmail());
         } catch (Exception e) {
             System.err.println("❌ Order confirmation email failed: " + e.getMessage());
         }
@@ -112,7 +109,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("dwarakeeshtalavar@gmail.com", "Ekart Stock Alert");
+            helper.setFrom("${spring.mail.username}", "Ekart Stock Alert");
             helper.setTo(email);
             helper.setSubject("⚠️ Low Stock Alert - " + product.getName());
 
@@ -140,7 +137,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("holeyappaece2024@gmail.com", "Ekart");
+            helper.setFrom("${spring.mail.username}", "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Replacement Requested 🔄 - Order #" + orderId);
 
@@ -153,7 +150,6 @@ public class EmailSender {
             String html = templateEngine.process("replacement-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Replacement request email sent to: " + customer.getEmail());
         } catch (Exception e) {
             System.err.println("❌ Replacement email failed: " + e.getMessage());
         }
@@ -165,7 +161,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("holeyappaece2024@gmail.com", "Ekart");
+            helper.setFrom("${spring.mail.username}", "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Cancelled ❌ - Order #" + orderId);
 
@@ -178,7 +174,6 @@ public class EmailSender {
             String html = templateEngine.process("cancel-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Cancellation email sent to: " + customer.getEmail());
         } catch (Exception e) {
             System.err.println("❌ Cancellation email failed: " + e.getMessage());
         }
