@@ -12,9 +12,9 @@
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255,255,255,0.88);
-            --glass-nav:    rgba(255,255,255,0.85);
-            --text-white:   #0f172a;
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
         }
@@ -25,7 +25,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
-            color: #0f172a;
+            color: var(--text-white);
             display: flex;
             flex-direction: column;
         }
@@ -37,15 +37,20 @@
         }
         .bg-layer::before {
             content: '';
-            position: absolute; inset: 0;
-            background: url('/css/ekart-bg.svg') center/cover no-repeat;
-            
-            
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: rgba(255,255,255,0.10);
+            background: linear-gradient(
+                180deg,
+                rgba(5, 8, 20, 0.82) 0%,
+                rgba(8, 12, 28, 0.78) 40%,
+                rgba(5, 8, 20, 0.88) 100%
+            );
         }
 
         /* ── NAV ── */
@@ -53,8 +58,8 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
-            background: rgba(255,255,255,0.85);
-            backdrop-filter: blur(12px);
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--glass-border);
             transition: background 0.3s;
         }
@@ -62,7 +67,7 @@
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: #0f172a; text-decoration: none;
+            color: var(--text-white); text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
         }
@@ -73,13 +78,13 @@
         .nav-cart {
             position: relative;
             display: flex; align-items: center; gap: 0.4rem;
-            color: #334155; text-decoration: none;
+            color: var(--text-light); text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid var(--glass-border);
             transition: all 0.2s;
         }
-        .nav-cart:hover { color: #0f172a; background: rgba(255,255,255,0.1); }
+        .nav-cart:hover { color: white; background: rgba(255,255,255,0.1); }
         .cart-badge {
             position: absolute; top: -4px; right: -4px;
             background: var(--yellow); color: #1a1000;
@@ -90,7 +95,7 @@
 
         .btn-logout {
             display: flex; align-items: center; gap: 0.4rem;
-            color: #334155; text-decoration: none;
+            color: var(--text-light); text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid rgba(255,100,80,0.3);
@@ -105,7 +110,7 @@
         }
         .alert {
             padding: 0.875rem 1.25rem;
-            background: rgba(255,255,255,0.97);            backdrop-filter: blur(12px);
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
             border: 1px solid; border-radius: 10px;
             display: flex; align-items: center; gap: 0.625rem;
             font-size: 0.825rem; min-width: 260px;
@@ -128,7 +133,7 @@
         /* ── WELCOME BANNER ── */
         .welcome-banner {
             background: var(--glass-card);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2.5rem 3rem;
@@ -143,7 +148,7 @@
             font-weight: 700; margin-bottom: 0.35rem;
         }
         .welcome-text h1 span { color: var(--yellow); }
-        .welcome-text p { font-size: 0.875rem; color: #64748b; }
+        .welcome-text p { font-size: 0.875rem; color: var(--text-dim); }
 
         .welcome-icon {
             width: 72px; height: 72px;
@@ -163,12 +168,12 @@
 
         .dash-card {
             background: var(--glass-card);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(18px);
             border: 1px solid var(--glass-border);
             border-radius: 18px;
             padding: 2rem 1.75rem;
             text-decoration: none;
-            color: #0f172a;
+            color: var(--text-white);
             transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
             display: flex;
             flex-direction: column;
@@ -215,10 +220,10 @@
 
         .dash-card-body h3 {
             font-size: 1rem; font-weight: 600;
-            color: #0f172a; margin-bottom: 0.3rem;
+            color: white; margin-bottom: 0.3rem;
         }
         .dash-card-body p {
-            font-size: 0.775rem; color: #64748b;
+            font-size: 0.775rem; color: var(--text-dim);
             line-height: 1.55;
         }
 
@@ -234,23 +239,23 @@
 
         /* ── FOOTER ── */
         footer {
-            background: rgba(255,255,255,0.80);
-            backdrop-filter: blur(12px);
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
             flex-wrap: wrap; gap: 0.75rem;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
         .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 0.72rem; color: #64748b; }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
         /* ── CART POPUP ── */
         .cart-popup-overlay {
             display: none;
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(4px);
             z-index: 9999;
             justify-content: center;
             align-items: center;
@@ -259,7 +264,7 @@
 
         .cart-popup-box {
             background: rgba(15, 18, 40, 0.95);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 2.5rem 2.5rem 2rem;
@@ -277,10 +282,10 @@
         .popup-close {
             position: absolute; top: 1rem; right: 1.25rem;
             background: none; border: none;
-            color: #64748b; font-size: 1.25rem;
+            color: var(--text-dim); font-size: 1.25rem;
             cursor: pointer; transition: color 0.2s;
         }
-        .popup-close:hover { color: #0f172a; }
+        .popup-close:hover { color: white; }
 
         .popup-cart-icon {
             font-size: 3rem; margin-bottom: 1rem;
@@ -293,10 +298,10 @@
 
         .cart-popup-box h4 {
             font-size: 1.25rem; font-weight: 700;
-            color: #0f172a; margin-bottom: 0.5rem;
+            color: white; margin-bottom: 0.5rem;
         }
         .cart-popup-box p {
-            font-size: 0.85rem; color: #64748b;
+            font-size: 0.85rem; color: var(--text-dim);
             line-height: 1.65; margin-bottom: 1.75rem;
         }
         .cart-popup-box p strong { color: var(--yellow); }
@@ -323,11 +328,11 @@
             display: block; width: 100%;
             background: none; border: none;
             font-family: 'Poppins', sans-serif;
-            font-size: 0.775rem; color: #64748b;
+            font-size: 0.775rem; color: var(--text-dim);
             margin-top: 0.875rem; cursor: pointer;
             transition: color 0.2s;
         }
-        .btn-popup-dismiss:hover { color: #334155; }
+        .btn-popup-dismiss:hover { color: var(--text-light); }
 
         /* ── ANIMATIONS ── */
         @keyframes fadeUp {
