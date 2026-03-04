@@ -215,6 +215,10 @@ public class CustomerService {
         }
         map.put("cartCount", cartCount);
 
+        // Load approved products directly for the new combined dashboard
+        List<Product> products = productRepository.findByApprovedTrue();
+        map.put("products", products);
+
         return "customer-home.html";
     }
 
