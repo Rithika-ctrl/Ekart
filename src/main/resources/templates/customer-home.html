@@ -584,14 +584,14 @@
 
         <!-- Products populated by server -->
         <div th:each="p : ${products}" class="product-card-wrapper" th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category}">
-            <div class="product-card">
+            <div class="product-card" style="cursor:pointer;" th:onclick="'window.location.href=\'/product/\' + ' + ${p.id}">
 
                 <!-- Main Image -->
                 <div class="img-area">
                     <img class="card-image" th:src="${p.imageLink}" th:id="'mainImg-' + ${p.id}" alt="">
                     <span class="category-pill" th:text="${p.category}"></span>
                     <button class="btn-wishlist" th:id="'wishlist-' + ${p.id}"
-                            th:onclick="'toggleWishlist(' + ${p.id} + ')'" title="Add to Wishlist">
+                            th:onclick="'event.stopPropagation(); toggleWishlist(' + ${p.id} + ')'" title="Add to Wishlist">
                         <i class="far fa-heart"></i>
                     </button>
                     <span class="budget-badge"><i class="fas fa-check-double"></i> In Budget</span>
@@ -614,8 +614,13 @@
 
                 <!-- Card Body -->
                 <div class="card-body">
-                    <div class="product-name" th:text="${p.name}"></div>
-                    <div class="product-description" th:text="${p.description}"></div>
+                    <div class="product-name"><span style="color:var(--yellow);font-size:0.75rem;font-weight:600;">NAME &nbsp;</span> <span th:text="${p.name}"></span></div>
+                    <div class="product-description"><span style="color:var(--yellow);font-size:0.75rem;font-weight:600;">DESCRIPTION &nbsp;</span><span th:text="${p.description}"></span></div>
+
+                    <div class="product-meta">
+                        <span class="meta-label">Category:</span>
+                        <span class="meta-val" th:text="${p.category}"></span>
+                    </div>
 
                     <div class="product-meta">
                         <span class="meta-label">Stock:</span>
@@ -623,6 +628,7 @@
                     </div>
 
                     <div class="price-tag">
+                        <span style="font-size:0.85rem;font-weight:600;color:var(--text-light);vertical-align:middle;margin-right:4px;">Price</span>
                         <sup>₹</sup><span th:text="${p.price}"></span>
                     </div>
 
@@ -644,7 +650,7 @@
                         </div>
 
                         <!-- Review Form -->
-                        <form action="/add-review" method="post">
+                        <form action="/add-review" method="post" onclick="event.stopPropagation()">
                             <input type="hidden" name="productId" th:value="${p.id}">
                             <div class="review-form">
                                 <select name="rating" required>
@@ -661,7 +667,7 @@
                     </div>
 
                     <!-- Add to Cart -->
-                    <a th:href="'/add-cart/' + ${p.id}" class="btn-add-cart">
+                    <a th:href="'/add-cart/' + ${p.id}" class="btn-add-cart" onclick="event.stopPropagation()">
                         <i class="fas fa-cart-plus"></i> Add to Cart
                     </a>
                 </div>

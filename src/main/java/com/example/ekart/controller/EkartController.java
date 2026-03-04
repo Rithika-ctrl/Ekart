@@ -549,6 +549,11 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         return userAdminService.updateUserRole(id, role, session);
     }
 
+    @GetMapping("/product/{id}")
+    public String viewProductDetail(@PathVariable int id, HttpSession session, ModelMap map) {
+        return customerService.viewProductDetail(id, session, map);
+    }
+
     // ── SHARED ────────────────────────────────────────────────────────────────
 
     @GetMapping({"/logout", "/customer/logout", "/admin/logout", "/vendor/logout"})

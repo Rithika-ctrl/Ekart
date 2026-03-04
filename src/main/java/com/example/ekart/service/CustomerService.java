@@ -222,6 +222,30 @@ public class CustomerService {
         return "customer-home.html";
     }
 
+    // ---------------- PRODUCT DETAIL ----------------
+    public String viewProductDetail(int id, HttpSession session, ModelMap map) {
+        if (session.getAttribute("customer") == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/customer/login";
+        }
+
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null || !product.isApproved()) {
+            session.setAttribute("failure", "Product not found");
+            return "redirect:/customer/home";
+        }
+
+        // Similar products — same category, exclude current product
+        List<Product> similar = productRepository.findByCategoryAndApprovedTrue(product.getCategory())
+                .stream()
+                .filter(p -> p.getId() != product.getId())
+                .collect(java.util.stream.Collectors.toList());
+
+        map.put("product", product);
+        map.put("similar", similar);
+        return "product-detail.html";
+    }
+
     // ---------------- VIEW PRODUCTS ----------------
     public String viewProducts(HttpSession session, ModelMap map) {
 
