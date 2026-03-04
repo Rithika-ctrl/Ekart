@@ -11,12 +11,14 @@ import com.example.ekart.dto.Banner;
 import com.example.ekart.repository.BannerRepository;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
 
 /**
  * Service for managing promotional banners.
  * Handles CRUD operations and activation/deactivation of banners.
  */
 @Service
+@Transactional
 public class BannerService {
 
     @Autowired

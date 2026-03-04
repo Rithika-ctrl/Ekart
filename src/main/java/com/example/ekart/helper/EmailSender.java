@@ -3,6 +3,7 @@ package com.example.ekart.helper;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,9 @@ public class EmailSender {
     @Autowired
     private TemplateEngine templateEngine;
 
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
     // ===================== SEND OTP TO VENDOR =====================
     public void send(Vendor vendor) {
         // OTP sent to email - log only in debug mode
@@ -32,7 +36,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart");
+            helper.setFrom(fromEmail, "Ekart");
             helper.setTo(vendor.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
 
@@ -55,7 +59,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart");
+            helper.setFrom(fromEmail, "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
 
@@ -78,7 +82,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart");
+            helper.setFrom(fromEmail, "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Confirmed 🛍️ - Order #" + orderId);
 
@@ -109,7 +113,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart Stock Alert");
+            helper.setFrom(fromEmail, "Ekart Stock Alert");
             helper.setTo(email);
             helper.setSubject("⚠️ Low Stock Alert - " + product.getName());
 
@@ -137,7 +141,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart");
+            helper.setFrom(fromEmail, "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Replacement Requested 🔄 - Order #" + orderId);
 
@@ -161,7 +165,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom("${spring.mail.username}", "Ekart");
+            helper.setFrom(fromEmail, "Ekart");
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Cancelled ❌ - Order #" + orderId);
 

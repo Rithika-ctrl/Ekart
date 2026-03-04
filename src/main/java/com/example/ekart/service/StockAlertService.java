@@ -15,8 +15,10 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.StockAlertRepository;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
 
 @Service
+@Transactional
 public class StockAlertService {
 
 	@Autowired
