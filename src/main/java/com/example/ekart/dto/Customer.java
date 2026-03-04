@@ -81,5 +81,9 @@ public class Customer implements Serializable {
 
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Address> addresses = new ArrayList<>();
+
+	// Recently viewed products - stored as comma-separated product IDs (max 10)
+	@Column(length = 200)
+	private String recentlyViewedProducts;
 	
 }

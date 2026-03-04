@@ -568,6 +568,11 @@
         <div style="font-size:2rem; opacity:0.6;">🛍️</div>
     </div>
 
+    <!-- Recently Viewed Products Section -->
+    <section class="rv-section-home" style="margin-bottom: 1.5rem;">
+        <div id="recentlyViewedContainer"></div>
+    </section>
+
     <!-- Budget Bar -->
     <div class="budget-bar">
         <span class="budget-label">
@@ -818,6 +823,20 @@
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s'; setTimeout(() => toast.remove(), 400); }, 2500);
     }
+</script>
+
+<!-- Recently Viewed Products Script -->
+<script th:src="@{/js/recently-viewed.js}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Render the recently viewed bar on customer home
+        RecentlyViewed.render('#recentlyViewedContainer', {
+            showHeading: true
+        });
+        
+        // Load from server if logged in (merge with local)
+        RecentlyViewed.loadFromServer();
+    });
 </script>
 
 <!-- ── AI ASSISTANT WIDGET ── -->

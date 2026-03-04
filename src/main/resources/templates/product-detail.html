@@ -587,6 +587,34 @@
     }
 </script>
 
+<!-- Recently Viewed Products Section -->
+<section class="rv-section" style="max-width:1200px;margin:0 auto;padding:0 1rem 2rem;">
+    <div id="recentlyViewedContainer"></div>
+</section>
+
+<!-- Recently Viewed Products Script -->
+<script th:src="@{/js/recently-viewed.js}"></script>
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current product ID from Thymeleaf
+        const currentProductId = /*[[${product.id}]]*/ 0;
+        
+        // Track this product view
+        if (currentProductId) {
+            RecentlyViewed.trackProduct(currentProductId);
+        }
+        
+        // Render the recently viewed bar (excluding current product)
+        RecentlyViewed.render('#recentlyViewedContainer', {
+            excludeProductId: currentProductId,
+            showHeading: true
+        });
+        
+        // Sync to server if logged in (fire and forget)
+        RecentlyViewed.syncToServer();
+    });
+</script>
+
 <!-- AI Assistant Widget -->
 <div th:replace="~{chat-widget :: chatWidget}"></div>
 
