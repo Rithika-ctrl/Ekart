@@ -480,6 +480,28 @@
             .promo-slide-title { font-size: 1.4rem; }
             .promo-nav { width: 38px; height: 38px; }
         }
+        
+        /* Additional mobile breakpoints for better responsiveness */
+        @media(max-width: 600px) {
+            .promo-carousel { border-radius: 12px; }
+            .promo-slide img { height: 200px; }
+            .promo-slide-overlay { padding: 1rem; }
+            .promo-slide-title { font-size: 1.1rem; max-width: 70%; }
+            .promo-slide-btn { padding: 0.6rem 1.2rem; font-size: 0.8rem; }
+            .promo-nav { width: 32px; height: 32px; }
+            .promo-nav.prev { left: 0.75rem; }
+            .promo-nav.next { right: 0.75rem; }
+            .promo-dots { bottom: 1rem; gap: 0.4rem; }
+            .promo-dot { width: 8px; height: 8px; }
+            .feat-cards { grid-template-columns: 1fr; }
+            .cats-grid { grid-template-columns: 1fr; }
+        }
+        
+        @media(max-width: 400px) {
+            .promo-slide img { height: 160px; }
+            .promo-slide-title { font-size: 1rem; }
+            .promo-nav { display: none; } /* Hide arrows on very small screens */
+        }
     </style>
 </head>
 <body>
@@ -756,5 +778,8 @@
         }
     })();
 </script>
+
+<!-- Global Toast System -->
+<script src="/js/ekart-toast.js"></script>
 </body>
 </html>

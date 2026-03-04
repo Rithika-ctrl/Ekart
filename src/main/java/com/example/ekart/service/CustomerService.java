@@ -1,5 +1,6 @@
 package com.example.ekart.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -129,13 +130,22 @@ public class CustomerService {
             return "redirect:/customer/login";
         }
 
+        // Check if account is suspended
+        if (!customer.isActive()) {
+            session.setAttribute("failure", "Your account has been suspended.");
+            return "redirect:/customer/login";
+        }
+
         // Ensure cart exists
         if (customer.getCart() == null) {
             Cart cart = new Cart();
             cart.setItems(new ArrayList<>());
             customer.setCart(cart);
-            customerRepository.save(customer);
         }
+
+        // Update last login timestamp
+        customer.setLastLogin(LocalDateTime.now());
+        customerRepository.save(customer);
 
         // Clear guest session if present
         session.removeAttribute("guest");
