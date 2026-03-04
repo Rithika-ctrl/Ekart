@@ -22,6 +22,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(authGuard)
             .addPathPatterns(
                 "/admin/**",           // All admin routes
+                "/api/admin/**",       // Admin API routes
                 "/refund-management/**",
                 "/content-management/**",
                 "/security-settings/**",
