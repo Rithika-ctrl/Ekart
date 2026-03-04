@@ -19,8 +19,10 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
 
 @Service
+@Transactional
 public class AdminService {
 
 	@Value("${admin.email}")

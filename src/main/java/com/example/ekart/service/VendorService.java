@@ -23,6 +23,7 @@ import com.example.ekart.repository.VendorRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import jakarta.transaction.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ import com.example.ekart.dto.Item;
 
 
 @Service
+@Transactional
 public class VendorService {
 
 	@Autowired

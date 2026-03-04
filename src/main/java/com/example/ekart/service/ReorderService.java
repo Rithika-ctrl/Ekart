@@ -20,12 +20,14 @@ import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
 
 /**
  * Service for Re-Order functionality.
  * Allows customers to quickly reorder items from past orders.
  */
 @Service
+@Transactional
 public class ReorderService {
 
     @Autowired

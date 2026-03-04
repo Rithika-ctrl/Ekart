@@ -19,6 +19,7 @@ import com.example.ekart.repository.WishlistRepository;
 import jakarta.servlet.http.HttpSession;
 
 @Service
+@Transactional
 public class WishlistService {
     
     @Autowired
