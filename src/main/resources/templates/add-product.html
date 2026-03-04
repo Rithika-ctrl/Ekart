@@ -392,7 +392,7 @@
 
             </div>
 
-            <button type="submit" class="btn-submit">
+            <button type="submit" class="btn-submit" id="submitBtn">
                 <i class="fas fa-plus-circle"></i> Add Product
             </button>
 
@@ -405,6 +405,30 @@
 
 </main>
 
+<!-- ── UPLOAD LOADING OVERLAY ── -->
+<div id="uploadOverlay" style="
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(5,8,20,0.88); backdrop-filter:blur(8px);
+    flex-direction:column; align-items:center; justify-content:center; gap:1.5rem;
+">
+    <div style="
+        width:64px; height:64px; border-radius:50%;
+        border:4px solid rgba(245,168,0,0.2);
+        border-top-color:#f5a800;
+        animation:spin 0.9s linear infinite;
+    "></div>
+    <div style="text-align:center;">
+        <div style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:0.4rem;">
+            Uploading your product...
+        </div>
+        <div style="font-size:0.82rem; color:rgba(255,255,255,0.5);">
+            Uploading images &amp; video to Cloudinary — please wait, this can take up to 60 seconds
+        </div>
+    </div>
+    <div style="font-size:0.75rem; color:rgba(255,255,255,0.35);">Please don't close this tab</div>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
 <footer>
     <div class="footer-brand"><span>Ekart</span></div>
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
@@ -413,6 +437,13 @@
 <script>
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Show upload overlay when form is submitted
+    document.querySelector('form[action="/add-product"]').addEventListener('submit', function() {
+        const overlay = document.getElementById('uploadOverlay');
+        overlay.style.display = 'flex';
+        document.getElementById('submitBtn').disabled = true;
     });
 
     setTimeout(() => {

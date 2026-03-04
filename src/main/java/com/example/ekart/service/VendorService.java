@@ -326,33 +326,45 @@ public class VendorService {
 		product.setVendor(vendor);
 		product.setApproved(false);
 
-		// Upload main image
-		if (product.getImage() != null && !product.getImage().isEmpty()) {
-			product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
-		}
+		try {
+			// Upload main image
+			if (product.getImage() != null && !product.getImage().isEmpty()) {
+				product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
+			}
 
-		// 🔥 Upload extra images
-		if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
-			java.util.List<String> extraUrls = new java.util.ArrayList<>();
-			for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
-				if (img != null && !img.isEmpty()) {
-					extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
+			// Upload extra images
+			if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
+				java.util.List<String> extraUrls = new java.util.ArrayList<>();
+				for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
+					if (img != null && !img.isEmpty()) {
+						extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
+					}
+				}
+				if (!extraUrls.isEmpty()) {
+					product.setExtraImageLinks(String.join(",", extraUrls));
 				}
 			}
-			if (!extraUrls.isEmpty()) {
-				product.setExtraImageLinks(String.join(",", extraUrls));
-			}
-		}
 
-		// 🔥 Upload video
-		if (product.getVideo() != null && !product.getVideo().isEmpty()) {
-			product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
+			// Upload video (optional - skip if upload fails)
+			if (product.getVideo() != null && !product.getVideo().isEmpty()) {
+				try {
+					product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
+				} catch (Exception videoEx) {
+					System.err.println("Video upload failed (skipped): " + videoEx.getMessage());
+					session.setAttribute("warning", "Product saved but video upload failed. You can add a video later by editing the product.");
+				}
+			}
+
+		} catch (Exception e) {
+			System.err.println("Cloudinary upload error: " + e.getMessage());
+			session.setAttribute("failure", "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
+			return "redirect:/add-product";
 		}
 
 		productRepository.save(product);
 		stockAlertService.checkStockLevel(product);
 
-		session.setAttribute("success", "Product added. Waiting for admin approval.");
+		session.setAttribute("success", "Product added successfully! Waiting for admin approval.");
 		return "redirect:/vendor/home";
 	}
 
