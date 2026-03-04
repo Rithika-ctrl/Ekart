@@ -338,6 +338,7 @@
         <div class="nav-links">
             <a href="/admin/home" class="nav-link active"><i class="fas fa-home"></i> Dashboard</a>
             <a href="/approve-products" class="nav-link"><i class="fas fa-tasks"></i> Approvals</a>
+            <a href="/admin/refunds" class="nav-link"><i class="fas fa-undo-alt"></i> Refunds</a>
             <a href="/admin/search-users" class="nav-link"><i class="fas fa-users"></i> Users</a>
         </div>
         <div class="nav-divider"></div>
@@ -382,11 +383,11 @@
         </a>
 
         <!-- ADMIN-ONLY: Refund Management -->
-        <a href="/refund-management" class="dash-card" th:if="${session.admin != null}">
+        <a href="/admin/refunds" class="dash-card" th:if="${session.admin != null}">
             <div class="dash-card-icon"><i class="fas fa-undo-alt"></i></div>
             <div class="dash-card-body">
                 <h3>Refund Management</h3>
-                <p>Process refund requests and manage return policies.</p>
+                <p>Review, approve, or reject customer refund requests.</p>
             </div>
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>

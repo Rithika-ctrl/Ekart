@@ -8,7 +8,9 @@ public enum TrackingStatus {
     PROCESSING("Processing"),
     SHIPPED("Shipped"),
     OUT_FOR_DELIVERY("Out for Delivery"),
-    DELIVERED("Delivered");
+    DELIVERED("Delivered"),
+    REFUNDED("Refunded"),
+    CANCELLED("Cancelled");
 
     private final String displayName;
 
@@ -36,6 +38,8 @@ public enum TrackingStatus {
             case SHIPPED: return 33;
             case OUT_FOR_DELIVERY: return 66;
             case DELIVERED: return 100;
+            case REFUNDED: return 100;
+            case CANCELLED: return 0;
             default: return 0;
         }
     }

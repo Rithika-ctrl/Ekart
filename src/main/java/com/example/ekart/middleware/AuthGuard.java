@@ -80,6 +80,7 @@ public class AuthGuard implements HandlerInterceptor {
      */
     private boolean isAdminProtectedRoute(String path) {
         return path.startsWith("/admin/") && !path.equals("/admin/login")
+            || path.startsWith("/api/admin/")
             || path.startsWith("/refund-management/")
             || path.startsWith("/content-management/")
             || path.startsWith("/security-settings/");
