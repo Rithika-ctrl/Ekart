@@ -1,5 +1,6 @@
 package com.example.ekart.dto;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +60,14 @@ public class Customer implements Serializable {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	private Role role = Role.CUSTOMER;
+
+	// Account status - for admin oversight
+	@Column(nullable = false, columnDefinition = "boolean default true")
+	private boolean isActive = true;
+	
+	// Last login timestamp for admin oversight
+	@Column(nullable = true)
+	private LocalDateTime lastLogin;
 
 	// OAuth2 fields for social login (nullable - optional for email/password users)
 	@Column(nullable = true)

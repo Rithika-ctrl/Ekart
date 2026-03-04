@@ -1,6 +1,7 @@
 package com.example.ekart.config;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
+import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.service.SocialAuthService;
 
 import jakarta.servlet.ServletException;
@@ -27,6 +29,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     @Autowired
     private SocialAuthService socialAuthService;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -74,6 +79,18 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             provider,
             extractProviderId(oAuth2User, provider)
         );
+        
+        // Check if account is suspended
+        if (!customer.isActive()) {
+            session.setAttribute("failure", "Your account has been suspended.");
+            session.removeAttribute("oauth_login_type");
+            response.sendRedirect("/customer/login");
+            return;
+        }
+        
+        // Update last login timestamp
+        customer.setLastLogin(LocalDateTime.now());
+        customerRepository.save(customer);
         
         session.setAttribute("customer", customer);
         session.setAttribute("success", "Login Successful via " + providerDisplayName);
