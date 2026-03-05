@@ -253,8 +253,8 @@ public class AdminAccountService {
         Map<String, Object> stats = new HashMap<>();
         
         long totalAccounts = customerRepository.count();
-        long activeAccounts = customerRepository.countByIsActive(true);
-        long suspendedAccounts = customerRepository.countByIsActive(false);
+        long activeAccounts = customerRepository.countByActive(true);
+        long suspendedAccounts = customerRepository.countByActive(false);
         
         stats.put("totalAccounts", totalAccounts);
         stats.put("activeAccounts", activeAccounts);

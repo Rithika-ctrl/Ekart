@@ -27,8 +27,10 @@ import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
+import com.example.ekart.service.SearchService;
 
 import jakarta.servlet.http.HttpSession;
+
 import jakarta.transaction.Transactional;
 
 
@@ -59,6 +61,9 @@ public class CustomerService {
 
 	@Autowired
 	private AddressRepository addressRepository;
+
+    @Autowired
+    private SearchService searchService;
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
@@ -284,8 +289,26 @@ public class CustomerService {
         products.addAll(productRepository.findByDescriptionContainingIgnoreCase(query));
         products.addAll(productRepository.findByCategoryContainingIgnoreCase(query));
 
+        // If no results found, auto-correct spelling and search again
+        if (products.isEmpty()) {
+            String corrected = searchService.findFuzzyMatch(query);
+            if (corrected != null && !corrected.equalsIgnoreCase(query)) {
+                // Search again using corrected term across name, description AND category
+                products.addAll(productRepository.findByNameContainingIgnoreCase(corrected));
+                products.addAll(productRepository.findByDescriptionContainingIgnoreCase(corrected));
+                products.addAll(productRepository.findByCategoryContainingIgnoreCase(corrected));
+                // Tell the template: "Showing results for 'chips' instead of 'chipps'"
+                map.put("correctedQuery", corrected);
+                map.put("originalQuery", query);
+                map.put("query", corrected);
+            } else {
+                map.put("query", query);
+            }
+        } else {
+            map.put("query", query);
+        }
+
         map.put("products", products);
-        map.put("query", query);
         return "search.html";
     }
 
