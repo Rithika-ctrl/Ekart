@@ -82,19 +82,84 @@
             font-size: 0.82rem;
             padding: 0.5rem 1rem 0.5rem 2.4rem;
             transition: all 0.25s;
+            outline: none;
         }
         .nav-search input::placeholder { color: var(--text-dim); }
         .nav-search input:focus {
-            outline: none;
             border-color: rgba(245,168,0,0.5);
             background: rgba(255,255,255,0.12);
         }
-        .nav-search i {
+        .nav-search input.nav-dropdown-open {
+            border-radius: 50px 50px 12px 12px;
+            border-bottom-color: transparent;
+        }
+        .nav-search i.nav-search-icon {
             position: absolute; left: 0.85rem; top: 50%;
             transform: translateY(-50%);
             color: var(--text-dim); font-size: 0.78rem;
-            pointer-events: none;
+            pointer-events: none; z-index: 2;
         }
+
+        /* ── NAV AUTOCOMPLETE DROPDOWN ── */
+        .nav-autocomplete-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: rgba(8, 10, 24, 0.98);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid rgba(245,168,0,0.25);
+            border-radius: 0 0 16px 16px;
+            z-index: 9999;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            animation: navDropOpen 0.15s ease both;
+        }
+        @keyframes navDropOpen {
+            from { opacity:0; transform: translateY(-4px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+        .nav-ac-list {
+            list-style: none; margin: 0; padding: 5px 0;
+            max-height: 320px; overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(245,168,0,0.3) transparent;
+        }
+        .nav-ac-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer;
+            transition: background 0.1s;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.8rem;
+        }
+        .nav-ac-item:last-child { border-bottom: none; }
+        .nav-ac-item:hover, .nav-ac-item.active { background: rgba(245,168,0,0.08); }
+        .nav-ac-thumb {
+            width: 34px; height: 34px; border-radius: 6px;
+            object-fit: cover; border: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0; background: rgba(255,255,255,0.05);
+        }
+        .nav-ac-thumb-ph {
+            width: 34px; height: 34px; border-radius: 6px;
+            background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .nav-ac-text { flex: 1; min-width: 0; }
+        .nav-ac-name {
+            color: white; font-weight: 500; font-size: 0.8rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-ac-name mark { background: none; color: var(--yellow); font-weight: 700; padding: 0; }
+        .nav-ac-cat { font-size: 0.66rem; color: var(--yellow); opacity: 0.8; margin-top: 1px; }
+        .nav-ac-badge {
+            font-size: 0.58rem; background: rgba(255,96,96,0.2); color: #ff8080;
+            border: 1px solid rgba(255,96,96,0.3); padding: 2px 6px;
+            border-radius: 20px; font-weight: 600; flex-shrink: 0;
+        }
+        .nav-ac-loading, .nav-ac-empty {
+            padding: 12px 14px; font-size: 0.75rem; color: var(--text-dim);
+            display: flex; align-items: center; gap: 7px;
+        }
+        .nav-ac-loading i { color: var(--yellow); animation: navSpin 1s linear infinite; }
+        @keyframes navSpin { to { transform: rotate(360deg); } }
 
         /* ── NAV RIGHT LINKS ── */
         .nav-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
@@ -524,10 +589,10 @@
         Ek<span>art</span>
     </a>
 
-    <!-- Inline search -->
-    <div class="nav-search">
-        <i class="fas fa-search"></i>
-        <input type="text" id="navSearchInput" placeholder="Search products…" oninput="filterProducts(this.value)">
+    <!-- Nav Autocomplete Search -->
+    <div class="nav-search" id="navSearchWrapper">
+        <i class="fas fa-search nav-search-icon"></i>
+        <input type="text" id="navSearchInput" placeholder="Search products…" autocomplete="off">
     </div>
 
     <div class="nav-right">
@@ -738,6 +803,171 @@
         if (p) p.classList.remove('show');
     }
 
+    // ── NAV SMART AUTOCOMPLETE ──────────────────────────────────
+    (function () {
+        const input   = document.getElementById('navSearchInput');
+        const wrapper = document.getElementById('navSearchWrapper');
+
+        let dropdown   = null;
+        let debounce   = null;
+        let activeIdx  = -1;
+        let suggestions = [];
+
+        function createDropdown() {
+            if (dropdown) return;
+            dropdown = document.createElement('div');
+            dropdown.className = 'nav-autocomplete-dropdown';
+            dropdown.innerHTML = '<ul class="nav-ac-list" id="navAcList"></ul>';
+            wrapper.appendChild(dropdown);
+        }
+
+        function getList() { return document.getElementById('navAcList'); }
+
+        function showDrop() {
+            createDropdown();
+            dropdown.style.display = 'block';
+            input.classList.add('nav-dropdown-open');
+        }
+
+        function hideDrop() {
+            if (dropdown) dropdown.style.display = 'none';
+            input.classList.remove('nav-dropdown-open');
+            activeIdx = -1;
+        }
+
+        input.addEventListener('input', function () {
+            const q = this.value.trim();
+            clearTimeout(debounce);
+            if (!q) { hideDrop(); return; }
+            showDrop();
+            renderNavLoading();
+            debounce = setTimeout(() => fetchNav(q), 200);
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (!dropdown || dropdown.style.display === 'none') return;
+            const items = getList().querySelectorAll('.nav-ac-item');
+            if (e.key === 'ArrowDown')  { e.preventDefault(); activeIdx = Math.min(activeIdx+1, items.length-1); setNavActive(items); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx-1, -1); setNavActive(items); }
+            else if (e.key === 'Escape')  { hideDrop(); }
+            else if (e.key === 'Enter' && activeIdx >= 0 && items[activeIdx]) {
+                e.preventDefault(); items[activeIdx].click();
+            }
+        });
+
+        function setNavActive(items) {
+            items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+            if (activeIdx >= 0 && suggestions[activeIdx]) input.value = suggestions[activeIdx].productName;
+        }
+
+        function fetchNav(q) {
+            fetch('/api/search/suggestions?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    suggestions = data;
+                    if (!data || data.length === 0) {
+                        // No results — fetch fuzzy correction first, then render together
+                        fetch('/api/search/fuzzy?q=' + encodeURIComponent(q))
+                            .then(r => r.json())
+                            .then(fuzzy => renderNav(data, q, fuzzy.suggestion || null))
+                            .catch(() => renderNav(data, q, null));
+                    } else {
+                        renderNav(data, q, null);
+                    }
+                })
+                .catch(() => hideDrop());
+        }
+
+        function renderNav(data, query, fuzzySuggestion) {
+            const list = getList();
+            list.innerHTML = '';
+            activeIdx = -1;
+
+            if (!data || data.length === 0) {
+                if (fuzzySuggestion) {
+                    // Show "Are you looking for X?" as a clickable item
+                    const div = document.createElement('div');
+                    div.className = 'nav-ac-empty';
+                    div.style.cssText = 'cursor:pointer; gap:8px;';
+                    div.innerHTML = `<i class="fas fa-spell-check" style="color:var(--yellow)"></i>
+                        <span>Are you looking for &nbsp;<strong style="color:var(--yellow);text-decoration:underline dotted">${navEsc(fuzzySuggestion)}</strong> ?</span>`;
+                    div.addEventListener('click', () => {
+                        input.value = fuzzySuggestion;
+                        hideDrop();
+                        window.location.href = '/search-products?query=' + encodeURIComponent(fuzzySuggestion);
+                    });
+                    list.appendChild(div);
+                } else {
+                    list.innerHTML = `<div class="nav-ac-empty">
+                        <i class="fas fa-search"></i> No results for "<strong style="color:var(--yellow)">${navEsc(query)}</strong>"
+                    </div>`;
+                }
+                return;
+            }
+
+            data.forEach((s, idx) => {
+                const li = document.createElement('li');
+                li.className = 'nav-ac-item';
+
+                const imgHtml = s.imageLink
+                    ? `<img class="nav-ac-thumb" src="${navEsc(s.imageLink)}" alt=""
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                       <div class="nav-ac-thumb-ph" style="display:none">🛍</div>`
+                    : `<div class="nav-ac-thumb-ph">🛍</div>`;
+
+                const badge = (idx < 3 && s.purchaseCount > 0)
+                    ? `<span class="nav-ac-badge">🔥 Popular</span>` : '';
+
+                const cat = s.category ? `<div class="nav-ac-cat">in ${navEsc(s.category)}</div>` : '';
+
+                li.innerHTML = `
+                    ${imgHtml}
+                    <div class="nav-ac-text">
+                        <div class="nav-ac-name">${navHighlight(s.productName, query)}</div>
+                        ${cat}
+                    </div>
+                    ${badge}
+                `;
+
+                li.addEventListener('click', () => {
+                    input.value = s.productName;
+                    hideDrop();
+                    // Navigate to search results
+                    window.location.href = '/search-products?query=' + encodeURIComponent(s.productName);
+                });
+
+                li.addEventListener('mouseenter', () => {
+                    activeIdx = idx;
+                    getList().querySelectorAll('.nav-ac-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+                });
+
+                list.appendChild(li);
+            });
+        }
+
+        function renderNavLoading() {
+            const list = getList();
+            if (list) list.innerHTML = `<div class="nav-ac-loading"><i class="fas fa-circle-notch"></i> Searching…</div>`;
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#navSearchWrapper')) hideDrop();
+        });
+
+        input.addEventListener('focus', function () {
+            if (this.value.trim().length > 0) { showDrop(); renderNavLoading(); fetchNav(this.value.trim()); }
+        });
+
+        function navHighlight(text, query) {
+            const safeQ = navEsc(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return navEsc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
+        }
+
+        function navEsc(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    })();
+
     // ── BUDGET SLIDER ──
     function applyBudget(val) {
         val = parseFloat(val);
@@ -786,7 +1016,7 @@
         }
     });
 
-    // ── INLINE SEARCH FILTER ──
+    // ── INLINE SEARCH FILTER (kept for fallback) ──
     function filterProducts(query) {
         query = query.toLowerCase().trim();
         document.querySelectorAll('.product-card-wrapper').forEach(card => {

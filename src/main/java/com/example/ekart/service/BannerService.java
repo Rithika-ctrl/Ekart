@@ -28,7 +28,7 @@ public class BannerService {
      * Get all active banners for home page display
      */
     public List<Banner> getActiveBanners() {
-        return bannerRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+        return bannerRepository.findByActiveTrueOrderByDisplayOrderAsc();
     }
 
     /**
@@ -48,7 +48,7 @@ public class BannerService {
         }
 
         map.put("banners", getAllBanners());
-        map.put("activeBannerCount", bannerRepository.findByIsActiveTrueOrderByDisplayOrderAsc().size());
+        map.put("activeBannerCount", bannerRepository.findByActiveTrueOrderByDisplayOrderAsc().size());
         map.put("totalBannerCount", bannerRepository.count());
         return "admin-content.html";
     }
