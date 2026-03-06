@@ -26,6 +26,7 @@ import jakarta.validation.Valid;
 import jakarta.transaction.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
+import com.example.ekart.reporting.ReportingService;
 import java.time.LocalDate;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
@@ -61,6 +62,9 @@ public class VendorService {
 
 	@Autowired
     private SalesReportRepository salesReportRepository;
+
+    @Autowired
+    private ReportingService reportingService;
 
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
@@ -490,8 +494,7 @@ public class VendorService {
 		return "redirect:/manage-products";
 	}
 
-    // 🔥 SALES REPORT
-    // 🔥 SALES REPORT — FIXED (vendor-filtered, DB-persisted)
+    // 🔥 SALES REPORT — reads from decoupled reporting DB (not main DB)
     public String loadSalesReport(HttpSession session, org.springframework.ui.ModelMap map) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
@@ -499,76 +502,57 @@ public class VendorService {
             return "redirect:/vendor/login";
         }
 
-        // 🔥 Add vendor info to header
-        map.put("vendorId", vendor.getId());
+        int vendorId = vendor.getId();
+        map.put("vendorId",   vendorId);
         map.put("vendorName", vendor.getName());
         map.put("vendorCode", vendor.getVendorCode());
 
-        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate today     = java.time.LocalDate.now();
+        java.time.LocalDate weekStart = today.with(DayOfWeek.MONDAY);
+        java.time.LocalDate monthStart= today.with(TemporalAdjusters.firstDayOfMonth());
 
-        // ── Date ranges ──────────────────────────────────────────
-        java.time.LocalDateTime todayStart   = today.atStartOfDay();
-        java.time.LocalDateTime todayEnd     = today.atTime(23, 59, 59);
+        java.time.LocalDateTime todayStart  = today.atStartOfDay();
+        java.time.LocalDateTime todayEnd    = today.atTime(23, 59, 59);
+        java.time.LocalDateTime weekStartDT = weekStart.atStartOfDay();
+        java.time.LocalDateTime monthStartDT= monthStart.atStartOfDay();
+        java.time.LocalDateTime now         = java.time.LocalDateTime.now();
 
-        java.time.LocalDate weekStart        = today.with(DayOfWeek.MONDAY);
-        java.time.LocalDateTime weekStartDT  = weekStart.atStartOfDay();
+        // ── Read from reporting DB only ───────────────────────────
+        java.util.Map<String, Object> daily   = reportingService.buildVendorSummary(vendorId, todayStart,   todayEnd);
+        java.util.Map<String, Object> weekly  = reportingService.buildVendorSummary(vendorId, weekStartDT,  now);
+        java.util.Map<String, Object> monthly = reportingService.buildVendorSummary(vendorId, monthStartDT, now);
+        java.util.Map<String, Object> overall = reportingService.buildVendorOverallSummary(vendorId);
 
-        java.time.LocalDate monthStart       = today.with(TemporalAdjusters.firstDayOfMonth());
-        java.time.LocalDateTime monthStartDT = monthStart.atStartOfDay();
-
-        // ── Fetch vendor-specific orders ─────────────────────────
-        List<com.example.ekart.dto.Order> dailyOrders   = orderRepository.findOrdersByVendorAndDateRange(vendor, todayStart, todayEnd);
-        List<com.example.ekart.dto.Order> weeklyOrders  = orderRepository.findOrdersByVendorAndDateRange(vendor, weekStartDT, todayEnd);
-        List<com.example.ekart.dto.Order> monthlyOrders = orderRepository.findOrdersByVendorAndDateRange(vendor, monthStartDT, todayEnd);
-        List<com.example.ekart.dto.Order> allOrders     = orderRepository.findOrdersByVendor(vendor);
-
-        // ── Get this vendor's product IDs ─────────────────────────
-        java.util.Set<Integer> vendorProductIds = productRepository.findByVendor(vendor)
-            .stream()
-            .map(p -> p.getId())
-            .collect(Collectors.toSet());
-
-        // ── Build summary stats ───────────────────────────────────
-        java.util.Map<String, Object> daily   = buildSummary(dailyOrders,   vendorProductIds);
-        java.util.Map<String, Object> weekly  = buildSummary(weeklyOrders,  vendorProductIds);
-        java.util.Map<String, Object> monthly = buildSummary(monthlyOrders, vendorProductIds);
-        java.util.Map<String, Object> overall = buildSummary(allOrders,     vendorProductIds);
-
-        // ── Save to DB ────────────────────────────────────────────
+        // ── Persist snapshots to main DB for historical record ────
         saveSalesReport(vendor, "DAILY",   today,      daily);
         saveSalesReport(vendor, "WEEKLY",  weekStart,  weekly);
         saveSalesReport(vendor, "MONTHLY", monthStart, monthly);
 
-        // ── Build JSON for chart (vendor-filtered only) ───────────
+        // ── Build JSON chart data from reporting DB ───────────────
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
+        List<com.example.ekart.reporting.SalesRecord> records = reportingService.getVendorRecords(vendorId);
         java.util.List<java.util.Map<String, Object>> ordersJson = new java.util.ArrayList<>();
-        for (com.example.ekart.dto.Order o : allOrders) {
-            if (o.getOrderDate() == null) continue;
-            double vendorRevenue = o.getItems().stream()
-                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                .mapToDouble(i -> i.getPrice())
-                .sum();
-            long vendorItemCount = o.getItems().stream()
-                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                .count();
+        for (com.example.ekart.reporting.SalesRecord r : records) {
+            if (r.getOrderDate() == null) continue;
             java.util.Map<String, Object> m = new java.util.HashMap<>();
-            m.put("id",           o.getId());
-            m.put("amount",       vendorRevenue);
-            m.put("orderDate",    o.getOrderDate().toString());
-            m.put("deliveryTime", o.getDeliveryTime() != null ? o.getDeliveryTime() : "Standard");
-            m.put("itemCount",    vendorItemCount);
+            m.put("id",          r.getOrderId());
+            m.put("amount",      r.getItemPrice() * r.getQuantity());
+            m.put("orderDate",   r.getOrderDate().toString());
+            m.put("productName", r.getProductName());
+            m.put("category",    r.getCategory());
+            m.put("quantity",    r.getQuantity());
             ordersJson.add(m);
         }
 
         String json = "[]";
         try { json = mapper.writeValueAsString(ordersJson); } catch (Exception e) { /* skip */ }
-        
-		map.put("daily",   daily);
-        map.put("weekly",  weekly);
-        map.put("monthly", monthly);
-        map.put("overall", overall);
+
+        map.put("daily",      daily);
+        map.put("weekly",     weekly);
+        map.put("monthly",    monthly);
+        map.put("overall",    overall);
         map.put("ordersJson", json);
         return "vendor-sales-report.html";
     }
@@ -627,51 +611,32 @@ public class VendorService {
         }
     }
 
-    // 🔥 NEW: API endpoint for AJAX polling - returns JSON data only (no HTML)
+    // AJAX polling endpoint — reads from reporting DB, not main DB
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> getSalesReportJSON(jakarta.servlet.http.HttpSession session) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
             return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(new java.util.HashMap<>());
         }
 
-        // Get all orders for this vendor
-        List<com.example.ekart.dto.Order> allOrders = orderRepository.findOrdersByVendor(vendor);
-        java.util.Set<Integer> vendorProductIds = productRepository.findByVendor(vendor)
-            .stream()
-            .map(p -> p.getId())
-            .collect(Collectors.toSet());
-
-        // Build JSON array for orders
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        List<com.example.ekart.reporting.SalesRecord> records = reportingService.getVendorRecords(vendor.getId());
 
         java.util.List<java.util.Map<String, Object>> ordersJson = new java.util.ArrayList<>();
-        for (com.example.ekart.dto.Order o : allOrders) {
-            if (o.getOrderDate() == null) continue;
-            double vendorRevenue = o.getItems().stream()
-                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                .mapToDouble(i -> i.getPrice())
-                .sum();
-            long vendorItemCount = o.getItems().stream()
-                .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                .count();
-            
-            if (vendorRevenue > 0) { // Only include orders with vendor items
-                java.util.Map<String, Object> m = new java.util.HashMap<>();
-                m.put("id", o.getId());
-                m.put("amount", vendorRevenue);
-                m.put("orderDate", o.getOrderDate().toString());
-                m.put("deliveryTime", o.getDeliveryTime() != null ? o.getDeliveryTime() : "Standard");
-                m.put("itemCount", vendorItemCount);
-                ordersJson.add(m);
-            }
+        for (com.example.ekart.reporting.SalesRecord r : records) {
+            if (r.getOrderDate() == null) continue;
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("id",          r.getOrderId());
+            m.put("amount",      r.getItemPrice() * r.getQuantity());
+            m.put("orderDate",   r.getOrderDate().toString());
+            m.put("productName", r.getProductName());
+            m.put("category",    r.getCategory());
+            m.put("itemCount",   r.getQuantity());
+            ordersJson.add(m);
         }
 
-        // Return JSON response
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("ordersJson", ordersJson);
-        response.put("timestamp", java.time.LocalDateTime.now().toString());
-        
+        response.put("timestamp",  java.time.LocalDateTime.now().toString());
+
         return org.springframework.http.ResponseEntity.ok(response);
     }
 }

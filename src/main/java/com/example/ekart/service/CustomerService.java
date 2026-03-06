@@ -28,10 +28,13 @@ import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
 import com.example.ekart.service.SearchService;
+import com.example.ekart.reporting.ReportingService;
 
 import jakarta.servlet.http.HttpSession;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 @Service
@@ -64,6 +67,9 @@ public class CustomerService {
 
     @Autowired
     private SearchService searchService;
+
+    @Autowired
+    private ReportingService reportingService;
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
@@ -568,6 +574,22 @@ public String paymentSuccess(Order order, HttpSession session) {
     // 4. Save order first
     orderRepository.save(order);
     orderRepository.flush(); // 🔥 ENSURE items are persisted to DB immediately
+
+    // 4a. 📊 Mirror to reporting DB — fires AFTER main transaction commits
+    //     Uses TransactionSynchronization so the order is guaranteed committed
+    //     before we try to read it in ReportingService.
+    final Order finalOrder = order;
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+        @Override
+        public void afterCommit() {
+            try {
+                Order savedOrder = orderRepository.findById(finalOrder.getId()).orElse(finalOrder);
+                reportingService.recordOrder(savedOrder);
+            } catch (Exception e) {
+                System.err.println("[ReportingService] recordOrder failed after commit: " + e.getMessage());
+            }
+        }
+    });
 
     // 5. 🔥 FIX: Properly delete cart items from DB, then clear the list
     List<Item> cartItems = new ArrayList<>(customer.getCart().getItems());
