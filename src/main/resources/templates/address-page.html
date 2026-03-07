@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Shipping Details</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── BACKGROUND ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border);
+            transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3);
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── PAGE CENTER ── */
+        .page-center {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center;
+            padding: 7rem 1.5rem 3rem;
+        }
+
+        /* ── PANEL ── */
+        .shipping-panel {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.75rem;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            animation: fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both;
+        }
+
+        /* ── PANEL HEADER ── */
+        .panel-header {
+            display: flex; align-items: center; gap: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        .panel-header-icon {
+            width: 52px; height: 52px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem; color: var(--yellow); flex-shrink: 0;
+        }
+        .panel-header-text h2 {
+            font-size: 1.35rem; font-weight: 700; margin-bottom: 0.2rem;
+        }
+        .panel-header-text p { font-size: 0.78rem; color: var(--text-dim); }
+
+        /* ── PROGRESS STEPS ── */
+        .steps {
+            display: flex; align-items: center;
+            margin-bottom: 2rem;
+            gap: 0;
+        }
+        .step {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 0.35rem; flex: 1;
+        }
+        .step-dot {
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; font-weight: 800;
+            border: 2px solid var(--glass-border);
+            color: var(--text-dim);
+            background: rgba(255,255,255,0.05);
+            transition: all 0.3s;
+        }
+        .step.active .step-dot {
+            background: var(--yellow); border-color: var(--yellow);
+            color: #1a1000;
+            box-shadow: 0 0 0 4px rgba(245,168,0,0.2);
+        }
+        .step.done .step-dot {
+            background: rgba(34,197,94,0.2); border-color: #22c55e;
+            color: #22c55e;
+        }
+        .step-label { font-size: 0.62rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        .step.active .step-label { color: var(--yellow); }
+        .step.done .step-label { color: #22c55e; }
+
+        .step-line { flex: 1; height: 1px; background: var(--glass-border); margin-bottom: 1.1rem; }
+        .step-line.done { background: rgba(34,197,94,0.4); }
+
+        /* ── SECTION LABEL ── */
+        .section-label {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow); margin-bottom: 1rem;
+        }
+        .section-label::after {
+            content: ''; flex: 1; height: 1px; background: var(--glass-border);
+        }
+
+        /* ── SAVED ADDRESS CARDS ── */
+        .address-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 1.2rem 1.4rem;
+            margin-bottom: 0.875rem;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+        }
+        .address-card:hover {
+            border-color: rgba(245,168,0,0.4);
+            background: rgba(245,168,0,0.05);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+        }
+        .address-text {
+            font-size: 0.82rem; color: var(--text-light);
+            line-height: 1.6; margin-bottom: 1rem;
+        }
+        .address-actions {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .btn-use-address {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--yellow); color: #1a1000;
+            text-decoration: none; border: none;
+            padding: 0.45rem 1.1rem; border-radius: 50px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.06em; text-transform: uppercase;
+            cursor: pointer; transition: all 0.25s;
+            box-shadow: 0 4px 14px rgba(245,168,0,0.25);
+        }
+        .btn-use-address:hover {
+            background: var(--yellow-d); color: #1a1000;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(245,168,0,0.4);
+        }
+
+        .btn-delete-address {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            color: rgba(255,100,80,0.6); text-decoration: none;
+            font-size: 0.72rem; font-weight: 600;
+            transition: color 0.2s;
+            background: none; border: none; cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+        }
+        .btn-delete-address:hover { color: #ff8060; }
+
+        /* ── DIVIDER ── */
+        .panel-divider {
+            border: none; border-top: 1px solid var(--glass-border);
+            margin: 1.75rem 0;
+        }
+
+        /* ── TEXTAREA ── */
+        .input-wrapper-top {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 0.6rem;
+        }
+
+        .form-control-textarea {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.875rem;
+            resize: none;
+            transition: all 0.3s;
+            min-height: 110px;
+        }
+        .form-control-textarea::placeholder { color: var(--text-dim); }
+        .form-control-textarea:focus {
+            outline: none;
+            background: rgba(255,255,255,0.10);
+            border-color: var(--yellow);
+            box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
+        }
+
+        /* ── GEO BUTTON ── */
+        .btn-geo {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.3);
+            color: #22c55e;
+            padding: 0.35rem 0.875rem; border-radius: 50px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.68rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            cursor: pointer; transition: all 0.25s;
+        }
+        .btn-geo:hover { background: rgba(34,197,94,0.18); transform: scale(1.04); }
+
+        /* ── SUBMIT BUTTON ── */
+        .btn-submit {
+            width: 100%;
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 12px;
+            padding: 0.95rem;
+            margin-top: 1.25rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.875rem; font-weight: 700;
+            letter-spacing: 0.06em; text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        }
+        .btn-submit:hover {
+            background: var(--yellow-d);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(245,168,0,0.42);
+        }
+        .btn-submit:active { transform: translateY(0); }
+
+        /* ── BACK LINK ── */
+        .back-link {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            margin-top: 1.5rem;
+            color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text-white); }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width: 600px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .shipping-panel { padding: 2rem 1.5rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- ── FLOATING ALERTS ── -->
+<div class="alert-stack">
+    <div class="alert alert-success" th:if="${session.success}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
+    <div class="nav-right">
+        <a href="/view-cart" class="nav-link-btn">
+            <i class="fas fa-shopping-cart"></i> Cart
+        </a>
+        <a href="/logout" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="page-center">
+    <div class="shipping-panel">
+
+        <!-- Header -->
+        <div class="panel-header">
+            <div class="panel-header-icon">
+                <i class="fas fa-truck"></i>
+            </div>
+            <div class="panel-header-text">
+                <h2>Shipping Details</h2>
+                <p>Choose a saved address or enter a new one.</p>
+            </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="steps">
+            <div class="step done">
+                <div class="step-dot"><i class="fas fa-check" style="font-size:0.6rem;"></i></div>
+                <span class="step-label">Cart</span>
+            </div>
+            <div class="step-line done"></div>
+            <div class="step active">
+                <div class="step-dot">2</div>
+                <span class="step-label">Shipping</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-dot">3</div>
+                <span class="step-label">Payment</span>
+            </div>
+        </div>
+
+        <!-- Saved Addresses -->
+        <div th:if="${customer.addresses != null and !customer.addresses.isEmpty()}">
+            <div class="section-label"><i class="fas fa-map-marker-alt"></i> Saved Addresses</div>
+
+            <div th:each="addr : ${customer.addresses}" class="address-card">
+                <p class="address-text" th:text="${addr.details}"></p>
+                <div class="address-actions">
+                    <a href="/payment" class="btn-use-address">
+                        <i class="fas fa-check"></i> Use This Address
+                    </a>
+                    <a th:href="'/customer/delete-address/' + ${addr.id}"
+                       class="btn-delete-address"
+                       onclick="return confirm('Delete this address?')">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                </div>
+            </div>
+
+            <hr class="panel-divider">
+        </div>
+
+        <!-- New Address Form -->
+        <form action="/customer/save-address" method="post">
+
+            <div class="section-label"><i class="fas fa-location-dot"></i> New Address</div>
+
+            <div class="input-wrapper-top">
+                <span style="font-size:0.72rem; color:var(--text-dim);">Enter your full delivery address</span>
+                <button type="button" class="btn-geo" onclick="getLocation()">
+                    <i class="fas fa-location-crosshairs"></i> Auto-Detect
+                </button>
+            </div>
+
+            <textarea id="addressTextarea"
+                      name="address"
+                      class="form-control-textarea"
+                      rows="4"
+                      required
+                      placeholder="e.g. 42, MG Road, Koramangala, Bengaluru — 560034"></textarea>
+
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-chevron-right"></i> Continue to Payment
+            </button>
+
+        </form>
+
+        <a href="/view-cart" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Cart
+        </a>
+
+    </div>
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand">Ekart</div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<script>
+    // Nav scroll shadow
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+
+    // Geolocation auto-detect
+    function getLocation() {
+        const textarea = document.getElementById('addressTextarea');
+        if (!navigator.geolocation) { alert('Geolocation not supported by your browser.'); return; }
+        textarea.value = 'Detecting your location…';
+        textarea.style.color = 'rgba(255,255,255,0.4)';
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, {
+                    headers: { 'User-Agent': 'Ekart-App-v1' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    textarea.value = data.display_name;
+                    textarea.style.color = '';
+                })
+                .catch(() => {
+                    textarea.value = '';
+                    textarea.style.color = '';
+                    alert('Address lookup failed. Please type your address manually.');
+                });
+            },
+            () => {
+                textarea.value = '';
+                textarea.style.color = '';
+                alert('Location access denied. Please type your address manually.');
+            }
+        );
+    }
+</script>
+
+</body>
+</html>
