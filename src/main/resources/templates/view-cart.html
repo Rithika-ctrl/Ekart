@@ -1,0 +1,575 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - View Cart</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex; flex-direction: column;
+        }
+
+        /* ── Background ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px); transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── Navbar ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── Alert Stack ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45);  color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── Page ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 2rem;
+        }
+        .inner { width: 100%; max-width: 1100px; display: flex; flex-direction: column; gap: 1.75rem; }
+
+        /* ── Page Header ── */
+        .page-header {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem;
+            animation: fadeUp 0.45s ease both;
+        }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+
+        /* ── Section Label ── */
+        .section-label {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow); margin-bottom: 1.25rem;
+        }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── Free Delivery Progress Banner ── */
+        .delivery-banner {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.4rem 1.75rem;
+            animation: fadeUp 0.45s ease 0.05s both;
+        }
+        .delivery-banner .milestone-text {
+            font-size: 0.875rem; font-weight: 600;
+            color: var(--text-light); margin-bottom: 0.75rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .delivery-banner .milestone-text strong { color: var(--yellow); }
+        .delivery-banner .unlocked-text {
+            font-size: 0.875rem; font-weight: 700;
+            color: #22c55e; margin-bottom: 0.75rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .progress-track {
+            height: 10px; border-radius: 99px;
+            background: rgba(255,255,255,0.1); overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 99px;
+            background: linear-gradient(90deg, var(--yellow), #ff8c00);
+            transition: width 0.6s ease;
+        }
+        .progress-fill.full { background: linear-gradient(90deg, #22c55e, #16a34a); }
+        .progress-meta {
+            font-size: 0.72rem; color: var(--text-dim);
+            margin-top: 0.4rem;
+        }
+
+        /* ── Cart Grid ── */
+        .cart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            animation: fadeUp 0.5s ease 0.08s both;
+        }
+
+        /* ── Cart Item Card ── */
+        .cart-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .cart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+            border-color: rgba(245,168,0,0.3);
+        }
+
+        /* Image */
+        .cart-img-wrap {
+            position: relative; width: 100%; height: 180px; overflow: hidden;
+        }
+        .cart-img-wrap img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        .cart-card:hover .cart-img-wrap img { transform: scale(1.05); }
+        .cart-img-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, transparent 50%, rgba(5,8,20,0.65) 100%);
+        }
+        .cart-category-badge {
+            position: absolute; top: 0.75rem; right: 0.75rem;
+            background: rgba(245,168,0,0.15);
+            border: 1px solid rgba(245,168,0,0.35);
+            backdrop-filter: blur(8px);
+            color: var(--yellow); font-size: 0.65rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            padding: 0.25rem 0.65rem; border-radius: 20px;
+        }
+
+        /* Body */
+        .cart-body { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+        .cart-name { font-size: 0.975rem; font-weight: 700; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cart-desc { font-size: 0.74rem; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
+        .cart-price { font-size: 1.1rem; font-weight: 800; color: var(--yellow); margin-top: 0.25rem; }
+
+        /* Quantity + Remove row */
+        .cart-actions {
+            padding: 0 1.4rem 1.4rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+        }
+        .qty-control {
+            display: flex; align-items: center; gap: 0;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px; overflow: hidden;
+        }
+        .qty-btn {
+            width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-light); text-decoration: none;
+            font-size: 1rem; font-weight: 700;
+            transition: background 0.15s;
+        }
+        .qty-btn:hover { background: rgba(245,168,0,0.2); color: var(--yellow); text-decoration: none; }
+        .qty-val {
+            min-width: 34px; text-align: center;
+            font-size: 0.95rem; font-weight: 700; color: var(--text-white);
+            border-left: 1px solid var(--glass-border);
+            border-right: 1px solid var(--glass-border);
+            padding: 0 0.5rem; line-height: 34px;
+        }
+        .btn-remove {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(239,68,68,0.1); color: #ef4444;
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 10px; padding: 0.45rem 0.85rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            text-decoration: none; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-remove:hover { background: #ef4444; color: white; text-decoration: none; transform: translateY(-1px); }
+
+        /* ── Checkout Panel ── */
+        .checkout-panel {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+            animation: fadeUp 0.5s ease 0.12s both;
+        }
+        .total-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1.5rem; padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .total-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+        .total-value { font-size: 1.75rem; font-weight: 800; color: var(--yellow); }
+
+        /* Express checkout box */
+        .express-box {
+            background: rgba(245,168,0,0.08);
+            border: 1px solid rgba(245,168,0,0.25);
+            border-radius: 14px;
+            padding: 1.1rem 1.4rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1rem; flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .express-left { display: flex; align-items: center; gap: 0.75rem; }
+        .express-icon { font-size: 2rem; line-height: 1; }
+        .express-title { font-size: 0.875rem; font-weight: 700; color: var(--text-white); margin-bottom: 0.1rem; }
+        .express-sub   { font-size: 0.72rem; color: var(--text-dim); }
+
+        .btn-express {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 10px; padding: 0.65rem 1.5rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            text-decoration: none; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow: 0 4px 16px rgba(245,168,0,0.25);
+            white-space: nowrap;
+        }
+        .btn-express:hover { background: var(--yellow-d); color: #1a1000; text-decoration: none; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245,168,0,0.4); }
+
+        .btn-checkout {
+            width: 100%; background: rgba(255,255,255,0.08);
+            border: 1px solid var(--glass-border); border-radius: 12px;
+            padding: 0.9rem; color: var(--text-light);
+            font-family: 'Poppins', sans-serif; font-size: 0.875rem; font-weight: 600;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            text-decoration: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            transition: all 0.25s;
+        }
+        .btn-checkout:hover { background: rgba(255,255,255,0.14); color: white; text-decoration: none; }
+
+        /* Empty cart state */
+        .empty-cart {
+            text-align: center; padding: 4rem 2rem;
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            animation: fadeUp 0.5s ease both;
+        }
+        .empty-cart-icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; }
+        .empty-cart h3  { font-size: 1.1rem; font-weight: 700; color: var(--text-light); margin-bottom: 0.5rem; }
+        .empty-cart p   { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+        .btn-shop {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 10px; padding: 0.7rem 1.75rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            text-decoration: none; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(245,168,0,0.3);
+            transition: all 0.3s;
+        }
+        .btn-shop:hover { background: var(--yellow-d); color: #1a1000; text-decoration: none; transform: translateY(-2px); }
+
+        /* ── Back link ── */
+        .back-wrap { display: flex; justify-content: center; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text-white); text-decoration: none; }
+
+        /* ── Footer ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+
+        .cart-card:nth-child(1)  { animation: fadeUp 0.4s ease 0.05s both; }
+        .cart-card:nth-child(2)  { animation: fadeUp 0.4s ease 0.10s both; }
+        .cart-card:nth-child(3)  { animation: fadeUp 0.4s ease 0.15s both; }
+        .cart-card:nth-child(4)  { animation: fadeUp 0.4s ease 0.20s both; }
+        .cart-card:nth-child(n+5){ animation: fadeUp 0.4s ease 0.25s both; }
+
+        /* ── Responsive ── */
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .checkout-panel { padding: 1.5rem 1.25rem; }
+            .express-box { flex-direction: column; text-align: center; }
+            .express-left { justify-content: center; }
+            .btn-express { width: 100%; justify-content: center; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- Alert Stack -->
+<div class="alert-stack">
+    <div class="alert alert-success" th:if="${session.success != null}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure != null}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- Navbar -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        <span>Ekart</span>
+    </a>
+    <div class="nav-right">
+        <a href="/customer/home" class="nav-link-btn"><i class="fas fa-th-large"></i> Shop</a>
+        <a href="/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</nav>
+
+<main class="page">
+    <div class="inner">
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-header-left">
+                <h1>Your <span>Cart</span> 🛒</h1>
+                <p>Review your items, adjust quantities and proceed to checkout.</p>
+            </div>
+            <div class="page-header-icon">🛍️</div>
+        </div>
+
+        <!-- ── Free Delivery Progress Banner ── -->
+        <div class="delivery-banner" th:if="${items != null and !items.isEmpty()}">
+
+            <!-- Not yet unlocked -->
+            <div th:if="${totalPrice < 500}">
+                <div class="milestone-text">
+                    🚚 Spend <strong>₹<th:block th:text="${#numbers.formatDecimal(500 - totalPrice, 1, 'COMMA', 0, 'POINT')}"></th:block></strong> more to unlock <strong>FREE Delivery!</strong>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill"
+                         th:style="'width: ' + ${(totalPrice / 500) * 100} + '%'">
+                    </div>
+                </div>
+                <div class="progress-meta">
+                    ₹<th:block th:text="${#numbers.formatDecimal(totalPrice, 1, 'COMMA', 0, 'POINT')}"></th:block> / ₹500
+                </div>
+            </div>
+
+            <!-- Unlocked -->
+            <div th:unless="${totalPrice < 500}">
+                <div class="unlocked-text">
+                    🎉 You've unlocked <strong>FREE Delivery!</strong>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill full" style="width:100%;"></div>
+                </div>
+                <div class="progress-meta" style="color:#22c55e;">FREE DELIVERY UNLOCKED ✓</div>
+            </div>
+
+        </div>
+
+        <!-- ── Cart Items Grid ── -->
+        <div class="cart-grid" th:if="${items != null and !items.isEmpty()}">
+            <div class="cart-card" th:each="p : ${items}">
+
+                <!-- Image -->
+                <div class="cart-img-wrap">
+                    <img th:src="${p.imageLink}" alt="Product">
+                    <div class="cart-img-overlay"></div>
+                    <span class="cart-category-badge" th:text="${p.category}">Category</span>
+                </div>
+
+                <!-- Body -->
+                <div class="cart-body">
+                    <div class="cart-name"  th:text="${p.name}">Product Name</div>
+                    <div class="cart-desc"  th:text="${p.description}">Description…</div>
+                    <div class="cart-price" th:text="'₹' + ${p.price / p.quantity}">₹0</div>
+                </div>
+
+                <!-- Qty + Remove -->
+                <div class="cart-actions">
+                    <div class="qty-control">
+                        <a th:href="'/decrease/' + ${p.id}" class="qty-btn" title="Decrease">−</a>
+                        <span class="qty-val" th:text="${p.quantity}">1</span>
+                        <a th:href="'/increase/' + ${p.id}" class="qty-btn" title="Increase">+</a>
+                    </div>
+                    <a th:href="'/remove-from-cart/' + ${p.id}" class="btn-remove">
+                        <i class="fas fa-trash-alt"></i> Remove
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ── Checkout Panel ── -->
+        <div class="checkout-panel" th:if="${items != null and !items.isEmpty()}">
+
+            <div class="section-label"><i class="fas fa-receipt"></i> Order Summary</div>
+
+            <div class="total-row">
+                <div class="total-label">Cart Total</div>
+                <div class="total-value">₹<th:block th:text="${totalPrice}"></th:block></div>
+            </div>
+
+            <th:block th:if="${totalPrice > 0}">
+                <!-- Express Checkout -->
+                <div class="express-box">
+                    <div class="express-left">
+                        <div class="express-icon">⚡</div>
+                        <div>
+                            <div class="express-title">Express Checkout</div>
+                            <div class="express-sub">Skip the steps — pay instantly with your saved address</div>
+                        </div>
+                    </div>
+                    <a href="/payment" class="btn-express">
+                        <i class="fas fa-bolt"></i> Buy Now
+                    </a>
+                </div>
+
+                <!-- Normal Checkout -->
+                <a href="/customer/address" class="btn-checkout">
+                    Proceed to Checkout <i class="fas fa-arrow-right"></i>
+                </a>
+            </th:block>
+
+            <th:block th:unless="${totalPrice > 0}">
+                <div style="text-align:center;color:var(--text-dim);font-size:0.85rem;padding:1rem 0;">
+                    <i class="fas fa-shopping-basket" style="margin-right:0.4rem;"></i> Your cart is empty
+                </div>
+            </th:block>
+
+        </div>
+
+        <!-- ── Empty State ── -->
+        <div class="empty-cart" th:if="${items == null or items.isEmpty()}">
+            <div class="empty-cart-icon">🛒</div>
+            <h3>Your Cart is Empty</h3>
+            <p>Looks like you haven't added anything yet. Start shopping!</p>
+            <a href="/customer/home" class="btn-shop"><i class="fas fa-store"></i> Browse Products</a>
+        </div>
+
+        <!-- Back -->
+        <div class="back-wrap">
+            <a href="/customer/home" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Shop
+            </a>
+        </div>
+
+    </div>
+</main>
+
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<script>
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+</script>
+
+</body>
+</html>

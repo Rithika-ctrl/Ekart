@@ -1,0 +1,492 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Vendor Registration</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Background ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── Navbar ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+        /* ── Alert Stack ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── Page Layout ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 2rem;
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 560px;
+            animation: fadeUp 0.5s ease both;
+        }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+
+        /* ── Form Card ── */
+        .form-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%; max-width: 560px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+            animation: fadeUp 0.5s ease 0.05s both;
+        }
+
+        /* ── Section Label ── */
+        .section-label {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow); margin-bottom: 1.25rem; margin-top: 0.5rem;
+        }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── Form Elements ── */
+        .form-group { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.25rem; }
+        .form-group label {
+            font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-dim); margin-left: 0.15rem;
+        }
+
+        .input-wrapper { position: relative; }
+        .input-wrapper .input-icon {
+            position: absolute; left: 1rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim); font-size: 0.875rem;
+            transition: color 0.3s; pointer-events: none; z-index: 1;
+        }
+        .input-wrapper:focus-within .input-icon { color: var(--yellow); }
+
+        /* toggle icon on right */
+        .input-wrapper .toggle-pw {
+            position: absolute; right: 1rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim); font-size: 0.875rem;
+            cursor: pointer; transition: color 0.2s; z-index: 1;
+        }
+        .input-wrapper .toggle-pw:hover { color: var(--yellow); }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.8rem 1rem 0.8rem 2.75rem;
+            color: white; font-family: 'Poppins', sans-serif;
+            font-size: 0.875rem; transition: all 0.3s;
+        }
+        .form-control.has-toggle { padding-right: 2.75rem; }
+        .form-control::placeholder { color: var(--text-dim); }
+        .form-control:focus {
+            outline: none; background: rgba(255,255,255,0.10);
+            border-color: var(--yellow);
+            box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
+        }
+        .form-control.is-invalid {
+            border-color: rgba(255,100,80,0.6);
+            box-shadow: 0 0 0 3px rgba(255,100,80,0.08);
+        }
+
+        /* ── Error message ── */
+        .error-message {
+            font-size: 0.7rem; color: #ff8060;
+            display: flex; align-items: center; gap: 0.3rem;
+            margin-left: 0.15rem;
+        }
+        .error-message:empty { display: none; }
+
+        /* ── Password Strength ── */
+        .strength-bar-wrap {
+            height: 6px; border-radius: 99px;
+            background: rgba(255,255,255,0.08);
+            overflow: hidden; margin-top: 0.4rem;
+        }
+        .strength-bar {
+            height: 100%; width: 0%;
+            border-radius: 99px;
+            transition: width 0.35s ease, background 0.35s ease;
+        }
+        .strength-label {
+            font-size: 0.68rem; color: var(--text-dim);
+            margin-top: 0.3rem; margin-left: 0.15rem;
+            transition: color 0.3s;
+        }
+
+        /* ── Submit Button ── */
+        .btn-submit {
+            width: 100%; background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 12px; padding: 0.95rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.9rem; font-weight: 700;
+            letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        .btn-submit:hover { background: var(--yellow-d); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(245,168,0,0.42); }
+        .btn-submit:active { transform: translateY(0); }
+
+        /* ── Login redirect ── */
+        .login-redirect {
+            text-align: center; margin-top: 1.5rem;
+            font-size: 0.8rem; color: var(--text-dim);
+        }
+        .login-redirect a {
+            color: var(--yellow); text-decoration: none; font-weight: 600;
+            transition: color 0.2s;
+        }
+        .login-redirect a:hover { color: var(--yellow-d); }
+
+        /* ── Back link ── */
+        .back-link {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+            margin-top: 1.25rem; color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s; width: 100%;
+        }
+        .back-link:hover { color: var(--text-white); }
+
+        /* ── Footer ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ── Responsive ── */
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .form-card { padding: 1.75rem 1.25rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- Alert Stack -->
+<div class="alert-stack">
+    <div class="alert alert-danger" th:if="${session.failure != null}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-success" th:if="${session.success != null}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- Navbar -->
+<nav id="nav">
+    <a href="/" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        <span>Ekart</span>
+    </a>
+    <div class="nav-right">
+        <a href="/vendor/login" class="nav-link-btn"><i class="fas fa-sign-in-alt"></i> Vendor Login</a>
+        <a href="/customer/login" class="nav-link-btn"><i class="fas fa-user"></i> Customer Login</a>
+    </div>
+</nav>
+
+<main class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Vendor <span>Registration</span> 🏪</h1>
+            <p>Create your seller account and start listing products on Ekart.</p>
+        </div>
+        <div class="page-header-icon">🛍️</div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="form-card">
+        <form action="/vendor/register" method="post" th:object="${vendor}" novalidate>
+
+            <!-- Section: Account Info -->
+            <div class="section-label"><i class="fas fa-user-circle"></i> Account Info</div>
+
+            <!-- Name -->
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user input-icon"></i>
+                    <input type="text" id="name" class="form-control" th:field="*{name}" name="name"
+                           placeholder="e.g. Ramesh Kumar" required
+                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''">
+                </div>
+                <span class="error-message" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </span>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-envelope input-icon"></i>
+                    <input type="email" id="email" class="form-control" th:field="*{email}" name="email"
+                           placeholder="e.g. ramesh@email.com" required
+                           th:classappend="${#fields.hasErrors('email')} ? 'is-invalid' : ''">
+                </div>
+                <span class="error-message" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </span>
+            </div>
+
+            <!-- Mobile -->
+            <div class="form-group">
+                <label for="mobile">Mobile Number</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-phone input-icon"></i>
+                    <input type="tel" id="mobile" class="form-control" th:field="*{mobile}" name="mobile"
+                           placeholder="e.g. 9876543210" required
+                           th:classappend="${#fields.hasErrors('mobile')} ? 'is-invalid' : ''">
+                </div>
+                <span class="error-message" th:if="${#fields.hasErrors('mobile')}" th:errors="*{mobile}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </span>
+            </div>
+
+            <!-- Section: Security -->
+            <div class="section-label" style="margin-top:2rem;"><i class="fas fa-lock"></i> Security</div>
+
+            <!-- Password -->
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-key input-icon"></i>
+                    <input type="password" id="password" class="form-control has-toggle"
+                           th:field="*{password}" name="password"
+                           placeholder="Min. 6 chars — A, a, 1, @"
+                           oninput="checkStrength(this.value)" required
+                           th:classappend="${#fields.hasErrors('password')} ? 'is-invalid' : ''">
+                    <i class="fas fa-eye toggle-pw" onclick="toggleVisibility('password', this)"></i>
+                </div>
+                <span class="error-message" th:if="${#fields.hasErrors('password')}" th:errors="*{password}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </span>
+                <!-- Strength bar -->
+                <div class="strength-bar-wrap">
+                    <div class="strength-bar" id="strengthBar"></div>
+                </div>
+                <div class="strength-label" id="strengthLabel">Must be 6+ chars with A, a, 1, @</div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" id="confirmPassword" class="form-control has-toggle"
+                           th:field="*{confirmPassword}" name="confirmPassword"
+                           placeholder="Re-enter your password" required
+                           th:classappend="${#fields.hasErrors('confirmPassword')} ? 'is-invalid' : ''">
+                    <i class="fas fa-eye toggle-pw" onclick="toggleVisibility('confirmPassword', this)"></i>
+                </div>
+                <span class="error-message" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}">
+                    <i class="fas fa-exclamation-circle"></i>
+                </span>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+
+        </form>
+
+        <!-- Login redirect -->
+        <div class="login-redirect">
+            Already have an account? <a href="/vendor/login">Sign in here</a>
+        </div>
+
+        <a href="/" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
+    </div>
+
+</main>
+
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<script>
+    /* ── Navbar scroll ── */
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    /* ── Auto-dismiss alerts ── */
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+
+    /* ── Toggle password visibility ── */
+    function toggleVisibility(fieldId, iconEl) {
+        const input = document.getElementById(fieldId);
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        iconEl.classList.toggle('fa-eye', !isHidden);
+        iconEl.classList.toggle('fa-eye-slash', isHidden);
+    }
+
+    /* ── Password strength ── */
+    function checkStrength(password) {
+        let strength = 0;
+        const bar   = document.getElementById('strengthBar');
+        const label = document.getElementById('strengthLabel');
+
+        if (password.length >= 6)        strength += 20;
+        if (/[A-Z]/.test(password))      strength += 20;
+        if (/[a-z]/.test(password))      strength += 20;
+        if (/[0-9]/.test(password))      strength += 20;
+        if (/[@$!%*?&]/.test(password))  strength += 20;
+
+        bar.style.width = strength + '%';
+
+        if (strength === 0) {
+            bar.style.background = 'transparent';
+            label.style.color = 'rgba(255,255,255,0.4)';
+            label.textContent  = 'Must be 6+ chars with A, a, 1, @';
+        } else if (strength < 60) {
+            bar.style.background = '#ef4444';
+            label.style.color    = '#ef4444';
+            label.textContent    = 'Strength: Weak';
+        } else if (strength < 100) {
+            bar.style.background = '#f5a800';
+            label.style.color    = '#f5a800';
+            label.textContent    = 'Strength: Medium';
+        } else {
+            bar.style.background = '#22c55e';
+            label.style.color    = '#22c55e';
+            label.textContent    = 'Strength: Strong ✓';
+        }
+    }
+</script>
+
+</body>
+</html>
