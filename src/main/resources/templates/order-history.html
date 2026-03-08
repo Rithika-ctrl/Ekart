@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History - Ekart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255,255,255,0.22);
+            --glass-card:   rgba(255,255,255,0.13);
+            --glass-nav:    rgba(0,0,0,0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* blurred bg */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg,
+                rgba(5,8,20,0.82) 0%,
+                rgba(8,12,28,0.78) 40%,
+                rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── NAVBAR ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); text-decoration: none; }
+        .nav-link-btn.active { color: var(--yellow); border-color: rgba(245,168,0,0.4); background: rgba(245,168,0,0.08); }
+
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); text-decoration: none; }
+
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .ek-alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .ek-alert-success { border-color: rgba(245,168,0,0.4); color: var(--yellow); }
+        .ek-alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 1.5rem;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 820px;
+            animation: fadeUp 0.5s ease both;
+            position: relative; overflow: hidden;
+        }
+        .page-header::before {
+            content: '';
+            position: absolute; top: -50px; right: -50px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, rgba(245,168,0,0.1), transparent 70%);
+            border-radius: 50%;
+        }
+        .page-header-left h1 {
+            font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem;
+        }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.12);
+            border: 2px solid rgba(245,168,0,0.28);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+
+        /* ── SUMMARY BAR ── */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%; max-width: 820px;
+            animation: fadeUp 0.5s ease 0.05s both;
+        }
+        @media(max-width:500px) { .summary-bar { grid-template-columns: 1fr 1fr; } }
+
+        .summary-stat {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            position: relative; overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .summary-stat::after {
+            content: '';
+            position: absolute; top: -24px; right: -24px;
+            width: 80px; height: 80px;
+            background: radial-gradient(circle, rgba(245,168,0,0.1), transparent 70%);
+            border-radius: 50%;
+        }
+        .summary-stat:hover { border-color: rgba(245,168,0,0.35); transform: translateY(-2px); }
+        .summary-num {
+            font-size: 26px; font-weight: 800;
+            color: var(--yellow); line-height: 1.1;
+        }
+        .summary-label {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-dim); margin-top: 4px;
+        }
+
+        /* ── SECTION TITLE ── */
+        .section-title {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow);
+            width: 100%; max-width: 820px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── ORDER CARD ── */
+        .order-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 22px 26px;
+            width: 100%; max-width: 820px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            transition: border-color 0.25s, transform 0.25s;
+            animation: fadeUp 0.5s ease both;
+        }
+        .order-card::before {
+            content: '';
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, var(--yellow), rgba(245,168,0,0.2));
+            border-radius: 3px 0 0 3px;
+        }
+        .order-card:hover {
+            border-color: rgba(245,168,0,0.35);
+            transform: translateY(-2px);
+        }
+
+        /* card top */
+        .card-top {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; flex-wrap: wrap;
+            gap: 8px; margin-bottom: 14px;
+        }
+        .order-id {
+            font-size: 15px; font-weight: 700;
+            color: var(--text-white);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .id-chip {
+            background: rgba(245,168,0,0.12);
+            border: 1px solid rgba(245,168,0,0.28);
+            color: var(--yellow);
+            font-size: 11px; font-weight: 700;
+            padding: 3px 10px; border-radius: 50px;
+        }
+        .order-date {
+            font-size: 12px; color: var(--text-dim);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        /* badges */
+        .badge-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 50px;
+            font-size: 11px; font-weight: 700;
+            border: 1px solid;
+        }
+        /* only gold and white — no other colours */
+        .badge-placed {
+            background: rgba(245,168,0,0.1);
+            border-color: rgba(245,168,0,0.28);
+            color: var(--yellow);
+        }
+        .badge-amount {
+            background: rgba(255,255,255,0.07);
+            border-color: var(--glass-border);
+            color: var(--text-light);
+            font-size: 12px;
+        }
+        .badge-delivery {
+            background: rgba(255,255,255,0.06);
+            border-color: var(--glass-border);
+            color: var(--text-dim);
+        }
+        .badge-free {
+            background: rgba(245,168,0,0.08);
+            border-color: rgba(245,168,0,0.22);
+            color: var(--yellow);
+        }
+        .badge-cod {
+            background: rgba(245,168,0,0.08);
+            border-color: rgba(245,168,0,0.22);
+            color: var(--yellow);
+        }
+
+        /* divider */
+        .card-divider { height: 1px; background: var(--glass-border); margin: 14px 0; }
+
+        /* detail rows */
+        .detail-row {
+            display: flex; align-items: baseline; gap: 10px;
+            font-size: 13px; color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+        .detail-row:last-child { margin-bottom: 0; }
+        .detail-key {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.28);
+            min-width: 62px; flex-shrink: 0;
+        }
+
+        /* item chips */
+        .item-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .item-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 3px 10px; border-radius: 50px;
+            font-size: 11.5px; font-weight: 500;
+        }
+
+        /* payment code */
+        .pay-code {
+            font-family: 'Courier New', monospace; font-size: 11.5px;
+            color: var(--yellow);
+            background: rgba(245,168,0,0.08);
+            border: 1px solid rgba(245,168,0,0.2);
+            padding: 2px 8px; border-radius: 6px;
+        }
+
+        /* card actions */
+        .card-actions {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            gap: 10px;
+        }
+        .btn-track {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 12px; font-weight: 600;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-track:hover {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #22c55e;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        /* ── REORDER BUTTON ── */
+        .btn-reorder {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 12px; font-weight: 600;
+            background: rgba(245, 168, 0, 0.12);
+            border: 1px solid rgba(245, 168, 0, 0.3);
+            color: var(--yellow);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-reorder:hover {
+            background: rgba(245, 168, 0, 0.2);
+            border-color: rgba(245, 168, 0, 0.5);
+            transform: translateY(-1px);
+        }
+        .btn-reorder:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-reorder .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(245, 168, 0, 0.3);
+            border-top-color: var(--yellow);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── TOAST NOTIFICATIONS ── */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 1.5rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .toast {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            font-size: 0.825rem;
+            min-width: 280px;
+            max-width: 400px;
+            animation: toastIn 0.3s ease both;
+        }
+        .toast-success {
+            border-color: rgba(34, 197, 94, 0.45);
+            color: #22c55e;
+        }
+        .toast-warning {
+            border-color: rgba(245, 168, 0, 0.45);
+            color: var(--yellow);
+        }
+        .toast-error {
+            border-color: rgba(255, 100, 80, 0.45);
+            color: #ff8060;
+        }
+        .toast-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.6;
+            font-size: 1rem;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── REORDER MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: rgba(20,20,40,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon {
+            width: 60px; height: 60px;
+            margin: 0 auto 1.5rem;
+            background: rgba(245, 168, 0, 0.15);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem;
+            color: var(--yellow);
+        }
+        .modal h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        .modal p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        .modal-items {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            font-size: 0.85rem;
+        }
+        .modal-item:last-child { border-bottom: none; }
+        .modal-item-name { color: var(--text-light); }
+        .modal-item-status {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .modal-item-status.in-stock {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+        .modal-item-status.out-of-stock {
+            background: rgba(255, 100, 80, 0.15);
+            color: #ff8060;
+        }
+        .modal-item-status.partial {
+            background: rgba(245, 168, 0, 0.15);
+            color: var(--yellow);
+        }
+        .modal-warning {
+            font-size: 0.8rem;
+            color: var(--yellow);
+            background: rgba(245, 168, 0, 0.1);
+            border: 1px solid rgba(245, 168, 0, 0.3);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .modal-btns {
+            display: flex;
+            gap: 1rem;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .modal-btn.cancel {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+        }
+        .modal-btn.cancel:hover { background: rgba(255,255,255,0.15); }
+        .modal-btn.confirm {
+            background: var(--yellow);
+            border: none;
+            color: #1a1000;
+        }
+        .modal-btn.confirm:hover { background: var(--yellow-d); }
+        .modal-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 52px 32px; text-align: center;
+            width: 100%; max-width: 820px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            animation: fadeUp 0.5s ease both;
+        }
+        .empty-icon {
+            width: 72px; height: 72px;
+            background: rgba(245,168,0,0.1);
+            border: 2px solid rgba(245,168,0,0.25);
+            border-radius: 18px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 28px; color: var(--yellow);
+            margin-bottom: 18px;
+        }
+        .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text-white); margin-bottom: 8px; }
+        .empty-state p  { font-size: 13.5px; color: var(--text-dim); margin-bottom: 22px; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 11px 22px; border-radius: 12px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px; font-weight: 700;
+            text-decoration: none; transition: all 0.25s;
+            border: none; cursor: pointer; letter-spacing: 0.03em;
+        }
+        .btn-primary {
+            background: var(--yellow); color: #1a1000;
+            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
+        }
+        .btn-primary:hover {
+            background: var(--yellow-d); transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(245,168,0,0.42);
+            color: #1a1000; text-decoration: none;
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.11);
+            border-color: rgba(255,255,255,0.35);
+            color: var(--text-white); text-decoration: none;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: var(--text-white); }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
+
+        @media(max-width:700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- ── ALERTS ── -->
+<div class="alert-stack">
+    <div class="ek-alert ek-alert-success" th:if="${session.success != null}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="ek-alert ek-alert-danger" th:if="${session.failure != null}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- ── NAVBAR ── -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        <span>Ekart</span>
+    </a>
+    <div class="nav-right">
+        <a href="/customer/view-products" class="nav-link-btn"><i class="fas fa-store"></i> Shop</a>
+        <a href="/customer/view-cart"     class="nav-link-btn"><i class="fas fa-shopping-cart"></i> Cart</a>
+        <a href="/customer/order-history" class="nav-link-btn active"><i class="fas fa-history"></i> Orders</a>
+        <a href="/customer/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</nav>
+
+<!-- ── PAGE ── -->
+<main class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Order <span>History</span> 📦</h1>
+            <p>A complete record of all your past purchases.</p>
+        </div>
+        <div class="page-header-icon">🧾</div>
+    </div>
+
+    <!-- Summary Bar -->
+    <div class="summary-bar" th:if="${orders != null and !orders.isEmpty()}">
+        <div class="summary-stat">
+            <div class="summary-num" th:text="${orders.size()}">0</div>
+            <div class="summary-label">Total Orders</div>
+        </div>
+        <div class="summary-stat">
+            <div class="summary-num" th:text="'₹' + ${#aggregates.sum(orders.![amount])}">₹0</div>
+            <div class="summary-label">Total Spent</div>
+        </div>
+        <div class="summary-stat">
+            <div class="summary-num" th:text="${#aggregates.sum(orders.![items.size()])}">0</div>
+            <div class="summary-label">Items Bought</div>
+        </div>
+    </div>
+
+    <!-- Section label -->
+    <div class="section-title" th:if="${orders != null and !orders.isEmpty()}">
+        <i class="fas fa-truck"></i> Your Orders
+    </div>
+
+    <!-- ── ORDER CARDS ── -->
+    <th:block th:if="${orders != null and !orders.isEmpty()}">
+        <div class="order-card" th:each="o : ${orders}">
+
+            <div class="card-top">
+                <div class="order-id">
+                    <i class="fas fa-receipt" style="color:var(--yellow);font-size:14px;"></i>
+                    Order <span class="id-chip">#<span th:text="${o.id}"></span></span>
+                </div>
+                <div class="order-date">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span th:if="${o.orderDate != null}"
+                          th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
+                    <span th:unless="${o.orderDate != null}">Date unavailable</span>
+                </div>
+            </div>
+
+            <div class="badge-row">
+                <span class="badge badge-placed"><i class="fas fa-check-circle"></i> Placed</span>
+                <span class="badge badge-amount">₹<span th:text="${o.amount}"></span></span>
+                <span class="badge badge-delivery"
+                      th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                    <i class="fas fa-clock"></i><span th:text="${o.deliveryTime}"></span>
+                </span>
+                <span class="badge badge-free" th:if="${o.deliveryCharge == 0}">
+                    <i class="fas fa-gift"></i> Free Delivery
+                </span>
+            </div>
+
+            <div class="card-divider"></div>
+
+            <div class="detail-row" th:if="${o.totalPrice > 0}">
+                <span class="detail-key">Subtotal</span>
+                <span>
+                    ₹<span th:text="${o.totalPrice}"></span>
+                    <span th:if="${o.deliveryCharge > 0}"
+                          style="color:rgba(255,255,255,0.28); margin-left:6px;">
+                        + ₹<span th:text="${o.deliveryCharge}"></span> delivery
+                    </span>
+                </span>
+            </div>
+
+            <div class="detail-row" th:if="${o.items != null and !o.items.isEmpty()}">
+                <span class="detail-key">Items</span>
+                <div class="item-chips">
+                    <span class="item-chip" th:each="it : ${o.items}">
+                        <i class="fas fa-box" style="font-size:9px;opacity:0.45;"></i>
+                        <span th:text="${it.name} + ' × ' + ${it.quantity}"></span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="detail-row"
+                 th:if="${o.razorpay_payment_id != null and o.razorpay_payment_id != 'COD_NA' and !#strings.isEmpty(o.razorpay_payment_id)}">
+                <span class="detail-key">Pay ID</span>
+                <span class="pay-code" th:text="${o.razorpay_payment_id}"></span>
+            </div>
+            <div class="detail-row" th:if="${o.razorpay_payment_id == 'COD_NA'}">
+                <span class="detail-key">Payment</span>
+                <span class="badge badge-cod"><i class="fas fa-money-bill-wave"></i> Cash on Delivery</span>
+            </div>
+
+            <!-- Track Order Button - Show for active orders (not delivered) -->
+            <div class="card-actions" th:if="${o.trackingStatus == null or o.trackingStatus.name() != 'DELIVERED'}">
+                <a th:href="@{'/track/' + ${o.id}}" class="btn btn-track">
+                    <i class="fas fa-truck"></i> Track Order
+                </a>
+            </div>
+
+            <!-- Re-Order Button - Show for DELIVERED orders -->
+            <div class="card-actions" th:if="${o.trackingStatus != null and o.trackingStatus.name() == 'DELIVERED'}">
+                <button type="button" class="btn-reorder" th:data-orderid="${o.id}" onclick="initiateReorder(this)">
+                    <i class="fas fa-redo"></i> Re-Order
+                </button>
+            </div>
+
+        </div>
+    </th:block>
+
+    <!-- Empty State -->
+    <div class="empty-state" th:if="${orders == null or orders.isEmpty()}">
+        <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+        <h3>No Orders Yet</h3>
+        <p>Your past purchases will show up here once you start shopping.</p>
+        <a href="/customer/view-products" class="btn btn-primary">
+            <i class="fas fa-store"></i> Browse Products
+        </a>
+    </div>
+
+    <!-- Back -->
+    <a href="/customer/home" class="btn btn-ghost">
+        <i class="fas fa-arrow-left"></i> Back to Home
+    </a>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── REORDER CONFIRMATION MODAL ── -->
+<div class="modal-overlay" id="reorderModal">
+    <div class="modal">
+        <div class="modal-icon">
+            <i class="fas fa-redo"></i>
+        </div>
+        <h3>Re-Order Items</h3>
+        <p>This will replace your current cart with items from this order:</p>
+        <div class="modal-items" id="modalItems">
+            <!-- Items will be populated by JS -->
+        </div>
+        <div class="modal-warning" id="modalWarning" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="warningText">Some items may have limited stock.</span>
+        </div>
+        <div class="modal-btns">
+            <button class="modal-btn cancel" onclick="closeReorderModal()">Cancel</button>
+            <button class="modal-btn confirm" id="confirmReorderBtn" onclick="confirmReorder()">
+                <i class="fas fa-check"></i> Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Nav scroll effect
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .ek-alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+
+    // =========================
+    // RE-ORDER FUNCTIONALITY
+    // =========================
+    let currentOrderId = null;
+    let currentButton = null;
+
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        const icon = type === 'success' ? 'check-circle' : 
+                     type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle';
+        
+        toast.innerHTML = `
+            <i class="fas fa-${icon}"></i>
+            <span>${message}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            toast.style.transition = 'opacity 0.3s';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
+    // Initiate reorder - check stock and show modal
+    async function initiateReorder(button) {
+        const orderId = button.dataset.orderid;
+        currentOrderId = orderId;
+        currentButton = button;
+
+        // Show loading spinner on button
+        const originalHTML = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span> Checking...';
+
+        try {
+            const response = await fetch(`/api/orders/${orderId}/check-stock`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                showToast(data.message || 'Failed to check stock', 'error');
+                button.innerHTML = originalHTML;
+                button.disabled = false;
+                return;
+            }
+
+            // Populate modal with items
+            const modalItems = document.getElementById('modalItems');
+            modalItems.innerHTML = '';
+
+            data.items.forEach(item => {
+                const statusClass = item.status === 'in_stock' ? 'in-stock' : 
+                                   item.status === 'out_of_stock' ? 'out-of-stock' : 'partial';
+                const statusText = item.status === 'in_stock' ? 'In Stock' : 
+                                  item.status === 'out_of_stock' ? 'Out of Stock' : 
+                                  `Only ${item.currentStock} left`;
+                
+                modalItems.innerHTML += `
+                    <div class="modal-item">
+                        <span class="modal-item-name">${item.name} × ${item.quantity}</span>
+                        <span class="modal-item-status ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            });
+
+            // Show warning if some items are out of stock
+            const warningDiv = document.getElementById('modalWarning');
+            if (data.hasOutOfStock) {
+                warningDiv.style.display = 'flex';
+                document.getElementById('warningText').textContent = 
+                    'Some items are out of stock or have limited availability. Available items will still be added to your cart.';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+
+            // Show modal
+            document.getElementById('reorderModal').classList.add('active');
+
+        } catch (error) {
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            button.innerHTML = originalHTML;
+            button.disabled = false;
+        }
+    }
+
+    // Close reorder modal
+    function closeReorderModal() {
+        document.getElementById('reorderModal').classList.remove('active');
+        currentOrderId = null;
+        currentButton = null;
+    }
+
+    // Confirm and process reorder
+    async function confirmReorder() {
+        if (!currentOrderId) return;
+
+        const confirmBtn = document.getElementById('confirmReorderBtn');
+        const originalHTML = confirmBtn.innerHTML;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span> Processing...';
+
+        try {
+            const response = await fetch(`/api/orders/${currentOrderId}/reorder`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+
+            closeReorderModal();
+
+            if (data.success) {
+                // Show success message
+                if (data.outOfStockItems && data.outOfStockItems.length > 0) {
+                    showToast(`${data.totalItemsAdded} items added to cart. Some items were unavailable.`, 'warning');
+                    // Show individual out of stock toasts
+                    data.outOfStockItems.forEach(item => {
+                        setTimeout(() => showToast(item, 'warning'), 500);
+                    });
+                } else {
+                    showToast(data.message, 'success');
+                }
+
+                // Redirect to checkout after short delay
+                setTimeout(() => {
+                    window.location.href = '/customer/view-cart';
+                }, 1500);
+            } else {
+                showToast(data.message || 'Failed to reorder', 'error');
+            }
+
+        } catch (error) {
+            closeReorderModal();
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            confirmBtn.innerHTML = originalHTML;
+            confirmBtn.disabled = false;
+        }
+    }
+
+    // Close modal on outside click
+    document.getElementById('reorderModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReorderModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeReorderModal();
+    });
+</script>
+
+<!-- Global Toast System for consistent error handling -->
+<script src="/js/ekart-toast.js"></script>
+<link rel="stylesheet" href="/css/ekart-ui.css">
+</body>
+</html>

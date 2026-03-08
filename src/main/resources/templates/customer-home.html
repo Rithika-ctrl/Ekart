@@ -1,0 +1,1098 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Shop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── BACKGROUND ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 0.75rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+            gap: 1rem;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.5); }
+
+        .nav-brand {
+            font-size: 1.5rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.45rem;
+            flex-shrink: 0;
+        }
+        .nav-brand span { color: var(--yellow); }
+
+        /* ── NAV SEARCH (centre) ── */
+        .nav-search {
+            flex: 1; max-width: 400px;
+            position: relative;
+        }
+        .nav-search input {
+            width: 100%;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.82rem;
+            padding: 0.5rem 1rem 0.5rem 2.4rem;
+            transition: all 0.25s;
+            outline: none;
+        }
+        .nav-search input::placeholder { color: var(--text-dim); }
+        .nav-search input:focus {
+            border-color: rgba(245,168,0,0.5);
+            background: rgba(255,255,255,0.12);
+        }
+        .nav-search input.nav-dropdown-open {
+            border-radius: 50px 50px 12px 12px;
+            border-bottom-color: transparent;
+        }
+        .nav-search i.nav-search-icon {
+            position: absolute; left: 0.85rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim); font-size: 0.78rem;
+            pointer-events: none; z-index: 2;
+        }
+
+        /* ── NAV AUTOCOMPLETE DROPDOWN ── */
+        .nav-autocomplete-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: rgba(8, 10, 24, 0.98);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid rgba(245,168,0,0.25);
+            border-radius: 0 0 16px 16px;
+            z-index: 9999;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            animation: navDropOpen 0.15s ease both;
+        }
+        @keyframes navDropOpen {
+            from { opacity:0; transform: translateY(-4px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+        .nav-ac-list {
+            list-style: none; margin: 0; padding: 5px 0;
+            max-height: 320px; overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(245,168,0,0.3) transparent;
+        }
+        .nav-ac-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer;
+            transition: background 0.1s;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.8rem;
+        }
+        .nav-ac-item:last-child { border-bottom: none; }
+        .nav-ac-item:hover, .nav-ac-item.active { background: rgba(245,168,0,0.08); }
+        .nav-ac-thumb {
+            width: 34px; height: 34px; border-radius: 6px;
+            object-fit: cover; border: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0; background: rgba(255,255,255,0.05);
+        }
+        .nav-ac-thumb-ph {
+            width: 34px; height: 34px; border-radius: 6px;
+            background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .nav-ac-text { flex: 1; min-width: 0; }
+        .nav-ac-name {
+            color: white; font-weight: 500; font-size: 0.8rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nav-ac-name mark { background: none; color: var(--yellow); font-weight: 700; padding: 0; }
+        .nav-ac-cat { font-size: 0.66rem; color: var(--yellow); opacity: 0.8; margin-top: 1px; }
+        .nav-ac-badge {
+            font-size: 0.58rem; background: rgba(255,96,96,0.2); color: #ff8080;
+            border: 1px solid rgba(255,96,96,0.3); padding: 2px 6px;
+            border-radius: 20px; font-weight: 600; flex-shrink: 0;
+        }
+        .nav-ac-loading, .nav-ac-empty {
+            padding: 12px 14px; font-size: 0.75rem; color: var(--text-dim);
+            display: flex; align-items: center; gap: 7px;
+        }
+        .nav-ac-loading i { color: var(--yellow); animation: navSpin 1s linear infinite; }
+        @keyframes navSpin { to { transform: rotate(360deg); } }
+
+        /* ── NAV RIGHT LINKS ── */
+        .nav-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+        .nav-link {
+            display: flex; align-items: center; gap: 0.35rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.78rem; font-weight: 500;
+            padding: 0.42rem 0.75rem; border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .nav-link:hover { color: white; background: rgba(255,255,255,0.1); border-color: var(--glass-border); }
+
+        .nav-link.cart-link {
+            border-color: var(--glass-border);
+            position: relative;
+        }
+        .cart-badge {
+            position: absolute; top: -4px; right: -4px;
+            background: var(--yellow); color: #1a1000;
+            font-size: 0.58rem; font-weight: 800;
+            width: 15px; height: 15px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .nav-link.wishlist-link { border-color: rgba(239,68,68,0.3); }
+        .nav-link.wishlist-link i { color: #ef4444; }
+        .nav-link.wishlist-link:hover { border-color: rgba(239,68,68,0.6); background: rgba(239,68,68,0.08); }
+
+        .nav-link.logout-link { border-color: rgba(255,100,80,0.3); }
+        .nav-link.logout-link:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── ALERTS ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 6rem 2rem 3rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* ── WELCOME STRIP ── */
+        .welcome-strip {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.25rem 2rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+            animation: fadeUp 0.4s ease both;
+        }
+        .welcome-strip h1 {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            font-weight: 700;
+        }
+        .welcome-strip h1 span { color: var(--yellow); }
+        .welcome-strip p { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.15rem; }
+
+        /* ── BUDGET BAR ── */
+        .budget-bar {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.1rem 2rem;
+            display: flex; align-items: center; gap: 1.25rem;
+            flex-wrap: wrap;
+            animation: fadeUp 0.45s ease both;
+        }
+        .budget-label {
+            font-size: 0.8rem; font-weight: 600; color: var(--yellow);
+            display: flex; align-items: center; gap: 0.4rem;
+            white-space: nowrap;
+        }
+        #budgetSlider {
+            flex: 1; min-width: 140px;
+            -webkit-appearance: none; height: 4px;
+            background: rgba(255,255,255,0.15); border-radius: 2px; cursor: pointer;
+        }
+        #budgetSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px; border-radius: 50%;
+            background: var(--yellow);
+            box-shadow: 0 0 8px rgba(245,168,0,0.5);
+        }
+        .budget-value { font-size: 0.82rem; font-weight: 700; color: white; white-space: nowrap; }
+        .budget-count { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+        .btn-reset {
+            background: none; border: 1px solid var(--glass-border);
+            color: var(--text-dim); border-radius: 6px;
+            padding: 0.35rem 0.75rem; cursor: pointer;
+            font-family: 'Poppins', sans-serif; font-size: 0.72rem;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-reset:hover { color: white; border-color: rgba(255,255,255,0.4); }
+
+        /* ── PRODUCT GRID ── */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            grid-column: 1/-1;
+            text-align: center; padding: 5rem 2rem;
+            color: var(--text-dim);
+        }
+        .empty-state i { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; }
+        .empty-state h3 { font-size: 1.2rem; color: var(--text-light); margin-bottom: 0.5rem; }
+
+        /* ── PRODUCT CARD WRAPPER (for budget filter) ── */
+        .product-card-wrapper { transition: opacity 0.4s, transform 0.4s, filter 0.4s; }
+        .product-card-wrapper.product-over-budget {
+            opacity: 0.2; filter: grayscale(1);
+            pointer-events: none; transform: scale(0.96);
+        }
+
+        /* ── PRODUCT CARD ── */
+        .product-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            animation: fadeUp 0.6s ease both;
+            position: relative;
+            height: 100%;
+        }
+        .product-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(245,168,0,0.45);
+            box-shadow: 0 25px 55px rgba(0,0,0,0.35);
+        }
+        .product-card::before {
+            content: '';
+            position: absolute; inset: 0; border-radius: 22px;
+            background: linear-gradient(135deg, rgba(245,168,0,0.06), transparent);
+            opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .product-card:hover::before { opacity: 1; }
+
+        /* ── IMAGE AREA ── */
+        .img-area { position: relative; height: 220px; overflow: hidden; flex-shrink: 0; }
+        .card-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .product-card:hover .card-image { transform: scale(1.07); }
+
+        .budget-badge {
+            position: absolute; top: 12px; right: 12px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white; font-size: 0.65rem; font-weight: 800;
+            padding: 4px 12px; border-radius: 50px;
+            display: none; z-index: 10;
+            box-shadow: 0 4px 12px rgba(34,197,94,0.4);
+        }
+        .within-budget .budget-badge { display: block; }
+
+        .category-pill {
+            position: absolute; top: 12px; left: 12px;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            color: var(--yellow); font-size: 0.62rem; font-weight: 700;
+            padding: 3px 10px; border-radius: 20px;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        /* ── WISHLIST ── */
+        .btn-wishlist {
+            position: absolute; top: 12px; right: 55px;
+            width: 34px; height: 34px;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border); border-radius: 50%;
+            color: var(--text-dim); font-size: 0.95rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s; z-index: 15;
+        }
+        .btn-wishlist:hover { background: rgba(239,68,68,0.2); color: #ef4444; border-color: rgba(239,68,68,0.4); transform: scale(1.1); }
+        .btn-wishlist.active { background: rgba(239,68,68,0.9); color: white; border-color: #ef4444; }
+        .btn-wishlist i { transition: transform 0.3s; }
+        .btn-wishlist:active i { transform: scale(1.3); }
+
+        /* ── MEDIA TRAY ── */
+        .media-tray {
+            background: rgba(0,0,0,0.3); padding: 7px 10px;
+            display: flex; gap: 7px; overflow-x: auto;
+            scrollbar-width: thin; scrollbar-color: var(--yellow) transparent;
+        }
+        .media-tray img {
+            width: 42px; height: 42px; border-radius: 7px; cursor: pointer;
+            border: 2px solid transparent; object-fit: cover; transition: all 0.2s; flex-shrink: 0;
+        }
+        .media-tray img:hover { border-color: var(--yellow); transform: scale(1.1); }
+
+        /* ── VIDEO ── */
+        .video-box { padding: 8px 10px 0; }
+        .video-box video {
+            width: 100%; border-radius: 10px; max-height: 160px;
+            background: #000; border: 1px solid var(--glass-border);
+        }
+
+        /* ── CARD BODY ── */
+        .card-body {
+            padding: 1.25rem;
+            display: flex; flex-direction: column; gap: 0.6rem; flex: 1;
+        }
+        .product-name { font-size: 0.95rem; font-weight: 700; color: white; line-height: 1.3; }
+        .product-description { font-size: 0.75rem; color: var(--text-dim); line-height: 1.55; }
+
+        .product-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+        .meta-label { font-weight: 700; color: var(--yellow); }
+        .meta-val { color: white; }
+
+        .price-tag { font-size: 1.55rem; font-weight: 800; color: var(--yellow); margin-top: 0.15rem; }
+        .price-tag sup { font-size: 0.85rem; font-weight: 700; vertical-align: super; }
+
+        .card-divider { border: none; border-top: 1px solid var(--glass-border); margin: 0.2rem 0; }
+
+        /* ── REVIEWS ── */
+        .reviews-header {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.75rem; font-weight: 700; color: white; margin-bottom: 0.4rem;
+        }
+        .reviews-header i { color: var(--yellow); }
+
+        .review-box {
+            background: rgba(255,255,255,0.05); border-radius: 9px; padding: 8px 10px;
+            margin-bottom: 6px; border-left: 3px solid var(--yellow);
+        }
+        .review-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+        .review-stars { color: var(--yellow); font-size: 0.58rem; }
+        .review-customer { font-size: 0.7rem; font-weight: 700; color: white; }
+        .review-comment { font-size: 0.7rem; color: var(--text-dim); line-height: 1.45; }
+
+        .review-form { display: flex; gap: 0.45rem; margin-top: 0.65rem; }
+        .review-form select,
+        .review-form input {
+            background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
+            border-radius: 7px; color: white;
+            font-family: 'Poppins', sans-serif; font-size: 0.72rem;
+            padding: 0.4rem 0.6rem; transition: all 0.25s;
+        }
+        .review-form select { flex-shrink: 0; width: 66px; }
+        .review-form input { flex: 1; }
+        .review-form select:focus, .review-form input:focus { outline: none; border-color: var(--yellow); }
+        .review-form select option { background: #0f1228; }
+
+        .btn-post {
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 7px;
+            padding: 0.4rem 0.8rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.7rem; font-weight: 700;
+            cursor: pointer; transition: all 0.25s; white-space: nowrap; flex-shrink: 0;
+        }
+        .btn-post:hover { background: var(--yellow-d); }
+
+        /* ── ADD TO CART ── */
+        .btn-add-cart {
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 13px; padding: 0.8rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.82rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            text-decoration: none; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow: 0 6px 20px rgba(245,168,0,0.25);
+            margin-top: auto;
+        }
+        .btn-add-cart:hover {
+            background: var(--yellow-d); transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(245,168,0,0.42);
+            color: #1a1000; text-decoration: none;
+        }
+
+        /* ── TOAST ── */
+        .toast-container {
+            position: fixed; bottom: 2rem; right: 2rem;
+            z-index: 9999; display: flex; flex-direction: column; gap: 0.65rem;
+        }
+        .toast {
+            background: rgba(10,12,30,0.95); backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border); border-radius: 12px;
+            padding: 0.875rem 1.4rem;
+            display: flex; align-items: center; gap: 0.7rem;
+            font-size: 0.82rem;
+            animation: slideInRight 0.3s ease both; min-width: 240px;
+        }
+        .toast.success { border-color: rgba(34,197,94,0.5); }
+        .toast.success i { color: #22c55e; }
+        .toast.error { border-color: rgba(239,68,68,0.5); }
+        .toast.error i { color: #ef4444; }
+
+        /* ── CART POPUP ── */
+        .cart-popup-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            z-index: 9999; justify-content: center; align-items: center;
+        }
+        .cart-popup-overlay.show { display: flex; }
+        .cart-popup-box {
+            background: rgba(15,18,40,0.95); backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border); border-radius: 24px;
+            padding: 2.5rem 2.5rem 2rem; max-width: 380px; width: 90%;
+            text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            position: relative; animation: popIn 0.35s cubic-bezier(0.23,1,0.32,1) both;
+        }
+        .popup-close {
+            position: absolute; top: 1rem; right: 1.25rem;
+            background: none; border: none; color: var(--text-dim);
+            font-size: 1.2rem; cursor: pointer; transition: color 0.2s;
+        }
+        .popup-close:hover { color: white; }
+        .popup-cart-icon { font-size: 2.75rem; margin-bottom: 0.9rem; animation: bounce 1.2s ease-in-out infinite; }
+        .cart-popup-box h4 { font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 0.5rem; }
+        .cart-popup-box p { font-size: 0.82rem; color: var(--text-dim); line-height: 1.65; margin-bottom: 1.5rem; }
+        .cart-popup-box p strong { color: var(--yellow); }
+        .btn-popup-checkout {
+            background: var(--yellow); color: #1a1000; text-decoration: none; border: none;
+            padding: 0.75rem 1.75rem; border-radius: 50px;
+            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 700;
+            cursor: pointer; transition: all 0.3s;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            box-shadow: 0 6px 24px rgba(245,168,0,0.35);
+        }
+        .btn-popup-checkout:hover { background: var(--yellow-d); transform: translateY(-2px); color: #1a1000; text-decoration: none; }
+        .btn-popup-dismiss {
+            display: block; width: 100%; background: none; border: none;
+            font-family: 'Poppins', sans-serif; font-size: 0.75rem; color: var(--text-dim);
+            margin-top: 0.75rem; cursor: pointer; transition: color 0.2s;
+        }
+        .btn-popup-dismiss:hover { color: var(--text-light); }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.1rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* ── STAGGER CARDS ── */
+        .product-card-wrapper:nth-child(1) .product-card { animation-delay: 0.05s; }
+        .product-card-wrapper:nth-child(2) .product-card { animation-delay: 0.10s; }
+        .product-card-wrapper:nth-child(3) .product-card { animation-delay: 0.15s; }
+        .product-card-wrapper:nth-child(4) .product-card { animation-delay: 0.20s; }
+        .product-card-wrapper:nth-child(5) .product-card { animation-delay: 0.25s; }
+        .product-card-wrapper:nth-child(6) .product-card { animation-delay: 0.30s; }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(100px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes popIn { from{opacity:0;transform:scale(0.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width: 900px) {
+            nav { padding: 0.7rem 1rem; flex-wrap: wrap; }
+            .nav-search { order: 3; max-width: 100%; flex-basis: 100%; }
+            .page { padding: 8rem 1rem 2rem; }
+            footer { padding: 1rem; flex-direction: column; text-align: center; }
+        }
+        @media(max-width: 640px) {
+            .product-grid { grid-template-columns: 1fr; }
+            .nav-link span { display: none; }
+            .nav-link { padding: 0.42rem 0.55rem; }
+        }
+        @media(max-width: 480px) {
+            .review-form { flex-wrap: wrap; }
+            .review-form input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── ALERTS ── -->
+<div class="alert-stack">
+    <div class="alert alert-success" th:if="${session.success}">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure}">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<!-- ── NAV ── -->
+<nav id="nav">
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
+        Ek<span>art</span>
+    </a>
+
+    <!-- Nav Autocomplete Search -->
+    <div class="nav-search" id="navSearchWrapper">
+        <i class="fas fa-search nav-search-icon"></i>
+        <input type="text" id="navSearchInput" placeholder="Search products…" autocomplete="off">
+    </div>
+
+    <div class="nav-right">
+        <a href="/track-orders" class="nav-link" title="Track Orders">
+            <i class="fas fa-truck"></i> <span>Track</span>
+        </a>
+        <a href="/order-history" class="nav-link" title="Order History">
+            <i class="fas fa-history"></i> <span>Orders</span>
+        </a>
+        <a href="/view-orders" class="nav-link" title="View Orders">
+            <i class="fas fa-box-open"></i> <span>My Orders</span>
+        </a>
+        <a href="/account/wishlist" class="nav-link wishlist-link" title="Wishlist">
+            <i class="fas fa-heart"></i> <span>Wishlist</span>
+        </a>
+        <a href="/account/spending" class="nav-link" title="Spending Analytics" style="border-color: rgba(16,185,129,0.3);">
+            <i class="fas fa-chart-pie" style="color: #10b981;"></i> <span>Spending</span>
+        </a>
+        <a href="/view-cart" class="nav-link cart-link" title="Cart">
+            <i class="fas fa-shopping-cart"></i> <span>Cart</span>
+            <span class="cart-badge" th:if="${cartCount != null and cartCount > 0}" th:text="${cartCount}"></span>
+        </a>
+        <a href="/customer/profile" class="nav-link profile-nav-link" title="My Profile"
+           style="padding: 0.3rem; border-radius: 50%; overflow: hidden; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+            <img th:if="${session.customer != null and session.customer.profileImage != null}"
+                 th:src="${session.customer.profileImage}"
+                 style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--yellow);"
+                 alt="Profile">
+            <span th:unless="${session.customer != null and session.customer.profileImage != null}"
+                  style="font-size:1.3rem;">👤</span>
+        </a>
+        <a href="/logout" class="nav-link logout-link" title="Logout">
+            <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+        </a>
+    </div>
+</nav>
+
+<!-- ── PAGE ── -->
+<main class="page">
+
+    <!-- Welcome Strip -->
+    <div class="welcome-strip">
+        <div>
+            <h1>Welcome back, <span th:text="${session.customer != null ? session.customer.name : 'Shopper'}">Shopper</span> 👋</h1>
+            <p>Browse our full catalogue from verified vendors.</p>
+        </div>
+        <div style="font-size:2rem; opacity:0.6;">🛍️</div>
+    </div>
+
+    <!-- Recently Viewed Products Section -->
+    <section class="rv-section-home" style="margin-bottom: 1.5rem;">
+        <div id="recentlyViewedContainer"></div>
+    </section>
+
+    <!-- Budget Bar -->
+    <div class="budget-bar">
+        <span class="budget-label">
+            <i class="fas fa-coins"></i> Budget Mode
+        </span>
+        <input type="range" id="budgetSlider" min="0" max="10000" step="50" value="10000"
+               oninput="applyBudget(this.value)">
+        <span class="budget-value" id="budgetDisplay">All Products</span>
+        <span class="budget-count" id="budgetCount"></span>
+        <button class="btn-reset" onclick="resetBudget()">
+            <i class="fas fa-redo-alt"></i> Reset
+        </button>
+    </div>
+
+    <!-- Product Grid -->
+    <div class="product-grid" id="productRow">
+
+        <!-- Products populated by server -->
+        <div th:each="p : ${products}" class="product-card-wrapper" th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category}">
+            <div class="product-card" style="cursor:pointer;" th:onclick="'window.location.href=\'/product/\' + ' + ${p.id}">
+
+                <!-- Main Image -->
+                <div class="img-area">
+                    <img class="card-image" th:src="${p.imageLink}" th:id="'mainImg-' + ${p.id}" alt="">
+                    <span class="category-pill" th:text="${p.category}"></span>
+                    <button class="btn-wishlist" th:id="'wishlist-' + ${p.id}"
+                            th:onclick="'event.stopPropagation(); toggleWishlist(' + ${p.id} + ')'" title="Add to Wishlist">
+                        <i class="far fa-heart"></i>
+                    </button>
+                    <span class="budget-badge"><i class="fas fa-check-double"></i> In Budget</span>
+                </div>
+
+                <!-- Thumbnail Tray -->
+                <div class="media-tray" th:if="${p.extraImageList != null and !p.extraImageList.isEmpty()}">
+                    <img th:src="${p.imageLink}"
+                         th:onclick="'document.getElementById(\'mainImg-\' + ' + ${p.id} + ').src=this.src'" alt="">
+                    <img th:each="url : ${p.extraImageList}" th:src="${url}"
+                         th:onclick="'document.getElementById(\'mainImg-\' + ' + ${p.id} + ').src=this.src'" alt="">
+                </div>
+
+                <!-- Video -->
+                <div class="video-box" th:if="${p.videoLink != null and !#strings.isEmpty(p.videoLink)}">
+                    <video controls>
+                        <source th:src="${p.videoLink}" type="video/mp4">
+                    </video>
+                </div>
+
+                <!-- Card Body -->
+                <div class="card-body">
+                    <div class="product-name"><span style="color:var(--yellow);font-size:0.75rem;font-weight:600;">NAME &nbsp;</span> <span th:text="${p.name}"></span></div>
+                    <div class="product-description"><span style="color:var(--yellow);font-size:0.75rem;font-weight:600;">DESCRIPTION &nbsp;</span><span th:text="${p.description}"></span></div>
+
+                    <div class="product-meta">
+                        <span class="meta-label">Category:</span>
+                        <span class="meta-val" th:text="${p.category}"></span>
+                    </div>
+
+                    <div class="product-meta">
+                        <span class="meta-label">Stock:</span>
+                        <span class="meta-val" th:text="${p.stock} + ' units'"></span>
+                    </div>
+
+                    <div class="price-tag">
+                        <span style="font-size:0.85rem;font-weight:600;color:var(--text-light);vertical-align:middle;margin-right:4px;">Price</span>
+                        <sup>₹</sup><span th:text="${p.price}"></span>
+                    </div>
+
+                    <hr class="card-divider">
+
+                    <!-- Reviews -->
+                    <div>
+                        <div class="reviews-header" style="justify-content:space-between;align-items:center;display:flex;">
+                            <span><i class="fas fa-star"></i> Customer Reviews</span>
+                            <!-- Avg rating badge — only shown if reviews exist -->
+                            <span th:if="${p.reviews != null and !p.reviews.isEmpty()}"
+                                  style="font-size:0.68rem;font-weight:700;color:var(--yellow);background:rgba(245,168,0,0.12);padding:2px 8px;border-radius:20px;border:1px solid rgba(245,168,0,0.25);">
+                                ⭐ <span th:text="${#aggregates.avg(p.reviews.![rating]) != null ? #numbers.formatDecimal(#aggregates.avg(p.reviews.![rating]),1,1) : '0.0'}">0.0</span>
+                                / 5 &nbsp;·&nbsp; <span th:text="${#lists.size(p.reviews)}">0</span> reviews
+                            </span>
+                        </div>
+                        <!-- Sort note: 5★ on top, 1★ on bottom (DB-sorted via @OrderBy) -->
+                        <div th:if="${p.reviews != null and !p.reviews.isEmpty()}"
+                             style="font-size:0.65rem;color:var(--text-dim);margin-bottom:0.4rem;">
+                            <i class="fas fa-sort-amount-down-alt" style="color:#10b981;margin-right:3px;"></i>
+                            Best reviews first
+                        </div>
+                        <div th:each="review : ${p.reviews}" class="review-box"
+                             th:style="${review.rating >= 4} ? 'border-left:2px solid #10b981;' : (${review.rating == 3} ? '' : 'border-left:2px solid #ef4444;')">
+                            <div class="review-top">
+                                <span class="review-stars">
+                                    <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>
+                                </span>
+                                <span class="review-customer" th:text="${review.customerName}"></span>
+                            </div>
+                            <p class="review-comment" th:text="${review.comment}"></p>
+                        </div>
+
+                        <!-- Review Form -->
+                        <form action="/add-review" method="post" onclick="event.stopPropagation()">
+                            <input type="hidden" name="productId" th:value="${p.id}">
+                            <div class="review-form">
+                                <select name="rating" required>
+                                    <option value="5">5 ★</option>
+                                    <option value="4">4 ★</option>
+                                    <option value="3">3 ★</option>
+                                    <option value="2">2 ★</option>
+                                    <option value="1">1 ★</option>
+                                </select>
+                                <input type="text" name="comment" placeholder="Write a review…" required>
+                                <button type="submit" class="btn-post">Post</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Add to Cart -->
+                    <a th:href="'/add-cart/' + ${p.id}" class="btn-add-cart" onclick="event.stopPropagation()">
+                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state when no products -->
+        <div class="empty-state" th:if="${products == null or products.isEmpty()}">
+            <i class="fas fa-box-open"></i>
+            <h3>No Products Available</h3>
+            <p>Check back soon — vendors are adding new items!</p>
+        </div>
+
+    </div>
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+    <div class="footer-brand">Ek<span>art</span></div>
+    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<!-- ── CART POPUP ── -->
+<div class="cart-popup-overlay" id="cartPopup" th:if="${cartCount != null and cartCount > 0}">
+    <div class="cart-popup-box">
+        <button class="popup-close" onclick="dismissPopup()">&#x2715;</button>
+        <div class="popup-cart-icon">🛒</div>
+        <h4>You left something behind!</h4>
+        <p>
+            You have <strong th:text="${cartCount}"></strong>
+            item<span th:if="${cartCount > 1}">s</span> waiting in your cart.
+        </p>
+        <a href="/view-cart" class="btn-popup-checkout">
+            <i class="fas fa-shopping-cart"></i> View My Cart
+        </a>
+        <button class="btn-popup-dismiss" onclick="dismissPopup()">No thanks, I'll shop later</button>
+    </div>
+</div>
+
+<script>
+    // Nav scroll shadow
+    window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-stack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+
+    // Cart popup
+    const popup = document.getElementById('cartPopup');
+    if (popup) setTimeout(() => popup.classList.add('show'), 1800);
+    function dismissPopup() {
+        const p = document.getElementById('cartPopup');
+        if (p) p.classList.remove('show');
+    }
+
+    // ── NAV SMART AUTOCOMPLETE ──────────────────────────────────
+    (function () {
+        const input   = document.getElementById('navSearchInput');
+        const wrapper = document.getElementById('navSearchWrapper');
+
+        let dropdown   = null;
+        let debounce   = null;
+        let activeIdx  = -1;
+        let suggestions = [];
+
+        function createDropdown() {
+            if (dropdown) return;
+            dropdown = document.createElement('div');
+            dropdown.className = 'nav-autocomplete-dropdown';
+            dropdown.innerHTML = '<ul class="nav-ac-list" id="navAcList"></ul>';
+            wrapper.appendChild(dropdown);
+        }
+
+        function getList() { return document.getElementById('navAcList'); }
+
+        function showDrop() {
+            createDropdown();
+            dropdown.style.display = 'block';
+            input.classList.add('nav-dropdown-open');
+        }
+
+        function hideDrop() {
+            if (dropdown) dropdown.style.display = 'none';
+            input.classList.remove('nav-dropdown-open');
+            activeIdx = -1;
+        }
+
+        input.addEventListener('input', function () {
+            const q = this.value.trim();
+            clearTimeout(debounce);
+            if (!q) { hideDrop(); return; }
+            showDrop();
+            renderNavLoading();
+            debounce = setTimeout(() => fetchNav(q), 200);
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (!dropdown || dropdown.style.display === 'none') return;
+            const items = getList().querySelectorAll('.nav-ac-item');
+            if (e.key === 'ArrowDown')  { e.preventDefault(); activeIdx = Math.min(activeIdx+1, items.length-1); setNavActive(items); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx-1, -1); setNavActive(items); }
+            else if (e.key === 'Escape')  { hideDrop(); }
+            else if (e.key === 'Enter' && activeIdx >= 0 && items[activeIdx]) {
+                e.preventDefault(); items[activeIdx].click();
+            }
+        });
+
+        function setNavActive(items) {
+            items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+            if (activeIdx >= 0 && suggestions[activeIdx]) input.value = suggestions[activeIdx].productName;
+        }
+
+        function fetchNav(q) {
+            fetch('/api/search/suggestions?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    suggestions = data;
+                    if (!data || data.length === 0) {
+                        // No results — fetch fuzzy correction first, then render together
+                        fetch('/api/search/fuzzy?q=' + encodeURIComponent(q))
+                            .then(r => r.json())
+                            .then(fuzzy => renderNav(data, q, fuzzy.suggestion || null))
+                            .catch(() => renderNav(data, q, null));
+                    } else {
+                        renderNav(data, q, null);
+                    }
+                })
+                .catch(() => hideDrop());
+        }
+
+        function renderNav(data, query, fuzzySuggestion) {
+            const list = getList();
+            list.innerHTML = '';
+            activeIdx = -1;
+
+            if (!data || data.length === 0) {
+                if (fuzzySuggestion) {
+                    // Show "Are you looking for X?" as a clickable item
+                    const div = document.createElement('div');
+                    div.className = 'nav-ac-empty';
+                    div.style.cssText = 'cursor:pointer; gap:8px;';
+                    div.innerHTML = `<i class="fas fa-spell-check" style="color:var(--yellow)"></i>
+                        <span>Are you looking for &nbsp;<strong style="color:var(--yellow);text-decoration:underline dotted">${navEsc(fuzzySuggestion)}</strong> ?</span>`;
+                    div.addEventListener('click', () => {
+                        input.value = fuzzySuggestion;
+                        hideDrop();
+                        window.location.href = '/search-products?query=' + encodeURIComponent(fuzzySuggestion);
+                    });
+                    list.appendChild(div);
+                } else {
+                    list.innerHTML = `<div class="nav-ac-empty">
+                        <i class="fas fa-search"></i> No results for "<strong style="color:var(--yellow)">${navEsc(query)}</strong>"
+                    </div>`;
+                }
+                return;
+            }
+
+            data.forEach((s, idx) => {
+                const li = document.createElement('li');
+                li.className = 'nav-ac-item';
+
+                const imgHtml = s.imageLink
+                    ? `<img class="nav-ac-thumb" src="${navEsc(s.imageLink)}" alt=""
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                       <div class="nav-ac-thumb-ph" style="display:none">🛍</div>`
+                    : `<div class="nav-ac-thumb-ph">🛍</div>`;
+
+                const badge = (idx < 3 && s.purchaseCount > 0)
+                    ? `<span class="nav-ac-badge">🔥 Popular</span>` : '';
+
+                const cat = s.category ? `<div class="nav-ac-cat">in ${navEsc(s.category)}</div>` : '';
+
+                li.innerHTML = `
+                    ${imgHtml}
+                    <div class="nav-ac-text">
+                        <div class="nav-ac-name">${navHighlight(s.productName, query)}</div>
+                        ${cat}
+                    </div>
+                    ${badge}
+                `;
+
+                li.addEventListener('click', () => {
+                    input.value = s.productName;
+                    hideDrop();
+                    // Navigate to search results
+                    window.location.href = '/search-products?query=' + encodeURIComponent(s.productName);
+                });
+
+                li.addEventListener('mouseenter', () => {
+                    activeIdx = idx;
+                    getList().querySelectorAll('.nav-ac-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+                });
+
+                list.appendChild(li);
+            });
+        }
+
+        function renderNavLoading() {
+            const list = getList();
+            if (list) list.innerHTML = `<div class="nav-ac-loading"><i class="fas fa-circle-notch"></i> Searching…</div>`;
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#navSearchWrapper')) hideDrop();
+        });
+
+        input.addEventListener('focus', function () {
+            if (this.value.trim().length > 0) { showDrop(); renderNavLoading(); fetchNav(this.value.trim()); }
+        });
+
+        function navHighlight(text, query) {
+            const safeQ = navEsc(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return navEsc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
+        }
+
+        function navEsc(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    })();
+
+    // ── BUDGET SLIDER ──
+    function applyBudget(val) {
+        val = parseFloat(val);
+        const display = document.getElementById('budgetDisplay');
+        const count   = document.getElementById('budgetCount');
+        const cards   = document.querySelectorAll('.product-card-wrapper');
+
+        display.textContent = '₹' + val.toLocaleString('en-IN');
+
+        let visible = 0;
+        cards.forEach(card => {
+            const price = parseFloat(card.dataset.price || 0);
+            if (price <= val) {
+                card.classList.remove('product-over-budget');
+                card.classList.add('within-budget');
+                visible++;
+            } else {
+                card.classList.add('product-over-budget');
+                card.classList.remove('within-budget');
+            }
+        });
+        count.textContent = visible + ' of ' + cards.length + ' products';
+
+        // Adjust slider max dynamically on first load
+    }
+
+    function resetBudget() {
+        const slider = document.getElementById('budgetSlider');
+        slider.value = slider.max;
+        document.getElementById('budgetDisplay').textContent = 'All Products';
+        document.getElementById('budgetCount').textContent = '';
+        document.querySelectorAll('.product-card-wrapper').forEach(c => {
+            c.classList.remove('product-over-budget', 'within-budget');
+        });
+    }
+
+    // Set slider max to highest product price
+    window.addEventListener('DOMContentLoaded', () => {
+        const prices = [...document.querySelectorAll('.product-card-wrapper')]
+            .map(c => parseFloat(c.dataset.price || 0));
+        if (prices.length) {
+            const max = Math.ceil(Math.max(...prices) * 1.1 / 50) * 50;
+            const slider = document.getElementById('budgetSlider');
+            slider.max = max;
+            slider.value = max;
+        }
+    });
+
+    // ── INLINE SEARCH FILTER (kept for fallback) ──
+    function filterProducts(query) {
+        query = query.toLowerCase().trim();
+        document.querySelectorAll('.product-card-wrapper').forEach(card => {
+            const name     = (card.dataset.name     || '').toLowerCase();
+            const category = (card.dataset.category || '').toLowerCase();
+            card.style.display = (!query || name.includes(query) || category.includes(query)) ? '' : 'none';
+        });
+    }
+
+    // ── WISHLIST TOGGLE ──
+    function toggleWishlist(productId) {
+        const btn = document.getElementById('wishlist-' + productId);
+        fetch('/wishlist/toggle/' + productId, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.added) {
+                    btn.classList.add('active');
+                    btn.querySelector('i').className = 'fas fa-heart';
+                    showToast('Added to Wishlist ❤️', 'success');
+                } else {
+                    btn.classList.remove('active');
+                    btn.querySelector('i').className = 'far fa-heart';
+                    showToast('Removed from Wishlist', 'error');
+                }
+            })
+            .catch(() => showToast('Please log in to use wishlist', 'error'));
+    }
+
+    function showToast(msg, type) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'times-circle'}"></i><span>${msg}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s'; setTimeout(() => toast.remove(), 400); }, 2500);
+    }
+</script>
+
+<!-- Recently Viewed Products Script -->
+<script th:src="@{/js/recently-viewed.js}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Render the recently viewed bar on customer home
+        RecentlyViewed.render('#recentlyViewedContainer', {
+            showHeading: true
+        });
+        
+        // Load from server if logged in (merge with local)
+        RecentlyViewed.loadFromServer();
+    });
+</script>
+
+<!-- ── AI ASSISTANT WIDGET ── -->
+<div th:replace="~{chat-widget :: chatWidget}"></div>
+
+</body>
+</html>
