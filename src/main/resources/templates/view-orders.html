@@ -264,6 +264,21 @@
         }
         .btn-track:hover { background: #22c55e; color: white; text-decoration: none; transform: translateY(-1px); }
 
+<<<<<<< HEAD
+=======
+        .btn-reorder {
+            background: transparent; color: #f5a800;
+            border: 1px solid rgba(245,168,0,0.4); cursor: pointer; font-family: inherit;
+        }
+        .btn-reorder:hover { background: #f5a800; color: #1a1000; transform: translateY(-1px); }
+        .btn-reorder .spinner {
+            width: 12px; height: 12px; border: 2px solid currentColor;
+            border-top-color: transparent; border-radius: 50%;
+            display: inline-block; animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         /* ── Empty State ── */
         .empty-state {
             text-align: center; padding: 4rem 2rem;
@@ -478,7 +493,18 @@
                         <i class="fas fa-check-circle"></i> Replacement Requested
                     </span>
 
+<<<<<<< HEAD
                 </div>
+=======
+                    <!-- Reorder -->
+                    <button type="button" class="action-btn btn-reorder"
+                            th:data-orderid="${o.id}"
+                            onclick="initiateReorder(this)">
+                        <i class="fas fa-redo"></i> Reorder
+                    </button>
+
+                </div>                </div>
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
             </div>
         </div>
 
@@ -519,5 +545,164 @@
     }, 2500);
 </script>
 
+<<<<<<< HEAD
+=======
+<!-- ── REORDER MODAL ── -->
+<style>
+    .reorder-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+        z-index: 9999; justify-content: center; align-items: center;
+    }
+    .reorder-overlay.active { display: flex; }
+    .reorder-modal {
+        background: rgba(10,12,30,0.97); backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+        padding: 2rem; width: 90%; max-width: 420px;
+        animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes popIn { from { opacity:0; transform:scale(0.85); } to { opacity:1; transform:scale(1); } }
+    .reorder-modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .reorder-modal p { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-bottom: 1.25rem; }
+    .modal-item-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.55rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.82rem;
+    }
+    .modal-item-row:last-child { border-bottom: none; }
+    .stock-badge {
+        font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;
+    }
+    .stock-badge.in-stock { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .stock-badge.out-of-stock { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .stock-badge.partial { background: rgba(245,168,0,0.15); color: #f5a800; }
+    .modal-warning {
+        margin: 1rem 0; padding: 0.75rem 1rem; border-radius: 10px;
+        background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.3);
+        font-size: 0.78rem; color: #f5a800; display: none; gap: 0.5rem; align-items: flex-start;
+    }
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+    .modal-btn {
+        flex: 1; padding: 0.65rem; border-radius: 10px; font-size: 0.85rem;
+        font-weight: 700; cursor: pointer; border: none; font-family: inherit; transition: all 0.2s;
+    }
+    .modal-btn.cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7); }
+    .modal-btn.cancel:hover { background: rgba(255,255,255,0.12); }
+    .modal-btn.confirm { background: #f5a800; color: #1a1000; }
+    .modal-btn.confirm:hover { background: #e09700; }
+    .modal-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .modal-spinner {
+        width: 13px; height: 13px; border: 2px solid currentColor;
+        border-top-color: transparent; border-radius: 50%;
+        display: inline-block; animation: spin 0.7s linear infinite; margin-right: 6px;
+    }
+</style>
+
+<div class="reorder-overlay" id="reorderOverlay">
+    <div class="reorder-modal">
+        <h3>🔁 Reorder Items</h3>
+        <p>These items from your past order will be added to your cart.</p>
+        <div id="reorderItemsList"></div>
+        <div class="modal-warning" id="reorderWarning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="reorderWarningText"></span>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeReorderModal()">Cancel</button>
+            <button class="modal-btn confirm" id="confirmReorderBtn" onclick="confirmReorder()">
+                <i class="fas fa-cart-plus"></i> Add to Cart
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentOrderId = null;
+    let currentBtn = null;
+
+    async function initiateReorder(btn) {
+        const orderId = btn.dataset.orderid;
+        currentOrderId = orderId;
+        currentBtn = btn;
+
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Checking...';
+
+        try {
+            const res = await fetch(`/api/orders/${orderId}/check-stock`);
+            const data = await res.json();
+
+            if (!res.ok) { showToast(data.message || 'Failed to check stock', 'error'); return; }
+
+            const list = document.getElementById('reorderItemsList');
+            list.innerHTML = '';
+            data.items.forEach(item => {
+                const cls = item.status === 'in_stock' ? 'in-stock' : item.status === 'out_of_stock' ? 'out-of-stock' : 'partial';
+                const txt = item.status === 'in_stock' ? 'In Stock' : item.status === 'out_of_stock' ? 'Out of Stock' : `Only ${item.currentStock} left`;
+                list.innerHTML += `<div class="modal-item-row">
+                    <span>${item.name} × ${item.quantity}</span>
+                    <span class="stock-badge ${cls}">${txt}</span>
+                </div>`;
+            });
+
+            const warn = document.getElementById('reorderWarning');
+            if (data.hasOutOfStock) {
+                warn.style.display = 'flex';
+                document.getElementById('reorderWarningText').textContent =
+                    'Some items are unavailable. Available items will still be added to your cart.';
+            } else {
+                warn.style.display = 'none';
+            }
+
+            document.getElementById('reorderOverlay').classList.add('active');
+        } catch (e) {
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            btn.innerHTML = orig;
+            btn.disabled = false;
+        }
+    }
+
+    function closeReorderModal() {
+        document.getElementById('reorderOverlay').classList.remove('active');
+        currentOrderId = null;
+        currentBtn = null;
+    }
+
+    async function confirmReorder() {
+        if (!currentOrderId) return;
+        const btn = document.getElementById('confirmReorderBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="modal-spinner"></span> Processing...';
+
+        try {
+            const res = await fetch(`/api/orders/${currentOrderId}/reorder`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            closeReorderModal();
+
+            if (data.success) {
+                showToast(data.message || 'Items added to cart!', 'success');
+                setTimeout(() => window.location.href = '/cart', 1200);
+            } else {
+                showToast(data.message || 'Could not reorder.', 'error');
+            }
+        } catch (e) {
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-cart-plus"></i> Add to Cart';
+        }
+    }
+
+    // Close on backdrop click
+    document.getElementById('reorderOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeReorderModal();
+    });
+</script>
+
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 </body>
 </html>

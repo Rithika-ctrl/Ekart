@@ -17,8 +17,11 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
+<<<<<<< HEAD
 import com.example.ekart.repository.ReviewRepository;
 import com.example.ekart.dto.Review;
+=======
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -45,9 +48,12 @@ public class AdminService {
 	@Autowired
 	private OrderRepository orderRepository;
 
+<<<<<<< HEAD
 	@Autowired
 	private ReviewRepository reviewRepository;
 
+=======
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	// 🔥 In-memory storage for dynamic content (in production, use database)
 	private static String bannerTitle = "Welcome to Ekart";
 	private static String bannerSubtitle = "Your one-stop shopping destination";
@@ -205,7 +211,11 @@ public class AdminService {
 		Order order = orderRepository.findById(orderId).orElse(null);
 		if (order == null) {
 			session.setAttribute("failure", "Order not found");
+<<<<<<< HEAD
 			return "redirect:/refund-management";
+=======
+			return "redirect:/admin/refunds";
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 		}
 
 		if ("approve".equals(action)) {
@@ -219,7 +229,11 @@ public class AdminService {
 			session.setAttribute("success", "Refund request denied for Order #" + orderId);
 		}
 
+<<<<<<< HEAD
 		return "redirect:/refund-management";
+=======
+		return "redirect:/admin/refunds";
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	}
 
 	// ============ CONTENT MANAGEMENT ============
@@ -365,6 +379,7 @@ public class AdminService {
 
 		return "analytics.html";
 	}
+<<<<<<< HEAD
     // ============ REVIEW MANAGEMENT ============
 
     public String loadReviewManagement(HttpSession session, ModelMap map) {
@@ -411,4 +426,6 @@ public class AdminService {
     }
 
 
+=======
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 }

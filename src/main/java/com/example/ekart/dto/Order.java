@@ -28,6 +28,10 @@ public class Order {
 
     private String razorpay_payment_id;
     private String razorpay_order_id;
+<<<<<<< HEAD
+=======
+    private String paymentMode;  // "Cash on Delivery" or "Online"
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
     private double amount;
     private LocalDateTime dateTime;
@@ -93,6 +97,16 @@ public class Order {
         this.razorpay_order_id = razorpay_order_id;
     }
 
+<<<<<<< HEAD
+=======
+    public String getPaymentMode() {
+        return paymentMode;
+    }
+    public void setPaymentMode(String paymentMode) {
+        this.paymentMode = paymentMode;
+    }
+
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     public double getAmount() {
         return amount;
     }
