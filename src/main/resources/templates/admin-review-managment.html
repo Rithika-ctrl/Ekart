@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart Admin – Review Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255,255,255,0.18);
+            --glass-card:   rgba(255,255,255,0.07);
+            --glass-nav:    rgba(0,0,0,0.30);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.45);
+            --green:        #10b981;
+            --red:          #ef4444;
+            --orange:       #f59e0b;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
+
+        .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
+        .bg-layer::before {
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
+        }
+        .bg-layer::after {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.88) 0%,rgba(8,12,28,0.84) 100%);
+        }
+
+        /* NAV */
+        nav {
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:0.75rem 2rem;
+            display:flex; align-items:center; justify-content:space-between;
+            background:var(--glass-nav); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border);
+        }
+        .nav-brand { font-size:1.4rem; font-weight:700; color:white; text-decoration:none; display:flex; align-items:center; gap:0.4rem; }
+        .nav-brand span { color:var(--yellow); }
+        .nav-links { display:flex; align-items:center; gap:0.4rem; }
+        .nav-link {
+            color:var(--text-light); text-decoration:none; font-size:0.82rem; font-weight:500;
+            padding:0.4rem 0.8rem; border-radius:8px; transition:all 0.2s;
+            display:flex; align-items:center; gap:0.4rem;
+        }
+        .nav-link:hover, .nav-link.active { background:rgba(245,168,0,0.15); color:var(--yellow); }
+        .nav-right { display:flex; align-items:center; gap:0.75rem; }
+        .nav-badge {
+            font-size:0.75rem; font-weight:600; color:var(--yellow);
+            background:rgba(245,168,0,0.12); border:1px solid rgba(245,168,0,0.25);
+            padding:0.3rem 0.75rem; border-radius:20px;
+        }
+        .btn-logout {
+            font-size:0.8rem; font-weight:600; color:#000;
+            background:var(--yellow); padding:0.4rem 1rem; border-radius:8px;
+            text-decoration:none; transition:background 0.2s;
+        }
+        .btn-logout:hover { background:var(--yellow-d); }
+
+        /* PAGE */
+        main { margin-top:68px; flex:1; padding:2rem 2rem 3rem; }
+        .page-header { margin-bottom:1.75rem; }
+        .page-header h1 { font-size:1.6rem; font-weight:700; }
+        .page-header h1 span { color:var(--yellow); }
+        .page-header p { color:var(--text-dim); font-size:0.85rem; margin-top:0.25rem; }
+
+        /* FLASH */
+        .flash {
+            display:flex; align-items:center; gap:0.6rem;
+            padding:0.85rem 1.2rem; border-radius:12px;
+            margin-bottom:1.5rem; font-size:0.88rem; font-weight:500;
+        }
+        .flash.success { background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#6ee7b7; }
+        .flash.failure { background:rgba(239,68,68,0.15);  border:1px solid rgba(239,68,68,0.35);  color:#fca5a5; }
+
+        /* STAT CARDS */
+        .stats-grid {
+            display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+            gap:1rem; margin-bottom:2rem;
+        }
+        .stat-card {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:16px; padding:1.2rem 1rem; text-align:center;
+            backdrop-filter:blur(10px);
+        }
+        .stat-number { font-size:1.8rem; font-weight:800; }
+        .stat-label  { font-size:0.72rem; color:var(--text-dim); margin-top:0.2rem; }
+        .stat-stars  { color:var(--yellow); font-size:0.7rem; margin-bottom:0.2rem; }
+
+        /* FILTER BAR */
+        .filter-bar {
+            display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+            margin-bottom:1.5rem;
+        }
+        .filter-bar input {
+            flex:1; min-width:200px;
+            background:rgba(255,255,255,0.07); border:1px solid var(--glass-border);
+            border-radius:10px; color:white; font-family:'Poppins',sans-serif;
+            font-size:0.82rem; padding:0.55rem 1rem;
+            transition:border-color 0.2s;
+        }
+        .filter-bar input:focus { outline:none; border-color:var(--yellow); }
+        .filter-bar input::placeholder { color:var(--text-dim); }
+        .filter-btn {
+            padding:0.55rem 1rem; border-radius:10px; font-size:0.8rem; font-weight:600;
+            cursor:pointer; border:1px solid var(--glass-border); background:rgba(255,255,255,0.07);
+            color:var(--text-light); font-family:'Poppins',sans-serif; transition:all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active { background:rgba(245,168,0,0.15); border-color:rgba(245,168,0,0.3); color:var(--yellow); }
+        .count-badge { font-size:0.75rem; color:var(--text-dim); white-space:nowrap; }
+
+        /* REVIEW TABLE */
+        .review-table-wrap {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:18px; backdrop-filter:blur(12px); overflow:hidden;
+        }
+
+        .review-row {
+            display:grid;
+            grid-template-columns: 80px 1fr 160px 90px 90px;
+            align-items:center; gap:1rem;
+            padding:1rem 1.25rem;
+            border-bottom:1px solid rgba(255,255,255,0.06);
+            transition:background 0.15s;
+        }
+        .review-row:last-child { border-bottom:none; }
+        .review-row:hover { background:rgba(255,255,255,0.04); }
+        .review-row.header-row {
+            background:rgba(0,0,0,0.2);
+            font-size:0.72rem; font-weight:700; color:var(--text-dim);
+            text-transform:uppercase; letter-spacing:0.05em;
+            padding:0.75rem 1.25rem;
+        }
+
+        /* Rating cell */
+        .rating-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
+        .big-rating {
+            font-size:1.4rem; font-weight:800;
+        }
+        .rating-stars { font-size:0.55rem; letter-spacing:1px; }
+        .rating-good   { color:var(--green); }
+        .rating-mid    { color:var(--orange); }
+        .rating-bad    { color:var(--red); }
+
+        /* Product cell */
+        .product-name { font-size:0.82rem; font-weight:600; margin-bottom:2px; }
+        .customer-name { font-size:0.72rem; color:var(--text-dim); }
+        .comment-text { font-size:0.75rem; color:var(--text-light); margin-top:4px; line-height:1.5; }
+
+        /* Product badge */
+        .product-badge {
+            font-size:0.7rem; background:rgba(255,255,255,0.07);
+            border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+            padding:0.3rem 0.6rem; text-align:center; color:var(--text-light);
+        }
+        .product-id { font-size:0.65rem; color:var(--text-dim); margin-top:2px; }
+
+        /* Status pill */
+        .status-pill {
+            font-size:0.68rem; font-weight:700; padding:0.25rem 0.65rem;
+            border-radius:20px; text-align:center; white-space:nowrap;
+        }
+        .pill-good   { background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.3); }
+        .pill-mid    { background:rgba(245,158,11,0.15); color:#fcd34d; border:1px solid rgba(245,158,11,0.3); }
+        .pill-bad    { background:rgba(239,68,68,0.15);  color:#fca5a5; border:1px solid rgba(239,68,68,0.3); }
+
+        /* Delete button */
+        .btn-delete {
+            display:inline-flex; align-items:center; gap:0.3rem;
+            padding:0.35rem 0.75rem; border-radius:8px;
+            background:rgba(239,68,68,0.12); color:#fca5a5;
+            border:1px solid rgba(239,68,68,0.25);
+            font-size:0.72rem; font-weight:600; text-decoration:none;
+            transition:all 0.2s; white-space:nowrap;
+        }
+        .btn-delete:hover { background:rgba(239,68,68,0.25); border-color:rgba(239,68,68,0.5); }
+
+        /* Empty */
+        .empty-state {
+            text-align:center; padding:3rem 1rem;
+            color:var(--text-dim); font-size:0.9rem;
+        }
+        .empty-state i { font-size:2.5rem; color:var(--yellow); opacity:0.5; margin-bottom:0.75rem; display:block; }
+
+        /* Sort indicator */
+        .sort-note {
+            font-size:0.75rem; color:var(--text-dim);
+            display:flex; align-items:center; gap:0.4rem;
+            margin-bottom:0.75rem;
+        }
+        .sort-note i { color:var(--green); }
+
+        @media(max-width:700px) {
+            .review-row { grid-template-columns:60px 1fr 80px; }
+            .review-row .product-badge, .review-row .status-pill { display:none; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-layer"></div>
+
+<!-- NAV -->
+<nav>
+    <a href="/admin/home" class="nav-brand">🛒 E<span>kart</span> <span style="font-size:0.7rem;font-weight:500;color:var(--text-dim);margin-left:4px;">Admin</span></a>
+    <div class="nav-links">
+        <a href="/admin/home"        class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/approve-products"  class="nav-link"><i class="fas fa-tasks"></i> Approvals</a>
+        <a href="/admin/refunds"     class="nav-link"><i class="fas fa-undo-alt"></i> Refunds</a>
+        <a href="/admin/accounts"    class="nav-link"><i class="fas fa-users-cog"></i> Users</a>
+        <a href="/admin/reviews"     class="nav-link active"><i class="fas fa-star"></i> Reviews</a>
+    </div>
+    <div class="nav-right">
+        <span class="nav-badge"><i class="fas fa-shield-alt"></i> Admin</span>
+        <a href="/admin/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</nav>
+
+<main>
+    <div class="page-header">
+        <h1><i class="fas fa-star" style="color:var(--yellow);margin-right:0.4rem;"></i>Review <span>Management</span></h1>
+        <p>All customer reviews — sorted best to worst. Delete spam or inappropriate content.</p>
+    </div>
+
+    <!-- Flash -->
+    <div class="flash success" th:if="${session.success != null}">
+        <i class="fas fa-check-circle"></i> <span th:text="${session.success}"></span>
+    </div>
+    <div class="flash failure" th:if="${session.failure != null}">
+        <i class="fas fa-exclamation-circle"></i> <span th:text="${session.failure}"></span>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" style="color:var(--yellow);" th:text="${totalReviews}">0</div>
+            <div class="stat-label">Total Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-stars">⭐⭐⭐⭐⭐</div>
+            <div class="stat-number rating-good" th:text="${fiveStars}">0</div>
+            <div class="stat-label">5-Star Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-stars">⭐⭐⭐⭐</div>
+            <div class="stat-number rating-good" th:text="${fourStars}">0</div>
+            <div class="stat-label">4-Star Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-stars">⭐⭐⭐</div>
+            <div class="stat-number rating-mid" th:text="${threeStars}">0</div>
+            <div class="stat-label">3-Star Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-stars">⭐⭐</div>
+            <div class="stat-number rating-bad" th:text="${twoStars}">0</div>
+            <div class="stat-label">2-Star Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-stars">⭐</div>
+            <div class="stat-number rating-bad" th:text="${oneStar}">0</div>
+            <div class="stat-label">1-Star Reviews</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" style="color:var(--yellow);" th:text="${avgRating}">0.0</div>
+            <div class="stat-label">Platform Avg ⭐</div>
+        </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="🔍  Search by product, customer, or comment…" oninput="filterReviews()">
+        <button class="filter-btn active" id="btn-all"   onclick="filterByStar(0,   this)">All</button>
+        <button class="filter-btn"        id="btn-5"     onclick="filterByStar(5,   this)">5 ★</button>
+        <button class="filter-btn"        id="btn-4"     onclick="filterByStar(4,   this)">4 ★</button>
+        <button class="filter-btn"        id="btn-3"     onclick="filterByStar(3,   this)">3 ★</button>
+        <button class="filter-btn"        id="btn-2"     onclick="filterByStar(2,   this)">2 ★</button>
+        <button class="filter-btn"        id="btn-1"     onclick="filterByStar(1,   this)">1 ★</button>
+        <span class="count-badge" id="countBadge"></span>
+    </div>
+
+    <!-- SORT NOTE -->
+    <div class="sort-note">
+        <i class="fas fa-sort-amount-down-alt"></i>
+        Reviews are ordered: <strong style="color:var(--green);">5★ best reviews first</strong> → <strong style="color:var(--red);">1★ worst reviews last</strong>
+    </div>
+
+    <!-- REVIEW TABLE -->
+    <div class="review-table-wrap">
+
+        <!-- Header -->
+        <div class="review-row header-row">
+            <div>Rating</div>
+            <div>Review Details</div>
+            <div>Product</div>
+            <div>Sentiment</div>
+            <div>Action</div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" th:if="${reviews == null or reviews.isEmpty()}">
+            <i class="fas fa-star-half-alt"></i>
+            No reviews on the platform yet.
+        </div>
+
+        <!-- Review rows — sorted by rating DESC (good on top) from AdminService -->
+        <div th:each="review : ${reviews}" class="review-row review-data-row"
+             th:attr="data-rating=${review.rating},
+                      data-product=${review.product != null ? review.product.name : ''},
+                      data-customer=${review.customerName},
+                      data-comment=${review.comment}">
+
+            <!-- Rating -->
+            <div class="rating-cell">
+                <div class="big-rating"
+                     th:classappend="${review.rating >= 4} ? 'rating-good' : (${review.rating == 3} ? 'rating-mid' : 'rating-bad')"
+                     th:text="${review.rating}">5</div>
+                <div class="rating-stars"
+                     th:style="${review.rating >= 4} ? 'color:#10b981;' : (${review.rating == 3} ? 'color:#f59e0b;' : 'color:#ef4444;')">
+                    <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>
+                    <i th:each="i : ${#numbers.sequence(review.rating + 1, 5)}" class="far fa-star" style="opacity:0.3;"></i>
+                </div>
+            </div>
+
+            <!-- Review content -->
+            <div>
+                <div class="customer-name">
+                    <i class="fas fa-user" style="font-size:0.65rem;margin-right:3px;"></i>
+                    <span th:text="${review.customerName}">Customer</span>
+                </div>
+                <div class="comment-text" th:text="${review.comment}">Comment here</div>
+            </div>
+
+            <!-- Product -->
+            <div class="product-badge" th:if="${review.product != null}">
+                <div style="font-weight:600;" th:text="${review.product.name}">Product</div>
+                <div class="product-id" th:text="'#' + ${review.product.id}">ID</div>
+            </div>
+            <div class="product-badge" th:unless="${review.product != null}" style="color:var(--text-dim);">—</div>
+
+            <!-- Sentiment pill -->
+            <div>
+                <span class="status-pill pill-good"  th:if="${review.rating >= 4}">✅ Positive</span>
+                <span class="status-pill pill-mid"   th:if="${review.rating == 3}">😐 Neutral</span>
+                <span class="status-pill pill-bad"   th:if="${review.rating <= 2}">⚠️ Negative</span>
+            </div>
+
+            <!-- Delete -->
+            <div>
+                <a th:href="'/admin/delete-review/' + ${review.id}"
+                   class="btn-delete"
+                   onclick="return confirm('Delete this review? This cannot be undone.')">
+                    <i class="fas fa-trash-alt"></i> Delete
+                </a>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<script>
+    let activeStar = 0;
+
+    function filterReviews() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('.review-data-row');
+        let visible = 0;
+        rows.forEach(row => {
+            const product  = (row.dataset.product  || '').toLowerCase();
+            const customer = (row.dataset.customer || '').toLowerCase();
+            const comment  = (row.dataset.comment  || '').toLowerCase();
+            const rating   = parseInt(row.dataset.rating);
+            const matchText = !q || product.includes(q) || customer.includes(q) || comment.includes(q);
+            const matchStar = activeStar === 0 || rating === activeStar;
+            const show = matchText && matchStar;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        document.getElementById('countBadge').textContent = `Showing ${visible} review${visible !== 1 ? 's' : ''}`;
+    }
+
+    function filterByStar(star, btn) {
+        activeStar = star;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterReviews();
+    }
+
+    // Init count
+    window.addEventListener('DOMContentLoaded', () => {
+        const total = document.querySelectorAll('.review-data-row').length;
+        document.getElementById('countBadge').textContent = `Showing ${total} review${total !== 1 ? 's' : ''}`;
+    });
+
+    // Auto-clear flash
+    setTimeout(() => {
+        document.querySelectorAll('.flash').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 4000);
+</script>
+</body>
+</html>
