@@ -6,10 +6,19 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+<<<<<<< HEAD
 import java.io.Serializable;
 
 @Entity
 public class Item implements Serializable {
+=======
+import lombok.Data;
+import java.io.Serializable;
+
+@Data
+@Entity
+public class Item implements Serializable{
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	private static final long serialVersionUID = 1L;
 
 	@Id
@@ -22,12 +31,21 @@ public class Item implements Serializable {
 	private String category;
 	private int quantity;
 	private String imageLink;
+<<<<<<< HEAD
 	private Integer productId;
 
+=======
+
+	// 🔥 Track which product this item came from (for stock alerts)
+	private Integer productId; // nullable for backward compatibility
+
+	// 🔥 THIS IS THE MOST IMPORTANT FIX
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	@ManyToOne
 	@JoinColumn(name = "cart_id")
 	private Cart cart;
 
+<<<<<<< HEAD
 	public int getId() { return id; }
 	public void setId(int id) { this.id = id; }
 	public String getName() { return name; }
@@ -47,3 +65,7 @@ public class Item implements Serializable {
 	public Cart getCart() { return cart; }
 	public void setCart(Cart cart) { this.cart = cart; }
 }
+=======
+	// (Getters & setters kept — Lombok already covers them)
+}
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57

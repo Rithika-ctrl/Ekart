@@ -28,7 +28,11 @@ public class BannerService {
      * Get all active banners for home page display
      */
     public List<Banner> getActiveBanners() {
+<<<<<<< HEAD
         return bannerRepository.findByActiveTrueOrderByDisplayOrderAsc();
+=======
+        return bannerRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     }
 
     /**
@@ -48,7 +52,11 @@ public class BannerService {
         }
 
         map.put("banners", getAllBanners());
+<<<<<<< HEAD
         map.put("activeBannerCount", bannerRepository.findByActiveTrueOrderByDisplayOrderAsc().size());
+=======
+        map.put("activeBannerCount", bannerRepository.findByIsActiveTrueOrderByDisplayOrderAsc().size());
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         map.put("totalBannerCount", bannerRepository.count());
         return "admin-content.html";
     }
@@ -156,4 +164,8 @@ public class BannerService {
         session.setAttribute("success", "Banner updated successfully");
         return "redirect:/admin/content";
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57

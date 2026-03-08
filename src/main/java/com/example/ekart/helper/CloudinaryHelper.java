@@ -41,6 +41,7 @@ public String saveVideoToCloudinary(MultipartFile file) throws IOException {
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
     return (String) map.get("url");
 }
+<<<<<<< HEAD
 	// 🔥 Upload customer profile image to Cloudinary
 	@SuppressWarnings("rawtypes")
 	public String saveProfileImageToCloudinary(MultipartFile file) throws IOException {
@@ -51,5 +52,7 @@ public String saveVideoToCloudinary(MultipartFile file) throws IOException {
 	    Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
 	    return (String) map.get("url");
 	}
+=======
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 }

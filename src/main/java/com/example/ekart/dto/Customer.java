@@ -21,9 +21,16 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+<<<<<<< HEAD
 import java.io.Serializable;
 
 @Entity
+=======
+import lombok.Data;
+import java.io.Serializable;
+@Entity
+@Data
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 public class Customer implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -52,12 +59,20 @@ public class Customer implements Serializable {
 	private String confirmPassword;
 
 	private int otp;
+<<<<<<< HEAD
 	private boolean verified;
 
+=======
+
+	private boolean verified;
+
+	// Role-Based Access Control (RBAC) - defaults to CUSTOMER
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	private Role role = Role.CUSTOMER;
 
+<<<<<<< HEAD
 	@Column(name = "active", nullable = false, columnDefinition = "boolean default true")
 	private boolean active = true;
 
@@ -69,6 +84,22 @@ public class Customer implements Serializable {
 
 	@Column(nullable = true)
 	private String providerId;
+=======
+	// Account status - for admin oversight
+	@Column(nullable = false, columnDefinition = "boolean default true")
+	private boolean isActive = true;
+	
+	// Last login timestamp for admin oversight
+	@Column(nullable = true)
+	private LocalDateTime lastLogin;
+
+	// OAuth2 fields for social login (nullable - optional for email/password users)
+	@Column(nullable = true)
+	private String provider; // e.g., "google", "github", or null for email/password
+	
+	@Column(nullable = true)
+	private String providerId; // unique id from OAuth provider
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 	@OneToOne(cascade = CascadeType.ALL)
 	private Cart cart = new Cart();
@@ -76,6 +107,7 @@ public class Customer implements Serializable {
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Address> addresses = new ArrayList<>();
 
+<<<<<<< HEAD
 	@Column(length = 200)
 	private String recentlyViewedProducts;
 
@@ -117,4 +149,10 @@ public class Customer implements Serializable {
 
 	public String getProfileImage() { return profileImage; }
 	public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
+=======
+	// Recently viewed products - stored as comma-separated product IDs (max 10)
+	@Column(length = 200)
+	private String recentlyViewedProducts;
+	
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 }

@@ -25,12 +25,15 @@
 
     <dependencies>
 
+<<<<<<< HEAD
         <dependency>
        <groupId>com.mysql</groupId>
        <artifactId>mysql-connector-j</artifactId>
        <scope>runtime</scope>
        </dependency>
 
+=======
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         <!-- Spring Boot Core -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

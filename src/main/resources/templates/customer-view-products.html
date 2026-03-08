@@ -660,6 +660,7 @@
 
                     <!-- Reviews -->
                     <div>
+<<<<<<< HEAD
                         <div class="reviews-header" style="justify-content:space-between;">
                             <span><i class="fas fa-star"></i> Customer Reviews</span>
                             <!-- Avg rating badge -->
@@ -673,6 +674,13 @@
                         <!-- Reviews shown: highest rating first via DB sort -->
                         <div th:each="review : ${p.reviews}" class="review-box"
                              th:style="${review.rating >= 4} ? 'border-left-color:#10b981;' : (${review.rating == 3} ? '' : 'border-left-color:#ef4444;')">
+=======
+                        <div class="reviews-header">
+                            <i class="fas fa-star"></i> Customer Reviews
+                        </div>
+
+                        <div th:each="review : ${p.reviews}" class="review-box">
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
                             <div class="review-top">
                                 <span class="review-stars">
                                     <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>

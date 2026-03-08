@@ -2,6 +2,7 @@ package com.example.ekart.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+<<<<<<< HEAD
 import jakarta.persistence.*;
 
 @Entity
@@ -35,4 +36,39 @@ public class SalesReport {
     public void setAvgOrderValue(double avgOrderValue) { this.avgOrderValue = avgOrderValue; }
     public LocalDateTime getGeneratedAt() { return generatedAt; }
     public void setGeneratedAt(LocalDateTime generatedAt) { this.generatedAt = generatedAt; }
+=======
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
+import lombok.Data;
+
+@Data
+@Entity
+public class SalesReport {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private int id;
+
+	@ManyToOne
+	private Vendor vendor;
+
+	// Report type: "DAILY", "WEEKLY", "MONTHLY"
+	private String reportType;
+
+	// The date this report covers (start of day/week/month)
+	private LocalDate reportDate;
+
+	// Aggregated values
+	private double totalRevenue;
+	private int totalOrders;
+	private int totalItemsSold;
+	private double avgOrderValue;
+
+	// When this report record was generated
+	private LocalDateTime generatedAt;
+>>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 }
