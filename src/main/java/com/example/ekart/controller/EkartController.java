@@ -348,16 +348,22 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
     }
     order.setAmount(finalAmount);
+    order.setPaymentMode(paymentMode);  // ✅ Save payment mode to order
 
     String result = customerService.paymentSuccess(order, session);  // clears cart, saves order
 
     // ✅ Fetch the saved order to get the cloned items
     if (customer != null && result.contains("home")) {
         try {
+            Customer freshCustomer = (Customer) session.getAttribute("customer");
             Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
-            List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
-            emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
-                    paymentMode, order.getDeliveryTime(), orderItems);
+            if (savedOrder != null) {
+                List<Item> orderItems = savedOrder.getItems();
+                String deliveryTime = (savedOrder.getDeliveryCharge() == 0)
+                    ? "2-3 Business Days" : "3-5 Business Days";
+                emailSender.sendOrderConfirmation(freshCustomer, savedOrder.getAmount(), savedOrder.getId(),
+                        paymentMode, deliveryTime, orderItems);
+            }
         } catch (Exception e) {
             System.err.println("Order confirmation email failed: " + e.getMessage());
         }
@@ -471,7 +477,7 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         return adminService.searchUsers(session, map);
     }
 
-    @GetMapping("/refund-management")
+    @GetMapping({"/refund-management", "/admin/refunds"})
     public String refundManagement(HttpSession session, ModelMap map) {
         return adminService.refundManagement(session, map);
     }
@@ -505,6 +511,11 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
     @GetMapping("/analytics")
     public String analytics(HttpSession session, ModelMap map) {
         return adminService.analytics(session, map);
+    }
+
+    @GetMapping({"/account/spending", "/customer/spending"})
+    public String mySpending(HttpSession session, ModelMap map) {
+        return customerService.mySpending(session, map);
     }
 
     // ── BANNER CONTENT MANAGEMENT (Admin Only) ─────────────────────────────────

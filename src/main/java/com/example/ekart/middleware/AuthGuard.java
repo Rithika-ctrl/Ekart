@@ -83,7 +83,8 @@ public class AuthGuard implements HandlerInterceptor {
             || path.startsWith("/api/admin/")
             || path.startsWith("/refund-management/")
             || path.startsWith("/content-management/")
-            || path.startsWith("/security-settings/");
+            || path.startsWith("/security-settings/")
+            || path.equals("/user-spending");
     }
     
     /**

@@ -217,17 +217,35 @@ public class CustomerService {
             return "redirect:/customer/login";
         }
 
-        // 🔥 PENDING CART POPUP: fetch fresh customer and count cart items
+        // Fetch fresh customer from DB
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
+
+        // Cart count for badge
         int cartCount = 0;
         if (customer.getCart() != null && customer.getCart().getItems() != null) {
             cartCount = customer.getCart().getItems().size();
         }
         map.put("cartCount", cartCount);
 
-        // Load approved products directly for the new combined dashboard
+        // Load approved products for the main grid
         List<Product> products = productRepository.findByApprovedTrue();
         map.put("products", products);
+
+        // Recently viewed products — fetched from DB field, ordered newest-first
+        List<Product> recentlyViewed = new java.util.ArrayList<>();
+        String rvStr = customer.getRecentlyViewedProducts();
+        if (rvStr != null && !rvStr.isBlank()) {
+            java.util.Map<Integer, Product> productMap = products.stream()
+                .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+            for (String idStr : rvStr.split(",")) {
+                try {
+                    int pid = Integer.parseInt(idStr.trim());
+                    Product p = productMap.get(pid);
+                    if (p != null) recentlyViewed.add(p);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        map.put("recentlyViewed", recentlyViewed);
 
         return "customer-home.html";
     }
@@ -243,6 +261,27 @@ public class CustomerService {
         if (product == null || !product.isApproved()) {
             session.setAttribute("failure", "Product not found");
             return "redirect:/customer/home";
+        }
+
+        // Save to recently viewed (DB-backed, newest first, max 10)
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
+        if (customer != null) {
+            String existing = customer.getRecentlyViewedProducts();
+            java.util.List<String> ids = new java.util.ArrayList<>();
+            if (existing != null && !existing.isBlank()) {
+                for (String s : existing.split(",")) {
+                    if (!s.trim().isEmpty() && !s.trim().equals(String.valueOf(id))) {
+                        ids.add(s.trim());
+                    }
+                }
+            }
+            ids.add(0, String.valueOf(id)); // newest first
+            if (ids.size() > 10) ids = ids.subList(0, 10);
+            customer.setRecentlyViewedProducts(String.join(",", ids));
+            customerRepository.save(customer);
+            // Update session too
+            session.setAttribute("customer", customer);
         }
 
         // Similar products — same category, exclude current product
@@ -561,6 +600,51 @@ public String paymentSuccess(Order order, HttpSession session) {
     return "redirect:/customer/home";
 }
 
+    // ---------------- MY SPENDING ----------------
+    public String mySpending(HttpSession session, ModelMap map) {
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        if (sessionCustomer == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/customer/login";
+        }
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        List<Order> orders = orderRepository.findByCustomer(customer);
+
+        double totalSpent = orders.stream().mapToDouble(Order::getAmount).sum();
+        int totalOrders = orders.size();
+        double avgOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
+
+        // Most bought category
+        java.util.Map<String, Long> categoryCount = new java.util.HashMap<>();
+        for (Order order : orders) {
+            for (Item item : order.getItems()) {
+                String cat = item.getCategory() != null ? item.getCategory() : "Other";
+                categoryCount.merge(cat, (long) item.getQuantity(), Long::sum);
+            }
+        }
+        String topCategory = categoryCount.entrySet().stream()
+            .max(java.util.Map.Entry.comparingByValue())
+            .map(java.util.Map.Entry::getKey)
+            .orElse("—");
+
+        java.time.LocalDateTime lastOrderDate = orders.stream()
+            .map(Order::getOrderDate)
+            .filter(d -> d != null)
+            .max(java.util.Comparator.naturalOrder())
+            .orElse(null);
+
+        map.put("customer", customer);
+        map.put("orders", orders);
+        map.put("totalSpent", totalSpent);
+        map.put("totalOrders", totalOrders);
+        map.put("avgOrder", avgOrder);
+        map.put("topCategory", topCategory);
+        map.put("lastOrderDate", lastOrderDate);
+
+        return "my-spending.html";
+    }
+
     // ---------------- VIEW ORDERS ----------------
     public String viewOrders(HttpSession session, ModelMap map) {
         Customer customer = (Customer) session.getAttribute("customer");
@@ -593,6 +677,22 @@ public String paymentSuccess(Order order, HttpSession session) {
         map.put("orders", orders);
         map.put("returnEligibleMap", returnEligibleMap);
         map.put("replacementRequestedMap", replacementRequestedMap);
+
+        // 💰 Spending summary for the customer
+        double totalSpent = orders.stream().mapToDouble(Order::getAmount).sum();
+        int totalOrders = orders.size();
+        double avgOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
+        java.time.LocalDateTime lastOrderDate = orders.stream()
+            .map(Order::getOrderDate)
+            .filter(d -> d != null)
+            .max(java.util.Comparator.naturalOrder())
+            .orElse(null);
+
+        map.put("totalSpent", totalSpent);
+        map.put("totalOrders", totalOrders);
+        map.put("avgOrder", avgOrder);
+        map.put("lastOrderDate", lastOrderDate);
+
         return "view-orders.html";
     }
 

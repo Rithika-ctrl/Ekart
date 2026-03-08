@@ -200,7 +200,7 @@ public class AdminService {
 		Order order = orderRepository.findById(orderId).orElse(null);
 		if (order == null) {
 			session.setAttribute("failure", "Order not found");
-			return "redirect:/refund-management";
+			return "redirect:/admin/refunds";
 		}
 
 		if ("approve".equals(action)) {
@@ -214,7 +214,7 @@ public class AdminService {
 			session.setAttribute("success", "Refund request denied for Order #" + orderId);
 		}
 
-		return "redirect:/refund-management";
+		return "redirect:/admin/refunds";
 	}
 
 	// ============ CONTENT MANAGEMENT ============
