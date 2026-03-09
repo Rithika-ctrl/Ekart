@@ -660,27 +660,11 @@
 
                     <!-- Reviews -->
                     <div>
-<<<<<<< HEAD
-                        <div class="reviews-header" style="justify-content:space-between;">
-                            <span><i class="fas fa-star"></i> Customer Reviews</span>
-                            <!-- Avg rating badge -->
-                            <span th:if="${p.reviews != null and !p.reviews.isEmpty()}"
-                                  style="font-size:0.7rem;font-weight:700;color:var(--yellow);background:rgba(245,168,0,0.12);padding:2px 8px;border-radius:20px;border:1px solid rgba(245,168,0,0.25);">
-                                ⭐ <span th:text="${#aggregates.avg(p.reviews.![rating]) != null ? #numbers.formatDecimal(#aggregates.avg(p.reviews.![rating]),1,1) : '0.0'}">0.0</span>
-                                / 5 &nbsp;·&nbsp; <span th:text="${#lists.size(p.reviews)}">0</span> reviews
-                            </span>
-                        </div>
-
-                        <!-- Reviews shown: highest rating first via DB sort -->
-                        <div th:each="review : ${p.reviews}" class="review-box"
-                             th:style="${review.rating >= 4} ? 'border-left-color:#10b981;' : (${review.rating == 3} ? '' : 'border-left-color:#ef4444;')">
-=======
                         <div class="reviews-header">
                             <i class="fas fa-star"></i> Customer Reviews
                         </div>
 
                         <div th:each="review : ${p.reviews}" class="review-box">
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
                             <div class="review-top">
                                 <span class="review-stars">
                                     <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>

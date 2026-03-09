@@ -83,12 +83,7 @@ public class AuthGuard implements HandlerInterceptor {
             || path.startsWith("/api/admin/")
             || path.startsWith("/refund-management/")
             || path.startsWith("/content-management/")
-<<<<<<< HEAD
             || path.startsWith("/security-settings/");
-=======
-            || path.startsWith("/security-settings/")
-            || path.equals("/user-spending");
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     }
     
     /**
@@ -130,8 +125,4 @@ public class AuthGuard implements HandlerInterceptor {
         return customer != null && 
             (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57

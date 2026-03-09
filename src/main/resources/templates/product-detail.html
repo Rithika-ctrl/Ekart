@@ -453,43 +453,22 @@
         <div class="section-title">
             <i class="fas fa-star"></i> Customer Reviews
             <span style="font-size:0.78rem;font-weight:400;color:var(--text-dim);"
-                  th:text="'(' + ${reviewCount != null ? reviewCount : 0} + ' reviews)'"></span>
+                  th:text="'(' + ${#lists.size(product.reviews)} + ' reviews)'"></span>
         </div>
 
-        <!-- Average Rating Bar -->
-        <div th:if="${reviewCount != null and reviewCount > 0}"
-             style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(245,168,0,0.08);border:1px solid rgba(245,168,0,0.2);border-radius:12px;">
-            <span style="font-size:1.8rem;font-weight:800;color:var(--yellow);" th:text="${avgRating}">0</span>
-            <div>
-                <div style="color:var(--yellow);font-size:0.85rem;letter-spacing:1px;">
-                    <i th:each="i : ${#numbers.sequence(1, #numbers.formatInteger(avgRating,1,'POINT').split('\.')[0])}" class="fas fa-star"></i>
-                    <i th:if="${avgRating - #numbers.formatInteger(avgRating,1,'POINT').split('\.')[0][0]} >= 0.5" class="fas fa-star-half-alt"></i>
-                </div>
-                <div style="font-size:0.75rem;color:var(--text-dim);margin-top:2px;">
-                    Based on <span th:text="${reviewCount}">0</span> review(s)
-                </div>
-            </div>
-        </div>
-
-        <!-- Sorted Reviews: good (5★) on top, bad (1★) on bottom -->
-        <div class="reviews-grid" th:if="${sortedReviews != null and !sortedReviews.isEmpty()}">
-            <div th:each="review : ${sortedReviews}" class="review-card"
-                 th:style="${review.rating >= 4} ? 'border-left:3px solid #10b981;' : (${review.rating == 3} ? 'border-left:3px solid var(--yellow);' : 'border-left:3px solid #ef4444;')">
+        <div class="reviews-grid" th:if="${product.reviews != null and !product.reviews.isEmpty()}">
+            <div th:each="review : ${product.reviews}" class="review-card">
                 <div class="review-top">
                     <span class="review-author" th:text="${review.customerName}"></span>
                     <span class="review-stars">
                         <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>
-                        <i th:each="i : ${#numbers.sequence(review.rating + 1, 5)}" class="far fa-star" style="opacity:0.3;"></i>
-                        <span style="margin-left:4px;font-size:0.7rem;font-weight:700;"
-                              th:style="${review.rating >= 4} ? 'color:#10b981;' : (${review.rating == 3} ? 'color:var(--yellow);' : 'color:#ef4444;')"
-                              th:text="${review.rating} + '/5'"></span>
                     </span>
                 </div>
                 <p class="review-text" th:text="${review.comment}"></p>
             </div>
         </div>
 
-        <div th:if="${sortedReviews == null or sortedReviews.isEmpty()}"
+        <div th:if="${product.reviews == null or product.reviews.isEmpty()}"
              style="font-size:0.82rem;color:var(--text-dim);padding:1rem 0;">
             No reviews yet — be the first to review this product!
         </div>

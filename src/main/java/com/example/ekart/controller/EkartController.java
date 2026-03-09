@@ -12,10 +12,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-<<<<<<< HEAD
-import org.springframework.web.multipart.MultipartFile;
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
@@ -352,32 +348,16 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
     }
     order.setAmount(finalAmount);
-<<<<<<< HEAD
-=======
-    order.setPaymentMode(paymentMode);  // ✅ Save payment mode to order
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
     String result = customerService.paymentSuccess(order, session);  // clears cart, saves order
 
     // ✅ Fetch the saved order to get the cloned items
     if (customer != null && result.contains("home")) {
         try {
-<<<<<<< HEAD
             Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
             List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
             emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
                     paymentMode, order.getDeliveryTime(), orderItems);
-=======
-            Customer freshCustomer = (Customer) session.getAttribute("customer");
-            Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
-            if (savedOrder != null) {
-                List<Item> orderItems = savedOrder.getItems();
-                String deliveryTime = (savedOrder.getDeliveryCharge() == 0)
-                    ? "2-3 Business Days" : "3-5 Business Days";
-                emailSender.sendOrderConfirmation(freshCustomer, savedOrder.getAmount(), savedOrder.getId(),
-                        paymentMode, deliveryTime, orderItems);
-            }
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         } catch (Exception e) {
             System.err.println("Order confirmation email failed: " + e.getMessage());
         }
@@ -491,11 +471,7 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         return adminService.searchUsers(session, map);
     }
 
-<<<<<<< HEAD
     @GetMapping("/refund-management")
-=======
-    @GetMapping({"/refund-management", "/admin/refunds"})
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     public String refundManagement(HttpSession session, ModelMap map) {
         return adminService.refundManagement(session, map);
     }
@@ -531,14 +507,6 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
         return adminService.analytics(session, map);
     }
 
-<<<<<<< HEAD
-=======
-    @GetMapping({"/account/spending", "/customer/spending"})
-    public String mySpending(HttpSession session, ModelMap map) {
-        return customerService.mySpending(session, map);
-    }
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     // ── BANNER CONTENT MANAGEMENT (Admin Only) ─────────────────────────────────
 
     @GetMapping("/admin/content")
@@ -602,26 +570,4 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
     public String acknowledgeAlert(@PathVariable int id, HttpSession session) {
         return stockAlertService.acknowledgeAlert(id, session);
     }
-<<<<<<< HEAD
-    // ─── CUSTOMER PROFILE ───────────────────────────────────────
-    @GetMapping("/customer/profile")
-    public String loadCustomerProfile(HttpSession session, ModelMap map) {
-        return customerService.loadProfilePage(session, map);
-    }
-
-    @PostMapping("/customer/upload-profile-image")
-    public String uploadCustomerProfileImage(
-            @RequestParam("profileImage") MultipartFile file,
-            HttpSession session) {
-        return customerService.uploadProfileImage(file, session);
-    }
-
-    @GetMapping("/customer/remove-profile-image")
-    public String removeCustomerProfileImage(HttpSession session) {
-        return customerService.removeProfileImage(session);
-    }
-
-
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 }

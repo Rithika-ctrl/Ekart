@@ -24,10 +24,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 	List<Customer> searchByNameOrEmail(@Param("query") String query);
 
 	// Count active/inactive accounts
-<<<<<<< HEAD
 	long countByActive(boolean active);
-=======
-	long countByIsActive(boolean isActive);
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 }

@@ -55,10 +55,7 @@
             text-decoration:none; letter-spacing:0.04em;
             display:flex; align-items:center; gap:0.5rem;
         }
-<<<<<<< HEAD
         .nav-brand span { color: var(--yellow); }
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .nav-right { display:flex; align-items:center; gap:0.75rem; }
         .nav-link-btn {
             display:flex; align-items:center; gap:0.4rem;
@@ -121,27 +118,18 @@
         .search-row {
             display:flex; gap:0.875rem; align-items:center;
         }
-<<<<<<< HEAD
 
         /* ── AUTOCOMPLETE WRAPPER ── */
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .search-input-wrap {
             flex:1; position:relative;
         }
         .search-input-wrap i.search-icon {
             position:absolute; left:1rem; top:50%; transform:translateY(-50%);
             color:var(--text-dim); font-size:0.9rem; pointer-events:none;
-<<<<<<< HEAD
             transition:color 0.2s; z-index: 2;
         }
         .search-input-wrap:focus-within i.search-icon { color:var(--yellow); }
 
-=======
-            transition:color 0.2s;
-        }
-        .search-input-wrap:focus-within i.search-icon { color:var(--yellow); }
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .search-input {
             width:100%;
             background:var(--input-bg); border:1px solid var(--input-border);
@@ -154,28 +142,21 @@
             border-color:var(--yellow); background:rgba(255,255,255,0.1);
             box-shadow:0 0 0 3px rgba(245,168,0,0.12);
         }
-<<<<<<< HEAD
         /* When dropdown is open, square off bottom corners */
         .search-input.dropdown-open {
             border-radius:12px 12px 0 0;
             border-bottom-color: transparent;
         }
 
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .voice-btn {
             position:absolute; right:1rem; top:50%; transform:translateY(-50%);
             background:none; border:none; cursor:pointer;
             color:var(--text-dim); font-size:1rem; transition:all 0.2s; padding:0;
-<<<<<<< HEAD
             z-index: 2;
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         }
         .voice-btn:hover { color:var(--yellow); }
         .voice-btn.listening { color:#ff6060; animation:pulse 1s infinite; }
 
-<<<<<<< HEAD
         /* ── AUTOCOMPLETE DROPDOWN ── */
         .autocomplete-dropdown {
             position:absolute; top:100%; left:0; right:0;
@@ -295,8 +276,6 @@
         .dropdown-loading i { color: var(--yellow); animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .btn-search {
             background:var(--yellow); color:#1a1000;
             border:none; border-radius:12px; padding:0.85rem 1.75rem;
@@ -377,10 +356,6 @@
         }
         .result-info span { color:var(--yellow); font-weight:700; }
 
-<<<<<<< HEAD
-=======
-        /* ── PRODUCT GRID ── */
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .product-grid {
             display:grid;
             grid-template-columns:repeat(auto-fill, minmax(240px,1fr));
@@ -400,21 +375,13 @@
         }
         .product-card.product-hidden { display:none !important; }
 
-<<<<<<< HEAD
         .product-img { width:100%; height:180px; object-fit:cover; display:block; }
-=======
-        .product-img {
-            width:100%; height:180px; object-fit:cover;
-            display:block;
-        }
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .stock-tag {
             position:absolute; top:10px; right:10px;
             font-size:0.65rem; font-weight:700; padding:3px 10px;
             border-radius:50px; letter-spacing:0.06em; text-transform:uppercase;
         }
         .in-stock  { background:rgba(34,197,94,0.18); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
-<<<<<<< HEAD
         .out-stock { background:rgba(255,96,96,0.18);  color:#ff8060; border:1px solid rgba(255,96,96,0.3); }
 
         .product-body { padding:1.25rem; }
@@ -422,29 +389,6 @@
         .product-name { font-size:0.9rem; font-weight:700; color:var(--text-white); margin-bottom:0.35rem; line-height:1.35; }
         .product-desc { font-size:0.75rem; color:var(--text-dim); line-height:1.55; margin-bottom:0.875rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .product-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-=======
-        .out-stock { background:rgba(255,96,96,0.18); color:#ff8060; border:1px solid rgba(255,96,96,0.3); }
-
-        .product-body { padding:1.25rem; }
-        .product-category {
-            font-size:0.65rem; font-weight:700; text-transform:uppercase;
-            letter-spacing:0.1em; color:var(--yellow); margin-bottom:0.4rem;
-        }
-        .product-name {
-            font-size:0.9rem; font-weight:700; color:var(--text-white);
-            margin-bottom:0.35rem; line-height:1.35;
-        }
-        .product-desc {
-            font-size:0.75rem; color:var(--text-dim); line-height:1.55;
-            margin-bottom:0.875rem;
-            display:-webkit-box; -webkit-line-clamp:2;
-            -webkit-box-orient:vertical; overflow:hidden;
-        }
-        .product-meta {
-            display:flex; justify-content:space-between; align-items:center;
-            margin-bottom:1rem;
-        }
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .product-price { font-size:1.1rem; font-weight:800; color:var(--yellow); }
         .product-stock-text { font-size:0.72rem; color:var(--text-dim); }
 
@@ -457,11 +401,7 @@
             cursor:pointer; transition:all 0.25s; text-decoration:none;
             box-shadow:0 4px 14px rgba(245,168,0,0.2);
         }
-<<<<<<< HEAD
         .btn-add-cart:hover { background:var(--yellow-d); color:#1a1000; text-decoration:none; transform:translateY(-1px); }
-=======
-        .btn-add-cart:hover { background:var(--yellow-d); color:#1a1000; text-decoration:none; box-shadow:0 8px 24px rgba(245,168,0,0.4); transform:translateY(-1px); }
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
         /* ── EMPTY STATES ── */
         .empty-box {
@@ -473,7 +413,6 @@
         .empty-box h5 { font-size:1rem; font-weight:700; margin-bottom:0.4rem; }
         .empty-box p  { font-size:0.82rem; color:var(--text-dim); }
 
-<<<<<<< HEAD
 
         /* ── DID YOU MEAN BANNER ── */
         .did-you-mean {
@@ -495,8 +434,6 @@
         }
         .did-you-mean a:hover { border-color: var(--yellow); }
 
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         /* ── FOOTER ── */
         footer {
             background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
@@ -505,10 +442,7 @@
             flex-wrap:wrap; gap:0.75rem;
         }
         .footer-brand { font-size:1.1rem; font-weight:700; color:white; }
-<<<<<<< HEAD
         .footer-brand span { color: var(--yellow); }
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         .footer-copy  { font-size:0.72rem; color:var(--text-dim); }
 
         /* ── ANIMATIONS ── */
@@ -535,11 +469,7 @@
 <nav id="nav">
     <a href="/customer/home" class="nav-brand">
         <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
-<<<<<<< HEAD
         Ek<span>art</span>
-=======
-        Ekart
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     </a>
     <div class="nav-right">
         <a href="/customer/home" class="nav-link-btn"><i class="fas fa-th-large"></i> Dashboard</a>
@@ -559,7 +489,6 @@
         <div class="page-header-icon">🛍️</div>
     </div>
 
-<<<<<<< HEAD
     <!-- Search Box with Autocomplete -->
     <div class="search-card">
         <div class="section-label"><i class="fas fa-search"></i> Search</div>
@@ -584,23 +513,6 @@
                     <!-- Dropdown injected here by JS -->
                 </div>
 
-=======
-    <!-- Search Box -->
-    <div class="search-card">
-        <div class="section-label"><i class="fas fa-search"></i> Search</div>
-        <form action="/search-products" method="post" id="searchForm">
-            <div class="search-row">
-                <div class="search-input-wrap">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" name="query" id="searchInput"
-                           th:value="${query}"
-                           placeholder="Enter product name or category…"
-                           class="search-input">
-                    <button type="button" id="voiceBtn" class="voice-btn" title="Voice search">
-                        <i class="fas fa-microphone" id="micIcon"></i>
-                    </button>
-                </div>
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
                 <button type="submit" class="btn-search">
                     <i class="fas fa-search"></i> Search
                 </button>
@@ -612,7 +524,6 @@
         </form>
     </div>
 
-<<<<<<< HEAD
 
     <!-- ── AUTO-CORRECTED BANNER ── -->
     <div class="did-you-mean" th:if="${correctedQuery}">
@@ -623,8 +534,6 @@
         </span>
     </div>
 
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     <!-- Results section — only shown when query exists -->
     <div th:if="${query}" style="width:100%;max-width:1100px;display:contents;">
 
@@ -705,10 +614,6 @@
                 </div>
             </div>
 
-<<<<<<< HEAD
-=======
-            <!-- No results after filter -->
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
             <div class="empty-box" id="noResultsBox" style="display:none;">
                 <div class="empty-icon">🔍</div>
                 <h5>No products match your filters</h5>
@@ -716,10 +621,6 @@
             </div>
         </div>
 
-<<<<<<< HEAD
-=======
-        <!-- No products from server -->
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         <div class="results-section" th:if="${#lists.isEmpty(products)}">
             <div class="empty-box">
                 <div class="empty-icon">📦</div>
@@ -734,11 +635,7 @@
 
 <!-- ── FOOTER ── -->
 <footer>
-<<<<<<< HEAD
     <div class="footer-brand">Ek<span>art</span></div>
-=======
-    <div class="footer-brand">Ekart</div>
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
 </footer>
 
@@ -748,7 +645,6 @@
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
     });
 
-<<<<<<< HEAD
     // ════════════════════════════════════════════════
     // SMART AUTOCOMPLETE
     // ════════════════════════════════════════════════
@@ -958,9 +854,6 @@
     // ════════════════════════════════════════════════
     // VOICE SEARCH (unchanged from your original)
     // ════════════════════════════════════════════════
-=======
-    // ── VOICE SEARCH ──
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const voiceBtn    = document.getElementById('voiceBtn');
     const micIcon     = document.getElementById('micIcon');
@@ -971,10 +864,6 @@
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'en-US';
-<<<<<<< HEAD
-=======
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         voiceBtn.addEventListener('click', () => {
             recognition.start();
             voiceBtn.classList.add('listening');
@@ -999,14 +888,10 @@
         if (voiceBtn) voiceBtn.style.display = 'none';
     }
 
-<<<<<<< HEAD
 
     // ════════════════════════════════════════════════
     // ADVANCED FILTERS (unchanged from your original)
     // ════════════════════════════════════════════════
-=======
-    // ── ADVANCED FILTERS ──
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     function buildCategoryOptions() {
         const cats = new Set();
         document.querySelectorAll('.product-item').forEach(el => {

@@ -9,13 +9,7 @@ import java.util.Random;
 import com.example.ekart.dto.Address;
 
 import org.springframework.beans.factory.annotation.Autowired;
-<<<<<<< HEAD
-import java.io.IOException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-=======
-import org.springframework.stereotype.Service;
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
 
@@ -26,10 +20,6 @@ import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Review;
 import com.example.ekart.dto.Order; 
 import com.example.ekart.helper.AES;
-<<<<<<< HEAD
-import com.example.ekart.helper.CloudinaryHelper;
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.AddressRepository;
 import com.example.ekart.repository.CustomerRepository;
@@ -37,7 +27,6 @@ import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
-<<<<<<< HEAD
 import com.example.ekart.service.SearchService;
 import com.example.ekart.reporting.ReportingService;
 
@@ -46,11 +35,6 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-=======
-
-import jakarta.servlet.http.HttpSession;
-import jakarta.transaction.Transactional;
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 
 @Service
@@ -81,18 +65,12 @@ public class CustomerService {
 	@Autowired
 	private AddressRepository addressRepository;
 
-<<<<<<< HEAD
     @Autowired
     private SearchService searchService;
 
     @Autowired
     private ReportingService reportingService;
 
-    @Autowired
-    private CloudinaryHelper cloudinaryHelper;
-
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
         map.put("customer", customer);
@@ -250,48 +228,18 @@ public class CustomerService {
             return "redirect:/customer/login";
         }
 
-<<<<<<< HEAD
         // 🔥 PENDING CART POPUP: fetch fresh customer and count cart items
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
-=======
-        // Fetch fresh customer from DB
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
-
-        // Cart count for badge
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         int cartCount = 0;
         if (customer.getCart() != null && customer.getCart().getItems() != null) {
             cartCount = customer.getCart().getItems().size();
         }
         map.put("cartCount", cartCount);
 
-<<<<<<< HEAD
         // Load approved products directly for the new combined dashboard
         List<Product> products = productRepository.findByApprovedTrue();
         map.put("products", products);
 
-=======
-        // Load approved products for the main grid
-        List<Product> products = productRepository.findByApprovedTrue();
-        map.put("products", products);
-
-        // Recently viewed products — fetched from DB field, ordered newest-first
-        List<Product> recentlyViewed = new java.util.ArrayList<>();
-        String rvStr = customer.getRecentlyViewedProducts();
-        if (rvStr != null && !rvStr.isBlank()) {
-            java.util.Map<Integer, Product> productMap = products.stream()
-                .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
-            for (String idStr : rvStr.split(",")) {
-                try {
-                    int pid = Integer.parseInt(idStr.trim());
-                    Product p = productMap.get(pid);
-                    if (p != null) recentlyViewed.add(p);
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        map.put("recentlyViewed", recentlyViewed);
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         return "customer-home.html";
     }
 
@@ -308,59 +256,14 @@ public class CustomerService {
             return "redirect:/customer/home";
         }
 
-<<<<<<< HEAD
-=======
-        // Save to recently viewed (DB-backed, newest first, max 10)
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
-        if (customer != null) {
-            String existing = customer.getRecentlyViewedProducts();
-            java.util.List<String> ids = new java.util.ArrayList<>();
-            if (existing != null && !existing.isBlank()) {
-                for (String s : existing.split(",")) {
-                    if (!s.trim().isEmpty() && !s.trim().equals(String.valueOf(id))) {
-                        ids.add(s.trim());
-                    }
-                }
-            }
-            ids.add(0, String.valueOf(id)); // newest first
-            if (ids.size() > 10) ids = ids.subList(0, 10);
-            customer.setRecentlyViewedProducts(String.join(",", ids));
-            customerRepository.save(customer);
-            // Update session too
-            session.setAttribute("customer", customer);
-        }
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         // Similar products — same category, exclude current product
         List<Product> similar = productRepository.findByCategoryAndApprovedTrue(product.getCategory())
                 .stream()
                 .filter(p -> p.getId() != product.getId())
                 .collect(java.util.stream.Collectors.toList());
 
-<<<<<<< HEAD
-        // Sort reviews: highest rating first (good on top, bad on bottom)
-        java.util.List<com.example.ekart.dto.Review> sortedReviews = product.getReviews() != null
-            ? product.getReviews().stream()
-                .sorted((a, b) -> Integer.compare(b.getRating(), a.getRating()))
-                .collect(java.util.stream.Collectors.toList())
-            : new java.util.ArrayList<>();
-
-        // Average rating
-        double avgRating = sortedReviews.stream()
-            .mapToInt(com.example.ekart.dto.Review::getRating)
-            .average().orElse(0.0);
-        double avgRatingRounded = Math.round(avgRating * 10.0) / 10.0;
-
         map.put("product", product);
         map.put("similar", similar);
-        map.put("sortedReviews", sortedReviews);
-        map.put("avgRating", avgRatingRounded);
-        map.put("reviewCount", sortedReviews.size());
-=======
-        map.put("product", product);
-        map.put("similar", similar);
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         return "product-detail.html";
     }
 
@@ -392,7 +295,6 @@ public class CustomerService {
         products.addAll(productRepository.findByDescriptionContainingIgnoreCase(query));
         products.addAll(productRepository.findByCategoryContainingIgnoreCase(query));
 
-<<<<<<< HEAD
         // If no results found, auto-correct spelling and search again
         if (products.isEmpty()) {
             String corrected = searchService.findFuzzyMatch(query);
@@ -413,10 +315,6 @@ public class CustomerService {
         }
 
         map.put("products", products);
-=======
-        map.put("products", products);
-        map.put("query", query);
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         return "search.html";
     }
 
@@ -677,7 +575,6 @@ public String paymentSuccess(Order order, HttpSession session) {
     orderRepository.save(order);
     orderRepository.flush(); // 🔥 ENSURE items are persisted to DB immediately
 
-<<<<<<< HEAD
     // 4a. 📊 Mirror to reporting DB — fires AFTER main transaction commits
     //     Uses TransactionSynchronization so the order is guaranteed committed
     //     before we try to read it in ReportingService.
@@ -694,8 +591,6 @@ public String paymentSuccess(Order order, HttpSession session) {
         }
     });
 
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     // 5. 🔥 FIX: Properly delete cart items from DB, then clear the list
     List<Item> cartItems = new ArrayList<>(customer.getCart().getItems());
     customer.getCart().getItems().clear();
@@ -711,54 +606,6 @@ public String paymentSuccess(Order order, HttpSession session) {
     return "redirect:/customer/home";
 }
 
-<<<<<<< HEAD
-=======
-    // ---------------- MY SPENDING ----------------
-    public String mySpending(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
-        }
-
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-        List<Order> orders = orderRepository.findByCustomer(customer);
-
-        double totalSpent = orders.stream().mapToDouble(Order::getAmount).sum();
-        int totalOrders = orders.size();
-        double avgOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
-
-        // Most bought category
-        java.util.Map<String, Long> categoryCount = new java.util.HashMap<>();
-        for (Order order : orders) {
-            for (Item item : order.getItems()) {
-                String cat = item.getCategory() != null ? item.getCategory() : "Other";
-                categoryCount.merge(cat, (long) item.getQuantity(), Long::sum);
-            }
-        }
-        String topCategory = categoryCount.entrySet().stream()
-            .max(java.util.Map.Entry.comparingByValue())
-            .map(java.util.Map.Entry::getKey)
-            .orElse("—");
-
-        java.time.LocalDateTime lastOrderDate = orders.stream()
-            .map(Order::getOrderDate)
-            .filter(d -> d != null)
-            .max(java.util.Comparator.naturalOrder())
-            .orElse(null);
-
-        map.put("customer", customer);
-        map.put("orders", orders);
-        map.put("totalSpent", totalSpent);
-        map.put("totalOrders", totalOrders);
-        map.put("avgOrder", avgOrder);
-        map.put("topCategory", topCategory);
-        map.put("lastOrderDate", lastOrderDate);
-
-        return "my-spending.html";
-    }
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
     // ---------------- VIEW ORDERS ----------------
     public String viewOrders(HttpSession session, ModelMap map) {
         Customer customer = (Customer) session.getAttribute("customer");
@@ -791,25 +638,6 @@ public String paymentSuccess(Order order, HttpSession session) {
         map.put("orders", orders);
         map.put("returnEligibleMap", returnEligibleMap);
         map.put("replacementRequestedMap", replacementRequestedMap);
-<<<<<<< HEAD
-=======
-
-        // 💰 Spending summary for the customer
-        double totalSpent = orders.stream().mapToDouble(Order::getAmount).sum();
-        int totalOrders = orders.size();
-        double avgOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
-        java.time.LocalDateTime lastOrderDate = orders.stream()
-            .map(Order::getOrderDate)
-            .filter(d -> d != null)
-            .max(java.util.Comparator.naturalOrder())
-            .orElse(null);
-
-        map.put("totalSpent", totalSpent);
-        map.put("totalOrders", totalOrders);
-        map.put("avgOrder", avgOrder);
-        map.put("lastOrderDate", lastOrderDate);
-
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         return "view-orders.html";
     }
 
@@ -997,66 +825,5 @@ public String deleteAddress(int id, HttpSession session) {
     addressRepository.deleteById(id);
     return "redirect:/customer/address";
 }
-<<<<<<< HEAD
-    // ─────────────────────────────────────────────────────────────
-    //  CUSTOMER PROFILE & IMAGE UPLOAD
-    // ─────────────────────────────────────────────────────────────
-
-    public String loadProfilePage(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
-        }
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
-        map.put("customer", customer);
-        return "customer-profile.html";
-    }
-
-    public String uploadProfileImage(MultipartFile file, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        if (sessionCustomer == null) {
-            return "redirect:/customer/login";
-        }
-        if (file == null || file.isEmpty()) {
-            session.setAttribute("failure", "Please select an image to upload");
-            return "redirect:/customer/profile";
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            session.setAttribute("failure", "Only image files are allowed (JPG, PNG, WEBP)");
-            return "redirect:/customer/profile";
-        }
-        if (file.getSize() > 5 * 1024 * 1024) {
-            session.setAttribute("failure", "Image size must be under 5MB");
-            return "redirect:/customer/profile";
-        }
-        try {
-            String imageUrl = cloudinaryHelper.saveProfileImageToCloudinary(file);
-            Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-            customer.setProfileImage(imageUrl);
-            customerRepository.save(customer);
-            // Refresh session
-            session.setAttribute("customer", customer);
-            session.setAttribute("success", "Profile photo updated successfully!");
-        } catch (IOException e) {
-            session.setAttribute("failure", "Upload failed. Please try again.");
-        }
-        return "redirect:/customer/profile";
-    }
-
-    public String removeProfileImage(HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        if (sessionCustomer == null) return "redirect:/customer/login";
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-        customer.setProfileImage(null);
-        customerRepository.save(customer);
-        session.setAttribute("customer", customer);
-        session.setAttribute("success", "Profile photo removed.");
-        return "redirect:/customer/profile";
-    }
-
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 }
