@@ -172,11 +172,7 @@
             backdrop-filter: blur(18px);
             border: 1px solid var(--glass-border);
             border-radius: 16px;
-<<<<<<< HEAD
             overflow: hidden;
-=======
-            overflow-x: auto;
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
         }
         .refund-table {
             width: 100%;
@@ -341,18 +337,9 @@
                 <tr>
                     <th>Order ID</th>
                     <th>Customer</th>
-<<<<<<< HEAD
                     <th>Amount</th>
                     <th>Order Date</th>
                     <th>Status</th>
-=======
-                    <th>Email</th>
-                    <th>Mobile</th>
-                    <th>Delivery Address</th>
-                    <th>Amount</th>
-                    <th>Payment</th>
-                    <th>Order Date</th>
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -360,7 +347,6 @@
                 <tr th:each="order : ${refundRequests}">
                     <td class="order-id">#<span th:text="${order.id}"></span></td>
                     <td th:text="${order.customer.name}">Customer Name</td>
-<<<<<<< HEAD
                     <td class="amount">₹<span th:text="${#numbers.formatDecimal(order.totalPrice, 0, 2)}"></span></td>
                     <td th:text="${#temporals.format(order.orderDate, 'dd MMM yyyy')}">01 Jan 2026</td>
                     <td><span style="color: #fbbf24;">Refund Requested</span></td>
@@ -371,33 +357,6 @@
                         <a th:href="@{/process-refund/{id}(id=${order.id}, action='deny')}" class="btn-deny">
                             <i class="fas fa-times"></i> Deny
                         </a>
-=======
-                    <td th:text="${order.customer.email}" style="font-size:0.8rem; color: var(--text-dim);"></td>
-                    <td th:text="${order.customer.mobile}" style="font-size:0.8rem;"></td>
-                    <td style="font-size:0.8rem; max-width:200px;">
-                        <span th:if="${order.customer.addresses != null && !order.customer.addresses.isEmpty()}"
-                              th:text="${order.customer.addresses[0].details}" style="color: var(--text-light);"></span>
-                        <span th:if="${order.customer.addresses == null || order.customer.addresses.isEmpty()}"
-                              style="color: var(--text-dim); font-style: italic;">No address saved</span>
-                    </td>
-                    <td class="amount">₹<span th:text="${#numbers.formatDecimal(order.amount, 0, 2)}"></span></td>
-                    <td>
-                        <span th:if="${order.paymentMode == 'Cash on Delivery'}"
-                              style="color: #fbbf24; font-size:0.8rem;">💵 Cash on Delivery</span>
-                        <span th:if="${order.paymentMode != 'Cash on Delivery'}"
-                              style="color: #60a5fa; font-size:0.8rem;">💳 Online</span>
-                    </td>
-                    <td th:text="${#temporals.format(order.orderDate, 'dd MMM yyyy')}">01 Jan 2026</td>
-                    <td class="action-btns">
-                        <form th:action="@{/process-refund/{id}(id=${order.id})}" method="post" style="display:inline;">
-                            <input type="hidden" name="action" value="approve"/>
-                            <button type="submit" class="btn-approve"><i class="fas fa-check"></i> Approve</button>
-                        </form>
-                        <form th:action="@{/process-refund/{id}(id=${order.id})}" method="post" style="display:inline;">
-                            <input type="hidden" name="action" value="deny"/>
-                            <button type="submit" class="btn-deny"><i class="fas fa-times"></i> Deny</button>
-                        </form>
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
                     </td>
                 </tr>
             </tbody>
@@ -432,8 +391,4 @@
 </script>
 
 </body>
-<<<<<<< HEAD
 </html>
-=======
-</html>
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57

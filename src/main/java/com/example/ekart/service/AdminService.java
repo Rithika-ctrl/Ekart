@@ -17,11 +17,6 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
-<<<<<<< HEAD
-import com.example.ekart.repository.ReviewRepository;
-import com.example.ekart.dto.Review;
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -48,12 +43,6 @@ public class AdminService {
 	@Autowired
 	private OrderRepository orderRepository;
 
-<<<<<<< HEAD
-	@Autowired
-	private ReviewRepository reviewRepository;
-
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	// 🔥 In-memory storage for dynamic content (in production, use database)
 	private static String bannerTitle = "Welcome to Ekart";
 	private static String bannerSubtitle = "Your one-stop shopping destination";
@@ -211,11 +200,7 @@ public class AdminService {
 		Order order = orderRepository.findById(orderId).orElse(null);
 		if (order == null) {
 			session.setAttribute("failure", "Order not found");
-<<<<<<< HEAD
 			return "redirect:/refund-management";
-=======
-			return "redirect:/admin/refunds";
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 		}
 
 		if ("approve".equals(action)) {
@@ -229,11 +214,7 @@ public class AdminService {
 			session.setAttribute("success", "Refund request denied for Order #" + orderId);
 		}
 
-<<<<<<< HEAD
 		return "redirect:/refund-management";
-=======
-		return "redirect:/admin/refunds";
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 	}
 
 	// ============ CONTENT MANAGEMENT ============
@@ -379,53 +360,4 @@ public class AdminService {
 
 		return "analytics.html";
 	}
-<<<<<<< HEAD
-    // ============ REVIEW MANAGEMENT ============
-
-    public String loadReviewManagement(HttpSession session, ModelMap map) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
-        }
-
-        // All reviews sorted: highest rating first (good reviews on top, bad on bottom)
-        List<Review> reviews = reviewRepository.findAllByOrderByRatingDesc();
-
-        // Stats
-        long totalReviews = reviews.size();
-        long fiveStars   = reviews.stream().filter(r -> r.getRating() == 5).count();
-        long fourStars   = reviews.stream().filter(r -> r.getRating() == 4).count();
-        long threeStars  = reviews.stream().filter(r -> r.getRating() == 3).count();
-        long twoStars    = reviews.stream().filter(r -> r.getRating() == 2).count();
-        long oneStar     = reviews.stream().filter(r -> r.getRating() == 1).count();
-        double avgRating = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
-
-        map.put("reviews",      reviews);
-        map.put("totalReviews", totalReviews);
-        map.put("fiveStars",    fiveStars);
-        map.put("fourStars",    fourStars);
-        map.put("threeStars",   threeStars);
-        map.put("twoStars",     twoStars);
-        map.put("oneStar",      oneStar);
-        map.put("avgRating",    Math.round(avgRating * 10.0) / 10.0);
-        return "admin-review-management.html";
-    }
-
-    public String deleteReview(int reviewId, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
-        }
-        if (reviewRepository.existsById(reviewId)) {
-            reviewRepository.deleteById(reviewId);
-            session.setAttribute("success", "Review deleted successfully.");
-        } else {
-            session.setAttribute("failure", "Review not found.");
-        }
-        return "redirect:/admin/reviews";
-    }
-
-
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 }

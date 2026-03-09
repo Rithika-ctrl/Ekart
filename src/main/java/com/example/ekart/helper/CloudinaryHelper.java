@@ -41,18 +41,5 @@ public String saveVideoToCloudinary(MultipartFile file) throws IOException {
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
     return (String) map.get("url");
 }
-<<<<<<< HEAD
-	// 🔥 Upload customer profile image to Cloudinary
-	@SuppressWarnings("rawtypes")
-	public String saveProfileImageToCloudinary(MultipartFile file) throws IOException {
-	    Cloudinary cloudinary = new Cloudinary("cloudinary://" + key + ":" + secret + "@" + cloudname + "");
-	    Map<String, Object> uploadOptions = new HashMap<>();
-	    uploadOptions.put("folder", "Profiles");
-	    uploadOptions.put("transformation", "c_fill,w_300,h_300,g_face");
-	    Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
-	    return (String) map.get("url");
-	}
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
 
 }

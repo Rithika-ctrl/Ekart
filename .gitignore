@@ -28,7 +28,4 @@ Thumbs.db
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-<<<<<<< HEAD
 src/main/resources/application.properties
-=======
->>>>>>> 613c85671990addeef77db0b6e52a990f48f2f57
