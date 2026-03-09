@@ -352,17 +352,17 @@ public String paymentSuccess(Order order, @RequestParam(required=false, defaultV
     String result = customerService.paymentSuccess(order, session);  // clears cart, saves order
 
     // ✅ Fetch the saved order to get the cloned items
-    if (customer != null && result.contains("home")) {
-        try {
-            Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
-            List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
-            emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
-                    paymentMode, order.getDeliveryTime(), orderItems);
-        } catch (Exception e) {
-            System.err.println("Order confirmation email failed: " + e.getMessage());
-        }
+    if (customer != null && result.contains("home") && order.getId() > 0) {
+    try {
+        Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
+        List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
+        emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
+                paymentMode, order.getDeliveryTime(), orderItems);
+    } catch (Exception e) {
+        System.err.println("Order confirmation email failed: " + e.getMessage());
     }
-    return result;
+}
+return result;
 }
 
     @GetMapping("/view-orders")

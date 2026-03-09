@@ -137,7 +137,11 @@ public class ReportingService {
         return salesRecordRepository.findByVendorId(vendorId);
     }
 
-    /** Product-wise sales for a vendor: [{productName, totalSold}] */
+    /**
+     * Product-wise sales for a vendor: [{productName, totalSold}]
+     * ✅ FIX: Added missing result.add(map) inside the loop.
+     *         Previously the map was built but never added — always returned [].
+     */
     public List<Map<String, Object>> getProductWiseSales(int vendorId) {
         List<Object[]> raw = salesRecordRepository.getProductWiseSales(vendorId);
         List<Map<String, Object>> result = new ArrayList<>();
@@ -145,11 +149,16 @@ public class ReportingService {
             Map<String, Object> map = new HashMap<>();
             map.put("productName", row[0]);
             map.put("totalSold",   row[1]);
+            result.add(map); // ✅ FIX: This line was missing — result was always empty before
         }
         return result;
     }
 
-    /** Category-wise revenue for a vendor: [{category, totalRevenue}] */
+    /**
+     * Category-wise revenue for a vendor: [{category, totalRevenue}]
+     * ✅ FIX: Added missing result.add(map) inside the loop.
+     *         Previously the map was built but never added — always returned [].
+     */
     public List<Map<String, Object>> getCategoryWiseRevenue(int vendorId) {
         List<Object[]> raw = salesRecordRepository.getCategoryWiseRevenue(vendorId);
         List<Map<String, Object>> result = new ArrayList<>();
@@ -157,6 +166,7 @@ public class ReportingService {
             Map<String, Object> map = new HashMap<>();
             map.put("category",     row[0]);
             map.put("totalRevenue", row[1]);
+            result.add(map); // ✅ FIX: This line was missing — result was always empty before
         }
         return result;
     }
@@ -227,7 +237,7 @@ public class ReportingService {
         return result;
     }
 
-    /** Daily revenue trend for the last 30 days: [{date, revenue}] */
+    /** Daily revenue trend for the last N days: [{date, revenue}] */
     public List<Map<String, Object>> getDailyRevenueTrend(int days) {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
         List<Object[]> raw = salesRecordRepository.getDailyRevenueSince(since);

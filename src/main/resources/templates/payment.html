@@ -576,11 +576,14 @@
     }
 
     function validateSelection() {
-        if (!selectedType) { alert('Please select a delivery speed!'); return false; }
-        var slot = document.getElementById('slot-'+selectedType).value;
-        if (!slot) { alert('Please choose a delivery time slot!'); return false; }
-        return true;
-    }
+    if (!selectedType) { alert('Please select a delivery option!'); return false; }
+    var slotEl = document.getElementById('slot-'+selectedType);
+    if (!slotEl) { alert('Please select a delivery option!'); return false; }
+    var slot = slotEl.value;
+    if (!slot) { alert('Please choose a delivery time slot!'); return false; }
+    document.getElementById('cod-delivery-time').value = datePart + ' | ' + slot;
+    return true;
+}
 
     function handleOnlinePay(e) {
         e.preventDefault();

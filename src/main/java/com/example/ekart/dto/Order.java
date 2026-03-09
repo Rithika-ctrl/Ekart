@@ -25,6 +25,7 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+    private String paymentMode;
 
     private String razorpay_payment_id;
     private String razorpay_order_id;
@@ -113,7 +114,6 @@ public class Order {
     public void setDeliveryCharge(double deliveryCharge) {
         this.deliveryCharge = deliveryCharge;
     }
-
     public double getTotalPrice() {
         return totalPrice;
     }
@@ -170,4 +170,6 @@ public class Order {
     public void setItems(List<Item> items) {
         this.items = items;
     }
+    public String getPaymentMode() { return paymentMode; }
+public void setPaymentMode(String paymentMode) { this.paymentMode = paymentMode; }
 }
