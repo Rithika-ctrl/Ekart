@@ -341,29 +341,42 @@ public class EkartController {
     }
 
     @PostMapping("/success")
-public String paymentSuccess(Order order, @RequestParam(required=false, defaultValue="Cash on Delivery") String paymentMode, HttpSession session) {
-    Customer customer = (Customer) session.getAttribute("customer");
-    double finalAmount = 0;
-    if (customer != null && customer.getCart() != null) {
-        for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
-    }
-    order.setAmount(finalAmount);
+    public String paymentSuccess(
+            @RequestParam(required=false) String razorpay_payment_id,
+            @RequestParam(required=false) String razorpay_order_id,
+            @RequestParam(required=false, defaultValue="Cash on Delivery") String paymentMode,
+            @RequestParam(required=false) String deliveryTime,
+            @RequestParam(required=false) String amount,
+            HttpSession session) {
 
-    String result = customerService.paymentSuccess(order, session);  // clears cart, saves order
+        // Build Order manually — avoids Spring binding errors from the @ManyToOne Customer field
+        Order order = new Order();
+        order.setRazorpay_payment_id(razorpay_payment_id);
+        order.setRazorpay_order_id(razorpay_order_id);
+        order.setDeliveryTime(deliveryTime);
+        order.setPaymentMode(paymentMode);
 
-    // ✅ Fetch the saved order to get the cloned items
-    if (customer != null && result.contains("home") && order.getId() > 0) {
-    try {
-        Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
-        List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
-        emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
-                paymentMode, order.getDeliveryTime(), orderItems);
-    } catch (Exception e) {
-        System.err.println("Order confirmation email failed: " + e.getMessage());
+        Customer customer = (Customer) session.getAttribute("customer");
+        double finalAmount = 0;
+        if (customer != null && customer.getCart() != null) {
+            for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
+        }
+        order.setAmount(finalAmount);
+
+        String result = customerService.paymentSuccess(order, session);
+
+        if (customer != null && result.contains("home")) {
+            try {
+                Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
+                List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
+                emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
+                        paymentMode, order.getDeliveryTime(), orderItems);
+            } catch (Exception e) {
+                System.err.println("Order confirmation email failed: " + e.getMessage());
+            }
+        }
+        return result;
     }
-}
-return result;
-}
 
     @GetMapping("/view-orders")
     public String viewOrders(HttpSession session, ModelMap map) {
