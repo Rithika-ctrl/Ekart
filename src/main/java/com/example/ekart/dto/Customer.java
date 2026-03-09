@@ -79,6 +79,12 @@ public class Customer implements Serializable {
 	@Column(length = 200)
 	private String recentlyViewedProducts;
 
+	// ✅ FIX B: Added profileImage field required by customer-proflie.html
+	//    template uses ${customer.profileImage} — this field was missing from entity.
+	//    JPA will auto-add this column to the customer table on next startup (ddl-auto=update).
+	@Column(nullable = true, length = 500)
+	private String profileImage;
+
 	public int getId() { return id; }
 	public void setId(int id) { this.id = id; }
 	public String getName() { return name; }
@@ -111,4 +117,8 @@ public class Customer implements Serializable {
 	public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
 	public String getRecentlyViewedProducts() { return recentlyViewedProducts; }
 	public void setRecentlyViewedProducts(String s) { this.recentlyViewedProducts = s; }
+
+	// ✅ FIX B: getter/setter for profileImage
+	public String getProfileImage() { return profileImage; }
+	public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
 }
