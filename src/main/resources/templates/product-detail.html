@@ -559,10 +559,18 @@
 
     // Wishlist toggle
     function toggleWishlist(productId) {
-        fetch('/wishlist/toggle/' + productId, { method:'POST' })
+        fetch('/api/wishlist/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: productId })
+        })
             .then(r => r.json())
             .then(data => {
                 const btn = document.getElementById('wlBtn');
+                if (!data.success) {
+                    showToast(data.message || 'Please log in to use Wishlist', 'error');
+                    return;
+                }
                 if (data.added) {
                     btn.innerHTML = '<i class="fas fa-heart"></i>';
                     btn.style.background = 'rgba(239,68,68,0.25)';
@@ -573,7 +581,7 @@
                     showToast('Removed from Wishlist', 'error');
                 }
             })
-            .catch(() => showToast('Please log in to use Wishlist', 'error'));
+            .catch(() => showToast('Something went wrong. Please try again.', 'error'));
     }
 
     function showToast(msg, type) {
