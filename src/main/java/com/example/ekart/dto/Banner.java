@@ -7,7 +7,9 @@ public class Banner {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     private String title;
+    @Column(length = 1000)
     private String imageUrl;
+    @Column(length = 1000)
     private String linkUrl;
     private boolean active = true;
     private int displayOrder = 0;
