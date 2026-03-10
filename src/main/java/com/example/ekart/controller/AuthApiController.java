@@ -1,5 +1,9 @@
 package com.example.ekart.controller;
 
+import org.springframework.web.bind.annotation.CrossOrigin; // 1. Add this import
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.ekart.dto.Customer;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
@@ -23,7 +27,7 @@ import java.util.Map;
  *   GET  /api/auth/me        → Bearer token → { customer }
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/flutter/auth")
 @CrossOrigin(origins = "*") // Allow Flutter, web, any origin
 public class AuthApiController {
 
