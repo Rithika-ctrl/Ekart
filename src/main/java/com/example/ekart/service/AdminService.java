@@ -14,10 +14,15 @@ import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.dto.Order;
 import com.example.ekart.dto.TrackingStatus;
+import com.example.ekart.dto.Wishlist;
+import com.example.ekart.dto.Refund;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
+import com.example.ekart.repository.WishlistRepository;
+import com.example.ekart.repository.RefundRepository;
+import com.example.ekart.repository.ItemRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -43,6 +48,15 @@ public class AdminService {
 
 	@Autowired
 	private OrderRepository orderRepository;
+
+	@Autowired
+	private WishlistRepository wishlistRepository;
+
+	@Autowired
+	private RefundRepository refundRepository;
+
+	@Autowired
+	private ItemRepository itemRepository;
 
 	// 🔥 In-memory storage for dynamic content (in production, use database)
 	private static String bannerTitle = "Welcome to Ekart";
@@ -165,6 +179,71 @@ public class AdminService {
 		map.put("customersJson", customersJson);
 		map.put("vendorsJson",   vendorsJson);
 		return "admin-user-search.html";
+	}
+
+	// ============ DELETE CUSTOMER ============
+	@Transactional
+	public String deleteCustomer(int id, HttpSession session) {
+		if (session.getAttribute("admin") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/admin/login";
+		}
+
+		Customer customer = customerRepository.findById(id).orElse(null);
+		if (customer == null) {
+			session.setAttribute("failure", "Customer not found");
+			return "redirect:/admin/search-users";
+		}
+
+		// 1. Delete wishlist entries
+		List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
+		if (!wishlist.isEmpty()) { wishlistRepository.deleteAll(wishlist); wishlistRepository.flush(); }
+
+		// 2. Delete refunds
+		List<Refund> refunds = refundRepository.findByCustomer(customer);
+		if (!refunds.isEmpty()) { refundRepository.deleteAll(refunds); refundRepository.flush(); }
+
+		// 3. Delete orders (CascadeType.ALL handles order items)
+		List<Order> orders = orderRepository.findByCustomer(customer);
+		if (!orders.isEmpty()) { orderRepository.deleteAll(orders); orderRepository.flush(); }
+
+		// 4. Delete customer (CascadeType.ALL handles cart + addresses)
+		customerRepository.delete(customer);
+
+		session.setAttribute("success", "Customer account deleted successfully");
+		return "redirect:/admin/search-users";
+	}
+
+	// ============ DELETE VENDOR ============
+	@Transactional
+	public String deleteVendor(int id, HttpSession session) {
+		if (session.getAttribute("admin") == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/admin/login";
+		}
+
+		Vendor vendor = vendorRepository.findById(id).orElse(null);
+		if (vendor == null) {
+			session.setAttribute("failure", "Vendor not found");
+			return "redirect:/admin/search-users";
+		}
+
+		// 1. Nullify vendor reference on products (don't delete products, just unlink)
+		//    Products remain on platform but become unowned — admin can then delete them separately
+		List<Product> products = productRepository.findAll().stream()
+				.filter(p -> p.getVendor() != null && p.getVendor().getId() == vendor.getId())
+				.collect(java.util.stream.Collectors.toList());
+		for (Product p : products) {
+			p.setVendor(null);
+			p.setApproved(false);
+			productRepository.save(p);
+		}
+
+		// 2. Delete vendor
+		vendorRepository.delete(vendor);
+
+		session.setAttribute("success", "Vendor account deleted successfully");
+		return "redirect:/admin/search-users";
 	}
 
 	// ============ REFUND MANAGEMENT ============

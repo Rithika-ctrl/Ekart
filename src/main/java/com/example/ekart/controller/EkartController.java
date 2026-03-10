@@ -576,9 +576,26 @@ public class EkartController {
 
     // ── SHARED ────────────────────────────────────────────────────────────────
 
+    // ── ADMIN DELETE CUSTOMER / VENDOR ──────────────────────────────────
+    @GetMapping("/admin/delete-customer/{id}")
+    public String adminDeleteCustomer(@PathVariable int id, HttpSession session) {
+        return adminService.deleteCustomer(id, session);
+    }
+
+    @GetMapping("/admin/delete-vendor/{id}")
+    public String adminDeleteVendor(@PathVariable int id, HttpSession session) {
+        return adminService.deleteVendor(id, session);
+    }
+
     @GetMapping({"/logout", "/customer/logout", "/admin/logout", "/vendor/logout"})
     public String logout(HttpSession session) {
         return adminService.logout(session);
+    }
+
+    // ── DELETE ACCOUNT ──────────────────────────────────────────────────
+    @GetMapping("/customer/delete-account")
+    public String deleteAccount(HttpSession session) {
+        return customerService.deleteAccount(session);
     }
 
     @GetMapping("/stock-alerts")

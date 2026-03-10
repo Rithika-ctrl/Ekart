@@ -194,6 +194,46 @@
         .nav-link.logout-link { border-color: rgba(255,100,80,0.3); }
         .nav-link.logout-link:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
+        /* ── Profile dropdown ── */
+        .profile-menu { position:relative; display:flex; align-items:center; }
+        .profile-icon-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 50%;
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #f5a800; font-size: 1.2rem;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .profile-icon-btn:hover { background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
+        .profile-dropdown {
+            display: none;
+            position: absolute; top: calc(100% + 10px); right: 0;
+            background: #1a1208; border: 1px solid rgba(245,168,0,0.25);
+            border-radius: 14px; min-width: 180px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            z-index: 999; overflow: hidden;
+            animation: dropFadeIn 0.15s ease;
+        }
+        @keyframes dropFadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        .profile-dropdown.open { display: block; }
+        .profile-dropdown-name {
+            padding: 0.75rem 1rem;
+            font-size: 0.82rem; color: #aaa;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .profile-dropdown-item {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.7rem 1rem; color: #ccc;
+            font-size: 0.88rem; text-decoration: none;
+            transition: background 0.15s, color 0.15s;
+            cursor: pointer;
+        }
+        .profile-dropdown-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .profile-dropdown-item.delete-item { color: #ef4444; }
+        .profile-dropdown-item.delete-item:hover { background: rgba(239,68,68,0.1); color: #ff6b6b; }
+
         /* ── ALERTS ── */
         .alert-stack {
             position: fixed; top: 5rem; right: 1.5rem;
@@ -615,11 +655,48 @@
             <i class="fas fa-shopping-cart"></i> <span>Cart</span>
             <span class="cart-badge" th:if="${cartCount != null and cartCount > 0}" th:text="${cartCount}"></span>
         </a>
-        <a href="/logout" class="nav-link logout-link" title="Logout">
-            <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
-        </a>
+
+        <!-- Profile dropdown -->
+        <div class="profile-menu" id="profileMenu">
+            <button class="profile-icon-btn" onclick="toggleProfileMenu(event)" title="Account">
+                <i class="fas fa-user-circle"></i>
+            </button>
+            <div class="profile-dropdown" id="profileDropdown">
+                <div class="profile-dropdown-name">
+                    <i class="fas fa-user"></i>
+                    <span th:text="${session.customer != null ? session.customer.name : 'Account'}">Account</span>
+                </div>
+                <a href="/logout" class="profile-dropdown-item">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+                <a href="javascript:void(0)" onclick="hideProfileMenu(); showDeleteModal();" class="profile-dropdown-item delete-item">
+                    <i class="fas fa-trash-alt"></i> Delete Account
+                </a>
+            </div>
+        </div>
     </div>
 </nav>
+
+<!-- ── DELETE ACCOUNT MODAL ── -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+    <div style="background:#1a1208;border:1px solid rgba(239,68,68,0.4);border-radius:20px;padding:2rem 2.2rem;max-width:420px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="text-align:center;margin-bottom:1.2rem;">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">⚠️</div>
+            <h2 style="color:#ef4444;font-size:1.3rem;margin:0 0 0.5rem;">Delete Account?</h2>
+            <p style="color:#aaa;font-size:0.88rem;margin:0;">This will <strong style="color:#ef4444;">permanently delete</strong> your account, all orders, cart and data. This cannot be undone.</p>
+        </div>
+        <div style="display:flex;gap:0.8rem;margin-top:1.5rem;">
+            <button onclick="hideDeleteModal()"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:1px solid #444;background:transparent;color:#ccc;cursor:pointer;font-size:0.9rem;">
+                Cancel
+            </button>
+            <a href="/customer/delete-account"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:0.9rem;text-align:center;text-decoration:none;font-weight:600;">
+                Yes, Delete
+            </a>
+        </div>
+    </div>
+</div>
 
 <!-- ── PAGE ── -->
 <main class="page">
@@ -1080,5 +1157,29 @@
 <!-- ── AI ASSISTANT WIDGET ── -->
 <div th:replace="~{chat-widget :: chatWidget}"></div>
 
+<script>
+    // ── Profile dropdown ──
+    function toggleProfileMenu(e) {
+        e.stopPropagation();
+        document.getElementById('profileDropdown').classList.toggle('open');
+    }
+    function hideProfileMenu() {
+        document.getElementById('profileDropdown').classList.remove('open');
+    }
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function() { hideProfileMenu(); });
+    document.getElementById('profileMenu').addEventListener('click', function(e) { e.stopPropagation(); });
+
+    // ── Delete account modal ──
+    function showDeleteModal() {
+        document.getElementById('delete-modal').style.display = 'flex';
+    }
+    function hideDeleteModal() {
+        document.getElementById('delete-modal').style.display = 'none';
+    }
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) hideDeleteModal();
+    });
+</script>
 </body>
 </html>

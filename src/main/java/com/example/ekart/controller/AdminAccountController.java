@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -132,5 +133,28 @@ public class AdminAccountController {
         Map<String, Object> stats = adminAccountService.getAccountStats();
         stats.put("success", true);
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * DELETE /api/admin/accounts/:id - Permanently delete a customer account.
+     */
+    @DeleteMapping("/api/admin/accounts/{id}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deleteAccount(
+            @PathVariable int id,
+            HttpSession session) {
+
+        if (session.getAttribute("admin") == null) {
+            return ResponseEntity.status(401).body(
+                java.util.Map.of("success", false, "message", "Admin login required"));
+        }
+
+        Map<String, Object> result = adminAccountService.deleteAccount(id);
+
+        if (Boolean.TRUE.equals(result.get("success"))) {
+            return ResponseEntity.ok(result);
+        } else {
+            return ResponseEntity.badRequest().body(result);
+        }
     }
 }

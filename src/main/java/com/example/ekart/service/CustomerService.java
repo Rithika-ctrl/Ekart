@@ -19,6 +19,8 @@ import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Review;
 import com.example.ekart.dto.Order; 
+import com.example.ekart.dto.Wishlist;
+import com.example.ekart.dto.Refund;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.AddressRepository;
@@ -27,6 +29,8 @@ import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
+import com.example.ekart.repository.WishlistRepository;
+import com.example.ekart.repository.RefundRepository;
 import com.example.ekart.service.SearchService;
 import com.example.ekart.reporting.ReportingService;
 
@@ -70,6 +74,12 @@ public class CustomerService {
 
     @Autowired
     private ReportingService reportingService;
+
+    @Autowired
+    private WishlistRepository wishlistRepository;
+
+    @Autowired
+    private RefundRepository refundRepository;
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
@@ -625,6 +635,52 @@ public String paymentSuccess(Order order, HttpSession session) {
     session.setAttribute("success", "Order Placed Successfully!");
     return "redirect:/customer/home";
 }
+
+    // ---------------- DELETE ACCOUNT ----------------
+    @Transactional
+    public String deleteAccount(HttpSession session) {
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        if (sessionCustomer == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/customer/login";
+        }
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
+        if (customer == null) {
+            session.setAttribute("failure", "Account not found");
+            return "redirect:/customer/home";
+        }
+
+        // 1. Delete wishlist entries (no cascade on Wishlist → Customer FK)
+        List<Wishlist> wishlistItems = wishlistRepository.findByCustomer(customer);
+        if (!wishlistItems.isEmpty()) {
+            wishlistRepository.deleteAll(wishlistItems);
+            wishlistRepository.flush();
+        }
+
+        // 2. Delete refund records (no cascade on Refund → Customer FK)
+        List<Refund> refunds = refundRepository.findByCustomer(customer);
+        if (!refunds.isEmpty()) {
+            refundRepository.deleteAll(refunds);
+            refundRepository.flush();
+        }
+
+        // 3. Delete all orders — CascadeType.ALL on Order.items handles order items automatically
+        List<Order> orders = orderRepository.findByCustomer(customer);
+        if (!orders.isEmpty()) {
+            orderRepository.deleteAll(orders);
+            orderRepository.flush();
+        }
+
+        // 4. Delete the customer — CascadeType.ALL on Customer.cart and Customer.addresses
+        //    handles cart items and addresses automatically
+        customerRepository.delete(customer);
+
+        // 5. Invalidate session
+        session.invalidate();
+
+        return "redirect:/customer/login?deleted=true";
+    }
 
     // ---------------- VIEW ORDERS ----------------
     public String viewOrders(HttpSession session, ModelMap map) {
