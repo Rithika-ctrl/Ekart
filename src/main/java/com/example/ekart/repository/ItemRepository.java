@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.example.ekart.dto.Item;
 
 public interface ItemRepository extends JpaRepository<Item, Integer> {
-    // This allows you to find all "Happy Happy" items in all carts
+    // Find cart items by product name (kept for legacy use)
     List<Item> findByName(String name);
+
+    // ✅ FIX: Find cart items by productId — reliable even if product name changes
+    List<Item> findByProductId(Integer productId);
 }

@@ -505,10 +505,13 @@
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script th:inline="javascript">
-    var baseAmount     = /*[[${amount}]]*/ 0;
-    var tomorrowCharge = 129;
-    var customerName   = /*[[${customer.name}]]*/ 'Customer';
-    var customerEmail  = /*[[${customer.email}]]*/ 'email@example.com';
+    var baseAmount      = /*[[${amount}]]*/ 0;
+    var tomorrowCharge  = 129;
+    var customerName    = /*[[${customer.name}]]*/ 'Customer';
+    var customerEmail   = /*[[${customer.email}]]*/ 'email@example.com';
+    // ✅ FIX: Key is now injected by backend via map.put("razorpayKeyId", ...)
+    //         Never hardcode credentials in HTML.
+    var razorpayKeyId   = /*[[${razorpayKeyId}]]*/ '';
     var selectedType   = null;
 
     // Nav scroll
@@ -576,14 +579,23 @@
     }
 
     function validateSelection() {
-    if (!selectedType) { alert('Please select a delivery option!'); return false; }
-    var slotEl = document.getElementById('slot-'+selectedType);
-    if (!slotEl) { alert('Please select a delivery option!'); return false; }
-    var slot = slotEl.value;
-    if (!slot) { alert('Please choose a delivery time slot!'); return false; }
-    document.getElementById('cod-delivery-time').value = datePart + ' | ' + slot;
-    return true;
-}
+        if (!selectedType) { alert('Please select a delivery option!'); return false; }
+        var slotEl = document.getElementById('slot-' + selectedType);
+        if (!slotEl) { alert('Please select a delivery option!'); return false; }
+        var slot = slotEl.value;
+        if (!slot) { alert('Please choose a delivery time slot!'); return false; }
+        // ✅ FIX: datePart was undefined here (it lived only inside updateDeliveryLabel).
+        //         Recalculate it directly so this function is self-contained.
+        var today = new Date(), datePart;
+        if (selectedType === 'standard') {
+            datePart = 'Standard | Expected by ' + formatDate(addBusinessDays(today, 5));
+        } else {
+            var t = new Date(today); t.setDate(today.getDate() + 1);
+            datePart = 'Tomorrow | Expected by ' + formatDate(t);
+        }
+        document.getElementById('cod-delivery-time').value = datePart + ' | ' + slot;
+        return true;
+    }
 
     function handleOnlinePay(e) {
         e.preventDefault();
@@ -591,7 +603,7 @@
         var payAmount     = parseFloat(document.getElementById('cod-amount').value);
         var deliveryLabel = document.getElementById('cod-delivery-time').value;
         var options = {
-            "key": "YOUR_RAZORPAY_KEY_ID",
+            "key": razorpayKeyId,  // ✅ FIX: injected from backend, not hardcoded
             "amount": payAmount * 100, "currency": "INR",
             "name": "Ekart Shop", "description": "Order Payment",
             "handler": function(response) {

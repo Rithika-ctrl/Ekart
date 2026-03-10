@@ -399,11 +399,34 @@
                         <span class="info-value amount-value">₹<th:block th:text="${o.amount}"></th:block></span>
                     </div>
 
-                    <!-- Status -->
+                    <!-- Status — ✅ FIX: was always showing "Placed" regardless of actual status -->
                     <div class="info-row">
                         <span class="info-label">Status</span>
                         <span class="info-value">
-                            <span class="status-placed"><i class="fas fa-check-circle"></i> Placed</span>
+                            <!-- PROCESSING / SHIPPED / OUT_FOR_DELIVERY -->
+                            <span class="status-placed"
+                                  th:if="${o.trackingStatus == null
+                                          or o.trackingStatus.name() == 'PROCESSING'
+                                          or o.trackingStatus.name() == 'SHIPPED'
+                                          or o.trackingStatus.name() == 'OUT_FOR_DELIVERY'}">
+                                <i class="fas fa-check-circle"></i>
+                                <span th:text="${o.trackingStatus != null ? o.trackingStatus.displayName : 'Placed'}">Placed</span>
+                            </span>
+                            <!-- DELIVERED -->
+                            <span style="display:inline-flex;align-items:center;gap:0.35rem;background:rgba(34,197,94,0.18);color:#22c55e;border:1px solid rgba(34,197,94,0.4);padding:0.2rem 0.7rem;border-radius:20px;font-size:0.72rem;font-weight:700;"
+                                  th:if="${o.trackingStatus != null and o.trackingStatus.name() == 'DELIVERED'}">
+                                <i class="fas fa-box-open"></i> Delivered
+                            </span>
+                            <!-- CANCELLED -->
+                            <span style="display:inline-flex;align-items:center;gap:0.35rem;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3);padding:0.2rem 0.7rem;border-radius:20px;font-size:0.72rem;font-weight:700;"
+                                  th:if="${o.trackingStatus != null and o.trackingStatus.name() == 'CANCELLED'}">
+                                <i class="fas fa-times-circle"></i> Cancelled
+                            </span>
+                            <!-- REFUNDED -->
+                            <span style="display:inline-flex;align-items:center;gap:0.35rem;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.3);padding:0.2rem 0.7rem;border-radius:20px;font-size:0.72rem;font-weight:700;"
+                                  th:if="${o.trackingStatus != null and o.trackingStatus.name() == 'REFUNDED'}">
+                                <i class="fas fa-undo"></i> Refunded
+                            </span>
                         </span>
                     </div>
 
@@ -444,15 +467,22 @@
                 <!-- Footer actions -->
                 <div class="order-card-footer">
 
-                    <!-- Track Order - Show for active shipments (not delivered) -->
-                    <a th:if="${o.trackingStatus == null or o.trackingStatus.name() != 'DELIVERED'}"
+                    <!-- Track Order — only for active orders (not delivered/cancelled/refunded) -->
+                    <a th:if="${o.trackingStatus == null
+                                or (o.trackingStatus.name() != 'DELIVERED'
+                                    and o.trackingStatus.name() != 'CANCELLED'
+                                    and o.trackingStatus.name() != 'REFUNDED')}"
                        th:href="@{'/track/' + ${o.id}}"
                        class="action-btn btn-track">
                         <i class="fas fa-truck"></i> Track Order
                     </a>
 
-                    <!-- Cancel -->
-                    <a th:href="@{'/cancel-order/' + ${o.id}}"
+                    <!-- Cancel — ✅ FIX: was showing for ALL orders including already cancelled/delivered ones -->
+                    <a th:if="${o.trackingStatus == null
+                                or (o.trackingStatus.name() != 'DELIVERED'
+                                    and o.trackingStatus.name() != 'CANCELLED'
+                                    and o.trackingStatus.name() != 'REFUNDED')}"
+                       th:href="@{'/cancel-order/' + ${o.id}}"
                        class="action-btn btn-cancel"
                        onclick="return confirm('Do you really want to cancel this order?')">
                         <i class="fas fa-times"></i> Cancel Order

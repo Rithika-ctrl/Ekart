@@ -351,8 +351,28 @@
             </div>
         </div>
 
-        <!-- Vertical Stepper Progress Bar -->
-        <div class="tracking-stepper">
+        <!-- ✅ FIX: CANCELLED / REFUNDED banner — show before stepper, stepper hidden for these -->
+        <div th:if="${trackingStatus.name() == 'CANCELLED'}"
+             style="display:flex;align-items:center;gap:0.75rem;
+                    background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+                    border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;
+                    font-size:0.875rem;color:#ef4444;">
+            <i class="fas fa-times-circle" style="font-size:1.2rem;flex-shrink:0;"></i>
+            <span><strong>Order Cancelled.</strong> This order was cancelled and will not be delivered.</span>
+        </div>
+
+        <div th:if="${trackingStatus.name() == 'REFUNDED'}"
+             style="display:flex;align-items:center;gap:0.75rem;
+                    background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);
+                    border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;
+                    font-size:0.875rem;color:#818cf8;">
+            <i class="fas fa-undo" style="font-size:1.2rem;flex-shrink:0;"></i>
+            <span><strong>Refund Processed.</strong> Your refund has been initiated successfully.</span>
+        </div>
+
+        <!-- Vertical Stepper — ✅ FIX: hidden for CANCELLED/REFUNDED to avoid wrong ordinal rendering -->
+        <div class="tracking-stepper"
+             th:if="${trackingStatus.name() != 'CANCELLED' and trackingStatus.name() != 'REFUNDED'}">
 
             <!-- Step 1: Processing -->
             <div class="step" th:classappend="${trackingStatus.ordinal() >= 0} ? 'completed' : ''">

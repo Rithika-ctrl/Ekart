@@ -356,16 +356,23 @@ public class EkartController {
         order.setDeliveryTime(deliveryTime);
         order.setPaymentMode(paymentMode);
 
+        // ✅ FIX 1: Use the amount sent from the frontend (includes tomorrow delivery surcharge ₹129).
+        //           Previously this recalculated from cart and always missed the surcharge.
         Customer customer = (Customer) session.getAttribute("customer");
         double finalAmount = 0;
-        if (customer != null && customer.getCart() != null) {
+        if (amount != null && !amount.isBlank()) {
+            try { finalAmount = Double.parseDouble(amount); } catch (Exception ignored) {}
+        }
+        // Fallback to cart total if frontend amount is missing/unparseable
+        if (finalAmount == 0 && customer != null && customer.getCart() != null) {
             for (Item item : customer.getCart().getItems()) finalAmount += item.getPrice();
         }
         order.setAmount(finalAmount);
 
         String result = customerService.paymentSuccess(order, session);
 
-        if (customer != null && result.contains("home")) {
+        // ✅ FIX 2: Check result contains "order-success" (not "home") since we now redirect there.
+        if (customer != null && result.contains("order-success")) {
             try {
                 Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
                 List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
