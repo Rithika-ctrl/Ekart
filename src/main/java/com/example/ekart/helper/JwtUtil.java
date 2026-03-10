@@ -5,8 +5,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.security.Key;
 import java.util.Date;
 
@@ -15,14 +17,25 @@ import java.util.Date;
  * Token contains: customerId, email, role
  * Expiry: 7 days
  *
- * Place in: src/main/java/com/example/ekart/helper/JwtUtil.java
+ * ✅ FIX: Secret is now injected from application.properties / .env
+ *         Add to .env:                JWT_SECRET=your-strong-256-bit-secret-here
+ *         Add to application.properties: jwt.secret=${JWT_SECRET:ekart-default-change-me}
  */
 @Component
 public class JwtUtil {
 
-    // Use a strong secret — ideally from .env: jwt.secret=your-256-bit-secret
-    private static final String SECRET = "ekart-super-secret-jwt-key-2024-minimum-256bits!!";
+    @Value("${jwt.secret:ekart-super-secret-jwt-key-2024-minimum-256bits!!}")
+    private String secretValue;
+
     private static final long EXPIRY_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
+
+    // Static holder so getKey() can be used — initialised by @PostConstruct
+    private static String SECRET;
+
+    @PostConstruct
+    private void initSecret() {
+        SECRET = this.secretValue;
+    }
 
     private Key getKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes());

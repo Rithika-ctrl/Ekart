@@ -13,6 +13,7 @@ import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.dto.Order;
+import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.ProductRepository;
@@ -204,12 +205,16 @@ public class AdminService {
 		}
 
 		if ("approve".equals(action)) {
-			// Clear the replacement flag and mark as refunded
+			// ✅ FIX: Set TrackingStatus to REFUNDED so the order shows correctly
+			//         everywhere — view-orders badge, track-single-order banner, etc.
+			//         Previously only cleared replacementRequested but never updated status.
 			order.setReplacementRequested(false);
+			order.setTrackingStatus(TrackingStatus.REFUNDED);
 			orderRepository.save(order);
 			session.setAttribute("success", "Refund approved for Order #" + orderId);
 		} else if ("deny".equals(action)) {
 			order.setReplacementRequested(false);
+			// Status stays as-is when denied — order is not refunded
 			orderRepository.save(order);
 			session.setAttribute("success", "Refund request denied for Order #" + orderId);
 		}

@@ -344,6 +344,12 @@ public class CustomerService {
             return "redirect:/customer/home";
         }
 
+        // ✅ FIX: Guard against adding out-of-stock products
+        if (product.getStock() <= 0) {
+            session.setAttribute("failure", "Sorry, this product is out of stock.");
+            return "redirect:/customer/home";
+        }
+
         Item item = new Item();
         item.setName(product.getName());
         item.setCategory(product.getCategory());
@@ -393,16 +399,26 @@ public class CustomerService {
     // ---------------- INCREASE QUANTITY ----------------
     public String increase(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
-        List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
 
-        if (products.isEmpty()) {              // ← ADD THIS CHECK
-        session.setAttribute("failure", "This product is no longer available.");
-        return "redirect:/view-cart";
+        // ✅ FIX: Use productId directly instead of fragile name search
+        if (item.getProductId() == null) {
+            session.setAttribute("failure", "This product is no longer available.");
+            return "redirect:/view-cart";
         }
-        Product product = products.get(0);
+        Product product = productRepository.findById(item.getProductId()).orElse(null);
+        if (product == null) {
+            session.setAttribute("failure", "This product is no longer available.");
+            return "redirect:/view-cart";
+        }
+
+        // ✅ FIX: Guard against going below zero stock
+        if (product.getStock() <= 0) {
+            session.setAttribute("failure", "No more stock available for this product.");
+            return "redirect:/view-cart";
+        }
+
         item.setQuantity(item.getQuantity() + 1);
         item.setPrice(item.getPrice() + product.getPrice());
-
         product.setStock(product.getStock() - 1);
 
         itemRepository.save(item);
@@ -414,16 +430,20 @@ public class CustomerService {
     // ---------------- DECREASE QUANTITY ----------------
     public String decrease(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
-        List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
 
-        if (products.isEmpty()) {
+        // ✅ FIX: Use productId directly instead of fragile name search
+        Product product = null;
+        if (item.getProductId() != null) {
+            product = productRepository.findById(item.getProductId()).orElse(null);
+        }
+
+        if (product == null) {
+            // Product deleted from catalogue — just remove the cart item cleanly
             item.getCart().getItems().removeIf(i -> i.getId() == item.getId());
             itemRepository.delete(item);
             session.setAttribute("failure", "This product is no longer available.");
             return "redirect:/view-cart";
         }
-
-        Product product = products.get(0);
 
         if (item.getQuantity() > 1) {
             item.setQuantity(item.getQuantity() - 1);
@@ -445,12 +465,12 @@ public class CustomerService {
     public String removeFromCart(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
 
-        // Restore stock
-        List<Product> products = productRepository.findByNameContainingIgnoreCase(item.getName());
-        if (!products.isEmpty()) {
-            Product product = products.get(0);
-            product.setStock(product.getStock() + item.getQuantity());
-            productRepository.save(product);
+        // ✅ FIX: Restore stock using productId directly, not name search
+        if (item.getProductId() != null) {
+            productRepository.findById(item.getProductId()).ifPresent(product -> {
+                product.setStock(product.getStock() + item.getQuantity());
+                productRepository.save(product);
+            });
         }
 
         // Detach from cart list first, then delete

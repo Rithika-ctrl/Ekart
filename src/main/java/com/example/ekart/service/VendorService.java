@@ -402,7 +402,10 @@ public class VendorService {
 			return "redirect:/manage-products";
 		}
 
-		List<Item> items = itemRepository.findByName(product.getName());
+		// ✅ FIX: Use productId-based lookup instead of fragile name search.
+		//         findByName() could match cart items for a completely different
+		//         product if two products share the same name.
+		List<Item> items = itemRepository.findByProductId(product.getId());
 		if (items != null && !items.isEmpty()) {
 			itemRepository.deleteAll(items);
 		}
