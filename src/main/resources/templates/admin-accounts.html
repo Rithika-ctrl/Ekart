@@ -203,6 +203,8 @@
         .btn-deactivate:hover { background: rgba(239,68,68,0.3); }
         .btn-reset { background: rgba(245,168,0,0.15); color: var(--yellow); }
         .btn-reset:hover { background: rgba(245,168,0,0.3); }
+        .btn-delete { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-delete:hover { background: rgba(239,68,68,0.25); }
 
         .no-data { text-align: center; padding: 3rem; color: var(--text-dim); }
         .no-data i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.5; }
@@ -351,7 +353,7 @@
                     </tr>
                 </thead>
                 <tbody id="accountsTableBody">
-                    <tr th:each="account : ${accounts}" th:data-id="${account.id}">
+                    <tr th:each="account : ${accounts}" th:data-account-id="${account.id}">
                         <td>
                             <div class="user-cell">
                                 <div class="user-avatar" th:text="${#strings.substring(account.name, 0, 1).toUpperCase()}">J</div>
@@ -382,8 +384,14 @@
                                 <button th:unless="${account.isActive}" class="btn-action btn-activate" title="Activate Account" th:onclick="'toggleStatus(' + ${account.id} + ', true)'">
                                     <i class="fas fa-user-check"></i>
                                 </button>
-                                <button class="btn-action btn-reset" title="Reset Password" th:onclick="'resetPassword(' + ${account.id} + ')'">
+                                <button class="btn-action btn-reset" title="Reset Password" th:onclick="'resetPassword(' + ${account.id} + ')')">
                                     <i class="fas fa-key"></i>
+                                </button>
+                                <button class="btn-action btn-delete" title="Delete Account"
+                                        th:data-id="${account.id}"
+                                        th:data-name="${account.name}"
+                                        onclick="confirmDelete(this.dataset.id, this.dataset.name)">
+                                    <i class="fas fa-trash-alt"></i>
                                 </button>
                             </div>
                         </td>
@@ -481,7 +489,7 @@
                 const lastLogin = account.lastLogin ? new Date(account.lastLogin).toLocaleString() : 'Never';
                 
                 return `
-                    <tr data-id="${account.id}">
+                    <tr data-account-id="${account.id}">
                         <td>
                             <div class="user-cell">
                                 <div class="user-avatar">${initial}</div>
@@ -511,6 +519,9 @@
                                 }
                                 <button class="btn-action btn-reset" title="Reset Password" onclick="resetPassword(${account.id})">
                                     <i class="fas fa-key"></i>
+                                </button>
+                                <button class="btn-action btn-delete" title="Delete Account" onclick="confirmDelete(${account.id}, '${account.name}')">
+                                    <i class="fas fa-trash-alt"></i>
                                 </button>
                             </div>
                         </td>
@@ -734,5 +745,70 @@
     <!-- Global Toast System -->
     <script src="/js/ekart-toast.js"></script>
     <link rel="stylesheet" href="/css/ekart-ui.css">
+
+<!-- ── DELETE CONFIRMATION MODAL ── -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+     align-items:center;justify-content:center;">
+    <div style="background:#1a1208;border:1px solid rgba(239,68,68,0.4);border-radius:20px;
+                padding:2rem 2.2rem;max-width:400px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="text-align:center;margin-bottom:1.2rem;">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">⚠️</div>
+            <h2 style="color:#ef4444;font-size:1.2rem;margin:0 0 0.5rem;">Delete Account?</h2>
+            <p style="color:#aaa;font-size:0.85rem;margin:0;">
+                Permanently delete <strong id="delete-name" style="color:#fff;"></strong>?
+                This cannot be undone.
+            </p>
+        </div>
+        <div style="display:flex;gap:0.8rem;margin-top:1.5rem;">
+            <button onclick="closeDeleteModal()"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:1px solid #444;
+                       background:transparent;color:#ccc;cursor:pointer;font-size:0.9rem;">
+                Cancel
+            </button>
+            <button id="delete-confirm-btn" onclick="executeDelete()"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:none;
+                       background:#ef4444;color:#fff;cursor:pointer;font-size:0.9rem;font-weight:600;">
+                Yes, Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var deleteTargetId = null;
+
+    function confirmDelete(id, name) {
+        deleteTargetId = id;
+        document.getElementById('delete-name').textContent = name;
+        document.getElementById('delete-modal').style.display = 'flex';
+    }
+    function closeDeleteModal() {
+        document.getElementById('delete-modal').style.display = 'none';
+        deleteTargetId = null;
+    }
+    async function executeDelete() {
+        if (!deleteTargetId) return;
+        try {
+            const res = await fetch(`/api/admin/accounts/${deleteTargetId}`, { method: 'DELETE' });
+            const data = await res.json();
+            closeDeleteModal();
+            if (data.success) {
+                // Remove row from table without reload
+                const row = document.querySelector(`[data-account-id="${deleteTargetId}"]`);
+                if (row) row.closest('tr').remove();
+                alert(data.message || 'Account deleted successfully');
+            } else {
+                alert('Error: ' + (data.message || 'Could not delete account'));
+            }
+        } catch (e) {
+            closeDeleteModal();
+            alert('Error deleting account. Please try again.');
+        }
+    }
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+</script>
 </body>
 </html>

@@ -15,11 +15,14 @@ import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Order;
 import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.dto.Wishlist;
+import com.example.ekart.dto.Refund;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
+import com.example.ekart.repository.RefundRepository;
+import com.example.ekart.repository.ItemRepository;
 
 import jakarta.transaction.Transactional;
 
@@ -39,6 +42,12 @@ public class AdminAccountService {
 
     @Autowired
     private WishlistRepository wishlistRepository;
+
+    @Autowired
+    private RefundRepository refundRepository;
+
+    @Autowired
+    private ItemRepository itemRepository;
 
     @Autowired
     private EmailSender emailSender;
@@ -261,5 +270,40 @@ public class AdminAccountService {
         stats.put("suspendedAccounts", suspendedAccounts);
         
         return stats;
+    }
+
+    /**
+     * Permanently delete a customer account and all associated data.
+     */
+    public Map<String, Object> deleteAccount(int customerId) {
+        Map<String, Object> result = new HashMap<>();
+
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) {
+            result.put("success", false);
+            result.put("message", "Customer not found");
+            return result;
+        }
+
+        String name = customer.getName();
+
+        // 1. Delete wishlist entries
+        List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
+        if (!wishlist.isEmpty()) { wishlistRepository.deleteAll(wishlist); wishlistRepository.flush(); }
+
+        // 2. Delete refunds
+        List<Refund> refunds = refundRepository.findByCustomer(customer);
+        if (!refunds.isEmpty()) { refundRepository.deleteAll(refunds); refundRepository.flush(); }
+
+        // 3. Delete orders (CascadeType.ALL handles order items)
+        List<Order> orders = orderRepository.findByCustomer(customer);
+        if (!orders.isEmpty()) { orderRepository.deleteAll(orders); orderRepository.flush(); }
+
+        // 4. Delete customer (CascadeType.ALL handles cart + addresses)
+        customerRepository.delete(customer);
+
+        result.put("success", true);
+        result.put("message", "Account of " + name + " deleted successfully");
+        return result;
     }
 }
