@@ -632,7 +632,7 @@ public class VendorService {
             m.put("orderDate",   r.getOrderDate().toString());
             m.put("productName", r.getProductName());
             m.put("category",    r.getCategory());
-            m.put("itemCount",   r.getQuantity());
+            m.put("quantity",    r.getQuantity());
             ordersJson.add(m);
         }
 
@@ -641,5 +641,41 @@ public class VendorService {
         response.put("timestamp",  java.time.LocalDateTime.now().toString());
 
         return org.springframework.http.ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /vendor/sync-reporting
+     * Backfills ALL existing orders into the reporting DB.
+     * Needed when orders were placed before reporting DB was configured.
+     * Safe to call multiple times - recordOrder() is idempotent.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> syncReportingDb(
+            jakarta.servlet.http.HttpSession session) {
+
+        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        if (vendor == null) {
+            return org.springframework.http.ResponseEntity
+                    .status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(java.util.Map.of("error", "Not logged in"));
+        }
+
+        List<com.example.ekart.dto.Order> orders = orderRepository.findOrdersByVendor(vendor);
+
+        int synced = 0;
+        for (com.example.ekart.dto.Order order : orders) {
+            try {
+                reportingService.recordOrder(order);
+                synced++;
+            } catch (Exception e) {
+                System.err.println("[Sync] Failed order " + order.getId() + ": " + e.getMessage());
+            }
+        }
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("synced",  synced);
+        result.put("total",   orders.size());
+        result.put("message", "Synced " + synced + " of " + orders.size() + " orders");
+        return org.springframework.http.ResponseEntity.ok(result);
     }
 }
