@@ -10,7 +10,6 @@ import lombok.Data;
  */
 @Entity
 @Table(name = "refund_images")
-@Data
 public class RefundImage {
 
     @Id
@@ -25,4 +24,28 @@ public class RefundImage {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refund_id", nullable = false)
     private Refund refund;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public Refund getRefund() {
+        return refund;
+    }
+
+    public void setRefund(Refund refund) {
+        this.refund = refund;
+    }
 }
