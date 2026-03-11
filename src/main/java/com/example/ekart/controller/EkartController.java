@@ -212,10 +212,16 @@ public class EkartController {
         return vendorService.loadSalesReport(session, map);
     }
 
-    // 🔥 NEW: API endpoint for AJAX polling (returns JSON only)
+    // API endpoint for AJAX polling (returns JSON only)
     @GetMapping("/vendor/sales-report-api")
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> vendorSalesReportAPI(HttpSession session) {
         return vendorService.getSalesReportJSON(session);
+    }
+
+    // Backfill existing orders into reporting DB (called from Sync button)
+    @PostMapping("/vendor/sync-reporting")
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> vendorSyncReporting(HttpSession session) {
+        return vendorService.syncReportingDb(session);
     }
 
     // ── CUSTOMER ─────────────────────────────────────────────────────────────

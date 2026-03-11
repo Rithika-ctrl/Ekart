@@ -20,24 +20,28 @@ import java.util.Map;
  * ============================================================
  *  DECOUPLED REPORTING DATABASE CONFIGURATION
  * ============================================================
- *  Main DB     -> MySQL (ekart / Railway)   — live transactional data
- *  Reporting DB -> H2 file (ekart_reporting_db) — analytics / sales data
+ *  Main DB     → MySQL (Railway)   — live transactional data
+ *  Reporting DB → H2 file          — analytics / sales data only
  *
- *  The reporting DB is a separate persistence unit.
- *  It is written to only via ReportingService.recordOrder()
- *  and read from by ReportingService analytics methods.
- *  Zero reporting queries hit the main MySQL DB.
+ *  Design:
+ *   - Completely separate persistence unit ("reporting")
+ *   - ReportingService is the ONLY class that reads/writes here
+ *   - Zero reporting queries hit the main MySQL DB
+ *   - Auto-creates sales_record table on first startup
+ *   - Safe for Railway deployment: no AUTO_SERVER mode
  * ============================================================
  */
 @Configuration
 @EnableJpaRepositories(
     basePackages = "com.example.ekart.reporting",
     entityManagerFactoryRef = "reportingEntityManagerFactory",
-    transactionManagerRef = "reportingTransactionManager"
+    transactionManagerRef   = "reportingTransactionManager"
 )
 public class ReportingDataSourceConfig {
 
-    @Value("${reporting.datasource.url:jdbc:h2:file:./ekart_reporting_db;AUTO_SERVER=TRUE}")
+    // ── Read from application.properties (with safe defaults) ─────────────
+
+    @Value("${reporting.datasource.url:jdbc:h2:file:./ekart_reporting_db;DB_CLOSE_ON_EXIT=FALSE;DB_CLOSE_DELAY=-1}")
     private String url;
 
     @Value("${reporting.datasource.username:sa}")
@@ -48,6 +52,8 @@ public class ReportingDataSourceConfig {
 
     @Value("${reporting.datasource.driver-class-name:org.h2.Driver}")
     private String driverClassName;
+
+    // ── Beans ──────────────────────────────────────────────────────────────
 
     @Bean(name = "reportingDataSource")
     public DataSource reportingDataSource() {
@@ -70,9 +76,15 @@ public class ReportingDataSourceConfig {
         factory.setPersistenceUnitName("reporting");
 
         Map<String, Object> props = new HashMap<>();
-        props.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
-        props.put("hibernate.hbm2ddl.auto", "update");   // auto-creates sales_record table
-        props.put("hibernate.show_sql", "false");
+        props.put("hibernate.dialect",            "org.hibernate.dialect.H2Dialect");
+        props.put("hibernate.hbm2ddl.auto",       "update");   // auto-creates/updates sales_record table
+        props.put("hibernate.show_sql",            "false");
+        props.put("hibernate.format_sql",          "false");
+        // Connection pool settings — prevents stale connections
+        props.put("hibernate.connection.pool_size", "2");
+        props.put("hibernate.c3p0.min_size",        "1");
+        props.put("hibernate.c3p0.max_size",        "3");
+        props.put("hibernate.c3p0.timeout",         "300");
         factory.setJpaPropertyMap(props);
 
         return factory;
