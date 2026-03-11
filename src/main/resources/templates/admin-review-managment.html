@@ -314,7 +314,8 @@
                         <form th:action="@{/admin/bulk-delete-reviews}" method="post" style="display:inline;">
                             <input type="hidden" name="productName" th:value="${ps.productName}">
                             <button type="button" class="btn-delete"
-                                    th:onclick="'confirmBulkDelete(\'' + ${ps.productName} + '\', this.form)'">
+                                    th:data-product="${ps.productName}"
+                                    onclick="confirmBulkDelete(this.getAttribute('data-product'), this.closest('form'))">
                                 <i class="fas fa-trash"></i> Clear All
                             </button>
                         </form>
@@ -388,7 +389,8 @@
                 <div class="review-actions">
                     <a th:href="@{'/admin/delete-review/' + ${review.id}}"
                        class="btn-delete"
-                       th:onclick="'return confirmDelete(' + ${review.id} + ')'">
+                       th:data-rid="${review.id}"
+                       onclick="return confirmDelete(parseInt(this.getAttribute('data-rid')))">
                         <i class="fas fa-trash"></i> Delete
                     </a>
                 </div>
