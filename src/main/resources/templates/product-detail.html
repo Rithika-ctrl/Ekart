@@ -23,7 +23,6 @@
         html { scroll-behavior:smooth; }
         body { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
 
-        /* ── BACKGROUND ── */
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
             content:''; position:absolute; inset:-20px;
@@ -35,7 +34,7 @@
             background:linear-gradient(180deg,rgba(5,8,20,0.85) 0%,rgba(8,12,28,0.80) 40%,rgba(5,8,20,0.92) 100%);
         }
 
-        /* ── NAV ── */
+        /* NAV */
         nav {
             position:fixed; top:0; left:0; right:0; z-index:100;
             padding:0.75rem 2rem;
@@ -57,167 +56,97 @@
         .nav-link.logout-link { border-color:rgba(255,100,80,0.3); }
         .nav-link.logout-link:hover { color:#ff8060; border-color:rgba(255,100,80,0.6); background:rgba(255,100,80,0.08); }
 
-        /* ── ALERTS ── */
+        /* ALERTS */
         .alert-stack { position:fixed; top:5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
         .alert { padding:0.875rem 1.25rem; background:rgba(10,12,30,0.88); backdrop-filter:blur(16px); border:1px solid; border-radius:10px; display:flex; align-items:center; gap:0.625rem; font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both; }
         .alert-success { border-color:rgba(34,197,94,0.45); color:#22c55e; }
         .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
         .alert-close   { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; font-size:1rem; }
 
-        /* ── PAGE ── */
+        /* PAGE */
         .page { flex:1; padding:6.5rem 2rem 4rem; max-width:1300px; margin:0 auto; width:100%; display:flex; flex-direction:column; gap:3rem; }
 
-        /* ── BREADCRUMB ── */
+        /* BREADCRUMB */
         .breadcrumb { display:flex; align-items:center; gap:0.5rem; font-size:0.78rem; color:var(--text-dim); animation:fadeUp 0.4s ease both; }
         .breadcrumb a { color:var(--text-dim); text-decoration:none; transition:color 0.2s; }
         .breadcrumb a:hover { color:var(--yellow); }
         .breadcrumb i { font-size:0.6rem; }
 
-        /* ── MAIN PRODUCT SECTION ── */
-        .product-main {
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:2.5rem;
-            animation:fadeUp 0.5s ease both;
-        }
+        /* PRODUCT MAIN */
+        .product-main { display:grid; grid-template-columns:1fr 1fr; gap:2.5rem; animation:fadeUp 0.5s ease both; }
 
-        /* ── LEFT: MEDIA ── */
+        /* MEDIA */
         .media-col { display:flex; flex-direction:column; gap:1rem; }
-
-        .main-image-wrap {
-            position:relative;
-            border-radius:24px; overflow:hidden;
-            border:1px solid var(--glass-border);
-            background:rgba(0,0,0,0.3);
-            aspect-ratio:4/3;
-        }
-        .main-image-wrap img {
-            width:100%; height:100%; object-fit:cover;
-            transition:transform 0.5s;
-        }
+        .main-image-wrap { position:relative; border-radius:24px; overflow:hidden; border:1px solid var(--glass-border); background:rgba(0,0,0,0.3); aspect-ratio:4/3; }
+        .main-image-wrap img { width:100%; height:100%; object-fit:cover; transition:transform 0.5s; }
         .main-image-wrap:hover img { transform:scale(1.04); }
-
-        .category-badge {
-            position:absolute; top:14px; left:14px;
-            background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
-            border:1px solid var(--glass-border);
-            color:var(--yellow); font-size:0.65rem; font-weight:700;
-            padding:5px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:0.07em;
-        }
-
+        .category-badge { position:absolute; top:14px; left:14px; background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); border:1px solid var(--glass-border); color:var(--yellow); font-size:0.65rem; font-weight:700; padding:5px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:0.07em; }
         .thumbnail-row { display:flex; gap:0.6rem; flex-wrap:wrap; }
-        .thumb {
-            width:72px; height:72px; border-radius:12px; cursor:pointer;
-            border:2px solid transparent; object-fit:cover;
-            transition:all 0.25s; flex-shrink:0;
-            background:rgba(0,0,0,0.3);
-        }
+        .thumb { width:72px; height:72px; border-radius:12px; cursor:pointer; border:2px solid transparent; object-fit:cover; transition:all 0.25s; flex-shrink:0; background:rgba(0,0,0,0.3); }
         .thumb:hover, .thumb.active { border-color:var(--yellow); transform:scale(1.08); }
-
-        .video-wrap {
-            border-radius:16px; overflow:hidden;
-            border:1px solid var(--glass-border);
-            background:rgba(0,0,0,0.4);
-        }
+        .video-wrap { border-radius:16px; overflow:hidden; border:1px solid var(--glass-border); background:rgba(0,0,0,0.4); }
         .video-wrap video { width:100%; max-height:220px; display:block; }
 
-        /* ── RIGHT: INFO ── */
+        /* INFO */
         .info-col { display:flex; flex-direction:column; gap:1.4rem; }
-
         .product-title { font-size:clamp(1.5rem,3vw,2.2rem); font-weight:800; line-height:1.2; }
         .product-title span { color:var(--yellow); }
-
-        .info-row {
-            display:flex; align-items:flex-start; gap:0.75rem;
-            background:rgba(255,255,255,0.05);
-            border:1px solid var(--glass-border);
-            border-radius:12px; padding:0.9rem 1.1rem;
-        }
+        .info-row { display:flex; align-items:flex-start; gap:0.75rem; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; padding:0.9rem 1.1rem; }
         .info-row-icon { color:var(--yellow); font-size:1rem; margin-top:2px; flex-shrink:0; }
-        .info-row-body {}
         .info-row-label { font-size:0.68rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.2rem; }
         .info-row-value { font-size:0.92rem; font-weight:500; color:white; line-height:1.5; }
-
-        .price-block {
-            background:linear-gradient(135deg,rgba(245,168,0,0.12),rgba(245,168,0,0.04));
-            border:1px solid rgba(245,168,0,0.3);
-            border-radius:16px; padding:1.25rem 1.5rem;
-            display:flex; align-items:center; justify-content:space-between; gap:1rem;
-        }
+        .price-block { background:linear-gradient(135deg,rgba(245,168,0,0.12),rgba(245,168,0,0.04)); border:1px solid rgba(245,168,0,0.3); border-radius:16px; padding:1.25rem 1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
         .price-big { font-size:2.4rem; font-weight:800; color:var(--yellow); line-height:1; }
         .price-big sup { font-size:1rem; font-weight:700; vertical-align:super; }
-
-        .stock-pill {
-            display:inline-flex; align-items:center; gap:0.4rem;
-            font-size:0.75rem; font-weight:700;
-            padding:0.35rem 0.9rem; border-radius:50px;
-        }
-        .stock-pill.in-stock { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.35); color:#22c55e; }
-        .stock-pill.low-stock { background:rgba(245,168,0,0.15); border:1px solid rgba(245,168,0,0.35); color:var(--yellow); }
-        .stock-pill.out-stock { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#ef4444; }
-
-        .btn-add-cart {
-            display:flex; align-items:center; justify-content:center; gap:0.6rem;
-            background:var(--yellow); color:#1a1000;
-            border:none; border-radius:16px; padding:1rem 2rem;
-            font-family:'Poppins',sans-serif; font-size:1rem; font-weight:700;
-            letter-spacing:0.06em; text-transform:uppercase;
-            text-decoration:none; cursor:pointer;
-            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
-            box-shadow:0 8px 28px rgba(245,168,0,0.3);
-        }
+        .stock-pill { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.75rem; font-weight:700; padding:0.35rem 0.9rem; border-radius:50px; }
+        .stock-pill.in-stock  { background:rgba(34,197,94,0.15);  border:1px solid rgba(34,197,94,0.35);  color:#22c55e; }
+        .stock-pill.low-stock { background:rgba(245,168,0,0.15);  border:1px solid rgba(245,168,0,0.35);  color:var(--yellow); }
+        .stock-pill.out-stock { background:rgba(239,68,68,0.12);  border:1px solid rgba(239,68,68,0.3);   color:#ef4444; }
+        .btn-add-cart { display:flex; align-items:center; justify-content:center; gap:0.6rem; background:var(--yellow); color:#1a1000; border:none; border-radius:16px; padding:1rem 2rem; font-family:'Poppins',sans-serif; font-size:1rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; text-decoration:none; cursor:pointer; transition:all 0.3s cubic-bezier(0.23,1,0.32,1); box-shadow:0 8px 28px rgba(245,168,0,0.3); }
         .btn-add-cart:hover { background:var(--yellow-d); transform:translateY(-3px); box-shadow:0 14px 36px rgba(245,168,0,0.45); color:#1a1000; text-decoration:none; }
-
-        .btn-wishlist-lg {
-            display:flex; align-items:center; justify-content:center; gap:0.5rem;
-            background:rgba(239,68,68,0.1);
-            border:1px solid rgba(239,68,68,0.35);
-            color:#ef4444; border-radius:16px; padding:1rem;
-            font-family:'Poppins',sans-serif; font-size:0.85rem; font-weight:600;
-            cursor:pointer; transition:all 0.3s; flex-shrink:0;
-        }
+        .btn-wishlist-lg { display:flex; align-items:center; justify-content:center; gap:0.5rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444; border-radius:16px; padding:1rem; font-family:'Poppins',sans-serif; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.3s; flex-shrink:0; }
         .btn-wishlist-lg:hover { background:rgba(239,68,68,0.2); transform:translateY(-2px); }
-
         .action-row { display:flex; gap:0.75rem; }
+        .vendor-badge { display:inline-flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:50px; padding:0.4rem 0.9rem; font-size:0.72rem; color:var(--text-dim); }
+        .vendor-badge i { color:var(--yellow); }
 
-        /* ── REVIEWS ── */
-        .section-title {
-            font-size:1.2rem; font-weight:700; color:white;
-            display:flex; align-items:center; gap:0.6rem;
-            padding-bottom:0.75rem;
-            border-bottom:1px solid var(--glass-border);
-            margin-bottom:1rem;
-        }
+        /* SECTION TITLE */
+        .section-title { font-size:1.2rem; font-weight:700; color:white; display:flex; align-items:center; gap:0.6rem; padding-bottom:0.75rem; border-bottom:1px solid var(--glass-border); margin-bottom:1rem; }
         .section-title i { color:var(--yellow); }
 
+        /* REVIEWS */
         .reviews-grid { display:flex; flex-direction:column; gap:0.75rem; }
-        .review-card {
-            background:rgba(255,255,255,0.05);
-            border:1px solid var(--glass-border);
-            border-radius:14px; padding:1rem 1.25rem;
-            border-left:3px solid var(--yellow);
-            animation:fadeUp 0.4s ease both;
-        }
+        .review-card { background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:14px; padding:1rem 1.25rem; border-left:3px solid var(--yellow); animation:fadeUp 0.4s ease both; }
         .review-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; }
         .review-author { font-size:0.8rem; font-weight:700; color:white; }
         .review-stars { color:var(--yellow); font-size:0.7rem; }
         .review-text { font-size:0.78rem; color:var(--text-dim); line-height:1.55; }
 
-        .review-form-wrap {
-            background:rgba(255,255,255,0.04);
-            border:1px solid var(--glass-border);
-            border-radius:14px; padding:1.25rem;
-            margin-top:1rem;
+        /* ── REVIEW PHOTOS (new) ── */
+        .review-photos { margin-top:0.6rem; display:flex; flex-direction:column; gap:0.5rem; }
+        .photo-strip { display:flex; flex-wrap:wrap; gap:0.4rem; }
+        .photo-thumb {
+            width:58px; height:58px; border-radius:8px; object-fit:cover;
+            border:1px solid var(--glass-border); cursor:pointer;
+            transition:all 0.25s;
         }
+        .photo-thumb:hover { border-color:var(--yellow); transform:scale(1.08); }
+        .btn-add-photos {
+            display:inline-flex; align-items:center; gap:0.3rem;
+            font-size:0.68rem; font-weight:600; color:var(--yellow);
+            background:rgba(245,168,0,0.08); border:1px solid rgba(245,168,0,0.22);
+            border-radius:6px; padding:0.25rem 0.6rem;
+            text-decoration:none; cursor:pointer; transition:all 0.2s;
+            font-family:'Poppins',sans-serif;
+        }
+        .btn-add-photos:hover { background:rgba(245,168,0,0.18); color:var(--yellow); }
+
+        /* REVIEW FORM */
+        .review-form-wrap { background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:14px; padding:1.25rem; margin-top:1rem; }
         .review-form-wrap h4 { font-size:0.85rem; font-weight:700; color:white; margin-bottom:0.75rem; }
         .review-form { display:flex; gap:0.5rem; flex-wrap:wrap; }
         .review-form select,
-        .review-form input {
-            background:rgba(255,255,255,0.07); border:1px solid var(--glass-border);
-            border-radius:9px; color:white;
-            font-family:'Poppins',sans-serif; font-size:0.78rem;
-            padding:0.55rem 0.75rem; transition:all 0.25s;
-        }
+        .review-form input { background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); border-radius:9px; color:white; font-family:'Poppins',sans-serif; font-size:0.78rem; padding:0.55rem 0.75rem; transition:all 0.25s; }
         .review-form select { flex-shrink:0; width:75px; }
         .review-form input { flex:1; min-width:160px; }
         .review-form select:focus, .review-form input:focus { outline:none; border-color:var(--yellow); background:rgba(255,255,255,0.1); }
@@ -225,91 +154,90 @@
         .btn-post { background:var(--yellow); color:#1a1000; border:none; border-radius:9px; padding:0.55rem 1.1rem; font-family:'Poppins',sans-serif; font-size:0.78rem; font-weight:700; cursor:pointer; transition:all 0.25s; white-space:nowrap; flex-shrink:0; }
         .btn-post:hover { background:var(--yellow-d); }
 
-        /* ── SIMILAR PRODUCTS ── */
+        /* ── PHOTO UPLOAD PANEL (new) ── */
+        .upload-panel {
+            background:rgba(255,255,255,0.04);
+            border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.25rem;
+            margin-top:1rem;
+        }
+        .upload-panel h4 { font-size:0.85rem; font-weight:700; color:white; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem; }
+        .upload-panel h4 i { color:var(--yellow); }
+        .dropzone {
+            border:1.5px dashed rgba(245,168,0,0.35);
+            border-radius:10px; padding:1.5rem 1rem;
+            text-align:center; cursor:pointer;
+            transition:all 0.25s; margin-bottom:0.75rem;
+        }
+        .dropzone:hover, .dropzone.drag-over { background:rgba(245,168,0,0.06); border-color:rgba(245,168,0,0.6); }
+        .dropzone i { font-size:1.6rem; color:var(--yellow); opacity:0.7; margin-bottom:0.35rem; display:block; }
+        .dropzone p { font-size:0.75rem; color:var(--text-dim); margin:0; }
+        .dropzone p span { color:var(--yellow); font-weight:600; }
+        .dropzone small { font-size:0.65rem; color:var(--text-dim); opacity:0.7; }
+        .preview-strip { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem; }
+        .preview-item { position:relative; width:62px; height:62px; }
+        .preview-item img { width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid var(--glass-border); }
+        .preview-item .remove { position:absolute; top:-5px; right:-5px; width:16px; height:16px; border-radius:50%; background:#ef4444; color:white; font-size:9px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; font-family:'Poppins',sans-serif; }
+        .upload-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; }
+        .upload-count { font-size:0.7rem; color:var(--text-dim); }
+        .upload-count span { color:var(--yellow); font-weight:700; }
+        .btn-upload {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:var(--yellow); color:#1a1000;
+            border:none; border-radius:9px; padding:0.5rem 1.1rem;
+            font-family:'Poppins',sans-serif; font-size:0.75rem; font-weight:700;
+            cursor:pointer; transition:all 0.25s; letter-spacing:0.04em;
+        }
+        .btn-upload:hover { background:var(--yellow-d); }
+        .btn-upload:disabled { opacity:0.4; cursor:not-allowed; }
+
+        /* LIGHTBOX */
+        .lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:999; align-items:center; justify-content:center; }
+        .lightbox.open { display:flex; }
+        .lightbox img { max-width:90vw; max-height:88vh; border-radius:12px; box-shadow:0 0 60px rgba(0,0,0,0.8); }
+        .lightbox-close { position:absolute; top:1.5rem; right:1.5rem; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border); color:white; border-radius:50%; width:36px; height:36px; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+        .lightbox-close:hover { background:rgba(255,255,255,0.2); }
+
+        /* SIMILAR */
         .similar-section { animation:fadeUp 0.6s ease both; }
         .similar-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1.25rem; margin-top:1.25rem; }
-
-        .sim-card {
-            background:var(--glass-card);
-            backdrop-filter:blur(18px);
-            border:1px solid var(--glass-border);
-            border-radius:18px; overflow:hidden;
-            text-decoration:none; color:var(--text-white);
-            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
-            display:flex; flex-direction:column;
-            animation:fadeUp 0.5s ease both;
-        }
+        .sim-card { background:var(--glass-card); backdrop-filter:blur(18px); border:1px solid var(--glass-border); border-radius:18px; overflow:hidden; text-decoration:none; color:var(--text-white); transition:all 0.3s cubic-bezier(0.23,1,0.32,1); display:flex; flex-direction:column; animation:fadeUp 0.5s ease both; }
         .sim-card:hover { transform:translateY(-6px); border-color:rgba(245,168,0,0.4); box-shadow:0 20px 45px rgba(0,0,0,0.35); color:white; text-decoration:none; }
-
         .sim-img-wrap { position:relative; height:170px; overflow:hidden; flex-shrink:0; }
         .sim-img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
         .sim-card:hover .sim-img { transform:scale(1.07); }
         .sim-cat { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); border:1px solid var(--glass-border); color:var(--yellow); font-size:0.6rem; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; }
-
         .sim-body { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .sim-name { font-size:0.9rem; font-weight:700; color:white; }
         .sim-desc { font-size:0.72rem; color:var(--text-dim); line-height:1.45; }
         .sim-price { font-size:1.3rem; font-weight:800; color:var(--yellow); margin-top:auto; padding-top:0.4rem; }
         .sim-price sup { font-size:0.7rem; vertical-align:super; font-weight:700; }
-
-        .btn-sim-cart {
-            display:flex; align-items:center; justify-content:center; gap:0.4rem;
-            background:var(--yellow); color:#1a1000;
-            border:none; border-top: 1px solid rgba(0,0,0,0.1);
-            padding:0.6rem 1rem;
-            font-family:'Poppins',sans-serif; font-size:0.75rem; font-weight:700;
-            letter-spacing:0.05em; text-transform:uppercase;
-            text-decoration:none; cursor:pointer;
-            transition:all 0.25s; flex-shrink:0;
-        }
+        .btn-sim-cart { display:flex; align-items:center; justify-content:center; gap:0.4rem; background:var(--yellow); color:#1a1000; border:none; border-top:1px solid rgba(0,0,0,0.1); padding:0.6rem 1rem; font-family:'Poppins',sans-serif; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; text-decoration:none; cursor:pointer; transition:all 0.25s; flex-shrink:0; }
         .btn-sim-cart:hover { background:var(--yellow-d); color:#1a1000; text-decoration:none; }
-
-        .no-similar {
-            text-align:center; padding:3rem;
-            color:var(--text-dim); font-size:0.85rem;
-        }
+        .no-similar { text-align:center; padding:3rem; color:var(--text-dim); font-size:0.85rem; }
         .no-similar i { font-size:2.5rem; margin-bottom:0.75rem; opacity:0.3; display:block; }
 
-        /* ── VENDOR BADGE ── */
-        .vendor-badge {
-            display:inline-flex; align-items:center; gap:0.5rem;
-            background:rgba(255,255,255,0.05); border:1px solid var(--glass-border);
-            border-radius:50px; padding:0.4rem 0.9rem;
-            font-size:0.72rem; color:var(--text-dim);
-        }
-        .vendor-badge i { color:var(--yellow); }
-
-        /* ── FOOTER ── */
+        /* FOOTER */
         footer { background:rgba(0,0,0,0.5); backdrop-filter:blur(16px); border-top:1px solid var(--glass-border); padding:1.1rem 2rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; }
         .footer-brand { font-size:1rem; font-weight:700; color:white; }
         .footer-brand span { color:var(--yellow); }
         .footer-copy { font-size:0.7rem; color:var(--text-dim); }
 
-        /* ── ANIMATIONS ── */
-        @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        /* ANIMATIONS */
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
-        /* ── RESPONSIVE ── */
-        @media(max-width:900px) {
-            .product-main { grid-template-columns:1fr; }
-            nav { padding:0.7rem 1rem; }
-            .page { padding:5.5rem 1rem 3rem; }
-        }
-        @media(max-width:560px) {
-            .similar-grid { grid-template-columns:1fr 1fr; }
-            .nav-link span { display:none; }
-            .nav-link { padding:0.42rem 0.55rem; }
-        }
-        @media(max-width:380px) {
-            .similar-grid { grid-template-columns:1fr; }
-        }
+        /* RESPONSIVE */
+        @media(max-width:900px) { .product-main { grid-template-columns:1fr; } nav { padding:0.7rem 1rem; } .page { padding:5.5rem 1rem 3rem; } }
+        @media(max-width:560px) { .similar-grid { grid-template-columns:1fr 1fr; } .nav-link span { display:none; } .nav-link { padding:0.42rem 0.55rem; } }
+        @media(max-width:380px) { .similar-grid { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
 
 <div class="bg-layer"></div>
 
-<!-- ── ALERTS ── -->
+<!-- ALERTS -->
 <div class="alert-stack">
     <div class="alert alert-success" th:if="${session.success}">
         <i class="fas fa-check-circle"></i>
@@ -324,19 +252,19 @@
     <th:block th:text="${@messageRemover.remove()}"></th:block>
 </div>
 
-<!-- ── NAV ── -->
+<!-- NAV -->
 <nav id="nav">
     <a href="/customer/home" class="nav-brand">
         <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
         Ek<span>art</span>
     </a>
     <div class="nav-right">
-        <a href="/track-orders"   class="nav-link"><i class="fas fa-truck"></i>     <span>Track</span></a>
-        <a href="/order-history"  class="nav-link"><i class="fas fa-history"></i>   <span>Orders</span></a>
-        <a href="/view-orders"    class="nav-link"><i class="fas fa-box-open"></i>  <span>My Orders</span></a>
+        <a href="/track-orders"    class="nav-link"><i class="fas fa-truck"></i>          <span>Track</span></a>
+        <a href="/order-history"   class="nav-link"><i class="fas fa-history"></i>        <span>Orders</span></a>
+        <a href="/view-orders"     class="nav-link"><i class="fas fa-box-open"></i>       <span>My Orders</span></a>
         <a href="/account/wishlist" class="nav-link wishlist-link"><i class="fas fa-heart"></i> <span>Wishlist</span></a>
-        <a href="/view-cart"      class="nav-link cart-link"><i class="fas fa-shopping-cart"></i> <span>Cart</span></a>
-        <a href="/logout"         class="nav-link logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+        <a href="/view-cart"       class="nav-link cart-link"><i class="fas fa-shopping-cart"></i> <span>Cart</span></a>
+        <a href="/logout"          class="nav-link logout-link"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
     </div>
 </nav>
 
@@ -351,36 +279,26 @@
         <span th:text="${product.name}">Product</span>
     </div>
 
-    <!-- ── MAIN PRODUCT ── -->
+    <!-- MAIN PRODUCT -->
     <div class="product-main">
 
         <!-- LEFT: Media -->
         <div class="media-col">
             <div class="main-image-wrap">
-                <img th:src="${product.imageLink}" th:id="'heroImg'" alt="" id="heroImg">
+                <img th:src="${product.imageLink}" id="heroImg" alt="">
                 <span class="category-badge" th:text="${product.category}"></span>
             </div>
-
-            <!-- Thumbnails -->
             <div class="thumbnail-row" th:if="${product.extraImageList != null and !product.extraImageList.isEmpty()}">
-                <img class="thumb active" th:src="${product.imageLink}"
-                     onclick="switchImg(this)" alt="">
-                <img th:each="url : ${product.extraImageList}" class="thumb"
-                     th:src="${url}" onclick="switchImg(this)" alt="">
+                <img class="thumb active" th:src="${product.imageLink}" onclick="switchImg(this)" alt="">
+                <img th:each="url : ${product.extraImageList}" class="thumb" th:src="${url}" onclick="switchImg(this)" alt="">
             </div>
-
-            <!-- Video -->
             <div class="video-wrap" th:if="${product.videoLink != null and !#strings.isEmpty(product.videoLink)}">
-                <video controls>
-                    <source th:src="${product.videoLink}" type="video/mp4">
-                </video>
+                <video controls><source th:src="${product.videoLink}" type="video/mp4"></video>
             </div>
         </div>
 
         <!-- RIGHT: Info -->
         <div class="info-col">
-
-            <!-- Title -->
             <div>
                 <h1 class="product-title" th:text="${product.name}">Product Name</h1>
                 <div style="margin-top:0.5rem;">
@@ -390,77 +308,44 @@
                     </span>
                 </div>
             </div>
-
-            <!-- Description -->
             <div class="info-row">
                 <i class="fas fa-align-left info-row-icon"></i>
-                <div class="info-row-body">
+                <div>
                     <div class="info-row-label">Description</div>
                     <div class="info-row-value" th:text="${product.description}"></div>
                 </div>
             </div>
-
-            <!-- Category -->
             <div class="info-row">
                 <i class="fas fa-tag info-row-icon"></i>
-                <div class="info-row-body">
+                <div>
                     <div class="info-row-label">Category</div>
                     <div class="info-row-value" th:text="${product.category}"></div>
                 </div>
             </div>
-
-            <!-- Price + Stock -->
             <div class="price-block">
                 <div class="price-big"><sup>₹</sup><span th:text="${product.price}"></span></div>
                 <div>
-                    <span th:if="${product.stock > 10}"
-                          class="stock-pill in-stock">
-                        <i class="fas fa-circle" style="font-size:0.5rem;"></i>
-                        <span th:text="${product.stock} + ' in stock'"></span>
-                    </span>
-                    <span th:if="${product.stock > 0 and product.stock <= 10}"
-                          class="stock-pill low-stock">
-                        <i class="fas fa-exclamation-circle" style="font-size:0.65rem;"></i>
-                        <span th:text="'Only ' + ${product.stock} + ' left!'"></span>
-                    </span>
-                    <span th:if="${product.stock == 0}"
-                          class="stock-pill out-stock">
-                        <i class="fas fa-times-circle" style="font-size:0.65rem;"></i> Out of Stock
-                    </span>
+                    <span th:if="${product.stock > 10}"       class="stock-pill in-stock"><i class="fas fa-circle" style="font-size:0.5rem;"></i> <span th:text="${product.stock} + ' in stock'"></span></span>
+                    <span th:if="${product.stock > 0 and product.stock <= 10}" class="stock-pill low-stock"><i class="fas fa-exclamation-circle" style="font-size:0.65rem;"></i> <span th:text="'Only ' + ${product.stock} + ' left!'"></span></span>
+                    <span th:if="${product.stock == 0}"       class="stock-pill out-stock"><i class="fas fa-times-circle" style="font-size:0.65rem;"></i> Out of Stock</span>
                 </div>
             </div>
-
-            <!-- Add to Cart + Wishlist -->
             <div class="action-row">
-                <!-- ✅ FIX: Show active Add to Cart only when stock > 0 -->
-                <a th:if="${product.stock > 0}"
-                   th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;">
-                    <i class="fas fa-cart-plus"></i> Add to Cart
-                </a>
-                <!-- Disabled button when out of stock -->
-                <span th:if="${product.stock == 0}"
-                      class="btn-add-cart" style="flex:1;opacity:0.45;cursor:not-allowed;pointer-events:none;">
-                    <i class="fas fa-ban"></i> Out of Stock
-                </span>
-                <button class="btn-wishlist-lg" th:id="'wlBtn'" th:onclick="'toggleWishlist(' + ${product.id} + ')'">
-                    <i class="far fa-heart"></i>
-                </button>
+                <a th:if="${product.stock > 0}"  th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;"><i class="fas fa-cart-plus"></i> Add to Cart</a>
+                <span th:if="${product.stock == 0}" class="btn-add-cart" style="flex:1;opacity:0.45;cursor:not-allowed;pointer-events:none;"><i class="fas fa-ban"></i> Out of Stock</span>
+                <button class="btn-wishlist-lg" id="wlBtn" th:onclick="'toggleWishlist(' + ${product.id} + ')'"><i class="far fa-heart"></i></button>
             </div>
-
-            <!-- Back -->
             <a href="/customer/home" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-dim);text-decoration:none;transition:color 0.2s;">
                 <i class="fas fa-arrow-left"></i> Back to all products
             </a>
-
         </div>
     </div>
 
-    <!-- ── REVIEWS ── -->
+    <!-- REVIEWS -->
     <div>
         <div class="section-title">
             <i class="fas fa-star"></i> Customer Reviews
-            <span style="font-size:0.78rem;font-weight:400;color:var(--text-dim);"
-                  th:text="'(' + ${#lists.size(product.reviews)} + ' reviews)'"></span>
+            <span style="font-size:0.78rem;font-weight:400;color:var(--text-dim);" th:text="'(' + ${#lists.size(product.reviews)} + ' reviews)'"></span>
         </div>
 
         <div class="reviews-grid" th:if="${product.reviews != null and !product.reviews.isEmpty()}">
@@ -472,6 +357,66 @@
                     </span>
                 </div>
                 <p class="review-text" th:text="${review.comment}"></p>
+
+                <!-- ── REVIEW PHOTOS ── -->
+                <div class="review-photos" th:attr="data-review-id=${review.id}">
+                    <!-- photo thumbnails injected by JS -->
+                    <div class="photo-strip"></div>
+                    <!-- "Add photos" button — only for the review's own author -->
+                    <div th:if="${session.customer != null and review.customerName == session.customer.name}">
+                        <button class="btn-add-photos" th:onclick="'openUploadPanel(' + ${review.id} + ')'">
+                            <i class="fas fa-camera"></i> Add photos
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ── INLINE UPLOAD PANEL for this review (hidden by default) ── -->
+                <div th:if="${session.customer != null and review.customerName == session.customer.name}"
+                     th:id="'uploadPanel_' + ${review.id}"
+                     class="upload-panel" style="margin-top:0.75rem;display:none;">
+
+                    <h4><i class="fas fa-camera-retro"></i> Upload Photos for Your Review</h4>
+
+                    <form th:action="@{/customer/review/{rid}/upload-image(rid=${review.id})}"
+                          method="post" enctype="multipart/form-data"
+                          th:id="'uploadForm_' + ${review.id}">
+
+                        <div class="dropzone"
+                             th:id="'dropzone_' + ${review.id}"
+                             th:onclick="'document.getElementById(\'fileInput_' + ${review.id} + '\').click()'"
+                             th:ondragover="'event.preventDefault();this.classList.add(\'drag-over\')'"
+                             th:ondragleave="'this.classList.remove(\'drag-over\')'"
+                             th:ondrop="'handleDrop(event,' + ${review.id} + ')'">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drag &amp; drop photos or <span>click to browse</span></p>
+                            <small>JPG, PNG, WEBP · max 5MB each · up to 5 images</small>
+                        </div>
+
+                        <input type="file"
+                               th:id="'fileInput_' + ${review.id}"
+                               name="images" multiple
+                               accept="image/jpeg,image/png,image/webp"
+                               class="d-none" style="display:none;"
+                               th:onchange="'handleSelect(this,' + ${review.id} + ')'">
+
+                        <div th:id="'preview_' + ${review.id}" class="preview-strip"></div>
+
+                        <div class="upload-meta">
+                            <span class="upload-count"><span th:id="'count_' + ${review.id}">0</span>/5 photos selected</span>
+                            <small style="font-size:0.65rem;color:var(--text-dim);">JPG, PNG, WEBP only</small>
+                        </div>
+
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <button type="submit" class="btn-upload" th:id="'uploadBtn_' + ${review.id}" disabled>
+                                <i class="fas fa-upload"></i> Upload
+                            </button>
+                            <button type="button" class="btn-add-photos"
+                                    th:onclick="'closeUploadPanel(' + ${review.id} + ')'">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -480,7 +425,7 @@
             No reviews yet — be the first to review this product!
         </div>
 
-        <!-- Post Review -->
+        <!-- Write a Review -->
         <div class="review-form-wrap">
             <h4><i class="fas fa-pen" style="color:var(--yellow);margin-right:6px;"></i>Write a Review</h4>
             <form action="/add-review" method="post">
@@ -498,17 +443,48 @@
                 </div>
             </form>
         </div>
+
+        <!-- Upload photos directly from product page (attaches to latest review) -->
+        <div class="upload-panel" th:if="${session.customer != null}" id="productPageUpload" style="margin-top:0.5rem;">
+            <h4><i class="fas fa-images"></i> Add Photos to Your Review</h4>
+            <p style="font-size:0.72rem;color:var(--text-dim);margin-bottom:0.75rem;">Already written a review? Upload photos to your most recent review for this product.</p>
+
+            <form th:action="@{/customer/product/{id}/upload-image(id=${product.id})}"
+                  method="post" enctype="multipart/form-data" id="productUploadForm">
+
+                <div class="dropzone" id="productDropzone"
+                     onclick="document.getElementById('productFileInput').click()"
+                     ondragover="event.preventDefault();this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="handleProductDrop(event)">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drag &amp; drop photos or <span>click to browse</span></p>
+                    <small>JPG, PNG, WEBP · max 5MB each · up to 5 images</small>
+                </div>
+
+                <input type="file" id="productFileInput" name="images" multiple
+                       accept="image/jpeg,image/png,image/webp" style="display:none;"
+                       onchange="handleProductSelect(this)">
+
+                <div id="productPreview" class="preview-strip"></div>
+
+                <div class="upload-meta">
+                    <span class="upload-count"><span id="productCount">0</span>/5 photos selected</span>
+                </div>
+
+                <button type="submit" class="btn-upload" id="productUploadBtn" disabled>
+                    <i class="fas fa-upload"></i> Upload Photos
+                </button>
+            </form>
+        </div>
     </div>
 
-    <!-- ── SIMILAR PRODUCTS ── -->
+    <!-- SIMILAR PRODUCTS -->
     <div class="similar-section">
         <div class="section-title">
-            <i class="fas fa-layer-group"></i>
-            Similar Products
-            <span style="font-size:0.78rem;font-weight:400;color:var(--text-dim);"
-                  th:text="'in ' + ${product.category}"></span>
+            <i class="fas fa-layer-group"></i> Similar Products
+            <span style="font-size:0.78rem;font-weight:400;color:var(--text-dim);" th:text="'in ' + ${product.category}"></span>
         </div>
-
         <div class="similar-grid" th:if="${similar != null and !similar.isEmpty()}">
             <div th:each="s : ${similar}" class="sim-card">
                 <a th:href="'/product/' + ${s.id}" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1;">
@@ -522,15 +498,11 @@
                         <div class="sim-price"><sup>₹</sup><span th:text="${s.price}"></span></div>
                     </div>
                 </a>
-                <a th:href="'/add-cart/' + ${s.id}" class="btn-sim-cart">
-                    <i class="fas fa-cart-plus"></i> Add to Cart
-                </a>
+                <a th:href="'/add-cart/' + ${s.id}" class="btn-sim-cart"><i class="fas fa-cart-plus"></i> Add to Cart</a>
             </div>
         </div>
-
         <div class="no-similar" th:if="${similar == null or similar.isEmpty()}">
-            <i class="fas fa-box-open"></i>
-            No similar products found in this category yet.
+            <i class="fas fa-box-open"></i> No similar products found in this category yet.
         </div>
     </div>
 
@@ -541,91 +513,172 @@
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
 </footer>
 
-<!-- Toast -->
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button>
+    <img id="lightboxImg" src="" alt="">
+</div>
+
 <div id="toastContainer" style="position:fixed;bottom:2rem;right:2rem;z-index:9999;display:flex;flex-direction:column;gap:0.65rem;"></div>
 
 <script>
-    window.addEventListener('scroll', () => {
-        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
-    });
+    // Nav scroll effect
+    window.addEventListener('scroll', () => document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10));
 
+    // Auto-dismiss alerts
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .alert').forEach(el => {
-            el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
+            el.style.transition = 'opacity 0.5s'; el.style.opacity = '0';
             setTimeout(() => el.remove(), 500);
         });
     }, 2500);
 
-    // Switch main image on thumbnail click
+    // Switch main image
     function switchImg(thumb) {
         document.getElementById('heroImg').src = thumb.src;
         document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
         thumb.classList.add('active');
     }
 
-    // Wishlist toggle
+    // Wishlist
     function toggleWishlist(productId) {
-        fetch('/api/wishlist/toggle', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId: productId })
-        })
+        fetch('/api/wishlist/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId}) })
             .then(r => r.json())
             .then(data => {
                 const btn = document.getElementById('wlBtn');
-                if (!data.success) {
-                    showToast(data.message || 'Please log in to use Wishlist', 'error');
-                    return;
-                }
-                if (data.added) {
-                    btn.innerHTML = '<i class="fas fa-heart"></i>';
-                    btn.style.background = 'rgba(239,68,68,0.25)';
-                    showToast('Added to Wishlist ❤️', 'success');
-                } else {
-                    btn.innerHTML = '<i class="far fa-heart"></i>';
-                    btn.style.background = '';
-                    showToast('Removed from Wishlist', 'error');
-                }
+                if (!data.success) { showToast(data.message || 'Please log in to use Wishlist', 'error'); return; }
+                if (data.added) { btn.innerHTML = '<i class="fas fa-heart"></i>'; btn.style.background = 'rgba(239,68,68,0.25)'; showToast('Added to Wishlist ❤️', 'success'); }
+                else            { btn.innerHTML = '<i class="far fa-heart"></i>';  btn.style.background = ''; showToast('Removed from Wishlist', 'error'); }
             })
-            .catch(() => showToast('Something went wrong. Please try again.', 'error'));
+            .catch(() => showToast('Something went wrong', 'error'));
     }
 
+    // Toast
     function showToast(msg, type) {
         const c = document.getElementById('toastContainer');
         const t = document.createElement('div');
         t.style.cssText = 'background:rgba(10,12,30,0.95);backdrop-filter:blur(16px);border:1px solid;border-radius:12px;padding:0.875rem 1.4rem;display:flex;align-items:center;gap:0.7rem;font-size:0.82rem;min-width:220px;font-family:Poppins,sans-serif;color:white;';
         t.style.borderColor = type === 'success' ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)';
-        t.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'times-circle'}" style="color:${type === 'success' ? '#22c55e' : '#ef4444'}"></i><span>${msg}</span>`;
+        t.innerHTML = `<i class="fas fa-${type==='success'?'check-circle':'times-circle'}" style="color:${type==='success'?'#22c55e':'#ef4444'}"></i><span>${msg}</span>`;
         c.appendChild(t);
-        setTimeout(() => { t.style.transition = 'opacity 0.4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2500);
+        setTimeout(() => { t.style.transition='opacity 0.4s'; t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 2500);
     }
+
+    // Lightbox
+    function openLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('open'); }
+    function closeLightbox()   { document.getElementById('lightbox').classList.remove('open'); }
+
+    // ─── REVIEW IMAGE UPLOAD ───────────────────────────────────────────────────
+
+    const reviewFiles = {}; // reviewId → File[]
+
+    function openUploadPanel(reviewId) {
+        const panel = document.getElementById('uploadPanel_' + reviewId);
+        if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; }
+    }
+    function closeUploadPanel(reviewId) {
+        const panel = document.getElementById('uploadPanel_' + reviewId);
+        if (panel) panel.style.display = 'none';
+    }
+
+    function handleSelect(input, reviewId) {
+        reviewFiles[reviewId] = Array.from(input.files).slice(0, 5);
+        renderPreviews(reviewId);
+    }
+    function handleDrop(event, reviewId) {
+        event.preventDefault();
+        document.getElementById('dropzone_' + reviewId).classList.remove('drag-over');
+        reviewFiles[reviewId] = Array.from(event.dataTransfer.files)
+            .filter(f => f.type.startsWith('image/')).slice(0, 5);
+        renderPreviews(reviewId);
+    }
+
+    function renderPreviews(reviewId) {
+        const strip = document.getElementById('preview_' + reviewId);
+        const countEl = document.getElementById('count_' + reviewId);
+        const btn = document.getElementById('uploadBtn_' + reviewId);
+        const files = reviewFiles[reviewId] || [];
+        strip.innerHTML = '';
+        files.forEach((file, idx) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const wrap = document.createElement('div');
+                wrap.className = 'preview-item';
+                const img = document.createElement('img'); img.src = e.target.result;
+                const rm = document.createElement('button');
+                rm.className = 'remove'; rm.textContent = '×';
+                rm.onclick = () => { reviewFiles[reviewId].splice(idx, 1); renderPreviews(reviewId); };
+                wrap.appendChild(img); wrap.appendChild(rm); strip.appendChild(wrap);
+            };
+            reader.readAsDataURL(file);
+        });
+        countEl.textContent = files.length;
+        btn.disabled = files.length === 0;
+    }
+
+    // ─── PRODUCT PAGE UPLOAD ──────────────────────────────────────────────────
+
+    let productFiles = [];
+    function handleProductSelect(input) { productFiles = Array.from(input.files).slice(0, 5); renderProductPreviews(); }
+    function handleProductDrop(event) {
+        event.preventDefault();
+        document.getElementById('productDropzone').classList.remove('drag-over');
+        productFiles = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/')).slice(0, 5);
+        renderProductPreviews();
+    }
+    function renderProductPreviews() {
+        const strip = document.getElementById('productPreview');
+        strip.innerHTML = '';
+        productFiles.forEach((file, idx) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const wrap = document.createElement('div'); wrap.className = 'preview-item';
+                const img = document.createElement('img'); img.src = e.target.result;
+                const rm = document.createElement('button');
+                rm.className = 'remove'; rm.textContent = '×';
+                rm.onclick = () => { productFiles.splice(idx, 1); renderProductPreviews(); };
+                wrap.appendChild(img); wrap.appendChild(rm); strip.appendChild(wrap);
+            };
+            reader.readAsDataURL(file);
+        });
+        document.getElementById('productCount').textContent = productFiles.length;
+        document.getElementById('productUploadBtn').disabled = productFiles.length === 0;
+    }
+
+    // ─── LAZY LOAD EXISTING REVIEW PHOTOS ────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.review-photos[data-review-id]').forEach(div => {
+            const reviewId = div.getAttribute('data-review-id');
+            fetch('/customer/review/' + reviewId + '/images')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success || data.count === 0) return;
+                    const strip = div.querySelector('.photo-strip');
+                    data.images.forEach(img => {
+                        const el = document.createElement('img');
+                        el.src = img.imageUrl;
+                        el.className = 'photo-thumb';
+                        el.alt = 'Review photo';
+                        el.title = 'Click to enlarge';
+                        el.onclick = () => openLightbox(img.imageUrl);
+                        strip.appendChild(el);
+                    });
+                })
+                .catch(() => {});
+        });
+    });
 </script>
 
-<!-- Recently Viewed Products Section -->
-<section class="rv-section" style="max-width:1200px;margin:0 auto;padding:0 1rem 2rem;">
+<!-- Recently Viewed -->
+<section style="max-width:1200px;margin:0 auto;padding:0 1rem 2rem;">
     <div id="recentlyViewedContainer"></div>
 </section>
-
-<!-- Recently Viewed Products Script -->
 <script th:src="@{/js/recently-viewed.js}"></script>
 <script th:inline="javascript">
     document.addEventListener('DOMContentLoaded', function() {
-        // Get current product ID from Thymeleaf
         const currentProductId = /*[[${product.id}]]*/ 0;
-        
-        // Track this product view
-        if (currentProductId) {
-            RecentlyViewed.trackProduct(currentProductId);
-        }
-        
-        // Render the recently viewed bar (excluding current product)
-        RecentlyViewed.render('#recentlyViewedContainer', {
-            excludeProductId: currentProductId,
-            showHeading: true
-        });
-        
-        // Sync to server if logged in (fire and forget)
+        if (currentProductId) RecentlyViewed.trackProduct(currentProductId);
+        RecentlyViewed.render('#recentlyViewedContainer', { excludeProductId: currentProductId, showHeading: true });
         RecentlyViewed.syncToServer();
     });
 </script>

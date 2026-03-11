@@ -289,13 +289,46 @@
             cursor: not-allowed;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-dim);
+        .btn-evidence {
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            border: 1px solid rgba(245,168,0,0.35);
+            background: rgba(245,168,0,0.08);
+            color: var(--yellow);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
         }
-        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
-        .empty-state p { font-size: 1rem; }
+        .btn-evidence:hover { background: rgba(245,168,0,0.18); border-color: rgba(245,168,0,0.6); }
+
+        /* Evidence Modal */
+        .evidence-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; min-height: 60px; }
+        .evidence-thumb {
+            width: 90px; height: 90px; border-radius: 8px; object-fit: cover;
+            border: 1px solid var(--glass-border); cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+        .evidence-thumb:hover { transform: scale(1.05); border-color: var(--yellow); }
+        .evidence-none { color: var(--text-dim); font-size: 0.82rem; padding: 1rem 0; }
+        .evidence-loading { color: var(--text-dim); font-size: 0.82rem; display:flex; align-items:center; gap:0.4rem; }
+
+        /* Lightbox */
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:500; align-items:center; justify-content:center; }
+.lightbox.open { display:flex; }
+.lightbox img { max-width:90vw; max-height:88vh; border-radius:12px; }
+.lightbox-close { position:absolute; top:1.5rem; right:1.5rem; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border); color:white; border-radius:50%; width:36px; height:36px; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-dim);
+}
+.empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
 
         /* ── MODAL ── */
         .modal-overlay {
@@ -491,6 +524,7 @@
                         <th>Order ID</th>
                         <th>Customer</th>
                         <th>Reason</th>
+                        <th>Evidence</th>
                         <th>Amount</th>
                         <th>Requested</th>
                         <th>Actions</th>
@@ -504,6 +538,11 @@
                             <small style="color: var(--text-dim);" th:text="${refund.customer.email}"></small>
                         </td>
                         <td class="reason-text" th:title="${refund.reason}" th:text="${refund.reason}">Reason</td>
+                        <td>
+                            <button class="btn-evidence" th:data-id="${refund.id}" onclick="loadEvidence(this)">
+                                <i class="fas fa-images"></i> View Photos
+                            </button>
+                        </td>
                         <td class="amount">₹<span th:text="${#numbers.formatDecimal(refund.amount, 0, 2)}"></span></td>
                         <td th:text="${#temporals.format(refund.requestedAt, 'dd MMM yyyy HH:mm')}">01 Jan 2026</td>
                         <td class="action-btns">
@@ -562,6 +601,26 @@
     </div>
 
 </main>
+
+<!-- ── EVIDENCE MODAL ── -->
+<div class="modal-overlay" id="evidenceModal">
+    <div class="modal" style="max-width:560px;">
+        <h3 style="color:var(--yellow);"><i class="fas fa-images"></i> Evidence Photos</h3>
+        <p id="evidenceModalSubtitle">Customer-submitted photos for this refund request.</p>
+        <div class="evidence-grid" id="evidenceGrid">
+            <span class="evidence-loading"><i class="fas fa-spinner fa-spin"></i> Loading…</span>
+        </div>
+        <div class="modal-actions" style="margin-top:1.25rem;">
+            <button class="modal-btn modal-btn-cancel" onclick="closeEvidenceModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button>
+    <img id="lightboxImg" src="" alt="Evidence">
+</div>
 
 <!-- ── REJECTION MODAL ── -->
 <div class="modal-overlay" id="rejectModal">
@@ -731,11 +790,60 @@
         }
     }
 
-    // Close modal on outside click
-    document.getElementById('rejectModal').addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal-overlay')) {
-            closeRejectModal();
+    // ── Evidence photos ──────────────────────────────────────────────────────
+    async function loadEvidence(btn) {
+        const id = btn.dataset.id;
+        document.getElementById('evidenceModalSubtitle').textContent =
+            'Evidence photos for Refund #' + id;
+        document.getElementById('evidenceGrid').innerHTML =
+            '<span class="evidence-loading"><i class="fas fa-spinner fa-spin"></i> Loading…</span>';
+        document.getElementById('evidenceModal').classList.add('active');
+
+        try {
+            const res  = await fetch('/api/admin/refunds/' + id + '/images');
+            const data = await res.json();
+            const grid = document.getElementById('evidenceGrid');
+            grid.innerHTML = '';
+
+            if (!data.success || !data.images || data.images.length === 0) {
+                grid.innerHTML = '<span class="evidence-none"><i class="fas fa-image" style="margin-right:0.4rem;opacity:0.4;"></i>No evidence photos were uploaded for this request.</span>';
+                return;
+            }
+
+            data.images.forEach(img => {
+                const el = document.createElement('img');
+                el.src       = img.imageUrl;
+                el.alt       = 'Evidence';
+                el.className = 'evidence-thumb';
+                el.onclick   = () => openLightbox(img.imageUrl);
+                grid.appendChild(el);
+            });
+        } catch (e) {
+            document.getElementById('evidenceGrid').innerHTML =
+                '<span class="evidence-none" style="color:#ff8060;">Failed to load images.</span>';
         }
+    }
+
+    function closeEvidenceModal() {
+        document.getElementById('evidenceModal').classList.remove('active');
+    }
+
+    function openLightbox(src) {
+        document.getElementById('lightboxImg').src = src;
+        document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('open');
+    }
+
+    // Close evidence modal on backdrop click
+    document.getElementById('evidenceModal').addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) closeEvidenceModal();
+    });
+
+    // Close reject modal on backdrop click
+    document.getElementById('rejectModal').addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) closeRejectModal();
     });
 </script>
 
