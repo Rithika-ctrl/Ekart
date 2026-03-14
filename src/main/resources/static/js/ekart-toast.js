@@ -240,7 +240,7 @@ window.ekartFetch = async function(url, options = {}) {
 // Loading Skeleton Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
-window.EkartLoader = {
+window.EkartSkeleton = {
     /**
      * Create a skeleton loading placeholder
      * @param {string} type - 'card', 'row', 'text', 'circle'
@@ -373,3 +373,150 @@ window.EkartLoader = {
 })();
 
 console.log('🎨 EkartToast system loaded');
+
+// =============================================================================
+// EKART GLOBAL PAGE LOADER
+// Shows a full-screen loader on every link click, form submit, and navigation.
+// Hides automatically when the new page finishes loading.
+// =============================================================================
+
+window.EkartPageLoader = (function () {
+    'use strict';
+
+    // ── Inject styles once ────────────────────────────────────────────────────
+    function injectStyles() {
+        if (document.getElementById('ekart-gl-style')) return;
+        const s = document.createElement('style');
+        s.id = 'ekart-gl-style';
+        s.textContent = `
+            #ekart-global-loader {
+                position: fixed; inset: 0; z-index: 999999;
+                background: rgba(5, 8, 20, 0.92);
+                backdrop-filter: blur(10px);
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                gap: 1.25rem;
+                opacity: 0; visibility: hidden;
+                transition: opacity 0.25s ease, visibility 0.25s ease;
+                pointer-events: none;
+            }
+            #ekart-global-loader.egl-visible {
+                opacity: 1; visibility: visible; pointer-events: auto;
+            }
+            .egl-cart {
+                font-size: 2rem;
+                animation: eglBounce 0.9s ease-in-out infinite;
+            }
+            .egl-ring {
+                width: 50px; height: 50px;
+                border: 3px solid rgba(245,168,0,0.15);
+                border-top-color: #f5a800;
+                border-radius: 50%;
+                animation: eglSpin 0.7s linear infinite;
+            }
+            .egl-label {
+                font-family: 'Poppins', sans-serif;
+                font-size: 0.88rem; font-weight: 600;
+                color: rgba(255,255,255,0.75);
+                letter-spacing: 0.08em;
+            }
+            .egl-dots span {
+                display: inline-block;
+                animation: eglDot 1.2s infinite;
+                color: #f5a800;
+            }
+            .egl-dots span:nth-child(2) { animation-delay: 0.2s; }
+            .egl-dots span:nth-child(3) { animation-delay: 0.4s; }
+            @keyframes eglSpin   { to { transform: rotate(360deg); } }
+            @keyframes eglBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+            @keyframes eglDot    { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // ── Create DOM element ────────────────────────────────────────────────────
+    function createEl() {
+        if (document.getElementById('ekart-global-loader')) return;
+        const el = document.createElement('div');
+        el.id = 'ekart-global-loader';
+        el.innerHTML = `
+            <div class="egl-cart">\u{1F6D2}</div>
+            <div class="egl-ring"></div>
+            <div class="egl-label">Please wait<span class="egl-dots"><span>.</span><span>.</span><span>.</span></span></div>
+        `;
+        document.body.appendChild(el);
+    }
+
+    // ── Show / hide ───────────────────────────────────────────────────────────
+    function show(labelText) {
+        const el = document.getElementById('ekart-global-loader');
+        if (!el) return;
+        if (labelText) {
+            const lbl = el.querySelector('.egl-label');
+            if (lbl) lbl.innerHTML = labelText + '<span class="egl-dots"><span>.</span><span>.</span><span>.</span></span>';
+        }
+        el.classList.add('egl-visible');
+    }
+
+    function hide() {
+        const el = document.getElementById('ekart-global-loader');
+        if (el) el.classList.remove('egl-visible');
+    }
+
+    // ── Bootstrap: attach to every trigger after DOM ready ───────────────────
+    function bootstrap() {
+        injectStyles();
+        createEl();
+
+        // 1. All <a> clicks that navigate (exclude #, mailto, tel, target=_blank, js: links)
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('a[href]');
+            if (!a) return;
+            const href = a.getAttribute('href') || '';
+            if (
+                href.startsWith('#') ||
+                href.startsWith('javascript') ||
+                href.startsWith('mailto') ||
+                href.startsWith('tel') ||
+                a.target === '_blank' ||
+                e.ctrlKey || e.metaKey || e.shiftKey
+            ) return;
+            show('Please wait');
+        }, true);
+
+        // 2. All form submissions
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (form.tagName !== 'FORM') return;
+            // Tiny inline review forms can be noisy — keep them included
+            show('Please wait');
+        }, true);
+
+        // 3. Hide on popstate (browser back/forward)
+        window.addEventListener('popstate', hide);
+
+        // 4. Safety net: always hide once new page has fully loaded
+        window.addEventListener('load', function () {
+            // Small delay so the fade-out is visible
+            setTimeout(hide, 150);
+        });
+
+        // 5. Hard fallback: hide after 8 seconds no matter what
+        document.addEventListener('click', function () {
+            setTimeout(hide, 8000);
+        }, true);
+        document.addEventListener('submit', function () {
+            setTimeout(hide, 8000);
+        }, true);
+    }
+
+    // Run after DOM is available
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+        bootstrap();
+    }
+
+    // Public API (optional manual control)
+    return { show: show, hide: hide };
+})();

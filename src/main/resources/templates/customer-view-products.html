@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -519,6 +519,46 @@
         .product-card-wrapper:nth-child(5) .product-card { animation-delay: 0.25s; }
         .product-card-wrapper:nth-child(6) .product-card { animation-delay: 0.30s; }
 
+        /* ── PAGE LOADER ── */
+        #page-loader {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(5, 8, 20, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 1.25rem;
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+        }
+        #page-loader.hidden {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+        .loader-spinner {
+            width: 52px; height: 52px;
+            border: 3px solid rgba(245,168,0,0.15);
+            border-top-color: var(--yellow);
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+        .loader-cart-icon {
+            font-size: 1.8rem;
+            animation: cartBounce 1s ease-in-out infinite;
+        }
+        .loader-text {
+            font-size: 0.9rem; font-weight: 600;
+            color: rgba(255,255,255,0.75);
+            letter-spacing: 0.08em;
+        }
+        .loader-dots span {
+            display: inline-block;
+            animation: blink 1.2s infinite;
+            color: var(--yellow);
+        }
+        .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes spin      { to { transform: rotate(360deg); } }
+        @keyframes blink     { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+        @keyframes cartBounce{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
         /* ── RESPONSIVE ── */
         @media(max-width: 900px) {
             nav { padding: 0.875rem 1.25rem; }
@@ -535,6 +575,13 @@
     </style>
 </head>
 <body>
+
+<!-- ── PAGE LOADER ── -->
+<div id="page-loader">
+    <div class="loader-cart-icon">🛒</div>
+    <div class="loader-spinner"></div>
+    <div class="loader-text">Loading products<span class="loader-dots"><span>.</span><span>.</span><span>.</span></span></div>
+</div>
 
 <div class="bg-layer"></div>
 
@@ -718,6 +765,17 @@
 </footer>
 
 <script>
+
+    // ── PAGE LOADER: hide once fully loaded ──
+    window.addEventListener('load', () => {
+        const loader = document.getElementById('page-loader');
+        if (loader) loader.classList.add('hidden');
+    });
+    setTimeout(() => {
+        const loader = document.getElementById('page-loader');
+        if (loader) loader.classList.add('hidden');
+    }, 4000);
+
     // Nav scroll shadow
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
@@ -860,5 +918,7 @@
 <link rel="stylesheet" href="/css/ekart-ui.css">
 
 <div th:replace="~{chat-widget :: chatWidget}"></div>
+
+<script src="/js/ekart-loader.js"></script>
 </body>
 </html>
