@@ -559,7 +559,7 @@ public String payment(HttpSession session, ModelMap map) {
 }
 
     // ---------------- PAYMENT SUCCESS (CLONING LOGIC) ----------------
-public String paymentSuccess(Order order, HttpSession session) {
+public String paymentSuccess(Order order, String deliveryPinCode, HttpSession session) {
     Customer sessionCustomer = (Customer) session.getAttribute("customer");
     if (sessionCustomer == null) {
         session.setAttribute("failure", "Login First");
@@ -568,6 +568,34 @@ public String paymentSuccess(Order order, HttpSession session) {
 
     // Always fetch fresh from DB — never trust stale session object
     Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+
+    // ── SERVER-SIDE PIN CODE VALIDATION ─────────────────────────────
+    // This is the authoritative check. Client-side check is UX only.
+    if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
+        String pin = deliveryPinCode.trim();
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null && !product.isDeliverableTo(pin)) {
+                session.setAttribute("failure",
+                    "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
+                    ". Please remove it from your cart or try a different pin code.");
+                return "redirect:/payment";
+            }
+        }
+    } else {
+        // No pin code provided — check if any cart item requires one
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null && product.isRestrictedByPinCode()) {
+                session.setAttribute("failure",
+                    "\"" + product.getName() + "\" has delivery restrictions. " +
+                    "Please verify your pin code on the payment page before placing the order.");
+                return "redirect:/payment";
+            }
+        }
+    }
 
     order.setCustomer(customer);
     order.setOrderDate(java.time.LocalDateTime.now());

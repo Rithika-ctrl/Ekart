@@ -34,6 +34,11 @@ public class Product {
 	private String videoLink;
 	private boolean approved = false;
 
+	// Pin code delivery restriction: comma-separated 6-digit codes.
+	// If null or blank → deliverable everywhere. Set by vendor.
+	@Column(length = 1000)
+	private String allowedPinCodes;
+
 	@ManyToOne
 	private Vendor vendor;
 
@@ -78,6 +83,28 @@ public class Product {
 	public void setApproved(boolean approved) { this.approved = approved; }
 	public Vendor getVendor() { return vendor; }
 	public void setVendor(Vendor vendor) { this.vendor = vendor; }
+
+	public String getAllowedPinCodes() { return allowedPinCodes; }
+	public void setAllowedPinCodes(String allowedPinCodes) { this.allowedPinCodes = allowedPinCodes; }
+
+	/** Returns the list of allowed pin codes. Empty list = no restriction. */
+	public java.util.List<String> getAllowedPinCodeList() {
+		if (allowedPinCodes == null || allowedPinCodes.isBlank()) return new java.util.ArrayList<>();
+		return java.util.Arrays.stream(allowedPinCodes.split(","))
+				.map(String::trim).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toList());
+	}
+
+	/** True if this product has at least one pin code restriction set. */
+	public boolean isRestrictedByPinCode() {
+		return !getAllowedPinCodeList().isEmpty();
+	}
+
+	/** True if the product is deliverable to the given pin code (or has no restriction). */
+	public boolean isDeliverableTo(String pinCode) {
+		if (!isRestrictedByPinCode()) return true;
+		if (pinCode == null || pinCode.isBlank()) return false;
+		return getAllowedPinCodeList().contains(pinCode.trim());
+	}
 	public MultipartFile getImage() { return image; }
 	public void setImage(MultipartFile image) { this.image = image; }
 	public java.util.List<MultipartFile> getExtraImages() { return extraImages; }
