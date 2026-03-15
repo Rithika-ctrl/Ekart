@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -600,12 +600,179 @@
             .review-form { flex-wrap: wrap; }
             .review-form input { width: 100%; }
         }
+        /* ── LOCATION BAR ── */
+        .loc-bar {
+            position: fixed; top: 56px; left: 0; right: 0; z-index: 99;
+            background: rgba(8,10,24,0.96); backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(245,168,0,0.18);
+            display: flex; align-items: center; justify-content: center;
+            padding: 0.45rem 2rem; gap: 0.6rem;
+            font-size: 0.78rem; color: var(--text-dim);
+            transition: transform 0.3s;
+        }
+        .loc-bar.hidden { transform: translateY(-100%); }
+        .loc-pill {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.3);
+            border-radius: 50px; padding: 0.25rem 0.85rem;
+            cursor: pointer; color: var(--yellow); font-weight: 600; font-size: 0.78rem;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .loc-pill:hover { background: rgba(245,168,0,0.2); border-color: rgba(245,168,0,0.6); }
+        .loc-pill .loc-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #22c55e; flex-shrink: 0;
+            box-shadow: 0 0 6px #22c55e;
+            animation: pulseDot 2s ease-in-out infinite;
+        }
+        .loc-pill .loc-dot.unset { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; animation: none; }
+        @keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .loc-bar-hint { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* ── LOCATION MODAL ── */
+        .loc-modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 99999;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            align-items: center; justify-content: center;
+        }
+        .loc-modal-overlay.open { display: flex; }
+        .loc-modal {
+            background: rgba(10,12,28,0.98); backdrop-filter: blur(20px);
+            border: 1px solid rgba(245,168,0,0.25); border-radius: 22px;
+            padding: 2rem 2.25rem; width: 90%; max-width: 420px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            animation: popIn 0.3s cubic-bezier(0.23,1,0.32,1) both;
+        }
+        .loc-modal-title {
+            font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .loc-modal-title i { color: var(--yellow); }
+        .loc-modal-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+        .loc-detect-btn {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+            background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35);
+            border-radius: 12px; padding: 0.75rem;
+            color: #22c55e; font-family: 'Poppins',sans-serif; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;
+        }
+        .loc-detect-btn:hover { background: rgba(34,197,94,0.2); }
+        .loc-divider {
+            display: flex; align-items: center; gap: 0.75rem;
+            margin-bottom: 1rem; font-size: 0.7rem; color: var(--text-dim);
+        }
+        .loc-divider::before, .loc-divider::after {
+            content: ''; flex: 1; height: 1px; background: var(--glass-border);
+        }
+        .loc-input-row { display: flex; gap: 0.5rem; }
+        .loc-pin-input {
+            flex: 1; background: rgba(255,255,255,0.07);
+            border: 1px solid var(--glass-border); border-radius: 10px;
+            color: white; font-family: 'Poppins',sans-serif; font-size: 0.88rem;
+            padding: 0.7rem 1rem; outline: none; transition: border-color 0.3s;
+            letter-spacing: 0.08em;
+        }
+        .loc-pin-input:focus { border-color: var(--yellow); }
+        .loc-pin-input::placeholder { color: var(--text-dim); letter-spacing: 0; }
+        .loc-confirm-btn {
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 10px; padding: 0.7rem 1.25rem;
+            font-family: 'Poppins',sans-serif; font-size: 0.85rem; font-weight: 700;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .loc-confirm-btn:hover { background: var(--yellow-d); }
+        .loc-error { font-size: 0.72rem; color: #ff8060; margin-top: 0.45rem; min-height: 1em; }
+        .loc-close-btn {
+            position: absolute; top: 1rem; right: 1.25rem;
+            background: none; border: none; color: var(--text-dim);
+            font-size: 1.1rem; cursor: pointer;
+        }
+        .loc-close-btn:hover { color: white; }
+        .loc-modal-wrap { position: relative; }
+        .loc-clear-link {
+            display: block; text-align: center; margin-top: 1rem;
+            font-size: 0.72rem; color: var(--text-dim); cursor: pointer;
+            transition: color 0.2s;
+        }
+        .loc-clear-link:hover { color: #ff8060; }
+
+        /* ── UNAVAILABLE PRODUCT (pin-restricted) ── */
+        .product-card-wrapper.pin-unavailable .product-card {
+            filter: grayscale(1) brightness(0.55);
+            pointer-events: none;
+        }
+        .product-card-wrapper.pin-unavailable .btn-add-cart {
+            pointer-events: none;
+        }
+        .pin-unavail-overlay {
+            display: none;
+            position: absolute; inset: 0; z-index: 20;
+            border-radius: 22px;
+            background: rgba(5,7,18,0.55);
+            align-items: center; justify-content: center;
+            flex-direction: column; gap: 0.4rem;
+            pointer-events: none;
+        }
+        .product-card-wrapper.pin-unavailable .pin-unavail-overlay { display: flex; }
+        .pin-unavail-badge {
+            background: rgba(10,12,28,0.92); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 50px;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.7);
+            display: flex; align-items: center; gap: 0.4rem; letter-spacing: 0.03em;
+        }
+        .pin-unavail-badge i { color: #f59e0b; font-size: 0.8rem; }
+        .pin-unavail-sub {
+            font-size: 0.65rem; color: rgba(255,255,255,0.35); letter-spacing: 0.04em;
+        }
+
+        /* Push page content down for loc-bar */
+        .page { padding-top: 8rem; }
+        @media(max-width:900px) { .page { padding-top: 10.5rem; } .loc-bar { top: auto; position: sticky; top: 0; } }
     </style>
 </head>
 <body>
 
 <div class="bg-layer"></div>
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- ── LOCATION BAR ── -->
+<div class="loc-bar" id="locBar">
+    <i class="fas fa-map-marker-alt" style="color:var(--yellow);font-size:0.8rem;"></i>
+    <span class="loc-bar-hint">Delivering to</span>
+    <span class="loc-pill" id="locPill" onclick="openLocModal()">
+        <span class="loc-dot unset" id="locDot"></span>
+        <span id="locPillText">Set your location</span>
+    </span>
+    <span class="loc-bar-hint" id="locBarHint" style="display:none;">· Products greyed out are not available here yet</span>
+</div>
+
+<!-- ── LOCATION MODAL ── -->
+<div class="loc-modal-overlay" id="locModalOverlay" onclick="if(event.target===this)closeLocModal()">
+    <div class="loc-modal loc-modal-wrap">
+        <button class="loc-close-btn" onclick="closeLocModal()"><i class="fas fa-times"></i></button>
+        <div class="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Set Delivery Location</div>
+        <div class="loc-modal-sub">We'll show only products available at your pin code.</div>
+
+        <button class="loc-detect-btn" id="locDetectBtn" onclick="autoDetectPin()">
+            <i class="fas fa-crosshairs"></i> <span id="locDetectLabel">Use my current location</span>
+        </button>
+
+        <div class="loc-divider">or enter manually</div>
+
+        <div class="loc-input-row">
+            <input type="text" class="loc-pin-input" id="locPinInput"
+                   placeholder="Enter 6-digit pin code" maxlength="6" inputmode="numeric"
+                   oninput="this.value=this.value.replace(/\D/g,'').slice(0,6);clearLocError()"
+                   onkeydown="if(event.key==='Enter')confirmPin()">
+            <button class="loc-confirm-btn" onclick="confirmPin()">Apply</button>
+        </div>
+        <div class="loc-error" id="locError"></div>
+        <span class="loc-clear-link" id="locClearLink" onclick="clearPin()" style="display:none;">
+            <i class="fas fa-times-circle"></i> Clear location filter
+        </span>
+    </div>
+</div>
 
 <!-- ── ALERTS ── -->
 <div class="alert-stack">
@@ -733,8 +900,14 @@
     <div class="product-grid" id="productRow">
 
         <!-- Products populated by server -->
-        <div th:each="p : ${products}" class="product-card-wrapper" th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category}">
+        <div th:each="p : ${products}" class="product-card-wrapper" th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category},data-pins=${p.allowedPinCodes != null ? p.allowedPinCodes : ''}">
             <div class="product-card" style="cursor:pointer;" th:onclick="'window.location.href=\'/product/\' + ' + ${p.id}">
+
+                <!-- Pin-unavailable overlay — shown by JS when pin set and product not deliverable -->
+                <div class="pin-unavail-overlay">
+                    <div class="pin-unavail-badge"><i class="fas fa-clock"></i> Available Very Soon</div>
+                    <div class="pin-unavail-sub">Not delivering to your pin code yet</div>
+                </div>
 
                 <!-- Main Image -->
                 <div class="img-area">
@@ -1140,7 +1313,177 @@
     }
 </script>
 
-<!-- Recently Viewed Products Script -->
+<!-- ── LOCATION & PIN FILTER ── -->
+<script>
+(function() {
+    const PIN_KEY    = 'ekart_delivery_pin';
+    const MODAL_KEY  = 'ekart_loc_modal_seen';
+
+    /* ── Read / Write pin ── */
+    function getPin()       { return localStorage.getItem(PIN_KEY) || ''; }
+    function setPin(pin)    { localStorage.setItem(PIN_KEY, pin); }
+    function removePin()    { localStorage.removeItem(PIN_KEY); }
+
+    /* ── Update location pill in the bar ── */
+    function updateBar(pin) {
+        const dot    = document.getElementById('locDot');
+        const text   = document.getElementById('locPillText');
+        const hint   = document.getElementById('locBarHint');
+        if (pin) {
+            dot.classList.remove('unset');
+            text.textContent = '📍 ' + pin;
+            hint.style.display = '';
+        } else {
+            dot.classList.add('unset');
+            text.textContent = 'Set your location';
+            hint.style.display = 'none';
+        }
+    }
+
+    /* ── Apply pin filter to all product cards ── */
+    function applyPinFilter(pin) {
+        const cards = document.querySelectorAll('.product-card-wrapper');
+        cards.forEach(card => {
+            const rawPins = (card.dataset.pins || '').trim();
+            if (!rawPins) {
+                // No restriction — always available
+                card.classList.remove('pin-unavailable');
+                return;
+            }
+            if (!pin) {
+                // No pin set — show everything
+                card.classList.remove('pin-unavailable');
+                return;
+            }
+            const allowed = rawPins.split(',').map(p => p.trim()).filter(Boolean);
+            if (allowed.includes(pin)) {
+                card.classList.remove('pin-unavailable');
+            } else {
+                card.classList.add('pin-unavailable');
+            }
+        });
+    }
+
+    /* ── Modal open / close ── */
+    window.openLocModal = function() {
+        const modal = document.getElementById('locModalOverlay');
+        modal.classList.add('open');
+        const current = getPin();
+        if (current) {
+            document.getElementById('locPinInput').value = current;
+            document.getElementById('locClearLink').style.display = 'block';
+        } else {
+            document.getElementById('locPinInput').value = '';
+            document.getElementById('locClearLink').style.display = 'none';
+        }
+        clearLocError();
+        setTimeout(() => document.getElementById('locPinInput').focus(), 180);
+    };
+
+    window.closeLocModal = function() {
+        document.getElementById('locModalOverlay').classList.remove('open');
+    };
+
+    window.clearLocError = function() {
+        document.getElementById('locError').textContent = '';
+    };
+
+    /* ── Confirm manual pin ── */
+    window.confirmPin = function() {
+        const val = document.getElementById('locPinInput').value.trim().replace(/\D/g, '');
+        if (val.length !== 6) {
+            document.getElementById('locError').textContent = 'Enter a valid 6-digit pin code.';
+            return;
+        }
+        applyAndClose(val);
+    };
+
+    function applyAndClose(pin) {
+        setPin(pin);
+        updateBar(pin);
+        applyPinFilter(pin);
+        closeLocModal();
+        showToast('Delivering to ' + pin + ' 📍', 'success');
+    }
+
+    /* ── Clear pin ── */
+    window.clearPin = function() {
+        removePin();
+        updateBar('');
+        applyPinFilter('');
+        closeLocModal();
+        showToast('Location filter cleared', 'success');
+    };
+
+    /* ── Auto-detect location via browser geolocation + Nominatim ── */
+    window.autoDetectPin = function() {
+        const btn   = document.getElementById('locDetectBtn');
+        const label = document.getElementById('locDetectLabel');
+        if (!navigator.geolocation) {
+            document.getElementById('locError').textContent = 'Geolocation is not supported by your browser.';
+            return;
+        }
+        btn.disabled = true;
+        label.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting…';
+
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                // Use OpenStreetMap Nominatim (free, no key needed)
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon, {
+                    headers: { 'Accept-Language': 'en', 'User-Agent': 'Ekart/1.0' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
+                    const postcode = data && data.address && data.address.postcode;
+                    if (postcode) {
+                        const pin = postcode.replace(/\s/g,'').slice(0,6);
+                        if (/^\d{6}$/.test(pin)) {
+                            document.getElementById('locPinInput').value = pin;
+                            clearLocError();
+                            applyAndClose(pin);
+                            return;
+                        }
+                    }
+                    document.getElementById('locError').textContent = 'Could not detect pin code. Please enter manually.';
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
+                    document.getElementById('locError').textContent = 'Location lookup failed. Please enter pin manually.';
+                });
+            },
+            function(err) {
+                btn.disabled = false;
+                label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
+                const msgs = {
+                    1: 'Location permission denied. Please enter pin manually.',
+                    2: 'Location unavailable. Please enter pin manually.',
+                    3: 'Location request timed out.'
+                };
+                document.getElementById('locError').textContent = msgs[err.code] || 'Could not detect location.';
+            },
+            { timeout: 8000, maximumAge: 300000 }
+        );
+    };
+
+    /* ── Init on page load ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        const pin = getPin();
+        updateBar(pin);
+        applyPinFilter(pin);
+
+        // Show the modal automatically on first ever visit (no pin set)
+        if (!pin && !sessionStorage.getItem(MODAL_KEY)) {
+            sessionStorage.setItem(MODAL_KEY, '1');
+            setTimeout(openLocModal, 1200);
+        }
+    });
+})();
+</script>
 <script th:src="@{/js/recently-viewed.js}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {

@@ -458,6 +458,11 @@ public class VendorService {
 		existingProduct.setPrice(product.getPrice());
 		existingProduct.setCategory(product.getCategory());
 		existingProduct.setStock(product.getStock());
+
+		// Persist pin code delivery restrictions (empty string = no restriction)
+		existingProduct.setAllowedPinCodes(
+			product.getAllowedPinCodes() != null ? product.getAllowedPinCodes().trim() : null
+		);
 		
 		// Update stock alert threshold if provided
 		if (product.getStockAlertThreshold() != null && product.getStockAlertThreshold() > 0) {

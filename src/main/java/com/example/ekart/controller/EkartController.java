@@ -12,6 +12,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
@@ -21,6 +27,7 @@ import com.example.ekart.dto.Vendor;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
+import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.service.AdminService;
 import com.example.ekart.service.BannerService;
 import com.example.ekart.service.CustomerService;
@@ -68,6 +75,9 @@ public class EkartController {
 
     @Autowired
     GuestService guestService;
+
+    @Autowired
+    ProductRepository productRepository;
 
     // ── GUEST ─────────────────────────────────────────────────────────────────
 
@@ -353,6 +363,7 @@ public class EkartController {
             @RequestParam(required=false, defaultValue="Cash on Delivery") String paymentMode,
             @RequestParam(required=false) String deliveryTime,
             @RequestParam(required=false) String amount,
+            @RequestParam(required=false) String deliveryPinCode,
             HttpSession session) {
 
         // Build Order manually — avoids Spring binding errors from the @ManyToOne Customer field
@@ -375,7 +386,7 @@ public class EkartController {
         }
         order.setAmount(finalAmount);
 
-        String result = customerService.paymentSuccess(order, session);
+        String result = customerService.paymentSuccess(order, deliveryPinCode, session);
 
         // ✅ FIX 2: Check result contains "order-success" (not "home") since we now redirect there.
         if (customer != null && result.contains("order-success")) {
@@ -389,6 +400,50 @@ public class EkartController {
             }
         }
         return result;
+    }
+
+    // ── PIN CODE DELIVERABILITY CHECK ─────────────────────────────────────
+    /**
+     * GET /api/check-pincode?pinCode=560001
+     * AJAX endpoint used by payment.html to validate cart items against pin code
+     * restrictions set by vendors. Requires an active customer session.
+     */
+    @GetMapping("/api/check-pincode")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> checkPincode(
+            @RequestParam String pinCode,
+            HttpSession session) {
+
+        Map<String, Object> res = new HashMap<>();
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+
+        if (sessionCustomer == null) {
+            res.put("hasRestrictions", false);
+            res.put("blockedItems", Collections.emptyList());
+            return ResponseEntity.ok(res);
+        }
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
+        String pin = pinCode.trim();
+
+        boolean hasRestrictions = false;
+        List<String> blockedItems = new ArrayList<>();
+
+        for (Item item : customer.getCart().getItems()) {
+            if (item.getProductId() == null) continue;
+            Product product = productRepository.findById(item.getProductId()).orElse(null);
+            if (product == null) continue;
+            if (product.isRestrictedByPinCode()) {
+                hasRestrictions = true;
+                if (!product.isDeliverableTo(pin)) {
+                    blockedItems.add(product.getName());
+                }
+            }
+        }
+
+        res.put("hasRestrictions", hasRestrictions);
+        res.put("blockedItems",    blockedItems);
+        return ResponseEntity.ok(res);
     }
 
     @GetMapping("/view-orders")

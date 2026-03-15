@@ -486,6 +486,26 @@
 
             </div>
 
+            <!-- ── PIN CODE DELIVERY RESTRICTION ── -->
+            <div class="section-label" style="margin-top:2rem;"><i class="fas fa-map-marker-alt"></i> Delivery Restrictions <span style="font-size:0.65rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;">(Optional)</span></div>
+
+            <div class="form-group">
+                <label for="pinInput">Allowed Delivery Pin Codes</label>
+                <input type="hidden" name="allowedPinCodes" id="allowedPinCodesField" th:value="${product.allowedPinCodes}">
+                <div id="pinTagBox" style="
+                    display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    border-radius:12px; padding:0.55rem 1rem; min-height:48px; cursor:text;
+                    transition: border-color 0.3s, box-shadow 0.3s;
+                " onclick="document.getElementById('pinInput').focus()">
+                    <input type="text" id="pinInput" placeholder="Type a 6-digit pin code &amp; press Enter" maxlength="6" inputmode="numeric" style="
+                        background:none; border:none; outline:none; color:white;
+                        font-family:'Poppins',sans-serif; font-size:0.875rem; min-width:200px; flex:1;
+                    ">
+                </div>
+                <span class="form-hint"><i class="fas fa-info-circle"></i> Leave blank to allow delivery everywhere. Remove all chips to lift all restrictions.</span>
+            </div>
+
             <button type="submit" class="btn-submit">
                 <i class="fas fa-save"></i> Save Changes
             </button>
@@ -532,6 +552,60 @@
         area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
         area.addEventListener('drop',      () => area.classList.remove('drag-over'));
     });
+
+    // ── PIN CODE TAG INPUT ──────────────────────────────────────────
+    (function() {
+        const box         = document.getElementById('pinTagBox');
+        const pinInput    = document.getElementById('pinInput');
+        const hiddenField = document.getElementById('allowedPinCodesField');
+        const pins        = [];
+
+        function syncHidden() { hiddenField.value = pins.join(','); }
+
+        function addPin(val, silent) {
+            val = val.trim().replace(/\D/g,'');
+            if (val.length !== 6)  { if (!silent) showPinError('Pin code must be exactly 6 digits'); return false; }
+            if (pins.includes(val)) { if (!silent) showPinError(val + ' already added'); return false; }
+            pins.push(val);
+            const chip = document.createElement('span');
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;background:rgba(245,168,0,0.18);border:1px solid rgba(245,168,0,0.4);border-radius:6px;padding:0.2rem 0.55rem;font-size:0.78rem;font-weight:600;color:#f5a800;';
+            chip.dataset.pin = val;
+            chip.innerHTML = val + ' <button type="button" style="background:none;border:none;cursor:pointer;color:rgba(245,168,0,0.7);font-size:0.9rem;line-height:1;padding:0;" onclick="this.closest(\'span\').remove();removePinFromList(\''+val+'\')">×</button>';
+            box.insertBefore(chip, pinInput);
+            syncHidden();
+            pinInput.value = '';
+            clearPinError();
+            return true;
+        }
+
+        window.removePinFromList = function(val) {
+            const i = pins.indexOf(val); if (i > -1) pins.splice(i,1); syncHidden();
+        };
+        function showPinError(msg) {
+            let err = document.getElementById('pinError');
+            if (!err) { err = document.createElement('span'); err.id='pinError'; err.style.cssText='font-size:0.7rem;color:#ff8060;margin-left:0.2rem;'; box.parentElement.appendChild(err); }
+            err.textContent = msg;
+        }
+        function clearPinError() { const e = document.getElementById('pinError'); if(e) e.textContent=''; }
+
+        pinInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (pinInput.value.trim()) addPin(pinInput.value); }
+            else if (e.key === 'Backspace' && !pinInput.value && pins.length) {
+                const last = pins[pins.length-1];
+                const chip = box.querySelector('[data-pin="'+last+'"]');
+                if (chip) chip.remove();
+                removePinFromList(last);
+            }
+        });
+        pinInput.addEventListener('blur', () => { if(pinInput.value.trim()) addPin(pinInput.value); });
+        pinInput.addEventListener('input', () => { pinInput.value = pinInput.value.replace(/\D/g,'').slice(0,6); clearPinError(); });
+        box.addEventListener('focusin',  () => box.style.borderColor = 'var(--yellow)');
+        box.addEventListener('focusout', () => box.style.borderColor = 'var(--glass-border)');
+
+        // Pre-populate from existing product value
+        const existing = hiddenField.value;
+        if (existing) existing.split(',').forEach(p => addPin(p.trim(), true));
+    })();
 </script>
 
 

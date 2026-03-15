@@ -440,6 +440,28 @@
                 </div>
             </div>
 
+            <!-- Pin Code Availability Checker -->
+            <div class="glass-card" id="pincode-checker-card">
+                <div class="section-label"><i class="fas fa-map-marker-alt"></i> Check Delivery Availability</div>
+                <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+                    <div style="position:relative;flex:1;min-width:160px;">
+                        <i class="fas fa-map-pin" style="position:absolute;left:0.9rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.4);font-size:0.8rem;"></i>
+                        <input type="text" id="pinCodeInput" maxlength="6" inputmode="numeric"
+                               placeholder="Enter 6-digit pin code"
+                               style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:0.7rem 1rem 0.7rem 2.4rem;color:white;font-family:'Poppins',sans-serif;font-size:0.875rem;outline:none;transition:border-color 0.3s;"
+                               oninput="this.value=this.value.replace(/\D/g,'').slice(0,6);clearPinResult();">
+                    </div>
+                    <button onclick="checkPinCode()" id="checkPinBtn"
+                            style="background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.4);border-radius:10px;color:#f5a800;font-family:'Poppins',sans-serif;font-size:0.8rem;font-weight:600;padding:0.7rem 1.2rem;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
+                            onmouseover="this.style.background='rgba(245,168,0,0.25)'" onmouseout="this.style.background='rgba(245,168,0,0.15)'">
+                        <i class="fas fa-search"></i> Check
+                    </button>
+                </div>
+                <div id="pinCheckResult" style="margin-top:0.75rem;font-size:0.82rem;"></div>
+                <!-- Hidden fields to carry pin code to both COD and Online payment -->
+                <input type="hidden" id="verified-pin-code" value="">
+            </div>
+
             <!-- Pay Buttons -->
             <div class="glass-card" style="display:flex;flex-direction:column;gap:0.875rem;">
                 <div class="section-label"><i class="fas fa-credit-card"></i> Payment Method</div>
@@ -454,6 +476,7 @@
                     <input type="hidden" name="razorpay_payment_id" value="COD_NA">
                     <input type="hidden" name="razorpay_order_id"   value="COD_ORDER">
                     <input type="hidden" name="deliveryTime"        id="cod-delivery-time" value="">
+                    <input type="hidden" name="deliveryPinCode"     id="cod-pin-code"      value="">
                     <button type="submit" class="btn-pay btn-cod">
                         <i class="fas fa-hand-holding-usd"></i> Cash on Delivery
                     </button>
@@ -600,10 +623,12 @@
     function handleOnlinePay(e) {
         e.preventDefault();
         if (!validateSelection()) return;
+        if (!validatePinCode()) return;
         var payAmount     = parseFloat(document.getElementById('cod-amount').value);
         var deliveryLabel = document.getElementById('cod-delivery-time').value;
+        var pinCode       = document.getElementById('verified-pin-code').value;
         var options = {
-            "key": razorpayKeyId,  // ✅ FIX: injected from backend, not hardcoded
+            "key": razorpayKeyId,
             "amount": payAmount * 100, "currency": "INR",
             "name": "Ekart Shop", "description": "Order Payment",
             "handler": function(response) {
@@ -613,7 +638,8 @@
                     'amount': payAmount, 'paymentMode': 'Online',
                     'razorpay_payment_id': response.razorpay_payment_id,
                     'razorpay_order_id':   response.razorpay_order_id,
-                    'deliveryTime':        deliveryLabel
+                    'deliveryTime':        deliveryLabel,
+                    'deliveryPinCode':     pinCode
                 };
                 for (var key in fields) {
                     var inp = document.createElement('input');
@@ -628,7 +654,91 @@
         new Razorpay(options).open();
     }
 
-    function handleCODSubmit() { return validateSelection(); }
+    function handleCODSubmit() {
+        if (!validateSelection()) return false;
+        if (!validatePinCode()) return false;
+        document.getElementById('cod-pin-code').value = document.getElementById('verified-pin-code').value;
+        return true;
+    }
+
+    // ── PIN CODE CHECKER ────────────────────────────────────────────
+    var pinCheckPassed = false;
+    var pinCheckHasRestrictions = false;
+
+    function clearPinResult() {
+        document.getElementById('pinCheckResult').innerHTML = '';
+        pinCheckPassed = false;
+        document.getElementById('verified-pin-code').value = '';
+    }
+
+    function checkPinCode() {
+        var pin = document.getElementById('pinCodeInput').value.trim();
+        var result = document.getElementById('pinCheckResult');
+        if (pin.length !== 6) {
+            result.innerHTML = '<span style="color:#ff8060;"><i class="fas fa-exclamation-circle"></i> Please enter a valid 6-digit pin code.</span>';
+            return;
+        }
+        var btn = document.getElementById('checkPinBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking…';
+        result.innerHTML = '';
+
+        fetch('/api/check-pincode?pinCode=' + encodeURIComponent(pin))
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Check';
+                if (!data.hasRestrictions) {
+                    pinCheckPassed = true;
+                    pinCheckHasRestrictions = false;
+                    document.getElementById('verified-pin-code').value = pin;
+                    result.innerHTML = '<div style="color:#22c55e;"><i class="fas fa-check-circle"></i> All items deliver to <strong>' + pin + '</strong>. You\'re good to go!</div>';
+                    return;
+                }
+                var blocked = data.blockedItems || [];
+                if (blocked.length === 0) {
+                    pinCheckPassed = true;
+                    pinCheckHasRestrictions = true;
+                    document.getElementById('verified-pin-code').value = pin;
+                    result.innerHTML = '<div style="color:#22c55e;"><i class="fas fa-check-circle"></i> All items deliver to <strong>' + pin + '</strong>. You\'re good to go!</div>';
+                } else {
+                    pinCheckPassed = false;
+                    document.getElementById('verified-pin-code').value = '';
+                    var html = '<div style="color:#ff8060;margin-bottom:0.4rem;"><i class="fas fa-times-circle"></i> <strong>' + blocked.length + ' item(s)</strong> cannot be delivered to <strong>' + pin + '</strong>:</div>';
+                    html += '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.3rem;">';
+                    blocked.forEach(function(name) {
+                        html += '<li style="font-size:0.78rem;color:rgba(255,100,80,0.85);padding-left:1rem;"><i class="fas fa-ban" style="font-size:0.65rem;margin-right:0.3rem;"></i>' + name + '</li>';
+                    });
+                    html += '</ul>';
+                    html += '<div style="margin-top:0.5rem;font-size:0.75rem;color:rgba(255,255,255,0.45);">Please remove those items from your cart or try a different pin code.</div>';
+                    result.innerHTML = html;
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Check';
+                // Network error — allow checkout (fail open, server re-validates)
+                pinCheckPassed = true;
+                document.getElementById('verified-pin-code').value = pin;
+                result.innerHTML = '<span style="color:rgba(255,255,255,0.5);font-size:0.78rem;"><i class="fas fa-info-circle"></i> Could not verify — proceeding with checkout.</span>';
+            });
+    }
+
+    function validatePinCode() {
+        // If no items have restrictions, skip the check entirely
+        if (!pinCheckHasRestrictions && !pinCheckPassed) {
+            // Fire a quick check to see if any cart items have restrictions
+            // We rely on server-side validation as the final guard; allow proceed
+            return true;
+        }
+        if (!pinCheckPassed) {
+            document.getElementById('pinCheckResult').innerHTML =
+                '<span style="color:#ff8060;"><i class="fas fa-exclamation-triangle"></i> Please enter and verify your pin code before paying.</span>';
+            document.getElementById('pinCodeInput').focus();
+            return false;
+        }
+        return true;
+    }
 </script>
 
 <script src="/js/ekart-loader.js"></script>
