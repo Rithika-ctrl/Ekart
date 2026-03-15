@@ -957,36 +957,19 @@
 
                     <hr class="card-divider">
 
-                    <!-- Reviews -->
-                    <div>
-                        <div class="reviews-header">
-                            <i class="fas fa-star"></i> Customer Reviews
-                        </div>
-                        <div th:each="review : ${p.reviews}" class="review-box">
-                            <div class="review-top">
-                                <span class="review-stars">
-                                    <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="fas fa-star"></i>
-                                </span>
-                                <span class="review-customer" th:text="${review.customerName}"></span>
-                            </div>
-                            <p class="review-comment" th:text="${review.comment}"></p>
-                        </div>
-
-                        <!-- Review Form -->
-                        <form action="/add-review" method="post" onclick="event.stopPropagation()">
-                            <input type="hidden" name="productId" th:value="${p.id}">
-                            <div class="review-form">
-                                <select name="rating" required>
-                                    <option value="5">5 ★</option>
-                                    <option value="4">4 ★</option>
-                                    <option value="3">3 ★</option>
-                                    <option value="2">2 ★</option>
-                                    <option value="1">1 ★</option>
-                                </select>
-                                <input type="text" name="comment" placeholder="Write a review…" required>
-                                <button type="submit" class="btn-post">Post</button>
-                            </div>
-                        </form>
+                    <!-- Review Summary (click product for full reviews) -->
+                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;color:var(--text-dim);">
+                        <span style="color:var(--yellow);">
+                            <i th:each="i : ${#numbers.sequence(1, 5)}" class="fas fa-star" style="font-size:0.65rem;"></i>
+                        </span>
+                        <span th:if="${p.reviews != null and !p.reviews.isEmpty()}"
+                              th:text="${#lists.size(p.reviews)} + ' review' + (${#lists.size(p.reviews)} > 1 ? 's' : '')"
+                              style="color:var(--text-dim);"></span>
+                        <span th:if="${p.reviews == null or p.reviews.isEmpty()}"
+                              style="color:var(--text-dim);">No reviews yet</span>
+                        <span style="margin-left:auto;font-size:0.65rem;color:var(--yellow);opacity:0.7;">
+                            <i class="fas fa-chevron-right"></i> View all
+                        </span>
                     </div>
 
                     <!-- Add to Cart -->

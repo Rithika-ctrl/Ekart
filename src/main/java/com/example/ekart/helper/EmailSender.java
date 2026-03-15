@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -30,6 +31,7 @@ public class EmailSender {
     private String fromEmail;
 
     // ===================== SEND OTP TO VENDOR =====================
+    @Async
     public void send(Vendor vendor) {
         // OTP sent to email - log only in debug mode
         try {
@@ -53,6 +55,7 @@ public class EmailSender {
     }
 
     // ===================== SEND OTP TO CUSTOMER =====================
+    @Async
     public void send(Customer customer) {
         // OTP sent to email - log only in debug mode
         try {
@@ -76,6 +79,7 @@ public class EmailSender {
     }
 
     // ===================== SEND ORDER CONFIRMATION =====================
+    @Async
     public void sendOrderConfirmation(Customer customer, double amount, int orderId,
                                       String paymentMode, String deliveryTime, List<Item> items) {
         try {
@@ -103,6 +107,7 @@ public class EmailSender {
     }
 
     // ===================== SEND STOCK ALERT TO VENDOR =====================
+    @Async
     public void sendStockAlert(Vendor vendor, Product product, int currentStock) {
         String email = vendor.getEmail();
         String name = vendor.getName();
@@ -136,6 +141,7 @@ public class EmailSender {
     }
 
     // ===================== SEND REPLACEMENT REQUEST =====================
+    @Async
     public void sendReplacementRequest(Customer customer, double amount, int orderId, List<Item> items) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -160,6 +166,7 @@ public class EmailSender {
     }
 
     // ===================== SEND ORDER CANCELLATION =====================
+    @Async
     public void sendOrderCancellation(Customer customer, double amount, int orderId, List<Item> items) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
