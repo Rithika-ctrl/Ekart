@@ -1,4 +1,10 @@
+
 package com.example.ekart.controller;
+
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import com.opencsv.CSVReader;
+import java.io.InputStreamReader;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,6 +45,92 @@ import jakarta.validation.Valid;
 
 @Controller
 public class EkartController {
+
+    // ── BULK PRODUCT INDUCTION ──────────────────────────────────────────────
+    @PostMapping("/add-product/bulk-upload")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> bulkProductUpload(
+            @RequestPart("file") MultipartFile file,
+            HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        if (session.getAttribute("vendor") == null) {
+            res.put("success", false);
+            res.put("message", "Login required");
+            return ResponseEntity.status(401).body(res);
+        }
+        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        int added = 0, failed = 0;
+        List<String> errors = new ArrayList<>();
+        try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream()))) {
+            String[] header = reader.readNext();
+            if (header == null) {
+                res.put("success", false);
+                res.put("message", "CSV is empty");
+                return ResponseEntity.badRequest().body(res);
+            }
+            // Map header columns to indices (case-insensitive)
+            Map<String, Integer> colIdx = new HashMap<>();
+            for (int i = 0; i < header.length; i++) colIdx.put(header[i].trim().toLowerCase(), i);
+            String[] row;
+            int rowNum = 1;
+            while ((row = reader.readNext()) != null) {
+                rowNum++;
+                try {
+                    String sku = getCsvValue(row, colIdx, "sku");
+                    String name = getCsvValue(row, colIdx, "product name");
+                    String desc = getCsvValue(row, colIdx, "description");
+                    String priceStr = getCsvValue(row, colIdx, "regular price");
+                    String salePriceStr = getCsvValue(row, colIdx, "sale price");
+                    String qtyStr = getCsvValue(row, colIdx, "stock quantity");
+                    String category = getCsvValue(row, colIdx, "category");
+                    String tags = getCsvValue(row, colIdx, "tags");
+                    String imageUrl = getCsvValue(row, colIdx, "image url");
+                    String weightStr = getCsvValue(row, colIdx, "weight (kg)");
+
+                    // Required fields: name, sku, price, qty
+                    if (name == null || sku == null || priceStr == null || qtyStr == null ||
+                        name.trim().isEmpty() || sku.trim().isEmpty() || priceStr.trim().isEmpty() || qtyStr.trim().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing required fields");
+                        continue;
+                    }
+                    double price = Double.parseDouble(priceStr);
+                    int qty = Integer.parseInt(qtyStr);
+                    Product p = new Product();
+                    p.setName(name.trim());
+                    p.setDescription(desc != null ? desc.trim() : "");
+                    p.setCategory(category != null && !category.isEmpty() ? category.trim() : "General");
+                    p.setPrice(price);
+                    p.setStock(qty);
+                    p.setVendor(vendor);
+                    p.setApproved(false);
+                    // Optionally: set imageLink, extra fields if Product supports them
+                    if (imageUrl != null && !imageUrl.isEmpty()) p.setImageLink(imageUrl.trim());
+                    // If you add SKU, tags, sale price, weight to Product, set them here
+                    productRepository.save(p);
+                    added++;
+                } catch (Exception ex) {
+                    failed++;
+                    errors.add("Row " + rowNum + ": " + ex.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to process CSV: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+        res.put("success", true);
+        res.put("message", "Added: " + added + ", Failed: " + failed + (errors.isEmpty() ? "" : ". Errors: " + String.join("; ", errors)));
+        return ResponseEntity.ok(res);
+
+    }
+
+    // Helper for safe CSV value extraction (case-insensitive)
+    private String getCsvValue(String[] row, Map<String, Integer> colIdx, String colName) {
+        Integer idx = colIdx.get(colName.toLowerCase());
+        if (idx == null || idx < 0 || idx >= row.length) return null;
+        return row[idx];
+    }
 
     @Autowired
     VendorService vendorService;

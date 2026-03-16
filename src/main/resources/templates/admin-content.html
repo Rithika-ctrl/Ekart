@@ -485,6 +485,30 @@
         </form>
     </div>
 
+    <!-- Bulk Product Induction -->
+    <div class="section-card" id="bulk-induction-section">
+        <h2><i class="fas fa-file-csv"></i> Bulk Product Induction</h2>
+        <p style="margin-bottom:1rem;color:var(--text-dim);font-size:0.95rem;">Upload a CSV file to add multiple products at once. Download the <a href="/sample-product-upload.csv" style="color:var(--yellow);text-decoration:underline;">sample CSV template</a>.</p>
+        <form id="bulkProductForm" enctype="multipart/form-data" method="post" action="/admin/products/bulk-upload">
+            <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:220px;">
+                    <label for="csvFile" style="font-weight:500;">CSV File *</label>
+                    <input type="file" id="csvFile" name="file" accept=".csv" required style="margin-top:0.5rem;">
+                </div>
+                <button type="submit" class="btn-primary" id="bulkUploadBtn">
+                    <i class="fas fa-upload"></i> Upload &amp; Import
+                </button>
+            </div>
+            <div id="bulkProgress" style="margin-top:1.2rem;display:none;">
+                <div style="background:rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;height:18px;width:100%;">
+                    <div id="bulkProgressBar" style="height:100%;width:0%;background:var(--yellow);transition:width 0.4s;"></div>
+                </div>
+                <div id="bulkProgressText" style="font-size:0.85rem;color:var(--text-dim);margin-top:0.4rem;"></div>
+            </div>
+            <div id="bulkValidation" style="margin-top:1.2rem;"></div>
+        </form>
+    </div>
+
     <!-- Banner List -->
     <div class="section-card">
         <h2><i class="fas fa-list"></i> All Banners</h2>
@@ -556,6 +580,7 @@
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
     // Auto-dismiss alerts
     setTimeout(() => {
@@ -565,9 +590,104 @@
             setTimeout(() => el.remove(), 500);
         });
     }, 3000);
+
+    // Bulk Product Induction logic
+    const bulkForm = document.getElementById('bulkProductForm');
+    const csvInput = document.getElementById('csvFile');
+    const progressBar = document.getElementById('bulkProgressBar');
+    const progressDiv = document.getElementById('bulkProgress');
+    const progressText = document.getElementById('bulkProgressText');
+    const validationDiv = document.getElementById('bulkValidation');
+    const uploadBtn = document.getElementById('bulkUploadBtn');
+
+    bulkForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        validationDiv.innerHTML = '';
+        progressDiv.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = 'Parsing CSV...';
+
+        const file = csvInput.files[0];
+        if (!file) {
+            validationDiv.innerHTML = '<span style="color:#ff6060;">Please select a CSV file.</span>';
+            progressDiv.style.display = 'none';
+            return;
+        }
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const data = results.data;
+                const errors = [];
+                const requiredFields = ['name','sku','price','quantity'];
+                let validCount = 0;
+                let duplicateSKUs = new Set();
+                let seenSKUs = new Set();
+
+                // Validate each row
+                data.forEach((row, idx) => {
+                    let rowErrors = [];
+                    requiredFields.forEach(f => {
+                        if (!row[f] || row[f].trim() === '') rowErrors.push(f+' is required');
+                    });
+                    if (row['sku']) {
+                        if (seenSKUs.has(row['sku'])) {
+                            rowErrors.push('Duplicate SKU in file');
+                            duplicateSKUs.add(row['sku']);
+                        }
+                        seenSKUs.add(row['sku']);
+                    }
+                    if (rowErrors.length > 0) {
+                        errors.push(`Row ${idx+2}: ` + rowErrors.join(', '));
+                    } else {
+                        validCount++;
+                    }
+                });
+
+                if (errors.length > 0) {
+                    progressBar.style.width = '0%';
+                    progressText.textContent = 'Validation failed.';
+                    validationDiv.innerHTML = '<div style="color:#ff6060;font-size:0.95rem;"><b>Errors:</b><ul style="margin:0.5em 0 0 1.2em;">'+errors.map(e=>`<li>${e}</li>`).join('')+'</ul></div>';
+                    return;
+                }
+
+                // If valid, show progress and submit
+                progressBar.style.width = '100%';
+                progressText.textContent = `Validated ${validCount} products. Uploading...`;
+                uploadBtn.disabled = true;
+
+                // Submit via AJAX
+                const formData = new FormData();
+                formData.append('file', file);
+                fetch('/admin/products/bulk-upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(resp => resp.json())
+                .then(res => {
+                    uploadBtn.disabled = false;
+                    if (res.success) {
+                        progressText.textContent = 'Upload successful!';
+                        validationDiv.innerHTML = '<span style="color:#22c55e;">'+res.message+'</span>';
+                        progressBar.style.width = '100%';
+                        bulkForm.reset();
+                    } else {
+                        progressText.textContent = 'Upload failed.';
+                        validationDiv.innerHTML = '<span style="color:#ff6060;">'+(res.message||'Upload failed')+'</span>';
+                        progressBar.style.width = '0%';
+                    }
+                })
+                .catch(() => {
+                    uploadBtn.disabled = false;
+                    progressText.textContent = 'Upload failed.';
+                    validationDiv.innerHTML = '<span style="color:#ff6060;">Upload failed. Please try again.</span>';
+                    progressBar.style.width = '0%';
+                });
+            }
+        });
+    });
 </script>
-
-
 <script src="/js/ekart-loader.js"></script>
 </body>
 </html>
