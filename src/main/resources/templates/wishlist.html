@@ -21,6 +21,8 @@
             --red:          #ef4444;
             --green:        #22c55e;
         }
+            /* Analytics styles scoped */
+            .ekart-analytics-hide { display:none !important; }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -516,6 +518,7 @@
 <body>
 
 <div class="bg-layer"></div>
+<script src="/services/analyticsService.js"></script>
 
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toastContainer"></div>
@@ -659,6 +662,15 @@
 </footer>
 
 <script>
+            // Analytics: WISHLIST_ADD
+            try {
+                document.querySelectorAll('.wishlist-add-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var productId = btn.getAttribute('data-product-id');
+                        if (productId) logUserAction && logUserAction('WISHLIST_ADD', { productId });
+                    });
+                });
+            } catch (e) {}
     // Nav scroll shadow
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);

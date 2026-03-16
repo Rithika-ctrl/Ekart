@@ -18,6 +18,12 @@
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
         }
+            /* Analytics styles scoped */
+            .ekart-analytics-hide { display:none !important; }
+            .ekart-analytics-timeline { background:rgba(255,255,255,0.04); border-radius:12px; padding:1.2rem; margin:2rem 0; }
+            .ekart-analytics-step { border-left:3px solid var(--yellow); padding-left:1rem; margin-bottom:1rem; }
+            .ekart-analytics-step time { color:var(--text-dim); font-size:0.78rem; margin-left:0.5rem; }
+            .ekart-analytics-insights { background:rgba(245,168,0,0.08); border-radius:10px; padding:0.8rem 1rem; margin-bottom:1.5rem; color:var(--yellow); font-weight:600; }
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
@@ -236,6 +242,7 @@
 <body>
 
 <div class="bg-layer"></div>
+<script src="/services/analyticsService.js"></script>
 
 <!-- ALERTS -->
 <div class="alert-stack">
@@ -525,6 +532,12 @@
     // Nav scroll effect
     window.addEventListener('scroll', () => document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10));
 
+        // Analytics: VIEW_PRODUCT
+        try {
+          const productId = /*[[${product.id}]]*/ 0;
+          if (productId) logUserAction && logUserAction('VIEW_PRODUCT', { productId });
+        } catch (e) {}
+
     // Auto-dismiss alerts
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .alert').forEach(el => {
@@ -541,17 +554,20 @@
     }
 
     // Wishlist
-    function toggleWishlist(productId) {
-        fetch('/api/wishlist/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId}) })
-            .then(r => r.json())
-            .then(data => {
-                const btn = document.getElementById('wlBtn');
-                if (!data.success) { showToast(data.message || 'Please log in to use Wishlist', 'error'); return; }
-                if (data.added) { btn.innerHTML = '<i class="fas fa-heart"></i>'; btn.style.background = 'rgba(239,68,68,0.25)'; showToast('Added to Wishlist ❤️', 'success'); }
-                else            { btn.innerHTML = '<i class="far fa-heart"></i>';  btn.style.background = ''; showToast('Removed from Wishlist', 'error'); }
-            })
-            .catch(() => showToast('Something went wrong', 'error'));
-    }
+        function toggleWishlist(productId) {
+            try {
+                logUserAction && logUserAction('WISHLIST_ADD', { productId });
+            } catch (e) {}
+            fetch('/api/wishlist/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId}) })
+                .then(r => r.json())
+                .then(data => {
+                    const btn = document.getElementById('wlBtn');
+                    if (!data.success) { showToast(data.message || 'Please log in to use Wishlist', 'error'); return; }
+                    if (data.added) { btn.innerHTML = '<i class="fas fa-heart"></i>'; btn.style.background = 'rgba(239,68,68,0.25)'; showToast('Added to Wishlist ❤️', 'success'); }
+                    else            { btn.innerHTML = '<i class="far fa-heart"></i>';  btn.style.background = ''; showToast('Removed from Wishlist', 'error'); }
+                })
+                .catch(() => showToast('Something went wrong', 'error'));
+        }
 
     // Toast
     function showToast(msg, type) {

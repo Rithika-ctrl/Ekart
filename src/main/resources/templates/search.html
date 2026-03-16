@@ -19,6 +19,8 @@
             --input-bg:     rgba(255,255,255,0.07);
             --input-border: rgba(255,255,255,0.18);
         }
+            /* Analytics styles scoped */
+            .ekart-analytics-hide { display:none !important; }
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
@@ -464,6 +466,7 @@
 <body>
 
 <div class="bg-layer"></div>
+<script src="/services/analyticsService.js"></script>
 
 <!-- ── NAV ── -->
 <nav id="nav">
@@ -645,6 +648,15 @@
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
     });
 
+        // Analytics: SEARCH
+        try {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('change', function() {
+                    logUserAction && logUserAction('SEARCH', { query: searchInput.value });
+                });
+            }
+        } catch (e) {}
     // ════════════════════════════════════════════════
     // SMART AUTOCOMPLETE
     // ════════════════════════════════════════════════
