@@ -28,6 +28,7 @@
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
         body { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
+        main.page { flex: 1 0 auto; margin-bottom: 0; }
 
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
@@ -515,6 +516,11 @@
 
 </main>
 
+<!-- Recently Viewed -->
+<section style="max-width:1200px;margin:0 auto;padding:0 1rem 2rem;">
+    <div id="recentlyViewedContainer"></div>
+</section>
+
 <footer>
     <div class="footer-brand">Ek<span>art</span></div>
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
@@ -686,9 +692,6 @@
 </script>
 
 <!-- Recently Viewed -->
-<section style="max-width:1200px;margin:0 auto;padding:0 1rem 2rem;">
-    <div id="recentlyViewedContainer"></div>
-</section>
 <script th:src="@{/js/recently-viewed.js}"></script>
 <script th:inline="javascript">
     document.addEventListener('DOMContentLoaded', function() {
