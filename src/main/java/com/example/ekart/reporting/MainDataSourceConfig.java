@@ -54,7 +54,7 @@ public class MainDataSourceConfig {
 
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
-        factory.setPackagesToScan("com.example.ekart.dto");  // main entities only
+        factory.setPackagesToScan("com.example.ekart.dto", "com.example.ekart.model");  // main entities + Policy
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factory.setPersistenceUnitName("main");
 

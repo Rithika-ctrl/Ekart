@@ -343,6 +343,7 @@
             <a href="/admin/refunds" class="nav-link"><i class="fas fa-undo-alt"></i> Refunds</a>
             <a href="/admin/accounts" class="nav-link"><i class="fas fa-users-cog"></i> Users</a>
             <a href="/analytics" class="nav-link"><i class="fas fa-chart-line"></i> Analytics</a>
+            <a href="/admin/policies" class="nav-link"><i class="fas fa-book"></i> Policies & SOPs</a>
         </div>
         <div class="nav-divider"></div>
         <span class="nav-badge"><i class="fas fa-shield-alt"></i> Admin</span>
@@ -381,6 +382,16 @@
             <div class="dash-card-body">
                 <h3>User Oversight</h3>
                 <p>Manage user accounts, view profiles, and control access permissions.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <!-- ADMIN-ONLY: Policy & SOP Management -->
+        <a href="/admin/policies" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-book"></i></div>
+            <div class="dash-card-body">
+                <h3>Policies & SOPs</h3>
+                <p>Manage, edit, and publish platform policies and SOP documentation for admins and users.</p>
             </div>
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>
