@@ -19,6 +19,8 @@
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
         }
+            /* Analytics styles scoped */
+            .ekart-analytics-hide { display:none !important; }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -391,6 +393,7 @@
 <body>
 
 <div class="bg-layer"></div>
+<script src="/services/analyticsService.js"></script>
 
 <!-- Alert Stack -->
 <div class="alert-stack">
@@ -562,6 +565,15 @@
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
     });
 
+        // Analytics: CART_ABANDON
+        try {
+            window.addEventListener('beforeunload', function() {
+                var cartItems = document.querySelectorAll('.cart-card');
+                if (cartItems.length > 0) {
+                    logUserAction && logUserAction('CART_ABANDON', { itemCount: cartItems.length });
+                }
+            });
+        } catch (e) {}
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .alert').forEach(el => {
             el.style.transition = 'opacity 0.5s';

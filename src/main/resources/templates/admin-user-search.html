@@ -49,6 +49,12 @@
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
+    
+                <section class="ekart-analytics-timeline">
+                    <h2 style="font-size:1.1rem;font-weight:700;color:var(--yellow);margin-bottom:1rem;">Customer Behavioral Timeline</h2>
+                    <div class="ekart-analytics-insights" id="analyticsInsights">Loading insights...</div>
+                    <div id="analyticsTimeline"></div>
+                </section>
             display: flex; align-items: center; justify-content: space-between;
             background: var(--glass-nav);
             backdrop-filter: blur(14px);
@@ -70,6 +76,44 @@
         .nav-links {
             display: flex;
             align-items: center;
+                // Admin analytics timeline fetch
+                function humanTime(ts) {
+                    const d = new Date(ts);
+                    return d.toLocaleString([], { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short', year:'numeric' });
+                }
+                async function loadAnalyticsTimeline(userId) {
+                    try {
+                        const res = await fetch('/api/admin/analytics/user/' + userId);
+                        const actions = await res.json();
+                        const timeline = document.getElementById('analyticsTimeline');
+                        const insights = document.getElementById('analyticsInsights');
+                        if (!actions || actions.length === 0) {
+                            timeline.innerHTML = '<div style="color:#aaa">No activity found.</div>';
+                            insights.innerHTML = 'No insights available.';
+                            return;
+                        }
+                        // Timeline
+                        timeline.innerHTML = actions.slice(0,20).map(a =>
+                            `<div class='ekart-analytics-step'>
+                                <b>${a.actionType.replace('_',' ')}</b> <span>${a.metadata && a.metadata.productName ? '— ' + a.metadata.productName : ''}</span>
+                                <time>${humanTime(a.timestamp)}</time>
+                            </div>`
+                        ).join('');
+                        // Insights
+                        const categories = actions.filter(a => a.actionType==='VIEW_PRODUCT' && a.metadata && a.metadata.category)
+                            .map(a => a.metadata.category);
+                        const freqCat = categories.length ? categories.sort((a,b) =>
+                            categories.filter(v=>v===a).length - categories.filter(v=>v===b).length
+                        ).pop() : null;
+                        insights.innerHTML = freqCat ? `Most Frequent Category: <b>${freqCat}</b>` : 'No frequent category found.';
+                    } catch (e) {
+                        document.getElementById('analyticsTimeline').innerHTML = '<div style="color:#aaa">Error loading activity.</div>';
+                        document.getElementById('analyticsInsights').innerHTML = 'Error loading insights.';
+                    }
+                }
+                // Call with userId (replace with actual userId logic)
+                const userId = window.location.pathname.split('/').pop();
+                if (userId && !isNaN(userId)) loadAnalyticsTimeline(userId);
             gap: 0.5rem;
         }
 
