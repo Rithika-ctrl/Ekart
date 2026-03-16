@@ -10,6 +10,27 @@ interface UserAction {
 const actionBuffer: UserAction[] = [];
 const BATCH_INTERVAL = 30000; // 30 seconds
 
+// Flush logs on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (actionBuffer.length > 0) {
+      try {
+        // Use navigator.sendBeacon for reliability on unload
+        navigator.sendBeacon && navigator.sendBeacon('/api/analytics/batch', JSON.stringify(actionBuffer));
+      } catch {}
+      actionBuffer.length = 0;
+    }
+  });
+}
+
+// Flush immediately if buffer exceeds 20
+function flushIfNeeded() {
+  if (actionBuffer.length >= 20) {
+    const batch = actionBuffer.splice(0, actionBuffer.length);
+    axios.post('/api/analytics/batch', batch).catch(() => {});
+  }
+}
+
 function logUserAction(actionType: string, metadata: Record<string, any>) {
   try {
     actionBuffer.push({
@@ -32,4 +53,11 @@ setInterval(async () => {
   }
 }, BATCH_INTERVAL);
 
-export { logUserAction };
+// Patch logUserAction to flush if needed
+const originalLogUserAction = logUserAction;
+function enhancedLogUserAction(actionType: string, metadata: Record<string, any>) {
+  originalLogUserAction(actionType, metadata);
+  flushIfNeeded();
+}
+
+export { enhancedLogUserAction as logUserAction };
