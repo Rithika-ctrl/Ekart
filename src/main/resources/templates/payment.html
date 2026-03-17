@@ -340,15 +340,34 @@
             <div class="glass-card">
                 <div class="section-label"><i class="fas fa-truck"></i> Shipping Address</div>
                 <div class="address-box">
-                    <div>
-                        <div class="address-text"
-                             th:if="${customer.addresses != null and !customer.addresses.isEmpty()}"
-                             th:text="${customer.addresses.get(customer.addresses.size()-1).details}">
-                        </div>
-                        <div class="address-warn"
-                             th:if="${customer.addresses == null or customer.addresses.isEmpty()}">
-                            <i class="fas fa-exclamation-triangle"></i> No shipping address found. Please add one.
-                        </div>
+                    <!-- Has addresses -->
+                    <div th:if="${customer.addresses != null and !customer.addresses.isEmpty()}">
+                        <th:block th:with="addr=${customer.addresses.get(customer.addresses.size()-1)}">
+                            <!-- Structured address -->
+                            <div th:if="${addr.recipientName != null and !#strings.isEmpty(addr.recipientName)}">
+                                <div style="font-size:0.875rem;font-weight:700;color:white;margin-bottom:0.2rem;"
+                                     th:text="${addr.recipientName}"></div>
+                                <div class="address-text"
+                                     th:if="${addr.houseStreet != null and !#strings.isEmpty(addr.houseStreet)}"
+                                     th:text="${addr.houseStreet}"></div>
+                                <div class="address-text"
+                                     th:text="${(addr.city != null ? addr.city : '') + (addr.state != null and !#strings.isEmpty(addr.state) ? ', ' + addr.state : '')}">
+                                </div>
+                                <div th:if="${addr.postalCode != null and !#strings.isEmpty(addr.postalCode)}"
+                                     style="display:inline-flex;align-items:center;gap:0.3rem;margin-top:0.3rem;font-size:0.75rem;font-weight:700;color:var(--yellow);">
+                                    <i class="fas fa-location-dot" style="font-size:0.6rem;"></i>
+                                    <span th:text="${addr.postalCode}"></span>
+                                </div>
+                            </div>
+                            <!-- Legacy flat-text fallback -->
+                            <div th:if="${addr.recipientName == null or #strings.isEmpty(addr.recipientName)}"
+                                 class="address-text" th:text="${addr.details}"></div>
+                        </th:block>
+                    </div>
+                    <!-- No address -->
+                    <div class="address-warn"
+                         th:if="${customer.addresses == null or customer.addresses.isEmpty()}">
+                        <i class="fas fa-exclamation-triangle"></i> No shipping address. Please add one.
                     </div>
                     <a href="/customer/address" class="change-link">
                         <i class="fas fa-pen" style="font-size:.65rem;"></i> Change

@@ -1,4 +1,3 @@
-
 package com.example.ekart.controller;
 
 import org.springframework.web.bind.annotation.RequestPart;
@@ -603,8 +602,14 @@ public class EkartController {
     }
 
     @PostMapping("/customer/save-address")
-    public String saveAddress(@RequestParam String address, HttpSession session) {
-        return customerService.saveAddress(address, session);
+    public String saveAddress(
+            @RequestParam String recipientName,
+            @RequestParam String houseStreet,
+            @RequestParam String city,
+            @RequestParam String state,
+            @RequestParam String postalCode,
+            HttpSession session) {
+        return customerService.saveAddress(recipientName, houseStreet, city, state, postalCode, session);
     }
 
     @GetMapping("/customer/delete-address/{id}")
