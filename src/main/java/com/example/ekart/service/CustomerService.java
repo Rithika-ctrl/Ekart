@@ -255,15 +255,16 @@ public class CustomerService {
 
     // ---------------- PRODUCT DETAIL ----------------
     public String viewProductDetail(int id, HttpSession session, ModelMap map) {
-        if (session.getAttribute("customer") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
-        }
+        // ✅ Guests can view product detail (shared links work without login)
+        // We don't redirect — just flag guest mode for the template
+        boolean isGuest = session.getAttribute("customer") == null
+                       && session.getAttribute("vendor") == null;
+        map.put("isGuestView", isGuest);
 
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || !product.isApproved()) {
-            session.setAttribute("failure", "Product not found");
-            return "redirect:/customer/home";
+            if (!isGuest) session.setAttribute("failure", "Product not found");
+            return isGuest ? "redirect:/" : "redirect:/customer/home";
         }
 
         // Similar products — same category, exclude current product

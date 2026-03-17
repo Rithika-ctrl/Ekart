@@ -238,6 +238,140 @@
         @media(max-width:900px) { .product-main { grid-template-columns:1fr; } nav { padding:0.7rem 1rem; } .page { padding:5.5rem 1rem 3rem; } }
         @media(max-width:560px) { .similar-grid { grid-template-columns:1fr 1fr; } .nav-link span { display:none; } .nav-link { padding:0.42rem 0.55rem; } }
         @media(max-width:380px) { .similar-grid { grid-template-columns:1fr; } }
+
+        /* ── Share Button ── */
+        .btn-share-lg {
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.35);
+            color: #60a5fa;
+            border-radius: 16px;
+            width: 52px; height: 52px;
+            font-size: 1rem; cursor: pointer;
+            transition: all 0.25s;
+            flex-shrink: 0;
+        }
+        .btn-share-lg:hover {
+            background: #3b82f6; color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59,130,246,0.35);
+        }
+        .btn-share-lg:active { transform: scale(0.93); }
+
+        /* ── Share Toast Notification ── */
+        .share-toast {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(10,13,32,0.95);
+            border: 1px solid rgba(34,197,94,0.4);
+            color: #22c55e;
+            font-size: 0.8rem; font-weight: 600;
+            padding: 0.6rem 1.1rem;
+            border-radius: 50px;
+            margin-top: 0.75rem;
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+        }
+        .share-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── Shared modal base ── */
+        .ekart-modal-overlay {
+            position: fixed; inset: 0; z-index: 999;
+            background: rgba(0,0,0,0.70); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .ekart-modal-overlay.active { opacity: 1; pointer-events: all; }
+        .ekart-modal-box {
+            background: rgba(10,13,32,0.97);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 22px;
+            padding: 2.25rem 2.5rem;
+            max-width: 400px; width: 92%;
+            text-align: center;
+            box-shadow: 0 50px 120px rgba(0,0,0,0.75);
+            transform: scale(0.90) translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.23,1,0.32,1);
+        }
+        .ekart-modal-overlay.active .ekart-modal-box { transform: scale(1) translateY(0); }
+        .ekart-modal-icon  { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        .ekart-modal-title { font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 0.5rem; }
+        .ekart-modal-msg   { font-size: 0.82rem; color: rgba(255,255,255,0.5); line-height: 1.6; margin-bottom: 1.5rem; }
+        .ekart-modal-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+        .ekart-modal-btn-primary {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: #f5a800; color: #1a1000;
+            padding: 0.75rem 1.75rem; border-radius: 11px;
+            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 700;
+            text-decoration: none; transition: all 0.2s; width: 100%; justify-content: center;
+        }
+        .ekart-modal-btn-primary:hover { background: #d48f00; text-decoration: none; transform: translateY(-1px); color: #1a1000; }
+        .ekart-modal-btn-secondary {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 0.75rem 1.75rem; border-radius: 11px;
+            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 600;
+            text-decoration: none; transition: all 0.2s; width: 100%; justify-content: center;
+        }
+        .ekart-modal-btn-secondary:hover { background: rgba(255,255,255,0.13); color: white; text-decoration: none; }
+        .ekart-modal-btn-ghost {
+            background: none; border: none; color: rgba(255,255,255,0.35);
+            font-family: 'Poppins', sans-serif; font-size: 0.78rem;
+            cursor: pointer; transition: color 0.2s; width: 100%; text-align: center;
+            padding: 0.5rem;
+        }
+        .ekart-modal-btn-ghost:hover { color: rgba(255,255,255,0.65); }
+
+        /* ── Share modal specifics ── */
+        .share-link-box {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px; padding: 0.6rem 0.75rem;
+            margin-bottom: 1.25rem; text-align: left;
+        }
+        .share-link-text {
+            flex: 1; font-size: 0.72rem; color: rgba(255,255,255,0.55);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            font-family: monospace;
+        }
+        .share-copy-btn {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(245,168,0,0.15); border: 1px solid rgba(245,168,0,0.35);
+            color: #f5a800; border-radius: 7px;
+            padding: 0.4rem 0.75rem; font-family: 'Poppins', sans-serif;
+            font-size: 0.72rem; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+        }
+        .share-copy-btn:hover { background: #f5a800; color: #1a1000; }
+        .share-copy-btn.copied { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.4); color: #22c55e; }
+
+        .share-via-row {
+            display: flex; gap: 0.75rem; justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .share-via-btn {
+            width: 46px; height: 46px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; text-decoration: none; cursor: pointer;
+            border: none; transition: all 0.2s;
+        }
+        .share-via-btn:hover { transform: translateY(-3px) scale(1.1); text-decoration: none; }
+        .share-whatsapp  { background: rgba(37,211,102,0.15);  color: #25d366; border: 1px solid rgba(37,211,102,0.3);  }
+        .share-whatsapp:hover  { background: #25d366; color: white; }
+        .share-telegram  { background: rgba(0,136,204,0.15);   color: #0088cc; border: 1px solid rgba(0,136,204,0.3);   }
+        .share-telegram:hover  { background: #0088cc; color: white; }
+        .share-email     { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.15); }
+        .share-email:hover     { background: rgba(255,255,255,0.15); color: white; }
+        .share-native    { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.15); }
+        .share-native:hover    { background: rgba(255,255,255,0.15); color: white; }
     </style>
 </head>
 <body>
@@ -339,9 +473,21 @@
                 </div>
             </div>
             <div class="action-row">
-                <a th:if="${product.stock > 0}"  th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;"><i class="fas fa-cart-plus"></i> Add to Cart</a>
-                <span th:if="${product.stock == 0}" class="btn-add-cart" style="flex:1;opacity:0.45;cursor:not-allowed;pointer-events:none;"><i class="fas fa-ban"></i> Out of Stock</span>
+                <!-- Logged-in customer: normal Add to Cart -->
+                <th:block th:if="${!isGuestView}">
+                    <a th:if="${product.stock > 0}"  th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;"><i class="fas fa-cart-plus"></i> Add to Cart</a>
+                    <span th:if="${product.stock == 0}" class="btn-add-cart" style="flex:1;opacity:0.45;cursor:not-allowed;pointer-events:none;"><i class="fas fa-ban"></i> Out of Stock</span>
+                </th:block>
+                <!-- Guest: show Sign In prompt -->
+                <th:block th:if="${isGuestView}">
+                    <button class="btn-add-cart" style="flex:1;" onclick="showGuestPrompt()" type="button">
+                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    </button>
+                </th:block>
                 <button class="btn-wishlist-lg" id="wlBtn" th:onclick="'toggleWishlist(' + ${product.id} + ')'"><i class="far fa-heart"></i></button>
+                <button class="btn-share-lg" id="shareBtn" onclick="openShareModal()" title="Share this product">
+                    <i class="fas fa-share-nodes"></i>
+                </button>
             </div>
             <a href="/customer/home" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-dim);text-decoration:none;transition:color 0.2s;">
                 <i class="fas fa-arrow-left"></i> Back to all products
@@ -707,5 +853,147 @@
 
 
 <script src="/js/ekart-loader.js"></script>
+
+<script>
+// ── Share modal ────────────────────────────────────────────────────────────
+    function openShareModal() {
+        var url  = window.location.href;
+        var name = document.querySelector('.product-name')
+                 ? document.querySelector('.product-name').textContent.trim() : '';
+        var msg  = encodeURIComponent('Check out this product on Ekart: ' + name + ' ' + url);
+
+        document.getElementById('shareLinkText').textContent   = url;
+        document.getElementById('shareProductName').textContent = name;
+        document.getElementById('shareWhatsApp').href  = 'https://wa.me/?text=' + msg;
+        document.getElementById('shareTelegram').href  = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent('Check out this on Ekart: ' + name);
+        document.getElementById('shareEmail').href     = 'mailto:?subject=' + encodeURIComponent('Check this out on Ekart') + '&body=' + msg;
+
+        if (navigator.share) {
+            document.getElementById('shareNativeBtn').style.display = 'inline-flex';
+        }
+
+        // Reset copy button
+        var cb = document.getElementById('shareCopyBtn');
+        cb.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        cb.classList.remove('copied');
+
+        document.getElementById('shareModal').classList.add('active');
+    }
+
+    function closeShareModal(e) {
+        if (!e || e.target === document.getElementById('shareModal')) {
+            document.getElementById('shareModal').classList.remove('active');
+        }
+    }
+
+    function copyShareLink() {
+        var url = document.getElementById('shareLinkText').textContent;
+        var btn = document.getElementById('shareCopyBtn');
+        var doSuccess = function() {
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(doSuccess).catch(function() { fallbackCopyLink(url, doSuccess); });
+        } else {
+            fallbackCopyLink(url, doSuccess);
+        }
+    }
+
+    function fallbackCopyLink(url, cb) {
+        var ta = document.createElement('textarea');
+        ta.value = url; ta.style.cssText = 'position:fixed;top:-9999px;opacity:0;';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); cb(); } catch(e) {}
+        document.body.removeChild(ta);
+    }
+
+    function nativeShare() {
+        var url  = window.location.href;
+        var name = document.querySelector('.product-name')
+                 ? document.querySelector('.product-name').textContent.trim() : 'Ekart Product';
+        navigator.share({ title: name, text: 'Check this out on Ekart!', url: url }).catch(function() {});
+    }
+
+    // ── Guest prompt modal ─────────────────────────────────────────────────────
+    function showGuestPrompt() {
+        document.getElementById('guestModal').classList.add('active');
+    }
+
+    function closeGuestModal(e) {
+        if (!e || e.target === document.getElementById('guestModal')) {
+            document.getElementById('guestModal').classList.remove('active');
+        }
+    }
+
+    // Close modals on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeShareModal(); closeGuestModal();
+        }
+    });
+</script>
+
+<!-- ── GUEST SIGN-IN PROMPT MODAL ────────────────────────────────────────── -->
+<div id="guestModal" class="ekart-modal-overlay" onclick="closeGuestModal(event)">
+    <div class="ekart-modal-box">
+        <div class="ekart-modal-icon" style="font-size:2.5rem;">🛒</div>
+        <h3 class="ekart-modal-title">Sign In to Add to Cart</h3>
+        <p class="ekart-modal-msg">You need an account to add products to your cart and place orders.</p>
+        <div class="ekart-modal-actions" style="flex-direction:column;gap:0.6rem;">
+            <a href="/customer/login" class="ekart-modal-btn-primary">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </a>
+            <a href="/customer/register" class="ekart-modal-btn-secondary">
+                <i class="fas fa-user-plus"></i> Create Account
+            </a>
+            <button class="ekart-modal-btn-ghost" onclick="closeGuestModal()">
+                Continue Browsing
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── SHARE PRODUCT MODAL ────────────────────────────────────────────────── -->
+<div id="shareModal" class="ekart-modal-overlay" onclick="closeShareModal(event)">
+    <div class="ekart-modal-box">
+        <div class="ekart-modal-icon">🔗</div>
+        <h3 class="ekart-modal-title">Share this Product</h3>
+        <p class="ekart-modal-msg" id="shareProductName" style="color:white;font-weight:600;"></p>
+
+        <!-- Link box -->
+        <div class="share-link-box">
+            <span id="shareLinkText" class="share-link-text"></span>
+            <button id="shareCopyBtn" class="share-copy-btn" onclick="copyShareLink()">
+                <i class="fas fa-copy"></i> Copy
+            </button>
+        </div>
+
+        <!-- Share via icons -->
+        <div class="share-via-row">
+            <a id="shareWhatsApp" href="#" target="_blank" class="share-via-btn share-whatsapp" title="Share on WhatsApp">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+            <a id="shareTelegram" href="#" target="_blank" class="share-via-btn share-telegram" title="Share on Telegram">
+                <i class="fab fa-telegram-plane"></i>
+            </a>
+            <a id="shareEmail" href="#" target="_blank" class="share-via-btn share-email" title="Share via Email">
+                <i class="fas fa-envelope"></i>
+            </a>
+            <button class="share-via-btn share-native" id="shareNativeBtn" onclick="nativeShare()" title="More options" style="display:none;">
+                <i class="fas fa-ellipsis-h"></i>
+            </button>
+        </div>
+
+        <button class="ekart-modal-btn-ghost" onclick="closeShareModal()" style="margin-top:0.5rem;">
+            Close
+        </button>
+    </div>
+</div>
+
 </body>
 </html>
