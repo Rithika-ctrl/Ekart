@@ -55,6 +55,9 @@ public class VendorService {
 	private StockAlertService stockAlertService;
 
 	@Autowired
+	private com.example.ekart.service.BackInStockService backInStockService;
+
+	@Autowired
 	private EmailSender emailSender;
 
 	@Autowired
@@ -453,6 +456,9 @@ public class VendorService {
 			return "redirect:/manage-products";
 		}
 
+		// ✅ Capture old stock BEFORE saving (to detect 0 → positive transition)
+		int oldStock = existingProduct.getStock();
+
 		existingProduct.setName(product.getName());
 		existingProduct.setDescription(product.getDescription());
 		existingProduct.setPrice(product.getPrice());
@@ -499,6 +505,11 @@ public class VendorService {
 		
 		// 🔥 Check stock level after update
 		stockAlertService.checkStockLevel(existingProduct);
+
+		// ✅ Back-in-stock: if stock was 0 and is now positive, notify subscribers
+		if (oldStock == 0 && existingProduct.getStock() > 0) {
+			backInStockService.notifySubscribers(existingProduct);
+		}
 
 		session.setAttribute("success", "Product Updated Successfully");
 		return "redirect:/manage-products";

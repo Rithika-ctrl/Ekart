@@ -246,8 +246,9 @@
         .qty-btn {
             width: 34px; height: 34px;
             display: flex; align-items: center; justify-content: center;
-            color: var(--text-light); text-decoration: none;
-            font-size: 1rem; font-weight: 700;
+            color: var(--yellow); text-decoration: none;
+            font-size: 1rem; font-weight: 800;
+            background: none; border: none; cursor: pointer;
             transition: background 0.15s;
         }
         .qty-btn:hover { background: rgba(245,168,0,0.2); color: var(--yellow); text-decoration: none; }
@@ -634,7 +635,7 @@
 
             <div class="total-row">
                 <div class="total-label">Cart Total</div>
-                <div class="total-value">₹<th:block th:text="${totalPrice}"></th:block></div>
+                <div class="total-value">₹<th:block th:text="${#numbers.formatDecimal(totalPrice, 1, 'COMMA', 2, 'POINT')}"></th:block></div>
             </div>
 
             <th:block th:if="${totalPrice > 0}">
@@ -723,7 +724,8 @@
 </script>
 
 
-<script src="/js/ekart-loader.js"></script>
+<script src="/js/ekart-skeleton.js"></script>
+
 
 <!-- ── CONFIRM REMOVE MODAL ───────────────────────────────────────────── -->
 <div id="confirmModal" class="confirm-overlay" onclick="closeConfirm(event)">
@@ -852,29 +854,25 @@ function applyCartUpdate(data) {
     const totalVal = document.querySelector('.total-value');
     if (totalVal) totalVal.textContent = '₹' + fmt(data.cartTotal);
 
-    // Free delivery banner
-    const remaining = 500 - data.cartTotal;
-    const pct = Math.min((data.cartTotal / 500) * 100, 100);
-    const fill = document.querySelector('.progress-fill');
-    if (fill) {
-        fill.style.width = pct + '%';
-        fill.classList.toggle('full', data.freeDelivery);
-    }
-    const milestoneText = document.querySelector('.milestone-text');
-    const unlockedText  = document.querySelector('.unlocked-text');
-    const progressMeta  = document.querySelector('.progress-meta');
-    if (data.freeDelivery) {
-        if (milestoneText) milestoneText.style.display = 'none';
-        if (unlockedText)  unlockedText.style.display  = 'flex';
-        if (progressMeta)  { progressMeta.textContent = 'FREE DELIVERY UNLOCKED ✓'; progressMeta.style.color = '#22c55e'; }
-    } else {
-        if (milestoneText) {
-            milestoneText.style.display = 'flex';
-            const strong = milestoneText.querySelector('strong');
-            if (strong) strong.textContent = '₹' + fmt(remaining);
+    // Free delivery banner — Thymeleaf only renders ONE of the two divs.
+    // We rewrite the whole delivery-banner content dynamically instead of
+    // trying to show/hide both divs (only one exists in DOM).
+    const deliveryBanner = document.querySelector('.delivery-banner');
+    if (deliveryBanner && !data.cartEmpty) {
+        const remaining = Math.max(0, 500 - data.cartTotal);
+        const pct = Math.min((data.cartTotal / 500) * 100, 100);
+
+        if (data.freeDelivery) {
+            deliveryBanner.innerHTML =
+                '<div class="unlocked-text">🎉 You\'ve unlocked <strong>FREE Delivery!</strong></div>'
+              + '<div class="progress-track"><div class="progress-fill full" style="width:100%;"></div></div>'
+              + '<div class="progress-meta" style="color:#22c55e;">FREE DELIVERY UNLOCKED ✓</div>';
+        } else {
+            deliveryBanner.innerHTML =
+                '<div class="milestone-text">🚚 Spend <strong>₹' + fmt(remaining) + '</strong> more to unlock <strong>FREE Delivery!</strong></div>'
+              + '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;"></div></div>'
+              + '<div class="progress-meta">₹' + fmt(data.cartTotal) + ' / ₹500</div>';
         }
-        if (unlockedText) unlockedText.style.display = 'none';
-        if (progressMeta) { progressMeta.textContent = '₹' + fmt(data.cartTotal) + ' / ₹500'; progressMeta.style.color = ''; }
     }
 
     // Nav cart badge
@@ -889,12 +887,24 @@ function applyCartUpdate(data) {
     // If cart is now empty — show empty state, hide panels
     if (data.cartEmpty) {
         if (cartGrid)  cartGrid.style.display = 'none';
-        const checkoutPanel  = document.querySelector('.checkout-panel');
-        const deliveryBanner = document.querySelector('.delivery-banner');
-        const emptyCart      = document.querySelector('.empty-cart');
+        const checkoutPanel = document.querySelector('.checkout-panel');
         if (checkoutPanel)  checkoutPanel.style.display  = 'none';
         if (deliveryBanner) deliveryBanner.style.display = 'none';
-        if (emptyCart)      emptyCart.style.display      = 'block';
+        const emptyCart = document.querySelector('.empty-cart');
+        if (emptyCart) { emptyCart.style.display = 'block'; }
+        else {
+            // empty-cart div wasn't rendered (cart wasn't empty on page load) — inject it
+            const inner = document.querySelector('.inner');
+            if (inner) {
+                const div = document.createElement('div');
+                div.className = 'empty-cart';
+                div.innerHTML = '<div class="empty-cart-icon">🛒</div>'
+                    + '<h3>Your Cart is Empty</h3>'
+                    + '<p>Looks like you haven\'t added anything yet. Start shopping!</p>'
+                    + '<a href="/customer/home" class="btn-shop"><i class="fas fa-store"></i> Browse Products</a>';
+                inner.appendChild(div);
+            }
+        }
     }
 }
 

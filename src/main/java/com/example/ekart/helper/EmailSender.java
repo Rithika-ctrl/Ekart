@@ -190,6 +190,36 @@ public class EmailSender {
         }
     }
 
+    // ===================== SEND BACK-IN-STOCK NOTIFICATION =====================
+    @Async
+    public void sendBackInStockNotification(Customer customer, Product product) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setFrom(fromEmail, "Ekart");
+            helper.setTo(customer.getEmail());
+            helper.setSubject("🎉 Back in Stock: " + product.getName() + " — Ekart");
+
+            Context context = new Context();
+            context.setVariable("customerName",  customer.getName());
+            context.setVariable("productName",   product.getName());
+            context.setVariable("productId",     product.getId());
+            context.setVariable("productImage",  product.getImageLink());
+            context.setVariable("productPrice",  product.getPrice());
+            context.setVariable("productStock",  product.getStock());
+
+            String html = templateEngine.process("back-in-stock-email.html", context);
+            helper.setText(html, true);
+            mailSender.send(message);
+            System.out.println("✅ Back-in-stock email sent to " + customer.getEmail()
+                    + " for product: " + product.getName());
+        } catch (Exception e) {
+            System.err.println("❌ Back-in-stock email failed for " + customer.getEmail()
+                    + ": " + e.getMessage());
+        }
+    }
+
     // ===================== SEND PASSWORD RESET BY ADMIN =====================
     public void sendPasswordResetByAdmin(Customer customer) {
         try {

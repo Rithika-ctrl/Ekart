@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="'Ekart — ' + ${product.name}">Ekart — Product</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -33,7 +35,7 @@
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
             content:''; position:absolute; inset:-20px;
-            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=900&q=75&auto=format') center/cover no-repeat;
             filter:blur(6px); transform:scale(1.08);
         }
         .bg-layer::after {
@@ -111,6 +113,44 @@
         .stock-pill.out-stock { background:rgba(239,68,68,0.12);  border:1px solid rgba(239,68,68,0.3);   color:#ef4444; }
         .btn-add-cart { display:flex; align-items:center; justify-content:center; gap:0.6rem; background:var(--yellow); color:#1a1000; border:none; border-radius:16px; padding:1rem 2rem; font-family:'Poppins',sans-serif; font-size:1rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; text-decoration:none; cursor:pointer; transition:all 0.3s cubic-bezier(0.23,1,0.32,1); box-shadow:0 8px 28px rgba(245,168,0,0.3); }
         .btn-add-cart:hover { background:var(--yellow-d); transform:translateY(-3px); box-shadow:0 14px 36px rgba(245,168,0,0.45); color:#1a1000; text-decoration:none; }
+        /* ── NOTIFY ME BUTTON ── */
+        .btn-notify-me {
+            display:flex; align-items:center; justify-content:center; gap:0.6rem;
+            background:rgba(99,102,241,0.12);
+            border:1.5px solid rgba(99,102,241,0.45);
+            color:#a5b4fc;
+            border-radius:16px; padding:1rem 2rem;
+            font-family:'Poppins',sans-serif; font-size:1rem; font-weight:700;
+            letter-spacing:0.06em; text-transform:uppercase;
+            cursor:pointer; transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
+        }
+        .btn-notify-me:hover {
+            background:rgba(99,102,241,0.22);
+            border-color:rgba(99,102,241,0.7);
+            transform:translateY(-2px);
+            box-shadow:0 8px 24px rgba(99,102,241,0.25);
+        }
+        .btn-notify-me.subscribed {
+            background:rgba(34,197,94,0.12);
+            border-color:rgba(34,197,94,0.45);
+            color:#4ade80;
+        }
+        .btn-notify-me.subscribed:hover {
+            background:rgba(34,197,94,0.22);
+            border-color:rgba(34,197,94,0.7);
+            box-shadow:0 8px 24px rgba(34,197,94,0.2);
+        }
+        .btn-notify-me:disabled { opacity:0.6; cursor:not-allowed; pointer-events:none; }
+        /* Notify Me toast-style confirmation banner (shown under the button) */
+        .notify-confirm {
+            display:none; margin-top:0.75rem;
+            background:rgba(34,197,94,0.1);
+            border:1px solid rgba(34,197,94,0.3);
+            border-radius:10px; padding:0.75rem 1rem;
+            font-size:0.8rem; color:#4ade80;
+            animation:sk-in 0.3s ease both;
+        }
+        .notify-confirm.show { display:flex; align-items:center; gap:0.5rem; }
         .btn-wishlist-lg { display:flex; align-items:center; justify-content:center; gap:0.5rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444; border-radius:16px; padding:1rem; font-family:'Poppins',sans-serif; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.3s; flex-shrink:0; }
         .btn-wishlist-lg:hover { background:rgba(239,68,68,0.2); transform:translateY(-2px); }
         .action-row { display:flex; gap:0.75rem; }
@@ -493,8 +533,15 @@
                 <!-- Logged-in customer: normal Add to Cart -->
                 <th:block th:if="${!isGuestView}">
                     <a th:if="${product.stock > 0}"  th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;"><i class="fas fa-cart-plus"></i> Add to Cart</a>
-                    <span th:if="${product.stock == 0}" class="btn-add-cart" style="flex:1;opacity:0.45;cursor:not-allowed;pointer-events:none;"><i class="fas fa-ban"></i> Out of Stock</span>
-                </th:block>
+                    <!-- Out of stock: show Notify Me button -->
+                    <th:block th:if="${product.stock == 0}">
+                        <button type="button" class="btn-notify-me" style="flex:1;"
+                                th:attr="data-product-id=${product.id}"
+                                id="notifyMeBtn" onclick="toggleNotifyMe(this)">
+                            <i class="fas fa-bell" id="notifyIcon"></i>
+                            <span id="notifyText">Notify Me When Back</span>
+                        </button>
+                    </th:block>                </th:block>
                 <!-- Guest: show Sign In prompt -->
                 <th:block th:if="${isGuestView}">
                     <button class="btn-add-cart" style="flex:1;" onclick="showGuestPrompt()" type="button">
@@ -506,6 +553,8 @@
                     <i class="fas fa-share-nodes"></i>
                 </button>
             </div>
+            <!-- Notify Me confirmation message (shown after subscribe/unsubscribe) -->
+            <div id="notifyConfirm" class="notify-confirm" th:if="${product.stock == 0}"></div>
             <a href="/customer/home" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-dim);text-decoration:none;transition:color 0.2s;">
                 <i class="fas fa-arrow-left"></i> Back to all products
             </a>
@@ -869,7 +918,7 @@
 <div th:replace="~{chat-widget :: chatWidget}"></div>
 
 
-<script src="/js/ekart-loader.js"></script>
+
 
 <script>
 // ── Share modal ────────────────────────────────────────────────────────────
@@ -1011,6 +1060,100 @@
         </button>
     </div>
 </div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   NOTIFY ME — Back-in-Stock subscription toggle
+   ═══════════════════════════════════════════════════ */
+
+function toggleNotifyMe(btn) {
+    var productId  = btn.getAttribute('data-product-id');
+    var subscribed = btn.classList.contains('subscribed');
+    var method     = subscribed ? 'DELETE' : 'POST';
+    var icon       = document.getElementById('notifyIcon');
+    var text       = document.getElementById('notifyText');
+    var confirm    = document.getElementById('notifyConfirm');
+
+    // Optimistic loading state
+    btn.disabled = true;
+    text.textContent = subscribed ? 'Removing…' : 'Subscribing…';
+
+    fetch('/api/notify-me/' + productId, {
+        method : method,
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+
+        if (!data.success) {
+            // Not logged in or error
+            text.textContent = subscribed ? 'Unsubscribe' : 'Notify Me When Back';
+            if (data.message && data.message.indexOf('log in') !== -1) {
+                window.location.href = '/customer/login';
+            } else {
+                showNotifyMsg(data.message || 'Something went wrong.', 'error');
+            }
+            return;
+        }
+
+        var isNowSubscribed = data.subscribed;
+
+        // Update button appearance
+        btn.classList.toggle('subscribed', isNowSubscribed);
+        icon.className = isNowSubscribed ? 'fas fa-bell-slash' : 'fas fa-bell';
+        text.textContent = isNowSubscribed ? 'Unsubscribe' : 'Notify Me When Back';
+
+        // Show inline confirmation
+        if (confirm) {
+            confirm.innerHTML = isNowSubscribed
+                ? '<i class="fas fa-check-circle"></i> <span>' + (data.message || "You'll be notified by email when this is back in stock.") + '</span>'
+                : '<i class="fas fa-bell-slash"></i> <span>You\'ve been unsubscribed.</span>';
+            confirm.classList.add('show');
+            setTimeout(function() { confirm.classList.remove('show'); }, 4000);
+        }
+
+        // Also fire ekart-toast if available
+        if (window.ekartToast) {
+            ekartToast(data.message || (isNowSubscribed ? 'Subscribed!' : 'Unsubscribed'), 'success');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        text.textContent = subscribed ? 'Unsubscribe' : 'Notify Me When Back';
+        showNotifyMsg('Network error. Please try again.', 'error');
+    });
+}
+
+function showNotifyMsg(msg, type) {
+    var confirm = document.getElementById('notifyConfirm');
+    if (!confirm) return;
+    confirm.innerHTML = '<i class="fas fa-' + (type === 'error' ? 'exclamation-circle' : 'check-circle') + '"></i> <span>' + msg + '</span>';
+    confirm.style.background = type === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    confirm.style.borderColor = type === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)';
+    confirm.style.color = type === 'error' ? '#f87171' : '#4ade80';
+    confirm.classList.add('show');
+    setTimeout(function() { confirm.classList.remove('show'); }, 4000);
+}
+
+// ── On page load: check if already subscribed ──────────────
+(function checkNotifyStatus() {
+    var btn = document.getElementById('notifyMeBtn');
+    if (!btn) return; // product is in stock — button not rendered
+
+    var productId = btn.getAttribute('data-product-id');
+    fetch('/api/notify-me/' + productId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.subscribed) {
+                btn.classList.add('subscribed');
+                document.getElementById('notifyIcon').className = 'fas fa-bell-slash';
+                document.getElementById('notifyText').textContent = 'Unsubscribe';
+            }
+        })
+        .catch(function() { /* silently ignore — not critical */ });
+})();
+</script>
 
 </body>
 </html>

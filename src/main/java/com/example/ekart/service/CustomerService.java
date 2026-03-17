@@ -539,6 +539,7 @@ public class CustomerService {
         res.put("cartTotal", cartTotal);
         res.put("freeDelivery", cartTotal >= 500);
         res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
+        res.put("cartEmpty", false); // increase can never empty the cart
         return res;
     }
 
