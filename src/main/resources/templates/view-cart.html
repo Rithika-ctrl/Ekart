@@ -227,6 +227,10 @@
         .cart-name { font-size: 0.975rem; font-weight: 700; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cart-desc { font-size: 0.74rem; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
         .cart-price { font-size: 1.1rem; font-weight: 800; color: var(--yellow); margin-top: 0.25rem; }
+        .cart-line-total {
+            font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;
+        }
+        .cart-line-total strong { color: var(--text-light); font-weight: 700; }
 
         /* Quantity + Remove row */
         .cart-actions {
@@ -592,15 +596,24 @@
                 <div class="cart-body">
                     <div class="cart-name"  th:text="${p.name}">Product Name</div>
                     <div class="cart-desc"  th:text="${p.description}">Description…</div>
-                    <div class="cart-price" th:text="'₹' + ${p.price / p.quantity}">₹0</div>
+                    <!-- ✅ FIX: unitPrice is the clean per-unit price, never stale -->
+                    <div class="cart-price" th:text="'₹' + ${#numbers.formatDecimal(p.unitPrice > 0 ? p.unitPrice : (p.price / p.quantity), 1, 'COMMA', 2, 'POINT')}">₹0</div>
+                    <!-- ✅ FIX: Line total = unitPrice × qty — exact, no floating-point drift -->
+                    <div class="cart-line-total" th:if="${p.quantity > 1}">
+                        <span th:text="${p.quantity}">1</span> × ₹<th:block th:text="${#numbers.formatDecimal(p.unitPrice > 0 ? p.unitPrice : (p.price / p.quantity), 1, 'COMMA', 2, 'POINT')}"/> = <strong>₹<th:block th:text="${#numbers.formatDecimal(p.unitPrice > 0 ? p.unitPrice * p.quantity : p.price, 1, 'COMMA', 2, 'POINT')}"/></strong>
+                    </div>
                 </div>
 
                 <!-- Qty + Remove -->
-                <div class="cart-actions">
+                <div class="cart-actions" th:attr="data-item-id=${p.id}">
                     <div class="qty-control">
-                        <a th:href="'/decrease/' + ${p.id}" class="qty-btn" title="Decrease">−</a>
+                        <button class="qty-btn" type="button"
+                                th:attr="data-item-id=${p.id}"
+                                onclick="cartDecrease(this)" title="Decrease">−</button>
                         <span class="qty-val" th:text="${p.quantity}">1</span>
-                        <a th:href="'/increase/' + ${p.id}" class="qty-btn" title="Increase">+</a>
+                        <button class="qty-btn" type="button"
+                                th:attr="data-item-id=${p.id}"
+                                onclick="cartIncrease(this)" title="Increase">+</button>
                     </div>
                     <button class="btn-remove"
                             th:data-item-id="${p.id}"
@@ -722,9 +735,9 @@
             <button class="confirm-btn-cancel" onclick="closeConfirmModal()">
                 <i class="fas fa-times"></i> Keep It
             </button>
-            <a id="confirmHref" href="#" class="confirm-btn-ok">
+            <button id="confirmOkBtn" class="confirm-btn-ok" type="button" onclick="doAjaxRemove()">
                 <i class="fas fa-trash-alt"></i> Yes, Remove
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -797,24 +810,221 @@
 </style>
 
 <script>
-    function confirmRemoveBtn(btn) {
-        var itemId   = btn.getAttribute('data-item-id');
-        var itemName = btn.getAttribute('data-item-name');
-        document.getElementById('confirmMsg').textContent =
-            'Remove "' + itemName + '" from your cart?';
-        document.getElementById('confirmHref').href = '/remove-from-cart/' + itemId;
-        document.getElementById('confirmModal').classList.add('active');
+/* ═══════════════════════════════════════════════════════
+   AJAX CART — no full page reloads
+   ═══════════════════════════════════════════════════════ */
+
+let _pendingRemoveId = null;
+
+// ── Helpers ──────────────────────────────────────────────
+function fmt(n) {
+    return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function getCard(itemId) {
+    return document.querySelector('.cart-actions[data-item-id="' + itemId + '"]')
+                   ?.closest('.cart-card');
+}
+
+function setCardLoading(card, loading) {
+    if (!card) return;
+    card.style.opacity    = loading ? '0.5' : '1';
+    card.style.pointerEvents = loading ? 'none' : '';
+}
+
+function showToast(msg, type) {
+    // Use ekart-toast if available, otherwise inline alert stack
+    if (window.ekartToast) { window.ekartToast(msg, type); return; }
+    const stack = document.querySelector('.alert-stack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'alert alert-' + (type === 'error' ? 'danger' : 'success');
+    el.innerHTML = '<i class="fas fa-' + (type === 'error' ? 'exclamation-circle' : 'check-circle') + '"></i>'
+                 + '<span>' + msg + '</span>'
+                 + '<button class="alert-close" onclick="this.parentElement.remove()">×</button>';
+    stack.appendChild(el);
+    setTimeout(() => { el.style.transition='opacity .5s'; el.style.opacity='0'; setTimeout(()=>el.remove(),500); }, 2500);
+}
+
+// ── Update shared UI after any cart mutation ──────────────
+function applyCartUpdate(data) {
+    // Cart total in checkout panel
+    const totalVal = document.querySelector('.total-value');
+    if (totalVal) totalVal.textContent = '₹' + fmt(data.cartTotal);
+
+    // Free delivery banner
+    const remaining = 500 - data.cartTotal;
+    const pct = Math.min((data.cartTotal / 500) * 100, 100);
+    const fill = document.querySelector('.progress-fill');
+    if (fill) {
+        fill.style.width = pct + '%';
+        fill.classList.toggle('full', data.freeDelivery);
     }
-    function closeConfirmModal() {
-        document.getElementById('confirmModal').classList.remove('active');
+    const milestoneText = document.querySelector('.milestone-text');
+    const unlockedText  = document.querySelector('.unlocked-text');
+    const progressMeta  = document.querySelector('.progress-meta');
+    if (data.freeDelivery) {
+        if (milestoneText) milestoneText.style.display = 'none';
+        if (unlockedText)  unlockedText.style.display  = 'flex';
+        if (progressMeta)  { progressMeta.textContent = 'FREE DELIVERY UNLOCKED ✓'; progressMeta.style.color = '#22c55e'; }
+    } else {
+        if (milestoneText) {
+            milestoneText.style.display = 'flex';
+            const strong = milestoneText.querySelector('strong');
+            if (strong) strong.textContent = '₹' + fmt(remaining);
+        }
+        if (unlockedText) unlockedText.style.display = 'none';
+        if (progressMeta) { progressMeta.textContent = '₹' + fmt(data.cartTotal) + ' / ₹500'; progressMeta.style.color = ''; }
     }
-    function closeConfirm(e) {
-        if (e.target === document.getElementById('confirmModal')) closeConfirmModal();
+
+    // Nav cart badge
+    const badge = document.querySelector('.nav-cart-badge');
+    const cartGrid = document.querySelector('.cart-grid');
+    const cards = cartGrid ? cartGrid.querySelectorAll('.cart-card') : [];
+    if (badge) {
+        if (cards.length > 0) { badge.textContent = cards.length; badge.style.display = ''; }
+        else badge.style.display = 'none';
     }
-    // Close on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeConfirmModal();
-    });
+
+    // If cart is now empty — show empty state, hide panels
+    if (data.cartEmpty) {
+        if (cartGrid)  cartGrid.style.display = 'none';
+        const checkoutPanel  = document.querySelector('.checkout-panel');
+        const deliveryBanner = document.querySelector('.delivery-banner');
+        const emptyCart      = document.querySelector('.empty-cart');
+        if (checkoutPanel)  checkoutPanel.style.display  = 'none';
+        if (deliveryBanner) deliveryBanner.style.display = 'none';
+        if (emptyCart)      emptyCart.style.display      = 'block';
+    }
+}
+
+// ── Increase ─────────────────────────────────────────────
+function cartIncrease(btn) {
+    const itemId = btn.getAttribute('data-item-id');
+    const card   = getCard(itemId);
+    setCardLoading(card, true);
+
+    fetch('/ajax/cart/increase/' + itemId, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            setCardLoading(card, false);
+            if (!data.success) { showToast(data.message || 'Could not increase quantity', 'error'); return; }
+
+            // Update qty display
+            const actions = document.querySelector('.cart-actions[data-item-id="' + itemId + '"]');
+            if (actions) actions.querySelector('.qty-val').textContent = data.quantity;
+
+            // Update line total
+            const body = card?.querySelector('.cart-body');
+            if (body) {
+                let lineTotalEl = body.querySelector('.cart-line-total');
+                if (data.quantity > 1) {
+                    const lineTotalHtml = data.quantity + ' × ₹' + fmt(data.unitPrice)
+                        + ' = <strong>₹' + fmt(data.lineTotal) + '</strong>';
+                    if (lineTotalEl) {
+                        lineTotalEl.innerHTML = lineTotalHtml;
+                    } else {
+                        lineTotalEl = document.createElement('div');
+                        lineTotalEl.className = 'cart-line-total';
+                        lineTotalEl.innerHTML = lineTotalHtml;
+                        body.querySelector('.cart-price').after(lineTotalEl);
+                    }
+                }
+            }
+
+            applyCartUpdate(data);
+        })
+        .catch(() => { setCardLoading(card, false); showToast('Network error', 'error'); });
+}
+
+// ── Decrease ─────────────────────────────────────────────
+function cartDecrease(btn) {
+    const itemId = btn.getAttribute('data-item-id');
+    const card   = getCard(itemId);
+    setCardLoading(card, true);
+
+    fetch('/ajax/cart/decrease/' + itemId, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            setCardLoading(card, false);
+            if (!data.success) { showToast(data.message || 'Could not decrease quantity', 'error'); return; }
+
+            if (data.removed) {
+                // Animate card out
+                if (card) {
+                    card.style.transition = 'opacity 0.3s, transform 0.3s';
+                    card.style.opacity = '0'; card.style.transform = 'scale(0.92)';
+                    setTimeout(() => { card.remove(); applyCartUpdate(data); }, 300);
+                } else {
+                    applyCartUpdate(data);
+                }
+                return;
+            }
+
+            // Update qty display
+            const actions = document.querySelector('.cart-actions[data-item-id="' + itemId + '"]');
+            if (actions) actions.querySelector('.qty-val').textContent = data.quantity;
+
+            // Update / remove line total
+            const body = card?.querySelector('.cart-body');
+            if (body) {
+                const lineTotalEl = body.querySelector('.cart-line-total');
+                if (data.quantity <= 1) {
+                    if (lineTotalEl) lineTotalEl.remove();
+                } else if (lineTotalEl) {
+                    lineTotalEl.innerHTML = data.quantity + ' × ₹' + fmt(data.unitPrice)
+                        + ' = <strong>₹' + fmt(data.lineTotal) + '</strong>';
+                }
+            }
+
+            applyCartUpdate(data);
+        })
+        .catch(() => { setCardLoading(card, false); showToast('Network error', 'error'); });
+}
+
+// ── Remove (confirm modal) ────────────────────────────────
+function confirmRemoveBtn(btn) {
+    _pendingRemoveId = btn.getAttribute('data-item-id');
+    const itemName   = btn.getAttribute('data-item-name');
+    document.getElementById('confirmMsg').textContent = 'Remove "' + itemName + '" from your cart?';
+    document.getElementById('confirmModal').classList.add('active');
+}
+
+function doAjaxRemove() {
+    if (!_pendingRemoveId) return;
+    const itemId = _pendingRemoveId;
+    closeConfirmModal();
+
+    const card = getCard(itemId);
+    setCardLoading(card, true);
+
+    fetch('/ajax/cart/remove/' + itemId, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { setCardLoading(card, false); showToast(data.message || 'Remove failed', 'error'); return; }
+            if (card) {
+                card.style.transition = 'opacity 0.3s, transform 0.3s';
+                card.style.opacity = '0'; card.style.transform = 'scale(0.92)';
+                setTimeout(() => { card.remove(); applyCartUpdate(data); }, 300);
+            } else {
+                applyCartUpdate(data);
+            }
+            showToast('Item removed from cart', 'success');
+        })
+        .catch(() => { setCardLoading(card, false); showToast('Network error', 'error'); });
+}
+
+// ── Modal helpers ─────────────────────────────────────────
+function closeConfirmModal() {
+    document.getElementById('confirmModal').classList.remove('active');
+    _pendingRemoveId = null;
+}
+function closeConfirm(e) {
+    if (e.target === document.getElementById('confirmModal')) closeConfirmModal();
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeConfirmModal();
+});
 </script>
 
 </body>
