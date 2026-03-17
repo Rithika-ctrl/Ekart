@@ -1,4 +1,4 @@
-package main.java.com.example.ekart.controller;
+package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;

@@ -1,4 +1,4 @@
-package main.java.com.example.ekart.service;
+package com.example.ekart.service;
 
 import com.example.ekart.dto.BackInStockSubscription;
 import com.example.ekart.dto.Customer;

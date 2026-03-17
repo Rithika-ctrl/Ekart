@@ -1,4 +1,4 @@
-package main.java.com.example.ekart.dto;
+package com.example.ekart.dto;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;

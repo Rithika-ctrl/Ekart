@@ -1,4 +1,4 @@
-package main.java.com.example.ekart.controller;
+package com.example.ekart.controller;
 
 import com.example.ekart.service.BackInStockService;
 import jakarta.servlet.http.HttpSession;
