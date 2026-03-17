@@ -456,6 +456,8 @@ public class VendorService {
 		existingProduct.setName(product.getName());
 		existingProduct.setDescription(product.getDescription());
 		existingProduct.setPrice(product.getPrice());
+		// Persist MRP — 0 means no discount set
+		existingProduct.setMrp(product.getMrp());
 		existingProduct.setCategory(product.getCategory());
 		existingProduct.setStock(product.getStock());
 

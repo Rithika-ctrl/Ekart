@@ -531,6 +531,10 @@
                 <div class="product-footer">
                     <div class="price-tag">
                         <sup>₹</sup><span th:text="${p.price}">0</span>
+                        <th:block th:if="${p.discounted}">
+                            <span style="font-size:0.7rem;text-decoration:line-through;color:rgba(255,255,255,0.4);" th:text="'₹'+${p.mrp}"></span>
+                            <span style="font-size:0.68rem;font-weight:800;color:#ef4444;margin-left:0.2rem;" th:text="'-'+${p.discountPercent}+'%'"></span>
+                        </th:block>
                     </div>
                     <!-- Login prompt instead of Add to Cart -->
                     <button class="btn-login-prompt" onclick="showLoginModal()">

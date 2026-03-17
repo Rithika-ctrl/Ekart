@@ -22,7 +22,11 @@ public class Product {
 
 	private String name;
 	private String description;
-	private double price;
+	private double price;       // Selling / discounted price (what customer pays)
+
+	/** Original MRP — if > price, shows strikethrough with discount badge. 0 = no MRP set. */
+	@Column(columnDefinition = "DOUBLE DEFAULT 0")
+	private double mrp;
 	private String category;
 	private int stock;
 	private Integer stockAlertThreshold = 10;
@@ -113,4 +117,18 @@ public class Product {
 	public void setVideo(MultipartFile video) { this.video = video; }
 	public java.util.List<Review> getReviews() { return reviews; }
 	public void setReviews(java.util.List<Review> reviews) { this.reviews = reviews; }
+
+	public double getMrp() { return mrp; }
+	public void setMrp(double mrp) { this.mrp = mrp; }
+
+	/** Returns discount percentage rounded to nearest int. 0 if no MRP or no discount. */
+	public int getDiscountPercent() {
+		if (mrp <= 0 || mrp <= price) return 0;
+		return (int) Math.round((mrp - price) / mrp * 100);
+	}
+
+	/** True when product has a meaningful discount set */
+	public boolean isDiscounted() {
+		return mrp > 0 && mrp > price;
+	}
 }
