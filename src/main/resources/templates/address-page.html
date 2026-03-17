@@ -12,339 +12,272 @@
         :root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
-            --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255, 255, 255, 0.13);
-            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --glass-border: rgba(255,255,255,0.22);
+            --glass-card:   rgba(255,255,255,0.13);
+            --glass-nav:    rgba(0,0,0,0.25);
             --text-white:   #ffffff;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
+            --input-bg:     rgba(255,255,255,0.07);
+            --input-border: rgba(255,255,255,0.18);
+            --success:      #22c55e;
         }
 
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            min-height: 100vh;
-            color: var(--text-white);
-            display: flex;
-            flex-direction: column;
+            font-family:'Poppins', sans-serif;
+            min-height:100vh;
+            color:var(--text-white);
+            display:flex; flex-direction:column;
         }
 
         /* ── BACKGROUND ── */
-        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
-            content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
         }
         .bg-layer::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.82) 0%,rgba(8,12,28,0.78) 40%,rgba(5,8,20,0.88) 100%);
         }
 
         /* ── NAV ── */
         nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 1rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid var(--glass-border);
-            transition: background 0.3s;
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:1rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            background:var(--glass-nav); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border); transition:background 0.3s;
         }
-        nav.scrolled { background: rgba(0,0,0,0.45); }
-
+        nav.scrolled { background:rgba(0,0,0,0.45); }
         .nav-brand {
-            font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
-            letter-spacing: 0.04em;
-            display: flex; align-items: center; gap: 0.5rem;
+            font-size:1.6rem; font-weight:700; color:var(--text-white);
+            text-decoration:none; letter-spacing:0.04em;
+            display:flex; align-items:center; gap:0.5rem;
         }
-        .nav-brand span { color: var(--yellow); }
-
-        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
-
+        .nav-right { display:flex; align-items:center; gap:0.75rem; }
         .nav-link-btn {
-            display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
-            font-size: 0.82rem; font-weight: 500;
-            padding: 0.45rem 0.9rem; border-radius: 6px;
-            border: 1px solid var(--glass-border);
-            transition: all 0.2s;
+            display:flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none;
+            font-size:0.82rem; font-weight:500;
+            padding:0.45rem 0.9rem; border-radius:6px;
+            border:1px solid var(--glass-border); transition:all 0.2s;
         }
-        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
-
+        .nav-link-btn:hover { color:white; background:rgba(255,255,255,0.1); }
         .btn-logout {
-            display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
-            font-size: 0.82rem; font-weight: 500;
-            padding: 0.45rem 0.9rem; border-radius: 6px;
-            border: 1px solid rgba(255,100,80,0.3);
-            transition: all 0.2s;
+            display:flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none;
+            font-size:0.82rem; font-weight:500;
+            padding:0.45rem 0.9rem; border-radius:6px;
+            border:1px solid rgba(255,100,80,0.3); transition:all 0.2s;
         }
-        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+        .btn-logout:hover { color:#ff8060; border-color:rgba(255,100,80,0.6); background:rgba(255,100,80,0.08); }
 
         /* ── ALERTS ── */
-        .alert-stack {
-            position: fixed; top: 5rem; right: 1.5rem;
-            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
-        }
+        .alert-stack { position:fixed; top:5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
         .alert {
-            padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
-            border: 1px solid; border-radius: 10px;
-            display: flex; align-items: center; gap: 0.625rem;
-            font-size: 0.825rem; min-width: 260px;
-            animation: slideIn 0.3s ease both;
+            padding:0.875rem 1.25rem; background:rgba(10,12,30,0.88); backdrop-filter:blur(16px);
+            border:1px solid; border-radius:10px; display:flex; align-items:center; gap:0.625rem;
+            font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both;
         }
-        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
-        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
-        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+        .alert-success { border-color:rgba(34,197,94,0.45); color:#22c55e; }
+        .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
+        .alert-close { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; font-size:1rem; }
 
-        /* ── PAGE CENTER ── */
+        /* ── PAGE ── */
         .page-center {
-            flex: 1;
-            display: flex; align-items: center; justify-content: center;
-            padding: 7rem 1.5rem 3rem;
+            flex:1; display:flex; align-items:center; justify-content:center;
+            padding:7rem 1.5rem 3rem;
         }
 
         /* ── PANEL ── */
         .shipping-panel {
-            background: var(--glass-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2.75rem;
-            width: 100%;
-            max-width: 520px;
-            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
-            animation: fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both;
+            background:var(--glass-card); backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border); border-radius:20px;
+            padding:2.75rem; width:100%; max-width:560px;
+            box-shadow:0 40px 100px rgba(0,0,0,0.5);
+            animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both;
         }
 
         /* ── PANEL HEADER ── */
-        .panel-header {
-            display: flex; align-items: center; gap: 1.1rem;
-            margin-bottom: 2rem;
-        }
+        .panel-header { display:flex; align-items:center; gap:1.1rem; margin-bottom:2rem; }
         .panel-header-icon {
-            width: 52px; height: 52px;
-            background: rgba(245,168,0,0.15);
-            border: 2px solid rgba(245,168,0,0.3);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.25rem; color: var(--yellow); flex-shrink: 0;
+            width:52px; height:52px; flex-shrink:0;
+            background:rgba(245,168,0,0.15); border:2px solid rgba(245,168,0,0.3);
+            border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:1.25rem; color:var(--yellow);
         }
-        .panel-header-text h2 {
-            font-size: 1.35rem; font-weight: 700; margin-bottom: 0.2rem;
-        }
-        .panel-header-text p { font-size: 0.78rem; color: var(--text-dim); }
+        .panel-header-text h2 { font-size:1.35rem; font-weight:700; margin-bottom:0.2rem; }
+        .panel-header-text p  { font-size:0.78rem; color:var(--text-dim); }
 
         /* ── PROGRESS STEPS ── */
-        .steps {
-            display: flex; align-items: center;
-            margin-bottom: 2rem;
-            gap: 0;
-        }
-        .step {
-            display: flex; flex-direction: column; align-items: center;
-            gap: 0.35rem; flex: 1;
-        }
+        .steps { display:flex; align-items:center; margin-bottom:2rem; }
+        .step { display:flex; flex-direction:column; align-items:center; gap:0.35rem; flex:1; }
         .step-dot {
-            width: 28px; height: 28px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.65rem; font-weight: 800;
-            border: 2px solid var(--glass-border);
-            color: var(--text-dim);
-            background: rgba(255,255,255,0.05);
-            transition: all 0.3s;
+            width:28px; height:28px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.65rem; font-weight:800;
+            border:2px solid var(--glass-border); color:var(--text-dim);
+            background:rgba(255,255,255,0.05); transition:all 0.3s;
         }
-        .step.active .step-dot {
-            background: var(--yellow); border-color: var(--yellow);
-            color: #1a1000;
-            box-shadow: 0 0 0 4px rgba(245,168,0,0.2);
-        }
-        .step.done .step-dot {
-            background: rgba(34,197,94,0.2); border-color: #22c55e;
-            color: #22c55e;
-        }
-        .step-label { font-size: 0.62rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-        .step.active .step-label { color: var(--yellow); }
-        .step.done .step-label { color: #22c55e; }
-
-        .step-line { flex: 1; height: 1px; background: var(--glass-border); margin-bottom: 1.1rem; }
-        .step-line.done { background: rgba(34,197,94,0.4); }
+        .step.active .step-dot { background:var(--yellow); border-color:var(--yellow); color:#1a1000; box-shadow:0 0 0 4px rgba(245,168,0,0.2); }
+        .step.done   .step-dot { background:rgba(34,197,94,0.2); border-color:#22c55e; color:#22c55e; }
+        .step-label { font-size:0.62rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.06em; }
+        .step.active .step-label { color:var(--yellow); }
+        .step.done   .step-label { color:#22c55e; }
+        .step-line { flex:1; height:1px; background:var(--glass-border); margin-bottom:1.1rem; }
+        .step-line.done { background:rgba(34,197,94,0.4); }
 
         /* ── SECTION LABEL ── */
         .section-label {
-            display: flex; align-items: center; gap: 0.5rem;
-            font-size: 0.68rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.12em;
-            color: var(--yellow); margin-bottom: 1rem;
+            display:flex; align-items:center; gap:0.5rem;
+            font-size:0.68rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.12em; color:var(--yellow); margin-bottom:1rem;
         }
-        .section-label::after {
-            content: ''; flex: 1; height: 1px; background: var(--glass-border);
-        }
+        .section-label::after { content:''; flex:1; height:1px; background:var(--glass-border); }
 
         /* ── SAVED ADDRESS CARDS ── */
         .address-card {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid var(--glass-border);
-            border-radius: 14px;
-            padding: 1.2rem 1.4rem;
-            margin-bottom: 0.875rem;
-            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.2rem 1.4rem; margin-bottom:0.875rem;
+            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
         }
         .address-card:hover {
-            border-color: rgba(245,168,0,0.4);
-            background: rgba(245,168,0,0.05);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+            border-color:rgba(245,168,0,0.4); background:rgba(245,168,0,0.05);
+            transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.25);
         }
-        .address-text {
-            font-size: 0.82rem; color: var(--text-light);
-            line-height: 1.6; margin-bottom: 1rem;
-        }
-        .address-actions {
-            display: flex; align-items: center; justify-content: space-between;
-        }
+        .addr-recipient { font-size:0.85rem; font-weight:700; color:var(--text-white); margin-bottom:0.2rem; }
+        .addr-line      { font-size:0.80rem; color:var(--text-light); line-height:1.55; }
+        .addr-pin       { display:inline-flex; align-items:center; gap:0.3rem; margin-top:0.45rem; font-size:0.72rem; font-weight:700; color:var(--yellow); }
+        .address-actions { display:flex; align-items:center; justify-content:space-between; margin-top:1rem; }
 
         .btn-use-address {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            background: var(--yellow); color: #1a1000;
-            text-decoration: none; border: none;
-            padding: 0.45rem 1.1rem; border-radius: 50px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.72rem; font-weight: 700;
-            letter-spacing: 0.06em; text-transform: uppercase;
-            cursor: pointer; transition: all 0.25s;
-            box-shadow: 0 4px 14px rgba(245,168,0,0.25);
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:var(--yellow); color:#1a1000; border:none;
+            padding:0.45rem 1.1rem; border-radius:50px;
+            font-family:'Poppins',sans-serif; font-size:0.72rem; font-weight:700;
+            letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+            transition:all 0.25s; text-decoration:none;
+            box-shadow:0 4px 14px rgba(245,168,0,0.25);
         }
-        .btn-use-address:hover {
-            background: var(--yellow-d); color: #1a1000;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(245,168,0,0.4);
-        }
+        .btn-use-address:hover { background:var(--yellow-d); transform:translateY(-1px); box-shadow:0 6px 18px rgba(245,168,0,0.4); }
 
         .btn-delete-address {
-            display: inline-flex; align-items: center; gap: 0.35rem;
-            color: rgba(255,100,80,0.6); text-decoration: none;
-            font-size: 0.72rem; font-weight: 600;
-            transition: color 0.2s;
-            background: none; border: none; cursor: pointer;
-            font-family: 'Poppins', sans-serif;
+            display:inline-flex; align-items:center; gap:0.35rem;
+            color:rgba(255,100,80,0.6); text-decoration:none; font-size:0.72rem; font-weight:600;
+            transition:color 0.2s; background:none; border:none; cursor:pointer;
+            font-family:'Poppins',sans-serif;
         }
-        .btn-delete-address:hover { color: #ff8060; }
+        .btn-delete-address:hover { color:#ff8060; }
 
         /* ── DIVIDER ── */
-        .panel-divider {
-            border: none; border-top: 1px solid var(--glass-border);
-            margin: 1.75rem 0;
-        }
+        .panel-divider { border:none; border-top:1px solid var(--glass-border); margin:1.75rem 0; }
 
-        /* ── TEXTAREA ── */
-        .input-wrapper-top {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 0.6rem;
+        /* ── FORM GRID ── */
+        .form-grid {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:1rem;
         }
+        .form-grid .full { grid-column:1 / -1; }
 
-        .form-control-textarea {
-            width: 100%;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 0.9rem 1rem;
-            color: white;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.875rem;
-            resize: none;
-            transition: all 0.3s;
-            min-height: 110px;
+        .field-group { display:flex; flex-direction:column; gap:0.4rem; }
+        .field-label {
+            font-size:0.68rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.08em; color:var(--text-dim);
+            display:flex; align-items:center; gap:0.35rem;
         }
-        .form-control-textarea::placeholder { color: var(--text-dim); }
-        .form-control-textarea:focus {
-            outline: none;
-            background: rgba(255,255,255,0.10);
-            border-color: var(--yellow);
-            box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
-        }
+        .field-label i { font-size:0.6rem; }
+        .field-label .req { color:var(--yellow); }
 
-        /* ── GEO BUTTON ── */
+        .form-input {
+            width:100%; background:var(--input-bg); border:1px solid var(--input-border);
+            border-radius:10px; padding:0.75rem 1rem;
+            color:white; font-family:'Poppins',sans-serif; font-size:0.875rem;
+            outline:none; transition:all 0.25s;
+        }
+        .form-input::placeholder { color:var(--text-dim); font-size:0.8rem; }
+        .form-input:focus {
+            background:rgba(255,255,255,0.10); border-color:var(--yellow);
+            box-shadow:0 0 0 3px rgba(245,168,0,0.12);
+        }
+        .form-input.error { border-color:rgba(255,100,80,0.6); }
+        .field-hint { font-size:0.65rem; color:var(--text-dim); margin-top:0.1rem; }
+        .field-error { font-size:0.65rem; color:#ff8060; margin-top:0.1rem; display:none; }
+
+        /* Pin code row */
+        .pin-row { display:flex; gap:0.5rem; align-items:flex-end; }
+        .pin-row .form-input { flex:1; }
         .btn-geo {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            background: rgba(34,197,94,0.1);
-            border: 1px solid rgba(34,197,94,0.3);
-            color: #22c55e;
-            padding: 0.35rem 0.875rem; border-radius: 50px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.68rem; font-weight: 700;
-            letter-spacing: 0.05em; text-transform: uppercase;
-            cursor: pointer; transition: all 0.25s;
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#22c55e;
+            padding:0.75rem 1rem; border-radius:10px;
+            font-family:'Poppins',sans-serif; font-size:0.72rem; font-weight:700;
+            letter-spacing:0.05em; text-transform:uppercase; cursor:pointer; transition:all 0.25s;
+            white-space:nowrap;
         }
-        .btn-geo:hover { background: rgba(34,197,94,0.18); transform: scale(1.04); }
+        .btn-geo:hover { background:rgba(34,197,94,0.18); transform:scale(1.03); }
+
+        /* Address preview */
+        .addr-preview {
+            background:rgba(245,168,0,0.06); border:1px dashed rgba(245,168,0,0.3);
+            border-radius:12px; padding:1rem 1.25rem;
+            font-size:0.82rem; color:var(--text-light); line-height:1.7;
+            margin-top:1rem; display:none;
+        }
+        .addr-preview.visible { display:block; }
+        .addr-preview .preview-label {
+            font-size:0.62rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.1em; color:var(--yellow); margin-bottom:0.5rem;
+        }
 
         /* ── SUBMIT BUTTON ── */
         .btn-submit {
-            width: 100%;
-            background: var(--yellow); color: #1a1000;
-            border: none; border-radius: 12px;
-            padding: 0.95rem;
-            margin-top: 1.25rem;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.875rem; font-weight: 700;
-            letter-spacing: 0.06em; text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
-            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
-            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            width:100%; background:var(--yellow); color:#1a1000;
+            border:none; border-radius:12px; padding:0.95rem;
+            margin-top:1.25rem;
+            font-family:'Poppins',sans-serif; font-size:0.875rem; font-weight:700;
+            letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow:0 8px 24px rgba(245,168,0,0.25);
+            display:flex; align-items:center; justify-content:center; gap:0.5rem;
         }
-        .btn-submit:hover {
-            background: var(--yellow-d);
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(245,168,0,0.42);
-        }
-        .btn-submit:active { transform: translateY(0); }
+        .btn-submit:hover { background:var(--yellow-d); transform:translateY(-2px); box-shadow:0 12px 32px rgba(245,168,0,0.42); }
+        .btn-submit:active { transform:translateY(0); }
 
         /* ── BACK LINK ── */
         .back-link {
-            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-            margin-top: 1.5rem;
-            color: var(--text-dim); text-decoration: none;
-            font-size: 0.78rem; transition: color 0.2s;
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+            margin-top:1.5rem; color:var(--text-dim); text-decoration:none;
+            font-size:0.78rem; transition:color 0.2s;
         }
-        .back-link:hover { color: var(--text-white); }
+        .back-link:hover { color:var(--text-white); }
 
         /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(16px);
-            border-top: 1px solid var(--glass-border);
-            padding: 1.25rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 0.75rem;
+            background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
+            border-top:1px solid var(--glass-border); padding:1.25rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            flex-wrap:wrap; gap:0.75rem;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
-        .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-brand { font-size:1.1rem; font-weight:700; color:white; }
+        .footer-copy  { font-size:0.72rem; color:var(--text-dim); }
 
         /* ── ANIMATIONS ── */
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(14px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
         /* ── RESPONSIVE ── */
-        @media(max-width: 600px) {
-            nav { padding: 0.875rem 1.25rem; }
-            .shipping-panel { padding: 2rem 1.5rem; }
-            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        @media(max-width:600px) {
+            nav { padding:0.875rem 1.25rem; }
+            .shipping-panel { padding:2rem 1.25rem; }
+            .form-grid { grid-template-columns:1fr; }
+            .form-grid .full { grid-column:1; }
+            footer { padding:1.25rem; flex-direction:column; text-align:center; }
         }
     </style>
 </head>
@@ -352,7 +285,7 @@
 
 <div class="bg-layer"></div>
 
-<!-- ── FLOATING ALERTS ── -->
+<!-- ── ALERTS ── -->
 <div class="alert-stack">
     <div class="alert alert-success" th:if="${session.success}">
         <i class="fas fa-check-circle"></i>
@@ -374,12 +307,8 @@
         Ekart
     </a>
     <div class="nav-right">
-        <a href="/view-cart" class="nav-link-btn">
-            <i class="fas fa-shopping-cart"></i> Cart
-        </a>
-        <a href="/logout" class="btn-logout">
-            <i class="fas fa-sign-out-alt"></i> Logout
-        </a>
+        <a href="/view-cart" class="nav-link-btn"><i class="fas fa-shopping-cart"></i> Cart</a>
+        <a href="/logout"    class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
 </nav>
 
@@ -389,12 +318,10 @@
 
         <!-- Header -->
         <div class="panel-header">
-            <div class="panel-header-icon">
-                <i class="fas fa-truck"></i>
-            </div>
+            <div class="panel-header-icon"><i class="fas fa-truck"></i></div>
             <div class="panel-header-text">
                 <h2>Shipping Details</h2>
-                <p>Choose a saved address or enter a new one.</p>
+                <p>Choose a saved address or enter a new delivery address.</p>
             </div>
         </div>
 
@@ -416,12 +343,28 @@
             </div>
         </div>
 
-        <!-- Saved Addresses -->
+        <!-- ── SAVED ADDRESSES ── -->
         <div th:if="${customer.addresses != null and !customer.addresses.isEmpty()}">
             <div class="section-label"><i class="fas fa-map-marker-alt"></i> Saved Addresses</div>
 
             <div th:each="addr : ${customer.addresses}" class="address-card">
-                <p class="address-text" th:text="${addr.details}"></p>
+                <!-- Structured display -->
+                <div th:if="${addr.recipientName != null and !#strings.isEmpty(addr.recipientName)}">
+                    <div class="addr-recipient" th:text="${addr.recipientName}"></div>
+                    <div class="addr-line" th:if="${addr.houseStreet != null and !#strings.isEmpty(addr.houseStreet)}"
+                         th:text="${addr.houseStreet}"></div>
+                    <div class="addr-line"
+                         th:text="${(addr.city != null ? addr.city : '') + (addr.state != null and !#strings.isEmpty(addr.state) ? ', ' + addr.state : '')}">
+                    </div>
+                    <span class="addr-pin" th:if="${addr.postalCode != null and !#strings.isEmpty(addr.postalCode)}">
+                        <i class="fas fa-location-dot"></i>
+                        <span th:text="${addr.postalCode}"></span>
+                    </span>
+                </div>
+                <!-- Legacy flat-text fallback -->
+                <div th:if="${addr.recipientName == null or #strings.isEmpty(addr.recipientName)}"
+                     class="addr-line" th:text="${addr.details}"></div>
+
                 <div class="address-actions">
                     <a href="/payment" class="btn-use-address">
                         <i class="fas fa-check"></i> Use This Address
@@ -437,27 +380,90 @@
             <hr class="panel-divider">
         </div>
 
-        <!-- New Address Form -->
-        <form action="/customer/save-address" method="post">
+        <!-- ── NEW ADDRESS FORM ── -->
+        <form id="addressForm" action="/customer/save-address" method="post" onsubmit="return validateForm()">
 
             <div class="section-label"><i class="fas fa-location-dot"></i> New Address</div>
 
-            <div class="input-wrapper-top">
-                <span style="font-size:0.72rem; color:var(--text-dim);">Enter your full delivery address</span>
-                <button type="button" class="btn-geo" onclick="getLocation()">
-                    <i class="fas fa-location-crosshairs"></i> Auto-Detect
-                </button>
+            <div class="form-grid">
+
+                <!-- Recipient Name (full width) -->
+                <div class="field-group full">
+                    <label class="field-label" for="recipientName">
+                        <i class="fas fa-user"></i> Recipient Name <span class="req">*</span>
+                    </label>
+                    <input type="text" id="recipientName" name="recipientName"
+                           class="form-input" maxlength="100"
+                           placeholder="Full name of the person receiving the order"
+                           oninput="updatePreview()" required>
+                    <span class="field-error" id="err-name">Please enter the recipient's name.</span>
+                </div>
+
+                <!-- House / Building + Street (full width) -->
+                <div class="field-group full">
+                    <label class="field-label" for="houseStreet">
+                        <i class="fas fa-home"></i> House / Building &amp; Street <span class="req">*</span>
+                    </label>
+                    <input type="text" id="houseStreet" name="houseStreet"
+                           class="form-input" maxlength="200"
+                           placeholder="e.g. Flat 4B, Sunrise Apts, MG Road"
+                           oninput="updatePreview()" required>
+                    <span class="field-hint">Include flat/house number, building name, and street.</span>
+                    <span class="field-error" id="err-street">Please enter a house/street address.</span>
+                </div>
+
+                <!-- City / Locality -->
+                <div class="field-group">
+                    <label class="field-label" for="city">
+                        <i class="fas fa-city"></i> City / Locality <span class="req">*</span>
+                    </label>
+                    <input type="text" id="city" name="city"
+                           class="form-input" maxlength="100"
+                           placeholder="e.g. Bengaluru"
+                           oninput="updatePreview()" required>
+                    <span class="field-error" id="err-city">Please enter a city or locality.</span>
+                </div>
+
+                <!-- State / Province -->
+                <div class="field-group">
+                    <label class="field-label" for="state">
+                        <i class="fas fa-map"></i> State / Province <span class="req">*</span>
+                    </label>
+                    <input type="text" id="state" name="state"
+                           class="form-input" maxlength="100"
+                           placeholder="e.g. Karnataka"
+                           oninput="updatePreview()" required>
+                    <span class="field-error" id="err-state">Please enter a state or province.</span>
+                </div>
+
+                <!-- Postal Code + Auto-detect (full width) -->
+                <div class="field-group full">
+                    <label class="field-label" for="postalCode">
+                        <i class="fas fa-envelope"></i> Postal Code <span class="req">*</span>
+                    </label>
+                    <div class="pin-row">
+                        <input type="text" id="postalCode" name="postalCode"
+                               class="form-input" maxlength="10" inputmode="numeric"
+                               placeholder="6-digit PIN code"
+                               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6); updatePreview()"
+                               required>
+                        <button type="button" class="btn-geo" onclick="autoDetect()">
+                            <i class="fas fa-location-crosshairs"></i> Auto-Detect
+                        </button>
+                    </div>
+                    <span class="field-error" id="err-pin">Please enter a valid postal code.</span>
+                </div>
+
+            </div><!-- /form-grid -->
+
+            <!-- Live address preview -->
+            <div class="addr-preview" id="addrPreview">
+                <div class="preview-label"><i class="fas fa-eye"></i> Address Preview</div>
+                <div id="previewContent"></div>
             </div>
 
-            <textarea id="addressTextarea"
-                      name="address"
-                      class="form-control-textarea"
-                      rows="4"
-                      required
-                      placeholder="e.g. 42, MG Road, Koramangala, Bengaluru — 560034"></textarea>
-
             <button type="submit" class="btn-submit">
-                <i class="fas fa-chevron-right"></i> Continue to Payment
+                <i class="fas fa-chevron-right"></i> Save &amp; Continue to Payment
             </button>
 
         </form>
@@ -485,42 +491,130 @@
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .alert').forEach(el => {
             el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
+            el.style.opacity    = '0';
             setTimeout(() => el.remove(), 500);
         });
     }, 2500);
 
-    // Geolocation auto-detect
-    function getLocation() {
-        const textarea = document.getElementById('addressTextarea');
-        if (!navigator.geolocation) { alert('Geolocation not supported by your browser.'); return; }
-        textarea.value = 'Detecting your location…';
-        textarea.style.color = 'rgba(255,255,255,0.4)';
+    // ── Live Address Preview ──────────────────────────────────────────────────
+    function updatePreview() {
+        const name    = document.getElementById('recipientName').value.trim();
+        const street  = document.getElementById('houseStreet').value.trim();
+        const city    = document.getElementById('city').value.trim();
+        const state   = document.getElementById('state').value.trim();
+        const pin     = document.getElementById('postalCode').value.trim();
+        const preview = document.getElementById('addrPreview');
+        const content = document.getElementById('previewContent');
+
+        const hasAny = name || street || city || state || pin;
+        if (!hasAny) { preview.classList.remove('visible'); return; }
+
+        let lines = [];
+        if (name)   lines.push('<strong>' + esc(name) + '</strong>');
+        if (street) lines.push(esc(street));
+        if (city || state) {
+            let line = [city, state].filter(Boolean).map(esc).join(', ');
+            lines.push(line);
+        }
+        if (pin)    lines.push('<span style="color:var(--yellow);font-weight:700;">📍 ' + esc(pin) + '</span>');
+
+        content.innerHTML = lines.join('<br>');
+        preview.classList.add('visible');
+    }
+
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Form Validation ───────────────────────────────────────────────────────
+    function validateForm() {
+        let valid = true;
+
+        const fields = [
+            { id:'recipientName', errId:'err-name',   min:2  },
+            { id:'houseStreet',   errId:'err-street', min:5  },
+            { id:'city',          errId:'err-city',   min:2  },
+            { id:'state',         errId:'err-state',  min:2  },
+            { id:'postalCode',    errId:'err-pin',    min:4  },
+        ];
+
+        fields.forEach(({ id, errId, min }) => {
+            const input = document.getElementById(id);
+            const err   = document.getElementById(errId);
+            const val   = input.value.trim();
+            if (val.length < min) {
+                input.classList.add('error');
+                err.style.display = 'block';
+                if (valid) input.focus();
+                valid = false;
+            } else {
+                input.classList.remove('error');
+                err.style.display = 'none';
+            }
+        });
+
+        return valid;
+    }
+
+    // Clear error state on focus
+    document.querySelectorAll('.form-input').forEach(input => {
+        input.addEventListener('focus', () => {
+            input.classList.remove('error');
+            const errId = 'err-' + {
+                recipientName:'name', houseStreet:'street',
+                city:'city', state:'state', postalCode:'pin'
+            }[input.id];
+            if (errId) {
+                const err = document.getElementById(errId);
+                if (err) err.style.display = 'none';
+            }
+        });
+    });
+
+    // ── Geolocation Auto-Detect ───────────────────────────────────────────────
+    function autoDetect() {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser.');
+            return;
+        }
+        const btn = document.querySelector('.btn-geo');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting…';
+        btn.disabled  = true;
+
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
+            pos => {
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, {
                     headers: { 'User-Agent': 'Ekart-App-v1' }
                 })
                 .then(r => r.json())
                 .then(data => {
-                    textarea.value = data.display_name;
-                    textarea.style.color = '';
+                    const a = data.address || {};
+                    // Fill structured fields from reverse geocode
+                    if (a.road || a.suburb)
+                        document.getElementById('houseStreet').value =
+                            [a.house_number, a.road || a.suburb].filter(Boolean).join(', ');
+                    if (a.city || a.town || a.village)
+                        document.getElementById('city').value = a.city || a.town || a.village || '';
+                    if (a.state)
+                        document.getElementById('state').value = a.state;
+                    if (a.postcode)
+                        document.getElementById('postalCode').value = a.postcode.replace(/\s/g,'').slice(0,6);
+                    updatePreview();
                 })
-                .catch(() => {
-                    textarea.value = '';
-                    textarea.style.color = '';
-                    alert('Address lookup failed. Please type your address manually.');
+                .catch(() => alert('Location lookup failed. Please fill in the fields manually.'))
+                .finally(() => {
+                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Auto-Detect';
+                    btn.disabled  = false;
                 });
             },
             () => {
-                textarea.value = '';
-                textarea.style.color = '';
-                alert('Location access denied. Please type your address manually.');
+                alert('Location access denied. Please fill in the address manually.');
+                btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Auto-Detect';
+                btn.disabled  = false;
             }
         );
     }
 </script>
-
 
 <script src="/js/ekart-loader.js"></script>
 </body>

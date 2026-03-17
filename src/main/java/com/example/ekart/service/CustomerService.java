@@ -909,19 +909,25 @@ public String loadAddressPage(HttpSession session, ModelMap map) {
     return "address-page.html";
 }
 
-// Method to save a NEW address to the list
-public String saveAddress(String addressDetails, HttpSession session) {
+// Method to save a NEW structured address to the list
+public String saveAddress(String recipientName, String houseStreet,
+                          String city, String state, String postalCode,
+                          HttpSession session) {
     Customer sessionCustomer = (Customer) session.getAttribute("customer");
     Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
 
     Address newAddress = new Address();
-    newAddress.setDetails(addressDetails);
+    newAddress.setRecipientName(recipientName != null ? recipientName.trim() : "");
+    newAddress.setHouseStreet(houseStreet != null ? houseStreet.trim() : "");
+    newAddress.setCity(city != null ? city.trim() : "");
+    newAddress.setState(state != null ? state.trim() : "");
+    newAddress.setPostalCode(postalCode != null ? postalCode.trim() : "");
     newAddress.setCustomer(customer);
-    
+
     customer.getAddresses().add(newAddress);
     customerRepository.save(customer);
 
-    return "redirect:/customer/address"; 
+    return "redirect:/customer/address";
 }
 
 // Method to delete a specific address

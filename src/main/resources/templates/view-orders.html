@@ -478,15 +478,15 @@
                     </a>
 
                     <!-- Cancel — ✅ FIX: was showing for ALL orders including already cancelled/delivered ones -->
-                    <a th:if="${o.trackingStatus == null
+                    <button th:if="${o.trackingStatus == null
                                 or (o.trackingStatus.name() != 'DELIVERED'
                                     and o.trackingStatus.name() != 'CANCELLED'
                                     and o.trackingStatus.name() != 'REFUNDED')}"
-                       th:href="@{'/cancel-order/' + ${o.id}}"
-                       class="action-btn btn-cancel"
-                       onclick="return confirm('Do you really want to cancel this order?')">
+                            class="action-btn btn-cancel"
+                            th:onclick="'showConfirm(\'cancel\', ' + ${o.id} + ')'"
+                            type="button">
                         <i class="fas fa-times"></i> Cancel Order
-                    </a>
+                    </button>
 
                     <!-- Retry / Switch to Online Payment -->
                     <a th:if="${o.razorpay_payment_id == 'COD_NA' and o.orderDate != null and o.orderDate.isAfter(T(java.time.LocalDateTime).now().minusHours(24))}"
@@ -496,12 +496,12 @@
                     </a>
 
                     <!-- Request Replacement -->
-                    <a th:if="${returnEligibleMap[o.id] and !replacementRequestedMap[o.id]}"
-                       th:href="@{'/request-replacement/' + ${o.id}}"
-                       class="action-btn btn-replace"
-                       onclick="return confirm('Request a replacement for this order?')">
+                    <button th:if="${returnEligibleMap[o.id] and !replacementRequestedMap[o.id]}"
+                            class="action-btn btn-replace"
+                            th:onclick="'showConfirm(\'replace\', ' + ${o.id} + ')'"
+                            type="button">
                         <i class="fas fa-exchange-alt"></i> Request Replacement
-                    </a>
+                    </button>
 
                     <!-- Replacement already requested badge -->
                     <span class="replacement-badge" th:if="${replacementRequestedMap[o.id]}">
@@ -559,5 +559,144 @@
 
 
 <script src="/js/ekart-loader.js"></script>
+
+<!-- ── CONFIRM DIALOG MODAL ──────────────────────────────────────────── -->
+<div id="confirmModal" class="confirm-overlay" onclick="handleOverlayClick(event)">
+    <div class="confirm-box" id="confirmBox">
+        <div class="confirm-icon" id="confirmIcon">⚠️</div>
+        <h3 class="confirm-title" id="confirmTitle">Are you sure?</h3>
+        <p class="confirm-msg" id="confirmMsg">This action cannot be undone.</p>
+        <div class="confirm-actions">
+            <button class="confirm-btn-cancel" onclick="closeConfirm()">
+                <i class="fas fa-arrow-left"></i> Go Back
+            </button>
+            <a id="confirmOkBtn" href="#" class="confirm-btn-ok">
+                <i class="fas fa-check" id="confirmOkIcon"></i>
+                <span id="confirmOkLabel">Confirm</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .confirm-overlay {
+        position: fixed; inset: 0; z-index: 999;
+        background: rgba(0,0,0,0.70);
+        backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.25s ease;
+    }
+    .confirm-overlay.active { opacity: 1; pointer-events: all; }
+
+    .confirm-box {
+        background: rgba(10,13,32,0.97);
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 22px;
+        padding: 2.5rem 2.75rem;
+        max-width: 400px; width: 92%;
+        text-align: center;
+        box-shadow: 0 50px 120px rgba(0,0,0,0.75);
+        transform: scale(0.90) translateY(20px);
+        transition: transform 0.3s cubic-bezier(0.23,1,0.32,1);
+    }
+    .confirm-overlay.active .confirm-box { transform: scale(1) translateY(0); }
+
+    .confirm-icon  { font-size: 2.75rem; margin-bottom: 0.875rem; }
+    .confirm-title {
+        font-size: 1.15rem; font-weight: 700; color: white;
+        margin-bottom: 0.5rem;
+    }
+    .confirm-msg {
+        font-size: 0.83rem; color: rgba(255,255,255,0.5);
+        line-height: 1.6; margin-bottom: 2rem;
+    }
+    .confirm-actions { display: flex; gap: 0.875rem; justify-content: center; }
+
+    .confirm-btn-cancel {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.16);
+        color: rgba(255,255,255,0.65);
+        padding: 0.7rem 1.5rem; border-radius: 11px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.8rem; font-weight: 600;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .confirm-btn-cancel:hover { background: rgba(255,255,255,0.13); color: white; }
+
+    .confirm-btn-ok {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.7rem 1.5rem; border-radius: 11px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.8rem; font-weight: 700;
+        text-decoration: none; cursor: pointer;
+        transition: all 0.2s;
+    }
+    .confirm-btn-ok.danger {
+        background: rgba(239,68,68,0.15);
+        border: 1px solid rgba(239,68,68,0.35);
+        color: #ef4444;
+    }
+    .confirm-btn-ok.danger:hover { background: #ef4444; color: white; text-decoration: none; }
+
+    .confirm-btn-ok.purple {
+        background: rgba(168,85,247,0.15);
+        border: 1px solid rgba(168,85,247,0.35);
+        color: #c084fc;
+    }
+    .confirm-btn-ok.purple:hover { background: #a855f7; color: white; text-decoration: none; }
+
+    /* Prevent action-btn styles applying to <button> */
+    button.action-btn { background: inherit; font-family: 'Poppins', sans-serif; }
+</style>
+
+<script>
+    var _confirmHref = '#';
+
+    function showConfirm(type, orderId) {
+        var modal    = document.getElementById('confirmModal');
+        var icon     = document.getElementById('confirmIcon');
+        var title    = document.getElementById('confirmTitle');
+        var msg      = document.getElementById('confirmMsg');
+        var okBtn    = document.getElementById('confirmOkBtn');
+        var okIcon   = document.getElementById('confirmOkIcon');
+        var okLabel  = document.getElementById('confirmOkLabel');
+        var href     = document.getElementById('confirmOkBtn');
+
+        if (type === 'cancel') {
+            icon.textContent      = '🚫';
+            title.textContent     = 'Cancel Order #' + orderId + '?';
+            msg.textContent       = 'This will permanently cancel your order and restore stock. This action cannot be undone.';
+            okBtn.className       = 'confirm-btn-ok danger';
+            okIcon.className      = 'fas fa-times';
+            okLabel.textContent   = 'Yes, Cancel Order';
+            href.href             = '/cancel-order/' + orderId;
+        } else if (type === 'replace') {
+            icon.textContent      = '🔄';
+            title.textContent     = 'Request Replacement?';
+            msg.textContent       = 'A replacement request will be sent for Order #' + orderId + '. Our team will contact you shortly.';
+            okBtn.className       = 'confirm-btn-ok purple';
+            okIcon.className      = 'fas fa-exchange-alt';
+            okLabel.textContent   = 'Yes, Request Replacement';
+            href.href             = '/request-replacement/' + orderId;
+        }
+
+        modal.classList.add('active');
+    }
+
+    function closeConfirm() {
+        document.getElementById('confirmModal').classList.remove('active');
+    }
+
+    function handleOverlayClick(e) {
+        if (e.target === document.getElementById('confirmModal')) closeConfirm();
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeConfirm();
+    });
+</script>
+
 </body>
 </html>
