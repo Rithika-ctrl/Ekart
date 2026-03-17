@@ -26,7 +26,7 @@ public class Product {
 
 	/** Original MRP — if > price, shows strikethrough with discount badge. 0 = no MRP set. */
 	@Column(columnDefinition = "DOUBLE DEFAULT 0")
-	private double mrp;
+	private Double mrp;
 	private String category;
 	private int stock;
 	private Integer stockAlertThreshold = 10;
