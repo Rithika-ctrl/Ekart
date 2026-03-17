@@ -465,7 +465,24 @@
                 </div>
             </div>
             <div class="price-block">
-                <div class="price-big"><sup>₹</sup><span th:text="${product.price}"></span></div>
+                <!-- Discounted price display -->
+                <div th:if="${product.discounted}">
+                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+                        <span style="background:rgba(239,68,68,0.18);color:#ef4444;border:1px solid rgba(239,68,68,0.35);font-size:0.9rem;font-weight:800;padding:0.25rem 0.7rem;border-radius:8px;"
+                              th:text="'-' + ${product.discountPercent} + '%'">-74%</span>
+                        <span style="font-size:0.82rem;color:var(--text-dim);">You save ₹<span th:text="${#numbers.formatDecimal(product.mrp - product.price, 1, 'COMMA', 0, 'POINT')}"></span></span>
+                    </div>
+                    <div class="price-big"><sup>₹</sup><span th:text="${product.price}"></span></div>
+                    <div style="margin-top:0.35rem;font-size:0.85rem;color:var(--text-dim);">
+                        M.R.P.: <span style="text-decoration:line-through;" th:text="'₹' + ${product.mrp}"></span>
+                        <span style="font-size:0.72rem;color:var(--text-dim);margin-left:0.35rem;">Incl. of all taxes</span>
+                    </div>
+                </div>
+                <!-- Regular price (no discount) -->
+                <div th:unless="${product.discounted}">
+                    <div class="price-big"><sup>₹</sup><span th:text="${product.price}"></span></div>
+                    <div style="margin-top:0.35rem;font-size:0.72rem;color:var(--text-dim);">Incl. of all taxes</div>
+                </div>
                 <div>
                     <span th:if="${product.stock > 10}"       class="stock-pill in-stock"><i class="fas fa-circle" style="font-size:0.5rem;"></i> <span th:text="${product.stock} + ' in stock'"></span></span>
                     <span th:if="${product.stock > 0 and product.stock <= 10}" class="stock-pill low-stock"><i class="fas fa-exclamation-circle" style="font-size:0.65rem;"></i> <span th:text="'Only ' + ${product.stock} + ' left!'"></span></span>

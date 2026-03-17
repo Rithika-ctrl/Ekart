@@ -935,6 +935,10 @@
                     <div class="price-tag">
                         <span style="font-size:0.85rem;font-weight:600;color:var(--text-light);vertical-align:middle;margin-right:4px;">Price</span>
                         <sup>₹</sup><span th:text="${p.price}"></span>
+                        <th:block th:if="${p.discounted}">
+                            <span style="margin-left:0.4rem;font-size:0.72rem;text-decoration:line-through;color:var(--text-dim);" th:text="'₹'+${p.mrp}"></span>
+                            <span style="margin-left:0.3rem;font-size:0.7rem;font-weight:800;color:#ef4444;" th:text="'-'+${p.discountPercent}+'%'"></span>
+                        </th:block>
                     </div>
 
                     <hr class="card-divider">
