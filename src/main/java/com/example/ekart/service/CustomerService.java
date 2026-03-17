@@ -366,7 +366,8 @@ public class CustomerService {
         item.setCategory(product.getCategory());
         item.setDescription(product.getDescription());
         item.setImageLink(product.getImageLink());
-        item.setPrice(product.getPrice());
+        item.setUnitPrice(product.getPrice());           // ✅ FIX: store unit price once
+        item.setPrice(product.getPrice());               // line total = 1 × unitPrice
         item.setQuantity(1);
         item.setProductId(product.getId()); // 🔥 Track product ID
 
@@ -396,8 +397,9 @@ public class CustomerService {
         
         double totalPrice = 0;
         if (items != null) {
-             for (Item item : items) {
-                totalPrice += item.getPrice();
+            for (Item item : items) {
+                // ✅ FIX: use lineTotal (unitPrice × qty) — never stale price field
+                totalPrice += item.getLineTotal() > 0 ? item.getLineTotal() : item.getPrice();
             }
         }
 
@@ -428,8 +430,12 @@ public class CustomerService {
             return "redirect:/view-cart";
         }
 
-        item.setQuantity(item.getQuantity() + 1);
-        item.setPrice(item.getPrice() + product.getPrice());
+        int newQty = item.getQuantity() + 1;
+        item.setQuantity(newQty);
+        // ✅ FIX: Use unitPrice for exact line total — no floating-point drift
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
+        item.setUnitPrice(unitPrice);
+        item.setPrice(unitPrice * newQty);
         product.setStock(product.getStock() - 1);
 
         itemRepository.save(item);
@@ -457,8 +463,12 @@ public class CustomerService {
         }
 
         if (item.getQuantity() > 1) {
-            item.setQuantity(item.getQuantity() - 1);
-            item.setPrice(item.getPrice() - product.getPrice());
+            int newQty = item.getQuantity() - 1;
+            item.setQuantity(newQty);
+            // ✅ FIX: Use unitPrice for exact line total — no floating-point drift
+            double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
+            item.setUnitPrice(unitPrice);
+            item.setPrice(unitPrice * newQty);
             itemRepository.save(item);
         } else {
             item.getCart().getItems().removeIf(i -> i.getId() == item.getId());
@@ -493,6 +503,127 @@ public class CustomerService {
 
         session.setAttribute("success", "Item Removed from Cart");
         return "redirect:/view-cart";
+    }
+
+    // ── AJAX: increase ────────────────────────────────────────────────────
+    public java.util.Map<String, Object> ajaxIncrease(int id, HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        if (sessionCustomer == null) {
+            res.put("success", false); res.put("message", "Session expired"); return res;
+        }
+        Item item = itemRepository.findById(id).orElse(null);
+        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+        if (item.getProductId() == null) { res.put("success", false); res.put("message", "Product unavailable"); return res; }
+        Product product = productRepository.findById(item.getProductId()).orElse(null);
+        if (product == null) { res.put("success", false); res.put("message", "Product no longer available"); return res; }
+        if (product.getStock() <= 0) { res.put("success", false); res.put("message", "No more stock available"); return res; }
+
+        int newQty = item.getQuantity() + 1;
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
+        item.setUnitPrice(unitPrice);
+        item.setQuantity(newQty);
+        item.setPrice(unitPrice * newQty);
+        product.setStock(product.getStock() - 1);
+        itemRepository.save(item);
+        productRepository.save(product);
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        double cartTotal = customer.getCart().getItems().stream()
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+
+        res.put("success", true);
+        res.put("quantity", newQty);
+        res.put("lineTotal", unitPrice * newQty);
+        res.put("unitPrice", unitPrice);
+        res.put("cartTotal", cartTotal);
+        res.put("freeDelivery", cartTotal >= 500);
+        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
+        return res;
+    }
+
+    // ── AJAX: decrease ────────────────────────────────────────────────────
+    public java.util.Map<String, Object> ajaxDecrease(int id, HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        if (sessionCustomer == null) {
+            res.put("success", false); res.put("message", "Session expired"); return res;
+        }
+        Item item = itemRepository.findById(id).orElse(null);
+        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+
+        Product product = item.getProductId() != null
+            ? productRepository.findById(item.getProductId()).orElse(null) : null;
+
+        boolean removed = false;
+        if (item.getQuantity() <= 1) {
+            Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+            customer.getCart().getItems().removeIf(i -> i.getId() == id);
+            customerRepository.save(customer);
+            itemRepository.deleteById(id);
+            if (product != null) { product.setStock(product.getStock() + 1); productRepository.save(product); }
+            removed = true;
+        } else {
+            int newQty = item.getQuantity() - 1;
+            double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice()
+                : (product != null ? product.getPrice() : item.getPrice());
+            item.setUnitPrice(unitPrice);
+            item.setQuantity(newQty);
+            item.setPrice(unitPrice * newQty);
+            itemRepository.save(item);
+            if (product != null) { product.setStock(product.getStock() + 1); productRepository.save(product); }
+        }
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        double cartTotal = customer.getCart().getItems().stream()
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+
+        res.put("success", true);
+        res.put("removed", removed);
+        if (!removed) {
+            res.put("quantity", item.getQuantity());
+            res.put("lineTotal", item.getPrice());
+            res.put("unitPrice", item.getUnitPrice());
+        }
+        res.put("cartTotal", cartTotal);
+        res.put("freeDelivery", cartTotal >= 500);
+        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
+        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        return res;
+    }
+
+    // ── AJAX: remove ──────────────────────────────────────────────────────
+    @org.springframework.transaction.annotation.Transactional
+    public java.util.Map<String, Object> ajaxRemove(int id, HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        if (sessionCustomer == null) {
+            res.put("success", false); res.put("message", "Session expired"); return res;
+        }
+        Item item = itemRepository.findById(id).orElse(null);
+        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+
+        if (item.getProductId() != null) {
+            productRepository.findById(item.getProductId()).ifPresent(p -> {
+                p.setStock(p.getStock() + item.getQuantity());
+                productRepository.save(p);
+            });
+        }
+
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        customer.getCart().getItems().removeIf(i -> i.getId() == id);
+        customerRepository.save(customer);
+        itemRepository.deleteById(id);
+
+        double cartTotal = customer.getCart().getItems().stream()
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+
+        res.put("success", true);
+        res.put("cartTotal", cartTotal);
+        res.put("freeDelivery", cartTotal >= 500);
+        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
+        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        return res;
     }
 
     // ---------------- PAYMENT PAGE ----------------

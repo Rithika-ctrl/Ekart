@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
  *
  * All routes require: Authorization: Bearer <token>
  *
- * Place in: src/main/java/com/example/ekart/controller/CartOrderApiController.java
- *
  * Endpoints:
  *   GET    /api/cart                → get cart items + total
  *   POST   /api/cart/add/{id}       → add product to cart
@@ -57,7 +55,9 @@ public class CartOrderApiController {
         customer = customerRepository.findById(customer.getId()).orElse(null);
         List<Item> items = customer.getCart().getItems();
 
-        double subtotal      = items.stream().mapToDouble(Item::getPrice).sum();
+        // ✅ FIX: use lineTotal (unitPrice × qty) for accurate subtotal
+        double subtotal       = items.stream().mapToDouble(i ->
+                i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
         double deliveryCharge = subtotal >= 500 ? 0 : 40;
         double total          = subtotal + deliveryCharge;
 
@@ -100,8 +100,11 @@ public class CartOrderApiController {
         List<Item> cartItems = customer.getCart().getItems();
         for (Item item : cartItems) {
             if (item.getProductId() != null && item.getProductId() == productId) {
-                item.setQuantity(item.getQuantity() + 1);
-                item.setPrice(item.getPrice() + product.getPrice());
+                int newQty = item.getQuantity() + 1;
+                double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
+                item.setUnitPrice(unitPrice);
+                item.setQuantity(newQty);
+                item.setPrice(unitPrice * newQty); // ✅ FIX: clean multiply, no drift
                 itemRepository.save(item);
                 res.put("success", true);
                 res.put("message", "Quantity increased");
@@ -114,7 +117,8 @@ public class CartOrderApiController {
         Item newItem = new Item();
         newItem.setName(product.getName());
         newItem.setDescription(product.getDescription());
-        newItem.setPrice(product.getPrice());
+        newItem.setUnitPrice(product.getPrice());        // ✅ FIX: store unit price
+        newItem.setPrice(product.getPrice());            // line total = 1 × unitPrice
         newItem.setCategory(product.getCategory());
         newItem.setImageLink(product.getImageLink());
         newItem.setProductId(product.getId());
@@ -166,14 +170,16 @@ public class CartOrderApiController {
         Item item = itemRepository.findById(itemId).orElse(null);
         if (item == null) { res.put("success", false); return ResponseEntity.status(404).body(res); }
 
-        // Get unit price
-        double unitPrice = item.getProductId() != null
-                ? productRepository.findById(item.getProductId())
-                        .map(Product::getPrice).orElse(item.getPrice() / item.getQuantity())
-                : item.getPrice() / item.getQuantity();
+        // ✅ FIX: prefer stored unitPrice, fallback to product price
+        double unitPrice = item.getUnitPrice() > 0
+                ? item.getUnitPrice()
+                : productRepository.findById(item.getProductId() != null ? item.getProductId() : -1)
+                        .map(Product::getPrice).orElse(item.getPrice());
 
-        item.setQuantity(item.getQuantity() + 1);
-        item.setPrice(item.getPrice() + unitPrice);
+        int newQty = item.getQuantity() + 1;
+        item.setUnitPrice(unitPrice);
+        item.setQuantity(newQty);
+        item.setPrice(unitPrice * newQty); // ✅ FIX: exact multiply, no drift
         itemRepository.save(item);
 
         res.put("success",  true);
@@ -207,9 +213,15 @@ public class CartOrderApiController {
             return ResponseEntity.ok(res);
         }
 
-        double unitPrice = item.getPrice() / item.getQuantity();
-        item.setQuantity(item.getQuantity() - 1);
-        item.setPrice(item.getPrice() - unitPrice);
+        // ✅ FIX: exact multiply, no drift
+        double unitPrice = item.getUnitPrice() > 0
+                ? item.getUnitPrice()
+                : item.getPrice() / Math.max(item.getQuantity(), 1);
+
+        int newQty = item.getQuantity() - 1;
+        item.setUnitPrice(unitPrice);
+        item.setQuantity(newQty);
+        item.setPrice(unitPrice * newQty);
         itemRepository.save(item);
 
         res.put("success",  true);
@@ -243,8 +255,8 @@ public class CartOrderApiController {
             return ResponseEntity.badRequest().body(res);
         }
 
-        String paymentMode   = body.getOrDefault("paymentMode", "Cash on Delivery");
-        String deliveryTime  = body.getOrDefault("deliveryTime", "Standard Delivery");
+        String paymentMode  = body.getOrDefault("paymentMode", "Cash on Delivery");
+        String deliveryTime = body.getOrDefault("deliveryTime", "Standard Delivery");
 
         // Calculate totals
         double subtotal       = cartItems.stream().mapToDouble(Item::getPrice).sum();
@@ -269,6 +281,7 @@ public class CartOrderApiController {
         for (Item cartItem : cartItems) {
             Item newItem = new Item();
             newItem.setName(cartItem.getName());
+            newItem.setUnitPrice(cartItem.getUnitPrice());
             newItem.setPrice(cartItem.getPrice());
             newItem.setQuantity(cartItem.getQuantity());
             newItem.setCategory(cartItem.getCategory());
@@ -306,7 +319,6 @@ public class CartOrderApiController {
         customer = customerRepository.findById(customer.getId()).orElseThrow();
         List<Order> orders = orderRepository.findByCustomer(customer);
 
-        // Sort newest first
         orders.sort(Comparator.comparing(Order::getOrderDate,
                 Comparator.nullsLast(Comparator.reverseOrder())));
 
@@ -362,7 +374,6 @@ public class CartOrderApiController {
             return ResponseEntity.badRequest().body(res);
         }
 
-        // Restore stock
         for (Item item : order.getItems()) {
             if (item.getProductId() != null) {
                 productRepository.findById(item.getProductId()).ifPresent(p -> {
@@ -402,7 +413,9 @@ public class CartOrderApiController {
         Map<String, Object> m = new HashMap<>();
         m.put("id",        i.getId());
         m.put("name",      i.getName());
-        m.put("price",     i.getPrice());
+        m.put("unitPrice", i.getUnitPrice());                                          // ✅ FIX
+        m.put("lineTotal", i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice());   // ✅ FIX
+        m.put("price",     i.getPrice());     // kept for backwards compat
         m.put("quantity",  i.getQuantity());
         m.put("category",  i.getCategory());
         m.put("imageLink", i.getImageLink());
@@ -412,16 +425,16 @@ public class CartOrderApiController {
 
     private Map<String, Object> buildOrderMap(Order o) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id",              o.getId());
-        m.put("amount",          o.getAmount());
-        m.put("totalPrice",      o.getTotalPrice());
-        m.put("deliveryCharge",  o.getDeliveryCharge());
-        m.put("deliveryTime",    o.getDeliveryTime());
-        m.put("orderDate",       o.getOrderDate() != null ? o.getOrderDate().toString() : null);
-        m.put("trackingStatus",  o.getTrackingStatus().name());
-        m.put("currentCity",     o.getCurrentCity());
-        m.put("replacementReq",  o.isReplacementRequested());
-        m.put("items",           o.getItems().stream().map(this::buildItemMap).collect(Collectors.toList()));
+        m.put("id",             o.getId());
+        m.put("amount",         o.getAmount());
+        m.put("totalPrice",     o.getTotalPrice());
+        m.put("deliveryCharge", o.getDeliveryCharge());
+        m.put("deliveryTime",   o.getDeliveryTime());
+        m.put("orderDate",      o.getOrderDate() != null ? o.getOrderDate().toString() : null);
+        m.put("trackingStatus", o.getTrackingStatus().name());
+        m.put("currentCity",    o.getCurrentCity());
+        m.put("replacementReq", o.isReplacementRequested());
+        m.put("items",          o.getItems().stream().map(this::buildItemMap).collect(Collectors.toList()));
         return m;
     }
 }

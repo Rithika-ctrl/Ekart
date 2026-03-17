@@ -424,6 +424,26 @@ public class EkartController {
         return customerService.decrease(id, session);
     }
 
+    // ── AJAX endpoints — return JSON, no page reload ──────────────────────
+
+    @PostMapping("/ajax/cart/increase/{id}")
+    @ResponseBody
+    public java.util.Map<String, Object> ajaxIncrease(@PathVariable int id, HttpSession session) {
+        return customerService.ajaxIncrease(id, session);
+    }
+
+    @PostMapping("/ajax/cart/decrease/{id}")
+    @ResponseBody
+    public java.util.Map<String, Object> ajaxDecrease(@PathVariable int id, HttpSession session) {
+        return customerService.ajaxDecrease(id, session);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/ajax/cart/remove/{id}")
+    @ResponseBody
+    public java.util.Map<String, Object> ajaxRemove(@PathVariable int id, HttpSession session) {
+        return customerService.ajaxRemove(id, session);
+    }
+
     @GetMapping("/payment")
     public String payment(HttpSession session, ModelMap map) {
         return customerService.payment(session, map);
