@@ -672,14 +672,6 @@
         }
         .loc-modal-title i { color: var(--yellow); }
         .loc-modal-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1.5rem; }
-        .loc-detect-btn {
-            width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-            background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35);
-            border-radius: 12px; padding: 0.75rem;
-            color: #22c55e; font-family: 'Poppins',sans-serif; font-size: 0.85rem; font-weight: 600;
-            cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;
-        }
-        .loc-detect-btn:hover { background: rgba(34,197,94,0.2); }
         .loc-divider {
             display: flex; align-items: center; gap: 0.75rem;
             margin-bottom: 1rem; font-size: 0.7rem; color: var(--text-dim);
@@ -776,12 +768,6 @@
         <button class="loc-close-btn" onclick="closeLocModal()"><i class="fas fa-times"></i></button>
         <div class="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Set Delivery Location</div>
         <div class="loc-modal-sub">We'll show only products available at your pin code.</div>
-
-        <button class="loc-detect-btn" id="locDetectBtn" onclick="autoDetectPin()">
-            <i class="fas fa-crosshairs"></i> <span id="locDetectLabel">Use my current location</span>
-        </button>
-
-        <div class="loc-divider">or enter manually</div>
 
         <div class="loc-input-row">
             <input type="text" class="loc-pin-input" id="locPinInput"
@@ -1483,93 +1469,6 @@
         showToast('Location filter cleared', 'success');
     };
 
-    /* ── Auto-detect location via browser geolocation + Nominatim ── */
-    window.autoDetectPin = function() {
-        const btn   = document.getElementById('locDetectBtn');
-        const label = document.getElementById('locDetectLabel');
-        const errEl = document.getElementById('locError');
-
-        if (!navigator.geolocation) {
-            errEl.textContent = 'Geolocation is not supported by your browser.';
-            return;
-        }
-
-        btn.disabled = true;
-        label.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting…';
-        errEl.textContent = '';
-
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-
-                fetch(
-                    'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&addressdetails=1',
-                    { headers: { 'Accept-Language': 'en' } }
-                )
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    btn.disabled = false;
-                    label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
-
-                    const addr = data && data.address;
-                    if (!addr) {
-                        errEl.textContent = 'Could not read location. Please enter pin manually.';
-                        return;
-                    }
-
-                    // ── India-only guard ──────────────────────────────────
-                    const countryCode = (addr.country_code || '').toLowerCase();
-                    if (countryCode !== 'in') {
-                        errEl.textContent = 'Ekart delivers only within India. Please enter your Indian pin code manually.';
-                        return;
-                    }
-
-                    // ── Extract & validate 6-digit Indian PIN ─────────────
-                    const raw = (addr.postcode || '').replace(/\s/g, '');
-                    // Indian PIN codes are always exactly 6 digits
-                    const pin = raw.match(/^\d{6}$/);
-                    if (pin && isIndianPin(pin[0])) {
-                        document.getElementById('locPinInput').value = pin[0];
-                        clearLocError();
-                        applyAndClose(pin[0]);
-                        return;
-                    }
-
-                    // Nominatim sometimes returns "110001-110010" ranges — take first 6 digits
-                    const digits = raw.replace(/\D/g, '').slice(0, 6);
-                    if (digits.length === 6 && isIndianPin(digits)) {
-                        document.getElementById('locPinInput').value = digits;
-                        clearLocError();
-                        applyAndClose(digits);
-                        return;
-                    }
-
-                    errEl.textContent = 'Could not detect pin code for your location. Please enter it manually.';
-                })
-                .catch(function() {
-                    btn.disabled = false;
-                    label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
-                    errEl.textContent = 'Location lookup failed. Please enter pin manually.';
-                });
-            },
-            function(err) {
-                btn.disabled = false;
-                label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
-                const msgs = {
-                    1: 'Location permission denied. Please enter pin manually.',
-                    2: 'Could not determine your location. Please enter pin manually.',
-                    3: 'Location request timed out. Please enter pin manually.'
-                };
-                errEl.textContent = msgs[err.code] || 'Could not detect location.';
-            },
-            {
-                timeout: 10000,
-                maximumAge: 0,        // always get fresh GPS — never use cached position
-                enableHighAccuracy: true
-            }
-        );
-    };
 
     /* ── Init on page load ── */
     document.addEventListener('DOMContentLoaded', function() {
@@ -1577,7 +1476,6 @@
         updateBar(pin);
         applyPinFilter(pin);
 
-        // Show the modal automatically on first ever visit (no pin set)
         if (!pin && !sessionStorage.getItem(MODAL_KEY)) {
             sessionStorage.setItem(MODAL_KEY, '1');
             setTimeout(openLocModal, 1200);

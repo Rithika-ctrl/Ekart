@@ -212,15 +212,6 @@
         /* Pin code row */
         .pin-row { display:flex; gap:0.5rem; align-items:flex-end; }
         .pin-row .form-input { flex:1; }
-        .btn-geo {
-            display:inline-flex; align-items:center; gap:0.4rem;
-            background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#22c55e;
-            padding:0.75rem 1rem; border-radius:10px;
-            font-family:'Poppins',sans-serif; font-size:0.72rem; font-weight:700;
-            letter-spacing:0.05em; text-transform:uppercase; cursor:pointer; transition:all 0.25s;
-            white-space:nowrap;
-        }
-        .btn-geo:hover { background:rgba(34,197,94,0.18); transform:scale(1.03); }
 
         /* Address preview */
         .addr-preview {
@@ -366,14 +357,23 @@
                      class="addr-line" th:text="${addr.details}"></div>
 
                 <div class="address-actions">
-                    <a href="/payment" class="btn-use-address">
+                    <!-- Pass this address's postal code to the JS checker -->
+                    <button type="button" class="btn-use-address"
+                            th:data-pin="${addr.postalCode}"
+                            th:data-name="${addr.recipientName}"
+                            onclick="useSavedAddress(this)">
                         <i class="fas fa-check"></i> Use This Address
-                    </a>
+                    </button>
                     <a th:href="'/customer/delete-address/' + ${addr.id}"
                        class="btn-delete-address"
                        onclick="return confirm('Delete this address?')">
                         <i class="fas fa-trash-alt"></i> Delete
                     </a>
+                </div>
+
+                <!-- Per-card mismatch warning (hidden by default) -->
+                <div class="addr-pin-warning" id="warn-[[${addr.id}]]"
+                     style="display:none;margin-top:0.75rem;background:rgba(255,96,60,0.1);border:1.5px solid rgba(255,96,60,0.45);border-radius:10px;padding:0.75rem 1rem;font-size:0.8rem;color:#ff8060;line-height:1.65;">
                 </div>
             </div>
 
@@ -384,6 +384,13 @@
         <form id="addressForm" action="/customer/save-address" method="post" onsubmit="return validateForm()">
 
             <div class="section-label"><i class="fas fa-location-dot"></i> New Address</div>
+
+            <!-- ── Delivery PIN hint (shown if home PIN is set) ── -->
+            <div id="home-pin-hint" style="display:none;background:rgba(245,168,0,0.08);border:1px solid rgba(245,168,0,0.3);border-radius:10px;padding:0.75rem 1rem;margin-bottom:1.25rem;font-size:0.8rem;color:rgba(255,255,255,0.75);line-height:1.6;">
+                <i class="fas fa-info-circle" style="color:#f5a800;margin-right:0.4rem;"></i>
+                Your delivery location is set to PIN <strong id="home-pin-display" style="color:#f5a800;"></strong>.
+                The postal code you enter below must match this.
+            </div>
 
             <div class="form-grid">
 
@@ -447,9 +454,6 @@
                                placeholder="6-digit PIN code"
                                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6); updatePreview()"
                                required>
-                        <button type="button" class="btn-geo" onclick="autoDetect()">
-                            <i class="fas fa-location-crosshairs"></i> Auto-Detect
-                        </button>
                     </div>
                     <span class="field-error" id="err-pin">Please enter a valid postal code.</span>
                 </div>
@@ -545,6 +549,43 @@
         return valid.has(prefix);
     }
 
+    // ── Show mismatch warning banner ──────────────────────────────────────────
+    function showPinMismatchWarning(enteredPin, homePin) {
+        // Remove any existing warning first
+        const existing = document.getElementById('pin-mismatch-warning');
+        if (existing) existing.remove();
+
+        const warning = document.createElement('div');
+        warning.id = 'pin-mismatch-warning';
+        warning.style.cssText = [
+            'background: rgba(255,96,60,0.12)',
+            'border: 1.5px solid rgba(255,96,60,0.5)',
+            'border-radius: 12px',
+            'padding: 1rem 1.25rem',
+            'margin-bottom: 1rem',
+            'font-size: 0.82rem',
+            'line-height: 1.7',
+            'color: #ff8060',
+            'animation: fadeUp 0.3s ease both'
+        ].join(';');
+
+        warning.innerHTML =
+            '<div style="font-weight:700;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.5rem;">' +
+            '<i class="fas fa-exclamation-triangle"></i> PIN Code Mismatch</div>' +
+            '<div>You set your delivery location to <strong style="color:#f5a800;">' + homePin + '</strong> on the home page, ' +
+            'but entered <strong style="color:#ff8060;">' + enteredPin + '</strong> here.</div>' +
+            '<div style="margin-top:0.4rem;">Please use the same pin code, or ' +
+            '<a href="/customer/home" style="color:#f5a800;text-decoration:underline;">go back to home</a> ' +
+            'and update your delivery location first.</div>';
+
+        // Insert before the submit button
+        const submitBtn = document.querySelector('.btn-submit');
+        if (submitBtn) {
+            submitBtn.parentNode.insertBefore(warning, submitBtn);
+            warning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
     // ── Form Validation ───────────────────────────────────────────────────────
     function validateForm() {
         let valid = true;
@@ -584,6 +625,26 @@
             valid = false;
         }
 
+        // ── PIN mismatch check against home page delivery location ────────────
+        // If the customer set a delivery PIN on the home page, the address PIN
+        // must match. Different PIN = wrong area = block form submission.
+        if (valid) {
+            const homePin = localStorage.getItem('ekart_delivery_pin');
+            if (homePin && homePin.length === 6 && homePin !== pinVal) {
+                // Remove old warning if present
+                const old = document.getElementById('pin-mismatch-warning');
+                if (old) old.remove();
+                showPinMismatchWarning(pinVal, homePin);
+                pinInput.classList.add('error');
+                valid = false;
+            } else {
+                // Pins match (or no home pin set) — remove any stale warning
+                const old = document.getElementById('pin-mismatch-warning');
+                if (old) old.remove();
+                pinInput.classList.remove('error');
+            }
+        }
+
         return valid;
     }
 
@@ -602,61 +663,115 @@
         });
     });
 
-    // ── Geolocation Auto-Detect ───────────────────────────────────────────────
-    function autoDetect() {
-        if (!navigator.geolocation) {
-            alert('Geolocation is not supported by your browser.');
+    // ── On page load: show the home PIN hint if a delivery PIN is set ─────────
+    document.addEventListener('DOMContentLoaded', function() {
+        const homePin = localStorage.getItem('ekart_delivery_pin');
+        const hint    = document.getElementById('home-pin-hint');
+        const display = document.getElementById('home-pin-display');
+        if (homePin && homePin.length === 6 && hint && display) {
+            display.textContent = homePin;
+            hint.style.display  = 'block';
+        }
+    });
+
+    // ── Use Saved Address — checks PIN before navigating to payment ───────────
+    function useSavedAddress(btn) {
+        const addrPin = (btn.getAttribute('data-pin') || '').trim();
+        const homePin = (localStorage.getItem('ekart_delivery_pin') || '').trim();
+
+        // Find the warning div inside the same address-card
+        const card    = btn.closest('.address-card');
+        const warnDiv = card ? card.querySelector('.addr-pin-warning') : null;
+
+        // Hide all other warnings first
+        document.querySelectorAll('.addr-pin-warning').forEach(w => {
+            w.style.display = 'none';
+            w.innerHTML = '';
+        });
+        // Reset all use-address buttons to normal
+        document.querySelectorAll('.btn-use-address').forEach(b => {
+            b.style.borderColor = '';
+            b.style.background  = '';
+        });
+
+        // Case 1: No home PIN set — allow through directly
+        if (!homePin || homePin.length !== 6) {
+            window.location.href = '/payment';
             return;
         }
-        const btn = document.querySelector('.btn-geo');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting…';
-        btn.disabled  = true;
 
-        navigator.geolocation.getCurrentPosition(
-            pos => {
-                fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, {
-                    headers: { 'User-Agent': 'Ekart-App-v1' }
-                })
-                .then(r => r.json())
-                .then(data => {
-                    const a = data.address || {};
+        // Case 2: Address has no postal code (legacy flat-text address) — warn but allow
+        if (!addrPin || addrPin.length !== 6) {
+            if (warnDiv) {
+                warnDiv.innerHTML =
+                    '<i class="fas fa-exclamation-circle" style="margin-right:0.4rem;"></i>' +
+                    'This address has no PIN code saved. Your delivery location is set to ' +
+                    '<strong style="color:#f5a800;">' + homePin + '</strong>. ' +
+                    'Proceeding anyway — you can verify on the payment page.';
+                warnDiv.style.display = 'block';
+            }
+            setTimeout(() => { window.location.href = '/payment'; }, 2200);
+            return;
+        }
 
-                    // India-only guard
-                    if ((a.country_code || '').toLowerCase() !== 'in') {
-                        alert('Ekart delivers only within India. Please enter your address manually.');
-                        return;
-                    }
+        // Case 3: PINs match — go to payment immediately
+        if (addrPin === homePin) {
+            window.location.href = '/payment';
+            return;
+        }
 
-                    // Fill structured fields from reverse geocode
-                    if (a.road || a.suburb)
-                        document.getElementById('houseStreet').value =
-                            [a.house_number, a.road || a.suburb].filter(Boolean).join(', ');
-                    if (a.city || a.town || a.village)
-                        document.getElementById('city').value = a.city || a.town || a.village || '';
-                    if (a.state)
-                        document.getElementById('state').value = a.state;
+        // Case 4: MISMATCH — show warning, block navigation
+        if (warnDiv) {
+            warnDiv.innerHTML =
+                '<div style="font-weight:700;margin-bottom:0.35rem;">' +
+                '<i class="fas fa-exclamation-triangle" style="margin-right:0.4rem;"></i>PIN Code Mismatch</div>' +
+                '<div>Your delivery location is set to <strong style="color:#f5a800;">' + homePin + '</strong>, ' +
+                'but this address has PIN <strong style="color:#ff8060;">' + addrPin + '</strong>.</div>' +
+                '<div style="margin-top:0.5rem;display:flex;gap:0.75rem;flex-wrap:wrap;">' +
+                    '<a href="/customer/home" style="color:#f5a800;font-weight:700;font-size:0.78rem;">' +
+                    '<i class="fas fa-arrow-left" style="font-size:0.65rem;margin-right:0.25rem;"></i>' +
+                    'Update delivery location to ' + addrPin + '</a>' +
+                    '<span style="color:rgba(255,255,255,0.3);font-size:0.78rem;">or</span>' +
+                    '<a href="/customer/address" style="color:rgba(255,255,255,0.5);font-weight:600;font-size:0.78rem;" ' +
+                    'onclick="localStorage.setItem(\'ekart_delivery_pin\',\'' + addrPin + '\');return true;">' +
+                    'Use ' + addrPin + ' as my location</a>' +
+                '</div>';
+            warnDiv.style.display = 'block';
+            warnDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
-                    // Validate Indian PIN from geocode result
-                    const rawPin = (a.postcode || '').replace(/\s/g, '').replace(/\D/g, '').slice(0, 6);
-                    if (isIndianPin(rawPin)) {
-                        document.getElementById('postalCode').value = rawPin;
-                    }
-                    updatePreview();
-                })
-                .catch(() => alert('Location lookup failed. Please fill in the fields manually.'))
-                .finally(() => {
-                    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Auto-Detect';
-                    btn.disabled  = false;
-                });
-            },
-            () => {
-                alert('Location access denied. Please fill in the address manually.');
-                btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Auto-Detect';
-                btn.disabled  = false;
-            },
-            { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
-        );
+        // Highlight the button border red to draw attention
+        btn.style.background  = 'rgba(255,96,60,0.1)';
+        btn.style.borderColor = 'rgba(255,96,60,0.5)';
     }
+
+    // ── Live PIN mismatch check — triggers as soon as 6 digits are entered ────
+    document.getElementById('postalCode').addEventListener('input', function() {
+        const pinVal  = this.value.trim().replace(/\D/g, '');
+        const homePin = localStorage.getItem('ekart_delivery_pin');
+        const old     = document.getElementById('pin-mismatch-warning');
+
+        // Only check when we have a full 6-digit valid PIN and there's a home PIN set
+        if (pinVal.length === 6 && homePin && homePin.length === 6) {
+            if (pinVal !== homePin) {
+                if (!old) showPinMismatchWarning(pinVal, homePin);
+                // Update if pin changed
+                else {
+                    document.getElementById('pin-mismatch-warning').querySelector('div:nth-child(2)').innerHTML =
+                        'You set your delivery location to <strong style="color:#f5a800;">' + homePin + '</strong> on the home page, ' +
+                        'but entered <strong style="color:#ff8060;">' + pinVal + '</strong> here.';
+                }
+                this.classList.add('error');
+            } else {
+                // Pins now match — remove warning
+                if (old) old.remove();
+                this.classList.remove('error');
+            }
+        } else {
+            // Not 6 digits yet or no home PIN set — clear warning
+            if (old) old.remove();
+        }
+    });
 </script>
 
 <script src="/js/ekart-form-spinner.js"></script>

@@ -9,7 +9,6 @@ import com.example.ekart.middleware.AuthGuard;
 
 /**
  * Web MVC Configuration for registering interceptors.
- * Keeps RBAC logic separate from main application to avoid Git conflicts.
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
@@ -21,8 +20,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authGuard)
             .addPathPatterns(
-                "/admin/**",           // All admin routes
-                "/api/admin/**",       // Admin API routes
+                "/admin/**",
+                "/api/admin/**",
                 "/refund-management/**",
                 "/content-management/**",
                 "/security-settings/**",
@@ -30,7 +29,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 "/reports/**"
             )
             .excludePathPatterns(
-                "/admin/login",        // Allow login page access
+                "/admin/login",
                 "/css/**",
                 "/js/**",
                 "/images/**",
