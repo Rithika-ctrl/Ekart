@@ -38,6 +38,7 @@ import com.example.ekart.service.BannerService;
 import com.example.ekart.service.CustomerService;
 import com.example.ekart.service.GuestService;
 import com.example.ekart.service.VendorService;
+import com.example.ekart.helper.PinCodeValidator;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -497,6 +498,13 @@ public class EkartController {
         }
         order.setAmount(finalAmount);
 
+        // Validate pin code is Indian before order is placed
+        if (deliveryPinCode != null && !deliveryPinCode.isBlank()
+                && !PinCodeValidator.isValid(deliveryPinCode.trim())) {
+            session.setAttribute("failure", PinCodeValidator.ERROR_MESSAGE);
+            return "redirect:/payment";
+        }
+
         String result = customerService.paymentSuccess(order, deliveryPinCode, session);
 
         // ✅ FIX 2: Check result contains "order-success" (not "home") since we now redirect there.
@@ -536,6 +544,15 @@ public class EkartController {
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
         String pin = pinCode.trim();
+
+        // Reject non-Indian pin codes immediately
+        if (!PinCodeValidator.isValid(pin)) {
+            res.put("success", false);
+            res.put("hasRestrictions", false);
+            res.put("blockedItems", Collections.emptyList());
+            res.put("message", PinCodeValidator.ERROR_MESSAGE);
+            return ResponseEntity.badRequest().body(res);
+        }
 
         boolean hasRestrictions = false;
         List<String> blockedItems = new ArrayList<>();
@@ -629,6 +646,10 @@ public class EkartController {
             @RequestParam String state,
             @RequestParam String postalCode,
             HttpSession session) {
+        if (!PinCodeValidator.isValid(postalCode)) {
+            session.setAttribute("failure", PinCodeValidator.ERROR_MESSAGE);
+            return "redirect:/customer/address";
+        }
         return customerService.saveAddress(recipientName, houseStreet, city, state, postalCode, session);
     }
 

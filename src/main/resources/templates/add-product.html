@@ -672,6 +672,25 @@
         });
     });
 
+
+    // ── Indian PIN code validator ─────────────────────────────────────────────
+    // Rules: exactly 6 digits, first 2 digits must be a valid Indian postal circle.
+    // Gaps that don't exist in India: 10, 29, 35, 54, 55, 86-89
+    function isIndianPin(val) {
+        if (!/^\d{6}$/.test(val)) return false;
+        var prefix = val.slice(0, 2);
+        var valid = new Set(['11','12','13','14','15','16','17','18','19',
+            '20','21','22','23','24','25','26','27','28',
+            '30','31','32','33','34','36','37','38','39',
+            '40','41','42','43','44','45','46','47','48','49',
+            '50','51','52','53','56','57','58','59',
+            '60','61','62','63','64','65','66','67','68','69',
+            '70','71','72','73','74','75','76','77','78','79',
+            '80','81','82','83','84','85',
+            '90','91','92','93','94','95','96','97','98','99']);
+        return valid.has(prefix);
+    }
+
     // ── PIN CODE TAG INPUT ──────────────────────────────────────────
     (function() {
         const box        = document.getElementById('pinTagBox');
@@ -685,7 +704,7 @@
 
         function addPin(val) {
             val = val.trim().replace(/\D/g,'');
-            if (val.length !== 6)  { showPinError('Pin code must be exactly 6 digits'); return; }
+            if (!isIndianPin(val)) { showPinError('Please enter a valid Indian pin code.'); return; }
             if (pins.includes(val)) { showPinError(val + ' already added'); return; }
             pins.push(val);
 
