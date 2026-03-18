@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
 import com.example.ekart.dto.Banner;
+import com.example.ekart.helper.CloudinaryHelper;
+import org.springframework.web.multipart.MultipartFile;
 import com.example.ekart.repository.BannerRepository;
 
 import jakarta.servlet.http.HttpSession;
@@ -24,8 +26,25 @@ public class BannerService {
     @Autowired
     private BannerRepository bannerRepository;
 
+    @Autowired
+    private CloudinaryHelper cloudinaryHelper;
+
     /**
-     * Get all active banners for home page display
+     * Get active banners for the pre-login landing page (home.html)
+     */
+    public List<Banner> getHomeBanners() {
+        return bannerRepository.findByActiveTrueAndShowOnHomeTrueOrderByDisplayOrderAsc();
+    }
+
+    /**
+     * Get active banners for the customer home page after login (customer-home.html)
+     */
+    public List<Banner> getCustomerHomeBanners() {
+        return bannerRepository.findByActiveTrueAndShowOnCustomerHomeTrueOrderByDisplayOrderAsc();
+    }
+
+    /**
+     * Get all active banners — legacy method, kept for compatibility
      */
     public List<Banner> getActiveBanners() {
         return bannerRepository.findByActiveTrueOrderByDisplayOrderAsc();
@@ -51,6 +70,38 @@ public class BannerService {
         map.put("activeBannerCount", bannerRepository.findByActiveTrueOrderByDisplayOrderAsc().size());
         map.put("totalBannerCount", bannerRepository.count());
         return "admin-content.html";
+    }
+
+    /**
+     * Add a new banner with file upload — uploads image to Cloudinary first
+     */
+    public String addBannerWithUpload(String title, MultipartFile imageFile, String linkUrl, HttpSession session) {
+        if (session.getAttribute("admin") == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/admin/login";
+        }
+        if (title == null || title.trim().isEmpty()) {
+            session.setAttribute("failure", "Banner title is required");
+            return "redirect:/admin/content";
+        }
+        if (imageFile == null || imageFile.isEmpty()) {
+            session.setAttribute("failure", "Please select an image file");
+            return "redirect:/admin/content";
+        }
+        try {
+            String imageUrl = cloudinaryHelper.saveBannerToCloudinary(imageFile);
+            Banner banner = new Banner();
+            banner.setTitle(title.trim());
+            banner.setImageUrl(imageUrl);
+            banner.setLinkUrl(linkUrl != null ? linkUrl.trim() : "");
+            banner.setActive(true);
+            banner.setDisplayOrder((int) bannerRepository.count());
+            bannerRepository.save(banner);
+            session.setAttribute("success", "Banner " + title.trim() + " uploaded and added successfully!");
+        } catch (Exception e) {
+            session.setAttribute("failure", "Image upload failed: " + e.getMessage());
+        }
+        return "redirect:/admin/content";
     }
 
     /**
@@ -125,6 +176,36 @@ public class BannerService {
 
         bannerRepository.deleteById(id);
         session.setAttribute("success", "Banner deleted successfully");
+        return "redirect:/admin/content";
+    }
+
+    /**
+     * Toggle whether banner shows on the landing page (home.html)
+     */
+    public String toggleShowOnHome(int id, HttpSession session) {
+        if (session.getAttribute("admin") == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/admin/login";
+        }
+        bannerRepository.findById(id).ifPresent(b -> {
+            b.setShowOnHome(!b.isShowOnHome());
+            bannerRepository.save(b);
+        });
+        return "redirect:/admin/content";
+    }
+
+    /**
+     * Toggle whether banner shows on the customer home page (customer-home.html)
+     */
+    public String toggleShowOnCustomerHome(int id, HttpSession session) {
+        if (session.getAttribute("admin") == null) {
+            session.setAttribute("failure", "Login First");
+            return "redirect:/admin/login";
+        }
+        bannerRepository.findById(id).ifPresent(b -> {
+            b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
+            bannerRepository.save(b);
+        });
         return "redirect:/admin/content";
     }
 

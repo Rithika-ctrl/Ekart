@@ -264,6 +264,193 @@
         }
 
         /* ── WELCOME STRIP ── */
+        /* ── BANNER CAROUSEL ── */
+        .banner-carousel {
+            position: relative;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            aspect-ratio: 16 / 5;
+            background: #0d1a3a;
+            animation: fadeUp 0.4s ease both;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+        }
+        @media(max-width: 600px) {
+            .banner-carousel { aspect-ratio: 16 / 7; border-radius: 14px; }
+        }
+        .banner-track {
+            display: flex;
+            height: 100%;
+            transition: transform 0.55s cubic-bezier(0.77,0,0.18,1);
+            will-change: transform;
+        }
+        .banner-slide {
+            min-width: 100%;
+            height: 100%;
+            position: relative;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .banner-slide img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        /* Gradient overlay so text is always readable */
+        .banner-slide::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg,
+                rgba(5,8,20,0.72) 0%,
+                rgba(5,8,20,0.35) 50%,
+                rgba(5,8,20,0.10) 100%);
+            pointer-events: none;
+        }
+        .banner-text {
+            position: absolute;
+            top: 50%; left: 5%;
+            transform: translateY(-50%);
+            z-index: 2;
+            max-width: 55%;
+        }
+        .banner-text h2 {
+            font-size: clamp(1rem, 2.5vw, 1.9rem);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.25;
+            margin-bottom: 0.4rem;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+        }
+        .banner-text p {
+            font-size: clamp(0.65rem, 1.3vw, 0.9rem);
+            color: rgba(255,255,255,0.78);
+            line-height: 1.5;
+        }
+        /* Prev / Next arrows */
+        .banner-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            z-index: 10;
+            background: rgba(0,0,0,0.42); border: none; cursor: pointer;
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 0.9rem;
+            transition: background 0.2s, transform 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        .banner-arrow:hover { background: rgba(245,168,0,0.7); transform: translateY(-50%) scale(1.1); }
+        .banner-prev { left: 12px; }
+        .banner-next { right: 12px; }
+        /* Dot indicators */
+        .banner-dots {
+            position: absolute; bottom: 10px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 6px; z-index: 10;
+        }
+        .banner-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+            border: none; cursor: pointer; padding: 0;
+            transition: background 0.25s, transform 0.25s;
+        }
+        .banner-dot.active {
+            background: var(--yellow);
+            transform: scale(1.3);
+        }
+        /* Empty state when no banners configured */
+        .banner-empty {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 0.5rem;
+            color: rgba(255,255,255,0.3); font-size: 0.8rem;
+        }
+        .banner-empty i { font-size: 2rem; }
+
+        /* ── CATEGORY SECTION ── */
+        .cat-section { animation: fadeUp 0.45s 0.05s ease both; }
+        .cat-section-header {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--yellow);
+            margin-bottom: 1rem;
+        }
+        .cat-section-header::after {
+            content: ''; flex: 1; height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+        /* ── Category scroll row ── */
+        .cat-scroll-wrap {
+            position: relative;
+        }
+        .cat-scroll-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            z-index: 10;
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(0,0,0,0.55); border: 1px solid var(--glass-border);
+            color: #fff; font-size: 0.75rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background 0.2s, opacity 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        .cat-scroll-btn:hover { background: rgba(245,168,0,0.7); }
+        .cat-scroll-btn.hidden { opacity: 0; pointer-events: none; }
+        .cat-scroll-btn.cat-prev { left: -14px; }
+        .cat-scroll-btn.cat-next { right: -14px; }
+        .cat-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 0.65rem;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            padding: 4px 2px 10px;
+            /* Hide scrollbar but keep scroll functionality */
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .cat-grid::-webkit-scrollbar { display: none; }
+        .cat-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem 0.6rem 0.875rem;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 0.5rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.25s cubic-bezier(0.23,1,0.32,1);
+            position: relative; overflow: hidden;
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+        .cat-card::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(245,168,0,0.08) 0%, transparent 60%);
+            opacity: 0; transition: opacity 0.25s;
+        }
+        .cat-card:hover { transform: translateY(-4px); border-color: rgba(245,168,0,0.5); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .cat-card:hover::before { opacity: 1; }
+        .cat-card.active-cat { border-color: var(--yellow); background: rgba(245,168,0,0.1); }
+        .cat-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        .cat-name {
+            font-size: 0.72rem; font-weight: 600;
+            color: var(--text-light);
+            text-align: center; line-height: 1.3;
+            word-break: break-word;
+        }
+        .cat-count {
+            font-size: 0.62rem; color: var(--text-dim);
+        }
+        /* All Categories card */
+        .cat-card.cat-all { border-color: rgba(245,168,0,0.3); }
+        .cat-card.cat-all .cat-icon { background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.25); }
+        .cat-card.cat-all .cat-name { color: var(--yellow); }
+
         .welcome-strip {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -859,6 +1046,43 @@
 <!-- ── PAGE ── -->
 <main class="page">
 
+    <!-- ── BANNER CAROUSEL ── -->
+    <div class="banner-carousel" id="bannerCarousel"
+         th:if="${banners != null and !#lists.isEmpty(banners)}">
+
+        <div class="banner-track" id="bannerTrack">
+            <div class="banner-slide" th:each="b : ${banners}"
+                 th:attr="data-link=${b.linkUrl}"
+                 onclick="if(this.getAttribute('data-link')) window.location.href=this.getAttribute('data-link')">
+                <img th:src="${b.imageUrl}" th:alt="${b.title}"
+                     onerror="this.style.display='none'">
+                <div class="banner-text" th:if="${b.title != null and !#strings.isEmpty(b.title)}">
+                    <h2 th:text="${b.title}"></h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Arrows -->
+        <button class="banner-arrow banner-prev" onclick="bannerPrev()" aria-label="Previous">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="banner-arrow banner-next" onclick="bannerNext()" aria-label="Next">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+
+        <!-- Dots -->
+        <div class="banner-dots" id="bannerDots"></div>
+    </div>
+
+    <!-- Empty carousel placeholder when no banners — admin can add via /admin/content -->
+    <div class="banner-carousel" th:if="${banners == null or #lists.isEmpty(banners)}"
+         style="display:flex;align-items:center;justify-content:center;">
+        <div class="banner-empty">
+            <i class="fas fa-image"></i>
+            <span>No banners yet — add them from Admin → Content Management</span>
+        </div>
+    </div>
+
     <!-- Welcome Strip -->
     <div class="welcome-strip">
         <div>
@@ -866,6 +1090,42 @@
             <p>Browse our full catalogue from verified vendors.</p>
         </div>
         <div style="font-size:2rem; opacity:0.6;">🛍️</div>
+    </div>
+
+    <!-- ── CATEGORY SECTION ── -->
+    <div class="cat-section" th:if="${categories != null and categories.size() > 0}">
+        <div class="cat-section-header">
+            <i class="fas fa-th-large"></i> Shop by Category
+        </div>
+        <div class="cat-scroll-wrap">
+            <button class="cat-scroll-btn cat-prev hidden" id="catPrev" onclick="catScroll(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="cat-scroll-btn cat-next" id="catNext" onclick="catScroll(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+
+            <div class="cat-grid" id="catGrid">
+
+                <!-- All Categories card -->
+                <div class="cat-card cat-all" onclick="clearCategoryFilter()" id="cat-all">
+                    <div class="cat-icon">🛍️</div>
+                    <div class="cat-name">All</div>
+                    <div class="cat-count" th:text="${categories.size()} + ' cats'"></div>
+                </div>
+
+                <!-- One card per category — emoji assigned by JS based on name -->
+                <div class="cat-card"
+                     th:each="entry : ${categories}"
+                     th:attr="data-category=${entry.key}"
+                     onclick="filterByCategory(this.getAttribute('data-category'))">
+                    <div class="cat-icon" th:attr="data-cat=${entry.key}">📦</div>
+                    <div class="cat-name" th:text="${entry.key}"></div>
+                    <div class="cat-count" th:text="${entry.value} + ' items'"></div>
+                </div>
+
+            </div>
+        </div>
     </div>
 
     <!-- Recently Viewed Products Section -->
@@ -1346,6 +1606,185 @@
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s'; setTimeout(() => toast.remove(), 400); }, 2500);
     }
+
+    // ── BANNER CAROUSEL ──────────────────────────────────────────────────────
+    (function() {
+        const track  = document.getElementById('bannerTrack');
+        const dotsEl = document.getElementById('bannerDots');
+        if (!track) return; // no banners configured
+
+        const slides = track.querySelectorAll('.banner-slide');
+        const total  = slides.length;
+        if (total === 0) return;
+
+        let current = 0;
+        let timer   = null;
+
+        // Build dots
+        slides.forEach((_, i) => {
+            const dot = document.createElement('button');
+            dot.className = 'banner-dot' + (i === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+            dot.addEventListener('click', () => goTo(i));
+            dotsEl.appendChild(dot);
+        });
+
+        function goTo(idx) {
+            current = (idx + total) % total;
+            track.style.transform = 'translateX(-' + (current * 100) + '%)';
+            dotsEl.querySelectorAll('.banner-dot').forEach((d, i) => {
+                d.classList.toggle('active', i === current);
+            });
+        }
+
+        function next() { goTo(current + 1); }
+        function prev() { goTo(current - 1); }
+
+        // Auto-advance every 4 seconds
+        function startTimer() { timer = setInterval(next, 4000); }
+        function stopTimer()  { clearInterval(timer); }
+
+        startTimer();
+
+        // Pause on hover
+        const carousel = document.getElementById('bannerCarousel');
+        if (carousel) {
+            carousel.addEventListener('mouseenter', stopTimer);
+            carousel.addEventListener('mouseleave', startTimer);
+        }
+
+        // Touch/swipe support for mobile
+        let touchStartX = 0;
+        track.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; stopTimer(); }, { passive: true });
+        track.addEventListener('touchend',   e => {
+            const diff = touchStartX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 40) diff > 0 ? next() : prev();
+            startTimer();
+        });
+
+        // Expose to onclick handlers on arrow buttons
+        window.bannerNext = next;
+        window.bannerPrev = prev;
+    })();
+
+    // ── CATEGORY FILTER ─────────────────────────────────────────────────────
+    (function() {
+
+        // Emoji map — matched case-insensitively by keyword in category name
+        const EMOJI_MAP = [
+            { keys: ['electronic','laptop','mobile','phone','computer','tablet','camera','tv','audio'], emoji: '💻' },
+            { keys: ['cloth','fashion','shirt','dress','wear','apparel','jeans','kurta','saree'], emoji: '👕' },
+            { keys: ['food','snack','grocery','biscuit','chips','drink','beverage','juice','tea','coffee','rice','oil','spice'], emoji: '🍎' },
+            { keys: ['beauty','skin','cosmetic','makeup','face','hair','cream','lotion','shampoo'], emoji: '💄' },
+            { keys: ['health','medicine','vitamin','supplement','pharma','ayurved','sanitizer'], emoji: '💊' },
+            { keys: ['book','stationery','pen','notebook','office','study'], emoji: '📚' },
+            { keys: ['sport','fitness','gym','yoga','outdoor','cricket','football'], emoji: '⚽' },
+            { keys: ['toy','kids','baby','child','game','puzzle'], emoji: '🧸' },
+            { keys: ['home','kitchen','furniture','decor','appliance','cookware','utensil'], emoji: '🏠' },
+            { keys: ['bag','luggage','wallet','purse','handbag','backpack'], emoji: '👜' },
+            { keys: ['shoe','footwear','sandal','slipper','boot'], emoji: '👟' },
+            { keys: ['jewel','watch','accessory','ring','necklace','bracelet'], emoji: '💍' },
+            { keys: ['pet','animal','dog','cat'], emoji: '🐾' },
+            { keys: ['plant','garden','seed','fertilizer','pot'], emoji: '🌱' },
+            { keys: ['car','auto','vehicle','bike','tyre','motor'], emoji: '🚗' },
+            { keys: ['dairy','milk','cheese','butter','egg','paneer'], emoji: '🥛' },
+            { keys: ['personal','hygiene','soap','detergent','cleaning'], emoji: '🧴' },
+        ];
+
+        function getEmoji(catName) {
+            const lower = (catName || '').toLowerCase();
+            for (const { keys, emoji } of EMOJI_MAP) {
+                if (keys.some(k => lower.includes(k))) return emoji;
+            }
+            return '📦'; // default
+        }
+
+        // Assign emojis on page load
+        document.querySelectorAll('.cat-icon[data-cat]').forEach(el => {
+            el.textContent = getEmoji(el.getAttribute('data-cat'));
+        });
+
+        // ── Scroll arrow logic ───────────────────────────────────────────
+        const catGrid = document.getElementById('catGrid');
+        const catPrev = document.getElementById('catPrev');
+        const catNext = document.getElementById('catNext');
+        const SCROLL_STEP = 320; // px per arrow click
+
+        function updateCatArrows() {
+            if (!catGrid || !catPrev || !catNext) return;
+            catPrev.classList.toggle('hidden', catGrid.scrollLeft <= 4);
+            catNext.classList.toggle('hidden',
+                catGrid.scrollLeft + catGrid.clientWidth >= catGrid.scrollWidth - 4);
+        }
+
+        window.catScroll = function(dir) {
+            if (!catGrid) return;
+            catGrid.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
+        };
+
+        if (catGrid) {
+            catGrid.addEventListener('scroll', updateCatArrows);
+            // Run once after render so arrows are correct on load
+            setTimeout(updateCatArrows, 100);
+        }
+
+        // ── Filter logic ────────────────────────────────────────────────────
+        let activeCategory = null;
+
+        window.filterByCategory = function(category) {
+            activeCategory = category;
+
+            // Highlight active card
+            document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-cat'));
+            const allCards = document.querySelectorAll('.cat-card[data-category]');
+            allCards.forEach(c => {
+                if (c.getAttribute('data-category') === category) c.classList.add('active-cat');
+            });
+            document.getElementById('cat-all').classList.remove('active-cat');
+
+            // Filter product cards
+            const cards = document.querySelectorAll('.product-card-wrapper');
+            let visibleCount = 0;
+            cards.forEach(card => {
+                const cardCat = (card.getAttribute('data-category') || '').toLowerCase();
+                const match   = cardCat === category.toLowerCase();
+                card.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
+            });
+
+            // Update search banner to show active filter
+            const banner = document.getElementById('searchBanner');
+            const bannerQ   = document.getElementById('searchBannerQuery');
+            const bannerCnt = document.getElementById('searchBannerCount');
+            if (banner && bannerQ && bannerCnt) {
+                bannerQ.textContent   = '"' + category + '"';
+                bannerCnt.textContent = '— ' + visibleCount + ' product' + (visibleCount !== 1 ? 's' : '') + ' found';
+                banner.classList.add('show');
+            }
+
+            // Scroll down to the products grid smoothly
+            const grid = document.querySelector('.products-grid, #productsGrid, .product-grid, .product-card-wrapper');
+            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        window.clearCategoryFilter = function() {
+            activeCategory = null;
+
+            // Reset card highlights
+            document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-cat'));
+            document.getElementById('cat-all').classList.add('active-cat');
+
+            // Show all product cards
+            document.querySelectorAll('.product-card-wrapper').forEach(card => {
+                card.style.display = '';
+            });
+
+            // Hide the search banner
+            const banner = document.getElementById('searchBanner');
+            if (banner) banner.classList.remove('show');
+        };
+
+    })();
 </script>
 
 <!-- ── LOCATION & PIN FILTER ── -->

@@ -118,8 +118,8 @@ public class Product {
 	public java.util.List<Review> getReviews() { return reviews; }
 	public void setReviews(java.util.List<Review> reviews) { this.reviews = reviews; }
 
-	public double getMrp() { return mrp; }
-	public void setMrp(double mrp) { this.mrp = mrp; }
+	public double getMrp() { return mrp != null ? mrp : 0.0; }
+	public void setMrp(Double mrp) { this.mrp = (mrp != null) ? mrp : 0.0; }
 
 	/** Returns discount percentage rounded to nearest int. 0 if no MRP or no discount. */
 	public int getDiscountPercent() {
