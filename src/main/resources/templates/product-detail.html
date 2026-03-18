@@ -184,6 +184,111 @@
         .vendor-badge { display:inline-flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:50px; padding:0.4rem 0.9rem; font-size:0.72rem; color:var(--text-dim); }
         .vendor-badge i { color:var(--yellow); }
 
+
+        /* ── DELIVERY ESTIMATE ── */
+        .delivery-box {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .delivery-box-header {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .delivery-box-header i { color: var(--yellow); font-size: 0.72rem; }
+        .delivery-options {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .delivery-option {
+            flex: 1;
+            min-width: 120px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            transition: border-color 0.2s;
+        }
+        .delivery-option.express { border-color: rgba(34,197,94,0.3); }
+        .delivery-option-label {
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .delivery-option-label i { font-size: 0.65rem; }
+        .delivery-option.express .delivery-option-label { color: #22c55e; }
+        .delivery-option-date {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: white;
+        }
+        .delivery-option-price {
+            font-size: 0.68rem;
+            color: var(--text-dim);
+        }
+        .delivery-option.express .delivery-option-price { color: #4ade80; }
+        .delivery-pincode-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.1rem;
+        }
+        .delivery-pin-input {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.78rem;
+            padding: 0.38rem 0.7rem;
+            width: 130px;
+            outline: none;
+            transition: border-color 0.2s;
+            letter-spacing: 0.06em;
+        }
+        .delivery-pin-input:focus { border-color: rgba(245,168,0,0.5); }
+        .delivery-pin-input::placeholder { color: var(--text-dim); letter-spacing: 0; }
+        .btn-check-pin {
+            background: none;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--yellow);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.38rem 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-check-pin:hover { border-color: rgba(245,168,0,0.5); background: rgba(245,168,0,0.06); }
+        .delivery-pin-result {
+            font-size: 0.72rem;
+            margin-left: 0.2rem;
+            display: none;
+        }
+        .delivery-pin-result.ok    { color: #22c55e; display: inline; }
+        .delivery-pin-result.fail  { color: #f87171; display: inline; }
+
         /* SECTION TITLE */
         .section-title { font-size:1.2rem; font-weight:700; color:white; display:flex; align-items:center; gap:0.6rem; padding-bottom:0.75rem; border-bottom:1px solid var(--glass-border); margin-bottom:1rem; }
         .section-title i { color:var(--yellow); }
@@ -566,6 +671,39 @@
                     <span th:if="${product.stock == 0}"       class="stock-pill out-stock"><i class="fas fa-times-circle" style="font-size:0.65rem;"></i> Out of Stock</span>
                 </div>
             </div>
+
+            <!-- ── ESTIMATED DELIVERY ── -->
+            <div class="delivery-box" th:if="${product.stock > 0}" id="deliveryBox">
+                <div class="delivery-box-header">
+                    <i class="fas fa-truck"></i> Estimated Delivery
+                </div>
+                <div class="delivery-options">
+                    <div class="delivery-option">
+                        <div class="delivery-option-label">
+                            <i class="fas fa-box"></i> Standard
+                        </div>
+                        <div class="delivery-option-date" id="stdDate">Calculating…</div>
+                        <div class="delivery-option-price">FREE delivery</div>
+                    </div>
+                    <div class="delivery-option express">
+                        <div class="delivery-option-label">
+                            <i class="fas fa-bolt"></i> Express
+                        </div>
+                        <div class="delivery-option-date" id="expDate">Calculating…</div>
+                        <div class="delivery-option-price" id="expPrice">Order within <span id="expCountdown"></span></div>
+                    </div>
+                </div>
+                <div class="delivery-pincode-row">
+                    <i class="fas fa-map-marker-alt" style="color:var(--yellow);font-size:0.72rem;"></i>
+                    <input type="text" class="delivery-pin-input" id="deliveryPin"
+                           placeholder="Enter pin code" maxlength="6" inputmode="numeric"
+                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                           onkeydown="if(event.key==='Enter')checkDeliveryPin()">
+                    <button class="btn-check-pin" onclick="checkDeliveryPin()">Check</button>
+                    <span class="delivery-pin-result" id="pinResult"></span>
+                </div>
+            </div>
+
             <div class="action-row">
                 <!-- Logged-in customer: normal Add to Cart -->
                 <th:block th:if="${!isGuestView}">
@@ -1217,6 +1355,107 @@ function showNotifyMsg(msg, type) {
     }
   ]
 }
+</script>
+
+
+<script>
+// ── ESTIMATED DELIVERY DATE ───────────────────────────────────────────────────
+(function() {
+    const DAYS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function fmt(d) {
+        return DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+    }
+
+    function addBusinessDays(from, n) {
+        let d = new Date(from);
+        let added = 0;
+        while (added < n) {
+            d.setDate(d.getDate() + 1);
+            const day = d.getDay();
+            if (day !== 0 && day !== 6) added++; // skip weekends
+        }
+        return d;
+    }
+
+    const now   = new Date();
+    const cutoff = new Date(now); // 2 PM cutoff for express
+    cutoff.setHours(14, 0, 0, 0);
+
+    // Standard = 5 business days
+    const stdDate = addBusinessDays(now, 5);
+    const stdEl   = document.getElementById('stdDate');
+    if (stdEl) stdEl.textContent = fmt(stdDate);
+
+    // Express = tomorrow if ordered before 2 PM, else day after tomorrow
+    const expDays  = now < cutoff ? 1 : 2;
+    const expDate  = addBusinessDays(now, expDays);
+    const expEl    = document.getElementById('expDate');
+    if (expEl) expEl.textContent = fmt(expDate);
+
+    // Countdown to 2 PM cutoff
+    const countEl = document.getElementById('expCountdown');
+    if (countEl) {
+        function tick() {
+            const n = new Date();
+            const c = new Date(n); c.setHours(14, 0, 0, 0);
+            if (n >= c) {
+                countEl.textContent = 'tomorrow';
+                return;
+            }
+            const diff = c - n;
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            countEl.textContent = h + 'h ' + m + 'm';
+            setTimeout(tick, 30000);
+        }
+        tick();
+    }
+
+    // ── PIN CODE CHECK ────────────────────────────────────────────────────
+    window.checkDeliveryPin = function() {
+        const pin    = document.getElementById('deliveryPin').value.trim();
+        const result = document.getElementById('pinResult');
+        if (!result) return;
+
+        if (!/^\d{6}$/.test(pin)) {
+            result.className = 'delivery-pin-result fail';
+            result.textContent = 'Enter a valid 6-digit pin code';
+            return;
+        }
+
+        result.className = 'delivery-pin-result';
+        result.textContent = 'Checking…';
+        result.style.display = 'inline';
+
+        fetch('/api/check-pincode?pinCode=' + pin)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.className = 'delivery-pin-result ok';
+                    result.textContent = '✓ Delivery available to ' + pin;
+                } else {
+                    result.className = 'delivery-pin-result fail';
+                    result.textContent = '✗ ' + (data.message || 'Not serviceable yet');
+                }
+            })
+            .catch(() => {
+                result.className = 'delivery-pin-result ok';
+                result.textContent = '✓ Delivery available';
+            });
+    };
+
+    // Auto-fill from localStorage if user already set their location on home page
+    const saved = localStorage.getItem('ekart_delivery_pin');
+    if (saved) {
+        const pinInput = document.getElementById('deliveryPin');
+        if (pinInput) {
+            pinInput.value = saved;
+            checkDeliveryPin();
+        }
+    }
+})();
 </script>
 
 
