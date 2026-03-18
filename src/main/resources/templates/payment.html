@@ -396,54 +396,7 @@
                 </div>
             </div>
 
-            <!-- Delivery Speed -->
-            <div class="glass-card">
-                <div class="section-label"><i class="fas fa-shipping-fast"></i> Delivery Speed & Time Slot</div>
 
-                <!-- Standard -->
-                <div class="delivery-option" id="opt-standard" onclick="selectDelivery('standard')">
-                    <div class="delivery-top">
-                        <div>
-                            <span class="delivery-badge badge-standard">📦 Standard</span>
-                            <div class="delivery-date" id="date-standard">Calculating…</div>
-                            <div class="delivery-sub">5–7 business days</div>
-                        </div>
-                        <span class="delivery-price tag-free">FREE</span>
-                    </div>
-                    <div class="slot-section">
-                        <div class="slot-label"><i class="fas fa-clock"></i> Pick a delivery time slot:</div>
-                        <select class="slot-select" id="slot-standard"
-                                onclick="event.stopPropagation()" onchange="updateDeliveryLabel()">
-                            <option value="" disabled selected>Choose a time slot…</option>
-                            <option value="Morning (9 AM - 12 PM)">Morning (9 AM – 12 PM)</option>
-                            <option value="Afternoon (1 PM - 4 PM)">Afternoon (1 PM – 4 PM)</option>
-                            <option value="Evening (5 PM - 8 PM)">Evening (5 PM – 8 PM)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Tomorrow -->
-                <div class="delivery-option" id="opt-tomorrow" onclick="selectDelivery('tomorrow')">
-                    <div class="delivery-top">
-                        <div>
-                            <span class="delivery-badge badge-tomorrow">🚀 Tomorrow</span>
-                            <div class="delivery-date" id="date-tomorrow">Calculating…</div>
-                            <div class="delivery-sub">Order before 12 AM</div>
-                        </div>
-                        <span class="delivery-price tag-charge" id="tomorrow-price-display">+₹129</span>
-                    </div>
-                    <div class="slot-section">
-                        <div class="slot-label"><i class="fas fa-clock"></i> Pick a delivery time slot:</div>
-                        <select class="slot-select" id="slot-tomorrow"
-                                onclick="event.stopPropagation()" onchange="updateDeliveryLabel()">
-                            <option value="" disabled selected>Choose a time slot…</option>
-                            <option value="Morning (9 AM - 12 PM)">Morning (9 AM – 12 PM)</option>
-                            <option value="Afternoon (1 PM - 4 PM)">Afternoon (1 PM – 4 PM)</option>
-                            <option value="Evening (5 PM - 8 PM)">Evening (5 PM – 8 PM)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- ── Summary + Pay ── -->
@@ -459,27 +412,8 @@
                 </div>
             </div>
 
-            <!-- Pin Code Availability Checker -->
-            <div class="glass-card" id="pincode-checker-card">
-                <div class="section-label"><i class="fas fa-map-marker-alt"></i> Check Delivery Availability</div>
-                <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
-                    <div style="position:relative;flex:1;min-width:160px;">
-                        <i class="fas fa-map-pin" style="position:absolute;left:0.9rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.4);font-size:0.8rem;"></i>
-                        <input type="text" id="pinCodeInput" maxlength="6" inputmode="numeric"
-                               placeholder="Enter 6-digit pin code"
-                               style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:0.7rem 1rem 0.7rem 2.4rem;color:white;font-family:'Poppins',sans-serif;font-size:0.875rem;outline:none;transition:border-color 0.3s;"
-                               oninput="this.value=this.value.replace(/\D/g,'').slice(0,6);clearPinResult();">
-                    </div>
-                    <button onclick="checkPinCode()" id="checkPinBtn"
-                            style="background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.4);border-radius:10px;color:#f5a800;font-family:'Poppins',sans-serif;font-size:0.8rem;font-weight:600;padding:0.7rem 1.2rem;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
-                            onmouseover="this.style.background='rgba(245,168,0,0.25)'" onmouseout="this.style.background='rgba(245,168,0,0.15)'">
-                        <i class="fas fa-search"></i> Check
-                    </button>
-                </div>
-                <div id="pinCheckResult" style="margin-top:0.75rem;font-size:0.82rem;"></div>
-                <!-- Hidden fields to carry pin code to both COD and Online payment -->
-                <input type="hidden" id="verified-pin-code" value="">
-            </div>
+            <!-- Hidden: pin code passed through from product detail page -->
+            <input type="hidden" id="verified-pin-code" value="">
 
             <!-- Pay Buttons -->
             <div class="glass-card" style="display:flex;flex-direction:column;gap:0.875rem;">
@@ -588,11 +522,21 @@
     }
 
     window.onload = function() {
-        var today    = new Date();
-        var tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
-        document.getElementById('date-standard').textContent = 'Expected by ' + formatDate(addBusinessDays(today, 5));
-        document.getElementById('date-tomorrow').textContent = 'Expected by ' + formatDate(tomorrow);
-        document.getElementById('tomorrow-price-display').textContent = '+₹' + tomorrowCharge;
+        // Set default delivery label (Standard, 5 business days)
+        var today = new Date();
+        var stdDate = addBusinessDays(today, 5);
+        var label = 'Standard | Expected by ' + formatDate(stdDate);
+        var dtEl = document.getElementById('cod-delivery-time');
+        if (dtEl) dtEl.value = label;
+
+        // Auto-fill pin from localStorage if set on home/detail page
+        var savedPin = localStorage.getItem('ekart_delivery_pin');
+        if (savedPin) {
+            var pinEl = document.getElementById('verified-pin-code');
+            var codPin = document.getElementById('cod-pin-code');
+            if (pinEl) pinEl.value = savedPin;
+            if (codPin) codPin.value = savedPin;
+        }
     };
 
     function selectDelivery(type) {
@@ -620,29 +564,11 @@
         document.getElementById('cod-delivery-time').value = slot ? datePart + ' | ' + slot : datePart;
     }
 
-    function validateSelection() {
-        if (!selectedType) { alert('Please select a delivery option!'); return false; }
-        var slotEl = document.getElementById('slot-' + selectedType);
-        if (!slotEl) { alert('Please select a delivery option!'); return false; }
-        var slot = slotEl.value;
-        if (!slot) { alert('Please choose a delivery time slot!'); return false; }
-        // ✅ FIX: datePart was undefined here (it lived only inside updateDeliveryLabel).
-        //         Recalculate it directly so this function is self-contained.
-        var today = new Date(), datePart;
-        if (selectedType === 'standard') {
-            datePart = 'Standard | Expected by ' + formatDate(addBusinessDays(today, 5));
-        } else {
-            var t = new Date(today); t.setDate(today.getDate() + 1);
-            datePart = 'Tomorrow | Expected by ' + formatDate(t);
-        }
-        document.getElementById('cod-delivery-time').value = datePart + ' | ' + slot;
-        return true;
-    }
+
 
     function handleOnlinePay(e) {
         e.preventDefault();
-        if (!validateSelection()) return;
-        if (!validatePinCode()) return;
+        // delivery & pin validated on product detail page
         var payAmount     = parseFloat(document.getElementById('cod-amount').value);
         var deliveryLabel = document.getElementById('cod-delivery-time').value;
         var pinCode       = document.getElementById('verified-pin-code').value;
@@ -674,8 +600,7 @@
     }
 
     function handleCODSubmit() {
-        if (!validateSelection()) return false;
-        if (!validatePinCode()) return false;
+        // delivery & pin validated on product detail page
         document.getElementById('cod-pin-code').value = document.getElementById('verified-pin-code').value;
         return true;
     }
@@ -743,21 +668,7 @@
             });
     }
 
-    function validatePinCode() {
-        // If no items have restrictions, skip the check entirely
-        if (!pinCheckHasRestrictions && !pinCheckPassed) {
-            // Fire a quick check to see if any cart items have restrictions
-            // We rely on server-side validation as the final guard; allow proceed
-            return true;
-        }
-        if (!pinCheckPassed) {
-            document.getElementById('pinCheckResult').innerHTML =
-                '<span style="color:#ff8060;"><i class="fas fa-exclamation-triangle"></i> Please enter and verify your pin code before paying.</span>';
-            document.getElementById('pinCodeInput').focus();
-            return false;
-        }
-        return true;
-    }
+
 </script>
 
 <script src="/js/ekart-form-spinner.js"></script>
