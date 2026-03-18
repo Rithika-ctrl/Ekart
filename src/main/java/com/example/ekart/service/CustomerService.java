@@ -766,6 +766,18 @@ public String paymentSuccess(Order order, String deliveryPinCode, HttpSession se
     orderRepository.save(order);
     orderRepository.flush(); // 🔥 ENSURE items are persisted to DB immediately
 
+    // 4b. Send order confirmation email (async — won't block the response)
+    try {
+        String paymentMode = (order.getPaymentMode() != null && !order.getPaymentMode().isBlank())
+                ? order.getPaymentMode() : "Cash on Delivery";
+        String deliverySlot = (order.getDeliveryTime() != null && !order.getDeliveryTime().isBlank())
+                ? order.getDeliveryTime() : "";
+        emailSender.sendOrderConfirmation(
+                customer, grandTotal, order.getId(), paymentMode, deliverySlot, orderItems);
+    } catch (Exception e) {
+        System.err.println("⚠️ Order confirmation email failed (non-fatal): " + e.getMessage());
+    }
+
     // 4a. 📊 Mirror to reporting DB — fires AFTER main transaction commits
     //     Uses TransactionSynchronization so the order is guaranteed committed
     //     before we try to read it in ReportingService.

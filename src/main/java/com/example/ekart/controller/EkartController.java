@@ -500,7 +500,7 @@ public class EkartController {
         String result = customerService.paymentSuccess(order, deliveryPinCode, session);
 
         // ✅ FIX 2: Check result contains "order-success" (not "home") since we now redirect there.
-        if (customer != null && result.contains("order-success")) {
+        if (customer != null && result.contains("customer/home")) {
             try {
                 Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
                 List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
