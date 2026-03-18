@@ -451,6 +451,41 @@
         .cat-card.cat-all .cat-icon { background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.25); }
         .cat-card.cat-all .cat-name { color: var(--yellow); }
 
+        /* Sub-category row */
+        .subcat-row {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            animation: fadeUp 0.25s ease both;
+        }
+        .subcat-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--yellow);
+            margin-bottom: 0.6rem;
+        }
+        .subcat-grid {
+            display: flex; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .subcat-chip {
+            padding: 0.35rem 0.9rem;
+            border-radius: 50px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.05);
+            font-size: 0.74rem; font-weight: 500;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .subcat-chip:hover { border-color: rgba(245,168,0,0.5); color: var(--yellow); }
+        .subcat-chip.active-sub {
+            background: rgba(245,168,0,0.15);
+            border-color: var(--yellow);
+            color: var(--yellow);
+            font-weight: 700;
+        }
+
         .welcome-strip {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -1093,11 +1128,13 @@
     </div>
 
     <!-- ── CATEGORY SECTION ── -->
-    <div class="cat-section" th:if="${categories != null and categories.size() > 0}">
+    <div class="cat-section" th:if="${parentCategories != null and !parentCategories.isEmpty()}">
         <div class="cat-section-header">
             <i class="fas fa-th-large"></i> Shop by Category
         </div>
-        <div class="cat-scroll-wrap">
+
+        <!-- Parent category scroll row -->
+        <div class="cat-scroll-wrap" style="margin-bottom:0.75rem;">
             <button class="cat-scroll-btn cat-prev hidden" id="catPrev" onclick="catScroll(-1)">
                 <i class="fas fa-chevron-left"></i>
             </button>
@@ -1106,24 +1143,44 @@
             </button>
 
             <div class="cat-grid" id="catGrid">
-
-                <!-- All Categories card -->
-                <div class="cat-card cat-all" onclick="clearCategoryFilter()" id="cat-all">
+                <!-- All -->
+                <div class="cat-card cat-all active-cat" onclick="selectParent(null, this)" id="cat-all">
                     <div class="cat-icon">🛍️</div>
                     <div class="cat-name">All</div>
-                    <div class="cat-count" th:text="${categories.size()} + ' cats'"></div>
+                    <div class="cat-count" th:text="${parentCategories.size()} + ' groups'"></div>
                 </div>
-
-                <!-- One card per category — emoji assigned by JS based on name -->
+                <!-- Parent category cards -->
                 <div class="cat-card"
-                     th:each="entry : ${categories}"
-                     th:attr="data-category=${entry.key}"
-                     onclick="filterByCategory(this.getAttribute('data-category'))">
-                    <div class="cat-icon" th:attr="data-cat=${entry.key}">📦</div>
-                    <div class="cat-name" th:text="${entry.key}"></div>
-                    <div class="cat-count" th:text="${entry.value} + ' items'"></div>
+                     th:each="pc : ${parentCategories}"
+                     th:attr="data-parent-id=${pc.id}"
+                     th:id="'pcat-' + ${pc.id}"
+                     onclick="selectParent(this.getAttribute('data-parent-id'), this)">
+                    <div class="cat-icon" th:text="${pc.emoji}">📦</div>
+                    <div class="cat-name" th:text="${pc.name}"></div>
+                    <div class="cat-count" th:text="${pc.subCategories.size()} + ' types'"></div>
                 </div>
+            </div>
+        </div>
 
+        <!-- Sub-category row (shown when a parent is selected) -->
+        <div class="subcat-row" id="subcatRow" style="display:none;">
+            <div class="subcat-label" id="subcatLabel"></div>
+            <div class="subcat-grid" id="subcatGrid">
+                <!-- All in parent -->
+                <div class="subcat-chip active-sub" id="subcat-all" onclick="filterBySub(null)">
+                    All
+                </div>
+                <!-- Sub-category chips injected by JS -->
+            </div>
+        </div>
+
+        <!-- Sub-category data — hidden, read by JS -->
+        <div style="display:none;">
+            <div th:each="pc : ${parentCategories}"
+                 th:attr="data-parent-id=${pc.id}, data-parent-name=${pc.name}, data-parent-emoji=${pc.emoji}">
+                <span th:each="sc : ${pc.subCategories}"
+                      th:attr="data-sub-name=${sc.name}, data-sub-count=${subCatCounts.getOrDefault(sc.name, 0)}, data-parent-ref=${pc.id}">
+                </span>
             </div>
         </div>
     </div>
@@ -1728,61 +1785,153 @@
             setTimeout(updateCatArrows, 100);
         }
 
-        // ── Filter logic ────────────────────────────────────────────────────
-        let activeCategory = null;
+        // ── Two-level category filter ────────────────────────────────────────
 
-        window.filterByCategory = function(category) {
-            activeCategory = category;
+        // Build parent → sub-categories map from hidden DOM data
+        var parentData = {}; // { parentId: { name, emoji, subs: [{name, count}] } }
+        document.querySelectorAll('[data-parent-id][data-parent-name]').forEach(function(el) {
+            var pid   = el.getAttribute('data-parent-id');
+            var pname = el.getAttribute('data-parent-name');
+            var pemoji= el.getAttribute('data-parent-emoji');
+            var subs  = [];
+            el.querySelectorAll('[data-sub-name]').forEach(function(s) {
+                subs.push({ name: s.getAttribute('data-sub-name'), count: parseInt(s.getAttribute('data-sub-count') || '0') });
+            });
+            parentData[pid] = { name: pname, emoji: pemoji, subs: subs };
+        });
 
-            // Highlight active card
+        var activeParentId  = null;
+        var activeSubName   = null;
+
+        // Called when a parent category card is clicked
+        window.selectParent = function(parentId, el) {
+            activeParentId = parentId;
+            activeSubName  = null;
+
+            // Highlight parent card
             document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-cat'));
-            const allCards = document.querySelectorAll('.cat-card[data-category]');
-            allCards.forEach(c => {
-                if (c.getAttribute('data-category') === category) c.classList.add('active-cat');
-            });
-            document.getElementById('cat-all').classList.remove('active-cat');
+            if (el) el.classList.add('active-cat');
 
-            // Filter product cards
-            const cards = document.querySelectorAll('.product-card-wrapper');
-            let visibleCount = 0;
-            cards.forEach(card => {
-                const cardCat = (card.getAttribute('data-category') || '').toLowerCase();
-                const match   = cardCat === category.toLowerCase();
-                card.style.display = match ? '' : 'none';
-                if (match) visibleCount++;
-            });
+            var subcatRow = document.getElementById('subcatRow');
+            var subcatGrid= document.getElementById('subcatGrid');
+            var subcatLabel=document.getElementById('subcatLabel');
 
-            // Update search banner to show active filter
-            const banner = document.getElementById('searchBanner');
-            const bannerQ   = document.getElementById('searchBannerQuery');
-            const bannerCnt = document.getElementById('searchBannerCount');
-            if (banner && bannerQ && bannerCnt) {
-                bannerQ.textContent   = '"' + category + '"';
-                bannerCnt.textContent = '— ' + visibleCount + ' product' + (visibleCount !== 1 ? 's' : '') + ' found';
-                banner.classList.add('show');
+            if (!parentId) {
+                // "All" clicked — hide sub-row, show all products
+                subcatRow.style.display = 'none';
+                showAllProducts();
+                return;
             }
 
-            // Scroll down to the products grid smoothly
-            const grid = document.querySelector('.products-grid, #productsGrid, .product-grid, .product-card-wrapper');
-            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        };
+            // Build sub-category chips
+            var pd = parentData[parentId];
+            if (!pd) { subcatRow.style.display = 'none'; showAllProducts(); return; }
 
-        window.clearCategoryFilter = function() {
-            activeCategory = null;
+            subcatLabel.textContent = pd.emoji + ' ' + pd.name;
+            subcatGrid.innerHTML = '';
 
-            // Reset card highlights
-            document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-cat'));
-            document.getElementById('cat-all').classList.add('active-cat');
+            // "All in parent" chip
+            var allChip = document.createElement('div');
+            allChip.className = 'subcat-chip active-sub';
+            allChip.id = 'subcat-all';
+            allChip.textContent = 'All ' + pd.name;
+            allChip.onclick = function() { filterBySub(null); };
+            subcatGrid.appendChild(allChip);
 
-            // Show all product cards
-            document.querySelectorAll('.product-card-wrapper').forEach(card => {
-                card.style.display = '';
+            // One chip per sub-category (only show ones with products OR all of them)
+            pd.subs.forEach(function(sub) {
+                var chip = document.createElement('div');
+                chip.className = 'subcat-chip';
+                chip.textContent = sub.name + (sub.count > 0 ? ' (' + sub.count + ')' : '');
+                chip.setAttribute('data-sub', sub.name);
+                chip.onclick = function() { filterBySub(sub.name); };
+                subcatGrid.appendChild(chip);
             });
 
-            // Hide the search banner
-            const banner = document.getElementById('searchBanner');
-            if (banner) banner.classList.remove('show');
+            subcatRow.style.display = 'block';
+
+            // Filter products to show all sub-categories of this parent
+            var allSubs = pd.subs.map(function(s) { return s.name.toLowerCase(); });
+            filterProductsBySubList(allSubs, pd.name);
         };
+
+        // Called when a sub-category chip is clicked
+        window.filterBySub = function(subName) {
+            activeSubName = subName;
+
+            // Highlight chip
+            document.querySelectorAll('.subcat-chip').forEach(c => c.classList.remove('active-sub'));
+            if (!subName) {
+                document.getElementById('subcat-all').classList.add('active-sub');
+                // Show all products in this parent
+                var pd = parentData[activeParentId];
+                if (pd) {
+                    var allSubs = pd.subs.map(function(s) { return s.name.toLowerCase(); });
+                    filterProductsBySubList(allSubs, pd.name);
+                }
+                return;
+            }
+            document.querySelectorAll('[data-sub="' + subName + '"]').forEach(c => c.classList.add('active-sub'));
+
+            // Filter by exact sub-category
+            var count = 0;
+            document.querySelectorAll('.product-card-wrapper').forEach(function(card) {
+                var cat = (card.getAttribute('data-category') || '').toLowerCase();
+                var match = cat === subName.toLowerCase();
+                card.style.display = match ? '' : 'none';
+                if (match) count++;
+            });
+            updateSearchBanner(subName, count);
+            scrollToProducts();
+        };
+
+        function filterProductsBySubList(subList, parentName) {
+            var count = 0;
+            document.querySelectorAll('.product-card-wrapper').forEach(function(card) {
+                var cat = (card.getAttribute('data-category') || '').toLowerCase();
+                var match = subList.length === 0 || subList.includes(cat);
+                card.style.display = match ? '' : 'none';
+                if (match) count++;
+            });
+            updateSearchBanner(parentName, count);
+            scrollToProducts();
+        }
+
+        function showAllProducts() {
+            document.querySelectorAll('.product-card-wrapper').forEach(function(card) {
+                card.style.display = '';
+            });
+            var banner = document.getElementById('searchBanner');
+            if (banner) banner.classList.remove('show');
+        }
+
+        function updateSearchBanner(label, count) {
+            var banner  = document.getElementById('searchBanner');
+            var bannerQ = document.getElementById('searchBannerQuery');
+            var bannerC = document.getElementById('searchBannerCount');
+            if (banner && bannerQ && bannerC) {
+                bannerQ.textContent = '"' + label + '"';
+                bannerC.textContent = '— ' + count + ' product' + (count !== 1 ? 's' : '') + ' found';
+                banner.classList.add('show');
+            }
+        }
+
+        function scrollToProducts() {
+            var grid = document.querySelector('.product-card-wrapper');
+            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        window.clearCategoryFilter = function() {
+            activeParentId = null; activeSubName = null;
+            document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-cat'));
+            var catAll = document.getElementById('cat-all');
+            if (catAll) catAll.classList.add('active-cat');
+            document.getElementById('subcatRow').style.display = 'none';
+            showAllProducts();
+        };
+
+        // legacy alias
+        window.filterByCategory = function(cat) { filterBySub(cat); };
 
     })();
 </script>

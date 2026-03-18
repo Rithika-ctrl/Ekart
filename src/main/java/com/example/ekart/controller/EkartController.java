@@ -35,6 +35,7 @@ import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.service.AdminService;
 import com.example.ekart.service.BannerService;
+import com.example.ekart.service.CategoryService;
 import com.example.ekart.service.CustomerService;
 import com.example.ekart.service.GuestService;
 import com.example.ekart.service.VendorService;
@@ -163,6 +164,9 @@ public class EkartController {
     BannerService bannerService;
 
     @Autowired
+    CategoryService categoryService;
+
+    @Autowired
     com.example.ekart.service.UserAdminService userAdminService;
 
     @Autowired
@@ -281,7 +285,8 @@ public class EkartController {
     }
 
     @GetMapping("/add-product")
-    public String loadAddProduct(HttpSession session) {
+    public String loadAddProduct(HttpSession session, org.springframework.ui.ModelMap map) {
+        map.put("allSubCategories", categoryService.getAllSubCategories());
         return vendorService.laodAddProduct(session);
     }
 
@@ -302,6 +307,7 @@ public class EkartController {
 
     @GetMapping("/edit/{id}")
     public String editProduct(@PathVariable int id, ModelMap map, HttpSession session) {
+        map.put("allSubCategories", categoryService.getAllSubCategories());
         return vendorService.editProduct(id, map, session);
     }
 

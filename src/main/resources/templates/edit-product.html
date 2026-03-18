@@ -378,8 +378,16 @@
                     <label for="category">Category</label>
                     <div class="input-wrapper">
                         <i class="fas fa-th-large input-icon"></i>
-                        <input type="text" id="category" name="category" class="form-control"
-                               th:value="${product.category}" required>
+                        <select id="category" name="category" class="form-control" required
+                                style="background:transparent;color:inherit;border:none;outline:none;width:100%;cursor:pointer;">
+                            <option value="" disabled>— Select a sub-category —</option>
+                            <th:block th:each="sub : ${allSubCategories}">
+                                <option th:value="${sub.name}"
+                                        th:selected="${sub.name == product.category}"
+                                        th:text="${sub.parentCategory != null ? sub.parentCategory.emoji + ' ' + sub.parentCategory.name + ' › ' + sub.name : sub.name}">
+                                </option>
+                            </th:block>
+                        </select>
                     </div>
                 </div>
 
