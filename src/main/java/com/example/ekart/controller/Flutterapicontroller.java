@@ -2,6 +2,7 @@ package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
+import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -586,7 +587,13 @@ public class FlutterApiController {
             address.setHouseStreet(body.getOrDefault("houseStreet", "").trim());
             address.setCity(body.getOrDefault("city", "").trim());
             address.setState(body.getOrDefault("state", "").trim());
-            address.setPostalCode(body.getOrDefault("postalCode", "").trim());
+            String postalCode = body.getOrDefault("postalCode", "").trim();
+            if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
+                res.put("success", false);
+                res.put("message", PinCodeValidator.ERROR_MESSAGE);
+                return ResponseEntity.badRequest().body(res);
+            }
+            address.setPostalCode(postalCode);
         } else {
             // Legacy flat-text fallback
             String details = body.get("address");

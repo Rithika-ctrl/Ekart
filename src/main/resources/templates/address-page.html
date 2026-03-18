@@ -526,6 +526,25 @@
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+
+    // ── Indian PIN code validator ─────────────────────────────────────────────
+    // Rules: exactly 6 digits, first 2 digits must be a valid Indian postal circle.
+    // Gaps that don't exist in India: 10, 29, 35, 54, 55, 86-89
+    function isIndianPin(val) {
+        if (!/^\d{6}$/.test(val)) return false;
+        var prefix = val.slice(0, 2);
+        var valid = new Set(['11','12','13','14','15','16','17','18','19',
+            '20','21','22','23','24','25','26','27','28',
+            '30','31','32','33','34','36','37','38','39',
+            '40','41','42','43','44','45','46','47','48','49',
+            '50','51','52','53','56','57','58','59',
+            '60','61','62','63','64','65','66','67','68','69',
+            '70','71','72','73','74','75','76','77','78','79',
+            '80','81','82','83','84','85',
+            '90','91','92','93','94','95','96','97','98','99']);
+        return valid.has(prefix);
+    }
+
     // ── Form Validation ───────────────────────────────────────────────────────
     function validateForm() {
         let valid = true;
@@ -535,7 +554,7 @@
             { id:'houseStreet',   errId:'err-street', min:5  },
             { id:'city',          errId:'err-city',   min:2  },
             { id:'state',         errId:'err-state',  min:2  },
-            { id:'postalCode',    errId:'err-pin',    min:4  },
+            { id:'postalCode',    errId:'err-pin',    min:6  },
         ];
 
         fields.forEach(({ id, errId, min }) => {
@@ -552,6 +571,18 @@
                 err.style.display = 'none';
             }
         });
+
+        // Extra check: Indian PIN must be exactly 6 digits, first digit 1-9
+        const pinInput = document.getElementById('postalCode');
+        const pinErr   = document.getElementById('err-pin');
+        const pinVal   = pinInput.value.trim().replace(/\D/g, '');
+        if (valid && !isIndianPin(pinVal)) {
+            pinInput.classList.add('error');
+            pinErr.textContent  = 'Please enter a valid 6-digit Indian pin code.';
+            pinErr.style.display = 'block';
+            pinInput.focus();
+            valid = false;
+        }
 
         return valid;
     }
@@ -589,6 +620,13 @@
                 .then(r => r.json())
                 .then(data => {
                     const a = data.address || {};
+
+                    // India-only guard
+                    if ((a.country_code || '').toLowerCase() !== 'in') {
+                        alert('Ekart delivers only within India. Please enter your address manually.');
+                        return;
+                    }
+
                     // Fill structured fields from reverse geocode
                     if (a.road || a.suburb)
                         document.getElementById('houseStreet').value =
@@ -597,8 +635,12 @@
                         document.getElementById('city').value = a.city || a.town || a.village || '';
                     if (a.state)
                         document.getElementById('state').value = a.state;
-                    if (a.postcode)
-                        document.getElementById('postalCode').value = a.postcode.replace(/\s/g,'').slice(0,6);
+
+                    // Validate Indian PIN from geocode result
+                    const rawPin = (a.postcode || '').replace(/\s/g, '').replace(/\D/g, '').slice(0, 6);
+                    if (isIndianPin(rawPin)) {
+                        document.getElementById('postalCode').value = rawPin;
+                    }
                     updatePreview();
                 })
                 .catch(() => alert('Location lookup failed. Please fill in the fields manually.'))
@@ -611,7 +653,8 @@
                 alert('Location access denied. Please fill in the address manually.');
                 btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Auto-Detect';
                 btn.disabled  = false;
-            }
+            },
+            { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
         );
     }
 </script>

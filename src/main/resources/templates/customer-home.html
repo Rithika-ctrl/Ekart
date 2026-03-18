@@ -785,7 +785,7 @@
 
         <div class="loc-input-row">
             <input type="text" class="loc-pin-input" id="locPinInput"
-                   placeholder="Enter 6-digit pin code" maxlength="6" inputmode="numeric"
+                   placeholder="Enter Indian pin code" maxlength="6" inputmode="numeric" pattern="[1-9][0-9]{5}"
                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,6);clearLocError()"
                    onkeydown="if(event.key==='Enter')confirmPin()">
             <button class="loc-confirm-btn" onclick="confirmPin()">Apply</button>
@@ -1437,11 +1437,30 @@
         document.getElementById('locError').textContent = '';
     };
 
-    /* ── Confirm manual pin ── */
+
+    // ── Indian PIN code validator ─────────────────────────────────────────────
+    // Rules: exactly 6 digits, first 2 digits must be a valid Indian postal circle.
+    // Gaps that don't exist in India: 10, 29, 35, 54, 55, 86-89
+    function isIndianPin(val) {
+        if (!/^\d{6}$/.test(val)) return false;
+        var prefix = val.slice(0, 2);
+        var valid = new Set(['11','12','13','14','15','16','17','18','19',
+            '20','21','22','23','24','25','26','27','28',
+            '30','31','32','33','34','36','37','38','39',
+            '40','41','42','43','44','45','46','47','48','49',
+            '50','51','52','53','56','57','58','59',
+            '60','61','62','63','64','65','66','67','68','69',
+            '70','71','72','73','74','75','76','77','78','79',
+            '80','81','82','83','84','85',
+            '90','91','92','93','94','95','96','97','98','99']);
+        return valid.has(prefix);
+    }
+
+    /* ── Confirm manual pin (India only) ── */
     window.confirmPin = function() {
         const val = document.getElementById('locPinInput').value.trim().replace(/\D/g, '');
-        if (val.length !== 6) {
-            document.getElementById('locError').textContent = 'Enter a valid 6-digit pin code.';
+        if (!isIndianPin(val)) {
+            document.getElementById('locError').textContent = 'Please enter a valid Indian pin code.';
             return;
         }
         applyAndClose(val);
@@ -1468,41 +1487,70 @@
     window.autoDetectPin = function() {
         const btn   = document.getElementById('locDetectBtn');
         const label = document.getElementById('locDetectLabel');
+        const errEl = document.getElementById('locError');
+
         if (!navigator.geolocation) {
-            document.getElementById('locError').textContent = 'Geolocation is not supported by your browser.';
+            errEl.textContent = 'Geolocation is not supported by your browser.';
             return;
         }
+
         btn.disabled = true;
         label.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting…';
+        errEl.textContent = '';
 
         navigator.geolocation.getCurrentPosition(
             function(pos) {
                 const lat = pos.coords.latitude;
                 const lon = pos.coords.longitude;
-                // Use OpenStreetMap Nominatim (free, no key needed)
-                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon, {
-                    headers: { 'Accept-Language': 'en', 'User-Agent': 'Ekart/1.0' }
-                })
-                .then(r => r.json())
-                .then(data => {
+
+                fetch(
+                    'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&addressdetails=1',
+                    { headers: { 'Accept-Language': 'en' } }
+                )
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
                     btn.disabled = false;
                     label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
-                    const postcode = data && data.address && data.address.postcode;
-                    if (postcode) {
-                        const pin = postcode.replace(/\s/g,'').slice(0,6);
-                        if (/^\d{6}$/.test(pin)) {
-                            document.getElementById('locPinInput').value = pin;
-                            clearLocError();
-                            applyAndClose(pin);
-                            return;
-                        }
+
+                    const addr = data && data.address;
+                    if (!addr) {
+                        errEl.textContent = 'Could not read location. Please enter pin manually.';
+                        return;
                     }
-                    document.getElementById('locError').textContent = 'Could not detect pin code. Please enter manually.';
+
+                    // ── India-only guard ──────────────────────────────────
+                    const countryCode = (addr.country_code || '').toLowerCase();
+                    if (countryCode !== 'in') {
+                        errEl.textContent = 'Ekart delivers only within India. Please enter your Indian pin code manually.';
+                        return;
+                    }
+
+                    // ── Extract & validate 6-digit Indian PIN ─────────────
+                    const raw = (addr.postcode || '').replace(/\s/g, '');
+                    // Indian PIN codes are always exactly 6 digits
+                    const pin = raw.match(/^\d{6}$/);
+                    if (pin && isIndianPin(pin[0])) {
+                        document.getElementById('locPinInput').value = pin[0];
+                        clearLocError();
+                        applyAndClose(pin[0]);
+                        return;
+                    }
+
+                    // Nominatim sometimes returns "110001-110010" ranges — take first 6 digits
+                    const digits = raw.replace(/\D/g, '').slice(0, 6);
+                    if (digits.length === 6 && isIndianPin(digits)) {
+                        document.getElementById('locPinInput').value = digits;
+                        clearLocError();
+                        applyAndClose(digits);
+                        return;
+                    }
+
+                    errEl.textContent = 'Could not detect pin code for your location. Please enter it manually.';
                 })
-                .catch(() => {
+                .catch(function() {
                     btn.disabled = false;
                     label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
-                    document.getElementById('locError').textContent = 'Location lookup failed. Please enter pin manually.';
+                    errEl.textContent = 'Location lookup failed. Please enter pin manually.';
                 });
             },
             function(err) {
@@ -1510,12 +1558,16 @@
                 label.innerHTML = '<i class="fas fa-crosshairs"></i> Use my current location';
                 const msgs = {
                     1: 'Location permission denied. Please enter pin manually.',
-                    2: 'Location unavailable. Please enter pin manually.',
-                    3: 'Location request timed out.'
+                    2: 'Could not determine your location. Please enter pin manually.',
+                    3: 'Location request timed out. Please enter pin manually.'
                 };
-                document.getElementById('locError').textContent = msgs[err.code] || 'Could not detect location.';
+                errEl.textContent = msgs[err.code] || 'Could not detect location.';
             },
-            { timeout: 8000, maximumAge: 300000 }
+            {
+                timeout: 10000,
+                maximumAge: 0,        // always get fresh GPS — never use cached position
+                enableHighAccuracy: true
+            }
         );
     };
 

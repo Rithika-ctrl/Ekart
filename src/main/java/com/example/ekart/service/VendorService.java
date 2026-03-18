@@ -1,5 +1,7 @@
 package com.example.ekart.service;
 
+import com.example.ekart.helper.PinCodeValidator;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Random;
@@ -467,10 +469,9 @@ public class VendorService {
 		existingProduct.setCategory(product.getCategory());
 		existingProduct.setStock(product.getStock());
 
-		// Persist pin code delivery restrictions (empty string = no restriction)
-		existingProduct.setAllowedPinCodes(
-			product.getAllowedPinCodes() != null ? product.getAllowedPinCodes().trim() : null
-		);
+		// Persist pin code delivery restrictions — filter out any non-Indian codes
+		String filteredPins = PinCodeValidator.filterValidPins(product.getAllowedPinCodes());
+		existingProduct.setAllowedPinCodes(filteredPins);
 		
 		// Update stock alert threshold if provided
 		if (product.getStockAlertThreshold() != null && product.getStockAlertThreshold() > 0) {
