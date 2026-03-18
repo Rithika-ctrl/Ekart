@@ -211,6 +211,7 @@ public class EkartController {
         return "403.html";
     }
 
+
     // ── VENDOR ───────────────────────────────────────────────────────────────
 
     @GetMapping("/vendor/register")
