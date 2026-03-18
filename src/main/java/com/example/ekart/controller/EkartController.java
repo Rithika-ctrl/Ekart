@@ -200,7 +200,7 @@ public class EkartController {
     @GetMapping
     public String loadHomePage(ModelMap map) {
         // Load active banners for carousel
-        map.put("banners", bannerService.getActiveBanners());
+        map.put("banners", bannerService.getHomeBanners());
         return "home.html";
     }
 
@@ -740,6 +740,15 @@ public class EkartController {
         return bannerService.addBanner(title, imageUrl, linkUrl, session);
     }
 
+    @PostMapping("/admin/content/add-upload")
+    public String addBannerWithUpload(
+            @RequestParam String title,
+            @RequestParam("imageFile") MultipartFile imageFile,
+            @RequestParam(required = false) String linkUrl,
+            HttpSession session) {
+        return bannerService.addBannerWithUpload(title, imageFile, linkUrl, session);
+    }
+
     @PostMapping("/admin/content/toggle/{id}")
     public String toggleBanner(@PathVariable int id, HttpSession session) {
         return bannerService.toggleBanner(id, session);
@@ -748,6 +757,16 @@ public class EkartController {
     @PostMapping("/admin/content/delete/{id}")
     public String deleteBanner(@PathVariable int id, HttpSession session) {
         return bannerService.deleteBanner(id, session);
+    }
+
+    @PostMapping("/admin/content/toggle-home/{id}")
+    public String toggleBannerHome(@PathVariable int id, HttpSession session) {
+        return bannerService.toggleShowOnHome(id, session);
+    }
+
+    @PostMapping("/admin/content/toggle-customer-home/{id}")
+    public String toggleBannerCustomerHome(@PathVariable int id, HttpSession session) {
+        return bannerService.toggleShowOnCustomerHome(id, session);
     }
 
     @PostMapping("/admin/content/update/{id}")

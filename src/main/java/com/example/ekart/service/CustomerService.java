@@ -32,6 +32,7 @@ import com.example.ekart.repository.ReviewRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
 import com.example.ekart.service.SearchService;
+import com.example.ekart.service.BannerService;
 import com.example.ekart.reporting.ReportingService;
 
 import jakarta.servlet.http.HttpSession;
@@ -71,6 +72,9 @@ public class CustomerService {
 
     @Autowired
     private SearchService searchService;
+
+    @Autowired
+    private BannerService bannerService;
 
     @Autowired
     private ReportingService reportingService;
@@ -249,6 +253,26 @@ public class CustomerService {
         // Load approved products directly for the new combined dashboard
         List<Product> products = productRepository.findByApprovedTrue();
         map.put("products", products);
+
+        // Extract distinct categories with product counts — sorted by count desc
+        // Using simple approach to avoid Java 17 type inference issues with toMap
+        java.util.Map<String, Long> rawCounts = new java.util.LinkedHashMap<>();
+        for (Product p : products) {
+            if (p.getCategory() != null && !p.getCategory().isBlank()) {
+                String cat = p.getCategory().trim();
+                rawCounts.put(cat, rawCounts.getOrDefault(cat, 0L) + 1L);
+            }
+        }
+        // Sort by count descending
+        java.util.LinkedHashMap<String, Long> sortedCategories = new java.util.LinkedHashMap<>();
+        rawCounts.entrySet().stream()
+            .sorted(java.util.Map.Entry.<String, Long>comparingByValue().reversed())
+            .forEach(e -> sortedCategories.put(e.getKey(), e.getValue()));
+
+        map.put("categories", sortedCategories);
+
+        // Load banners for customer home carousel
+        map.put("banners", bannerService.getCustomerHomeBanners());
 
         return "customer-home.html";
     }
