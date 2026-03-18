@@ -584,6 +584,29 @@
         @keyframes popIn { from{opacity:0;transform:scale(0.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
 
+
+        /* ── SEARCH RESULTS BANNER ── */
+        .search-results-banner {
+            display: none;
+            align-items: center; gap: 0.75rem; flex-wrap: wrap;
+            background: rgba(245,168,0,0.08);
+            border: 1px solid rgba(245,168,0,0.3);
+            border-radius: 14px;
+            padding: 0.85rem 1.4rem;
+            animation: fadeUp 0.3s ease both;
+        }
+        .search-results-banner.show { display: flex; }
+        .srb-label { font-size: 0.82rem; color: var(--text-dim); }
+        .srb-query { font-size: 0.9rem; font-weight: 700; color: var(--yellow); }
+        .srb-count { font-size: 0.75rem; color: var(--text-dim); }
+        .srb-clear {
+            margin-left: auto; background: none;
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+            color: var(--text-light); font-family: 'Poppins', sans-serif;
+            font-size: 0.72rem; padding: 0.3rem 0.75rem;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .srb-clear:hover { border-color: rgba(255,255,255,0.4); color: white; }
         /* ── RESPONSIVE ── */
         @media(max-width: 900px) {
             nav { padding: 0.7rem 1rem; flex-wrap: wrap; }
@@ -878,6 +901,18 @@
         </button>
     </div>
 
+
+    <!-- Search Results Banner (shown when search filter is active) -->
+    <div class="search-results-banner" id="searchBanner">
+        <i class="fas fa-search" style="color:var(--yellow);font-size:0.85rem;"></i>
+        <span class="srb-label">Showing results for</span>
+        <span class="srb-query" id="searchBannerQuery"></span>
+        <span class="srb-count" id="searchBannerCount"></span>
+        <button class="srb-clear" onclick="clearSearchFilter()">
+            <i class="fas fa-times"></i> Clear search
+        </button>
+    </div>
+
     <!-- Product Grid -->
     <div class="product-grid" id="productRow">
 
@@ -1119,7 +1154,7 @@
                     div.addEventListener('click', () => {
                         input.value = fuzzySuggestion;
                         hideDrop();
-                        window.location.href = '/search-products?query=' + encodeURIComponent(fuzzySuggestion);
+                        applySearchFilter(fuzzySuggestion);
                     });
                     list.appendChild(div);
                 } else {
@@ -1157,8 +1192,7 @@
                 li.addEventListener('click', () => {
                     input.value = s.productName;
                     hideDrop();
-                    // Navigate to search results
-                    window.location.href = '/search-products?query=' + encodeURIComponent(s.productName);
+                    applySearchFilter(s.productName);
                 });
 
                 li.addEventListener('mouseenter', () => {
@@ -1239,17 +1273,57 @@
             slider.max = max;
             slider.value = max;
         }
+
+        // ── Breadcrumb category filter: auto-apply if ?category= is set ──
+        const urlParams = new URLSearchParams(window.location.search);
+        const catParam  = urlParams.get('category');
+        if (catParam) {
+            const input = document.getElementById('navSearchInput');
+            if (input) input.value = catParam;
+            applySearchFilter(catParam);
+            // Clean up URL without reload
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+        }
     });
 
-    // ── INLINE SEARCH FILTER (kept for fallback) ──
-    function filterProducts(query) {
-        query = query.toLowerCase().trim();
-        document.querySelectorAll('.product-card-wrapper').forEach(card => {
+    // ── SEARCH FILTER ──────────────────────────────────────────────────────────
+    function applySearchFilter(query) {
+        const q = (query || '').toLowerCase().trim();
+        const cards = document.querySelectorAll('.product-card-wrapper');
+        let count = 0;
+
+        cards.forEach(card => {
             const name     = (card.dataset.name     || '').toLowerCase();
             const category = (card.dataset.category || '').toLowerCase();
-            card.style.display = (!query || name.includes(query) || category.includes(query)) ? '' : 'none';
+            const matches  = !q || name.includes(q) || category.includes(q);
+            card.style.display = matches ? '' : 'none';
+            if (matches) count++;
         });
+
+        // Show / update results banner
+        const banner     = document.getElementById('searchBanner');
+        const bannerQ    = document.getElementById('searchBannerQuery');
+        const bannerCnt  = document.getElementById('searchBannerCount');
+        if (q) {
+            bannerQ.textContent   = '"' + query + '"';
+            bannerCnt.textContent = '— ' + count + ' product' + (count !== 1 ? 's' : '') + ' found';
+            banner.classList.add('show');
+            // Scroll smoothly to the product grid
+            document.getElementById('productRow').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            banner.classList.remove('show');
+        }
     }
+
+    function clearSearchFilter() {
+        document.getElementById('navSearchInput').value = '';
+        applySearchFilter('');
+        document.getElementById('searchBanner').classList.remove('show');
+    }
+
+    // Legacy alias kept so nothing else breaks
+    function filterProducts(query) { applySearchFilter(query); }
 
     // ── WISHLIST TOGGLE ──
     function toggleWishlist(productId) {
