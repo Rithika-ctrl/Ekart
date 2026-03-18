@@ -69,7 +69,7 @@
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
               <tr>
                 <td align="center">
-                  <a th:href="'http://localhost:8080/product/' + ${productId}"
+                  <a th:href="@{/product/{id}(id=${productId})}"
                      href="#"
                      style="display:inline-block;background:linear-gradient(135deg,#f5a800,#d48f00);color:#1a1000;text-decoration:none;font-weight:800;font-size:0.95rem;letter-spacing:0.06em;text-transform:uppercase;padding:14px 40px;border-radius:50px;box-shadow:0 8px 24px rgba(245,168,0,0.35);">
                     🛒 Add to Cart Now
