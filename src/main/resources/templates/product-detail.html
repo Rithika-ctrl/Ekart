@@ -76,10 +76,37 @@
         .page { flex:1; padding:6.5rem 2rem 4rem; max-width:1300px; margin:0 auto; width:100%; display:flex; flex-direction:column; gap:3rem; }
 
         /* BREADCRUMB */
-        .breadcrumb { display:flex; align-items:center; gap:0.5rem; font-size:0.78rem; color:var(--text-dim); animation:fadeUp 0.4s ease both; }
-        .breadcrumb a { color:var(--text-dim); text-decoration:none; transition:color 0.2s; }
+        .breadcrumb {
+            display:flex; align-items:center; gap:0.4rem;
+            font-size:0.78rem; color:var(--text-dim);
+            animation:fadeUp 0.4s ease both;
+            background:rgba(255,255,255,0.04);
+            border:1px solid var(--glass-border);
+            border-radius:50px;
+            padding:0.45rem 1.1rem;
+            width:fit-content;
+            flex-wrap:wrap;
+        }
+        .breadcrumb a {
+            color:var(--text-dim); text-decoration:none;
+            transition:color 0.2s;
+            display:inline-flex; align-items:center; gap:0.35rem;
+        }
         .breadcrumb a:hover { color:var(--yellow); }
-        .breadcrumb i { font-size:0.6rem; }
+        .breadcrumb a:hover i.bc-icon { color:var(--yellow); }
+        .breadcrumb i.bc-sep { font-size:0.55rem; opacity:0.4; flex-shrink:0; }
+        .breadcrumb i.bc-icon { font-size:0.72rem; color:var(--text-dim); transition:color 0.2s; }
+        .breadcrumb .bc-current {
+            color:var(--text-light); font-weight:600;
+            max-width:220px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .breadcrumb .bc-category {
+            display:inline-flex; align-items:center; gap:0.3rem;
+            color:var(--yellow); opacity:0.8;
+            font-weight:500; transition:opacity 0.2s;
+        }
+        .breadcrumb .bc-category:hover { opacity:1; }
 
         /* PRODUCT MAIN */
         .product-main { display:grid; grid-template-columns:1fr 1fr; gap:2.5rem; animation:fadeUp 0.5s ease both; }
@@ -453,13 +480,23 @@
 <main class="page">
 
     <!-- Breadcrumb -->
-    <div class="breadcrumb">
-        <a href="/customer/home"><i class="fas fa-home"></i> Home</a>
-        <i class="fas fa-chevron-right"></i>
-        <span th:text="${product.category}">Category</span>
-        <i class="fas fa-chevron-right"></i>
-        <span th:text="${product.name}">Product</span>
-    </div>
+    <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="/customer/home" title="Back to Home">
+            <i class="fas fa-home bc-icon"></i>
+            <span>Home</span>
+        </a>
+        <i class="fas fa-chevron-right bc-sep"></i>
+        <a th:href="@{/customer/home(category=${product.category})}"
+           class="bc-category"
+           th:title="'Browse ' + ${product.category}">
+            <i class="fas fa-tag bc-icon"></i>
+            <span th:text="${product.category}">Category</span>
+        </a>
+        <i class="fas fa-chevron-right bc-sep"></i>
+        <span class="bc-current"
+              th:text="${product.name}"
+              aria-current="page">Product</span>
+    </nav>
 
     <!-- MAIN PRODUCT -->
     <div class="product-main">
@@ -1154,6 +1191,34 @@ function showNotifyMsg(msg, type) {
         .catch(function() { /* silently ignore — not critical */ });
 })();
 </script>
+
+<!-- Breadcrumb structured data for SEO -->
+<script type="application/ld+json" th:inline="javascript">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "/customer/home"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": /*[[${product.category}]]*/ "Category",
+      "item": "/customer/home?category=" + encodeURIComponent(/*[[${product.category}]]*/ "")
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": /*[[${product.name}]]*/ "Product"
+    }
+  ]
+}
+</script>
+
 
 </body>
 </html>
