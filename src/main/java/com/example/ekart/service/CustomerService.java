@@ -132,8 +132,8 @@ public class CustomerService {
         if (customer.getOtp() == otp) {
             customer.setVerified(true);
             customerRepository.save(customer);
-            session.setAttribute("success", "Customer Account Created Successfully");
-            return "redirect:/";
+            session.setAttribute("success", "Account verified! Please log in.");
+            return "redirect:/customer/login";
         }
 
         session.setAttribute("failure", "OTP Mismatch");
@@ -854,8 +854,14 @@ public String paymentSuccess(Order order, String deliveryPinCode, HttpSession se
     Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
     session.setAttribute("customer", updatedCustomer);
 
+    // 7. Store last order info in session for order-success page
+    session.setAttribute("lastOrderId", order.getId());
+    session.setAttribute("lastOrderAmount", order.getAmount());
+    session.setAttribute("lastOrderDeliveryTime", order.getDeliveryTime());
+    session.setAttribute("lastOrderPaymentMode",
+            order.getPaymentMode() != null ? order.getPaymentMode() : "Cash on Delivery");
     session.setAttribute("success", "Order Placed Successfully!");
-    return "redirect:/customer/home";
+    return "redirect:/order-success";
 }
 
     // ---------------- DELETE ACCOUNT ----------------

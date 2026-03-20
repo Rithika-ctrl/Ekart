@@ -867,6 +867,14 @@
         .review-customer { font-size: 0.7rem; font-weight: 700; color: white; }
         .review-comment { font-size: 0.7rem; color: var(--text-dim); line-height: 1.45; }
 
+        /* ★ Avg rating badge on product cards */
+        .avg-rating-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: rgba(245,168,0,0.15); border: 1px solid rgba(245,168,0,0.35);
+            color: var(--yellow); font-size: 0.72rem; font-weight: 700;
+            padding: 1px 6px; border-radius: 20px; line-height: 1.4;
+        }
+        .star-row { display: inline-flex; align-items: center; gap: 1px; }
         .review-form { display: flex; gap: 0.45rem; margin-top: 0.65rem; }
         .review-form select,
         .review-form input {
@@ -1550,7 +1558,7 @@
 
         <!-- Products populated by server -->
         <div th:each="p, pStat : ${products}" class="product-card-wrapper"
-             th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category},data-pins=${p.allowedPinCodes != null ? p.allowedPinCodes : ''},data-reviews=${p.reviews != null ? p.reviews.size() : 0},data-index=${pStat.index}">
+             th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category},data-pins=${p.allowedPinCodes != null ? p.allowedPinCodes : ''},data-reviews=${p.reviewCount},data-avg=${p.averageRating},data-index=${pStat.index}">
             <div class="product-card" style="cursor:pointer;" th:onclick="'window.location.href=\'/product/\' + ' + ${p.id}">
 
                 <!-- Pin-unavailable overlay — shown by JS when pin set and product not deliverable -->
@@ -1611,16 +1619,30 @@
 
                     <hr class="card-divider">
 
-                    <!-- Review Summary (click product for full reviews) -->
-                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;color:var(--text-dim);">
-                        <span style="color:var(--yellow);">
-                            <i th:each="i : ${#numbers.sequence(1, 5)}" class="fas fa-star" style="font-size:0.65rem;"></i>
-                        </span>
-                        <span th:if="${p.reviews != null and !p.reviews.isEmpty()}"
-                              th:text="${#lists.size(p.reviews)} + ' review' + (${#lists.size(p.reviews)} > 1 ? 's' : '')"
-                              style="color:var(--text-dim);"></span>
-                        <span th:if="${p.reviews == null or p.reviews.isEmpty()}"
-                              style="color:var(--text-dim);">No reviews yet</span>
+                    <!-- ★ Star Rating Average Badge -->
+                    <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.75rem;">
+                        <!-- Has reviews: show score badge + half-star row + count -->
+                        <th:block th:if="${p.reviewCount > 0}">
+                            <span class="avg-rating-badge">
+                                <i class="fas fa-star" style="font-size:0.68rem;"></i>
+                                <span th:text="${#numbers.formatDecimal(p.averageRating, 1, 1)}"></span>
+                            </span>
+                            <span class="star-row">
+                                <th:block th:each="i : ${#numbers.sequence(1, 5)}">
+                                    <i th:if="${i <= p.averageRating}" class="fas fa-star" style="color:var(--yellow);font-size:0.62rem;"></i>
+                                    <i th:if="${i > p.averageRating and (i - 0.5) <= p.averageRating}" class="fas fa-star-half-alt" style="color:var(--yellow);font-size:0.62rem;"></i>
+                                    <i th:if="${(i - 0.5) > p.averageRating}" class="far fa-star" style="color:rgba(255,255,255,0.22);font-size:0.62rem;"></i>
+                                </th:block>
+                            </span>
+                            <span style="color:var(--text-dim);">(<span th:text="${p.reviewCount}"></span><span th:text="${p.reviewCount == 1 ? ' review' : ' reviews'}"></span>)</span>
+                        </th:block>
+                        <!-- No reviews -->
+                        <th:block th:if="${p.reviewCount == 0}">
+                            <span class="star-row">
+                                <i th:each="i : ${#numbers.sequence(1,5)}" class="far fa-star" style="color:rgba(255,255,255,0.2);font-size:0.62rem;"></i>
+                            </span>
+                            <span style="color:var(--text-dim);font-size:0.72rem;">No reviews yet</span>
+                        </th:block>
                         <span style="margin-left:auto;font-size:0.65rem;color:var(--yellow);opacity:0.7;">
                             <i class="fas fa-chevron-right"></i> View all
                         </span>
@@ -2470,7 +2492,7 @@
             } else if (type === 'price-desc') {
                 return parseFloat(b.dataset.price || 0) - parseFloat(a.dataset.price || 0);
             } else if (type === 'rating') {
-                return parseInt(b.dataset.reviews || 0) - parseInt(a.dataset.reviews || 0);
+                return parseFloat(b.dataset.avg || 0) - parseFloat(a.dataset.avg || 0);
             } else if (type === 'name') {
                 return (a.dataset.name || '').localeCompare(b.dataset.name || '');
             } else if (type === 'newest') {
