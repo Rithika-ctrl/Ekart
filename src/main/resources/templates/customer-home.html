@@ -1220,8 +1220,10 @@
 
     <!-- Nav Autocomplete Search -->
     <div class="nav-search" id="navSearchWrapper">
-        <i class="fas fa-search nav-search-icon"></i>
-        <input type="text" id="navSearchInput" placeholder="Search products…" autocomplete="off">
+        <i class="fas fa-search nav-search-icon" style="cursor:pointer;"
+           onclick="var q=document.getElementById('navSearchInput').value.trim();if(q)window.location.href='/search-products?query='+encodeURIComponent(q);else window.location.href='/search-products';"></i>
+        <input type="text" id="navSearchInput" placeholder="Search products…" autocomplete="off"
+               onkeydown="if(event.key==='Enter' && this.value.trim()){window.location.href='/search-products?query='+encodeURIComponent(this.value.trim());}">
     </div>
 
     <div class="nav-right">

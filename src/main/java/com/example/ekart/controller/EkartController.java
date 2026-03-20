@@ -27,6 +27,7 @@ import java.util.Map;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Order;
+import com.example.ekart.service.RefundService;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.repository.CustomerRepository;
@@ -77,37 +78,50 @@ public class EkartController {
             while ((row = reader.readNext()) != null) {
                 rowNum++;
                 try {
-                    String sku = getCsvValue(row, colIdx, "sku");
-                    String name = getCsvValue(row, colIdx, "product name");
-                    String desc = getCsvValue(row, colIdx, "description");
-                    String priceStr = getCsvValue(row, colIdx, "regular price");
-                    String salePriceStr = getCsvValue(row, colIdx, "sale price");
-                    String qtyStr = getCsvValue(row, colIdx, "stock quantity");
-                    String category = getCsvValue(row, colIdx, "category");
-                    String tags = getCsvValue(row, colIdx, "tags");
-                    String imageUrl = getCsvValue(row, colIdx, "image url");
-                    String weightStr = getCsvValue(row, colIdx, "weight (kg)");
+                    // Columns match add-product.html form exactly
+                    String name       = getCsvValue(row, colIdx, "product name");
+                    String desc       = getCsvValue(row, colIdx, "description");
+                    String mrpStr     = getCsvValue(row, colIdx, "mrp");
+                    String priceStr   = getCsvValue(row, colIdx, "price");
+                    String qtyStr     = getCsvValue(row, colIdx, "stock");
+                    String category   = getCsvValue(row, colIdx, "category");
+                    String alertStr   = getCsvValue(row, colIdx, "stock alert threshold");
+                    String pinCodes   = getCsvValue(row, colIdx, "allowed pin codes");
+                    String imageUrl   = getCsvValue(row, colIdx, "image url");
 
-                    // Required fields: name, sku, price, qty
-                    if (name == null || sku == null || priceStr == null || qtyStr == null ||
-                        name.trim().isEmpty() || sku.trim().isEmpty() || priceStr.trim().isEmpty() || qtyStr.trim().isEmpty()) {
+                    // Required: name, price, stock (same as form)
+                    if (name == null || priceStr == null || qtyStr == null ||
+                        name.trim().isEmpty() || priceStr.trim().isEmpty() || qtyStr.trim().isEmpty()) {
                         failed++;
-                        errors.add("Row " + rowNum + ": Missing required fields");
+                        errors.add("Row " + rowNum + ": Missing required fields (Product Name, Price, Stock)");
                         continue;
                     }
+
                     double price = Double.parseDouble(priceStr);
-                    int qty = Integer.parseInt(qtyStr);
+                    int qty      = Integer.parseInt(qtyStr);
+
+                    double mrp = 0;
+                    if (mrpStr != null && !mrpStr.isBlank()) {
+                        try { mrp = Double.parseDouble(mrpStr); } catch (NumberFormatException ignored) {}
+                    }
+
+                    int alertThreshold = 10; // same default as form
+                    if (alertStr != null && !alertStr.isBlank()) {
+                        try { alertThreshold = Integer.parseInt(alertStr); } catch (NumberFormatException ignored) {}
+                    }
+
                     Product p = new Product();
                     p.setName(name.trim());
                     p.setDescription(desc != null ? desc.trim() : "");
-                    p.setCategory(category != null && !category.isEmpty() ? category.trim() : "General");
+                    p.setCategory(category != null && !category.isBlank() ? category.trim() : "General");
                     p.setPrice(price);
+                    if (mrp > price) p.setMrp(mrp);
                     p.setStock(qty);
+                    p.setStockAlertThreshold(alertThreshold);
+                    if (pinCodes != null && !pinCodes.isBlank()) p.setAllowedPinCodes(pinCodes.trim());
+                    if (imageUrl != null && !imageUrl.isBlank()) p.setImageLink(imageUrl.trim());
                     p.setVendor(vendor);
                     p.setApproved(false);
-                    // Optionally: set imageLink, extra fields if Product supports them
-                    if (imageUrl != null && !imageUrl.isEmpty()) p.setImageLink(imageUrl.trim());
-                    // If you add SKU, tags, sale price, weight to Product, set them here
                     productRepository.save(p);
                     added++;
                 } catch (Exception ex) {
@@ -175,6 +189,9 @@ public class EkartController {
     @Autowired
     ProductRepository productRepository;
 
+    @Autowired
+    RefundService refundService;
+
     // ── GUEST ─────────────────────────────────────────────────────────────────
 
     @GetMapping("/guest/start")
@@ -213,6 +230,19 @@ public class EkartController {
     @GetMapping("/403")
     public String loadForbiddenPage() {
         return "403.html";
+    }
+
+    @GetMapping("/blocked")
+    public String loadBlockedPage() {
+        return "blocked.html";
+    }
+
+    // ── PRODUCT BROWSE (web, with optional category filter) ──────────────────
+
+    @GetMapping("/products")
+    public String browseProducts(@RequestParam(required = false) String cat,
+                                 HttpSession session, ModelMap map) {
+        return customerService.viewProductsByCategory(cat, session, map);
     }
 
 
@@ -398,7 +428,11 @@ public class EkartController {
     }
 
     @GetMapping("/search-products")
-    public String searchProducts(HttpSession session) {
+    public String searchProducts(@RequestParam(required = false) String query,
+                                 HttpSession session, ModelMap map) {
+        if (query != null && !query.isBlank()) {
+            return customerService.search(query, session, map);
+        }
         return customerService.searchProducts(session);
     }
 
@@ -633,6 +667,35 @@ public class EkartController {
         return customerService.requestReplacement(id, session);
     }
 
+    // Fix: /request-refund was missing — customer-refund-report.html posts here
+    @PostMapping("/request-refund")
+    public String requestRefund(@RequestParam int orderId,
+                                @RequestParam String reason,
+                                @RequestParam(required = false) String details,
+                                HttpSession session) {
+        Customer customer = (Customer) session.getAttribute("customer");
+        if (customer == null) {
+            session.setAttribute("failure", "Please login first");
+            return "redirect:/customer/login";
+        }
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            session.setAttribute("failure", "Order not found");
+            return "redirect:/view-orders";
+        }
+        String fullReason = (details != null && !details.isBlank()) ? reason + " — " + details : reason;
+        java.util.Map<String, Object> result = refundService.createRefundRequest(
+                order, customer, order.getTotalPrice(), fullReason);
+        if ((Boolean) result.get("success")) {
+            int refundId = (int) result.get("refundId");
+            session.setAttribute("success", "Refund request submitted successfully!");
+            return "redirect:/customer/refund/report/" + orderId + "?refundId=" + refundId;
+        } else {
+            session.setAttribute("failure", result.get("message").toString());
+            return "redirect:/customer/refund/report/" + orderId;
+        }
+    }
+
     @PostMapping("/add-review")
     public String addReview(@RequestParam int productId, @RequestParam int rating,
             @RequestParam String comment, HttpSession session) {
@@ -690,6 +753,63 @@ public class EkartController {
     @GetMapping("/change/{id}")
     public String changeStatus(@PathVariable int id, HttpSession session) {
         return adminService.changeStatus(id, session);
+    }
+
+    // AJAX — toggle single product approval (no page refresh)
+    @PostMapping("/api/admin/products/{id}/toggle-approval")
+    @ResponseBody
+    public java.util.Map<String, Object> toggleApprovalAjax(
+            @PathVariable int id, HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        if (session.getAttribute("admin") == null) {
+            res.put("success", false); res.put("message", "Unauthorized"); return res;
+        }
+        com.example.ekart.dto.Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            res.put("success", false); res.put("message", "Product not found"); return res;
+        }
+        product.setApproved(!product.isApproved());
+        productRepository.save(product);
+        res.put("success", true);
+        res.put("approved", product.isApproved());
+        res.put("message", product.isApproved() ? "Approved" : "Hidden");
+        return res;
+    }
+
+    // AJAX — approve ALL pending products at once
+    @PostMapping("/api/admin/products/approve-all")
+    @ResponseBody
+    public java.util.Map<String, Object> approveAllPending(HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        if (session.getAttribute("admin") == null) {
+            res.put("success", false); res.put("message", "Unauthorized"); return res;
+        }
+        java.util.List<com.example.ekart.dto.Product> pending = productRepository.findAll()
+                .stream().filter(p -> !p.isApproved()).collect(java.util.stream.Collectors.toList());
+        pending.forEach(p -> p.setApproved(true));
+        productRepository.saveAll(pending);
+        res.put("success", true);
+        res.put("approvedCount", pending.size());
+        res.put("message", "Approved " + pending.size() + " products");
+        return res;
+    }
+
+    // AJAX — get live product counts
+    @GetMapping("/api/admin/products/counts")
+    @ResponseBody
+    public java.util.Map<String, Object> productCounts(HttpSession session) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        if (session.getAttribute("admin") == null) {
+            res.put("success", false); return res;
+        }
+        java.util.List<com.example.ekart.dto.Product> all = productRepository.findAll();
+        long approved = all.stream().filter(com.example.ekart.dto.Product::isApproved).count();
+        long pending  = all.stream().filter(p -> !p.isApproved()).count();
+        res.put("success", true);
+        res.put("total",    all.size());
+        res.put("approved", approved);
+        res.put("pending",  pending);
+        return res;
     }
 
     @GetMapping("/admin/search-users")

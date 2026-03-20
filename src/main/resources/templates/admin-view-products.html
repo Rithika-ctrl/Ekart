@@ -428,60 +428,82 @@
 <!-- ── PAGE ── -->
 <main class="page">
 
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="page-header-left">
-            <h1>Approve <span>Products</span> 📋</h1>
-            <p>Review pending vendor listings and approve or hide them from the storefront.</p>
+    <!-- Stats Bar -->
+    <div id="stats-bar" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+        <div class="stat-pill" id="stat-total"  style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);padding:0.5rem 1.2rem;border-radius:30px;font-size:0.85rem;font-weight:600;">
+            <i class="fas fa-box"></i> Total: <span id="cnt-total">...</span>
         </div>
-        <div class="page-header-icon">✅</div>
+        <div class="stat-pill" id="stat-pending" style="background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.4);padding:0.5rem 1.2rem;border-radius:30px;font-size:0.85rem;font-weight:600;color:#f5a800;">
+            <i class="fas fa-clock"></i> Pending: <span id="cnt-pending">...</span>
+        </div>
+        <div class="stat-pill" id="stat-approved" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);padding:0.5rem 1.2rem;border-radius:30px;font-size:0.85rem;font-weight:600;color:#22c55e;">
+            <i class="fas fa-check-circle"></i> Approved: <span id="cnt-approved">...</span>
+        </div>
+    </div>
+
+    <!-- Header + Actions -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+        <div>
+            <h1 style="font-size:1.6rem;font-weight:700;">Approve <span style="color:var(--yellow)">Products</span> &#x1F4CB;</h1>
+            <p style="color:var(--text-dim);font-size:0.85rem;margin-top:0.25rem;">Review and approve pending vendor listings.</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+            <!-- Filter tabs -->
+            <div style="display:flex;gap:0.4rem;background:rgba(255,255,255,0.07);border-radius:10px;padding:4px;">
+                <button onclick="filterCards('all')"      id="tab-all"      class="tab-btn tab-active">All</button>
+                <button onclick="filterCards('pending')"  id="tab-pending"  class="tab-btn">Pending</button>
+                <button onclick="filterCards('approved')" id="tab-approved" class="tab-btn">Approved</button>
+            </div>
+            <!-- Approve all button -->
+            <button id="approveAllBtn" onclick="approveAll()" style="background:#f5a800;color:#000;border:none;padding:0.55rem 1.2rem;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;">
+                <i class="fas fa-check-double"></i> Approve All Pending
+            </button>
+        </div>
     </div>
 
     <!-- Product Grid -->
-    <div class="product-grid" th:if="${products != null and !products.isEmpty()}">
-        <div th:each="p : ${products}" class="product-card">
+    <div class="product-grid" id="productGrid" th:if="${products != null and !products.isEmpty()}">
+        <div th:each="p : ${products}"
+             th:attr="data-id=${p.id}, data-approved=${p.approved}"
+             th:classappend="${p.approved} ? 'product-card card-approved' : 'product-card card-pending'"
+             class="product-card">
 
             <!-- Status Ribbon -->
-            <div th:if="${p.approved}" class="status-ribbon ribbon-approved">
-                <i class="fas fa-check-circle"></i> Approved
-            </div>
-            <div th:if="${!p.approved}" class="status-ribbon ribbon-pending">
-                <i class="fas fa-clock"></i> Pending
-            </div>
+            <div th:if="${p.approved}"  class="status-ribbon ribbon-approved"><i class="fas fa-check-circle"></i> Approved</div>
+            <div th:if="${!p.approved}" class="status-ribbon ribbon-pending"><i class="fas fa-clock"></i> Pending</div>
 
             <!-- Image -->
             <div class="img-area">
-                <img class="card-image" th:src="${p.imageLink}" alt="">
+                <img class="card-image" th:src="${p.imageLink}" alt="" onerror="this.src='https://via.placeholder.com/200x160?text=No+Image'">
             </div>
 
             <!-- Body -->
             <div class="card-body">
-
                 <span class="category-pill" th:text="${p.category}"></span>
                 <div class="product-name" th:text="${p.name}"></div>
                 <div class="product-description" th:text="${p.description}"></div>
-
                 <div class="meta-row">
                     <div class="meta-item">
                         <span class="meta-label">Stock:</span>
                         <span class="meta-val" th:text="${p.stock} + ' units'"></span>
                     </div>
                 </div>
-
-                <div class="price-tag"><sup>₹</sup><span th:text="${p.price}"></span></div>
-
+                <div class="price-tag"><sup>&#x20B9;</sup><span th:text="${p.price}"></span></div>
                 <hr class="card-divider">
 
-                <!-- Actions -->
+                <!-- AJAX Actions — no page refresh -->
                 <div class="card-actions">
-                    <a th:if="${!p.approved}" th:href="'/change/' + ${p.id}" class="btn-approve">
+                    <button th:if="${!p.approved}"
+                            th:attr="onclick='toggleApproval(' + ${p.id} + ', this)'"
+                            class="btn-approve">
                         <i class="fas fa-check"></i> Approve
-                    </a>
-                    <a th:if="${p.approved}" th:href="'/change/' + ${p.id}" class="btn-hide">
+                    </button>
+                    <button th:if="${p.approved}"
+                            th:attr="onclick='toggleApproval(' + ${p.id} + ', this)'"
+                            class="btn-hide">
                         <i class="fas fa-eye-slash"></i> Hide
-                    </a>
+                    </button>
                 </div>
-
             </div>
         </div>
     </div>
@@ -489,14 +511,12 @@
     <!-- Empty State -->
     <div class="empty-state" th:if="${products == null or products.isEmpty()}">
         <i class="fas fa-box-open"></i>
-        <p>No products pending review right now.</p>
+        <p>No products to review right now.</p>
     </div>
 
     <!-- Back -->
     <div class="page-footer">
-        <a href="/admin/home" class="btn-back">
-            <i class="fas fa-arrow-left"></i> Back to Dashboard
-        </a>
+        <a href="/admin/home" class="btn-back"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
     </div>
 
 </main>
@@ -504,23 +524,135 @@
 <!-- ── FOOTER ── -->
 <footer>
     <div class="footer-brand">Ekart</div>
-    <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
+    <div class="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
 </footer>
 
+<style>
+.tab-btn { background:transparent;border:none;color:rgba(255,255,255,0.6);padding:0.35rem 0.9rem;border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.2s; }
+.tab-active { background:rgba(245,168,0,0.2);color:#f5a800; }
+.tab-btn:hover { color:#f5a800; }
+.product-card.hidden-card { display:none; }
+</style>
+
 <script>
-    window.addEventListener('scroll', () => {
-        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
-    });
+window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+});
 
-    setTimeout(() => {
-        document.querySelectorAll('.alert-stack .alert').forEach(el => {
-            el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 500);
+// ── Load counts on page load ─────────────────────────────────────────────
+function loadCounts() {
+    fetch('/api/admin/products/counts')
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) return;
+            document.getElementById('cnt-total').textContent    = d.total;
+            document.getElementById('cnt-pending').textContent  = d.pending;
+            document.getElementById('cnt-approved').textContent = d.approved;
+            document.getElementById('approveAllBtn').textContent =
+                d.pending > 0 ? '\u2713\u2713 Approve All Pending (' + d.pending + ')' : '\u2713\u2713 All Approved';
         });
-    }, 2500);
-</script>
+}
+loadCounts();
 
+// ── Toggle single product — NO page refresh ──────────────────────────────
+function toggleApproval(productId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch('/api/admin/products/' + productId + '/toggle-approval', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) { btn.disabled = false; btn.innerHTML = 'Error'; return; }
+
+            const card = btn.closest('.product-card');
+            const ribbon = card.querySelector('.status-ribbon');
+
+            if (d.approved) {
+                // Update ribbon
+                ribbon.className = 'status-ribbon ribbon-approved';
+                ribbon.innerHTML = '<i class="fas fa-check-circle"></i> Approved';
+                // Update button
+                btn.className = 'btn-hide';
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide';
+                btn.onclick = function() { toggleApproval(productId, this); };
+                card.dataset.approved = 'true';
+                card.classList.replace('card-pending', 'card-approved');
+            } else {
+                ribbon.className = 'status-ribbon ribbon-pending';
+                ribbon.innerHTML = '<i class="fas fa-clock"></i> Pending';
+                btn.className = 'btn-approve';
+                btn.innerHTML = '<i class="fas fa-check"></i> Approve';
+                btn.onclick = function() { toggleApproval(productId, this); };
+                card.dataset.approved = 'false';
+                card.classList.replace('card-approved', 'card-pending');
+            }
+
+            btn.disabled = false;
+            loadCounts();
+            applyCurrentFilter();
+        })
+        .catch(() => { btn.disabled = false; btn.innerHTML = 'Error'; });
+}
+
+// ── Approve all pending at once ──────────────────────────────────────────
+function approveAll() {
+    const pendingCards = document.querySelectorAll('.product-card[data-approved="false"]');
+    if (pendingCards.length === 0) { alert('No pending products!'); return; }
+    if (!confirm('Approve all ' + pendingCards.length + ' pending products?')) return;
+
+    const btn = document.getElementById('approveAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Approving...';
+
+    fetch('/api/admin/products/approve-all', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                // Update all pending cards instantly
+                pendingCards.forEach(card => {
+                    card.dataset.approved = 'true';
+                    card.classList.replace('card-pending', 'card-approved');
+                    const ribbon = card.querySelector('.status-ribbon');
+                    ribbon.className = 'status-ribbon ribbon-approved';
+                    ribbon.innerHTML = '<i class="fas fa-check-circle"></i> Approved';
+                    const actionBtn = card.querySelector('button');
+                    if (actionBtn) {
+                        const pid = card.dataset.id;
+                        actionBtn.className = 'btn-hide';
+                        actionBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide';
+                        actionBtn.onclick = function() { toggleApproval(pid, this); };
+                    }
+                });
+                loadCounts();
+                applyCurrentFilter();
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-double"></i> Approve All Pending';
+        })
+        .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-double"></i> Approve All Pending'; });
+}
+
+// ── Filter tabs ──────────────────────────────────────────────────────────
+let currentFilter = 'all';
+
+function filterCards(filter) {
+    currentFilter = filter;
+    ['all','pending','approved'].forEach(f => {
+        document.getElementById('tab-' + f).classList.toggle('tab-active', f === filter);
+    });
+    applyCurrentFilter();
+}
+
+function applyCurrentFilter() {
+    document.querySelectorAll('.product-card').forEach(card => {
+        const isApproved = card.dataset.approved === 'true';
+        let show = true;
+        if (currentFilter === 'pending')  show = !isApproved;
+        if (currentFilter === 'approved') show = isApproved;
+        card.classList.toggle('hidden-card', !show);
+    });
+}
+</script>
 
 </body>
 </html>

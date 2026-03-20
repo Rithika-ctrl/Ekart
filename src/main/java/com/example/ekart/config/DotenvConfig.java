@@ -1,28 +1,34 @@
 package com.example.ekart.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
 
-import jakarta.annotation.PostConstruct;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Loads environment variables from .env file into System properties
- * This allows Spring to use ${ENV_VAR} placeholders in application.properties
+ * Loads .env file BEFORE Spring resolves @Value annotations.
+ * Uses EnvironmentPostProcessor (runs at bootstrap) instead of @PostConstruct
+ * (which ran too late — other beans with @Value were already initialised with fallback values).
+ *
+ * Registration: src/main/resources/META-INF/spring.factories must contain:
+ *   org.springframework.boot.env.EnvironmentPostProcessor=com.example.ekart.config.DotenvConfig
  */
-@Configuration
-public class DotenvConfig {
+public class DotenvConfig implements EnvironmentPostProcessor {
 
-    @PostConstruct
-    public void postConstruct() {
-        Dotenv dotenv = Dotenv.configure()
-                .ignoreIfMissing()
-                .load();
+    @Override
+    public void postProcessEnvironment(ConfigurableEnvironment environment,
+                                       SpringApplication application) {
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
-        // Load all .env variables into System properties
-        dotenv.entries().forEach(entry -> {
-            System.setProperty(entry.getKey(), entry.getValue());
-        });
+        Map<String, Object> props = new HashMap<>();
+        dotenv.entries().forEach(e -> props.put(e.getKey(), e.getValue()));
 
-        System.out.println("✅ .env file loaded successfully");
+        // Add with lowest priority so application.properties can still override
+        environment.getPropertySources()
+                   .addLast(new MapPropertySource("dotenvProperties", props));
     }
 }

@@ -1,2 +1,4 @@
-SKU,Product Name,Description,Regular Price,Sale Price,Stock Quantity,Category,Tags,Image URL,Weight (kg)
-TSH-BLK-M,Classic Black T-Shirt,100% cotton crew neck tee.,25,19.99,150,Apparel,"mens, summer, casual",https://yourwebsite.com/images/tshirt-black.jpg,0.2
+Product Name,Description,MRP,Price,Stock,Category,Stock Alert Threshold,Allowed Pin Codes,Image URL
+Lays Classic Salted Chips 26g,Crispy and light salted potato chips perfect for snacking,20,15,500,Chips,50,400001,https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&q=80
+Dairy Milk Silk Chocolate 60g,Smooth and creamy milk chocolate with rich cocoa taste,99,79,300,Chocolates,30,400001,https://images.unsplash.com/photo-1481391319762-47dff72954d9?w=500&q=80
+Parle-G Original Biscuits 800g,Classic glucose biscuits loved by all ages made with wheat,50,40,400,Biscuits,40,400001,https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80
