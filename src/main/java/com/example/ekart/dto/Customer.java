@@ -12,8 +12,10 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -24,6 +26,7 @@ import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 
 @Entity
+@Table(indexes = { @Index(name = "idx_customer_email", columnList = "email") })
 public class Customer implements Serializable {
 	private static final long serialVersionUID = 1L;
 

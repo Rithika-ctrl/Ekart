@@ -10,6 +10,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -126,8 +129,9 @@ public class AiAssistantService {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofString());
+        // Use async send with hard timeout — avoids blocking HTTP thread for 10s
+        HttpResponse<String> response = httpClient.sendAsync(request,
+                HttpResponse.BodyHandlers.ofString()).get(10, TimeUnit.SECONDS);
 
         if (response.statusCode() == 200) {
             String text = extractGeminiText(response.body());

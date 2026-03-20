@@ -232,10 +232,8 @@ public class FlutterApiController {
             return ResponseEntity.badRequest().body(res);
         }
         Map<String, Object> pm = mapProduct(p);
-        // Include reviews
-        List<Review> reviews = reviewRepository.findAll().stream()
-                .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+        // Include reviews — use targeted query, not findAll()
+        List<Review> reviews = reviewRepository.findByProductId(id);
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         pm.put("reviews", reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
@@ -256,9 +254,7 @@ public class FlutterApiController {
     @GetMapping("/products/{id}/reviews")
     public ResponseEntity<Map<String, Object>> getProductReviews(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        List<Review> reviews = reviewRepository.findAll().stream()
-                .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+        List<Review> reviews = reviewRepository.findByProductId(id);
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         res.put("success", true);
         res.put("reviews", reviews.stream().map(r -> {
@@ -1007,6 +1003,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminGetProducts() {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> products = productRepository.findAll().stream()
+                .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
                 .map(this::mapProduct).collect(Collectors.toList());
         res.put("success", true); res.put("products", products);
         return ResponseEntity.ok(res);
@@ -1042,6 +1039,7 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
+                .limit(200) // cap at 200 most recent orders for admin view
                 .map(this::mapOrder).collect(Collectors.toList());
         res.put("success", true); res.put("orders", orders);
         return ResponseEntity.ok(res);
