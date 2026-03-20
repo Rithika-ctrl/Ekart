@@ -534,7 +534,7 @@
     <div class="section-card" id="bulk-induction-section">
         <h2><i class="fas fa-file-csv"></i> Bulk Product Induction</h2>
         <p style="margin-bottom:1rem;color:var(--text-dim);font-size:0.95rem;">Upload a CSV file to add multiple products at once. Download the <a href="/sample-product-upload.csv" style="color:var(--yellow);text-decoration:underline;">sample CSV template</a>.</p>
-        <form id="bulkProductForm" enctype="multipart/form-data" method="post" action="/admin/products/bulk-upload">
+        <form id="bulkProductForm" enctype="multipart/form-data" method="post" action="/add-product/bulk-upload">
             <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
                 <div style="flex:1;min-width:220px;">
                     <label for="csvFile" style="font-weight:500;">CSV File *</label>
@@ -718,7 +718,7 @@
                 // Submit via AJAX
                 const formData = new FormData();
                 formData.append('file', file);
-                fetch('/admin/products/bulk-upload', {
+                fetch('/add-product/bulk-upload', {
                     method: 'POST',
                     body: formData
                 })

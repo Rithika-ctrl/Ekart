@@ -324,6 +324,25 @@ public class CustomerService {
         return "customer-view-products.html";
     }
 
+    // Fix: /products?cat=X from home.html category cards - serves logged-in & guest users
+    public String viewProductsByCategory(String cat, HttpSession session, ModelMap map) {
+        List<Product> products;
+        if (cat != null && !cat.isBlank()) {
+            products = productRepository.findByCategoryContainingIgnoreCase(cat);
+            map.put("selectedCategory", cat);
+        } else {
+            products = productRepository.findByApprovedTrue();
+        }
+        map.put("products", products);
+
+        // Logged-in customer gets the full customer view
+        if (session.getAttribute("customer") != null) {
+            return "customer-view-products.html";
+        }
+        // Guest gets guest browse page
+        return "guest-browse.html";
+    }
+
     // ---------------- SEARCH ----------------
     public String searchProducts(HttpSession session) {
         return "search.html";
@@ -1003,10 +1022,22 @@ public String requestReplacement(int orderId, HttpSession session) {
 
 public void addReview(int productId, int rating, String comment, HttpSession session) {
     Customer customer = (Customer) session.getAttribute("customer");
-    Product product = productRepository.findById(productId).orElseThrow();
+    if (customer == null) return;
+
+    Product product = productRepository.findById(productId).orElse(null);
+    if (product == null) return;
+
+    // Prevent duplicate review: check by customer name (unique enough for current schema)
+    // TODO: migrate Review to store customer_id FK for a proper unique constraint
+    boolean alreadyReviewed = reviewRepository.existsByProductIdAndCustomerName(
+            productId, customer.getName());
+    if (alreadyReviewed) return;
+
+    // Clamp rating to valid range
+    int safeRating = Math.max(1, Math.min(5, rating));
 
     Review review = new Review();
-    review.setRating(rating);
+    review.setRating(safeRating);
     review.setComment(comment);
     review.setCustomerName(customer.getName());
     review.setProduct(product);

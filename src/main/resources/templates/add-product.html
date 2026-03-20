@@ -636,26 +636,15 @@
             complete: function(results) {
                 const data = results.data;
                 const errors = [];
-                // Use new column names
-                const requiredFields = ['Product Name','SKU','Regular Price','Stock Quantity'];
+                // Required columns matching add-product form
                 let validCount = 0;
-                let duplicateSKUs = new Set();
-                let seenSKUs = new Set();
 
                 // Validate each row
                 data.forEach((row, idx) => {
                     let rowErrors = [];
                     if (!row['Product Name'] || row['Product Name'].trim() === '') rowErrors.push('Product Name is required');
-                    if (!row['SKU'] || row['SKU'].trim() === '') rowErrors.push('SKU is required');
-                    if (!row['Regular Price'] || row['Regular Price'].trim() === '') rowErrors.push('Regular Price is required');
-                    if (!row['Stock Quantity'] || row['Stock Quantity'].trim() === '') rowErrors.push('Stock Quantity is required');
-                    if (row['SKU']) {
-                        if (seenSKUs.has(row['SKU'])) {
-                            rowErrors.push('Duplicate SKU in file');
-                            duplicateSKUs.add(row['SKU']);
-                        }
-                        seenSKUs.add(row['SKU']);
-                    }
+                    if (!row['Price'] || row['Price'].trim() === '') rowErrors.push('Price is required');
+                    if (!row['Stock'] || row['Stock'].trim() === '') rowErrors.push('Stock is required');
                     if (rowErrors.length > 0) {
                         errors.push(`Row ${idx+2}: ` + rowErrors.join(', '));
                     } else {

@@ -2,7 +2,6 @@ package com.example.ekart.service;
 
 import com.example.ekart.controller.SearchSuggestionDTO;
 import com.example.ekart.dto.Product;
-import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,16 +15,12 @@ public class SearchService {
     @Autowired
     private ProductRepository productRepository;
 
-    @Autowired
-    private ItemRepository itemRepository;
-
     /**
      * Returns up to 8 product suggestions matching the query,
      * sorted by how many times each product has been ordered (most popular first).
      */
     public List<SearchSuggestionDTO> getSuggestions(String query) {
         // Fast path: filter in-memory, no per-product DB calls
-        // getPurchaseCount() was doing N itemRepository queries per keystroke — removed
         String q = query.toLowerCase();
         return productRepository.findByApprovedTrue()
                 .stream()
@@ -117,15 +112,5 @@ public class SearchService {
             }
         }
         return dp[m][n];
-    }
-
-    private long getPurchaseCount(String productName) {
-        if (productName == null) return 0;
-        try {
-            List<?> items = itemRepository.findByName(productName);
-            return items == null ? 0 : items.size();
-        } catch (Exception e) {
-            return 0;
-        }
     }
 }

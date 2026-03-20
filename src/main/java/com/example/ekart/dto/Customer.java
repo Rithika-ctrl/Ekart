@@ -24,8 +24,12 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 @Table(indexes = { @Index(name = "idx_customer_email", columnList = "email") })
 public class Customer implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -88,40 +92,4 @@ public class Customer implements Serializable {
 	@Column(nullable = true, length = 500)
 	private String profileImage;
 
-	public int getId() { return id; }
-	public void setId(int id) { this.id = id; }
-	public String getName() { return name; }
-	public void setName(String name) { this.name = name; }
-	public String getEmail() { return email; }
-	public void setEmail(String email) { this.email = email; }
-	public long getMobile() { return mobile; }
-	public void setMobile(long mobile) { this.mobile = mobile; }
-	public String getPassword() { return password; }
-	public void setPassword(String password) { this.password = password; }
-	public String getConfirmPassword() { return confirmPassword; }
-	public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
-	public int getOtp() { return otp; }
-	public void setOtp(int otp) { this.otp = otp; }
-	public boolean isVerified() { return verified; }
-	public void setVerified(boolean verified) { this.verified = verified; }
-	public Role getRole() { return role; }
-	public void setRole(Role role) { this.role = role; }
-	public boolean isActive() { return active; }
-	public void setActive(boolean active) { this.active = active; }
-	public LocalDateTime getLastLogin() { return lastLogin; }
-	public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
-	public String getProvider() { return provider; }
-	public void setProvider(String provider) { this.provider = provider; }
-	public String getProviderId() { return providerId; }
-	public void setProviderId(String providerId) { this.providerId = providerId; }
-	public Cart getCart() { return cart; }
-	public void setCart(Cart cart) { this.cart = cart; }
-	public List<Address> getAddresses() { return addresses; }
-	public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
-	public String getRecentlyViewedProducts() { return recentlyViewedProducts; }
-	public void setRecentlyViewedProducts(String s) { this.recentlyViewedProducts = s; }
-
-	// ✅ FIX B: getter/setter for profileImage
-	public String getProfileImage() { return profileImage; }
-	public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
 }

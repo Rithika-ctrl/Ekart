@@ -18,14 +18,26 @@ public class UserActivityController {
 
     @PostMapping("/batch")
     public ResponseEntity<?> logBatch(@RequestBody List<Map<String, Object>> activities) {
+        int saved = 0;
         for (Map<String, Object> act : activities) {
-            Long userId = ((Number) act.get("userId")).longValue();
-            String actionType = (String) act.get("actionType");
-            String metadata = (String) act.get("metadata");
-            LocalDateTime timestamp = LocalDateTime.parse((String) act.get("timestamp"));
-            userActivityRepository.save(new UserActivity(userId, actionType, metadata, timestamp));
+            try {
+                Object userIdObj = act.get("userId");
+                Object tsObj     = act.get("timestamp");
+                if (userIdObj == null || tsObj == null) continue; // skip malformed entries
+
+                Long userId       = ((Number) userIdObj).longValue();
+                String actionType = (String) act.getOrDefault("actionType", "UNKNOWN");
+                String metadata   = (String) act.getOrDefault("metadata", "");
+                LocalDateTime ts  = LocalDateTime.parse(tsObj.toString());
+
+                userActivityRepository.save(new UserActivity(userId, actionType, metadata, ts));
+                saved++;
+            } catch (Exception e) {
+                // Log and skip bad entry — don't fail the whole batch
+                System.err.println("[UserActivityController] Skipping bad activity entry: " + e.getMessage());
+            }
         }
-        return ResponseEntity.ok().body("Logged");
+        return ResponseEntity.ok().body("Logged " + saved + " of " + activities.size() + " entries");
     }
 
     @GetMapping("/user/{userId}")

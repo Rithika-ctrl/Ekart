@@ -58,9 +58,13 @@ public class AdminService {
 	@Autowired
 	private ItemRepository itemRepository;
 
-	// 🔥 In-memory storage for dynamic content (in production, use database)
-	private static String bannerTitle = "Welcome to Ekart";
-	private static String bannerSubtitle = "Your one-stop shopping destination";
+	// Banner text stored via @Value — set in application.properties or .env
+	// No longer uses static fields (static fields reset on restart and are shared JVM-wide)
+	@org.springframework.beans.factory.annotation.Value("${ekart.banner.title:Welcome to Ekart}")
+	private String bannerTitle;
+
+	@org.springframework.beans.factory.annotation.Value("${ekart.banner.subtitle:Your one-stop shopping destination}")
+	private String bannerSubtitle;
 
 	// ---------------- LOGOUT ----------------
 	public String logout(HttpSession session) {
@@ -323,9 +327,9 @@ public class AdminService {
 			session.setAttribute("failure", "Login First");
 			return "redirect:/admin/login";
 		}
-
-		bannerTitle = title;
-		bannerSubtitle = subtitle;
+		// Update instance fields (survives current session; restart resets to .properties defaults)
+		this.bannerTitle = (title != null && !title.isBlank()) ? title : this.bannerTitle;
+		this.bannerSubtitle = (subtitle != null && !subtitle.isBlank()) ? subtitle : this.bannerSubtitle;
 		session.setAttribute("success", "Banner content updated successfully");
 		return "redirect:/content-management";
 	}
