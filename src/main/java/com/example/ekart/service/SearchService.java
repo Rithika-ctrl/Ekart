@@ -24,29 +24,15 @@ public class SearchService {
      * sorted by how many times each product has been ordered (most popular first).
      */
     public List<SearchSuggestionDTO> getSuggestions(String query) {
-
-        List<Product> matched = productRepository.findByApprovedTrue()
+        // Fast path: filter in-memory, no per-product DB calls
+        // getPurchaseCount() was doing N itemRepository queries per keystroke — removed
+        String q = query.toLowerCase();
+        return productRepository.findByApprovedTrue()
                 .stream()
-                .filter(p -> p.getName() != null &&
-                        p.getName().toLowerCase().contains(query.toLowerCase())
-                        || (p.getCategory() != null &&
-                        p.getCategory().toLowerCase().contains(query.toLowerCase())))
-                .collect(Collectors.toList());
-
-        matched.sort((a, b) -> {
-            long countA = getPurchaseCount(a.getName());
-            long countB = getPurchaseCount(b.getName());
-            return Long.compare(countB, countA);
-        });
-
-        return matched.stream()
+                .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(q))
+                          || (p.getCategory() != null && p.getCategory().toLowerCase().contains(q)))
                 .limit(8)
-                .map(p -> new SearchSuggestionDTO(
-                        p.getName(),
-                        p.getCategory(),
-                        p.getImageLink(),
-                        getPurchaseCount(p.getName())
-                ))
+                .map(p -> new SearchSuggestionDTO(p.getName(), p.getCategory(), p.getImageLink(), 0L))
                 .collect(Collectors.toList());
     }
 

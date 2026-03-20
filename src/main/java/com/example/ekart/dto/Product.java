@@ -5,14 +5,20 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_product_approved", columnList = "approved"),
+    @Index(name = "idx_product_category", columnList = "category")
+})
 public class Product {
 
 	@Id
@@ -55,7 +61,7 @@ public class Product {
 	@Transient
 	private MultipartFile video;
 
-	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	private java.util.List<Review> reviews;
 
 	public java.util.List<String> getExtraImageList() {

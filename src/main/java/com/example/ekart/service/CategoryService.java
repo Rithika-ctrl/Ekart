@@ -3,24 +3,26 @@ package com.example.ekart.service;
 import com.example.ekart.dto.Category;
 import com.example.ekart.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
-@Transactional
 public class CategoryService {
 
     @Autowired
     private CategoryRepository categoryRepository;
 
     /** All parent categories with their sub-categories eagerly loaded */
+    @Cacheable("categories-parent")
     public List<Category> getParentCategories() {
         return categoryRepository.findByParentTrueOrderByDisplayOrderAsc();
     }
 
     /** All sub-categories (for product add/edit dropdown) */
+    @Cacheable("categories-sub")
     public List<Category> getAllSubCategories() {
         return categoryRepository.findAll().stream()
             .filter(c -> !c.isParent())
