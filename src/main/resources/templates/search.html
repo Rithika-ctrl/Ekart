@@ -875,7 +875,7 @@
 
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
+        recognition.lang = 'en-IN';  // Indian English for better accuracy
         voiceBtn.addEventListener('click', () => {
             recognition.start();
             voiceBtn.classList.add('listening');
@@ -897,7 +897,13 @@
             voiceStatus.classList.remove('show');
         };
     } else {
-        if (voiceBtn) voiceBtn.style.display = 'none';
+        // Browser doesn't support SpeechRecognition — show mic but disabled with tooltip
+        if (voiceBtn) {
+            voiceBtn.disabled = true;
+            voiceBtn.title = 'Voice search requires Chrome or Edge browser';
+            voiceBtn.style.opacity = '0.35';
+            voiceBtn.style.cursor = 'not-allowed';
+        }
     }
 
 

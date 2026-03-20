@@ -175,6 +175,29 @@
         .tag-free { color:var(--success); font-weight:700; }
         .tag-charge { color:#ff8060; font-weight:700; }
 
+
+        /* ── CART ITEMS ON PAYMENT PAGE ── */
+        .items-table { width:100%; border-collapse:collapse; }
+        .items-table th {
+            font-size:0.65rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.08em; color:var(--text-dim);
+            padding:0 0 0.6rem; border-bottom:1px solid var(--glass-border);
+            text-align:left;
+        }
+        .items-table th:last-child { text-align:right; }
+        .items-table td {
+            padding:0.65rem 0; font-size:0.825rem; color:var(--text-light);
+            border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:middle;
+        }
+        .items-table td:last-child { text-align:right; font-weight:700; color:white; }
+        .item-name { font-weight:600; color:white; max-width:200px; }
+        .item-cat  { font-size:0.7rem; color:var(--text-dim); margin-top:0.1rem; }
+        .item-qty  { display:inline-flex; align-items:center; justify-content:center;
+                     background:rgba(255,255,255,0.08); border-radius:6px;
+                     padding:0.15rem 0.55rem; font-size:0.78rem; font-weight:600; }
+        .items-total-row td { border-bottom:none; padding-top:0.75rem;
+                              border-top:1px solid var(--glass-border); font-size:0.875rem; }
+
         /* ── DELIVERY OPTIONS ── */
         .delivery-option {
             background:rgba(255,255,255,0.05);
@@ -330,6 +353,15 @@
     <!-- Express Badge (injected by JS if applicable) -->
     <div id="express-badge-wrap"></div>
 
+    <!-- ── DELIVERY TYPE SELECTED (from product detail) ── -->
+    <div id="delivery-type-banner" style="display:none;margin-bottom:0.75rem;">
+        <div style="display:inline-flex;align-items:center;gap:0.5rem;background:rgba(245,168,0,0.12);border:1px solid rgba(245,168,0,0.35);border-radius:50px;padding:0.4rem 1.1rem;font-size:0.78rem;font-weight:600;color:var(--yellow);">
+            <i id="delivery-type-icon" class="fas fa-box"></i>
+            <span id="delivery-type-text">Standard Delivery</span>
+        </div>
+        <span style="font-size:0.72rem;color:var(--text-dim);margin-left:0.75rem;">Selected on product page · <a href="javascript:history.back()" style="color:var(--yellow);text-decoration:none;">Change</a></span>
+    </div>
+
     <!-- Main Grid -->
     <div class="payment-grid">
 
@@ -375,6 +407,43 @@
                 </div>
             </div>
 
+
+            <!-- Cart Items Breakdown -->
+            <div class="glass-card" th:if="${cartItems != null and !cartItems.isEmpty()}">
+                <div class="section-label"><i class="fas fa-shopping-bag"></i> Your Items</div>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th style="text-align:center;">Qty</th>
+                            <th style="text-align:right;">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="item : ${cartItems}">
+                            <td>
+                                <div class="item-name" th:text="${item.name}">Product</div>
+                                <div class="item-cat" th:text="${item.category}">Category</div>
+                            </td>
+                            <td style="text-align:center;">
+                                <span class="item-qty" th:text="${item.quantity}">1</span>
+                            </td>
+                            <td>
+                                <span th:text="'₹' + ${#numbers.formatDecimal(item.price, 1, 'COMMA', 2, 'POINT')}">₹0</span>
+                            </td>
+                        </tr>
+                        <tr class="items-total-row">
+                            <td colspan="2" style="color:var(--text-dim);">
+                                <span th:text="${#lists.size(cartItems)} + ' item(s)'">items</span>
+                            </td>
+                            <td style="color:var(--yellow);font-size:1rem;font-weight:800;">
+                                ₹<span th:text="${#numbers.formatDecimal(cartTotal, 1, 'COMMA', 2, 'POINT')}">0</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Price Breakdown -->
             <div class="glass-card">
                 <div class="section-label"><i class="fas fa-receipt"></i> Price Breakdown</div>
@@ -383,16 +452,23 @@
                     <span class="value" th:text="'₹' + ${cartTotal}">₹0.00</span>
                 </div>
                 <div class="price-row">
-                    <span class="label">Delivery Charge</span>
-                    <span class="value tag-free"
+                    <span class="label" id="payment-delivery-label">Delivery Charge</span>
+                    <span class="value tag-free" id="payment-delivery-val"
                           th:if="${deliveryCharge == 0}">FREE</span>
-                    <span class="value tag-charge"
+                    <span class="value tag-charge" id="payment-delivery-val2"
                           th:if="${deliveryCharge != 0}"
                           th:text="'₹' + ${deliveryCharge}"></span>
+                    <span id="base-delivery-charge" style="display:none;"
+                          th:text="${deliveryCharge}">0</span>
+                </div>
+                <!-- Coupon discount row — shown by JS if coupon applied -->
+                <div class="price-row" id="payment-coupon-row" style="display:none;">
+                    <span class="label" style="color:#22c55e;"><i class="fas fa-tag" style="font-size:0.7rem;margin-right:3px;"></i> Coupon Discount</span>
+                    <span class="value" id="payment-coupon-val" style="color:#22c55e;">-₹0</span>
                 </div>
                 <div class="price-row total">
-                    <span class="label">Base Total</span>
-                    <span class="value">₹<span th:text="${amount}">0</span></span>
+                    <span class="label">Grand Total</span>
+                    <span class="value">₹<span id="finalTotal" th:text="${amount}">0</span></span>
                 </div>
             </div>
 
@@ -406,8 +482,9 @@
             <div class="glass-card">
                 <div class="section-label"><i class="fas fa-wallet"></i> Order Total</div>
                 <div class="final-box">
-                    <div class="final-label">Final Total (incl. surcharge)</div>
-                    <div class="final-amount">₹<span id="finalTotal" th:text="${amount}">0</span></div>
+                    <div class="final-label">Amount to Pay</div>
+                    <div class="final-amount">₹<span id="payFinalAmount" th:text="${amount}">0</span></div>
+                    <div class="final-sub" id="coupon-applied-note" style="display:none;color:#22c55e;font-size:0.72rem;margin-top:0.3rem;"></div>
                     <div class="final-sub">All taxes included · Secure checkout</div>
                 </div>
             </div>
@@ -522,19 +599,90 @@
     }
 
     window.onload = function() {
-        // Set default delivery label (Standard, 5 business days)
-        var today = new Date();
-        var stdDate = addBusinessDays(today, 5);
-        var label = 'Standard | Expected by ' + formatDate(stdDate);
+        var today        = new Date();
+        var expressCharge = 129;
+
+        // ── Read from sessionStorage ──
+        var delivType     = sessionStorage.getItem('ekart_delivery_type')    || 'standard';
+        var delivDate     = sessionStorage.getItem('ekart_delivery_date')    || formatDate(addBusinessDays(today, 5));
+        var couponCode    = sessionStorage.getItem('ekart_coupon_code')      || '';
+        var couponDisc    = parseFloat(sessionStorage.getItem('ekart_coupon_discount')) || 0;
+
+        // ── Calculate totals ──
+        var expressExtra  = (delivType === 'express') ? expressCharge : 0;
+        var totalWithDel  = baseAmount + expressExtra;            // subtotal + delivery
+        var finalAmt      = Math.max(totalWithDel - couponDisc, 0); // minus coupon
+
+        // ── Update finalTotal in breakdown and pay amount ──
+        var finalTotalEl = document.getElementById('finalTotal');
+        if (finalTotalEl) finalTotalEl.textContent = finalAmt.toFixed(2);
+
+        var payFinalEl = document.getElementById('payFinalAmount');
+        if (payFinalEl) payFinalEl.textContent = finalAmt.toFixed(2);
+
+        var codAmtEl = document.getElementById('cod-amount');
+        if (codAmtEl) codAmtEl.value = finalAmt.toFixed(2);
+
+        // ── Show coupon row if discount applied ──
+        if (couponDisc > 0 && couponCode) {
+            var couponRow = document.getElementById('payment-coupon-row');
+            var couponVal = document.getElementById('payment-coupon-val');
+            var couponNote = document.getElementById('coupon-applied-note');
+            if (couponRow) couponRow.style.display = 'flex';
+            if (couponVal) couponVal.textContent = '-₹' + couponDisc.toFixed(2);
+            if (couponNote) {
+                couponNote.style.display = 'block';
+                couponNote.innerHTML = '<i class="fas fa-tag" style="margin-right:4px;"></i>Coupon <strong>' + couponCode + '</strong> applied — saving ₹' + couponDisc.toFixed(2);
+            }
+        }
+
+        // ── Update delivery row if express ──
+        var delivRowVal   = document.getElementById('payment-delivery-val');
+        var delivRowVal2  = document.getElementById('payment-delivery-val2');
+        var delivRowLabel = document.getElementById('payment-delivery-label');
+        if (delivType === 'express') {
+            var baseDeliv = parseFloat(
+                document.getElementById('base-delivery-charge')
+                    ? document.getElementById('base-delivery-charge').textContent.replace(/[^0-9.]/g,'')
+                    : '0'
+            ) || 0;
+            var newDeliv = (baseDeliv + expressCharge).toFixed(0);
+            if (delivRowVal)  { delivRowVal.textContent  = '₹' + newDeliv; delivRowVal.style.color  = '#f5a800'; }
+            if (delivRowVal2) { delivRowVal2.textContent = '₹' + newDeliv; delivRowVal2.style.color = '#f5a800'; }
+            if (delivRowLabel) delivRowLabel.textContent = 'Delivery (Express +₹129)';
+        }
+
+        // ── Delivery type banner ──
+        var banner    = document.getElementById('delivery-type-banner');
+        var typeText  = document.getElementById('delivery-type-text');
+        var typeIcon  = document.getElementById('delivery-type-icon');
+        if (banner) {
+            banner.style.display = 'block';
+            if (delivType === 'express') {
+                typeText.textContent = 'Express Delivery — ' + delivDate + ' (+₹129)';
+                typeIcon.className = 'fas fa-bolt';
+                banner.querySelector('div').style.borderColor = 'rgba(34,197,94,0.35)';
+                banner.querySelector('div').style.background  = 'rgba(34,197,94,0.1)';
+                banner.querySelector('div').style.color       = '#22c55e';
+            } else {
+                typeText.textContent = 'Standard Delivery — ' + delivDate;
+                typeIcon.className   = 'fas fa-box';
+            }
+        }
+
+        // ── Delivery label for order record ──
+        var label = (delivType === 'express')
+            ? 'Express | Expected by ' + delivDate
+            : 'Standard | Expected by ' + formatDate(addBusinessDays(today, 5));
         var dtEl = document.getElementById('cod-delivery-time');
         if (dtEl) dtEl.value = label;
 
-        // Auto-fill pin from localStorage if set on home/detail page
+        // ── Auto-fill pin ──
         var savedPin = localStorage.getItem('ekart_delivery_pin');
         if (savedPin) {
-            var pinEl = document.getElementById('verified-pin-code');
+            var pinEl  = document.getElementById('verified-pin-code');
             var codPin = document.getElementById('cod-pin-code');
-            if (pinEl) pinEl.value = savedPin;
+            if (pinEl)  pinEl.value  = savedPin;
             if (codPin) codPin.value = savedPin;
         }
     };

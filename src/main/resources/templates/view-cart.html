@@ -270,6 +270,66 @@
         }
         .btn-remove:hover { background: #ef4444; color: white; text-decoration: none; transform: translateY(-1px); }
 
+
+        /* ── COUPON / PROMO CODE ── */
+        .coupon-box {
+            margin-bottom: 0.875rem;
+            padding: 0.75rem 0.9rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px dashed rgba(245,168,0,0.3);
+            border-radius: 10px;
+        }
+        .coupon-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--yellow);
+            display: flex; align-items: center; gap: 0.35rem;
+            margin-bottom: 0.5rem;
+        }
+        .coupon-row {
+            display: flex; gap: 0.4rem;
+        }
+        .coupon-input {
+            flex: 1; background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border); border-radius: 8px;
+            color: white; font-family: 'Poppins', sans-serif;
+            font-size: 0.82rem; padding: 0.45rem 0.75rem;
+            outline: none; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: border-color 0.2s;
+        }
+        .coupon-input::placeholder { text-transform: none; letter-spacing: 0; color: var(--text-dim); }
+        .coupon-input:focus { border-color: rgba(245,168,0,0.5); }
+        .coupon-input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-apply-coupon {
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.78rem; font-weight: 700;
+            padding: 0.45rem 0.85rem; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-apply-coupon:hover { background: #d48f00; }
+        .btn-apply-coupon:disabled { opacity: 0.5; cursor: not-allowed; }
+        .coupon-msg {
+            font-size: 0.72rem; margin-top: 0.4rem;
+            display: none; align-items: center; gap: 0.3rem;
+        }
+        .coupon-msg.success { display: flex; color: #22c55e; }
+        .coupon-msg.error   { display: flex; color: #f87171; }
+        .coupon-discount-row {
+            display: none; justify-content: space-between; align-items: center;
+            padding: 0.4rem 0; font-size: 0.82rem;
+            border-top: 1px solid rgba(255,255,255,0.06); margin-top: 0.3rem;
+        }
+        .coupon-discount-row.show { display: flex; }
+        .coupon-discount-label { color: #22c55e; display: flex; align-items: center; gap: 0.3rem; }
+        .coupon-discount-val { color: #22c55e; font-weight: 700; }
+        .btn-remove-coupon {
+            background: none; border: none; color: rgba(255,255,255,0.3);
+            cursor: pointer; font-size: 0.7rem; padding: 0;
+            transition: color 0.2s; margin-left: 0.4rem;
+        }
+        .btn-remove-coupon:hover { color: #f87171; }
+
         /* ── Checkout Panel ── */
         .checkout-panel {
             background: var(--glass-card);
@@ -634,11 +694,76 @@
             <div class="section-label"><i class="fas fa-receipt"></i> Order Summary</div>
 
             <div class="total-row">
-                <div class="total-label">Cart Total</div>
-                <div class="total-value">₹<th:block th:text="${#numbers.formatDecimal(totalPrice, 1, 'COMMA', 2, 'POINT')}"></th:block></div>
+                <div class="total-label">Cart Subtotal</div>
+                <div class="total-value" id="cart-subtotal">₹<th:block th:text="${#numbers.formatDecimal(totalPrice, 1, 'COMMA', 2, 'POINT')}"></th:block></div>
+            </div>
+            <div class="total-row" id="delivery-charge-row" style="font-size:0.82rem;">
+                <div class="total-label">Delivery</div>
+                <div class="total-value" id="cart-delivery-val" style="color:#22c55e;">
+                    <th:block th:if="${totalPrice >= 500}">FREE</th:block>
+                    <th:block th:unless="${totalPrice >= 500}">₹40</th:block>
+                </div>
+            </div>
+            <div class="total-row" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:0.5rem;margin-top:0.2rem;">
+                <div class="total-label" style="font-weight:700;color:white;">Grand Total</div>
+                <div class="total-value" id="cart-grand-total" style="color:var(--yellow);font-size:1.1rem;">
+                    ₹<th:block th:text="${#numbers.formatDecimal(totalPrice >= 500 ? totalPrice : totalPrice + 40, 1, 'COMMA', 2, 'POINT')}"></th:block>
+                </div>
             </div>
 
             <th:block th:if="${totalPrice > 0}">
+
+                <!-- ── Coupon / Promo Code ── -->
+                <div class="coupon-box">
+                    <div class="coupon-label">
+                        <i class="fas fa-tag"></i> Promo Code
+                        <a href="/customer/coupons" target="_blank"
+                           style="margin-left:auto;font-size:0.65rem;color:var(--yellow);text-decoration:none;font-weight:600;opacity:0.8;">
+                            View all coupons <i class="fas fa-external-link-alt" style="font-size:0.55rem;"></i>
+                        </a>
+                    </div>
+                    <div class="coupon-row">
+                        <input type="text" class="coupon-input" id="couponInput"
+                               placeholder="Enter promo code" maxlength="20"
+                               oninput="this.value=this.value.toUpperCase()"
+                               onkeydown="if(event.key==='Enter') applyCoupon()">
+                        <button class="btn-apply-coupon" id="couponApplyBtn" onclick="applyCoupon()">Apply</button>
+                    </div>
+                    <div class="coupon-msg" id="couponMsg"></div>
+                    <div class="coupon-discount-row" id="couponDiscountRow">
+                        <span class="coupon-discount-label">
+                            <i class="fas fa-check-circle"></i>
+                            Promo <strong id="appliedCouponCode"></strong> applied
+                        </span>
+                        <span>
+                            <span class="coupon-discount-val" id="couponDiscountVal"></span>
+                            <button class="btn-remove-coupon" onclick="removeCoupon()" title="Remove coupon">✕</button>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- ── Delivery Type Selector ── -->
+                <div style="margin-bottom:0.875rem;">
+                    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4);margin-bottom:0.5rem;">Delivery Type</div>
+                    <div style="display:flex;gap:0.5rem;">
+                        <div id="cart-del-standard" onclick="cartSelectDelivery('standard')"
+                             style="flex:1;border:2px solid var(--yellow);border-radius:10px;padding:0.6rem 0.8rem;cursor:pointer;background:rgba(245,168,0,0.08);transition:all 0.2s;">
+                            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:var(--yellow);">📦 Standard</div>
+                            <div style="font-size:0.72rem;color:rgba(255,255,255,0.7);margin-top:0.15rem;" id="cart-std-date">5-7 business days</div>
+                            <div style="font-size:0.65rem;color:#22c55e;font-weight:600;">FREE</div>
+                        </div>
+                        <div id="cart-del-express" onclick="cartSelectDelivery('express')"
+                             style="flex:1;border:2px solid var(--glass-border);border-radius:10px;padding:0.6rem 0.8rem;cursor:pointer;transition:all 0.2s;">
+                            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:#22c55e;">⚡ Express</div>
+                            <div style="font-size:0.72rem;color:rgba(255,255,255,0.7);margin-top:0.15rem;" id="cart-exp-date">Tomorrow</div>
+                            <div style="font-size:0.65rem;color:#f5a800;font-weight:600;">+₹129</div>
+                        </div>
+                    </div>
+                    <div style="font-size:0.65rem;color:rgba(255,255,255,0.3);margin-top:0.3rem;">
+                        ⚠️ One delivery type applies to all items in your cart
+                    </div>
+                </div>
+
                 <!-- Express Checkout -->
                 <div class="express-box">
                     <div class="express-left">
@@ -847,6 +972,157 @@ function showToast(msg, type) {
     stack.appendChild(el);
     setTimeout(() => { el.style.transition='opacity .5s'; el.style.opacity='0'; setTimeout(()=>el.remove(),500); }, 2500);
 }
+
+// ── Delivery Type Selector (runs on page load) ─────────────────────
+(function() {
+    var DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmt(d) { return DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+    function addBizDays(from, n) {
+        var d = new Date(from), added = 0;
+        while (added < n) { d.setDate(d.getDate()+1); if (d.getDay()!==0 && d.getDay()!==6) added++; }
+        return d;
+    }
+    function initDeliveryDates() {
+        var today = new Date();
+        var stdEl = document.getElementById('cart-std-date');
+        var expEl = document.getElementById('cart-exp-date');
+        if (stdEl) stdEl.textContent = 'By ' + fmt(addBizDays(today, 5));
+        if (expEl) {
+            var cutoff = new Date(today); cutoff.setHours(14,0,0,0);
+            expEl.textContent = 'By ' + fmt(addBizDays(today, today < cutoff ? 1 : 2));
+        }
+        var saved = sessionStorage.getItem('ekart_delivery_type') || 'standard';
+        cartSelectDelivery(saved);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDeliveryDates);
+    } else {
+        initDeliveryDates();
+    }
+})();
+
+
+    // ── COUPON / PROMO CODE (fetches from server) ───────────────────
+    var activeCoupon = null;
+    var couponDiscount = 0;
+
+    function applyCoupon() {
+        var code = document.getElementById('couponInput').value.trim().toUpperCase();
+        if (!code) { showCouponMsg('error', 'Please enter a promo code'); return; }
+
+        var subtotalEl = document.getElementById('cart-subtotal');
+        var subtotal = parseFloat(subtotalEl ? subtotalEl.textContent.replace(/[^0-9.]/g,'') : 0) || 0;
+
+        // Show loading
+        document.getElementById('couponApplyBtn').disabled = true;
+        document.getElementById('couponApplyBtn').textContent = '...';
+
+        fetch('/api/coupon/validate?code=' + encodeURIComponent(code) + '&amount=' + subtotal)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('couponApplyBtn').textContent = 'Apply';
+                if (!data.success) {
+                    document.getElementById('couponApplyBtn').disabled = false;
+                    showCouponMsg('error', '✗ ' + data.message);
+                    return;
+                }
+                // Applied successfully
+                activeCoupon = data.code;
+                couponDiscount = Math.round(data.discount);
+                document.getElementById('appliedCouponCode').textContent = data.code;
+                document.getElementById('couponDiscountVal').textContent = '-₹' + couponDiscount;
+                document.getElementById('couponDiscountRow').classList.add('show');
+                document.getElementById('couponInput').disabled = true;
+                showCouponMsg('success', '✓ ' + data.message);
+                sessionStorage.setItem('ekart_coupon_code', data.code);
+                sessionStorage.setItem('ekart_coupon_discount', couponDiscount);
+                recalcCartTotal();
+            })
+            .catch(function() {
+                document.getElementById('couponApplyBtn').disabled = false;
+                document.getElementById('couponApplyBtn').textContent = 'Apply';
+                showCouponMsg('error', '✗ Could not validate coupon. Try again.');
+            });
+    }
+
+    function removeCoupon() {
+        activeCoupon = null;
+        couponDiscount = 0;
+        document.getElementById('couponInput').value = '';
+        document.getElementById('couponInput').disabled = false;
+        document.getElementById('couponApplyBtn').disabled = false;
+        document.getElementById('couponDiscountRow').classList.remove('show');
+        document.getElementById('couponMsg').className = 'coupon-msg';
+        document.getElementById('couponMsg').style.display = 'none';
+        sessionStorage.removeItem('ekart_coupon_code');
+        sessionStorage.removeItem('ekart_coupon_discount');
+        recalcCartTotal();
+    }
+
+    function showCouponMsg(type, msg) {
+        var el = document.getElementById('couponMsg');
+        el.className = 'coupon-msg ' + type;
+        el.innerHTML = msg;
+    }
+
+    function recalcCartTotal() {
+        var subtotalEl = document.getElementById('cart-subtotal');
+        var grandEl    = document.getElementById('cart-grand-total');
+        var delivEl    = document.getElementById('cart-delivery-val');
+        if (!subtotalEl || !grandEl) return;
+        var subtotal = parseFloat(subtotalEl.textContent.replace(/[^0-9.]/g,'')) || 0;
+        var delivType = sessionStorage.getItem('ekart_delivery_type') || 'standard';
+        var baseDelivery = subtotal >= 500 ? 0 : 40;
+        var expressExtra = delivType === 'express' ? 129 : 0;
+        var delivery = baseDelivery + expressExtra;
+        var grand = subtotal + delivery - couponDiscount;
+        grand = Math.max(grand, 0);
+        if (delivEl) {
+            if (delivery === 0) { delivEl.textContent = 'FREE'; delivEl.style.color = '#22c55e'; }
+            else { delivEl.textContent = '₹' + delivery + (delivType === 'express' ? ' (Express)' : ''); delivEl.style.color = '#f5a800'; }
+        }
+        grandEl.textContent = '₹' + grand.toFixed(2);
+        // Update hidden COD amount if exists
+        var codAmt = document.getElementById('cod-amount');
+        if (codAmt) codAmt.value = grand.toFixed(2);
+    }
+
+
+    window.cartSelectDelivery = function(type) {
+    sessionStorage.setItem('ekart_delivery_type', type);
+    sessionStorage.setItem('ekart_express_charge', type === 'express' ? '129' : '0');
+    var std = document.getElementById('cart-del-standard');
+    var exp = document.getElementById('cart-del-express');
+    if (!std || !exp) return;
+    if (type === 'express') {
+        exp.style.borderColor = '#22c55e';
+        exp.style.background = 'rgba(34,197,94,0.08)';
+        std.style.borderColor = 'var(--glass-border)';
+        std.style.background = 'transparent';
+    } else {
+        std.style.borderColor = 'var(--yellow)';
+        std.style.background = 'rgba(245,168,0,0.08)';
+        exp.style.borderColor = 'var(--glass-border)';
+        exp.style.background = 'transparent';
+    }
+    // Update delivery charge row and grand total
+    var subtotalEl = document.getElementById('cart-subtotal');
+    var grandEl    = document.getElementById('cart-grand-total');
+    var delivEl    = document.getElementById('cart-delivery-val');
+    if (!subtotalEl || !grandEl) return;
+    var subtotal = parseFloat(subtotalEl.textContent.replace(/[^0-9.]/g,'')) || 0;
+    var baseDelivery = subtotal >= 500 ? 0 : 40;
+    var expressExtra = type === 'express' ? 129 : 0;
+    var delivery = baseDelivery + expressExtra;
+    var grand = subtotal + delivery - couponDiscount;
+    grand = Math.max(grand, 0);
+    if (delivEl) {
+        if (delivery === 0) { delivEl.textContent = 'FREE'; delivEl.style.color = '#22c55e'; }
+        else { delivEl.textContent = '₹' + delivery + (type === 'express' ? ' (Express)' : ''); delivEl.style.color = '#f5a800'; }
+    }
+    grandEl.textContent = '₹' + grand.toFixed(2);
+};
 
 // ── Update shared UI after any cart mutation ──────────────
 function applyCartUpdate(data) {

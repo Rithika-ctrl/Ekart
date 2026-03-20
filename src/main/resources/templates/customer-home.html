@@ -57,9 +57,142 @@
             gap: 1rem;
         }
         nav.scrolled { background: rgba(0,0,0,0.5); }
+        /* ── HAMBURGER BUTTON ── */
+        .hamburger-btn {
+            display: flex; flex-direction: column; justify-content: center;
+            gap: 5px; width: 36px; height: 36px; cursor: pointer;
+            background: none; border: none; padding: 6px; flex-shrink: 0;
+            border-radius: 8px; transition: background 0.2s;
+        }
+        .hamburger-btn:hover { background: rgba(255,255,255,0.1); }
+        .hamburger-btn span {
+            display: block; width: 20px; height: 2px;
+            background: white; border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        /* ── SIDE DRAWER OVERLAY ── */
+        .drawer-overlay {
+            position: fixed; inset: 0; z-index: 999;
+            background: rgba(0,0,0,0.6);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+        /* ── SIDE DRAWER PANEL ── */
+        .side-drawer {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: 300px; max-width: 85vw;
+            background: #131921;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .side-drawer.open { transform: translateX(0); }
+
+        /* Drawer header */
+        .drawer-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.9rem 1.1rem;
+            background: #232f3e;
+            flex-shrink: 0;
+        }
+        .drawer-header-name {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.92rem; font-weight: 700; color: white;
+        }
+        .drawer-header-name i {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(245,168,0,0.2); border: 1px solid rgba(245,168,0,0.4);
+            display: flex; align-items: center; justify-content: center;
+            color: #f5a800; font-size: 0.85rem; flex-shrink: 0;
+        }
+        .drawer-close {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(255,255,255,0.1); border: none;
+            color: white; font-size: 1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s; flex-shrink: 0;
+        }
+        .drawer-close:hover { background: rgba(255,255,255,0.2); }
+
+        /* Drawer scroll body */
+        .drawer-body {
+            flex: 1; overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.15) transparent;
+        }
+        .drawer-body::-webkit-scrollbar { width: 4px; }
+        .drawer-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+        /* Section title */
+        .drawer-section-title {
+            padding: 0.85rem 1.1rem 0.4rem;
+            font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.5);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: 0.2rem;
+        }
+        .drawer-section-title:first-child { border-top: none; margin-top: 0; }
+
+        /* Drawer item */
+        .drawer-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.65rem 1.1rem;
+            color: rgba(255,255,255,0.88);
+            text-decoration: none; font-size: 0.875rem;
+            transition: background 0.15s;
+            cursor: pointer; border: none; background: none;
+            width: 100%; text-align: left;
+        }
+        .drawer-item:hover { background: rgba(255,255,255,0.07); color: white; }
+        .drawer-item-left { display: flex; align-items: center; gap: 0.7rem; }
+        .drawer-item-left i { width: 18px; text-align: center; color: rgba(255,255,255,0.5); font-size: 0.85rem; flex-shrink: 0; }
+        .drawer-item-arrow { color: rgba(255,255,255,0.3); font-size: 0.75rem; }
+
+        /* Sub-menu */
+        .drawer-submenu {
+            background: rgba(0,0,0,0.25);
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .drawer-submenu.open { max-height: 400px; }
+        .drawer-subitem {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.55rem 1.1rem 0.55rem 2.9rem;
+            color: rgba(255,255,255,0.7); text-decoration: none;
+            font-size: 0.82rem; transition: background 0.15s;
+        }
+        .drawer-subitem:hover { background: rgba(255,255,255,0.06); color: white; }
+        .drawer-subitem-emoji { font-size: 0.9rem; }
+
+        /* Arrow rotation */
+        .drawer-item .drawer-arrow { transition: transform 0.25s; }
+        .drawer-item.expanded .drawer-arrow { transform: rotate(90deg); }
+
+        /* Drawer footer */
+        .drawer-footer {
+            padding: 0.75rem 1.1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .drawer-footer-link {
+            display: flex; align-items: center; gap: 0.6rem;
+            color: rgba(255,255,255,0.6); text-decoration: none;
+            font-size: 0.8rem; padding: 0.4rem 0;
+            transition: color 0.15s;
+        }
+        .drawer-footer-link:hover { color: white; }
+        .drawer-footer-link i { width: 16px; text-align: center; font-size: 0.78rem; }
+
 
         .nav-brand {
-            font-size: 1.5rem; font-weight: 700;
+            font-size: 1.6rem; font-weight: 700;
             color: var(--text-white); text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.45rem;
@@ -571,6 +704,45 @@
         .empty-state i { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; }
         .empty-state h3 { font-size: 1.2rem; color: var(--text-light); margin-bottom: 0.5rem; }
 
+
+        /* ── SORT & FILTER BAR ── */
+        .sort-filter-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 0.75rem; flex-wrap: wrap;
+            padding: 0.6rem 0.85rem;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        .sort-filter-left {
+            display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        }
+        .sort-filter-label {
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--text-dim); white-space: nowrap;
+        }
+        .sort-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            color: var(--text-light);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.75rem; font-weight: 500;
+            padding: 0.3rem 0.75rem;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .sort-btn:hover { border-color: rgba(245,168,0,0.4); color: var(--yellow); }
+        .sort-btn.active {
+            background: rgba(245,168,0,0.12);
+            border-color: var(--yellow);
+            color: var(--yellow); font-weight: 600;
+        }
+        .sort-result-count {
+            font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; margin-left: auto;
+        }
+        .sort-result-count span { color: var(--yellow); font-weight: 600; }
+
         /* ── PRODUCT CARD WRAPPER (for budget filter) ── */
         .product-card-wrapper { transition: opacity 0.4s, transform 0.4s, filter 0.4s; }
         .product-card-wrapper.product-over-budget {
@@ -1037,6 +1209,10 @@
 
 <!-- ── NAV ── -->
 <nav id="nav">
+    <!-- Hamburger button -->
+    <button class="hamburger-btn" onclick="openDrawer()" title="Menu" aria-label="Open menu">
+        <span></span><span></span><span></span>
+    </button>
     <a href="/customer/home" class="nav-brand">
         <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
         Ek<span>art</span>
@@ -1108,6 +1284,105 @@
             </div>
         </div>
     </div>
+
+<!-- ── SIDE DRAWER ── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<div class="side-drawer" id="sideDrawer">
+
+    <!-- Header -->
+    <div class="drawer-header">
+        <div class="drawer-header-name">
+            <i class="fas fa-user"></i>
+            <span>Hello, <span th:text="${session.customer != null ? session.customer.name : 'Guest'}">Customer</span></span>
+        </div>
+        <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="drawer-body">
+
+        <!-- Trending -->
+        <div class="drawer-section-title">Trending</div>
+        <a href="/customer/home?sort=popular" class="drawer-item">
+            <div class="drawer-item-left"><i class="fas fa-fire"></i> Bestsellers</div>
+        </a>
+        <a href="/customer/home?sort=newest" class="drawer-item">
+            <div class="drawer-item-left"><i class="fas fa-star"></i> New Arrivals</div>
+        </a>
+        <a href="/account/spending" class="drawer-item">
+            <div class="drawer-item-left"><i class="fas fa-chart-line"></i> My Spending</div>
+        </a>
+
+        <!-- Shop by Category — dynamic from Thymeleaf -->
+        <div class="drawer-section-title">Shop by Category</div>
+
+        <div th:each="pc : ${parentCategories}">
+            <button class="drawer-item"
+                    th:attr="onclick='toggleDrawerSub(this, &quot;sub-' + ${pc.id} + '&quot;)'"
+                    th:id="'drawer-btn-' + ${pc.id}">
+                <div class="drawer-item-left">
+                    <i class="fas fa-tag"></i>
+                    <span th:text="${pc.emoji + ' ' + pc.name}">Category</span>
+                </div>
+                <i class="fas fa-chevron-right drawer-arrow"></i>
+            </button>
+            <div class="drawer-submenu" th:id="'sub-' + ${pc.id}">
+                <a th:each="sub : ${pc.subCategories}"
+                   th:href="'/customer/home?category=' + ${sub.name}"
+                   class="drawer-subitem"
+                   onclick="closeDrawer()">
+                    <span class="drawer-subitem-emoji" th:text="${pc.emoji}">📦</span>
+                    <span th:text="${sub.name}">Sub</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- My Account -->
+        <div class="drawer-section-title">My Account</div>
+        <a href="/view-orders" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-box-open"></i> My Orders</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+        <a href="/track-orders" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-truck"></i> Track Orders</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+        <a href="/account/wishlist" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-heart"></i> Wishlist</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+        <a href="/view-cart" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-shopping-cart"></i> Cart</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+        <a href="/account/spending" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-chart-pie"></i> Spending Analytics</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+        <a href="/customer/security-settings" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-shield-alt"></i> Security Settings</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+
+        <!-- Help -->
+        <div class="drawer-section-title">Help & Settings</div>
+        <a href="/policies" class="drawer-item" onclick="closeDrawer()">
+            <div class="drawer-item-left"><i class="fas fa-file-alt"></i> Policies & Terms</div>
+            <i class="fas fa-chevron-right drawer-item-arrow"></i>
+        </a>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="drawer-footer">
+        <a href="/logout" class="drawer-footer-link">
+            <i class="fas fa-sign-out-alt"></i> Sign Out
+        </a>
+    </div>
+
+</div>
+
 </nav>
 
 <!-- ── DELETE ACCOUNT MODAL ── -->
@@ -1251,11 +1526,29 @@
         </button>
     </div>
 
+
+    <!-- ── SORT & FILTER BAR ── -->
+    <div class="sort-filter-bar" id="sortFilterBar">
+        <div class="sort-filter-left">
+            <span class="sort-filter-label"><i class="fas fa-sort-amount-down" style="color:var(--yellow);margin-right:4px;"></i>Sort:</span>
+            <button class="sort-btn active" onclick="sortProducts('default', this)">Default</button>
+            <button class="sort-btn" onclick="sortProducts('price-asc', this)">Price ↑</button>
+            <button class="sort-btn" onclick="sortProducts('price-desc', this)">Price ↓</button>
+            <button class="sort-btn" onclick="sortProducts('rating', this)">⭐ Rating</button>
+            <button class="sort-btn" onclick="sortProducts('newest', this)">Newest</button>
+            <button class="sort-btn" onclick="sortProducts('name', this)">A–Z</button>
+        </div>
+        <div class="sort-result-count" id="sortResultCount">
+            Showing <span id="sortCount">0</span> products
+        </div>
+    </div>
+
     <!-- Product Grid -->
     <div class="product-grid" id="productRow">
 
         <!-- Products populated by server -->
-        <div th:each="p : ${products}" class="product-card-wrapper" th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category},data-pins=${p.allowedPinCodes != null ? p.allowedPinCodes : ''}">
+        <div th:each="p, pStat : ${products}" class="product-card-wrapper"
+             th:attr="data-price=${p.price},data-name=${p.name},data-category=${p.category},data-pins=${p.allowedPinCodes != null ? p.allowedPinCodes : ''},data-reviews=${p.reviews != null ? p.reviews.size() : 0},data-index=${pStat.index}">
             <div class="product-card" style="cursor:pointer;" th:onclick="'window.location.href=\'/product/\' + ' + ${p.id}">
 
                 <!-- Pin-unavailable overlay — shown by JS when pin set and product not deliverable -->
@@ -2109,12 +2402,10 @@
 <script th:src="@{/js/recently-viewed.js}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Render the recently viewed bar on customer home
+        if (typeof RecentlyViewed === 'undefined') return;
         RecentlyViewed.render('#recentlyViewedContainer', {
             showHeading: true
         });
-        
-        // Load from server if logged in (merge with local)
         RecentlyViewed.loadFromServer();
     });
 </script>
@@ -2123,6 +2414,90 @@
 <div th:replace="~{chat-widget :: chatWidget}"></div>
 
 <script>
+
+    // ── SIDE DRAWER ─────────────────────────────────────────
+    function openDrawer() {
+        document.getElementById('sideDrawer').classList.add('open');
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDrawer() {
+        document.getElementById('sideDrawer').classList.remove('open');
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function toggleDrawerSub(btn, subId) {
+        const sub = document.getElementById(subId);
+        const isOpen = sub.classList.contains('open');
+        // Close all open submenus
+        document.querySelectorAll('.drawer-submenu.open').forEach(el => el.classList.remove('open'));
+        document.querySelectorAll('.drawer-item.expanded').forEach(el => el.classList.remove('expanded'));
+        if (!isOpen) {
+            sub.classList.add('open');
+            btn.classList.add('expanded');
+        }
+    }
+    // Close drawer on Escape key
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+
+    // ── SORT & FILTER ────────────────────────────────────────────────
+    var currentSort = 'default';
+    var originalOrder = [];
+
+    function initSort() {
+        var grid = document.getElementById('productRow');
+        if (!grid) return;
+        originalOrder = Array.from(grid.querySelectorAll('.product-card-wrapper'));
+        updateSortCount();
+    }
+
+    function sortProducts(type, btn) {
+        currentSort = type;
+        // Update active button
+        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        var grid = document.getElementById('productRow');
+        if (!grid) return;
+        var cards = Array.from(grid.querySelectorAll('.product-card-wrapper'));
+
+        cards.sort(function(a, b) {
+            if (type === 'price-asc') {
+                return parseFloat(a.dataset.price || 0) - parseFloat(b.dataset.price || 0);
+            } else if (type === 'price-desc') {
+                return parseFloat(b.dataset.price || 0) - parseFloat(a.dataset.price || 0);
+            } else if (type === 'rating') {
+                return parseInt(b.dataset.reviews || 0) - parseInt(a.dataset.reviews || 0);
+            } else if (type === 'name') {
+                return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+            } else if (type === 'newest') {
+                // Newest = reverse of original server order (last added = highest index)
+                return parseInt(b.dataset.index || 0) - parseInt(a.dataset.index || 0);
+            } else {
+                // default = original server order
+                return parseInt(a.dataset.index || 0) - parseInt(b.dataset.index || 0);
+            }
+        });
+
+        // Re-append in sorted order
+        cards.forEach(function(card) { grid.appendChild(card); });
+        updateSortCount();
+    }
+
+    function updateSortCount() {
+        var grid = document.getElementById('productRow');
+        if (!grid) return;
+        var visible = grid.querySelectorAll('.product-card-wrapper:not([style*="display: none"]):not([style*="display:none"])').length;
+        var countEl = document.getElementById('sortCount');
+        if (countEl) countEl.textContent = visible;
+    }
+
+    // Init on load
+    document.addEventListener('DOMContentLoaded', function() {
+        initSort();
+    });
+
     // ── Profile dropdown ──
     function toggleProfileMenu(e) {
         e.stopPropagation();

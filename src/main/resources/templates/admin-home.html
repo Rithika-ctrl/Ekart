@@ -491,6 +491,16 @@
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>
 
+        <!-- ADMIN-ONLY: Coupon Management -->
+        <a href="/admin/coupons" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-tag"></i></div>
+            <div class="dash-card-body">
+                <h3>Coupon Management</h3>
+                <p>Create, manage and track promo codes and discount coupons for customers.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
     </div>
 
 </main>

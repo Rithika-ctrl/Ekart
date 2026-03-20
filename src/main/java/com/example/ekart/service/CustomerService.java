@@ -714,6 +714,7 @@ public String payment(HttpSession session, ModelMap map) {
     map.put("deliveryCharge", deliveryCharge);
     map.put("amount", finalAmount); 
     map.put("customer", customer);
+    map.put("cartItems", items);  // ✅ pass cart items to show on payment page
     map.put("recommendedProducts", recommendations);
     map.put("cartItemCategory", categoryLabel);
     
