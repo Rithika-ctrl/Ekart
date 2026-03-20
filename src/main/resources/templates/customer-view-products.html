@@ -416,6 +416,14 @@
         .review-comment { font-size: 0.72rem; color: var(--text-dim); line-height: 1.45; }
 
         /* ── REVIEW FORM ── */
+        /* ★ Avg rating badge on product cards */
+        .avg-rating-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: rgba(245,168,0,0.15); border: 1px solid rgba(245,168,0,0.35);
+            color: var(--yellow); font-size: 0.72rem; font-weight: 700;
+            padding: 1px 6px; border-radius: 20px; line-height: 1.4;
+        }
+        .star-row { display: inline-flex; align-items: center; gap: 1px; }
         .review-form { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
         .review-form select,
         .review-form input {
@@ -711,6 +719,29 @@
 
                     <!-- Reviews -->
                     <div>
+                        <!-- ★ Avg Rating Badge -->
+                        <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.5rem;">
+                            <th:block th:if="${p.reviewCount > 0}">
+                                <span class="avg-rating-badge">
+                                    <i class="fas fa-star" style="font-size:0.68rem;"></i>
+                                    <span th:text="${#numbers.formatDecimal(p.averageRating, 1, 1)}"></span>
+                                </span>
+                                <span class="star-row">
+                                    <th:block th:each="i : ${#numbers.sequence(1, 5)}">
+                                        <i th:if="${i <= p.averageRating}" class="fas fa-star" style="color:var(--yellow);font-size:0.65rem;"></i>
+                                        <i th:if="${i > p.averageRating and (i - 0.5) <= p.averageRating}" class="fas fa-star-half-alt" style="color:var(--yellow);font-size:0.65rem;"></i>
+                                        <i th:if="${(i - 0.5) > p.averageRating}" class="far fa-star" style="color:rgba(255,255,255,0.22);font-size:0.65rem;"></i>
+                                    </th:block>
+                                </span>
+                                <span style="font-size:0.72rem;color:var(--text-dim);">(<span th:text="${p.reviewCount}"></span><span th:text="${p.reviewCount == 1 ? ' review' : ' reviews'}"></span>)</span>
+                            </th:block>
+                            <th:block th:if="${p.reviewCount == 0}">
+                                <span class="star-row">
+                                    <i th:each="i : ${#numbers.sequence(1,5)}" class="far fa-star" style="color:rgba(255,255,255,0.2);font-size:0.65rem;"></i>
+                                </span>
+                                <span style="font-size:0.72rem;color:var(--text-dim);">No reviews yet</span>
+                            </th:block>
+                        </div>
                         <div class="reviews-header">
                             <i class="fas fa-star"></i> Customer Reviews
                         </div>

@@ -166,9 +166,6 @@ public class EkartController {
     CustomerRepository customerRepository;
 
     @Autowired
-    com.example.ekart.helper.EmailSender emailSender;
-
-    @Autowired
     com.example.ekart.service.StockAlertService stockAlertService;
 
     @Autowired
@@ -501,11 +498,28 @@ public class EkartController {
     }
 
     @GetMapping("/order-success")
-    public String orderSuccessPage(HttpSession session) {
+    public String orderSuccessPage(HttpSession session, ModelMap map) {
         if (session.getAttribute("customer") == null) {
             session.setAttribute("failure", "Login First");
             return "redirect:/customer/login";
         }
+        // Pass last order details to the template
+        Object orderId = session.getAttribute("lastOrderId");
+        Object amount = session.getAttribute("lastOrderAmount");
+        Object deliveryTime = session.getAttribute("lastOrderDeliveryTime");
+        Object paymentMode = session.getAttribute("lastOrderPaymentMode");
+
+        map.put("orderId", orderId != null ? orderId : "—");
+        map.put("orderAmount", amount != null ? String.format("%.2f", (double) amount) : "—");
+        map.put("deliveryTime", deliveryTime != null ? deliveryTime : "Standard (3–5 days)");
+        map.put("paymentMode", paymentMode != null ? paymentMode : "Cash on Delivery");
+
+        // Clear after use so refreshing doesn't re-show
+        session.removeAttribute("lastOrderId");
+        session.removeAttribute("lastOrderAmount");
+        session.removeAttribute("lastOrderDeliveryTime");
+        session.removeAttribute("lastOrderPaymentMode");
+
         return "order-success.html";
     }
 
@@ -546,20 +560,8 @@ public class EkartController {
             return "redirect:/payment";
         }
 
-        String result = customerService.paymentSuccess(order, deliveryPinCode, session);
-
-        // ✅ FIX 2: Check result contains "order-success" (not "home") since we now redirect there.
-        if (customer != null && result.contains("customer/home")) {
-            try {
-                Order savedOrder = orderRepository.findById(order.getId()).orElse(null);
-                List<Item> orderItems = savedOrder != null ? savedOrder.getItems() : List.of();
-                emailSender.sendOrderConfirmation(customer, finalAmount, order.getId(),
-                        paymentMode, order.getDeliveryTime(), orderItems);
-            } catch (Exception e) {
-                System.err.println("Order confirmation email failed: " + e.getMessage());
-            }
-        }
-        return result;
+        // Email is sent inside CustomerService.paymentSuccess() — no duplicate needed here
+        return customerService.paymentSuccess(order, deliveryPinCode, session);
     }
 
     // ── PIN CODE DELIVERABILITY CHECK ─────────────────────────────────────

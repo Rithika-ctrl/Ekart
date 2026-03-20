@@ -228,29 +228,19 @@ public class EmailSender {
 
             helper.setFrom(fromEmail, "Ekart");
             helper.setTo(customer.getEmail());
-            helper.setSubject("Password Reset Request - Ekart");
+            helper.setSubject("Password Reset - Ekart");
 
-            String resetUrl = "http://localhost:8080/customer/reset-password/" + customer.getId() + "/" + customer.getOtp();
-            
-            String htmlContent = String.format(
-                "<html><body style='font-family: Arial, sans-serif;'>" +
-                "<div style='max-width: 600px; margin: 0 auto; padding: 20px;'>" +
-                "<h2 style='color: #f5a800;'>Password Reset Request</h2>" +
-                "<p>Hello %s,</p>" +
-                "<p>A password reset has been requested for your account by the administrator.</p>" +
-                "<p>Your OTP code is: <strong style='font-size: 24px; color: #f5a800;'>%d</strong></p>" +
-                "<p>Or click the link below to reset your password:</p>" +
-                "<p><a href='%s' style='background: #f5a800; color: #000; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;'>Reset Password</a></p>" +
-                "<p style='color: #666; font-size: 12px;'>If you did not request this reset, please contact support.</p>" +
-                "</div></body></html>",
-                customer.getName(), customer.getOtp(), resetUrl
-            );
+            // Use the same OTP email template — customer enters this OTP on the reset-password page
+            Context context = new Context();
+            context.setVariable("name", customer.getName());
+            context.setVariable("otp", customer.getOtp());
 
-            helper.setText(htmlContent, true);
+            String html = templateEngine.process("otp-email.html", context);
+            helper.setText(html, true);
             mailSender.send(message);
-            System.out.println("✅ Password reset email sent to " + customer.getEmail());
+            System.out.println("\u2705 Password reset email sent to " + customer.getEmail());
         } catch (Exception e) {
-            System.err.println("❌ Password reset email failed: " + e.getMessage());
+            System.err.println("\u274C Password reset email failed: " + e.getMessage());
             throw new RuntimeException("Email sending failed: " + e.getMessage());
         }
     }

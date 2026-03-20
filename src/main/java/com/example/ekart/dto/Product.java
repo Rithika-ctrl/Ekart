@@ -137,4 +137,18 @@ public class Product {
 	public boolean isDiscounted() {
 		return mrp > 0 && mrp > price;
 	}
+
+	/** Returns average rating (1–5) across all reviews. Returns 0.0 if no reviews. */
+	public double getAverageRating() {
+		if (reviews == null || reviews.isEmpty()) return 0.0;
+		double sum = reviews.stream().mapToInt(Review::getRating).sum();
+		double avg = sum / reviews.size();
+		// Round to nearest 0.5
+		return Math.round(avg * 2) / 2.0;
+	}
+
+	/** Returns review count. Safe null check. */
+	public int getReviewCount() {
+		return (reviews == null) ? 0 : reviews.size();
+	}
 }
