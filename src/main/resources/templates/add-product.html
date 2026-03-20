@@ -183,6 +183,32 @@
         .form-control[type=number]::-webkit-outer-spin-button,
         .form-control[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
         .form-control[type=number] { -moz-appearance: textfield; }
+        /* ── SELECT DROPDOWN STYLING ── */
+        select.form-control {
+            appearance: none;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f5a800' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 1rem center;
+            cursor: pointer;
+            color: white;
+        }
+        select.form-control:focus {
+            background-color: rgba(255,255,255,0.10);
+        }
+        select.form-control option {
+            background: #1a1a2e;
+            color: white;
+            padding: 8px 12px;
+            font-size: 0.875rem;
+        }
+        select.form-control option:checked,
+        select.form-control option:hover {
+            background: #f5a800;
+            color: #1a1a2e;
+        }
+        select.form-control option[disabled] {
+            color: rgba(255,255,255,0.35);
+        }
+
 
         .form-hint {
             display: flex; align-items: center; gap: 0.35rem;
@@ -347,7 +373,7 @@
                     <div class="input-wrapper">
                         <i class="fas fa-th-large input-icon"></i>
                         <select id="category" name="category" class="form-control" required
-                                style="background:transparent;color:inherit;border:none;outline:none;width:100%;cursor:pointer;">
+                                >
                             <option value="" disabled selected>— Select a sub-category —</option>
                             <th:block th:each="sub : ${allSubCategories}">
                                 <option th:value="${sub.name}"
