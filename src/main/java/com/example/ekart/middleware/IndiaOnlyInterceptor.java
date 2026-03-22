@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   1. Extract the real client IP (handles X-Forwarded-For from Railway/nginx).
  *   2. If the IP is a loopback / private range → allow (dev/localhost).
  *   3. Cache the result per IP so we never call the API twice for the same visitor.
- *   4. If the API says country != "IN" → redirect to /blocked.
+ *   4. If the API says country != "IN" → redirect to /blocked (or JSON for AJAX).
  *   5. If the API call fails (timeout, rate-limit) → ALLOW (fail-open, don't
  *      punish real Indian users because of a lookup error).
  *
@@ -160,12 +160,29 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * For API endpoints return JSON 403; for web pages redirect to /blocked.
+     * For AJAX / fetch / non-GET requests → return JSON 403 so the caller
+     * can parse the response cleanly instead of getting an HTML redirect.
+     * For normal browser page loads → redirect to /blocked.
+     *
+     * Detection order:
+     *   1. X-Requested-With: XMLHttpRequest  (jQuery / legacy AJAX)
+     *   2. Accept header contains application/json  (fetch with default headers)
+     *   3. Any non-GET method (POST/PUT/DELETE are never page navigations)
+     *   4. Path starts with /api/
      */
     private void sendBlocked(HttpServletResponse response, HttpServletRequest request)
             throws IOException {
-        String path = request.getRequestURI();
-        if (path.startsWith("/api/")) {
+        String path   = request.getRequestURI();
+        String xrw    = request.getHeader("X-Requested-With");
+        String accept = request.getHeader("Accept");
+        String method = request.getMethod();
+
+        boolean isAjaxOrFetch = "XMLHttpRequest".equals(xrw)
+                || (accept != null && accept.contains("application/json"))
+                || !"GET".equalsIgnoreCase(method)
+                || path.startsWith("/api/");
+
+        if (isAjaxOrFetch) {
             response.setStatus(403);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write(

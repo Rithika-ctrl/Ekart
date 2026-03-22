@@ -1,23 +1,31 @@
 package com.example.ekart.config;
 
+// ================================================================
+// LOCATION: src/main/java/com/example/ekart/config/WebMvcConfig.java
+// REPLACE your existing file with this complete version.
+// Change from original: registered DeliveryBoyAuthGuard for /delivery/** routes
+// ================================================================
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.example.ekart.middleware.AuthGuard;
+import com.example.ekart.middleware.DeliveryBoyAuthGuard;
 import com.example.ekart.middleware.IndiaOnlyInterceptor;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Autowired private AuthGuard authGuard;
-    @Autowired private IndiaOnlyInterceptor indiaOnlyInterceptor;
+    @Autowired private AuthGuard             authGuard;
+    @Autowired private IndiaOnlyInterceptor  indiaOnlyInterceptor;
+    @Autowired private DeliveryBoyAuthGuard  deliveryBoyAuthGuard;  // NEW
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
 
-        // Geo-block: runs first on every request
+        // Order 1 — Geo-block: runs first on every request
         registry.addInterceptor(indiaOnlyInterceptor)
             .addPathPatterns("/**")
             .excludePathPatterns(
@@ -27,7 +35,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             )
             .order(1);
 
-        // RBAC guard: protects admin routes
+        // Order 2 — RBAC guard: protects admin routes
         registry.addInterceptor(authGuard)
             .addPathPatterns(
                 "/admin/**",
@@ -43,5 +51,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 "/css/**", "/js/**", "/images/**", "/static/**"
             )
             .order(2);
+
+        // Order 3 — Delivery boy auth guard: protects /delivery/** routes  NEW
+        registry.addInterceptor(deliveryBoyAuthGuard)
+            .addPathPatterns("/delivery/**")
+            .excludePathPatterns(
+                "/delivery/login",
+                "/delivery/register",
+                "/delivery/pending",
+                "/delivery/warehouses",
+                "/delivery/otp/**",
+                "/css/**", "/js/**", "/images/**", "/static/**"
+            )
+            .order(3);
     }
 }

@@ -353,11 +353,12 @@
         <div class="nav-links">
             <a href="/admin/home" class="nav-link active"><i class="fas fa-home"></i> Dashboard</a>
             <a href="/approve-products" class="nav-link"><i class="fas fa-tasks"></i> Approvals</a>
-            <a href="/admin/search-users" class="nav-link"><i class="fas fa-search"></i> Search Users</a>
             <a href="/admin/reviews" class="nav-link"><i class="fas fa-star"></i> Reviews</a>
             <a href="/admin/refunds" class="nav-link"><i class="fas fa-undo-alt"></i> Refunds</a>
             <a href="/admin/accounts" class="nav-link"><i class="fas fa-users-cog"></i> Users</a>
             <a href="/analytics" class="nav-link"><i class="fas fa-chart-line"></i> Analytics</a>
+            <a href="/admin/delivery" class="nav-link"><i class="fas fa-truck"></i> Delivery</a>
+            <a href="/admin/warehouses" class="nav-link"><i class="fas fa-warehouse"></i> Warehouses</a>
             <a href="/admin/policies" class="nav-link"><i class="fas fa-book"></i> Policies & SOPs</a>
         </div>
         <div class="nav-divider"></div>
@@ -481,22 +482,32 @@
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>
 
-        <!-- ADMIN-ONLY: Search Users -->
-        <a href="/admin/search-users" class="dash-card" th:if="${session.admin != null}">
-            <div class="dash-card-icon"><i class="fas fa-search"></i></div>
-            <div class="dash-card-body">
-                <h3>Search Users</h3>
-                <p>Search and manage customer and vendor accounts by name or email.</p>
-            </div>
-            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
-        </a>
-
         <!-- ADMIN-ONLY: Coupon Management -->
         <a href="/admin/coupons" class="dash-card" th:if="${session.admin != null}">
             <div class="dash-card-icon"><i class="fas fa-tag"></i></div>
             <div class="dash-card-body">
                 <h3>Coupon Management</h3>
                 <p>Create, manage and track promo codes and discount coupons for customers.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <!-- ADMIN-ONLY: Delivery Management -->
+        <a href="/admin/delivery" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-truck"></i></div>
+            <div class="dash-card-body">
+                <h3>Delivery Management</h3>
+                <p>Approve delivery partners, assign orders, and manage the delivery pipeline.</p>
+            </div>
+            <i class="fas fa-arrow-up-right dash-card-arrow"></i>
+        </a>
+
+        <!-- ADMIN-ONLY: Warehouse Management -->
+        <a href="/admin/warehouses" class="dash-card" th:if="${session.admin != null}">
+            <div class="dash-card-icon"><i class="fas fa-warehouse"></i></div>
+            <div class="dash-card-body">
+                <h3>Warehouse Management</h3>
+                <p>Add and manage warehouses and their served pin codes for delivery operations.</p>
             </div>
             <i class="fas fa-arrow-up-right dash-card-arrow"></i>
         </a>

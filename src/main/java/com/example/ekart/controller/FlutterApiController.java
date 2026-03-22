@@ -370,7 +370,8 @@ public class FlutterApiController {
     // ORDERS — CUSTOMER
     // ═══════════════════════════════════════════════════════
 
-    /** POST /api/flutter/orders/place */
+
+    /** POST /api/flutter/orders/place — splits cart by vendor into sub-orders */
     @PostMapping("/orders/place")
     public ResponseEntity<Map<String, Object>> placeOrder(
             @RequestHeader("X-Customer-Id") int customerId,
@@ -378,39 +379,130 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-            Cart cart = customer.getCart();
-            if (cart == null || cart.getItems().isEmpty()) { res.put("success", false); res.put("message", "Cart is empty"); return ResponseEntity.badRequest().body(res); }
-            List<Item> orderItems = new ArrayList<>();
-            double total = 0;
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product == null || product.getStock() < cartItem.getQuantity()) { res.put("success", false); res.put("message", "Insufficient stock for: " + cartItem.getName()); return ResponseEntity.badRequest().body(res); }
-                product.setStock(product.getStock() - cartItem.getQuantity());
-                productRepository.save(product);
-                Item oi = new Item();
-                oi.setName(cartItem.getName()); oi.setDescription(cartItem.getDescription());
-                oi.setPrice(cartItem.getPrice()); oi.setCategory(cartItem.getCategory());
-                oi.setQuantity(cartItem.getQuantity()); oi.setImageLink(cartItem.getImageLink());
-                oi.setProductId(cartItem.getProductId());
-                orderItems.add(oi);
-                total += cartItem.getPrice() * cartItem.getQuantity();
+            if (customer == null) {
+                res.put("success", false); res.put("message", "Customer not found");
+                return ResponseEntity.badRequest().body(res);
             }
+            Cart cart = customer.getCart();
+            if (cart == null || cart.getItems().isEmpty()) {
+                res.put("success", false); res.put("message", "Cart is empty");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            String paymentMode    = (String) body.getOrDefault("paymentMode", "COD");
             String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
-            Order order = new Order();
-            order.setCustomer(customer); order.setItems(orderItems); order.setAmount(total);
-            order.setDeliveryCharge(deliveryCharge); order.setTotalPrice(total + deliveryCharge);
-            order.setPaymentMode((String) body.getOrDefault("paymentMode", "COD"));
-            order.setDeliveryTime(deliveryTime); order.setDateTime(LocalDateTime.now());
-            order.setTrackingStatus(TrackingStatus.PROCESSING);
-            order.setCurrentCity((String) body.getOrDefault("city", ""));
-            orderRepository.save(order);
-            cart.getItems().clear(); customerRepository.save(customer);
-            res.put("success", true); res.put("message", "Order placed successfully");
-            res.put("orderId", order.getId()); res.put("totalPrice", order.getTotalPrice());
+
+            // ── Validate stock for all items first ──────────────
+            for (Item cartItem : cart.getItems()) {
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product == null || product.getStock() < cartItem.getQuantity()) {
+                    res.put("success", false);
+                    res.put("message", "Insufficient stock for: " + cartItem.getName());
+                    return ResponseEntity.badRequest().body(res);
+                }
+            }
+
+            // ── Group cart items by vendor ───────────────────────
+            Map<Integer, List<Item>>   vendorItems = new LinkedHashMap<>();
+            Map<Integer, Vendor>       vendorMap   = new LinkedHashMap<>();
+
+            double grandTotal = 0;
+            for (Item cartItem : cart.getItems()) {
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                int vKey = (product != null && product.getVendor() != null)
+                           ? product.getVendor().getId() : 0;
+                if (product != null && product.getVendor() != null)
+                    vendorMap.put(vKey, product.getVendor());
+                vendorItems.computeIfAbsent(vKey, k -> new ArrayList<>()).add(cartItem);
+                grandTotal += cartItem.getPrice() * cartItem.getQuantity();
+            }
+
+            // ── Deduct stock ────────────────────────────────────
+            for (Item cartItem : cart.getItems()) {
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product != null) {
+                    product.setStock(product.getStock() - cartItem.getQuantity());
+                    productRepository.save(product);
+                }
+            }
+
+            boolean multiVendor = vendorItems.size() > 1;
+            Integer parentId    = null;
+            Order   firstOrder  = null;
+            List<Integer> subOrderIds = new ArrayList<>();
+
+            for (Map.Entry<Integer, List<Item>> entry : vendorItems.entrySet()) {
+                int vKey              = entry.getKey();
+                List<Item> group      = entry.getValue();
+                Vendor vendor         = vendorMap.get(vKey);
+
+                double subTotal = 0;
+                for (Item ci : group) subTotal += ci.getPrice() * ci.getQuantity();
+                double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
+
+                List<Item> orderItems = new ArrayList<>();
+                for (Item cartItem : group) {
+                    Item oi = new Item();
+                    oi.setName(cartItem.getName());
+                    oi.setDescription(cartItem.getDescription());
+                    oi.setPrice(cartItem.getPrice());
+                    oi.setCategory(cartItem.getCategory());
+                    oi.setQuantity(cartItem.getQuantity());
+                    oi.setImageLink(cartItem.getImageLink());
+                    oi.setProductId(cartItem.getProductId());
+                    orderItems.add(oi);
+                }
+
+                Order subOrder = new Order();
+                subOrder.setCustomer(customer);
+                subOrder.setItems(orderItems);
+                subOrder.setAmount(subTotal + subDelivery);
+                subOrder.setDeliveryCharge(subDelivery);
+                subOrder.setTotalPrice(subTotal + subDelivery);
+                subOrder.setPaymentMode(paymentMode);
+                subOrder.setDeliveryTime(deliveryTime);
+                subOrder.setDateTime(LocalDateTime.now());
+                subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+                subOrder.setCurrentCity((String) body.getOrDefault("city", ""));
+                if (vendor != null) {
+                    subOrder.setVendorId(vendor.getId());
+                    subOrder.setVendorName(vendor.getName());
+                }
+
+                orderRepository.save(subOrder);
+
+                if (firstOrder == null) {
+                    firstOrder = subOrder;
+                    if (multiVendor) {
+                        parentId = subOrder.getId();
+                        subOrder.setParentOrderId(parentId);
+                        orderRepository.save(subOrder);
+                    }
+                } else {
+                    subOrder.setParentOrderId(parentId);
+                    orderRepository.save(subOrder);
+                }
+
+                subOrderIds.add(subOrder.getId());
+            }
+
+            // Clear cart
+            cart.getItems().clear();
+            customerRepository.save(customer);
+
+            res.put("success",     true);
+            res.put("message",     "Order placed successfully");
+            res.put("orderId",     firstOrder.getId());
+            res.put("subOrderIds", subOrderIds);
+            res.put("totalPrice",  grandTotal + deliveryCharge);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
     }
 
     /** GET /api/flutter/orders */
