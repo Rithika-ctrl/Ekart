@@ -50,16 +50,33 @@ public class BackInStockService {
         // Fetch fresh customer from DB
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
 
-        // Check if already subscribed
-        if (backInStockRepository.existsByCustomerAndProductAndNotifiedFalse(customer, product)) {
+        // Check if any existing subscription row exists (notified or not)
+        Optional<BackInStockSubscription> existingSub =
+                backInStockRepository.findByCustomerAndProduct(customer, product);
+
+        if (existingSub.isPresent()) {
+            BackInStockSubscription sub = existingSub.get();
+            if (!sub.isNotified()) {
+                // Already has an active (unnotified) subscription
+                return Map.of(
+                    "success",    true,
+                    "subscribed", true,
+                    "message",    "You are already subscribed. We'll email you when it's back!"
+                );
+            }
+            // Previously notified — reuse the existing row by resetting it
+            sub.setNotified(false);
+            sub.setNotifiedAt(null);
+            sub.setSubscribedAt(java.time.LocalDateTime.now());
+            backInStockRepository.save(sub);
             return Map.of(
                 "success",    true,
                 "subscribed", true,
-                "message",    "You are already subscribed. We'll email you when it's back!"
+                "message",    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
             );
         }
 
-        // Save subscription
+        // No existing row — fresh subscription
         BackInStockSubscription sub = new BackInStockSubscription(customer, product);
         backInStockRepository.save(sub);
 
