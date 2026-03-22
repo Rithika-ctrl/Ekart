@@ -1,5 +1,12 @@
 package com.example.ekart.config;
 
+// ================================================================
+// LOCATION: src/main/java/com/example/ekart/config/SecurityConfig.java
+// REPLACE your existing file with this complete version.
+// Change from original: added /delivery/login and /delivery/otp/**
+//   to the permitAll list so delivery boys can reach login without auth.
+// ================================================================
+
 import com.example.ekart.service.CustomOAuth2UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +33,7 @@ public class SecurityConfig {
     private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     /**
-     * ✅ CHAIN 1 — Handles ALL /api/flutter/** requests.
+     * CHAIN 1 — Handles ALL /api/flutter/** requests.
      * Completely stateless: no session, no OAuth2, no redirects.
      * Runs FIRST (Order=1) so OAuth2 chain never sees these requests.
      */
@@ -34,19 +41,18 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain flutterApiFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/flutter/**")          // Only match Flutter API paths
+            .securityMatcher("/api/flutter/**")
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()                // All /api/flutter/** = public
+                .anyRequest().permitAll()
             );
-        // No formLogin, no OAuth2 — pure REST
         return http.build();
     }
 
     /**
-     * ✅ CHAIN 2 — Handles all other web routes (website, admin, OAuth2 login etc.)
+     * CHAIN 2 — Handles all other web routes (website, admin, OAuth2 login etc.)
      * Runs SECOND (Order=2).
      */
     @Bean
@@ -62,6 +68,10 @@ public class SecurityConfig {
                     "/customer/otp/**", "/customer/forgot-password", "/customer/reset-password/**",
                     "/vendor/login", "/vendor/register", "/vendor/otp/**", "/vendor/forgot-password",
                     "/vendor/reset-password/**", "/admin/login", "/admin-login.html",
+                    // ── delivery boy public routes ────────────────────────
+                    "/delivery/login", "/delivery/register", "/delivery/pending",
+                    "/delivery/warehouses", "/delivery/otp/**",
+                    // ────────────────────────────────────────────────────
                     "/static/**", "/css/**", "/js/**", "/images/**",
                     "/api/**"
                 ).permitAll()
@@ -85,7 +95,7 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(false); // must be false when using wildcard origin pattern
+        config.setAllowCredentials(false);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

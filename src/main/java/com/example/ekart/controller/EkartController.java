@@ -360,6 +360,20 @@ public class EkartController {
         return vendorService.syncReportingDb(session);
     }
 
+    // ── Vendor marks order as PACKED — ready for delivery team pickup
+    @PostMapping("/vendor/order/{id}/ready")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> vendorMarkOrderReady(
+            @PathVariable int id, HttpSession session) {
+        return vendorService.markOrderReady(id, session);
+    }
+
+    // ── Vendor orders page
+    @GetMapping("/vendor/orders")
+    public String vendorOrders(HttpSession session, ModelMap map) {
+        return vendorService.loadVendorOrders(session, map);
+    }
+
     // ── CUSTOMER ─────────────────────────────────────────────────────────────
 
     @GetMapping("/customer/register")
@@ -504,18 +518,22 @@ public class EkartController {
             return "redirect:/customer/login";
         }
         // Pass last order details to the template
-        Object orderId = session.getAttribute("lastOrderId");
-        Object amount = session.getAttribute("lastOrderAmount");
+        Object orderId      = session.getAttribute("lastOrderId");
+        Object amount       = session.getAttribute("lastOrderAmount");
         Object deliveryTime = session.getAttribute("lastOrderDeliveryTime");
-        Object paymentMode = session.getAttribute("lastOrderPaymentMode");
+        Object paymentMode  = session.getAttribute("lastOrderPaymentMode");
+        Object subOrderIds  = session.getAttribute("lastSubOrderIds");  // e.g. "12,13,14"
 
-        map.put("orderId", orderId != null ? orderId : "—");
-        map.put("orderAmount", amount != null ? String.format("%.2f", (double) amount) : "—");
+        map.put("orderId",      orderId != null ? orderId : "—");
+        map.put("orderAmount",  amount != null ? String.format("%.2f", (double) amount) : "—");
         map.put("deliveryTime", deliveryTime != null ? deliveryTime : "Standard (3–5 days)");
-        map.put("paymentMode", paymentMode != null ? paymentMode : "Cash on Delivery");
+        map.put("paymentMode",  paymentMode != null ? paymentMode : "Cash on Delivery");
+        // subOrderIds is a comma-separated string of all sub-order IDs
+        map.put("subOrderIds",  subOrderIds != null ? subOrderIds.toString() : "");
 
         // Clear after use so refreshing doesn't re-show
         session.removeAttribute("lastOrderId");
+        session.removeAttribute("lastSubOrderIds");
         session.removeAttribute("lastOrderAmount");
         session.removeAttribute("lastOrderDeliveryTime");
         session.removeAttribute("lastOrderPaymentMode");

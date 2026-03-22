@@ -1,5 +1,15 @@
 package com.example.ekart.service;
 
+// ================================================================
+// LOCATION: src/main/java/com/example/ekart/service/VendorService.java
+// REPLACE your existing file with this complete version.
+// Changes from original:
+//   1. Added imports for TrackingEventLog, TrackingStatus, TrackingEventLogRepository
+//   2. Added @Autowired for trackingEventLogRepository
+//   3. Added markOrderReady() method — vendor marks order as PACKED
+//   4. Added loadVendorOrders() method — vendor sees their orders
+// ================================================================
+
 import com.example.ekart.helper.PinCodeValidator;
 
 import java.io.IOException;
@@ -15,6 +25,9 @@ import org.springframework.validation.BindingResult;
 
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
+import com.example.ekart.dto.Order;
+import com.example.ekart.dto.TrackingEventLog;
+import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.CloudinaryHelper;
 import com.example.ekart.helper.EmailSender;
@@ -22,10 +35,11 @@ import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.VendorRepository;
+import com.example.ekart.repository.TrackingEventLogRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
 import com.example.ekart.reporting.ReportingService;
@@ -71,13 +85,17 @@ public class VendorService {
     @Autowired
     private ReportingService reportingService;
 
+    // ── NEW: for delivery system ──────────────────────────────────
+    @Autowired
+    private TrackingEventLogRepository trackingEventLogRepository;
+    // ─────────────────────────────────────────────────────────────
+
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
 		map.put("vendor", vendor);
 		return "vendor-register.html";
 	}
-	// 🔥 NEW: Generate unique vendor code like VND-00001
-    // Add this private method inside VendorService class
+
     private String generateVendorCode(int vendorId) {
         return String.format("VND-%05d", vendorId);
     }
@@ -94,7 +112,6 @@ public class VendorService {
 		if (result.hasErrors())
 			return "vendor-register.html";
 
-		// 🔥 GENERATE OTP
 		int otp = new Random().nextInt(100000, 1000000);
 		vendor.setOtp(otp);
 		vendor.setPassword(AES.encrypt(vendor.getPassword()));
@@ -102,7 +119,6 @@ public class VendorService {
 
 		vendorRepository.save(vendor);
 
-// 🔥 Generate unique Vendor ID after save (we need the DB id first)
         String vendorCode = generateVendorCode(vendor.getId());
         vendor.setVendorCode(vendorCode);
         vendorRepository.save(vendor);
@@ -154,7 +170,6 @@ public class VendorService {
 			return "redirect:/vendor/login";
 		}
 
-		// 🔥 IF NOT VERIFIED → SEND OTP AGAIN
 		if (!vendor.isVerified()) {
 
 			int otp = new Random().nextInt(100000, 1000000);
@@ -171,7 +186,6 @@ public class VendorService {
 			return "redirect:/vendor/otp/" + vendor.getId();
 		}
 
-		// ✅ VERIFIED → LOGIN SUCCESS
 		session.setAttribute("vendor", vendor);
 		session.setAttribute("success", "Login Successful");
 		return "redirect:/vendor/home";
@@ -242,7 +256,6 @@ public class VendorService {
 		return "redirect:/vendor/login";
 	}
 
-	// 🔥 Load vendor home with stock alert count
 	public String loadHome(HttpSession session, ModelMap map) {
 		if (session.getAttribute("vendor") == null) {
 			session.setAttribute("failure", "Login First");
@@ -256,7 +269,7 @@ public class VendorService {
 		return "vendor-home.html";
 	}
 
-	// ---------------- STORE FRONT (PROFILE) ----------------
+	// ---------------- STORE FRONT ----------------
 	public String loadStoreFront(HttpSession session, ModelMap map) {
 
 		if (session.getAttribute("vendor") == null) {
@@ -336,12 +349,10 @@ public class VendorService {
 		product.setApproved(false);
 
 		try {
-			// Upload main image
 			if (product.getImage() != null && !product.getImage().isEmpty()) {
 				product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 			}
 
-			// Upload extra images
 			if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
 				java.util.List<String> extraUrls = new java.util.ArrayList<>();
 				for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
@@ -354,7 +365,6 @@ public class VendorService {
 				}
 			}
 
-			// Upload video (optional - skip if upload fails)
 			if (product.getVideo() != null && !product.getVideo().isEmpty()) {
 				try {
 					product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
@@ -407,9 +417,6 @@ public class VendorService {
 			return "redirect:/manage-products";
 		}
 
-		// ✅ FIX: Use productId-based lookup instead of fragile name search.
-		//         findByName() could match cart items for a completely different
-		//         product if two products share the same name.
 		List<Item> items = itemRepository.findByProductId(product.getId());
 		if (items != null && !items.isEmpty()) {
 			itemRepository.deleteAll(items);
@@ -458,33 +465,28 @@ public class VendorService {
 			return "redirect:/manage-products";
 		}
 
-		// ✅ Capture old stock BEFORE saving (to detect 0 → positive transition)
 		int oldStock = existingProduct.getStock();
 
 		existingProduct.setName(product.getName());
 		existingProduct.setDescription(product.getDescription());
 		existingProduct.setPrice(product.getPrice());
-		// Persist MRP — 0 means no discount set
 		existingProduct.setMrp(product.getMrp());
 		existingProduct.setCategory(product.getCategory());
 		existingProduct.setStock(product.getStock());
 
-		// Persist pin code delivery restrictions — filter out any non-Indian codes
 		String filteredPins = PinCodeValidator.filterValidPins(product.getAllowedPinCodes());
 		existingProduct.setAllowedPinCodes(filteredPins);
-		
-		// Update stock alert threshold if provided
+
 		if (product.getStockAlertThreshold() != null && product.getStockAlertThreshold() > 0) {
 			existingProduct.setStockAlertThreshold(product.getStockAlertThreshold());
 		} else if (existingProduct.getStockAlertThreshold() == null) {
-			existingProduct.setStockAlertThreshold(10); // set default if missing
+			existingProduct.setStockAlertThreshold(10);
 		}
 
 		if (product.getImage() != null && !product.getImage().isEmpty()) {
 			existingProduct.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 		}
 
-		// 🔥 Update extra images (append to existing or replace)
 		if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
 			java.util.List<String> extraUrls = new java.util.ArrayList<>();
 			for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
@@ -497,17 +499,13 @@ public class VendorService {
 			}
 		}
 
-		// 🔥 Update video
 		if (product.getVideo() != null && !product.getVideo().isEmpty()) {
 			existingProduct.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
 		}
 
 		productRepository.save(existingProduct);
-		
-		// 🔥 Check stock level after update
 		stockAlertService.checkStockLevel(existingProduct);
 
-		// ✅ Back-in-stock: if stock was 0 and is now positive, notify subscribers
 		if (oldStock == 0 && existingProduct.getStock() > 0) {
 			backInStockService.notifySubscribers(existingProduct);
 		}
@@ -516,7 +514,116 @@ public class VendorService {
 		return "redirect:/manage-products";
 	}
 
-    // 🔥 SALES REPORT — reads from decoupled reporting DB (not main DB)
+	// ── NEW: Vendor views orders containing their products ────────
+
+	/**
+	 * Shows vendor their orders split into:
+	 *   pendingOrders    — PROCESSING (need to pack)
+	 *   inProgressOrders — PACKED / SHIPPED / OUT_FOR_DELIVERY
+	 *   deliveredOrders  — DELIVERED
+	 */
+	public String loadVendorOrders(HttpSession session, ModelMap map) {
+		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		if (vendor == null) {
+			session.setAttribute("failure", "Login First");
+			return "redirect:/vendor/login";
+		}
+
+		List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
+
+		List<Order> pendingOrders    = new java.util.ArrayList<>();
+		List<Order> inProgressOrders = new java.util.ArrayList<>();
+		List<Order> deliveredOrders  = new java.util.ArrayList<>();
+
+		for (Order o : allOrders) {
+			TrackingStatus s = o.getTrackingStatus();
+			if (s == TrackingStatus.PROCESSING) {
+				pendingOrders.add(o);
+			} else if (s == TrackingStatus.PACKED
+					|| s == TrackingStatus.SHIPPED
+					|| s == TrackingStatus.OUT_FOR_DELIVERY) {
+				inProgressOrders.add(o);
+			} else if (s == TrackingStatus.DELIVERED) {
+				deliveredOrders.add(o);
+			}
+		}
+
+		map.put("vendor", vendor);
+		map.put("pendingOrders",    pendingOrders);
+		map.put("inProgressOrders", inProgressOrders);
+		map.put("deliveredOrders",  deliveredOrders);
+		return "vendor-orders.html";
+	}
+
+	/**
+	 * Vendor marks an order as PACKED — ready for pickup by delivery team.
+	 * Called via POST /vendor/order/{id}/ready
+	 */
+@Transactional
+	public ResponseEntity<java.util.Map<String, Object>> markOrderReady(int orderId, HttpSession session) {
+		java.util.Map<String, Object> res = new java.util.LinkedHashMap<>();
+
+		try {
+			Vendor vendor = (Vendor) session.getAttribute("vendor");
+			if (vendor == null) {
+				res.put("success", false); res.put("message", "Login first");
+				return ResponseEntity.status(401).body(res);
+			}
+
+			Order order = orderRepository.findById(orderId).orElse(null);
+			if (order == null) {
+				res.put("success", false); res.put("message", "Order not found");
+				return ResponseEntity.ok(res);
+			}
+
+			if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
+				res.put("success", false);
+				res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
+				return ResponseEntity.ok(res);
+			}
+
+			// Safe access of lazy warehouse field
+			String city = "Warehouse";
+			try {
+				if (order.getWarehouse() != null) {
+					city = order.getWarehouse().getCity();
+				} else if (order.getCurrentCity() != null && !order.getCurrentCity().isBlank()) {
+					city = order.getCurrentCity();
+				}
+			} catch (Exception lazyEx) {
+				System.err.println("[VendorService] Warehouse lazy load (non-fatal): " + lazyEx.getMessage());
+			}
+
+			order.setTrackingStatus(TrackingStatus.PACKED);
+			order.setCurrentCity(city);
+			orderRepository.save(order);
+
+			// Log tracking event — non-fatal if it fails
+			try {
+				TrackingEventLog log = new TrackingEventLog(
+					order, TrackingStatus.PACKED, city,
+					"Order packed and ready for pickup by delivery team",
+					"vendor"
+				);
+				trackingEventLogRepository.save(log);
+			} catch (Exception logEx) {
+				System.err.println("[VendorService] TrackingEventLog save (non-fatal): " + logEx.getMessage());
+			}
+
+			res.put("success", true);
+			res.put("message", "Order #" + orderId + " marked as Packed. Admin will assign delivery boy.");
+			return ResponseEntity.ok(res);
+
+		} catch (Exception e) {
+			System.err.println("[VendorService] markOrderReady error: " + e.getMessage());
+			res.put("success", false);
+			res.put("message", "Server error: " + e.getMessage());
+			return ResponseEntity.ok(res);
+		}
+	}
+
+
+    // ---------------- SALES REPORT ----------------
     public String loadSalesReport(HttpSession session, org.springframework.ui.ModelMap map) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
@@ -539,18 +646,15 @@ public class VendorService {
         java.time.LocalDateTime monthStartDT= monthStart.atStartOfDay();
         java.time.LocalDateTime now         = java.time.LocalDateTime.now();
 
-        // ── Read from reporting DB only ───────────────────────────
         java.util.Map<String, Object> daily   = reportingService.buildVendorSummary(vendorId, todayStart,   todayEnd);
         java.util.Map<String, Object> weekly  = reportingService.buildVendorSummary(vendorId, weekStartDT,  now);
         java.util.Map<String, Object> monthly = reportingService.buildVendorSummary(vendorId, monthStartDT, now);
         java.util.Map<String, Object> overall = reportingService.buildVendorOverallSummary(vendorId);
 
-        // ── Persist snapshots to main DB for historical record ────
         saveSalesReport(vendor, "DAILY",   today,      daily);
         saveSalesReport(vendor, "WEEKLY",  weekStart,  weekly);
         saveSalesReport(vendor, "MONTHLY", monthStart, monthly);
 
-        // ── Build JSON chart data from reporting DB ───────────────
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
@@ -579,14 +683,13 @@ public class VendorService {
         return "vendor-sales-report.html";
     }
 
-    // ── Helper: calculate summary from order list ─────────────────
     private java.util.Map<String, Object> buildSummary(
             List<com.example.ekart.dto.Order> orders,
             java.util.Set<Integer> vendorProductIds) {
 
         double revenue   = 0;
         int    itemsSold = 0;
-        int    vendorOrderCount = 0; // 🔥 Count only orders with vendor items
+        int    vendorOrderCount = 0;
 
         for (com.example.ekart.dto.Order o : orders) {
             boolean hasVendorItem = false;
@@ -597,20 +700,19 @@ public class VendorService {
                     hasVendorItem = true;
                 }
             }
-            if (hasVendorItem) vendorOrderCount++; // 🔥 Count orders with vendor items
+            if (hasVendorItem) vendorOrderCount++;
         }
 
         double avg = vendorOrderCount == 0 ? 0 : revenue / vendorOrderCount;
 
         java.util.Map<String, Object> summary = new java.util.HashMap<>();
         summary.put("totalRevenue",   revenue);
-        summary.put("totalOrders",    vendorOrderCount); // 🔥 Use vendor order count
+        summary.put("totalOrders",    vendorOrderCount);
         summary.put("totalItemsSold", itemsSold);
         summary.put("avgOrderValue",  Math.round(avg * 100.0) / 100.0);
         return summary;
     }
 
-    // ── Helper: save or update SalesReport in DB ──────────────────
     private void saveSalesReport(Vendor vendor, String type,
             java.time.LocalDate date, java.util.Map<String, Object> summary) {
         try {
@@ -633,7 +735,6 @@ public class VendorService {
         }
     }
 
-    // AJAX polling endpoint — reads from reporting DB, not main DB
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> getSalesReportJSON(jakarta.servlet.http.HttpSession session) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
@@ -662,13 +763,7 @@ public class VendorService {
         return org.springframework.http.ResponseEntity.ok(response);
     }
 
-    /**
-     * POST /vendor/sync-reporting
-     * Backfills ALL existing orders into the reporting DB.
-     * Needed when orders were placed before reporting DB was configured.
-     * Safe to call multiple times - recordOrder() is idempotent.
-     */
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> syncReportingDb(
             jakarta.servlet.http.HttpSession session) {
 

@@ -1,11 +1,14 @@
 package com.example.ekart.dto;
 
 /**
- * Enum representing the tracking status stages for order shipment.
- * Used for Real-Time Shipment Tracking feature.
+ * LOCATION: src/main/java/com/example/ekart/dto/TrackingStatus.java
+ *
+ * REPLACE your existing TrackingStatus.java with this complete file.
+ * Change from original: added PACKED status between PROCESSING and SHIPPED.
  */
 public enum TrackingStatus {
     PROCESSING("Processing"),
+    PACKED("Packed"),              // NEW — vendor has packed the order, ready for pickup
     SHIPPED("Shipped"),
     OUT_FOR_DELIVERY("Out for Delivery"),
     DELIVERED("Delivered"),
@@ -22,25 +25,20 @@ public enum TrackingStatus {
         return displayName;
     }
 
-    /**
-     * Returns the step index for the progress bar (0-3)
-     */
     public int getStepIndex() {
         return this.ordinal();
     }
 
-    /**
-     * Returns the progress percentage for the progress bar
-     */
     public int getProgressPercent() {
         switch (this) {
-            case PROCESSING: return 0;
-            case SHIPPED: return 33;
+            case PROCESSING:       return 0;
+            case PACKED:           return 15;   // NEW
+            case SHIPPED:          return 33;
             case OUT_FOR_DELIVERY: return 66;
-            case DELIVERED: return 100;
-            case REFUNDED: return 100;
-            case CANCELLED: return 0;
-            default: return 0;
+            case DELIVERED:        return 100;
+            case REFUNDED:         return 100;
+            case CANCELLED:        return 0;
+            default:               return 0;
         }
     }
 }

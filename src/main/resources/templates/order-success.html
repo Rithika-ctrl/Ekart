@@ -271,8 +271,18 @@
             <!-- Order ID -->
             <div class="info-tile">
                 <div class="tile-label"><i class="fas fa-hashtag"></i> Order ID</div>
-                <div class="tile-value mono" th:text="'#EK-' + ${orderId}">—</div>
-                <div class="tile-sub">Your reference number</div>
+                <!-- Single order (subOrderIds empty or same as orderId) -->
+                <div th:if="${subOrderIds == null or #strings.isEmpty(subOrderIds) or !#strings.contains(subOrderIds, ',')}">
+                    <div class="tile-value mono" th:text="'#EK-' + ${orderId}">—</div>
+                    <div class="tile-sub">Your reference number</div>
+                </div>
+                <!-- Multi-vendor: show each sub-order ID -->
+                <div th:if="${subOrderIds != null and #strings.contains(subOrderIds, ',')}">
+                    <div th:each="sid : ${#strings.arraySplit(subOrderIds, ',')}"
+                         class="tile-value mono" style="font-size:11px;line-height:1.8;"
+                         th:text="'#EK-' + ${sid}"></div>
+                    <div class="tile-sub">Sub-orders (one per vendor)</div>
+                </div>
             </div>
 
             <!-- Amount -->
