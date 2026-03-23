@@ -48,6 +48,7 @@ import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
+import com.example.ekart.helper.GstUtil;
 import com.example.ekart.service.SearchService;
 import com.example.ekart.service.BannerService;
 import com.example.ekart.service.CategoryService;
@@ -114,6 +115,10 @@ public class CustomerService {
     @Autowired
     private TrackingEventLogRepository trackingEventLogRepository;
     // ─────────────────────────────────────────────────────────────
+
+    /** Razorpay publishable key — injected from application.properties: razorpay.key.id */
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.id:}")
+    private String razorpayKeyId;
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
@@ -721,6 +726,18 @@ public class CustomerService {
         map.put("recommendedProducts", recommendations);
         map.put("cartItemCategory", categoryLabel);
 
+        // Razorpay publishable key — read from application.properties
+        // Property: razorpay.key.id (set in application.properties or env)
+        map.put("razorpayKeyId", razorpayKeyId != null ? razorpayKeyId : "");
+
+        // ── GST breakdown for payment page ────────────────────────
+        double gstAmount = GstUtil.calculateTotalGst(items);
+        double taxableBase = Math.round((cartTotal - gstAmount) * 100.0) / 100.0;
+        String gstLabel   = GstUtil.getMixedGstLabel(items);
+        map.put("gstAmount",   gstAmount);
+        map.put("taxableBase", taxableBase);
+        map.put("gstLabel",    gstLabel);
+
         return "payment.html";
     }
 
@@ -850,6 +867,9 @@ public class CustomerService {
                 Item newItem = new Item();
                 newItem.setName(cartItem.getName());
                 newItem.setPrice(cartItem.getPrice());
+                newItem.setUnitPrice(cartItem.getUnitPrice() > 0
+                        ? cartItem.getUnitPrice()
+                        : cartItem.getPrice() / Math.max(cartItem.getQuantity(), 1));
                 newItem.setQuantity(cartItem.getQuantity());
                 newItem.setCategory(cartItem.getCategory());
                 newItem.setDescription(cartItem.getDescription());
@@ -871,6 +891,10 @@ public class CustomerService {
             subOrder.setAmount(subTotal + subDelivery);
             subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
             subOrder.setItems(orderItems);
+
+            // ── Calculate GST from inclusive prices ───────────────
+            double subGst = GstUtil.calculateTotalGst(orderItems);
+            subOrder.setGstAmount(subGst);
 
             // Vendor metadata
             if (vendor != null) {
@@ -975,6 +999,17 @@ public class CustomerService {
         session.setAttribute("lastOrderDeliveryTime",  baseOrder.getDeliveryTime());
         session.setAttribute("lastOrderPaymentMode",
                 baseOrder.getPaymentMode() != null ? baseOrder.getPaymentMode() : "Cash on Delivery");
+
+        // Store total GST across all sub-orders for the success page
+        double totalSessionGst = subOrderIds.stream()
+                .mapToDouble(sid -> {
+                    try {
+                        return orderRepository.findById(sid)
+                                .map(com.example.ekart.dto.Order::getGstAmount).orElse(0.0);
+                    } catch (Exception e) { return 0.0; }
+                }).sum();
+        totalSessionGst = Math.round(totalSessionGst * 100.0) / 100.0;
+        session.setAttribute("lastOrderGst", totalSessionGst);
         session.setAttribute("success", "Order Placed Successfully!");
         return "redirect:/order-success";
     }

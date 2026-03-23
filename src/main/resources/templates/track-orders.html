@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ekart - Track Orders</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,265 +11,407 @@
         :root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
-            --glass-border: rgba(255, 255, 255, 0.22);
-            --glass-card:   rgba(255, 255, 255, 0.13);
-            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --glass-border: rgba(255,255,255,0.18);
+            --glass-card:   rgba(255,255,255,0.08);
             --text-white:   #ffffff;
             --text-light:   rgba(255,255,255,0.80);
-            --text-dim:     rgba(255,255,255,0.50);
+            --text-dim:     rgba(255,255,255,0.45);
+            --green:        #22c55e;
+            --red:          #ef4444;
         }
 
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
         body {
-            font-family: 'Poppins', sans-serif;
-            min-height: 100vh;
-            color: var(--text-white);
-            display: flex;
-            flex-direction: column;
+            font-family:'Poppins', sans-serif;
+            min-height:100vh; color:var(--text-white);
+            display:flex; flex-direction:column;
         }
 
-        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        /* ── BACKGROUND ── */
+        .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
-            content: '';
-            position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px);
-            transform: scale(1.08);
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
         }
         .bg-layer::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.88) 0%,rgba(8,12,28,0.82) 40%,rgba(5,8,20,0.92) 100%);
         }
 
+        /* ── NAV ── */
         nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 1rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid var(--glass-border);
-            transition: background 0.3s;
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:0.75rem 2rem;
+            display:flex; align-items:center; justify-content:space-between;
+            background:rgba(0,0,0,0.25); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border); transition:background 0.3s; gap:1rem;
         }
-        nav.scrolled { background: rgba(0,0,0,0.45); }
+        nav.scrolled { background:rgba(0,0,0,0.55); }
         .nav-brand {
-            font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
-            letter-spacing: 0.04em;
-            display: flex; align-items: center; gap: 0.5rem;
+            font-size:1.6rem; font-weight:700; color:var(--text-white);
+            text-decoration:none; letter-spacing:0.04em;
+            display:flex; align-items:center; gap:0.45rem; flex-shrink:0;
         }
-        .nav-brand span { color: var(--yellow); }
-        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
-        .nav-link-btn {
-            display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
-            font-size: 0.82rem; font-weight: 500;
-            padding: 0.45rem 0.9rem; border-radius: 6px;
-            border: 1px solid var(--glass-border); transition: all 0.2s;
+        .nav-brand span { color:var(--yellow); }
+        .nav-right { display:flex; align-items:center; gap:0.5rem; flex-shrink:0; }
+        .nav-link {
+            display:flex; align-items:center; gap:0.35rem;
+            color:var(--text-light); text-decoration:none;
+            font-size:0.78rem; font-weight:500;
+            padding:0.42rem 0.75rem; border-radius:6px;
+            border:1px solid transparent; transition:all 0.2s; white-space:nowrap;
         }
-        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
-        .btn-logout {
-            display: flex; align-items: center; gap: 0.4rem;
-            color: var(--text-light); text-decoration: none;
-            font-size: 0.82rem; font-weight: 500;
-            padding: 0.45rem 0.9rem; border-radius: 6px;
-            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        .nav-link:hover { color:white; background:rgba(255,255,255,0.1); border-color:var(--glass-border); }
+        .nav-link.active {
+            color:var(--yellow); border-color:rgba(245,168,0,0.35);
+            background:rgba(245,168,0,0.08);
         }
-        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+        .nav-link.cart-link { border-color:var(--glass-border); position:relative; }
+        .cart-badge {
+            position:absolute; top:-4px; right:-4px;
+            background:var(--yellow); color:#1a1000;
+            font-size:0.56rem; font-weight:800;
+            width:15px; height:15px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .nav-link.logout-link { border-color:rgba(255,100,80,0.3); }
+        .nav-link.logout-link:hover { color:#ff8060; border-color:rgba(255,100,80,0.6); background:rgba(255,100,80,0.08); }
+        @media(max-width:800px) { .nav-link span { display:none; } .nav-link { padding:0.42rem 0.6rem; } }
 
-        .alert-stack {
-            position: fixed; top: 5rem; right: 1.5rem;
-            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
-        }
+        /* ── ALERTS ── */
+        .alert-stack { position:fixed; top:5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
         .alert {
-            padding: 0.875rem 1.25rem;
-            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
-            border: 1px solid; border-radius: 10px;
-            display: flex; align-items: center; gap: 0.625rem;
-            font-size: 0.825rem; min-width: 260px;
-            animation: slideIn 0.3s ease both;
+            padding:0.875rem 1.25rem; background:rgba(10,12,30,0.92); backdrop-filter:blur(16px);
+            border:1px solid; border-radius:10px;
+            display:flex; align-items:center; gap:0.625rem;
+            font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both;
         }
-        .alert-success { border-color: rgba(245,168,0,0.45); color: var(--yellow); }
-        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
-        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+        .alert-success { border-color:rgba(245,168,0,0.45); color:var(--yellow); }
+        .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
+        .alert-close { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; }
 
+        /* ── PAGE ── */
         .page {
-            flex: 1;
-            padding: 7rem 1.5rem 3rem;
-            display: flex; flex-direction: column; align-items: center;
-            gap: 2rem;
+            flex:1; padding:7rem 1.5rem 3rem;
+            display:flex; flex-direction:column; align-items:center; gap:1.75rem;
         }
 
+        /* ── PAGE HEADER ── */
         .page-header {
-            background: var(--glass-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2rem 2.5rem;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 1.5rem; width: 100%; max-width: 900px;
-            animation: fadeUp 0.5s ease both;
+            background:var(--glass-card); backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border); border-radius:20px;
+            padding:2rem 2.5rem;
+            display:flex; align-items:center; justify-content:space-between; gap:1.5rem;
+            width:100%; max-width:900px;
+            animation:fadeUp 0.5s ease both; position:relative; overflow:hidden;
         }
-        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
-        .page-header-left h1 span { color: var(--yellow); }
-        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header::before {
+            content:''; position:absolute; top:-50px; right:-50px;
+            width:180px; height:180px;
+            background:radial-gradient(circle,rgba(245,168,0,0.1),transparent 70%);
+            border-radius:50%;
+        }
+        .page-header-left h1 { font-size:clamp(1.2rem,2.5vw,1.75rem); font-weight:700; margin-bottom:0.25rem; }
+        .page-header-left h1 span { color:var(--yellow); }
+        .page-header-left p { font-size:0.825rem; color:var(--text-dim); }
         .page-header-icon {
-            width: 60px; height: 60px;
-            background: rgba(245,168,0,0.15);
-            border: 2px solid rgba(245,168,0,0.3);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem; flex-shrink: 0;
+            width:62px; height:62px;
+            background:rgba(245,168,0,0.12); border:2px solid rgba(245,168,0,0.3);
+            border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:1.6rem; flex-shrink:0;
         }
 
-        .content-wrap {
-            width: 100%; max-width: 900px;
-            display: flex; flex-direction: column; gap: 1.5rem;
-            animation: fadeUp 0.5s ease 0.05s both;
-        }
-
+        /* ── SECTION LABEL ── */
         .section-label {
-            display: flex; align-items: center; gap: 0.6rem;
-            font-size: 0.7rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.12em;
-            color: var(--yellow);
+            display:flex; align-items:center; gap:0.6rem;
+            font-size:0.7rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.12em; color:var(--yellow);
+            width:100%; max-width:900px;
         }
-        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+        .section-label::after { content:''; flex:1; height:1px; background:var(--glass-border); }
 
+        /* ── TRACK CARD ── */
         .track-card {
-            background: var(--glass-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            transition: transform 0.2s, box-shadow 0.2s;
+            background:var(--glass-card); backdrop-filter:blur(22px);
+            border:1px solid var(--glass-border); border-radius:22px;
+            overflow:hidden; width:100%; max-width:900px;
+            animation:fadeUp 0.5s ease both;
+            transition:transform 0.25s, box-shadow 0.25s;
+            position:relative;
         }
-        .track-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 28px 72px rgba(0,0,0,0.4);
-        }
+        .track-card:hover { transform:translateY(-3px); box-shadow:0 28px 72px rgba(0,0,0,0.4); }
 
-        .order-header {
-            display: flex; justify-content: space-between;
-            align-items: flex-start; flex-wrap: wrap; gap: 1rem;
-            margin-bottom: 1.5rem; padding-bottom: 1.25rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        /* Left accent bar — colour by status */
+        .track-card::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+            border-radius:4px 0 0 4px;
         }
-        .order-id {
-            font-size: 1rem; font-weight: 700; color: var(--text-white);
-            display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;
+        .status-processing::before  { background:linear-gradient(180deg,var(--yellow),rgba(245,168,0,0.2)); }
+        .status-packed::before       { background:linear-gradient(180deg,#fb923c,rgba(251,146,60,0.2)); }
+        .status-shipped::before      { background:linear-gradient(180deg,#60a5fa,rgba(96,165,250,0.2)); }
+        .status-ofd::before          { background:linear-gradient(180deg,#34d399,rgba(52,211,153,0.2)); }
+        .status-delivered::before    { background:linear-gradient(180deg,var(--green),rgba(34,197,94,0.2)); }
+        .status-cancelled::before    { background:linear-gradient(180deg,#f87171,rgba(248,113,113,0.2)); }
+        .status-refunded::before     { background:linear-gradient(180deg,#a78bfa,rgba(167,139,250,0.2)); }
+
+        .card-inner { padding:1.75rem 2rem 2rem; }
+
+        /* ── CARD TOP ROW ── */
+        .order-top {
+            display:flex; justify-content:space-between; align-items:flex-start;
+            flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem;
         }
-        .order-id i { color: var(--yellow); }
-        .order-date { font-size: 0.75rem; color: var(--text-dim); }
-        .order-right { text-align: right; }
-        .order-amount { font-size: 1rem; font-weight: 700; color: var(--yellow); margin-bottom: 0.5rem; }
-        .item-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+        .order-id-row {
+            display:flex; align-items:center; gap:0.6rem;
+            font-size:1rem; font-weight:700; color:var(--text-white); margin-bottom:0.3rem;
+        }
+        .order-id-row i { color:var(--yellow); font-size:0.9rem; }
+        .order-date { font-size:0.72rem; color:var(--text-dim); display:flex; align-items:center; gap:0.35rem; }
+
+        /* Status badge */
+        .status-badge {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            padding:0.3rem 0.9rem; border-radius:50px;
+            font-size:0.72rem; font-weight:700; letter-spacing:0.05em;
+            border:1px solid; white-space:nowrap;
+        }
+        .badge-dot {
+            width:7px; height:7px; border-radius:50%; flex-shrink:0;
+        }
+        .badge-dot.pulsing { animation:badgePulse 1.6s ease-in-out infinite; }
+        @keyframes badgePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+        .badge-processing { background:rgba(245,168,0,0.1); border-color:rgba(245,168,0,0.35); color:var(--yellow); }
+        .badge-processing .badge-dot { background:var(--yellow); }
+        .badge-packed      { background:rgba(251,146,60,0.1); border-color:rgba(251,146,60,0.35); color:#fb923c; }
+        .badge-packed .badge-dot { background:#fb923c; }
+        .badge-shipped     { background:rgba(96,165,250,0.1); border-color:rgba(96,165,250,0.35); color:#60a5fa; }
+        .badge-shipped .badge-dot { background:#60a5fa; }
+        .badge-ofd         { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.35); color:#34d399; }
+        .badge-ofd .badge-dot { background:#34d399; }
+        .badge-delivered   { background:rgba(34,197,94,0.1);  border-color:rgba(34,197,94,0.35);  color:var(--green); }
+        .badge-delivered .badge-dot { background:var(--green); }
+        .badge-cancelled   { background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.35); color:#f87171; }
+        .badge-cancelled .badge-dot { background:#f87171; }
+        .badge-refunded    { background:rgba(167,139,250,0.1); border-color:rgba(167,139,250,0.35); color:#a78bfa; }
+        .badge-refunded .badge-dot { background:#a78bfa; }
+
+        /* ── AMOUNT + ITEMS ── */
+        .order-right { text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:0.45rem; }
+        .order-amount { font-size:1.15rem; font-weight:800; color:var(--yellow); }
+        .item-chips { display:flex; flex-wrap:wrap; gap:0.3rem; justify-content:flex-end; }
         .item-chip {
-            display: inline-block; padding: 0.2rem 0.7rem; border-radius: 100px;
-            background: rgba(245,168,0,0.12); border: 1px solid rgba(245,168,0,0.25);
-            color: var(--yellow); font-size: 0.7rem; font-weight: 600;
+            display:inline-block; padding:0.18rem 0.65rem; border-radius:100px;
+            background:rgba(255,255,255,0.07); border:1px solid var(--glass-border);
+            color:var(--text-dim); font-size:0.68rem; font-weight:500;
         }
 
-        .tracking-wrapper {
-            position: relative; margin: 1.75rem 0 1.25rem; padding: 0 0.5rem;
-        }
-        .track-line-bg {
-            position: absolute; top: 19px; left: 9%; right: 9%; height: 3px;
-            background: rgba(255,255,255,0.1); border-radius: 2px; z-index: 0;
-        }
-        .track-line-fill {
-            position: absolute; top: 19px; left: 9%; height: 3px;
-            background: linear-gradient(90deg, var(--yellow), var(--yellow-d));
-            border-radius: 2px; z-index: 1; transition: width 0.6s ease;
-        }
-        .tracking-steps {
-            display: flex; justify-content: space-between;
-            position: relative; z-index: 2;
-        }
-        .track-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
-        .step-icon {
-            width: 40px; height: 40px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.9rem;
-            border: 2px solid rgba(255,255,255,0.15);
-            background: rgba(255,255,255,0.05);
-            color: var(--text-dim); transition: all 0.3s;
-        }
-        .step-done { background: var(--yellow) !important; border-color: var(--yellow) !important; color: #1a1000 !important; }
-        .step-active {
-            background: rgba(245,168,0,0.15) !important;
-            border-color: var(--yellow) !important;
-            color: var(--yellow) !important;
-            box-shadow: 0 0 0 4px rgba(245,168,0,0.15);
-        }
-        .step-pending { background: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.12) !important; color: var(--text-dim) !important; }
-        .step-label { font-size: 0.62rem; font-weight: 600; text-align: center; margin-top: 0.5rem; color: var(--text-dim); max-width: 70px; line-height: 1.3; }
-        .step-time { font-size: 0.58rem; color: var(--yellow); text-align: center; margin-top: 0.15rem; font-weight: 500; }
+        /* ── DIVIDER ── */
+        .card-divider { height:1px; background:var(--glass-border); margin:0 0 1.75rem; }
 
-        .delivery-info {
-            display: flex; align-items: center; gap: 0.6rem;
-            background: rgba(245,168,0,0.08);
-            border: 1px solid rgba(245,168,0,0.22);
-            border-radius: 10px; padding: 0.75rem 1.1rem;
-            margin-top: 1.25rem; font-size: 0.78rem; color: var(--text-light);
+        /* ── STEPPER ── */
+        .stepper-wrap {
+            position:relative; padding:0 1.5rem; margin-bottom:1.5rem;
         }
-        .delivery-info i { color: var(--yellow); flex-shrink: 0; }
-        .delivery-info.no-slot { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: var(--text-dim); }
-        .delivery-info.no-slot i { color: var(--text-dim); }
-
-        .empty-state {
-            background: var(--glass-card); backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border); border-radius: 20px;
-            padding: 4rem 2.5rem; text-align: center;
-            width: 100%; max-width: 900px;
-            animation: fadeUp 0.5s ease 0.05s both;
+        /* Background track */
+        .step-track-bg {
+            position:absolute; top:18px; left:calc(1.5rem + 20px); right:calc(1.5rem + 20px);
+            height:3px; background:rgba(255,255,255,0.08); border-radius:2px; z-index:0;
         }
-        .empty-state .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; display: block; }
-        .empty-state h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .empty-state p { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+        /* Filled track */
+        .step-track-fill {
+            position:absolute; top:18px; left:calc(1.5rem + 20px);
+            height:3px; border-radius:2px; z-index:1;
+            background:linear-gradient(90deg,var(--yellow),var(--yellow-d));
+            transition:width 1s cubic-bezier(0.4,0,0.2,1);
+        }
+        .steps-row {
+            display:flex; justify-content:space-between; position:relative; z-index:2;
+        }
+        .step { display:flex; flex-direction:column; align-items:center; flex:1; }
+        .step-dot {
+            width:38px; height:38px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.85rem; font-weight:700; transition:all 0.3s;
+            position:relative; z-index:2;
+        }
+        /* Done state */
+        .dot-done {
+            background:var(--yellow); color:#1a1000;
+            border:2px solid var(--yellow);
+            box-shadow:0 0 0 4px rgba(245,168,0,0.15);
+        }
+        /* Active state */
+        .dot-active {
+            background:rgba(245,168,0,0.12); color:var(--yellow);
+            border:2px solid var(--yellow);
+            box-shadow:0 0 0 6px rgba(245,168,0,0.12);
+            animation:dotPulse 2s ease-in-out infinite;
+        }
+        @keyframes dotPulse {
+            0%,100% { box-shadow:0 0 0 6px rgba(245,168,0,0.12); }
+            50%      { box-shadow:0 0 0 10px rgba(245,168,0,0.04); }
+        }
+        /* Pending state */
+        .dot-pending {
+            background:rgba(255,255,255,0.04); color:var(--text-dim);
+            border:2px solid rgba(255,255,255,0.12);
+        }
+        /* Delivered done — green */
+        .dot-done-green {
+            background:var(--green); color:#fff;
+            border:2px solid var(--green);
+            box-shadow:0 0 0 4px rgba(34,197,94,0.15);
+        }
+        /* OFD active — teal */
+        .dot-active-ofd {
+            background:rgba(52,211,153,0.12); color:#34d399;
+            border:2px solid #34d399;
+            box-shadow:0 0 0 6px rgba(52,211,153,0.12);
+            animation:dotPulseOfd 2s ease-in-out infinite;
+        }
+        @keyframes dotPulseOfd {
+            0%,100% { box-shadow:0 0 0 6px rgba(52,211,153,0.12); }
+            50%      { box-shadow:0 0 0 10px rgba(52,211,153,0.04); }
+        }
 
+        .step-name {
+            font-size:0.62rem; font-weight:600; text-align:center;
+            margin-top:0.55rem; color:var(--text-dim);
+            max-width:72px; line-height:1.3;
+        }
+        .step-name.s-done   { color:var(--text-light); }
+        .step-name.s-active { color:var(--yellow); font-weight:700; }
+        .step-name.s-active-ofd { color:#34d399; font-weight:700; }
+        .step-name.s-delivered  { color:var(--green); font-weight:700; }
+
+        /* ── DELIVERY SLOT + ADDRESS ── */
+        .info-strip {
+            display:grid; gap:0.75rem; margin-top:0.5rem;
+        }
+        .info-row {
+            display:flex; align-items:flex-start; gap:0.65rem;
+            background:rgba(255,255,255,0.04); border:1px solid var(--glass-border);
+            border-radius:10px; padding:0.75rem 1rem; font-size:0.78rem; color:var(--text-light);
+        }
+        .info-row i { color:var(--yellow); flex-shrink:0; margin-top:0.1rem; font-size:0.85rem; }
+        .info-row.slot-row { background:rgba(245,168,0,0.06); border-color:rgba(245,168,0,0.22); }
+        .info-row.addr-row { background:rgba(255,255,255,0.03); }
+        .info-row.city-row { background:rgba(96,165,250,0.06); border-color:rgba(96,165,250,0.22); }
+        .info-row.city-row i { color:#60a5fa; }
+        .info-label { font-weight:700; color:var(--text-white); margin-bottom:0.1rem; font-size:0.73rem; }
+        .info-val   { color:var(--text-light); font-size:0.78rem; }
+
+        /* Delivered checkmark banner */
+        .delivered-banner {
+            display:flex; align-items:center; gap:0.75rem;
+            background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.3);
+            border-radius:12px; padding:0.85rem 1.2rem;
+            margin-top:0; font-size:0.82rem; color:#22c55e;
+        }
+        .delivered-banner i { font-size:1.1rem; flex-shrink:0; }
+
+        /* Cancelled/Refunded banner */
+        .inactive-banner {
+            display:flex; align-items:center; gap:0.75rem;
+            border-radius:12px; padding:0.85rem 1.2rem;
+            font-size:0.82rem; margin-top:0;
+        }
+        .inactive-banner.cancelled { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.3); color:#f87171; }
+        .inactive-banner.refunded  { background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.3); color:#a78bfa; }
+        .inactive-banner i { font-size:1rem; flex-shrink:0; }
+
+        /* ── ACTIONS ── */
+        .card-actions {
+            display:flex; flex-wrap:wrap; gap:0.65rem;
+            padding:1.25rem 2rem 1.5rem;
+            border-top:1px solid rgba(255,255,255,0.06);
+        }
         .btn-action {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            font-family: 'Poppins', sans-serif; font-size: 0.78rem; font-weight: 600;
-            letter-spacing: 0.05em; text-transform: uppercase;
-            padding: 0.55rem 1.2rem; border-radius: 8px;
-            text-decoration: none; border: none; cursor: pointer; transition: all 0.2s;
+            display:inline-flex; align-items:center; gap:0.4rem;
+            font-family:'Poppins',sans-serif; font-size:0.75rem; font-weight:600;
+            letter-spacing:0.04em; text-transform:uppercase;
+            padding:0.5rem 1.1rem; border-radius:8px;
+            text-decoration:none; border:1px solid; cursor:pointer; transition:all 0.2s;
         }
-        .btn-primary { background: var(--yellow); color: #1a1000; box-shadow: 0 4px 16px rgba(245,168,0,0.2); }
-        .btn-primary:hover { background: var(--yellow-d); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(245,168,0,0.35); }
+        .btn-track-single {
+            background:rgba(34,197,94,0.1); border-color:rgba(34,197,94,0.3); color:var(--green);
+        }
+        .btn-track-single:hover { background:rgba(34,197,94,0.2); border-color:rgba(34,197,94,0.55); color:var(--green); transform:translateY(-1px); }
+        .btn-report {
+            background:rgba(248,113,113,0.08); border-color:rgba(248,113,113,0.25); color:#f87171;
+        }
+        .btn-report:hover { background:rgba(248,113,113,0.18); border-color:rgba(248,113,113,0.5); color:#f87171; transform:translateY(-1px); }
+        .btn-reorder {
+            background:rgba(245,168,0,0.1); border-color:rgba(245,168,0,0.3); color:var(--yellow);
+        }
+        .btn-reorder:hover { background:rgba(245,168,0,0.2); border-color:rgba(245,168,0,0.55); color:var(--yellow); transform:translateY(-1px); }
 
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            background:var(--glass-card); backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border); border-radius:22px;
+            padding:4.5rem 2.5rem; text-align:center;
+            width:100%; max-width:900px;
+            animation:fadeUp 0.5s ease both;
+        }
+        .empty-icon { font-size:3.5rem; display:block; margin-bottom:1.25rem; opacity:0.5; }
+        .empty-state h3 { font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .empty-state p  { font-size:0.82rem; color:var(--text-dim); margin-bottom:1.75rem; }
+        .btn-shop {
+            display:inline-flex; align-items:center; gap:0.5rem;
+            background:var(--yellow); color:#1a1000;
+            border:none; border-radius:10px; padding:0.7rem 1.75rem;
+            font-family:'Poppins',sans-serif; font-size:0.85rem; font-weight:700;
+            letter-spacing:0.05em; text-transform:uppercase;
+            text-decoration:none; cursor:pointer;
+            box-shadow:0 4px 16px rgba(245,168,0,0.3); transition:all 0.3s;
+        }
+        .btn-shop:hover { background:var(--yellow-d); color:#1a1000; transform:translateY(-2px); }
         .back-link {
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
-            color: var(--text-dim); text-decoration: none; font-size: 0.78rem; transition: color 0.2s;
+            display:inline-flex; align-items:center; justify-content:center; gap:0.4rem;
+            color:var(--text-dim); text-decoration:none; font-size:0.78rem; transition:color 0.2s;
+            width:100%; max-width:900px; margin-top:0.25rem;
         }
-        .back-link:hover { color: var(--text-white); }
+        .back-link:hover { color:white; }
 
+        /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
-            border-top: 1px solid var(--glass-border); padding: 1.25rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 0.75rem;
+            background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
+            border-top:1px solid var(--glass-border); padding:1.25rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            flex-wrap:wrap; gap:0.75rem;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
-        .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-brand { font-size:1.1rem; font-weight:700; color:white; }
+        .footer-brand span { color:var(--yellow); }
+        .footer-copy { font-size:0.72rem; color:var(--text-dim); }
 
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
-        @media (max-width: 700px) {
-            nav { padding: 0.875rem 1.25rem; }
-            .page { padding: 5.5rem 1rem 2rem; }
-            .page-header { flex-direction: column; text-align: center; }
-            .track-card { padding: 1.25rem; }
-            .order-header { flex-direction: column; }
-            .order-right { text-align: left; }
-            .item-chips { justify-content: flex-start; }
-            .step-label { font-size: 0.55rem; max-width: 50px; }
-            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        .track-card:nth-child(1) { animation-delay:0.05s; }
+        .track-card:nth-child(2) { animation-delay:0.10s; }
+        .track-card:nth-child(3) { animation-delay:0.15s; }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width:700px) {
+            nav { padding:0.875rem 1.25rem; }
+            .page { padding:5.5rem 1rem 2rem; }
+            .page-header { flex-direction:column; text-align:center; }
+            .card-inner  { padding:1.25rem 1.25rem 1.5rem; }
+            .card-actions { padding:1rem 1.25rem 1.25rem; }
+            .stepper-wrap { padding:0 0.5rem; }
+            .step-track-bg  { left:calc(0.5rem + 18px); right:calc(0.5rem + 18px); }
+            .step-track-fill { left:calc(0.5rem + 18px); }
+            .step-dot { width:32px; height:32px; font-size:0.75rem; }
+            .step-track-bg, .step-track-fill { top:15px; }
+            .step-name { font-size:0.55rem; max-width:52px; }
+            .order-right { text-align:left; }
+            .item-chips  { justify-content:flex-start; }
+            footer { padding:1.25rem; flex-direction:column; text-align:center; }
         }
     </style>
 </head>
@@ -278,169 +419,315 @@
 
 <div class="bg-layer"></div>
 
+<!-- ── ALERTS ── -->
 <div class="alert-stack">
     <div class="alert alert-success" th:if="${session.success != null}">
         <i class="fas fa-check-circle"></i>
         <span th:text="${session.success}"></span>
-        <button class="alert-close" onclick="this.parentElement.remove()">x</button>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
     </div>
     <div class="alert alert-danger" th:if="${session.failure != null}">
         <i class="fas fa-exclamation-circle"></i>
         <span th:text="${session.failure}"></span>
-        <button class="alert-close" onclick="this.parentElement.remove()">x</button>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
     </div>
     <th:block th:text="${@messageRemover.remove()}"></th:block>
 </div>
 
+<!-- ── NAV ── -->
 <nav id="nav">
     <a href="/customer/home" class="nav-brand">
-        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
-        <span>Ekart</span>
+        <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
+        Ek<span>art</span>
     </a>
     <div class="nav-right">
-        <a href="/customer/home" class="nav-link-btn"><i class="fas fa-th-large"></i> Home</a>
-        <a href="/view-products" class="nav-link-btn"><i class="fas fa-box"></i> Products</a>
-        <a href="/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="/customer/home"    class="nav-link"><i class="fas fa-th-large"></i><span> Home</span></a>
+        <a href="/search-products"  class="nav-link"><i class="fas fa-search"></i><span> Search</span></a>
+        <a href="/view-orders"      class="nav-link"><i class="fas fa-box-open"></i><span> Orders</span></a>
+        <a href="/track-orders"     class="nav-link active"><i class="fas fa-truck"></i><span> Track</span></a>
+        <a href="/account/wishlist" class="nav-link" style="border-color:rgba(239,68,68,0.3);"><i class="fas fa-heart" style="color:#ef4444;"></i><span> Wishlist</span></a>
+        <a href="/view-cart"        class="nav-link cart-link"><i class="fas fa-shopping-cart"></i><span> Cart</span></a>
+        <a href="/logout"           class="nav-link logout-link"><i class="fas fa-sign-out-alt"></i><span> Logout</span></a>
     </div>
 </nav>
 
+<!-- ── PAGE ── -->
 <main class="page">
 
+    <!-- Page Header -->
     <div class="page-header">
         <div class="page-header-left">
             <h1><span>Track</span> Orders</h1>
-            <p>Live delivery status for all your orders.</p>
+            <p>Real-time delivery status for all your orders.</p>
         </div>
-        <div class="page-header-icon">&#x1F69A;</div>
+        <div class="page-header-icon">🚚</div>
     </div>
 
-    <div class="content-wrap" th:if="${orders != null and !orders.isEmpty()}">
+    <!-- ── HAS ORDERS ── -->
+    <th:block th:if="${orders != null and !orders.isEmpty()}">
 
         <div class="section-label"><i class="fas fa-truck"></i> Your Orders</div>
 
-        <div class="track-card" th:each="o : ${orders}">
+        <!-- ════════════════════════════════════════════
+             ORDER CARD — one per order
+             trackingStepMap[o.id] = ordinal of TrackingStatus:
+               0=PROCESSING  1=PACKED  2=SHIPPED
+               3=OUT_FOR_DELIVERY  4=DELIVERED
+               5=REFUNDED  6=CANCELLED
+             progressWidthMap[o.id] = % fill (0-100)
+        ════════════════════════════════════════════ -->
+        <div th:each="o : ${orders}"
+             class="track-card"
+             th:classappend="${trackingStepMap[o.id] == 6 ? 'status-cancelled' : trackingStepMap[o.id] == 5 ? 'status-refunded' : trackingStepMap[o.id] == 4 ? 'status-delivered' : trackingStepMap[o.id] == 3 ? 'status-ofd' : trackingStepMap[o.id] == 2 ? 'status-shipped' : trackingStepMap[o.id] == 1 ? 'status-packed' : 'status-processing'}">
 
-            <div class="order-header">
-                <div>
-                    <div class="order-id">
-                        <i class="fas fa-box"></i>
-                        Order #<span th:text="${o.id}"></span>
+            <!-- ── CARD BODY ── -->
+            <div class="card-inner">
+
+                <!-- Top row: ID + date | status badge + amount -->
+                <div class="order-top">
+                    <div>
+                        <div class="order-id-row">
+                            <i class="fas fa-receipt"></i>
+                            Order&nbsp;<strong>#<span th:text="${o.id}"></span></strong>
+                        </div>
+                        <div class="order-date">
+                            <i class="fas fa-calendar-alt" style="font-size:0.65rem;"></i>
+                            <span th:if="${o.orderDate != null}"
+                                  th:text="${#temporals.format(o.orderDate,'dd MMM yyyy, hh:mm a')}"></span>
+                            <span th:unless="${o.orderDate != null}">Date unavailable</span>
+                        </div>
                     </div>
-                    <div class="order-date">
-                        Placed:
-                        <span th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, hh:mm a')}"></span>
-                        <span th:unless="${o.orderDate != null}">Unknown</span>
+                    <div class="order-right">
+                        <!-- Status badge — colour by status -->
+                        <span class="status-badge"
+                              th:classappend="${trackingStepMap[o.id] == 6 ? 'badge-cancelled' : trackingStepMap[o.id] == 5 ? 'badge-refunded' : trackingStepMap[o.id] == 4 ? 'badge-delivered' : trackingStepMap[o.id] == 3 ? 'badge-ofd' : trackingStepMap[o.id] == 2 ? 'badge-shipped' : trackingStepMap[o.id] == 1 ? 'badge-packed' : 'badge-processing'}">
+                            <span class="badge-dot"
+                                  th:classappend="${trackingStepMap[o.id] < 4 and trackingStepMap[o.id] != 5 and trackingStepMap[o.id] != 6 ? 'pulsing' : ''}"></span>
+                            <span th:switch="${trackingStepMap[o.id]}">
+                                <span th:case="0">Processing</span>
+                                <span th:case="1">Packed</span>
+                                <span th:case="2">Shipped</span>
+                                <span th:case="3">Out for Delivery</span>
+                                <span th:case="4">Delivered ✓</span>
+                                <span th:case="5">Refunded</span>
+                                <span th:case="6">Cancelled</span>
+                                <span th:case="*">Processing</span>
+                            </span>
+                        </span>
+
+                        <div class="order-amount">₹<span th:text="${o.amount}"></span></div>
+                        <div class="item-chips">
+                            <span class="item-chip" th:each="it : ${o.items}"
+                                  th:text="${it.name} + ' × ' + ${it.quantity}"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="order-right">
-                    <div class="order-amount">&#8377; <span th:text="${o.amount}"></span></div>
-                    <div class="item-chips">
-                        <span class="item-chip" th:each="it : ${o.items}" th:text="${it.name} + ' x ' + ${it.quantity}"></span>
+
+                <div class="card-divider"></div>
+
+                <!-- ── STEPPER (hidden for Cancelled/Refunded) ── -->
+                <th:block th:if="${trackingStepMap[o.id] < 5}">
+                    <div class="stepper-wrap">
+
+                        <div class="step-track-bg"></div>
+                        <!-- Fill width driven by progressWidthMap -->
+                        <div class="step-track-fill"
+                             th:style="'width: calc((' + ${progressWidthMap[o.id]} + '% / 100) * (100% - 40px))'"></div>
+
+                        <!--
+                            Steps: Placed | Processing | Packed | Shipped | Out for Delivery | Delivered
+                            step 0=PROCESSING → Placed done, Processing active
+                            step 1=PACKED     → Placed+Processing done, Packed active
+                            step 2=SHIPPED    → ..., Shipped active
+                            step 3=OFD        → ..., OFD active
+                            step 4=DELIVERED  → all done
+                        -->
+                        <div class="steps-row">
+
+                            <!-- 1. Placed — always done -->
+                            <div class="step">
+                                <div class="step-dot dot-done"><i class="fas fa-check"></i></div>
+                                <div class="step-name s-done">Placed</div>
+                            </div>
+
+                            <!-- 2. Processing (ordinal 0) -->
+                            <div class="step">
+                                <div class="step-dot"
+                                     th:classappend="${trackingStepMap[o.id] > 0 ? 'dot-done' : 'dot-active'}">
+                                    <i class="fas"
+                                       th:classappend="${trackingStepMap[o.id] > 0 ? 'fa-check' : 'fa-cog'}"></i>
+                                </div>
+                                <div class="step-name"
+                                     th:classappend="${trackingStepMap[o.id] > 0 ? 's-done' : 's-active'}">Processing</div>
+                            </div>
+
+                            <!-- 3. Packed (ordinal 1) -->
+                            <div class="step">
+                                <div class="step-dot"
+                                     th:classappend="${trackingStepMap[o.id] > 1 ? 'dot-done' : trackingStepMap[o.id] == 1 ? 'dot-active' : 'dot-pending'}">
+                                    <i class="fas"
+                                       th:classappend="${trackingStepMap[o.id] > 1 ? 'fa-check' : 'fa-box'}"></i>
+                                </div>
+                                <div class="step-name"
+                                     th:classappend="${trackingStepMap[o.id] > 1 ? 's-done' : trackingStepMap[o.id] == 1 ? 's-active' : ''}">Packed</div>
+                            </div>
+
+                            <!-- 4. Shipped (ordinal 2) -->
+                            <div class="step">
+                                <div class="step-dot"
+                                     th:classappend="${trackingStepMap[o.id] > 2 ? 'dot-done' : trackingStepMap[o.id] == 2 ? 'dot-active' : 'dot-pending'}">
+                                    <i class="fas"
+                                       th:classappend="${trackingStepMap[o.id] > 2 ? 'fa-check' : 'fa-shipping-fast'}"></i>
+                                </div>
+                                <div class="step-name"
+                                     th:classappend="${trackingStepMap[o.id] > 2 ? 's-done' : trackingStepMap[o.id] == 2 ? 's-active' : ''}">Shipped</div>
+                            </div>
+
+                            <!-- 5. Out for Delivery (ordinal 3) -->
+                            <div class="step">
+                                <div class="step-dot"
+                                     th:classappend="${trackingStepMap[o.id] > 3 ? 'dot-done' : trackingStepMap[o.id] == 3 ? 'dot-active-ofd' : 'dot-pending'}">
+                                    <i class="fas"
+                                       th:classappend="${trackingStepMap[o.id] > 3 ? 'fa-check' : 'fa-truck'}"></i>
+                                </div>
+                                <div class="step-name"
+                                     th:classappend="${trackingStepMap[o.id] > 3 ? 's-done' : trackingStepMap[o.id] == 3 ? 's-active-ofd' : ''}">Out for Delivery</div>
+                            </div>
+
+                            <!-- 6. Delivered (ordinal 4) -->
+                            <div class="step">
+                                <div class="step-dot"
+                                     th:classappend="${trackingStepMap[o.id] >= 4 ? 'dot-done-green' : 'dot-pending'}">
+                                    <i class="fas"
+                                       th:classappend="${trackingStepMap[o.id] >= 4 ? 'fa-check' : 'fa-house'}"></i>
+                                </div>
+                                <div class="step-name"
+                                     th:classappend="${trackingStepMap[o.id] >= 4 ? 's-delivered' : ''}">Delivered</div>
+                            </div>
+
+                        </div>
                     </div>
+                </th:block>
+
+                <!-- ── INFO STRIP ── -->
+                <div class="info-strip">
+
+                    <!-- Delivered celebration banner -->
+                    <div class="delivered-banner" th:if="${trackingStepMap[o.id] == 4}">
+                        <i class="fas fa-circle-check"></i>
+                        <span>Your order has been delivered! We hope you enjoy it. 🎉</span>
+                    </div>
+
+                    <!-- Cancelled banner -->
+                    <div class="inactive-banner cancelled" th:if="${trackingStepMap[o.id] == 6}">
+                        <i class="fas fa-times-circle"></i>
+                        <span>This order was cancelled. Stock has been restocked. Contact support if you need help.</span>
+                    </div>
+
+                    <!-- Refunded banner -->
+                    <div class="inactive-banner refunded" th:if="${trackingStepMap[o.id] == 5}">
+                        <i class="fas fa-rotate-left"></i>
+                        <span>Refund processed for this order. Please allow 5–7 business days for the amount to reflect.</span>
+                    </div>
+
+                    <!-- Current location (city) -->
+                    <div class="info-row city-row"
+                         th:if="${o.currentCity != null and !#strings.isEmpty(o.currentCity) and trackingStepMap[o.id] > 0 and trackingStepMap[o.id] < 4}">
+                        <i class="fas fa-map-pin"></i>
+                        <div>
+                            <div class="info-label">Current Location</div>
+                            <div class="info-val" th:text="${o.currentCity}"></div>
+                        </div>
+                    </div>
+
+                    <!-- Delivery slot -->
+                    <div class="info-row slot-row"
+                         th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                        <i class="fas fa-calendar-check"></i>
+                        <div>
+                            <div class="info-label">Expected Delivery Slot</div>
+                            <div class="info-val" th:text="${o.deliveryTime}"></div>
+                        </div>
+                    </div>
+                    <div class="info-row"
+                         th:unless="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
+                        <i class="fas fa-info-circle" style="color:var(--text-dim);"></i>
+                        <div>
+                            <div class="info-label" style="color:var(--text-dim);">Delivery Slot</div>
+                            <div class="info-val" style="color:var(--text-dim);">No delivery slot selected for this order.</div>
+                        </div>
+                    </div>
+
+                    <!-- Delivery address snapshot -->
+                    <div class="info-row addr-row"
+                         th:if="${o.deliveryAddress != null and !#strings.isEmpty(o.deliveryAddress)}">
+                        <i class="fas fa-location-dot"></i>
+                        <div>
+                            <div class="info-label">Delivering To</div>
+                            <div class="info-val" th:text="${o.deliveryAddress}"></div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
-            <div class="tracking-wrapper">
-                <div class="track-line-bg"></div>
-                <div class="track-line-fill" th:style="'width: ' + ${progressWidthMap[o.id]} + '%'"></div>
-
-                <div class="tracking-steps">
-
-                    <div class="track-step">
-                        <div class="step-icon step-done"><i class="fas fa-check"></i></div>
-                        <div class="step-label">Placed</div>
-                        <div class="step-time" th:if="${o.orderDate != null}" th:text="${#temporals.format(o.orderDate, 'dd MMM')}"></div>
-                    </div>
-
-                    <div class="track-step">
-                        <div class="step-icon"
-                             th:classappend="${trackingStepMap[o.id] > 1} ? 'step-done' : (${trackingStepMap[o.id]} == 1 ? 'step-active' : 'step-pending')">
-                            <i class="fas" th:classappend="${trackingStepMap[o.id] >= 1} ? 'fa-check' : 'fa-clipboard-check'"></i>
-                        </div>
-                        <div class="step-label">Confirmed</div>
-                        <div class="step-time" th:if="${trackingStepMap[o.id] >= 1}">~1h</div>
-                    </div>
-
-                    <div class="track-step">
-                        <div class="step-icon"
-                             th:classappend="${trackingStepMap[o.id] > 2} ? 'step-done' : (${trackingStepMap[o.id]} == 2 ? 'step-active' : 'step-pending')">
-                            <i class="fas" th:classappend="${trackingStepMap[o.id] > 2} ? 'fa-check' : 'fa-box'"></i>
-                        </div>
-                        <div class="step-label">Packed</div>
-                        <div class="step-time" th:if="${trackingStepMap[o.id] >= 2}">~3h</div>
-                    </div>
-
-                    <div class="track-step">
-                        <div class="step-icon"
-                             th:classappend="${trackingStepMap[o.id] > 3} ? 'step-done' : (${trackingStepMap[o.id]} == 3 ? 'step-active' : 'step-pending')">
-                            <i class="fas" th:classappend="${trackingStepMap[o.id] > 3} ? 'fa-check' : 'fa-shipping-fast'"></i>
-                        </div>
-                        <div class="step-label">Shipped</div>
-                        <div class="step-time" th:if="${trackingStepMap[o.id] >= 3}">~6h</div>
-                    </div>
-
-                    <div class="track-step">
-                        <div class="step-icon"
-                             th:classappend="${trackingStepMap[o.id] > 4} ? 'step-done' : (${trackingStepMap[o.id]} == 4 ? 'step-active' : 'step-pending')">
-                            <i class="fas" th:classappend="${trackingStepMap[o.id] > 4} ? 'fa-check' : 'fa-truck'"></i>
-                        </div>
-                        <div class="step-label">Out for Delivery</div>
-                        <div class="step-time" th:if="${trackingStepMap[o.id] >= 4}">~12h</div>
-                    </div>
-
-                    <div class="track-step">
-                        <div class="step-icon"
-                             th:classappend="${trackingStepMap[o.id] == 5} ? 'step-done' : 'step-pending'">
-                            <i class="fas" th:classappend="${trackingStepMap[o.id] == 5} ? 'fa-check' : 'fa-home'"></i>
-                        </div>
-                        <div class="step-label">Delivered</div>
-                        <div class="step-time" th:if="${trackingStepMap[o.id] == 5}">Done!</div>
-                    </div>
-
-                </div>
-            </div>
-
-            <div class="delivery-info" th:if="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
-                <i class="fas fa-calendar-check"></i>
-                <span><strong>Expected Delivery Slot:</strong> <span th:text="${o.deliveryTime}"></span></span>
-            </div>
-            <div class="delivery-info no-slot" th:unless="${o.deliveryTime != null and !#strings.isEmpty(o.deliveryTime)}">
-                <i class="fas fa-info-circle"></i>
-                <span>No delivery slot was selected for this order.</span>
+            <!-- ── CARD ACTIONS ── -->
+            <div class="card-actions">
+                <!-- Track individually -->
+                <a th:href="'/track/' + ${o.id}" class="btn-action btn-track-single"
+                   th:if="${trackingStepMap[o.id] < 4 and trackingStepMap[o.id] != 6}">
+                    <i class="fas fa-location-dot"></i> Live Track
+                </a>
+                <!-- Report Issue / Refund -->
+                <a th:href="'/customer/refund/report/' + ${o.id}" class="btn-action btn-report"
+                   th:if="${trackingStepMap[o.id] != 5 and trackingStepMap[o.id] != 6}">
+                    <i class="fas fa-shield-halved"></i> Report Issue
+                </a>
+                <!-- Reorder for delivered orders -->
+                <button type="button" class="btn-action btn-reorder"
+                        th:data-orderid="${o.id}"
+                        onclick="quickReorder(this)"
+                        th:if="${trackingStepMap[o.id] == 4}">
+                    <i class="fas fa-rotate-right"></i> Reorder
+                </button>
             </div>
 
         </div>
+        <!-- end th:each -->
 
         <a href="/customer/home" class="back-link">
-            <i class="fas fa-arrow-left"></i> Back to Home
+            <i class="fas fa-arrow-left"></i>&nbsp;Back to Home
         </a>
 
-    </div>
+    </th:block>
 
+    <!-- ── EMPTY STATE ── -->
     <div class="empty-state" th:if="${orders == null or orders.isEmpty()}">
-        <span class="empty-icon">&#x1F69A;</span>
+        <span class="empty-icon">🚚</span>
         <h3>No Orders to Track</h3>
-        <p>Place an order to start tracking your deliveries here.</p>
-        <a href="/view-products" class="btn-action btn-primary">
-            <i class="fas fa-shopping-bag"></i> Shop Now
-        </a>
+        <p>Once you place an order, you can follow its journey here in real time.</p>
+        <a href="/customer/home" class="btn-shop"><i class="fas fa-shopping-bag"></i> Browse Products</a>
         <br>
         <a href="/customer/home" class="back-link" style="margin-top:1.25rem;">
-            <i class="fas fa-arrow-left"></i> Back to Home
+            <i class="fas fa-arrow-left"></i>&nbsp;Back to Home
         </a>
     </div>
 
 </main>
 
+<!-- ── FOOTER ── -->
 <footer>
-    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-brand">Ek<span>art</span></div>
     <div class="footer-copy">© 2026 Ekart. All rights reserved.</div>
 </footer>
 
 <script>
+    // Nav scroll
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
     });
+
+    // Auto-dismiss alerts
     setTimeout(() => {
         document.querySelectorAll('.alert-stack .alert').forEach(el => {
             el.style.transition = 'opacity 0.5s';
@@ -448,13 +735,50 @@
             setTimeout(() => el.remove(), 500);
         });
     }, 2500);
+
+    // Animate progress bars on load
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.step-track-fill').forEach(function(el) {
+            var targetWidth = el.style.width;
+            el.style.width = '0';
+            setTimeout(function() {
+                el.style.width = targetWidth;
+            }, 200);
+        });
+    });
+
+    // Quick reorder
+    function quickReorder(btn) {
+        var orderId = btn.getAttribute('data-orderid');
+        var orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Adding...';
+
+        fetch('/api/orders/' + orderId + '/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i> Added!';
+                btn.style.background = 'rgba(34,197,94,0.15)';
+                btn.style.borderColor = 'rgba(34,197,94,0.4)';
+                btn.style.color = '#22c55e';
+                setTimeout(function() { window.location.href = '/view-cart'; }, 1200);
+            } else {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+                alert(data.message || 'Reorder failed');
+            }
+        })
+        .catch(function() {
+            btn.innerHTML = orig;
+            btn.disabled = false;
+            alert('Network error. Please try again.');
+        });
+    }
 </script>
-
-<!-- Global Toast System -->
-<script src="/js/ekart-toast.js"></script>
-<link rel="stylesheet" href="/css/ekart-ui.css">
-
-
 
 </body>
 </html>

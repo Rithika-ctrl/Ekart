@@ -451,6 +451,25 @@
                     <span class="label">Cart Subtotal</span>
                     <span class="value" th:text="'₹' + ${cartTotal}">₹0.00</span>
                 </div>
+                <!-- GST breakdown (back-calculated from inclusive prices) -->
+                <div class="price-row" th:if="${gstAmount != null and gstAmount > 0}"
+                     style="font-size:0.82rem;">
+                    <span class="label" style="display:flex;align-items:center;gap:0.3rem;">
+                        <i class="fas fa-file-invoice" style="font-size:0.7rem;color:var(--yellow);"></i>
+                        <span th:text="${gstLabel != null ? gstLabel : 'GST'}">GST (18%)</span>
+                        <span style="font-size:0.65rem;color:rgba(255,255,255,0.25);">(incl.)</span>
+                    </span>
+                    <span class="value" style="color:rgba(255,255,255,0.55);"
+                          th:text="'₹' + ${#numbers.formatDecimal(gstAmount, 1, 'COMMA', 2, 'POINT')}">₹0</span>
+                </div>
+                <div class="price-row" th:if="${taxableBase != null and gstAmount != null and gstAmount > 0}"
+                     style="font-size:0.78rem;">
+                    <span class="label" style="color:rgba(255,255,255,0.3);">
+                        Taxable value
+                    </span>
+                    <span class="value" style="color:rgba(255,255,255,0.4);font-weight:400;"
+                          th:text="'₹' + ${#numbers.formatDecimal(taxableBase, 1, 'COMMA', 2, 'POINT')}">₹0</span>
+                </div>
                 <div class="price-row">
                     <span class="label" id="payment-delivery-label">Delivery Charge</span>
                     <span class="value tag-free" id="payment-delivery-val"

@@ -531,12 +531,17 @@ public class EkartController {
         // subOrderIds is a comma-separated string of all sub-order IDs
         map.put("subOrderIds",  subOrderIds != null ? subOrderIds.toString() : "");
 
+        // GST amount — stored in session by CustomerService.paymentSuccess()
+        Object gstAmount = session.getAttribute("lastOrderGst");
+        map.put("gstAmount", gstAmount != null ? gstAmount : 0.0);
+
         // Clear after use so refreshing doesn't re-show
         session.removeAttribute("lastOrderId");
         session.removeAttribute("lastSubOrderIds");
         session.removeAttribute("lastOrderAmount");
         session.removeAttribute("lastOrderDeliveryTime");
         session.removeAttribute("lastOrderPaymentMode");
+        session.removeAttribute("lastOrderGst");
 
         return "order-success.html";
     }

@@ -704,6 +704,15 @@
                     <th:block th:unless="${totalPrice >= 500}">₹40</th:block>
                 </div>
             </div>
+            <!-- GST breakdown row — calculated client-side from product prices -->
+            <div class="total-row" id="gst-row" style="font-size:0.78rem;">
+                <div class="total-label" style="display:flex;align-items:center;gap:0.35rem;">
+                    <i class="fas fa-file-invoice" style="color:var(--yellow);font-size:0.65rem;"></i>
+                    <span id="gst-label-text">GST (incl.)</span>
+                </div>
+                <div class="total-value" id="cart-gst-val"
+                     style="color:rgba(255,255,255,0.45);font-size:0.82rem;">₹—</div>
+            </div>
             <div class="total-row" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:0.5rem;margin-top:0.2rem;">
                 <div class="total-label" style="font-weight:700;color:white;">Grand Total</div>
                 <div class="total-value" id="cart-grand-total" style="color:var(--yellow);font-size:1.1rem;">
@@ -938,8 +947,110 @@
 
 <script>
 /* ═══════════════════════════════════════════════════════
-   AJAX CART — no full page reloads
+   GST CALCULATION — client-side, category-based
+   Mirrors GstUtil.java logic so rates stay in sync.
    ═══════════════════════════════════════════════════════ */
+(function() {
+    // Rate map: lowercase keyword → rate fraction
+    // Must mirror GstUtil.java CATEGORY_RATES
+    var GST_RATES = [
+        // 0%
+        {keys:['book','newspaper','grain','rice','pulse','salt','fresh','vegetable','fruit'], rate:0},
+        // 5%
+        {keys:['food','beverage','drink','juice','tea','coffee','grocery','dairy','milk',
+               'butter','cheese','paneer','egg','bread','bakery','snack','chip','biscuit',
+               'wafer','chocolate','sweet','ice cream','icecream','medicine','pharma',
+               'supplement','vitamin','ayurved','first aid','sanitizer','baby','infant',
+               'oil','spice','masala','staple','daily product'], rate:5},
+        // 12%
+        {keys:['sport','fitness','gym','outdoor','toy','game','board game','puzzle',
+               'footwear','shoe','sandal','slipper','boot','stationery','stationary',
+               'office','pen','notebook','kitchen','cookware','utensil','cloth','fashion',
+               'apparel','shirt','dress','wear','jeans','kurta','saree','bag','luggage',
+               'wallet','handbag','backpack','accessory','accessories','jewel','watch',
+               'ring','necklace','bracelet','decor','home good','household','cleaning',
+               'bedding','furniture'], rate:12},
+        // 18%
+        {keys:['electronic','mobile','phone','laptop','computer','tablet','camera','audio',
+               'headphone','speaker','tv','appliance','beauty','cosmetic','makeup',
+               'skincare','haircare','shampoo','cream','lotion','perfume','fragrance',
+               'soap','detergent','hygiene','personal care','pet','plant','garden',
+               'car','auto','tyre'], rate:18},
+    ];
+    var DEFAULT_RATE = 18;
+
+    function getRateForCategory(cat) {
+        if (!cat) return DEFAULT_RATE;
+        var lower = cat.toLowerCase().trim();
+        for (var i = 0; i < GST_RATES.length; i++) {
+            var group = GST_RATES[i];
+            for (var j = 0; j < group.keys.length; j++) {
+                if (lower.indexOf(group.keys[j]) !== -1) return group.rate;
+            }
+        }
+        return DEFAULT_RATE;
+    }
+
+    function calcGstFromInclusive(inclPrice, ratePercent) {
+        if (!ratePercent) return 0;
+        var r = ratePercent / 100;
+        return Math.round(inclPrice * r / (1 + r) * 100) / 100;
+    }
+
+    window.computeCartGst = function() {
+        var totalGst = 0;
+        var rateSet  = new Set();
+        // Each cart card holds category in .cart-category-badge
+        document.querySelectorAll('.cart-card').forEach(function(card) {
+            var catEl    = card.querySelector('.cart-category-badge');
+            var priceEl  = card.querySelector('.cart-price');
+            var lineTotalEl = card.querySelector('.cart-line-total strong');
+            var cat = catEl ? catEl.textContent.trim() : '';
+            var rate = getRateForCategory(cat);
+
+            // Line total = strong element inside .cart-line-total if qty>1, else .cart-price
+            var lineTotal = 0;
+            if (lineTotalEl) {
+                lineTotal = parseFloat(lineTotalEl.textContent.replace(/[^0-9.]/g,'')) || 0;
+            } else if (priceEl) {
+                lineTotal = parseFloat(priceEl.textContent.replace(/[^0-9.]/g,'')) || 0;
+            }
+
+            totalGst += calcGstFromInclusive(lineTotal, rate);
+            if (rate > 0) rateSet.add(rate);
+        });
+
+        totalGst = Math.round(totalGst * 100) / 100;
+
+        var gstEl    = document.getElementById('cart-gst-val');
+        var labelEl  = document.getElementById('gst-label-text');
+        if (!gstEl) return;
+
+        if (totalGst <= 0) {
+            gstEl.textContent = '₹0.00';
+            if (labelEl) labelEl.textContent = 'GST (0%)';
+            return;
+        }
+
+        gstEl.textContent = '₹' + totalGst.toFixed(2);
+
+        if (labelEl) {
+            var rates = Array.from(rateSet).sort(function(a,b){return a-b;});
+            if (rates.length === 0) {
+                labelEl.textContent = 'GST (incl.)';
+            } else if (rates.length === 1) {
+                labelEl.textContent = 'GST (' + rates[0] + '%, incl.)';
+            } else {
+                labelEl.textContent = 'GST (' + rates[0] + '–' + rates[rates.length-1] + '%, incl.)';
+            }
+        }
+    };
+
+    // Run on page load and after any cart mutation
+    document.addEventListener('DOMContentLoaded', function() {
+        window.computeCartGst();
+    });
+})();
 
 let _pendingRemoveId = null;
 
@@ -1159,6 +1270,9 @@ function applyCartUpdate(data) {
         if (cards.length > 0) { badge.textContent = cards.length; badge.style.display = ''; }
         else badge.style.display = 'none';
     }
+
+    // Recompute GST after mutation
+    if (window.computeCartGst) window.computeCartGst();
 
     // If cart is now empty — show empty state, hide panels
     if (data.cartEmpty) {
