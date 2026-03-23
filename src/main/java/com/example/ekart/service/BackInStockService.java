@@ -1,11 +1,3 @@
-/**
- * File: BackInStockService.java
- * Description: Service handling back-in-stock subscription lifecycle (subscribe, unsubscribe, notify subscribers).
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.service;
 
 import com.example.ekart.dto.BackInStockSubscription;
@@ -36,10 +28,8 @@ public class BackInStockService {
 
     // ── SUBSCRIBE ──────────────────────────────────────────────────────────
     /**
-     * Subscribe the logged-in customer to back-in-stock notifications for a product.
-     * @param productId ID of the product to subscribe to
-     * @param session HTTP session containing logged-in customer
-     * @return Map with keys: success (boolean), message (String), subscribed (boolean)
+     * Subscribe a customer to back-in-stock notifications for a product.
+     * Returns a result map with { success, message, subscribed }.
      */
     public Map<String, Object> subscribe(int productId, HttpSession session) {
         Customer sessionCustomer = (Customer) session.getAttribute("customer");
@@ -87,7 +77,6 @@ public class BackInStockService {
         }
 
         // No existing row — fresh subscription
-        // Create and persist new subscription
         BackInStockSubscription sub = new BackInStockSubscription(customer, product);
         backInStockRepository.save(sub);
 
@@ -99,12 +88,6 @@ public class BackInStockService {
     }
 
     // ── UNSUBSCRIBE ────────────────────────────────────────────────────────
-    /**
-     * Unsubscribe the logged-in customer from back-in-stock notifications for a product.
-     * @param productId ID of the product to unsubscribe from
-     * @param session HTTP session containing logged-in customer
-     * @return Map with keys: success (boolean), message (String), subscribed (boolean)
-     */
     public Map<String, Object> unsubscribe(int productId, HttpSession session) {
         Customer sessionCustomer = (Customer) session.getAttribute("customer");
         if (sessionCustomer == null) {
@@ -118,8 +101,7 @@ public class BackInStockService {
         }
 
         Optional<BackInStockSubscription> sub =
-            backInStockRepository.findByCustomerAndProduct(customer, product);
-        // If subscription exists, delete it
+                backInStockRepository.findByCustomerAndProduct(customer, product);
         sub.ifPresent(backInStockRepository::delete);
 
         return Map.of(
@@ -131,10 +113,7 @@ public class BackInStockService {
 
     // ── CHECK STATUS ───────────────────────────────────────────────────────
     /**
-     * Check whether the logged-in customer currently has a pending (unnotified) subscription.
-     * @param productId ID of the product to check
-     * @param session HTTP session containing logged-in customer
-     * @return true if a pending subscription exists, false otherwise
+     * Returns true if the logged-in customer has a pending subscription for productId.
      */
     public boolean isSubscribed(int productId, HttpSession session) {
         Customer sessionCustomer = (Customer) session.getAttribute("customer");
@@ -146,34 +125,28 @@ public class BackInStockService {
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) return false;
 
-        // Check repository for pending (notified=false) subscription
         return backInStockRepository.existsByCustomerAndProductAndNotifiedFalse(customer, product);
     }
 
     // ── NOTIFY ALL SUBSCRIBERS (called when stock is restored) ─────────────
     /**
-     * Notify all pending subscribers for a product when it becomes available.
-     * @param product Product entity which became available
-     * This method sends emails and marks subscriptions as notified.
+     * Called automatically when a product's stock goes from 0 → positive.
+     * Sends email to every pending subscriber and marks them as notified.
      */
     public void notifySubscribers(Product product) {
         if (product.getStock() <= 0) return; // guard: only notify when actually in stock
 
-        // Fetch all pending (notified=false) subscriptions for the product
         List<BackInStockSubscription> subs =
                 backInStockRepository.findByProductAndNotifiedFalse(product);
         if (subs.isEmpty()) return;
 
         for (BackInStockSubscription sub : subs) {
             try {
-                // Send notification email
                 emailSender.sendBackInStockNotification(sub.getCustomer(), product);
-                // Mark subscription as notified and save
                 sub.setNotified(true);
                 sub.setNotifiedAt(LocalDateTime.now());
                 backInStockRepository.save(sub);
             } catch (Exception e) {
-                // Log and continue notifying others
                 System.err.println("[BackInStock] Failed to notify customer "
                         + sub.getCustomer().getEmail() + ": " + e.getMessage());
             }
@@ -183,15 +156,9 @@ public class BackInStockService {
     }
 
     // ── SUBSCRIBER COUNT (for vendor/admin info) ────────────────────────────
-    /**
-     * Get number of pending subscribers for a product.
-     * @param productId ID of the product
-     * @return Count of pending subscriptions
-     */
     public long getSubscriberCount(int productId) {
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) return 0;
-        // Delegate to repository to count pending subscriptions
         return backInStockRepository.countPendingByProduct(product);
     }
 }

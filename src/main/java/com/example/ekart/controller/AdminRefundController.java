@@ -1,12 +1,3 @@
-
-/**
- * File: AdminRefundController.java
- * Description: Handles admin refund management, including page rendering and REST API endpoints for processing refunds.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.controller;
 
 import java.util.HashMap;
@@ -45,16 +36,11 @@ public class AdminRefundController {
     // ───────────────────────────────────────────────────────────────────────────
 
     /**
-     * Renders the admin refund management page.
-     * URL: /admin/refunds
-     * Access: Admin only
-     * @param session HTTP session for admin authentication
-     * @param map ModelMap for passing data to the view
-     * @return Name of the Thymeleaf template for admin refunds
+     * GET /admin/refunds
+     * Renders the refund management page.
      */
     @GetMapping("/admin/refunds")
     public String refundsPage(HttpSession session, ModelMap map) {
-        // Check admin authentication
         if (session.getAttribute("admin") == null) {
             session.setAttribute("failure", "Please login as Admin");
             return "redirect:/admin/login";
@@ -79,16 +65,12 @@ public class AdminRefundController {
     // ───────────────────────────────────────────────────────────────────────────
 
     /**
-     * Fetch all pending refund requests (REST API).
-     * URL: /api/admin/refunds
-     * Access: Admin only
-     * @param session HTTP session for admin authentication
-     * @return ResponseEntity with pending refunds data
+     * GET /api/admin/refunds
+     * Fetch all pending refund requests.
      */
     @GetMapping("/api/admin/refunds")
     @ResponseBody
     public ResponseEntity<?> getPendingRefunds(HttpSession session) {
-        // Check admin authentication
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(Map.of(
                 "success", false,
@@ -98,10 +80,10 @@ public class AdminRefundController {
 
         List<Refund> pendingRefunds = refundService.getPendingRefunds();
 
-        // Convert Refund entities to serializable format for API response
+        // Convert to serializable format
         List<Map<String, Object>> refundsData = pendingRefunds.stream()
-            .map(this::refundToMap)
-            .collect(Collectors.toList());
+                .map(this::refundToMap)
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(Map.of(
             "success", true,
@@ -112,13 +94,8 @@ public class AdminRefundController {
     }
 
     /**
-     * Update refund status (approve or reject) via REST API.
-     * URL: /api/admin/refunds/{id}/status
-     * Access: Admin only
-     * @param refundId ID of the refund to update
-     * @param payload Map containing action (approve/reject) and optional rejection reason
-     * @param session HTTP session for admin authentication
-     * @return ResponseEntity with update result
+     * PUT /api/admin/refunds/:id/status
+     * Update refund status (approve or reject).
      */
     @PutMapping("/api/admin/refunds/{id}/status")
     @ResponseBody
@@ -127,7 +104,6 @@ public class AdminRefundController {
             @RequestBody Map<String, String> payload,
             HttpSession session) {
 
-        // Check admin authentication
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(Map.of(
                 "success", false,
@@ -139,7 +115,6 @@ public class AdminRefundController {
         String rejectionReason = payload.get("rejectionReason");
         String adminEmail = (String) session.getAttribute("admin");
 
-        // Validate action parameter
         if (action == null || action.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
@@ -160,7 +135,6 @@ public class AdminRefundController {
             ));
         }
 
-        // Return result based on success
         if ((boolean) result.get("success")) {
             return ResponseEntity.ok(result);
         } else {
@@ -169,16 +143,12 @@ public class AdminRefundController {
     }
 
     /**
-     * Fetch processed refunds (approved/rejected) via REST API.
-     * URL: /api/admin/refunds/history
-     * Access: Admin only
-     * @param session HTTP session for admin authentication
-     * @return ResponseEntity with processed refunds data
+     * GET /api/admin/refunds/history
+     * Fetch processed refunds (approved/rejected).
      */
     @GetMapping("/api/admin/refunds/history")
     @ResponseBody
     public ResponseEntity<?> getRefundHistory(HttpSession session) {
-        // Check admin authentication
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(Map.of(
                 "success", false,
@@ -188,10 +158,9 @@ public class AdminRefundController {
 
         List<Refund> processedRefunds = refundService.getProcessedRefunds();
 
-        // Convert Refund entities to serializable format for API response
         List<Map<String, Object>> refundsData = processedRefunds.stream()
-            .map(this::refundToMap)
-            .collect(Collectors.toList());
+                .map(this::refundToMap)
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(Map.of(
             "success", true,
@@ -205,9 +174,7 @@ public class AdminRefundController {
     // ───────────────────────────────────────────────────────────────────────────
 
     /**
-     * Convert Refund entity to a serializable Map for API responses.
-     * @param refund Refund entity
-     * @return Map with refund fields for API response
+     * Convert Refund entity to a serializable Map.
      */
     private Map<String, Object> refundToMap(Refund refund) {
         Map<String, Object> map = new HashMap<>();

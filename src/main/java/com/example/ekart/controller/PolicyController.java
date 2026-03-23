@@ -1,11 +1,3 @@
-/**
- * File: PolicyController.java
- * Description: Controller for policy management and retrieval endpoints.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.controller;
 
 import com.example.ekart.model.Policy;
