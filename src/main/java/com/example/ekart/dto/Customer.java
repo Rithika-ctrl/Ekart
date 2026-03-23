@@ -1,3 +1,11 @@
+/**
+ * File: Customer.java
+ * Description: DTO representing a registered customer and profile fields.
+ * Author: Sanjay E, Rithika K, B Venkatesh
+ * Company: Preflex Solutions Pvt. Ltd.
+ * Version: 1.0
+ * Date: March 2026
+ */
 package com.example.ekart.dto;
 
 import java.time.LocalDateTime;

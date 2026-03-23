@@ -1,3 +1,11 @@
+/**
+ * File: Product.java
+ * Description: DTO representing a product, its pricing, stock and metadata.
+ * Author: Sanjay E, Rithika K, B Venkatesh
+ * Company: Preflex Solutions Pvt. Ltd.
+ * Version: 1.0
+ * Date: March 2026
+ */
 package com.example.ekart.dto;
 
 import org.springframework.web.multipart.MultipartFile;
