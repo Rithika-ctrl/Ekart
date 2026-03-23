@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy – Ekart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-bg:     rgba(255,255,255,0.10);
+            --glass-border: rgba(255,255,255,0.18);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.82);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
+
+        body {
+            font-family:'Poppins', sans-serif;
+            min-height:100vh;
+            color:var(--text-light);
+            overflow-x:hidden;
+        }
+
+        /* ── Background ── */
+        .bg-layer {
+            position:fixed; inset:0; z-index:-1; overflow:hidden;
+        }
+        .bg-layer::before {
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
+        }
+        .bg-layer::after {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.90) 0%,rgba(8,12,28,0.88) 100%);
+        }
+
+        /* ── Nav ── */
+        nav {
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:1rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            background:rgba(0,0,0,0.25);
+            backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border);
+        }
+        .nav-brand {
+            font-size:1.5rem; font-weight:700;
+            color: #ffffff; text-decoration:none; letter-spacing:0.04em;
+        }
+        .nav-brand span { color: #f5a800; }
+        .nav-back {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none; font-size:0.82rem;
+            padding:0.45rem 1rem; border-radius:6px;
+            border:1px solid var(--glass-border);
+            transition:all 0.2s;
+        }
+        .nav-back:hover { background:rgba(255,255,255,0.08); color:white; }
+
+        /* ── Page wrapper ── */
+        .page-wrapper {
+            max-width:820px; margin:0 auto;
+            padding:7rem 2rem 4rem;
+        }
+
+        /* ── Hero banner ── */
+        .page-hero {
+            text-align:center; margin-bottom:3rem;
+        }
+        .page-hero .badge {
+            display:inline-block;
+            background:rgba(245,168,0,0.15);
+            border:1px solid rgba(245,168,0,0.35);
+            color:var(--yellow);
+            font-size:0.72rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+            padding:0.35rem 1rem; border-radius:50px; margin-bottom:1.2rem;
+        }
+        .page-hero h1 {
+            font-size:2.4rem; font-weight:700; color:var(--text-white);
+            line-height:1.2; margin-bottom:0.8rem;
+        }
+        .page-hero p {
+            font-size:0.9rem; color:var(--text-dim); max-width:520px; margin:0 auto;
+        }
+        .page-hero .effective {
+            margin-top:1rem;
+            font-size:0.78rem; color:var(--text-dim);
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+        }
+        .page-hero .effective i { color:var(--yellow); font-size:0.72rem; }
+
+        /* ── TOC ── */
+        .toc {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.5rem 2rem;
+            margin-bottom:2.5rem;
+            backdrop-filter:blur(10px);
+        }
+        .toc h3 {
+            font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase;
+            color:var(--yellow); margin-bottom:1rem;
+        }
+        .toc ol {
+            padding-left:1.2rem; display:grid; grid-template-columns:1fr 1fr; gap:0.35rem 2rem;
+        }
+        .toc ol li a {
+            color:var(--text-light); text-decoration:none; font-size:0.82rem;
+            transition:color 0.2s;
+        }
+        .toc ol li a:hover { color:var(--yellow); }
+        @media(max-width:600px){ .toc ol { grid-template-columns:1fr; } }
+
+        /* ── Sections ── */
+        .section {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px; padding:2rem 2.2rem;
+            margin-bottom:1.5rem;
+            backdrop-filter:blur(10px);
+            scroll-margin-top:90px;
+        }
+        .section-header {
+            display:flex; align-items:center; gap:0.9rem; margin-bottom:1.2rem;
+        }
+        .section-icon {
+            width:38px; height:38px; border-radius:9px; flex-shrink:0;
+            background:rgba(245,168,0,0.15);
+            border:1px solid rgba(245,168,0,0.30);
+            display:flex; align-items:center; justify-content:center;
+            color:var(--yellow); font-size:0.9rem;
+        }
+        .section h2 {
+            font-size:1.05rem; font-weight:600; color:var(--text-white);
+        }
+        .section p {
+            font-size:0.875rem; line-height:1.8; color:var(--text-light); margin-bottom:0.9rem;
+        }
+        .section p:last-child { margin-bottom:0; }
+        .section ul, .section ol {
+            padding-left:1.4rem; margin-bottom:0.9rem;
+        }
+        .section ul li, .section ol li {
+            font-size:0.875rem; line-height:1.75; color:var(--text-light); margin-bottom:0.25rem;
+        }
+        .section h3 {
+            font-size:0.9rem; font-weight:600; color:var(--text-white);
+            margin:1.2rem 0 0.5rem;
+        }
+        .section h3:first-of-type { margin-top:0; }
+
+        /* Tag chips */
+        .tag-list {
+            display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.8rem 0;
+        }
+        .tag {
+            background:rgba(245,168,0,0.12);
+            border:1px solid rgba(245,168,0,0.25);
+            color:var(--yellow); font-size:0.72rem; font-weight:500;
+            padding:0.2rem 0.75rem; border-radius:50px;
+        }
+
+        /* Contact card */
+        .contact-card {
+            background:rgba(245,168,0,0.08);
+            border:1px solid rgba(245,168,0,0.25);
+            border-radius:10px; padding:1.2rem 1.5rem;
+            display:flex; align-items:center; gap:1rem; margin-top:1rem;
+        }
+        .contact-card i { color:var(--yellow); font-size:1.1rem; }
+        .contact-card a {
+            color:var(--yellow); text-decoration:none; font-size:0.875rem;
+            font-weight:500; transition:opacity 0.2s;
+        }
+        .contact-card a:hover { opacity:0.75; }
+        .contact-card p { font-size:0.78rem; color:var(--text-dim); margin:0; }
+
+        /* ── Footer ── */
+        footer {
+            padding:2rem 3rem;
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+            border-top:1px solid var(--glass-border);
+            background:rgba(0,0,0,0.2);
+        }
+        .footer-brand { font-size:1.1rem; font-weight:700; color:var(--text-white); }
+        .footer-brand span { color:var(--yellow); }
+        .footer-copy { font-size:0.75rem; color:var(--text-dim); }
+        .footer-links { display:flex; gap:1.5rem; flex-wrap:wrap; }
+        .footer-links a {
+            font-size:0.75rem; color:var(--text-dim); text-decoration:none; transition:color 0.2s;
+        }
+        .footer-links a:hover { color:white; }
+        .footer-links a.active { color:var(--yellow); }
+
+        @media(max-width:640px){
+            nav { padding:1rem 1.2rem; }
+            .page-wrapper { padding:6rem 1.2rem 3rem; }
+            .page-hero h1 { font-size:1.7rem; }
+            footer { padding:1.5rem; flex-direction:column; text-align:center; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-layer"></div>
+
+<!-- Nav -->
+<nav>
+    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back to Ekart</a>
+</nav>
+
+<!-- Page content -->
+<div class="page-wrapper">
+
+    <!-- Hero -->
+    <div class="page-hero">
+        <div class="badge"><i class="fas fa-shield-alt"></i> &nbsp;Legal Document</div>
+        <h1>Privacy Policy</h1>
+        <p>We value your privacy and are committed to protecting your personal information with full transparency.</p>
+        <div class="effective"><i class="fas fa-calendar-alt"></i> Effective Date: January 1, 2026 &nbsp;|&nbsp; Last Updated: March 2026</div>
+    </div>
+
+    <!-- TOC -->
+    <div class="toc">
+        <h3><i class="fas fa-list"></i> &nbsp;Table of Contents</h3>
+        <ol>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#data-collected">Data We Collect</a></li>
+            <li><a href="#how-used">How We Use Your Data</a></li>
+            <li><a href="#cookies">Cookies</a></li>
+            <li><a href="#third-party">Third-Party Services</a></li>
+            <li><a href="#data-sharing">Data Sharing</a></li>
+            <li><a href="#security">Data Security</a></li>
+            <li><a href="#rights">Your Rights</a></li>
+            <li><a href="#retention">Data Retention</a></li>
+            <li><a href="#contact">Contact Us</a></li>
+        </ol>
+    </div>
+
+    <!-- 1. Overview -->
+    <div class="section" id="overview">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-info-circle"></i></div>
+            <h2>1. Overview</h2>
+        </div>
+        <p>Ekart ("we", "our", or "us") is an e-commerce platform developed by <strong style="color:white">Preflex Solutions Pvt. Ltd.</strong>, with development by <strong style="color:white">Sanjay E, Rithika K, and B Venkatesh</strong>. This Privacy Policy explains how we collect, use, and safeguard your personal information when you use our website, mobile application, or any services offered through Ekart.</p>
+        <p>By registering, browsing, or purchasing on Ekart, you agree to the terms described in this policy. If you do not agree, please discontinue use of the platform.</p>
+        <p>This policy applies to all users — customers, vendors, delivery partners, and guests — accessing Ekart through any channel.</p>
+    </div>
+
+    <!-- 2. Data Collected -->
+    <div class="section" id="data-collected">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-database"></i></div>
+            <h2>2. Data We Collect</h2>
+        </div>
+
+        <h3>Information You Provide Directly</h3>
+        <ul>
+            <li><strong style="color:white">Account details:</strong> Full name, email address, mobile number, and password (stored AES-encrypted)</li>
+            <li><strong style="color:white">Delivery addresses:</strong> Recipient name, house/street, city, state, and pin code</li>
+            <li><strong style="color:white">Payment information:</strong> Payment method selection (Cash on Delivery or Razorpay); card/UPI details are processed directly by Razorpay and never stored by Ekart</li>
+            <li><strong style="color:white">Profile photo:</strong> Optionally uploaded by the customer</li>
+            <li><strong style="color:white">Reviews and ratings:</strong> Text comments and star ratings you submit for products</li>
+            <li><strong style="color:white">Refund requests:</strong> Reason text and supporting evidence images you upload</li>
+            <li><strong style="color:white">Vendor information:</strong> Business name, contact details, and product listings</li>
+            <li><strong style="color:white">Delivery partner information:</strong> Name, email, mobile, assigned warehouse, and service pin codes</li>
+        </ul>
+
+        <h3>Information Collected Automatically</h3>
+        <ul>
+            <li><strong style="color:white">Usage data:</strong> Pages visited, products viewed (recently viewed list), search queries, and session activity</li>
+            <li><strong style="color:white">Order history:</strong> Items purchased, order amounts, payment modes, tracking status, and timestamps</li>
+            <li><strong style="color:white">Device and location data:</strong> IP address, browser type, and approximate location (used for India-only geo-restriction)</li>
+            <li><strong style="color:white">Wishlist and cart data:</strong> Products saved, quantities, and timestamps</li>
+            <li><strong style="color:white">Login activity:</strong> Last login timestamp, OAuth2 provider used (Google, Facebook, GitHub)</li>
+        </ul>
+
+        <h3>Information from Third Parties</h3>
+        <ul>
+            <li><strong style="color:white">Social login:</strong> If you sign in with Google, Facebook, or GitHub, we receive your name, email, and provider ID from that service</li>
+            <li><strong style="color:white">Geocoding:</strong> Approximate address data from mapping APIs used for delivery zone verification</li>
+        </ul>
+
+        <div class="tag-list">
+            <span class="tag">Name &amp; Email</span>
+            <span class="tag">Mobile Number</span>
+            <span class="tag">Delivery Address</span>
+            <span class="tag">Order History</span>
+            <span class="tag">Usage Activity</span>
+            <span class="tag">Device / IP</span>
+        </div>
+    </div>
+
+    <!-- 3. How Used -->
+    <div class="section" id="how-used">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-cogs"></i></div>
+            <h2>3. How We Use Your Data</h2>
+        </div>
+        <p>We use your personal information solely for legitimate operational and service-improvement purposes:</p>
+        <ul>
+            <li>To create and manage your account (customer, vendor, or delivery partner)</li>
+            <li>To process orders, arrange delivery, and send order confirmation emails</li>
+            <li>To send OTPs for account verification, password reset, and delivery confirmation</li>
+            <li>To assign delivery partners and warehouses based on your pin code</li>
+            <li>To display your order history, tracking status, spending analytics, and wishlist</li>
+            <li>To power the AI shopping assistant with your order and cart context (served by Google Gemini API)</li>
+            <li>To notify you when out-of-stock products become available again</li>
+            <li>To send promotional emails only if you have opted in</li>
+            <li>To generate sales and analytics reports for vendors (aggregated, non-identifiable where possible)</li>
+            <li>To detect fraud, enforce geo-restrictions, and maintain platform security</li>
+            <li>To improve our product recommendations, search results, and platform features</li>
+        </ul>
+        <p>We do <strong style="color:white">not</strong> sell your personal data to any third party for advertising or marketing purposes.</p>
+    </div>
+
+    <!-- 4. Cookies -->
+    <div class="section" id="cookies">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-cookie-bite"></i></div>
+            <h2>4. Cookies</h2>
+        </div>
+        <p>Ekart uses cookies and browser sessions to maintain your login state and improve your experience. We use the following types:</p>
+        <ul>
+            <li><strong style="color:white">Session cookies:</strong> Required to keep you logged in and maintain your shopping cart across page navigation. These expire when you close your browser.</li>
+            <li><strong style="color:white">Authentication cookies:</strong> Used by Spring Security and OAuth2 to remember your login state and social login session.</li>
+            <li><strong style="color:white">Preference cookies:</strong> Store your last viewed products and UI preferences.</li>
+        </ul>
+        <p>We do not currently use third-party advertising or tracking cookies. You can control cookie settings through your browser preferences. Disabling essential cookies may prevent login and cart functionality from working.</p>
+        <p>For detailed information, see our <a href="/cookies.html" style="color:var(--yellow)">Cookie Policy</a>.</p>
+    </div>
+
+    <!-- 5. Third-Party -->
+    <div class="section" id="third-party">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-plug"></i></div>
+            <h2>5. Third-Party Services</h2>
+        </div>
+        <p>Ekart integrates the following third-party services, each with their own privacy policies:</p>
+        <ul>
+            <li><strong style="color:white">Razorpay</strong> — Payment gateway for card, UPI, net banking, and wallet transactions. Payment details are handled entirely by Razorpay and are not stored on Ekart's servers. <a href="https://razorpay.com/privacy/" target="_blank" style="color:var(--yellow)">Razorpay Privacy Policy →</a></li>
+            <li><strong style="color:white">Cloudinary</strong> — Cloud storage for product images, profile photos, and review/refund evidence images. <a href="https://cloudinary.com/privacy" target="_blank" style="color:var(--yellow)">Cloudinary Privacy Policy →</a></li>
+            <li><strong style="color:white">Google Gemini API</strong> — Powers the AI shopping assistant. Your cart and order context is sent to Gemini to generate responses. No personally identifiable data is retained by the AI service beyond the immediate request.</li>
+            <li><strong style="color:white">Google / Facebook / GitHub OAuth2</strong> — Used for social login. We receive only your name, email, and provider ID. We do not receive your social media passwords or other account data.</li>
+            <li><strong style="color:white">TiDB Cloud (Ping CAP)</strong> — Cloud-hosted MySQL database (Singapore region) where your account and order data is stored securely.</li>
+            <li><strong style="color:white">SMTP Email (Gmail)</strong> — Used to send transactional emails (OTPs, order confirmations, shipping updates, stock alerts).</li>
+        </ul>
+    </div>
+
+    <!-- 6. Data Sharing -->
+    <div class="section" id="data-sharing">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-share-alt"></i></div>
+            <h2>6. Data Sharing</h2>
+        </div>
+        <p>We do not sell, rent, or trade your personal information. Your data is shared only in the following limited circumstances:</p>
+        <ul>
+            <li><strong style="color:white">With vendors:</strong> When you place an order, the vendor receives your name, delivery address (city and pin code), and ordered items to fulfill the order.</li>
+            <li><strong style="color:white">With delivery partners:</strong> Assigned delivery boys receive your delivery address pin code and order details to complete delivery.</li>
+            <li><strong style="color:white">With payment processors:</strong> Razorpay receives your payment method details to process transactions.</li>
+            <li><strong style="color:white">Legal requirements:</strong> We may disclose information if required by Indian law, court order, or governmental authority.</li>
+            <li><strong style="color:white">Platform safety:</strong> Fraud investigation or enforcement of our Terms of Service.</li>
+        </ul>
+    </div>
+
+    <!-- 7. Security -->
+    <div class="section" id="security">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-lock"></i></div>
+            <h2>7. Data Security</h2>
+        </div>
+        <p>We implement the following technical measures to protect your data:</p>
+        <ul>
+            <li>All passwords are encrypted using AES-256 with PBKDF2 key derivation before storage</li>
+            <li>JWT tokens are used for mobile API authentication with 7-day expiry</li>
+            <li>The platform is restricted to India-based access only via IP geo-filtering</li>
+            <li>Database connections use SSL/TLS encryption (TiDB Cloud)</li>
+            <li>Sensitive configuration values (API keys, secrets) are stored in environment variables, not in source code</li>
+            <li>Admin, vendor, customer, and delivery portal access are fully separated with role-based controls</li>
+        </ul>
+        <p>Despite our efforts, no system is 100% secure. We encourage you to use a strong, unique password and to log out after using shared devices. If you suspect unauthorized access to your account, contact us immediately at <a href="mailto:sanjay@email.com" style="color:var(--yellow)">sanjay@email.com</a>.</p>
+    </div>
+
+    <!-- 8. Rights -->
+    <div class="section" id="rights">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-user-shield"></i></div>
+            <h2>8. Your Rights</h2>
+        </div>
+        <p>As a user of Ekart, you have the following rights regarding your personal data:</p>
+        <ul>
+            <li><strong style="color:white">Access:</strong> Request a copy of the personal data we hold about you</li>
+            <li><strong style="color:white">Correction:</strong> Update or correct inaccurate information from your account settings page</li>
+            <li><strong style="color:white">Deletion:</strong> Request deletion of your account and associated personal data (subject to legal retention obligations)</li>
+            <li><strong style="color:white">Restriction:</strong> Request that we limit how we process your data in certain circumstances</li>
+            <li><strong style="color:white">Portability:</strong> Request your order history and account data in a readable format</li>
+            <li><strong style="color:white">Withdraw consent:</strong> Opt out of non-essential communications (promotional emails) at any time</li>
+        </ul>
+        <p>To exercise any of these rights, contact us at <a href="mailto:sanjay@email.com" style="color:var(--yellow)">sanjay@email.com</a>. We will respond within 30 days. Please note that some data may be retained for legal, tax, or fraud-prevention purposes even after an account deletion request.</p>
+    </div>
+
+    <!-- 9. Retention -->
+    <div class="section" id="retention">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-clock"></i></div>
+            <h2>9. Data Retention</h2>
+        </div>
+        <p>We retain your personal data only as long as necessary for the purposes outlined in this policy:</p>
+        <ul>
+            <li><strong style="color:white">Active accounts:</strong> Retained until you request deletion</li>
+            <li><strong style="color:white">Order records:</strong> Retained for a minimum of 3 years for financial and dispute resolution purposes</li>
+            <li><strong style="color:white">Review and refund data:</strong> Retained for the lifetime of the product listing</li>
+            <li><strong style="color:white">User activity logs:</strong> Last 20 sessions retained; older logs are automatically purged</li>
+            <li><strong style="color:white">OTP records:</strong> Purged within 24 hours of generation</li>
+        </ul>
+        <p>After account deletion, your personal data is removed within 30 days, except for records required by law or active dispute resolution.</p>
+    </div>
+
+    <!-- 10. Contact -->
+    <div class="section" id="contact">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-envelope"></i></div>
+            <h2>10. Contact Us</h2>
+        </div>
+        <p>If you have any questions, concerns, or requests regarding this Privacy Policy or your personal data, please reach out:</p>
+        <div class="contact-card">
+            <i class="fas fa-envelope-open-text"></i>
+            <div>
+                <a href="mailto:sanjay@email.com">sanjay@email.com</a>
+                <p>Preflex Solutions Pvt. Ltd. | Developed by Sanjay E, Rithika K &amp; B Venkatesh</p>
+            </div>
+        </div>
+        <p style="margin-top:1rem">We may update this Privacy Policy from time to time. When we do, we will revise the "Last Updated" date at the top of this page. Continued use of Ekart after changes constitutes acceptance of the updated policy.</p>
+    </div>
+
+</div><!-- /page-wrapper -->
+
+<!-- Footer -->
+<footer>
+    <div class="footer-brand">E<span>k</span>art</div>
+    <div class="footer-copy">© 2026 Preflex Solutions Pvt. Ltd. All rights reserved.</div>
+    <div class="footer-links">
+        <a href="/policies">Policies &amp; SOPs</a>
+        <a href="/privacy.html" class="active">Privacy Policy</a>
+        <a href="/terms.html">Terms &amp; Conditions</a>
+        <a href="/cookies.html">Cookie Policy</a>
+        <a href="mailto:sanjay@email.com">Contact</a>
+    </div>
+</footer>
+
+</body>
+</html>
