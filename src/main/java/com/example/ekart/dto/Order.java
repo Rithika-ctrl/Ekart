@@ -56,6 +56,15 @@ public class Order {
     @Column(columnDefinition = "DOUBLE DEFAULT 0")
     private double totalPrice;
 
+    /**
+     * GST component back-calculated from the order's item prices (inclusive pricing).
+     * Stored at order placement time so invoices and history always show the correct
+     * GST even if rates change later.
+     * 0.0 for legacy orders placed before GST tracking was added.
+     */
+    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    private double gstAmount;
+
     private String paymentMode;
 
     @CreationTimestamp
@@ -149,6 +158,9 @@ public class Order {
 
     public double getTotalPrice() { return totalPrice; }
     public void setTotalPrice(double totalPrice) { this.totalPrice = totalPrice; }
+
+    public double getGstAmount() { return gstAmount; }
+    public void setGstAmount(double gstAmount) { this.gstAmount = gstAmount; }
 
     public String getPaymentMode() { return paymentMode; }
     public void setPaymentMode(String paymentMode) { this.paymentMode = paymentMode; }

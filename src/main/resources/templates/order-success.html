@@ -289,7 +289,7 @@
             <div class="info-tile">
                 <div class="tile-label"><i class="fas fa-indian-rupee-sign"></i> Amount Paid</div>
                 <div class="tile-value" th:text="'₹' + ${orderAmount}">—</div>
-                <div class="tile-sub">Incl. delivery charges</div>
+                <div class="tile-sub">Incl. all taxes &amp; delivery</div>
             </div>
 
             <!-- ETA -->
@@ -315,6 +315,20 @@
                     </span>
                 </div>
                 <div class="tile-sub" style="margin-top:6px;">Payment method</div>
+            </div>
+
+            <!-- GST — spans full row width so no orphaned tile in 2-col grid -->
+            <div class="info-tile" th:if="${gstAmount != null and gstAmount > 0}"
+                 style="grid-column: span 2; display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+                <div>
+                    <div class="tile-label"><i class="fas fa-file-invoice"></i> GST Included</div>
+                    <div class="tile-sub">Back-calculated from item prices (inclusive)</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="tile-value" style="font-size:15px;color:rgba(255,255,255,0.55);"
+                         th:text="'₹' + ${#numbers.formatDecimal(gstAmount, 1, 'COMMA', 2, 'POINT')}">—</div>
+                    <div class="tile-sub">Part of what you paid</div>
+                </div>
             </div>
 
         </div>
