@@ -1,3 +1,11 @@
+/**
+ * File: VendorService.java
+ * Description: Service for vendor operations (mark orders ready, list vendor orders).
+ * Author: Sanjay E, Rithika K, B Venkatesh
+ * Company: Preflex Solutions Pvt. Ltd.
+ * Version: 1.0
+ * Date: March 2026
+ */
 package com.example.ekart.service;
 
 // ================================================================

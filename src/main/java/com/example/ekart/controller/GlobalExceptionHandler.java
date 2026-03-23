@@ -1,3 +1,11 @@
+/**
+ * File: GlobalExceptionHandler.java
+ * Description: Global exception handler returning JSON or error pages for different request types.
+ * Author: Sanjay E, Rithika K, B Venkatesh
+ * Company: Preflex Solutions Pvt. Ltd.
+ * Version: 1.0
+ * Date: March 2026
+ */
 package com.example.ekart.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
