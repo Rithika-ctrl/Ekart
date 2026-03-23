@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms &amp; Conditions – Ekart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-bg:     rgba(255,255,255,0.10);
+            --glass-border: rgba(255,255,255,0.18);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.82);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
+
+        body {
+            font-family:'Poppins', sans-serif;
+            min-height:100vh;
+            color:var(--text-light);
+            overflow-x:hidden;
+        }
+
+        .bg-layer {
+            position:fixed; inset:0; z-index:-1; overflow:hidden;
+        }
+        .bg-layer::before {
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
+        }
+        .bg-layer::after {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.90) 0%,rgba(8,12,28,0.88) 100%);
+        }
+
+        nav {
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:1rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            background:rgba(0,0,0,0.25);
+            backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border);
+        }
+        .nav-brand {
+            font-size:1.5rem; font-weight:700;
+            color: #ffffff; text-decoration:none; letter-spacing:0.04em;
+        }
+        .nav-brand span { color: #f5a800; }
+        .nav-back {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none; font-size:0.82rem;
+            padding:0.45rem 1rem; border-radius:6px;
+            border:1px solid var(--glass-border);
+            transition:all 0.2s;
+        }
+        .nav-back:hover { background:rgba(255,255,255,0.08); color:white; }
+
+        .page-wrapper {
+            max-width:820px; margin:0 auto;
+            padding:7rem 2rem 4rem;
+        }
+
+        .page-hero {
+            text-align:center; margin-bottom:3rem;
+        }
+        .page-hero .badge {
+            display:inline-block;
+            background:rgba(245,168,0,0.15);
+            border:1px solid rgba(245,168,0,0.35);
+            color:var(--yellow);
+            font-size:0.72rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+            padding:0.35rem 1rem; border-radius:50px; margin-bottom:1.2rem;
+        }
+        .page-hero h1 {
+            font-size:2.4rem; font-weight:700; color:var(--text-white);
+            line-height:1.2; margin-bottom:0.8rem;
+        }
+        .page-hero p {
+            font-size:0.9rem; color:var(--text-dim); max-width:520px; margin:0 auto;
+        }
+        .page-hero .effective {
+            margin-top:1rem;
+            font-size:0.78rem; color:var(--text-dim);
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+        }
+        .page-hero .effective i { color:var(--yellow); font-size:0.72rem; }
+
+        .toc {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.5rem 2rem;
+            margin-bottom:2.5rem;
+            backdrop-filter:blur(10px);
+        }
+        .toc h3 {
+            font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase;
+            color:var(--yellow); margin-bottom:1rem;
+        }
+        .toc ol {
+            padding-left:1.2rem; display:grid; grid-template-columns:1fr 1fr; gap:0.35rem 2rem;
+        }
+        .toc ol li a {
+            color:var(--text-light); text-decoration:none; font-size:0.82rem;
+            transition:color 0.2s;
+        }
+        .toc ol li a:hover { color:var(--yellow); }
+        @media(max-width:600px){ .toc ol { grid-template-columns:1fr; } }
+
+        .section {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px; padding:2rem 2.2rem;
+            margin-bottom:1.5rem;
+            backdrop-filter:blur(10px);
+            scroll-margin-top:90px;
+        }
+        .section-header {
+            display:flex; align-items:center; gap:0.9rem; margin-bottom:1.2rem;
+        }
+        .section-icon {
+            width:38px; height:38px; border-radius:9px; flex-shrink:0;
+            background:rgba(245,168,0,0.15);
+            border:1px solid rgba(245,168,0,0.30);
+            display:flex; align-items:center; justify-content:center;
+            color:var(--yellow); font-size:0.9rem;
+        }
+        .section h2 {
+            font-size:1.05rem; font-weight:600; color:var(--text-white);
+        }
+        .section p {
+            font-size:0.875rem; line-height:1.8; color:var(--text-light); margin-bottom:0.9rem;
+        }
+        .section p:last-child { margin-bottom:0; }
+        .section ul, .section ol {
+            padding-left:1.4rem; margin-bottom:0.9rem;
+        }
+        .section ul li, .section ol li {
+            font-size:0.875rem; line-height:1.75; color:var(--text-light); margin-bottom:0.25rem;
+        }
+        .section h3 {
+            font-size:0.9rem; font-weight:600; color:var(--text-white);
+            margin:1.2rem 0 0.5rem;
+        }
+
+        /* Warning / highlight box */
+        .notice {
+            background:rgba(245,168,0,0.08);
+            border:1px solid rgba(245,168,0,0.25);
+            border-left:3px solid var(--yellow);
+            border-radius:8px; padding:1rem 1.2rem;
+            margin:0.8rem 0;
+        }
+        .notice p {
+            font-size:0.82rem; color:var(--text-light); margin:0; line-height:1.7;
+        }
+        .notice i { color:var(--yellow); margin-right:0.4rem; }
+
+        /* Prohibited grid */
+        .prohibited-grid {
+            display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-top:0.8rem;
+        }
+        .prohibited-item {
+            background:rgba(255,60,60,0.07);
+            border:1px solid rgba(255,60,60,0.18);
+            border-radius:8px; padding:0.6rem 0.9rem;
+            font-size:0.8rem; color:var(--text-light);
+            display:flex; align-items:center; gap:0.5rem;
+        }
+        .prohibited-item i { color:#ff6b6b; font-size:0.75rem; flex-shrink:0; }
+        @media(max-width:600px){ .prohibited-grid { grid-template-columns:1fr; } }
+
+        .contact-card {
+            background:rgba(245,168,0,0.08);
+            border:1px solid rgba(245,168,0,0.25);
+            border-radius:10px; padding:1.2rem 1.5rem;
+            display:flex; align-items:center; gap:1rem; margin-top:1rem;
+        }
+        .contact-card i { color:var(--yellow); font-size:1.1rem; }
+        .contact-card a {
+            color:var(--yellow); text-decoration:none; font-size:0.875rem;
+            font-weight:500; transition:opacity 0.2s;
+        }
+        .contact-card a:hover { opacity:0.75; }
+        .contact-card p { font-size:0.78rem; color:var(--text-dim); margin:0; }
+
+        footer {
+            padding:2rem 3rem;
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+            border-top:1px solid var(--glass-border);
+            background:rgba(0,0,0,0.2);
+        }
+        .footer-brand { font-size:1.1rem; font-weight:700; color:var(--text-white); }
+        .footer-brand span { color:var(--yellow); }
+        .footer-copy { font-size:0.75rem; color:var(--text-dim); }
+        .footer-links { display:flex; gap:1.5rem; flex-wrap:wrap; }
+        .footer-links a {
+            font-size:0.75rem; color:var(--text-dim); text-decoration:none; transition:color 0.2s;
+        }
+        .footer-links a:hover { color:white; }
+        .footer-links a.active { color:var(--yellow); }
+
+        @media(max-width:640px){
+            nav { padding:1rem 1.2rem; }
+            .page-wrapper { padding:6rem 1.2rem 3rem; }
+            .page-hero h1 { font-size:1.7rem; }
+            footer { padding:1.5rem; flex-direction:column; text-align:center; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-layer"></div>
+
+<nav>
+    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back to Ekart</a>
+</nav>
+
+<div class="page-wrapper">
+
+    <div class="page-hero">
+        <div class="badge"><i class="fas fa-file-contract"></i> &nbsp;Legal Document</div>
+        <h1>Terms &amp; Conditions</h1>
+        <p>Please read these terms carefully before using Ekart. By accessing our platform, you agree to be bound by these conditions.</p>
+        <div class="effective"><i class="fas fa-calendar-alt"></i> Effective Date: January 1, 2026 &nbsp;|&nbsp; Last Updated: March 2026</div>
+    </div>
+
+    <div class="toc">
+        <h3><i class="fas fa-list"></i> &nbsp;Table of Contents</h3>
+        <ol>
+            <li><a href="#acceptance">Acceptance of Terms</a></li>
+            <li><a href="#platform">Platform Description</a></li>
+            <li><a href="#accounts">User Accounts</a></li>
+            <li><a href="#usage-rules">Usage Rules</a></li>
+            <li><a href="#prohibited">Prohibited Activities</a></li>
+            <li><a href="#ip">Intellectual Property</a></li>
+            <li><a href="#transactions">Orders &amp; Payments</a></li>
+            <li><a href="#vendors">Vendor Responsibilities</a></li>
+            <li><a href="#delivery">Delivery &amp; Fulfilment</a></li>
+            <li><a href="#liability">Limitation of Liability</a></li>
+            <li><a href="#termination">Termination</a></li>
+            <li><a href="#changes">Changes to Terms</a></li>
+            <li><a href="#governing">Governing Law</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ol>
+    </div>
+
+    <!-- 1 -->
+    <div class="section" id="acceptance">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-handshake"></i></div>
+            <h2>1. Acceptance of Terms</h2>
+        </div>
+        <p>By accessing, registering on, or using Ekart (the "Platform"), you ("User") agree to be legally bound by these Terms &amp; Conditions ("Terms"), our Privacy Policy, and Cookie Policy. If you do not agree to any part of these Terms, you must immediately stop using the Platform.</p>
+        <p>These Terms apply to all users of the Platform including customers, vendors, delivery partners, and guests. Continued use of the Platform after any modification to these Terms constitutes acceptance of the revised Terms.</p>
+        <div class="notice">
+            <p><i class="fas fa-info-circle"></i> Ekart is an e-commerce platform developed by Preflex Solutions Pvt. Ltd. (Developed by Sanjay E, Rithika K &amp; B Venkatesh). Use of the Platform is subject to applicable Indian law.</p>
+        </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="section" id="platform">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-store"></i></div>
+            <h2>2. Platform Description</h2>
+        </div>
+        <p>Ekart is a multi-vendor e-commerce platform that connects customers with vendors for the purchase of products. The Platform provides:</p>
+        <ul>
+            <li>A marketplace for customers to browse and purchase products from multiple vendors</li>
+            <li>A vendor portal for sellers to list, manage, and fulfil product orders</li>
+            <li>A delivery management system for assigning and tracking shipments</li>
+            <li>An AI-powered shopping assistant to help users find products and get order information</li>
+            <li>A mobile application for customers and vendors via the Flutter app</li>
+        </ul>
+        <p>Ekart acts as an intermediary platform. We do not manufacture, own, or take direct responsibility for the quality of products listed by vendors, unless explicitly stated.</p>
+    </div>
+
+    <!-- 3 -->
+    <div class="section" id="accounts">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-user-circle"></i></div>
+            <h2>3. User Accounts</h2>
+        </div>
+        <h3>Registration</h3>
+        <p>To access most features, you must register an account by providing accurate and complete information. You must be at least 18 years of age (or 13 years with parental consent for browsing) to register. You are responsible for maintaining the confidentiality of your password.</p>
+
+        <h3>Account Security</h3>
+        <ul>
+            <li>You are responsible for all activity that occurs under your account</li>
+            <li>You must notify us immediately of any unauthorized use at <a href="mailto:sanjay@email.com" style="color:var(--yellow)">sanjay@email.com</a></li>
+            <li>You must not share your account credentials with any third party</li>
+            <li>Ekart will never ask for your password via email or chat</li>
+        </ul>
+
+        <h3>Social Login</h3>
+        <p>If you register using Google, Facebook, or GitHub, your account is linked to that provider. You are subject to that provider's terms in addition to ours. You can log in without a password through these providers.</p>
+
+        <h3>Vendor &amp; Delivery Partner Accounts</h3>
+        <p>Vendor accounts require OTP-based email verification before activation. Delivery partner accounts require both OTP verification and admin approval before they can access the delivery portal. Ekart reserves the right to reject or suspend any account at its discretion.</p>
+    </div>
+
+    <!-- 4 -->
+    <div class="section" id="usage-rules">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-clipboard-list"></i></div>
+            <h2>4. Usage Rules</h2>
+        </div>
+        <p>When using Ekart, you agree to:</p>
+        <ul>
+            <li>Provide accurate, current, and complete information at all times</li>
+            <li>Use the Platform only for lawful purposes and in accordance with these Terms</li>
+            <li>Respect the rights and privacy of other users, vendors, and delivery partners</li>
+            <li>Not interfere with or disrupt the operation of the Platform or servers</li>
+            <li>Access the Platform only from India, as the service is geo-restricted to Indian users</li>
+            <li>Use the AI shopping assistant only for legitimate shopping-related queries</li>
+            <li>Submit genuine reviews only for products you have actually purchased</li>
+            <li>Use the refund and dispute system in good faith and only for legitimate issues</li>
+        </ul>
+    </div>
+
+    <!-- 5 -->
+    <div class="section" id="prohibited">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-ban"></i></div>
+            <h2>5. Prohibited Activities</h2>
+        </div>
+        <p>The following activities are strictly prohibited on Ekart and may result in immediate account suspension or legal action:</p>
+        <div class="prohibited-grid">
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Creating fake or duplicate accounts</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Submitting false orders or payment disputes</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Posting fake reviews or manipulating ratings</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Scraping or harvesting data from the platform</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Attempting to access admin or vendor portals without authorization</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Reverse engineering or decompiling the application</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Listing counterfeit, illegal, or prohibited items (vendors)</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Using the AI chatbot to generate harmful or misleading content</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Circumventing geo-restriction via VPN or proxy</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Conducting any form of cyberattack or SQL injection</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Abusing coupon codes or promotional offers</div>
+            <div class="prohibited-item"><i class="fas fa-times-circle"></i> Harassment of other users, vendors, or support staff</div>
+        </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="section" id="ip">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-copyright"></i></div>
+            <h2>6. Intellectual Property</h2>
+        </div>
+        <p>All content on Ekart — including but not limited to the platform design, layout, source code, logos, brand name ("Ekart"), UI components, text, graphics, and the AI assistant implementation — is the intellectual property of <strong style="color:white">Preflex Solutions Pvt. Ltd.</strong> and is protected under applicable Indian intellectual property law.</p>
+        <p>You may not reproduce, distribute, modify, reverse-engineer, or create derivative works based on any part of the Ekart platform without prior written permission from the owner.</p>
+
+        <h3>User-Generated Content</h3>
+        <p>By submitting reviews, product images (for refunds), or other content to Ekart, you grant us a non-exclusive, royalty-free license to display and use that content on the Platform. You retain ownership of your content and represent that it does not infringe any third-party rights.</p>
+
+        <h3>Vendor Product Content</h3>
+        <p>Vendors retain ownership of their product descriptions and images. By listing products on Ekart, vendors grant us a license to display their content on the Platform for the duration of the listing. Vendors are solely responsible for ensuring their content does not infringe third-party copyrights or trademarks.</p>
+    </div>
+
+    <!-- 7 -->
+    <div class="section" id="transactions">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-shopping-cart"></i></div>
+            <h2>7. Orders &amp; Payments</h2>
+        </div>
+        <h3>Order Placement</h3>
+        <p>By placing an order on Ekart, you enter into a binding agreement to purchase the selected product(s) at the listed price. Prices are inclusive of applicable GST. Ekart reserves the right to cancel orders in cases of pricing errors, stock unavailability, or fraudulent activity.</p>
+
+        <h3>Payment Methods</h3>
+        <ul>
+            <li><strong style="color:white">Cash on Delivery (COD):</strong> Payment made to the delivery partner upon receipt. COD is subject to availability by pin code.</li>
+            <li><strong style="color:white">Razorpay:</strong> Secure online payments via card, UPI, net banking, and wallets. All payment processing is handled by Razorpay and subject to their terms.</li>
+        </ul>
+
+        <h3>Coupons &amp; Discounts</h3>
+        <p>Coupons are subject to their individual validity dates, usage limits, and minimum order conditions. Coupon abuse (including creating fake accounts to reuse coupons) will result in account suspension.</p>
+
+        <h3>Refunds</h3>
+        <p>Refund requests must be submitted within a reasonable timeframe after order delivery. Approved refunds are processed at the discretion of Ekart's admin team. Refunds for Razorpay payments are credited back to the original payment method. For details, see our Refund Policy accessible from your order history page.</p>
+    </div>
+
+    <!-- 8 -->
+    <div class="section" id="vendors">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-building"></i></div>
+            <h2>8. Vendor Responsibilities</h2>
+        </div>
+        <p>Vendors using Ekart are independently responsible for:</p>
+        <ul>
+            <li>Ensuring all listed products are legal, accurately described, and safe for sale in India</li>
+            <li>Maintaining sufficient stock levels and promptly updating inventory</li>
+            <li>Marking orders as "Packed" in the vendor portal in a timely manner</li>
+            <li>Responding to customer reviews and refund requests in good faith</li>
+            <li>Complying with all applicable Indian consumer protection and GST laws</li>
+            <li>Not listing counterfeit, pirated, prohibited, or misleadingly described products</li>
+        </ul>
+        <p>Ekart reserves the right to remove any product listing and suspend any vendor account for violations of these responsibilities without prior notice.</p>
+    </div>
+
+    <!-- 9 -->
+    <div class="section" id="delivery">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-truck"></i></div>
+            <h2>9. Delivery &amp; Fulfilment</h2>
+        </div>
+        <p>Ekart manages delivery through an internal delivery partner system. Delivery timelines are estimates and may vary due to location, stock availability, or logistical delays. Ekart does not guarantee delivery on a specific date.</p>
+        <ul>
+            <li>Orders are assigned to warehouses and delivery partners based on your pin code</li>
+            <li>Delivery is confirmed via a one-time OTP sent to the customer's registered email</li>
+            <li>If delivery cannot be completed, the customer will be contacted via registered email or mobile</li>
+            <li>Customers must provide an accurate and accessible delivery address</li>
+        </ul>
+        <p>Ekart is not liable for delays caused by incorrect address details, natural events, government restrictions, or circumstances beyond our control.</p>
+    </div>
+
+    <!-- 10 -->
+    <div class="section" id="liability">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-balance-scale"></i></div>
+            <h2>10. Limitation of Liability</h2>
+        </div>
+        <div class="notice">
+            <p><i class="fas fa-exclamation-triangle"></i> Please read this section carefully. It limits our legal responsibility to you.</p>
+        </div>
+        <p>To the maximum extent permitted by applicable law, Ekart, Preflex Solutions Pvt. Ltd., its developers (Sanjay E, Rithika K, B Venkatesh), and contributors shall not be liable for:</p>
+        <ul>
+            <li>Any indirect, incidental, special, or consequential damages arising from use of the Platform</li>
+            <li>Loss of data, profits, goodwill, or business opportunities</li>
+            <li>Product defects, quality issues, or inaccurate descriptions provided by vendors</li>
+            <li>Payment processing failures, delays, or errors handled by Razorpay</li>
+            <li>Delivery delays due to factors outside Ekart's control</li>
+            <li>Unauthorized access to your account resulting from your failure to safeguard login credentials</li>
+            <li>Content or links provided by third-party services integrated with the Platform</li>
+            <li>Downtime, technical errors, or interruptions to the Platform's availability</li>
+        </ul>
+        <p>Our total liability to you in connection with the Platform shall not exceed the amount you paid for the specific order giving rise to the claim in the 30 days prior to the incident.</p>
+        <p>Ekart is provided "as is" and "as available" without warranties of any kind, express or implied, including warranties of merchantability, fitness for a particular purpose, or non-infringement.</p>
+    </div>
+
+    <!-- 11 -->
+    <div class="section" id="termination">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-user-slash"></i></div>
+            <h2>11. Termination</h2>
+        </div>
+        <p>Ekart reserves the right to suspend or permanently terminate any user account at any time, with or without notice, for:</p>
+        <ul>
+            <li>Violation of any provision of these Terms</li>
+            <li>Fraudulent, abusive, or illegal activity on the Platform</li>
+            <li>Providing false or misleading information during registration</li>
+            <li>Any activity that harms the Platform, other users, or third parties</li>
+        </ul>
+        <p>You may terminate your own account at any time by contacting us at <a href="mailto:sanjay@email.com" style="color:var(--yellow)">sanjay@email.com</a>. Upon termination, your personal data will be handled as described in our Privacy Policy. Outstanding orders and pending refunds will be processed before account closure where applicable.</p>
+    </div>
+
+    <!-- 12 -->
+    <div class="section" id="changes">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-edit"></i></div>
+            <h2>12. Changes to Terms</h2>
+        </div>
+        <p>We reserve the right to modify these Terms at any time. Changes will be effective immediately upon posting to this page. We will update the "Last Updated" date at the top. For significant changes, we may send a notification to your registered email address.</p>
+        <p>Your continued use of Ekart after any changes constitutes your acceptance of the revised Terms. If you do not agree to the modified Terms, you must stop using the Platform.</p>
+        <p>We recommend reviewing these Terms periodically. The most recent version always supersedes all prior versions.</p>
+    </div>
+
+    <!-- 13 -->
+    <div class="section" id="governing">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-gavel"></i></div>
+            <h2>13. Governing Law &amp; Jurisdiction</h2>
+        </div>
+        <p>These Terms are governed by and construed in accordance with the laws of India, including but not limited to:</p>
+        <ul>
+            <li>The Information Technology Act, 2000 and its amendments</li>
+            <li>The Consumer Protection Act, 2019</li>
+            <li>The Indian Contract Act, 1872</li>
+        </ul>
+        <p>Any disputes arising from or in connection with these Terms shall be subject to the exclusive jurisdiction of the courts located in Bengaluru, Karnataka, India.</p>
+        <p>We encourage you to contact us first before initiating any formal dispute — most concerns can be resolved quickly via email.</p>
+    </div>
+
+    <!-- 14 -->
+    <div class="section" id="contact">
+        <div class="section-header">
+            <div class="section-icon"><i class="fas fa-envelope"></i></div>
+            <h2>14. Contact</h2>
+        </div>
+        <p>For any questions, concerns, or notices regarding these Terms &amp; Conditions, please contact:</p>
+        <div class="contact-card">
+            <i class="fas fa-envelope-open-text"></i>
+            <div>
+                <a href="mailto:sanjay@email.com">sanjay@email.com</a>
+                <p>Preflex Solutions Pvt. Ltd. | Developed by Sanjay E, Rithika K &amp; B Venkatesh</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <div class="footer-brand">E<span>k</span>art</div>
+    <div class="footer-copy">© 2026 Preflex Solutions Pvt. Ltd. All rights reserved.</div>
+    <div class="footer-links">
+        <a href="/policies">Policies &amp; SOPs</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html" class="active">Terms &amp; Conditions</a>
+        <a href="/cookies.html">Cookie Policy</a>
+        <a href="mailto:sanjay@email.com">Contact</a>
+    </div>
+</footer>
+
+</body>
+</html>

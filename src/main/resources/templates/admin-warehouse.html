@@ -20,8 +20,12 @@
         /* NAV */
         nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 3rem;display:flex;align-items:center;justify-content:space-between;background:var(--glass-nav);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);transition:background 0.3s;}
         nav.scrolled{background:rgba(0,0,0,0.45);}
-        .nav-brand{font-size:1.6rem;font-weight:700;color:var(--text-white);text-decoration:none;display:flex;align-items:center;gap:0.5rem;}
-        .nav-brand span{color:var(--yellow);}
+        .nav-brand{font-size:1.6rem;font-weight:700;color: #ffffff;text-decoration:none;display:flex;align-items:center;gap:0.5rem;
+
+}
+        .nav-brand span{color: #f5a800;
+
+}
         .nav-right{display:flex;align-items:center;gap:1rem;}
         .nav-links{display:flex;align-items:center;gap:0.5rem;}
         .nav-link{display:flex;align-items:center;gap:0.4rem;color:var(--text-light);text-decoration:none;font-size:0.82rem;font-weight:500;padding:0.45rem 0.9rem;border-radius:6px;border:1px solid transparent;transition:all 0.2s;}
@@ -121,9 +125,7 @@
 
 <!-- NAV -->
 <nav id="nav">
-    <a href="/admin/home" class="nav-brand">
-        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i><span>Ekart</span>
-    </a>
+    <a href="/" class="nav-brand"><span>E</span>Kart</a>
     <div class="nav-right">
         <div class="nav-links">
             <a href="/admin/home"       class="nav-link"><i class="fas fa-home"></i> Dashboard</a>

@@ -56,9 +56,11 @@
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
+            color: #ffffff; text-decoration: none;
             display: flex; align-items: center; gap: 0.5rem;
-        }
+        
+
+}
 
         .nav-right { display: flex; align-items: center; gap: 1rem; }
         .nav-links { display: flex; align-items: center; gap: 0.5rem; }
@@ -294,7 +296,10 @@
             .stats-grid { grid-template-columns: 1fr; }
             footer { flex-direction: column; text-align: center; gap: 0.5rem; }
         }
-    </style>
+    
+.nav-brand span { color: #f5a800; 
+}
+</style>
 </head>
 <body>
 
@@ -317,10 +322,7 @@
 
 <!-- ── NAV ── -->
 <nav id="nav">
-    <a href="/admin/home" class="nav-brand">
-        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
-        Ekart
-    </a>
+    <a href="/" class="nav-brand"><span>E</span>Kart</a>
     <div class="nav-right">
         <div class="nav-links">
             <a href="/admin/home" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>

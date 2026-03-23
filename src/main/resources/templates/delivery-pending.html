@@ -16,8 +16,12 @@
         .bg-layer::before{content:'';position:absolute;inset:-20px;background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;filter:blur(6px);transform:scale(1.08);}
         .bg-layer::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,20,0.82) 0%,rgba(8,12,28,0.78) 40%,rgba(5,8,20,0.88) 100%);}
         nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 3rem;display:flex;align-items:center;justify-content:space-between;background:var(--glass-nav);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);}
-        .nav-brand{font-size:1.6rem;font-weight:700;color:var(--text-white);text-decoration:none;display:flex;align-items:center;gap:0.5rem;}
-        .nav-brand span{color:var(--yellow);}
+        .nav-brand{font-size:1.6rem;font-weight:700;color: #ffffff;text-decoration:none;display:flex;align-items:center;gap:0.5rem;
+
+}
+        .nav-brand span{color: #f5a800;
+
+}
         .page{flex:1;display:flex;align-items:center;justify-content:center;padding:6rem 1.5rem 3rem;}
         .card{background:var(--glass-card);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;padding:3rem 2.5rem;width:100%;max-width:500px;text-align:center;box-shadow:0 40px 100px rgba(0,0,0,0.4);animation:fadeUp 0.5s ease both;}
 
@@ -57,7 +61,7 @@
 <body>
 <div class="bg-layer"></div>
 <nav>
-    <a href="/" class="nav-brand"><i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i><span>Ekart</span></a>
+    <a href="/" class="nav-brand"><span>E</span>Kart</a>
 </nav>
 
 <main class="page">

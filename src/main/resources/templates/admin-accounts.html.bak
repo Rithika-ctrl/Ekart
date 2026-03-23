@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - User Oversight Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --yellow: #f5a800;
+            --yellow-d: #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card: rgba(255, 255, 255, 0.13);
+            --glass-nav: rgba(0, 0, 0, 0.25);
+            --text-white: #ffffff;
+            --text-light: rgba(255,255,255,0.80);
+            --text-dim: rgba(255,255,255,0.50);
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px); transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.85) 0%, rgba(8,12,28,0.80) 40%, rgba(5,8,20,0.90) 100%);
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: #ffffff; text-decoration: none;
+            display: flex; align-items: center; gap: 0.5rem;
+        
+}
+        .nav-brand span { color: #f5a800; 
+}
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
+        .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
+        .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
+        .nav-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 0.5rem; }
+        .nav-badge {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-size: 0.72rem; font-weight: 700;
+            padding: 0.3rem 0.8rem; border-radius: 50px;
+            background: rgba(245,168,0,0.15);
+            border: 1px solid rgba(245,168,0,0.3);
+            color: var(--yellow);
+        }
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3);
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+        /* ── ALERTS ── */
+        .alert-stack { position: fixed; top: 5rem; right: 1.5rem; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ── PAGE ── */
+        .page { flex: 1; padding: 7rem 3rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+
+        /* ── STATS CARDS ── */
+        .stats-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .stat-card {
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 16px;
+            padding: 1.5rem 2rem; flex: 1; min-width: 200px;
+            display: flex; align-items: center; gap: 1rem;
+        }
+        .stat-icon {
+            width: 50px; height: 50px;
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+        }
+        .stat-icon.total { background: rgba(245,168,0,0.15); color: var(--yellow); }
+        .stat-icon.active { background: rgba(34,197,94,0.15); color: var(--green); }
+        .stat-icon.suspended { background: rgba(239,68,68,0.15); color: var(--red); }
+        .stat-info h3 { font-size: 1.75rem; font-weight: 700; }
+        .stat-info p { font-size: 0.8rem; color: var(--text-dim); }
+
+        /* ── SEARCH BAR ── */
+        .search-section { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .search-box {
+            flex: 1; min-width: 300px;
+            display: flex; align-items: center; gap: 0.75rem;
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 12px;
+            padding: 0.75rem 1.25rem;
+        }
+        .search-box i { color: var(--text-dim); }
+        .search-box input {
+            flex: 1; background: none; border: none; outline: none;
+            color: var(--text-white); font-size: 0.9rem;
+        }
+        .search-box input::placeholder { color: var(--text-dim); }
+
+        /* ── TABLE CARD ── */
+        .table-card {
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 1.5rem; overflow: hidden;
+        }
+        .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .table-header h2 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .table-header h2 i { color: var(--yellow); }
+
+        .accounts-table { width: 100%; border-collapse: collapse; }
+        .accounts-table th, .accounts-table td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .accounts-table th { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+        .accounts-table td { font-size: 0.85rem; }
+        .accounts-table tr:hover { background: rgba(245,168,0,0.05); }
+
+        .user-cell { display: flex; align-items: center; gap: 0.75rem; }
+        .user-avatar {
+            width: 36px; height: 36px;
+            background: rgba(245,168,0,0.15); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--yellow); font-weight: 600;
+        }
+        .user-info { display: flex; flex-direction: column; }
+        .user-name { font-weight: 500; }
+        .user-email { font-size: 0.75rem; color: var(--text-dim); }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.25rem 0.6rem; border-radius: 50px;
+            font-size: 0.7rem; font-weight: 600;
+        }
+        .status-badge.active { background: rgba(34,197,94,0.15); color: var(--green); }
+        .status-badge.suspended { background: rgba(239,68,68,0.15); color: var(--red); }
+        .status-badge.unverified { background: rgba(245,168,0,0.15); color: var(--yellow); }
+
+        .role-badge {
+            display: inline-flex; padding: 0.2rem 0.5rem; border-radius: 4px;
+            font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+            background: rgba(59,130,246,0.15); color: var(--blue);
+        }
+
+        .actions-cell { display: flex; gap: 0.5rem; }
+        .btn-action {
+            display: flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; border-radius: 8px;
+            border: none; cursor: pointer; transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-view { background: rgba(59,130,246,0.15); color: var(--blue); }
+        .btn-view:hover { background: rgba(59,130,246,0.3); }
+        .btn-activate { background: rgba(34,197,94,0.15); color: var(--green); }
+        .btn-activate:hover { background: rgba(34,197,94,0.3); }
+        .btn-deactivate { background: rgba(239,68,68,0.15); color: var(--red); }
+        .btn-deactivate:hover { background: rgba(239,68,68,0.3); }
+        .btn-reset { background: rgba(245,168,0,0.15); color: var(--yellow); }
+        .btn-reset:hover { background: rgba(245,168,0,0.3); }
+        .btn-delete { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-delete:hover { background: rgba(239,68,68,0.25); }
+
+        .no-data { text-align: center; padding: 3rem; color: var(--text-dim); }
+        .no-data i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.5; }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 300;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+            padding: 2rem;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: linear-gradient(135deg, rgba(20,24,50,0.95), rgba(15,18,40,0.98));
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            width: 100%; max-width: 700px; max-height: 85vh;
+            overflow-y: auto; animation: modalIn 0.3s ease both;
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.5rem 2rem; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .modal-header h3 { font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .modal-header h3 i { color: var(--yellow); }
+        .modal-close { background: none; border: none; color: var(--text-dim); font-size: 1.25rem; cursor: pointer; }
+        .modal-body { padding: 1.5rem 2rem; }
+
+        /* ── PROFILE SECTIONS ── */
+        .profile-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+        .profile-avatar {
+            width: 64px; height: 64px;
+            background: rgba(245,168,0,0.15); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; color: var(--yellow); font-weight: 700;
+        }
+        .profile-title h4 { font-size: 1.25rem; font-weight: 600; }
+        .profile-title p { font-size: 0.85rem; color: var(--text-dim); }
+
+        .profile-section { margin-bottom: 1.5rem; }
+        .profile-section h5 { font-size: 0.85rem; font-weight: 600; color: var(--yellow); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+        .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .profile-item { background: rgba(255,255,255,0.05); padding: 0.75rem 1rem; border-radius: 8px; }
+        .profile-item label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 0.25rem; }
+        .profile-item span { font-size: 0.9rem; font-weight: 500; }
+
+        .orders-list, .wishlist-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; }
+        .order-item, .wishlist-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.05); padding: 0.75rem 1rem; border-radius: 8px;
+        }
+        .order-item span, .wishlist-item span { font-size: 0.85rem; }
+        .order-item .amount { color: var(--yellow); font-weight: 600; }
+
+        .modal-actions { display: flex; gap: 0.75rem; padding: 1.5rem 2rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-modal {
+            flex: 1; padding: 0.85rem 1.5rem; border-radius: 10px;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            transition: all 0.2s; border: none;
+        }
+        .btn-modal.primary { background: var(--yellow); color: #000; }
+        .btn-modal.primary:hover { background: var(--yellow-d); }
+        .btn-modal.danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+        .btn-modal.danger:hover { background: rgba(239,68,68,0.25); }
+        .btn-modal.secondary { background: rgba(255,255,255,0.1); color: var(--text-light); }
+        .btn-modal.secondary:hover { background: rgba(255,255,255,0.15); }
+
+        /* ── LOADING ── */
+        .loading { display: flex; align-items: center; justify-content: center; padding: 2rem; }
+        .spinner { width: 32px; height: 32px; border: 3px solid rgba(245,168,0,0.2); border-top-color: var(--yellow); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="bg-layer"></div>
+
+    <!-- ════════════════════════════════════════════ NAV ════════════════════════════════════════════ -->
+    <nav>
+        <a href="/" class="nav-brand"><span>E</span>Kart</a>
+        <div class="nav-right">
+            <div class="nav-links">
+                <a href="/admin/home" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/approve-products" class="nav-link"><i class="fas fa-tasks"></i> Approvals</a>
+                <a href="/admin/refunds" class="nav-link"><i class="fas fa-undo-alt"></i> Refunds</a>
+                <a href="/admin/accounts" class="nav-link active"><i class="fas fa-users-cog"></i> Users</a>
+            </div>
+            <div class="nav-divider"></div>
+            <span class="nav-badge"><i class="fas fa-shield-alt"></i> Admin</span>
+            <a href="/admin/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </nav>
+
+    <!-- ════════════════════════════════════════════ ALERTS ════════════════════════════════════════════ -->
+    <div class="alert-stack" id="alertStack"></div>
+
+    <!-- ════════════════════════════════════════════ PAGE ════════════════════════════════════════════ -->
+    <div class="page">
+        <!-- Stats Cards -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon total"><i class="fas fa-users"></i></div>
+                <div class="stat-info">
+                    <h3 th:text="${stats.totalAccounts}">0</h3>
+                    <p>Total Accounts</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon active"><i class="fas fa-user-check"></i></div>
+                <div class="stat-info">
+                    <h3 th:text="${stats.activeAccounts}">0</h3>
+                    <p>Active Accounts</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon suspended"><i class="fas fa-user-slash"></i></div>
+                <div class="stat-info">
+                    <h3 th:text="${stats.suspendedAccounts}">0</h3>
+                    <p>Suspended Accounts</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by name or email..." autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Accounts Table -->
+        <div class="table-card">
+            <div class="table-header">
+                <h2><i class="fas fa-users-cog"></i> User Accounts</h2>
+            </div>
+            <table class="accounts-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Total Orders</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="accountsTableBody">
+                    <tr th:each="account : ${accounts}" th:data-account-id="${account.id}">
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar" th:text="${#strings.substring(account.name, 0, 1).toUpperCase()}">J</div>
+                                <div class="user-info">
+                                    <span class="user-name" th:text="${account.name}">John Doe</span>
+                                    <span class="user-email" th:text="${account.email}">john@example.com</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge" th:text="${account.role}">CUSTOMER</span></td>
+                        <td>
+                            <span th:if="${account.isActive}" class="status-badge active"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Active</span>
+                            <span th:unless="${account.isActive}" class="status-badge suspended"><i class="fas fa-ban" style="font-size:0.5rem;"></i> Suspended</span>
+                        </td>
+                        <td th:text="${account.totalOrders}">0</td>
+                        <td>
+                            <span th:if="${account.lastLogin != null}" th:text="${#temporals.format(account.lastLogin, 'MMM dd, yyyy HH:mm')}">Never</span>
+                            <span th:unless="${account.lastLogin != null}" style="color: var(--text-dim);">Never</span>
+                        </td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn-action btn-view" title="View Profile" th:onclick="'viewProfile(' + ${account.id} + ')'">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button th:if="${account.isActive}" class="btn-action btn-deactivate" title="Deactivate Account" th:onclick="'toggleStatus(' + ${account.id} + ', false)'">
+                                    <i class="fas fa-user-slash"></i>
+                                </button>
+                                <button th:unless="${account.isActive}" class="btn-action btn-activate" title="Activate Account" th:onclick="'toggleStatus(' + ${account.id} + ', true)'">
+                                    <i class="fas fa-user-check"></i>
+                                </button>
+                                <button class="btn-action btn-reset" title="Reset Password" th:onclick="'resetPassword(' + ${account.id} + ')')">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <button class="btn-action btn-delete" title="Delete Account"
+                                        th:data-id="${account.id}"
+                                        th:data-name="${account.name}"
+                                        onclick="confirmDelete(this.dataset.id, this.dataset.name)">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(accounts)}">
+                        <td colspan="6">
+                            <div class="no-data">
+                                <i class="fas fa-users"></i>
+                                No user accounts found.
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════ PROFILE MODAL ════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-circle"></i> User Profile</h3>
+                <button class="modal-close" onclick="closeProfileModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="profileContent">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+            <div class="modal-actions" id="profileActions" style="display: none;">
+                <button class="btn-modal secondary" onclick="closeProfileModal()"><i class="fas fa-times"></i> Close</button>
+                <button class="btn-modal danger" id="btnDeactivateModal" onclick="toggleStatusFromModal(false)">
+                    <i class="fas fa-user-slash"></i> Deactivate Account
+                </button>
+                <button class="btn-modal primary" id="btnResetModal" onclick="resetPasswordFromModal()">
+                    <i class="fas fa-key"></i> Reset Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProfileId = null;
+
+        // ==================== ALERTS ====================
+        function showAlert(type, message) {
+            const stack = document.getElementById('alertStack');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+                <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+            `;
+            stack.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // ==================== SEARCH ====================
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            searchTimeout = setTimeout(() => {
+                searchAccounts(query);
+            }, 300);
+        });
+
+        async function searchAccounts(query) {
+            try {
+                const url = query ? `/api/admin/accounts?search=${encodeURIComponent(query)}` : '/api/admin/accounts';
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderAccountsTable(data.accounts);
+                }
+            } catch (error) {
+                console.error('Search failed:', error);
+            }
+        }
+
+        function renderAccountsTable(accounts) {
+            const tbody = document.getElementById('accountsTableBody');
+            
+            if (!accounts || accounts.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="6">
+                        <div class="no-data"><i class="fas fa-users"></i> No user accounts found.</div>
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = accounts.map(account => {
+                const initial = account.name ? account.name.charAt(0).toUpperCase() : '?';
+                const lastLogin = account.lastLogin ? new Date(account.lastLogin).toLocaleString() : 'Never';
+                
+                return `
+                    <tr data-account-id="${account.id}">
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">${initial}</div>
+                                <div class="user-info">
+                                    <span class="user-name">${account.name || 'Unknown'}</span>
+                                    <span class="user-email">${account.email}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge">${account.role}</span></td>
+                        <td>
+                            ${account.isActive 
+                                ? '<span class="status-badge active"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Active</span>'
+                                : '<span class="status-badge suspended"><i class="fas fa-ban" style="font-size:0.5rem;"></i> Suspended</span>'
+                            }
+                        </td>
+                        <td>${account.totalOrders}</td>
+                        <td>${lastLogin}</td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn-action btn-view" title="View Profile" onclick="viewProfile(${account.id})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                ${account.isActive 
+                                    ? `<button class="btn-action btn-deactivate" title="Deactivate Account" onclick="toggleStatus(${account.id}, false)"><i class="fas fa-user-slash"></i></button>`
+                                    : `<button class="btn-action btn-activate" title="Activate Account" onclick="toggleStatus(${account.id}, true)"><i class="fas fa-user-check"></i></button>`
+                                }
+                                <button class="btn-action btn-reset" title="Reset Password" onclick="resetPassword(${account.id})">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <button class="btn-action btn-delete" title="Delete Account" onclick="confirmDelete(${account.id}, '${account.name}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==================== TOGGLE STATUS ====================
+        async function toggleStatus(id, activate) {
+            const action = activate ? 'activate' : 'deactivate';
+            if (!confirm(`Are you sure you want to ${action} this account?`)) return;
+
+            try {
+                const response = await fetch(`/api/admin/accounts/${id}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isActive: activate })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('success', data.message);
+                    // Refresh the search/table
+                    const query = document.getElementById('searchInput').value.trim();
+                    searchAccounts(query);
+                } else {
+                    showAlert('danger', data.message || 'Operation failed');
+                }
+            } catch (error) {
+                showAlert('danger', 'Failed to update account status');
+                console.error(error);
+            }
+        }
+
+        // ==================== VIEW PROFILE ====================
+        async function viewProfile(id) {
+            currentProfileId = id;
+            const modal = document.getElementById('profileModal');
+            const content = document.getElementById('profileContent');
+            const actions = document.getElementById('profileActions');
+            
+            modal.classList.add('active');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            actions.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/admin/accounts/${id}/profile`);
+                const profile = await response.json();
+                
+                if (profile.error) {
+                    content.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-circle"></i> ${profile.error}</div>`;
+                    return;
+                }
+
+                const initial = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+                const lastLogin = profile.lastLogin ? new Date(profile.lastLogin).toLocaleString() : 'Never';
+                
+                content.innerHTML = `
+                    <div class="profile-header">
+                        <div class="profile-avatar">${initial}</div>
+                        <div class="profile-title">
+                            <h4>${profile.name || 'Unknown'}</h4>
+                            <p>${profile.email}</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h5><i class="fas fa-info-circle"></i> Account Information</h5>
+                        <div class="profile-grid">
+                            <div class="profile-item">
+                                <label>Mobile</label>
+                                <span>${profile.mobile || 'N/A'}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Role</label>
+                                <span>${profile.role}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Status</label>
+                                <span style="color: ${profile.isActive ? 'var(--green)' : 'var(--red)'}">${profile.isActive ? 'Active' : 'Suspended'}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Last Login</label>
+                                <span>${lastLogin}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Login Provider</label>
+                                <span>${profile.provider || 'Email/Password'}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Verified</label>
+                                <span style="color: ${profile.verified ? 'var(--green)' : 'var(--yellow)'}">${profile.verified ? 'Yes' : 'No'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h5><i class="fas fa-chart-line"></i> Spending Summary</h5>
+                        <div class="profile-grid">
+                            <div class="profile-item">
+                                <label>Total Orders</label>
+                                <span>${profile.totalOrders}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Total Spent</label>
+                                <span style="color: var(--yellow);">₹${profile.totalSpent?.toFixed(2) || '0.00'}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Average Order Value</label>
+                                <span>₹${profile.averageOrderValue?.toFixed(2) || '0.00'}</span>
+                            </div>
+                            <div class="profile-item">
+                                <label>Wishlist Items</label>
+                                <span>${profile.wishlistCount || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h5><i class="fas fa-shopping-bag"></i> Recent Orders (${profile.recentOrders?.length || 0})</h5>
+                        ${profile.recentOrders && profile.recentOrders.length > 0 ? `
+                            <div class="orders-list">
+                                ${profile.recentOrders.map(order => `
+                                    <div class="order-item">
+                                        <span>Order #${order.id} - ${order.itemCount} items</span>
+                                        <span class="amount">₹${order.amount?.toFixed(2) || '0.00'}</span>
+                                        <span class="status-badge ${order.status === 'Delivered' ? 'active' : ''}">${order.status}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div class="no-data" style="padding: 1rem; font-size: 0.85rem;">No orders found</div>'}
+                    </div>
+
+                    <div class="profile-section">
+                        <h5><i class="fas fa-heart"></i> Wishlist Items (${profile.wishlistCount || 0})</h5>
+                        ${profile.wishlistItems && profile.wishlistItems.length > 0 ? `
+                            <div class="wishlist-list">
+                                ${profile.wishlistItems.map(item => `
+                                    <div class="wishlist-item">
+                                        <span>${item.productName}</span>
+                                        <span style="color: var(--yellow);">₹${item.productPrice?.toFixed(2) || '0.00'}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div class="no-data" style="padding: 1rem; font-size: 0.85rem;">No wishlist items</div>'}
+                    </div>
+                `;
+
+                // Update action buttons based on status
+                const btnDeactivate = document.getElementById('btnDeactivateModal');
+                if (profile.isActive) {
+                    btnDeactivate.innerHTML = '<i class="fas fa-user-slash"></i> Deactivate Account';
+                    btnDeactivate.onclick = () => toggleStatusFromModal(false);
+                } else {
+                    btnDeactivate.innerHTML = '<i class="fas fa-user-check"></i> Activate Account';
+                    btnDeactivate.className = 'btn-modal primary';
+                    btnDeactivate.onclick = () => toggleStatusFromModal(true);
+                }
+
+                actions.style.display = 'flex';
+            } catch (error) {
+                content.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-circle"></i> Failed to load profile</div>`;
+                console.error(error);
+            }
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').classList.remove('active');
+            currentProfileId = null;
+        }
+
+        async function toggleStatusFromModal(activate) {
+            if (!currentProfileId) return;
+            await toggleStatus(currentProfileId, activate);
+            closeProfileModal();
+        }
+
+        async function resetPasswordFromModal() {
+            if (!currentProfileId) return;
+            await resetPassword(currentProfileId);
+        }
+
+        // ==================== RESET PASSWORD ====================
+        async function resetPassword(id) {
+            if (!confirm('Are you sure you want to trigger a password reset for this user?')) return;
+
+            try {
+                const response = await fetch(`/api/admin/accounts/${id}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = 'Password reset link generated successfully.';
+                    if (data.emailSent) {
+                        message += ' Email sent to ' + data.email;
+                    }
+                    showAlert('success', message);
+                } else {
+                    showAlert('danger', data.message || 'Failed to generate reset link');
+                }
+            } catch (error) {
+                showAlert('danger', 'Failed to reset password');
+                console.error(error);
+            }
+        }
+
+        // Close modal on overlay click
+        document.getElementById('profileModal').addEventListener('click', function(e) {
+            if (e.target === this) closeProfileModal();
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeProfileModal();
+        });
+    </script>
+    
+    <!-- Global Toast System -->
+    <script src="/js/ekart-toast.js"></script>
+    <link rel="stylesheet" href="/css/ekart-ui.css">
+
+<!-- ── DELETE CONFIRMATION MODAL ── -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+     align-items:center;justify-content:center;">
+    <div style="background:#1a1208;border:1px solid rgba(239,68,68,0.4);border-radius:20px;
+                padding:2rem 2.2rem;max-width:400px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="text-align:center;margin-bottom:1.2rem;">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">⚠️</div>
+            <h2 style="color:#ef4444;font-size:1.2rem;margin:0 0 0.5rem;">Delete Account?</h2>
+            <p style="color:#aaa;font-size:0.85rem;margin:0;">
+                Permanently delete <strong id="delete-name" style="color:#fff;"></strong>?
+                This cannot be undone.
+            </p>
+        </div>
+        <div style="display:flex;gap:0.8rem;margin-top:1.5rem;">
+            <button onclick="closeDeleteModal()"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:1px solid #444;
+                       background:transparent;color:#ccc;cursor:pointer;font-size:0.9rem;">
+                Cancel
+            </button>
+            <button id="delete-confirm-btn" onclick="executeDelete()"
+                style="flex:1;padding:0.75rem;border-radius:12px;border:none;
+                       background:#ef4444;color:#fff;cursor:pointer;font-size:0.9rem;font-weight:600;">
+                Yes, Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var deleteTargetId = null;
+
+    function confirmDelete(id, name) {
+        deleteTargetId = id;
+        document.getElementById('delete-name').textContent = name;
+        document.getElementById('delete-modal').style.display = 'flex';
+    }
+    function closeDeleteModal() {
+        document.getElementById('delete-modal').style.display = 'none';
+        deleteTargetId = null;
+    }
+    async function executeDelete() {
+        if (!deleteTargetId) return;
+        try {
+            const res = await fetch(`/api/admin/accounts/${deleteTargetId}`, { method: 'DELETE' });
+            const data = await res.json();
+            closeDeleteModal();
+            if (data.success) {
+                // Remove row from table without reload
+                const row = document.querySelector(`[data-account-id="${deleteTargetId}"]`);
+                if (row) row.closest('tr').remove();
+                alert(data.message || 'Account deleted successfully');
+            } else {
+                alert('Error: ' + (data.message || 'Could not delete account'));
+            }
+        } catch (e) {
+            closeDeleteModal();
+            alert('Error deleting account. Please try again.');
+        }
+    }
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+</script>
+
+</body>
+</html>
