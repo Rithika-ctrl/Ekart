@@ -1,11 +1,3 @@
-/**
- * File: FlutterApiController.java
- * Description: REST API controller for the Flutter mobile app.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;

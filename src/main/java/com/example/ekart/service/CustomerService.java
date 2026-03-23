@@ -1,11 +1,3 @@
-/**
- * File: CustomerService.java
- * Description: Service for customer account operations and order-related business logic.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.service;
 
 // ================================================================

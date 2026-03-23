@@ -1,11 +1,3 @@
-/**
- * File: AiAssistantService.java
- * Description: Service integrating an AI assistant (Gemini) with user context.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.service;
 
 import org.slf4j.Logger;
