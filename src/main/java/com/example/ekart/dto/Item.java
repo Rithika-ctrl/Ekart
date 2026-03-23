@@ -1,11 +1,3 @@
-/**
- * File: Item.java
- * Description: DTO for an item within an order or cart with quantity and price.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.dto;
 
 import jakarta.persistence.Entity;

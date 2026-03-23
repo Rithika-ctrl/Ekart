@@ -1,11 +1,3 @@
-/**
- * File: UserAdminApiController.java
- * Description: Admin REST API for user management and RBAC operations.
- * Author: Sanjay E, Rithika K, B Venkatesh
- * Company: Preflex Solutions Pvt. Ltd.
- * Version: 1.0
- * Date: March 2026
- */
 package com.example.ekart.controller;
 
 import java.util.HashMap;
