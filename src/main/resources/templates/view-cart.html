@@ -59,15 +59,11 @@
         nav.scrolled { background: rgba(0,0,0,0.45); }
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: #ffffff; text-decoration: none;
+            color: var(--text-white); text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
-        
-
-}
-        .nav-brand span { color: #f5a800; 
-
-}
+        }
+        .nav-brand span { color: var(--yellow); }
         .nav-right { display: flex; align-items: center; gap: 0.75rem; }
         .nav-link-btn {
             display: flex; align-items: center; gap: 0.4rem;
@@ -548,7 +544,10 @@
 
 <!-- Navbar -->
 <nav id="nav">
-    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
+        Ek<span>art</span>
+    </a>
 
     <div class="nav-right">
         <a href="/customer/home" class="nav-link-btn" title="Shop">

@@ -30,13 +30,9 @@
             padding:0.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
             background:var(--glass-nav); backdrop-filter:blur(14px);
             border-bottom:1px solid var(--glass-border); gap:1rem; }
-        .nav-brand { font-size:1.6rem; font-weight:700; color: #ffffff;
-            text-decoration:none; display:flex; align-items:center; gap:0.45rem; 
-
-}
-        .nav-brand span { color: #f5a800; 
-
-}
+        .nav-brand { font-size:1.6rem; font-weight:700; color:var(--text-white);
+            text-decoration:none; display:flex; align-items:center; gap:0.45rem; }
+        .nav-brand span { color:var(--yellow); }
         .nav-right { display:flex; align-items:center; gap:0.75rem; }
         .nav-link { display:flex; align-items:center; gap:0.4rem; color:var(--text-light);
             text-decoration:none; font-size:0.8rem; font-weight:500; padding:0.4rem 0.75rem;
@@ -137,7 +133,10 @@
 
 <!-- NAV -->
 <nav>
-    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/customer/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1rem;"></i>
+        Ek<span>art</span>
+    </a>
     <div class="nav-right">
         <a href="/customer/home" class="nav-link"><i class="fas fa-home"></i> Home</a>
         <a href="/view-cart" class="nav-link"><i class="fas fa-shopping-cart"></i> Cart</a>

@@ -55,13 +55,11 @@
         nav.scrolled { background: rgba(0,0,0,0.5); }
         .nav-brand {
             font-size: 1.5rem; font-weight: 700;
-            color: #ffffff; text-decoration: none;
+            color: var(--text-white); text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.45rem;
             flex-shrink: 0;
-        
-
-}
+        }
         .page {
             flex: 1;
             padding: 6rem 2rem 3rem;
@@ -98,15 +96,15 @@
             .page { padding: 5.5rem 1.25rem 2rem; }
             .glass-card { padding: 1.5rem 1rem; }
         }
-    
-.nav-brand span { color: #f5a800; 
-}
-</style>
+    </style>
 </head>
 <body>
 <div class="bg-layer"></div>
 <nav id="nav">
-    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
 </nav>
 <main class="page">
     <h1 style="text-align:center;margin-bottom:0.5em;">Policies & SOP Documentation</h1>
