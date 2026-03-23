@@ -295,6 +295,56 @@
         }
         .voice-status.show { display:flex; }
 
+
+        /* ── SEARCH HISTORY ── */
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px 4px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.35);
+        }
+        .history-clear-btn {
+            background: none; border: none; cursor: pointer;
+            color: rgba(245,168,0,0.7); font-size: 0.68rem;
+            font-family: 'Poppins', sans-serif; font-weight: 600;
+            padding: 0; transition: color 0.15s;
+        }
+        .history-clear-btn:hover { color: var(--yellow); }
+        .history-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 9px 16px; cursor: pointer;
+            transition: background 0.12s;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-item:hover, .history-item.active {
+            background: rgba(245,168,0,0.06);
+        }
+        .history-icon {
+            color: rgba(255,255,255,0.3);
+            font-size: 0.78rem; flex-shrink: 0; width: 14px; text-align: center;
+        }
+        .history-text {
+            flex: 1; font-size: 0.84rem; color: rgba(255,255,255,0.75);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .history-remove {
+            background: none; border: none; cursor: pointer;
+            color: rgba(255,255,255,0.2); font-size: 0.75rem; padding: 0 2px;
+            transition: color 0.15s; flex-shrink: 0; line-height: 1;
+        }
+        .history-remove:hover { color: rgba(255,100,80,0.7); }
+        .history-empty {
+            padding: 18px 16px; font-size: 0.78rem;
+            color: rgba(255,255,255,0.28);
+            display: flex; align-items: center; gap: 8px;
+        }
+
         /* ── FILTER PANEL ── */
         .filter-card {
             background:var(--glass-card); backdrop-filter:blur(20px);
@@ -658,9 +708,33 @@
             }
         } catch (e) {}
     // ════════════════════════════════════════════════
-    // SMART AUTOCOMPLETE
+    // SMART AUTOCOMPLETE + RECENT SEARCH HISTORY
     // ════════════════════════════════════════════════
     (function () {
+        const HISTORY_KEY = 'ekart_search_history';
+        const MAX_HISTORY = 8;
+
+        // ── History helpers ───────────────────────────
+        function getHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+            catch(e) { return []; }
+        }
+        function saveToHistory(query) {
+            if (!query || query.trim().length < 2) return;
+            query = query.trim();
+            let history = getHistory().filter(q => q.toLowerCase() !== query.toLowerCase());
+            history.unshift(query);
+            history = history.slice(0, MAX_HISTORY);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+        function removeFromHistory(query) {
+            const history = getHistory().filter(q => q !== query);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+        function clearHistory() {
+            localStorage.removeItem(HISTORY_KEY);
+        }
+
         const input   = document.getElementById('searchInput');
         const wrapper = document.getElementById('searchWrapper');
         const form    = document.getElementById('searchForm');
@@ -669,8 +743,8 @@
         let debounce   = null;
         let activeIdx  = -1;
         let suggestions = [];
+        let showingHistory = false;
 
-        // ── Build dropdown DOM once ──────────────────
         function createDropdown() {
             if (dropdown) return;
             dropdown = document.createElement('div');
@@ -678,41 +752,112 @@
             dropdown.innerHTML = '<ul class="autocomplete-list" id="acList"></ul>';
             wrapper.appendChild(dropdown);
         }
+        function getList() { return document.getElementById('acList'); }
 
-        function getList() {
-            return document.getElementById('acList');
-        }
-
-        // ── Show / hide ──────────────────────────────
         function showDropdown() {
             createDropdown();
             dropdown.style.display = 'block';
             input.classList.add('dropdown-open');
         }
-
         function hideDropdown() {
             if (dropdown) dropdown.style.display = 'none';
             input.classList.remove('dropdown-open');
             activeIdx = -1;
+            showingHistory = false;
         }
 
-        // ── Input event ──────────────────────────────
+        // ── Render recent search history ──────────────
+        function renderHistory() {
+            showingHistory = true;
+            const history = getHistory();
+            const list = getList();
+            list.innerHTML = '';
+            activeIdx = -1;
+
+            if (history.length === 0) {
+                list.innerHTML = `<div class="history-empty">
+                    <i class="fas fa-clock" style="color:rgba(255,255,255,0.2);"></i>
+                    No recent searches yet
+                </div>`;
+                return;
+            }
+
+            // Header row
+            const hdr = document.createElement('div');
+            hdr.className = 'history-header';
+            hdr.innerHTML = `<span><i class="fas fa-clock" style="margin-right:5px;"></i>Recent searches</span>
+                <button class="history-clear-btn" onclick="event.stopPropagation();ekartClearHistory()">Clear all</button>`;
+            list.appendChild(hdr);
+
+            history.forEach((q, idx) => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `
+                    <i class="fas fa-history history-icon"></i>
+                    <span class="history-text">${esc(q)}</span>
+                    <button class="history-remove" title="Remove"
+                        onclick="event.stopPropagation();ekartRemoveHistory(${JSON.stringify(q)})">&#x2715;</button>
+                `;
+                li.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('history-remove')) return;
+                    input.value = q;
+                    hideDropdown();
+                    saveToHistory(q);
+                    form.submit();
+                });
+                li.addEventListener('mouseenter', () => {
+                    activeIdx = idx;
+                    list.querySelectorAll('.history-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+                });
+                list.appendChild(li);
+            });
+        }
+
+        window.ekartClearHistory = function() {
+            clearHistory();
+            renderHistory();
+        };
+        window.ekartRemoveHistory = function(q) {
+            removeFromHistory(q);
+            renderHistory();
+            if (getHistory().length === 0) hideDropdown();
+        };
+
+        // ── Input event ───────────────────────────────
         input.addEventListener('input', function () {
             const q = this.value.trim();
             clearTimeout(debounce);
+            showingHistory = false;
 
-            if (q.length < 1) { hideDropdown(); return; }
+            if (q.length < 1) {
+                // empty — show history
+                const history = getHistory();
+                if (history.length > 0) { showDropdown(); renderHistory(); }
+                else hideDropdown();
+                return;
+            }
 
             showDropdown();
             renderLoading();
-
             debounce = setTimeout(() => fetchSuggestions(q), 200);
         });
 
-        // ── Keyboard nav ─────────────────────────────
+        // ── Focus event: show history when empty ──────
+        input.addEventListener('focus', function () {
+            const q = this.value.trim();
+            if (q.length > 0) {
+                showDropdown(); renderLoading(); fetchSuggestions(q);
+            } else {
+                const history = getHistory();
+                if (history.length > 0) { showDropdown(); renderHistory(); }
+            }
+        });
+
+        // ── Keyboard nav ──────────────────────────────
         input.addEventListener('keydown', function (e) {
             if (!dropdown || dropdown.style.display === 'none') return;
-            const items = getList().querySelectorAll('.suggestion-item');
+            const itemSel = showingHistory ? '.history-item' : '.suggestion-item';
+            const items = getList().querySelectorAll(itemSel);
 
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -725,57 +870,57 @@
             } else if (e.key === 'Escape') {
                 hideDropdown();
             } else if (e.key === 'Enter' && activeIdx >= 0 && items[activeIdx]) {
-                e.preventDefault();
-                items[activeIdx].click();
+                e.preventDefault(); items[activeIdx].click();
             }
         });
 
         function setActive(items) {
             items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
-            if (activeIdx >= 0 && suggestions[activeIdx]) {
-                input.value = suggestions[activeIdx].productName;
+            if (showingHistory) {
+                if (activeIdx >= 0) input.value = getHistory()[activeIdx] || input.value;
+            } else {
+                if (activeIdx >= 0 && suggestions[activeIdx]) input.value = suggestions[activeIdx].productName;
             }
         }
 
-        // ── Fetch from real backend ───────────────────
-        // CHANGE THIS URL if your endpoint differs
+        // ── Save on form submit ───────────────────────
+        form.addEventListener('submit', function() {
+            const q = input.value.trim();
+            if (q) saveToHistory(q);
+        });
+
+        // ── Fetch suggestions ─────────────────────────
         function fetchSuggestions(q) {
             fetch('/api/search/suggestions?q=' + encodeURIComponent(q))
                 .then(r => r.json())
-                .then(data => {
-                    suggestions = data;
-                    renderSuggestions(data, q);
-                })
+                .then(data => { suggestions = data; renderSuggestions(data, q); })
                 .catch(() => hideDropdown());
         }
 
-        // ── Render suggestions ────────────────────────
         function renderSuggestions(data, query) {
             const list = getList();
             list.innerHTML = '';
             activeIdx = -1;
+            showingHistory = false;
 
             if (!data || data.length === 0) {
                 list.innerHTML = `<div class="dropdown-empty" id="acEmptyState">
                     <i class="fas fa-search"></i>
                     No results for "<strong style="color:var(--yellow)">${esc(query)}</strong>"
                 </div>`;
-                // Fetch fuzzy suggestion
                 fetch('/api/search/fuzzy?q=' + encodeURIComponent(query))
                     .then(r => r.json())
                     .then(data => {
                         if (data.suggestion) {
                             const el = document.getElementById('acEmptyState');
-                            if (el) {
-                                el.innerHTML = `
-                                    <i class="fas fa-spell-check" style="color:var(--yellow);font-size:1rem;"></i>
-                                    <span>Are you looking for&nbsp;
-                                        <strong style="color:var(--yellow);cursor:pointer;text-decoration:underline dotted"
-                                            onclick="document.getElementById('searchInput').value='${esc(data.suggestion)}';document.getElementById('searchForm').submit();">
-                                            ${esc(data.suggestion)}
-                                        </strong> ?
-                                    </span>`;
-                            }
+                            if (el) el.innerHTML = `
+                                <i class="fas fa-spell-check" style="color:var(--yellow);font-size:1rem;"></i>
+                                <span>Are you looking for&nbsp;
+                                    <strong style="color:var(--yellow);cursor:pointer;text-decoration:underline dotted"
+                                        onclick="document.getElementById('searchInput').value='${esc(data.suggestion)}';saveToHistory && saveToHistory('${esc(data.suggestion)}');document.getElementById('searchForm').submit();">
+                                        ${esc(data.suggestion)}
+                                    </strong> ?
+                                </span>`;
                         }
                     }).catch(() => {});
                 return;
@@ -786,20 +931,15 @@
                 li.className = 'suggestion-item';
 
                 const imgHtml = s.imageLink
-                    ? `<img class="suggestion-thumb"
-                            src="${esc(s.imageLink)}"
-                            alt=""
-                            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    ? `<img class="suggestion-thumb" src="${esc(s.imageLink)}" alt=""
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                        <div class="suggestion-thumb-placeholder" style="display:none">🛍</div>`
                     : `<div class="suggestion-thumb-placeholder">🛍</div>`;
 
                 const badge = (idx < 3 && s.purchaseCount > 0)
                     ? `<span class="popular-badge">🔥 Popular</span>`
                     : `<i class="fas fa-search suggestion-search-icon"></i>`;
-
-                const cat = s.category
-                    ? `<div class="suggestion-category">in ${esc(s.category)}</div>`
-                    : '';
+                const cat = s.category ? `<div class="suggestion-category">in ${esc(s.category)}</div>` : '';
 
                 li.innerHTML = `
                     ${imgHtml}
@@ -809,56 +949,42 @@
                     </div>
                     ${badge}
                 `;
-
                 li.addEventListener('click', () => {
                     input.value = s.productName;
+                    saveToHistory(s.productName);
                     hideDropdown();
                     form.submit();
                 });
-
                 li.addEventListener('mouseenter', () => {
                     activeIdx = idx;
-                    getList().querySelectorAll('.suggestion-item')
-                             .forEach((el, i) => el.classList.toggle('active', i === idx));
+                    getList().querySelectorAll('.suggestion-item').forEach((el, i) => el.classList.toggle('active', i === idx));
                 });
-
                 list.appendChild(li);
             });
         }
 
         function renderLoading() {
             const list = getList();
-            if (list) list.innerHTML = `
-                <div class="dropdown-loading">
-                    <i class="fas fa-circle-notch"></i> Searching…
-                </div>`;
+            if (list) list.innerHTML = `<div class="dropdown-loading"><i class="fas fa-circle-notch"></i> Searching…</div>`;
         }
 
-        // ── Click outside ─────────────────────────────
         document.addEventListener('click', e => {
             if (!e.target.closest('#searchWrapper')) hideDropdown();
         });
 
-        // ── Re-open on focus ─────────────────────────
-        input.addEventListener('focus', function () {
-            if (this.value.trim().length > 0) {
-                showDropdown();
-                renderLoading();
-                fetchSuggestions(this.value.trim());
-            }
-        });
-
-        // ── Helpers ───────────────────────────────────
         function highlight(text, query) {
             const safeQ = esc(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             return esc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
         }
-
         function esc(s) {
-            return String(s)
-                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
+
+        // Auto-save pre-filled query (server-side search result page)
+        window.addEventListener('DOMContentLoaded', function() {
+            const preQuery = input.value ? input.value.trim() : '';
+            if (preQuery) saveToHistory(preQuery);
+        });
 
     })();
 

@@ -408,6 +408,81 @@
         @keyframes fadeUp  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
+
+        /* ── QUANTITY SELECTOR ── */
+        .qty-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 0.9rem 1.1rem;
+        }
+        .qty-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            flex-shrink: 0;
+        }
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .qty-btn {
+            width: 38px;
+            height: 38px;
+            border: none;
+            background: transparent;
+            color: var(--text-light);
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Poppins', sans-serif;
+            flex-shrink: 0;
+        }
+        .qty-btn:hover:not(:disabled) {
+            background: rgba(245,168,0,0.15);
+            color: var(--yellow);
+        }
+        .qty-btn:active:not(:disabled) { transform: scale(0.9); }
+        .qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .qty-input {
+            width: 48px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-left: 1px solid var(--glass-border);
+            border-right: 1px solid var(--glass-border);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 0;
+            height: 38px;
+            outline: none;
+            -moz-appearance: textfield;
+        }
+        .qty-input::-webkit-inner-spin-button,
+        .qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .qty-stock-info {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            margin-left: auto;
+        }
+        .qty-stock-info span { color: var(--yellow); font-weight: 600; }
+
         /* RESPONSIVE */
         @media(max-width:900px) { .product-main { grid-template-columns:1fr; } nav { padding:0.7rem 1rem; } .page { padding:5.5rem 1rem 3rem; } }
         @media(max-width:560px) { .similar-grid { grid-template-columns:1fr 1fr; } .nav-link span { display:none; } .nav-link { padding:0.42rem 0.55rem; } }
@@ -674,6 +749,25 @@
                 </div>
             </div>
 
+
+            <!-- ── QUANTITY SELECTOR ── -->
+            <div class="qty-wrap" th:if="${product.stock > 0 and !isGuestView}" id="qtyWrap">
+                <span class="qty-label"><i class="fas fa-layer-group" style="color:var(--yellow);margin-right:0.3rem;"></i>Qty</span>
+                <div class="qty-controls">
+                    <button class="qty-btn" id="qtyMinus" onclick="changeQty(-1)" title="Decrease">−</button>
+                    <input  class="qty-input" id="qtyInput" type="number"
+                            value="1" min="1"
+                            th:max="${product.stock > 10 ? 10 : product.stock}"
+                            th:attr="data-max=${product.stock > 10 ? 10 : product.stock}"
+                            readonly>
+                    <button class="qty-btn" id="qtyPlus"  onclick="changeQty(1)"  title="Increase">+</button>
+                </div>
+                <span class="qty-stock-info">
+                    <span th:if="${product.stock > 10}">Max 10 per order</span>
+                    <span th:if="${product.stock <= 10}">Only <span th:text="${product.stock}"></span> left</span>
+                </span>
+            </div>
+
             <!-- ── DELIVERY ESTIMATE ── -->
             <div class="delivery-box" th:if="${product.stock > 0}" id="deliveryBox">
                 <div class="delivery-box-header">
@@ -712,7 +806,16 @@
             <div class="action-row">
                 <!-- Logged-in customer: normal Add to Cart -->
                 <th:block th:if="${!isGuestView}">
-                    <a th:if="${product.stock > 0}"  th:href="'/add-cart/' + ${product.id}" class="btn-add-cart" style="flex:1;"><i class="fas fa-cart-plus"></i> Add to Cart</a>
+                    <button th:if="${product.stock > 0}"
+                            id="addCartBtn"
+                            class="btn-add-cart"
+                            style="flex:1;"
+                            th:attr="data-product-id=${product.id}"
+                            onclick="addToCartWithQty(this)"
+                            type="button">
+                        <i class="fas fa-cart-plus" id="addCartIcon"></i>
+                        <span id="addCartText">Add to Cart</span>
+                    </button>
                     <!-- Out of stock: show Notify Me button -->
                     <th:block th:if="${product.stock == 0}">
                         <button type="button" class="btn-notify-me" style="flex:1;"
@@ -981,6 +1084,96 @@
     // Lightbox
     function openLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('open'); }
     function closeLightbox()   { document.getElementById('lightbox').classList.remove('open'); }
+
+
+    // ── QUANTITY SELECTOR ─────────────────────────────────────────────────────
+    (function initQty() {
+        const input   = document.getElementById('qtyInput');
+        const minusBtn = document.getElementById('qtyMinus');
+        const plusBtn  = document.getElementById('qtyPlus');
+        if (!input) return;
+
+        const maxQty = parseInt(input.getAttribute('data-max') || '10', 10);
+
+        function update() {
+            const v = parseInt(input.value, 10) || 1;
+            if (minusBtn) minusBtn.disabled = (v <= 1);
+            if (plusBtn)  plusBtn.disabled  = (v >= maxQty);
+        }
+        update();
+
+        window.changeQty = function(delta) {
+            const cur = parseInt(input.value, 10) || 1;
+            const next = Math.min(maxQty, Math.max(1, cur + delta));
+            input.value = next;
+            update();
+        };
+    })();
+
+    // ── ADD TO CART (AJAX with quantity) ─────────────────────────────────────
+    window.addToCartWithQty = function(btn) {
+        const productId = parseInt(btn.getAttribute('data-product-id'), 10);
+        const qtyInput  = document.getElementById('qtyInput');
+        const quantity  = qtyInput ? parseInt(qtyInput.value, 10) || 1 : 1;
+
+        const icon = document.getElementById('addCartIcon');
+        const text = document.getElementById('addCartText');
+
+        // Loading state
+        btn.disabled = true;
+        if (icon) icon.className = 'fas fa-spinner fa-spin';
+        if (text) text.textContent = 'Adding…';
+
+        fetch('/api/cart/add-web', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ productId, quantity })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            if (icon) icon.className = 'fas fa-cart-plus';
+            if (text) text.textContent = 'Add to Cart';
+
+            if (!data.success) {
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                    return;
+                }
+                showToast(data.message || 'Something went wrong', 'error');
+                return;
+            }
+
+            // Success
+            showToast(data.message || 'Added to cart!', 'success');
+
+            // Update cart badge in nav if it exists
+            const badge = document.querySelector('.cart-badge');
+            if (badge && data.cartCount !== undefined) {
+                badge.textContent = data.cartCount;
+                badge.style.display = 'flex';
+            }
+
+            // Brief button state feedback
+            if (icon) icon.className = 'fas fa-check';
+            if (text) text.textContent = 'Added!';
+            setTimeout(() => {
+                if (icon) icon.className = 'fas fa-cart-plus';
+                if (text) text.textContent = 'Add to Cart';
+            }, 1800);
+
+            // Analytics
+            try {
+                logUserAction && logUserAction('ADD_TO_CART', { productId, quantity });
+            } catch(e) {}
+        })
+        .catch(() => {
+            btn.disabled = false;
+            if (icon) icon.className = 'fas fa-cart-plus';
+            if (text) text.textContent = 'Add to Cart';
+            showToast('Network error — please try again', 'error');
+        });
+    };
 
     // ─── REVIEW IMAGE UPLOAD ───────────────────────────────────────────────────
 
