@@ -54,15 +54,11 @@
         nav.scrolled { background: rgba(0,0,0,0.45); }
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
-            color: #ffffff; text-decoration: none;
+            color: var(--text-white); text-decoration: none;
             letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
-        
-
-}
-        .nav-brand span { color: #f5a800; 
-
-}
+        }
+        .nav-brand span { color: var(--yellow); }
         .nav-links {
             display: flex; align-items: center; gap: 0.5rem;
         }
@@ -138,7 +134,10 @@
 <body>
 <div class="bg-layer"></div>
 <nav id="nav">
-    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a href="/admin/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
     <div class="nav-links">
         <a href="/admin/home" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
         <a href="/admin/policies" class="nav-link active"><i class="fas fa-book"></i> Policies & SOPs</a>

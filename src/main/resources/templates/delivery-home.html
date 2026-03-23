@@ -18,12 +18,8 @@
 
         /* NAV */
         nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--glass-nav);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);gap:1rem;}
-        .nav-brand{font-size:1.4rem;font-weight:700;color: #ffffff;text-decoration:none;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;
-
-}
-        .nav-brand span{color: #f5a800;
-
-}
+        .nav-brand{font-size:1.4rem;font-weight:700;color:var(--text-white);text-decoration:none;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;}
+        .nav-brand span{color:var(--yellow);}
         .nav-badge{display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;font-weight:700;padding:0.3rem 0.8rem;border-radius:50px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);color:var(--yellow);letter-spacing:0.06em;text-transform:uppercase;}
         .nav-right{display:flex;align-items:center;gap:0.75rem;}
         .nav-info{font-size:0.78rem;color:var(--text-dim);}
@@ -166,7 +162,9 @@
 </div>
 
 <nav id="nav">
-    <a href="/" class="nav-brand"><span>E</span>Kart</a>
+    <a class="nav-brand" href="/delivery/home">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i><span>Ekart</span>
+    </a>
     <div class="nav-right">
         <span class="nav-badge"><i class="fas fa-motorcycle"></i>&nbsp; Delivery</span>
         <span class="nav-info" th:text="${deliveryBoy.name}"></span>
