@@ -705,6 +705,43 @@
         .empty-state h3 { font-size: 1.2rem; color: var(--text-light); margin-bottom: 0.5rem; }
 
 
+
+        /* ── NAV HISTORY ── */
+        .nav-history-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 14px 3px;
+            font-size: 0.64rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: rgba(255,255,255,0.3);
+        }
+        .nav-history-clear {
+            background: none; border: none; cursor: pointer;
+            color: rgba(245,168,0,0.65); font-size: 0.64rem;
+            font-family: 'Poppins', sans-serif; font-weight: 600;
+            padding: 0; transition: color 0.15s;
+        }
+        .nav-history-clear:hover { color: var(--yellow); }
+        .nav-history-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer;
+            transition: background 0.1s;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.8rem;
+        }
+        .nav-history-item:last-child { border-bottom: none; }
+        .nav-history-item:hover, .nav-history-item.active { background: rgba(245,168,0,0.07); }
+        .nav-history-icon { color: rgba(255,255,255,0.28); font-size: 0.72rem; flex-shrink: 0; width: 13px; text-align: center; }
+        .nav-history-text { flex: 1; color: rgba(255,255,255,0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nav-history-remove {
+            background: none; border: none; cursor: pointer;
+            color: rgba(255,255,255,0.18); font-size: 0.7rem; padding: 0 2px;
+            transition: color 0.15s; flex-shrink: 0; line-height: 1;
+        }
+        .nav-history-remove:hover { color: rgba(255,100,80,0.65); }
+        .nav-history-empty {
+            padding: 14px; font-size: 0.75rem; color: rgba(255,255,255,0.25);
+            display: flex; align-items: center; gap: 7px;
+        }
+
         /* ── SORT & FILTER BAR ── */
         .sort-filter-bar {
             display: flex; align-items: center; justify-content: space-between;
@@ -1718,8 +1755,26 @@
         if (p) p.classList.remove('show');
     }
 
-    // ── NAV SMART AUTOCOMPLETE ──────────────────────────────────
+    // ── NAV SMART AUTOCOMPLETE + SEARCH HISTORY ─────────────────
     (function () {
+        const HISTORY_KEY = 'ekart_search_history';
+        const MAX_HISTORY = 8;
+
+        function getHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+            catch(e) { return []; }
+        }
+        function saveToNavHistory(q) {
+            if (!q || q.trim().length < 2) return;
+            q = q.trim();
+            let h = getHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
+            h.unshift(q);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, MAX_HISTORY)));
+        }
+        function removeNavHistory(q) {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(getHistory().filter(x => x !== q)));
+        }
+
         const input   = document.getElementById('navSearchInput');
         const wrapper = document.getElementById('navSearchWrapper');
 
@@ -1727,6 +1782,7 @@
         let debounce   = null;
         let activeIdx  = -1;
         let suggestions = [];
+        let showingHistory = false;
 
         function createDropdown() {
             if (dropdown) return;
@@ -1735,7 +1791,6 @@
             dropdown.innerHTML = '<ul class="nav-ac-list" id="navAcList"></ul>';
             wrapper.appendChild(dropdown);
         }
-
         function getList() { return document.getElementById('navAcList'); }
 
         function showDrop() {
@@ -1743,25 +1798,98 @@
             dropdown.style.display = 'block';
             input.classList.add('nav-dropdown-open');
         }
-
         function hideDrop() {
             if (dropdown) dropdown.style.display = 'none';
             input.classList.remove('nav-dropdown-open');
             activeIdx = -1;
+            showingHistory = false;
         }
+
+        function renderNavHistory() {
+            showingHistory = true;
+            const history = getHistory();
+            const list = getList();
+            list.innerHTML = '';
+            activeIdx = -1;
+
+            if (history.length === 0) {
+                list.innerHTML = `<div class="nav-history-empty">
+                    <i class="fas fa-clock"></i> No recent searches
+                </div>`;
+                return;
+            }
+
+            const hdr = document.createElement('div');
+            hdr.className = 'nav-history-header';
+            hdr.innerHTML = `<span><i class="fas fa-clock" style="margin-right:4px;"></i>Recent</span>
+                <button class="nav-history-clear" onclick="event.stopPropagation();ekartNavClearHistory()">Clear all</button>`;
+            list.appendChild(hdr);
+
+            history.forEach((q, idx) => {
+                const li = document.createElement('li');
+                li.className = 'nav-history-item';
+                li.innerHTML = `
+                    <i class="fas fa-history nav-history-icon"></i>
+                    <span class="nav-history-text">${navEsc(q)}</span>
+                    <button class="nav-history-remove" title="Remove"
+                        onclick="event.stopPropagation();ekartNavRemoveHistory(${JSON.stringify(q)})">&#x2715;</button>
+                `;
+                li.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('nav-history-remove')) return;
+                    input.value = q;
+                    saveToNavHistory(q);
+                    hideDrop();
+                    applySearchFilter(q);
+                });
+                li.addEventListener('mouseenter', () => {
+                    activeIdx = idx;
+                    list.querySelectorAll('.nav-history-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+                });
+                list.appendChild(li);
+            });
+        }
+
+        window.ekartNavClearHistory = function() {
+            localStorage.removeItem(HISTORY_KEY);
+            renderNavHistory();
+            if (getHistory().length === 0) hideDrop();
+        };
+        window.ekartNavRemoveHistory = function(q) {
+            removeNavHistory(q);
+            const h = getHistory();
+            if (h.length === 0) hideDrop();
+            else renderNavHistory();
+        };
 
         input.addEventListener('input', function () {
             const q = this.value.trim();
             clearTimeout(debounce);
-            if (!q) { hideDrop(); return; }
+            showingHistory = false;
+            if (!q) {
+                const h = getHistory();
+                if (h.length > 0) { showDrop(); renderNavHistory(); }
+                else hideDrop();
+                return;
+            }
             showDrop();
             renderNavLoading();
             debounce = setTimeout(() => fetchNav(q), 200);
         });
 
+        input.addEventListener('focus', function () {
+            const q = this.value.trim();
+            if (q.length > 0) { showDrop(); renderNavLoading(); fetchNav(q); }
+            else {
+                const h = getHistory();
+                if (h.length > 0) { showDrop(); renderNavHistory(); }
+            }
+        });
+
         input.addEventListener('keydown', function (e) {
             if (!dropdown || dropdown.style.display === 'none') return;
-            const items = getList().querySelectorAll('.nav-ac-item');
+            const itemSel = showingHistory ? '.nav-history-item' : '.nav-ac-item';
+            const items = getList().querySelectorAll(itemSel);
+
             if (e.key === 'ArrowDown')  { e.preventDefault(); activeIdx = Math.min(activeIdx+1, items.length-1); setNavActive(items); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx-1, -1); setNavActive(items); }
             else if (e.key === 'Escape')  { hideDrop(); }
@@ -1772,8 +1900,17 @@
 
         function setNavActive(items) {
             items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
-            if (activeIdx >= 0 && suggestions[activeIdx]) input.value = suggestions[activeIdx].productName;
+            if (showingHistory) {
+                if (activeIdx >= 0) input.value = getHistory()[activeIdx] || input.value;
+            } else {
+                if (activeIdx >= 0 && suggestions[activeIdx]) input.value = suggestions[activeIdx].productName;
+            }
         }
+
+        // Save on Enter in nav search
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && input.value.trim()) saveToNavHistory(input.value.trim());
+        }, true);
 
         function fetchNav(q) {
             fetch('/api/search/suggestions?q=' + encodeURIComponent(q))
@@ -1781,14 +1918,11 @@
                 .then(data => {
                     suggestions = data;
                     if (!data || data.length === 0) {
-                        // No results — fetch fuzzy correction first, then render together
                         fetch('/api/search/fuzzy?q=' + encodeURIComponent(q))
                             .then(r => r.json())
                             .then(fuzzy => renderNav(data, q, fuzzy.suggestion || null))
                             .catch(() => renderNav(data, q, null));
-                    } else {
-                        renderNav(data, q, null);
-                    }
+                    } else { renderNav(data, q, null); }
                 })
                 .catch(() => hideDrop());
         }
@@ -1797,10 +1931,10 @@
             const list = getList();
             list.innerHTML = '';
             activeIdx = -1;
+            showingHistory = false;
 
             if (!data || data.length === 0) {
                 if (fuzzySuggestion) {
-                    // Show "Are you looking for X?" as a clickable item
                     const div = document.createElement('div');
                     div.className = 'nav-ac-empty';
                     div.style.cssText = 'cursor:pointer; gap:8px;';
@@ -1808,6 +1942,7 @@
                         <span>Are you looking for &nbsp;<strong style="color:var(--yellow);text-decoration:underline dotted">${navEsc(fuzzySuggestion)}</strong> ?</span>`;
                     div.addEventListener('click', () => {
                         input.value = fuzzySuggestion;
+                        saveToNavHistory(fuzzySuggestion);
                         hideDrop();
                         applySearchFilter(fuzzySuggestion);
                     });
@@ -1830,9 +1965,7 @@
                        <div class="nav-ac-thumb-ph" style="display:none">🛍</div>`
                     : `<div class="nav-ac-thumb-ph">🛍</div>`;
 
-                const badge = (idx < 3 && s.purchaseCount > 0)
-                    ? `<span class="nav-ac-badge">🔥 Popular</span>` : '';
-
+                const badge = (idx < 3 && s.purchaseCount > 0) ? `<span class="nav-ac-badge">🔥 Popular</span>` : '';
                 const cat = s.category ? `<div class="nav-ac-cat">in ${navEsc(s.category)}</div>` : '';
 
                 li.innerHTML = `
@@ -1843,18 +1976,16 @@
                     </div>
                     ${badge}
                 `;
-
                 li.addEventListener('click', () => {
                     input.value = s.productName;
+                    saveToNavHistory(s.productName);
                     hideDrop();
                     applySearchFilter(s.productName);
                 });
-
                 li.addEventListener('mouseenter', () => {
                     activeIdx = idx;
                     getList().querySelectorAll('.nav-ac-item').forEach((el, i) => el.classList.toggle('active', i === idx));
                 });
-
                 list.appendChild(li);
             });
         }
@@ -1868,15 +1999,10 @@
             if (!e.target.closest('#navSearchWrapper')) hideDrop();
         });
 
-        input.addEventListener('focus', function () {
-            if (this.value.trim().length > 0) { showDrop(); renderNavLoading(); fetchNav(this.value.trim()); }
-        });
-
         function navHighlight(text, query) {
             const safeQ = navEsc(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             return navEsc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark>$1</mark>');
         }
-
         function navEsc(s) {
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
