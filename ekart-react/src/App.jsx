@@ -7,11 +7,10 @@ import CustomerHome from "./pages/CustomerHome";
 import CustomerLogin from "./pages/CustomerLogin";
 import CustomerRegister from "./pages/CustomerRegister";
 import CustomerProfile from "./pages/CustomerProfile";
-import ViewProducts from "./pages/ViewProducts";
+import CustomerViewProducts from "./pages/CustomerViewProducts";
 
 // Product & Orders
 import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
 import OrderHistory from "./pages/OrderHistory";
 import TrackOrders from "./pages/TrackOrders";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -24,6 +23,26 @@ import VendorRegister from "./pages/VendorRegister";
 import VendorProducts from "./pages/VendorProducts";
 import VendorOrders from "./pages/VendorOrders";
 import VendorSalesReport from "./pages/VendorSalesReport";
+
+// Additional pages (routes added)
+import ViewCart from "./pages/ViewCart";
+import Wishlist from "./pages/Wishlist";
+import ViewOrders from "./pages/ViewOrders";
+import CustomerOtp from "./pages/CustomerOtp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import CustomerForgotPassword from "./pages/CustomerForgotPassword";
+import CustomerResetPassword from "./pages/CustomerResetPassword";
+import VendorForgotPassword from "./pages/VendorForgotPassword";
+import VendorResetPassword from "./pages/VendorResetPassword";
+import VendorOtp from "./pages/VendorOtp";
+import VendorStoreFront from "./pages/VendorStoreFront";
+import VendorViewProducts from "./pages/VendorViewProducts";
+import CustomerCoupons from "./pages/CustomerCoupons";
+import CustomerRefundReport from "./pages/CustomerRefundReport";
+import CustomerSecuritySettings from "./pages/CustomerSecuritySettings";
+import AiAssistantWidget from "./pages/AiAssistantWidget";
+import ChatWidget from "./pages/ChatWidget";
 
 // Product Management
 import AddProduct from "./pages/AddProduct";
@@ -44,6 +63,26 @@ function App() {
 
         {/* ================= PRODUCT ================= */}
         <Route path="/product/:id" element={<ProductDetail />} />
+
+        {/* Additional routes */}
+        <Route path="/cart" element={<ViewCart />} />
+        <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/view-orders" element={<ViewOrders />} />
+        <Route path="/otp" element={<CustomerOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
+        <Route path="/customer/reset-password" element={<CustomerResetPassword />} />
+        <Route path="/vendor/forgot-password" element={<VendorForgotPassword />} />
+        <Route path="/vendor/reset-password" element={<VendorResetPassword />} />
+        <Route path="/vendor/otp" element={<VendorOtp />} />
+        <Route path="/vendor/storefront" element={<VendorStoreFront />} />
+        <Route path="/vendor/view-products" element={<VendorViewProducts />} />
+        <Route path="/coupons" element={<CustomerCoupons />} />
+        <Route path="/refunds" element={<CustomerRefundReport />} />
+        <Route path="/security-settings" element={<CustomerSecuritySettings />} />
+        <Route path="/ai-assistant" element={<AiAssistantWidget />} />
+        <Route path="/chat" element={<ChatWidget />} />
 
         {/* ================= ORDERS ================= */}
         <Route path="/orders" element={<OrderHistory />} />

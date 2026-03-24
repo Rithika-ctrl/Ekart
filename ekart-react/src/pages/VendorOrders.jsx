@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../../contexts/AuthContext'
-import { useToast } from '../../components/common/Toast'
-import VendorNav from '../../components/vendor/VendorNav'
-import './vendor-glass.css'
+import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../components/Toast'
+import VendorNav from '../components/vendor/VendorNav'
+import '../styles/vendor-glass.css'
 
 /* ─── Status badge ─────────────────────────────────────────────────── */
 function StatusBadge({ status }) {

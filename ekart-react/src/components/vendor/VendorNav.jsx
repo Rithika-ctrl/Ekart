@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import '../vendor/vendor-glass.css'
+import '../../styles/vendor-glass.css'
 
 export default function VendorNav({ alertCount = 0 }) {
   const { user, logout } = useAuth()
