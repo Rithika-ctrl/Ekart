@@ -1,58 +1,70 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-// Auth
-import CustomerLogin    from './pages/CustomerLogin';
-import CustomerRegister from './pages/CustomerRegister';
-import ForgotPassword   from './pages/ForgotPassword';
-import CustomerOtp      from './pages/CustomerOtp';
-import ResetPassword    from './pages/ResetPassword';
+import Navbar from "./components/Navbar";
 
-// Shopping
-import CustomerHome     from './pages/CustomerHome';
-import ProductDetail    from './pages/ProductDetail';
-import ViewCart         from './pages/ViewCart';
-import Payment          from './pages/Payment';
-import OrderSuccess     from './pages/OrderSuccess';
+// Customer Pages
+import CustomerHome from "./pages/CustomerHome";
+import CustomerLogin from "./pages/CustomerLogin";
+import CustomerRegister from "./pages/CustomerRegister";
+import CustomerProfile from "./pages/CustomerProfile";
+import ViewProducts from "./pages/ViewProducts";
 
-// Orders
-import ViewOrders       from './pages/ViewOrders';
-import TrackOrders      from './pages/TrackOrders';
-import OrderHistory     from './pages/OrderHistory';
+// Product & Orders
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import OrderHistory from "./pages/OrderHistory";
+import TrackOrders from "./pages/TrackOrders";
+import OrderSuccess from "./pages/OrderSuccess";
+import Payment from "./pages/Payment";
 
-// Account
-import Wishlist         from './pages/Wishlist';
-import CustomerProfile  from './pages/CustomerProfile';
+// Vendor Pages
+import VendorHome from "./pages/VendorHome";
+import VendorLogin from "./pages/VendorLogin";
+import VendorRegister from "./pages/VendorRegister";
+import VendorProducts from "./pages/VendorProducts";
+import VendorOrders from "./pages/VendorOrders";
+import VendorSalesReport from "./pages/VendorSalesReport";
 
-export default function App() {
+// Product Management
+import AddProduct from "./pages/AddProduct";
+import EditProduct from "./pages/EditProduct";
+
+function App() {
   return (
-    <BrowserRouter>
+    <Router>
+      <Navbar />
+
       <Routes>
-        {/* Auth */}
-        <Route path="/login"                    element={<CustomerLogin />} />
-        <Route path="/register"                 element={<CustomerRegister />} />
-        <Route path="/customer/forgot-password" element={<ForgotPassword />} />
-        <Route path="/customer/otp"             element={<CustomerOtp />} />
-        <Route path="/customer/reset-password"  element={<ResetPassword />} />
+        {/* ================= CUSTOMER ================= */}
+        <Route path="/" element={<CustomerHome />} />
+        <Route path="/login" element={<CustomerLogin />} />
+        <Route path="/register" element={<CustomerRegister />} />
+        <Route path="/profile" element={<CustomerProfile />} />
+        <Route path="/products" element={<CustomerViewProducts />} />
 
-        {/* Shopping */}
-        <Route path="/home"                     element={<CustomerHome />} />
-        <Route path="/product/:id"              element={<ProductDetail />} />
-        <Route path="/cart"                     element={<ViewCart />} />
-        <Route path="/payment"                  element={<Payment />} />
-        <Route path="/order-success"            element={<OrderSuccess />} />
+        {/* ================= PRODUCT ================= */}
+        <Route path="/product/:id" element={<ProductDetail />} />
 
-        {/* Orders */}
-        <Route path="/orders"                   element={<ViewOrders />} />
-        <Route path="/track"                    element={<TrackOrders />} />
-        <Route path="/order-history"            element={<OrderHistory />} />
+        {/* ================= ORDERS ================= */}
+        <Route path="/orders" element={<OrderHistory />} />
+        <Route path="/track" element={<TrackOrders />} />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/success" element={<OrderSuccess />} />
 
-        {/* Account */}
-        <Route path="/wishlist"                 element={<Wishlist />} />
-        <Route path="/profile"                  element={<CustomerProfile />} />
+        {/* ================= VENDOR ================= */}
+        <Route path="/vendor" element={<VendorHome />} />
+        <Route path="/vendor/login" element={<VendorLogin />} />
+        <Route path="/vendor/register" element={<VendorRegister />} />
+        <Route path="/vendor/products" element={<VendorProducts />} />
+        <Route path="/vendor/orders" element={<VendorOrders />} />
+        <Route path="/vendor/report" element={<VendorSalesReport />} />
 
-        {/* Fallback */}
-        <Route path="*"                         element={<CustomerLogin />} />
+        {/* ================= PRODUCT MGMT ================= */}
+        <Route path="/vendor/add-product" element={<AddProduct />} />
+        <Route path="/vendor/edit-product/:id" element={<EditProduct />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
+
+export default App;
