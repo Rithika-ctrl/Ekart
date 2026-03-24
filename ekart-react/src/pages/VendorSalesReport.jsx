@@ -5,10 +5,10 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import { useAuth } from '../../contexts/AuthContext'
-import { useToast } from '../../components/common/Toast'
-import VendorNav from '../../components/vendor/VendorNav'
-import './vendor-glass.css'
+import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../components/Toast'
+import VendorNav from '../components/vendor/VendorNav'
+import '../styles/vendor-glass.css'
 
 const PIE_COLORS = ['#f5a800','#3b82f6','#10b981','#a855f7','#f43f5e','#06b6d4','#84cc16','#f97316']
 

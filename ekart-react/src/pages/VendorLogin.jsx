@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../../contexts/AuthContext'
-import { useToast } from '../../components/common/Toast'
-import './vendor-glass.css'
+import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../components/Toast'
+import '../styles/vendor-glass.css'
 
 function GoogleIcon() {
   return (

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Check, Hash, IndianRupee, Clock, CreditCard, FileText, MapPin, ListChecks, Home, Settings, Truck } from 'lucide-react';
+import { Check, Hash, IndianRupee, Clock, CreditCard, FileText, MapPin, ListChecks, Home, Settings, Truck, Banknote } from 'lucide-react'
 
 const OrderSuccess = ({ orderId, orderAmount, deliveryTime, paymentMode, subOrderIds, gstAmount }) => {
     
