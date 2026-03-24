@@ -9,6 +9,8 @@ import ResetPassword    from './pages/ResetPassword';
 
 // Main pages
 import CustomerHome     from './pages/CustomerHome';
+import ViewCart         from './pages/ViewCart';
+import Payment          from './pages/Payment';
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
 
         {/* ── Main ── */}
         <Route path="/home"                     element={<CustomerHome />} />
+        <Route path="/cart"                     element={<ViewCart />} />
+        <Route path="/payment"                  element={<Payment />} />
 
         {/* ── Fallback ── */}
         <Route path="*" element={<CustomerLogin />} />
