@@ -1,384 +1,521 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
-} from 'recharts'
-import { useAuth } from '../contexts/AuthContext'
-import { useToast } from '../components/Toast'
-import VendorNav from '../components/vendor/VendorNav'
-import '../styles/vendor-glass.css'
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const PIE_COLORS = ['#f5a800','#3b82f6','#10b981','#a855f7','#f43f5e','#06b6d4','#84cc16','#f97316']
+const CSS = `
+        :root {
+            --yellow: #f5a800; --yellow-d: #d48f00;
+            --glass-border: rgba(255,255,255,0.22); --glass-card: rgba(255,255,255,0.13);
+            --glass-card-s: rgba(255,255,255,0.08); --glass-nav: rgba(0,0,0,0.25);
+            --text-white: #ffffff; --text-light: rgba(255,255,255,0.80); --text-dim: rgba(255,255,255,0.50);
+        }
 
-const TOOLTIP_STYLE = {
-  backgroundColor: 'rgba(10,12,30,0.92)',
-  border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 8,
-  color: 'rgba(255,255,255,0.8)',
-  fontFamily: 'Poppins, sans-serif',
-  fontSize: 12,
-}
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Poppins', sans-serif; min-height: 100vh; color: var(--text-white); display: flex; flex-direction: column; }
 
-/* ─── Filter orders by period ───────────────────────────────────────── */
-function filterByPeriod(orders, period) {
-  const now = Date.now()
-  const days = period === 'daily' ? 7 : period === 'weekly' ? 56 : 180
-  const cutoff = now - days * 86400000
-  return orders.filter(o => new Date(o.orderDate).getTime() >= cutoff)
-}
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: ''; position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px); transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
 
-/* ─── Build revenue chart labels & data ─────────────────────────────── */
-function buildRevenueData(orders, period) {
-  const now = new Date()
-  const data = []
-  if (period === 'daily') {
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(now.getDate() - i)
-      const key = d.toISOString().split('T')[0]
-      const label = key.substring(5)
-      const rev = orders.filter(o => o.orderDate.startsWith(key)).reduce((s, o) => s + o.amount, 0)
-      data.push({ label, rev })
-    }
-  } else if (period === 'weekly') {
-    for (let i = 7; i >= 0; i--) {
-      const d = new Date(now); d.setDate(now.getDate() - i * 7)
-      const wk = `W${getWeekNum(d)}`
-      const weekStart = new Date(d); weekStart.setHours(0,0,0,0)
-      const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7)
-      const rev = orders.filter(o => {
-        const t = new Date(o.orderDate).getTime()
-        return t >= weekStart.getTime() && t < weekEnd.getTime()
-      }).reduce((s, o) => s + o.amount, 0)
-      data.push({ label: wk, rev })
-    }
-  } else {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const label = `${months[d.getMonth()]} ${d.getFullYear()}`
-      const rev = orders.filter(o => {
-        const od = new Date(o.orderDate)
-        return od.getFullYear() === d.getFullYear() && od.getMonth() === d.getMonth()
-      }).reduce((s, o) => s + o.amount, 0)
-      data.push({ label, rev })
-    }
-  }
-  return data
-}
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem; display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border); transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+        .nav-brand { font-size: 1.6rem; font-weight: 700; color: var(--text-white); text-decoration: none; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-brand span { color: var(--yellow); }
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem; color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500; padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem; color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500; padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
-function getWeekNum(d) {
-  const onejan = new Date(d.getFullYear(), 0, 1)
-  return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7)
-}
+        /* ── ALERTS ── */
+        .alert-stack { position: fixed; top: 5rem; right: 1.5rem; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; }
+        .alert {
+            padding: 0.875rem 1.25rem; background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px; display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px; animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
 
-/* ─── Main component ────────────────────────────────────────────────── */
-export default function VendorSalesReport() {
-  const { user, isAuthenticated, isVendor } = useAuth()
-  const navigate = useNavigate()
-  const toast = useToast()
+        /* ── PAGE ── */
+        .page { flex: 1; padding: 7rem 2rem 3rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
 
-  const [allOrders,  setAllOrders]  = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [syncing,    setSyncing]    = useState(false)
-  const [tab,        setTab]        = useState('daily')
-  const [vendorInfo, setVendorInfo] = useState(null)
-  const timerRef = useRef(null)
+        .page-header {
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 2rem 2.5rem; display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 1000px; animation: fadeUp 0.5s ease both;
+        }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .header-actions { display: flex; gap: 0.75rem; }
+        .btn-sync {
+            background: rgba(245,168,0,0.15); border: 1px solid rgba(245,168,0,0.3);
+            color: var(--yellow); font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600;
+            padding: 0.5rem 1.1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .btn-sync:hover { background: rgba(245,168,0,0.25); border-color: rgba(245,168,0,0.5); color: var(--yellow); }
+        .btn-sync:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  useEffect(() => {
-    if (!isAuthenticated || !isVendor) { navigate('/vendor/login', { replace: true }); return }
-    fetchData()
-    timerRef.current = setInterval(fetchData, 10000)
-    return () => clearInterval(timerRef.current)
-  }, [isAuthenticated, isVendor]) // eslint-disable-line
+        /* ── SUMMARY CARDS ── */
+        .summary-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem;
+            width: 100%; max-width: 1000px; animation: fadeUp 0.5s ease 0.05s both;
+        }
+        .summary-card {
+            background: var(--glass-card-s); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem;
+        }
+        .summary-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.25);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: var(--yellow); flex-shrink: 0;
+        }
+        .summary-text { flex: 1; }
+        .summary-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.2rem; }
+        .summary-num { font-size: 1.5rem; font-weight: 800; color: white; }
+        .summary-num span { color: white; }
 
-  const fetchData = useCallback(async () => {
-    try {
-      const { data } = await axios.get('/api/flutter/vendor/sales-report', {
-        headers: { 'X-Vendor-Id': user?.id }
-      })
-      if (data.success) {
-        const raw = data.ordersJson || data.orders || []
-        setAllOrders(raw.map(o => ({
-          id:          o.id,
-          amount:      o.amount || 0,
-          orderDate:   o.orderDate || '',
-          productName: o.productName || '',
-          category:    o.category || 'Other',
-          quantity:    o.quantity || o.itemCount || 1,
-        })))
-        setVendorInfo({ name: data.vendorName, id: data.vendorId, code: data.vendorCode })
-      }
-    } catch { /* silent — data stays stale */ }
-    finally { setLoading(false) }
-  }, [user?.id])
+        /* ── CHART SECTION ── */
+        .chart-section {
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 2rem; width: 100%; max-width: 1000px;
+            animation: fadeUp 0.5s ease 0.1s both;
+        }
+        .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .section-label { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--yellow); }
+        .chart-tabs { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.25rem; }
+        .chart-tab {
+            background: transparent; border: none; color: var(--text-dim);
+            padding: 0.4rem 1rem; font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 600;
+            border-radius: 6px; cursor: pointer; transition: all 0.2s;
+        }
+        .chart-tab:hover { color: white; }
+        .chart-tab.active { background: var(--yellow); color: #1a1000; }
+        .chart-container { position: relative; height: 320px; width: 100%; }
 
-  const syncOrders = async () => {
-    setSyncing(true)
-    try {
-      const { data } = await axios.post('/vendor/sync-reporting')
-      toast.success(`Synced ${data.synced || 0} of ${data.total || 0} orders.`)
-      await fetchData()
-    } catch { toast.error('Sync failed.') }
-    finally { setSyncing(false) }
-  }
+        /* ── RECENT SALES TABLE ── */
+        .table-section {
+            background: var(--glass-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 2rem; width: 100%; max-width: 1000px;
+            animation: fadeUp 0.5s ease 0.15s both; overflow: hidden;
+        }
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 1rem; }
+        .sales-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        .sales-table th {
+            text-align: left; padding: 1rem; font-size: 0.72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+            border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.15);
+        }
+        .sales-table td {
+            padding: 1rem; font-size: 0.825rem; color: var(--text-light);
+            border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle;
+        }
+        .sales-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .sales-table td.amt { font-weight: 700; color: var(--yellow); }
+        .empty-row { text-align: center; padding: 3rem !important; color: var(--text-dim); }
 
-  /* Derive stats from filtered orders */
-  const filtered    = filterByPeriod(allOrders, tab)
-  const totalRevenue = filtered.reduce((s, o) => s + o.amount, 0)
-  const totalItems   = filtered.reduce((s, o) => s + o.quantity, 0)
-  const uniqueOrders = new Set(filtered.map(o => o.id)).size
-  const avgOrder     = uniqueOrders ? totalRevenue / uniqueOrders : 0
+        footer {
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border); padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-  /* Revenue chart */
-  const revenueData = buildRevenueData(filtered, tab)
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 
-  /* Category pie */
-  const catMap = {}
-  filtered.forEach(o => { catMap[o.category] = (catMap[o.category] || 0) + o.amount })
-  const catData = Object.entries(catMap).map(([name, value]) => ({ name, value }))
+        @media (max-width: 800px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 6rem 1rem 2rem; }
+            .summary-grid { grid-template-columns: 1fr; }
+            .page-header, .chart-section, .table-section { padding: 1.5rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+`;
 
-  /* Top products */
-  const productMap = {}
-  filtered.forEach(o => {
-    if (!o.productName) return
-    if (!productMap[o.productName]) productMap[o.productName] = { sold: 0, revenue: 0 }
-    productMap[o.productName].sold    += o.quantity
-    productMap[o.productName].revenue += o.amount
-  })
-  const topProducts = Object.entries(productMap).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 6)
-  const productBarData = topProducts.map(([name, v]) => ({
-    name: name.length > 12 ? name.substring(0,12) + '…' : name,
-    sold: v.sold,
-  }))
+/**
+ * VendorSalesReport Component
+ * @param {Object} props
+ * @param {string|null} props.successMessage - Success message from session
+ * @param {string|null} props.failureMessage - Failure message from session
+ * @param {Array} props.initialSales - List of initial recent sales
+ */
+export default function VendorSalesReport({
+    successMessage = null,
+    failureMessage = null,
+    initialSales = []
+}) {
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(!!successMessage);
+    const [showFailure, setShowFailure] = useState(!!failureMessage);
+    const [fadeAlerts, setFadeAlerts] = useState(false);
+    
+    const [salesData, setSalesData] = useState(initialSales);
+    const [currentTab, setCurrentTab] = useState('daily');
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncMessage, setSyncMessage] = useState('Sync Orders');
 
-  /* Sorted orders table */
-  const sortedOrders = [...filtered].sort((a,b) => new Date(b.orderDate) - new Date(a.orderDate))
+    const chartRef = useRef(null);
+    const chartInstance = useRef(null);
+    const [chartLoaded, setChartLoaded] = useState(false);
 
-  if (loading) return (
-    <div className="vnd" style={{ minHeight: '100vh' }}>
-      <div className="vnd-bg" aria-hidden="true" />
-      <VendorNav />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--yellow)' }} aria-hidden="true" />
-      </div>
-    </div>
-  )
+    // Derived Statistics
+    const totalRevenue = salesData.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    const totalOrders = new Set(salesData.map(item => item.id)).size; // Assuming id maps to order uniqueness
+    const totalItems = salesData.reduce((sum, item) => sum + parseInt(item.quantity || item.itemCount || 1, 10), 0);
 
-  return (
-    <div className="vnd" style={{ minHeight: '100vh' }}>
-      <div className="vnd-bg" aria-hidden="true" />
-      <VendorNav />
+    useEffect(() => {
+        const handleScroll = () => setIsScrolled(window.scrollY > 10);
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
-      <main className="vnd-page-col" style={{ flex: 1 }}>
-        <div className="vnd-inner" style={{ maxWidth: 1200 }}>
+    // Alert dismissal
+    useEffect(() => {
+        if (showSuccess || showFailure) {
+            const timer1 = setTimeout(() => setFadeAlerts(true), 2500);
+            const timer2 = setTimeout(() => { setShowSuccess(false); setShowFailure(false); }, 3000);
+            return () => { clearTimeout(timer1); clearTimeout(timer2); };
+        }
+    }, [showSuccess, showFailure]);
 
-          {/* Header */}
-          <div className="vnd-page-header">
-            <div>
-              <h1><span>Sales</span> Report 📊</h1>
-              <p>Daily, Weekly & Monthly breakdown of your store performance.</p>
-              {vendorInfo && (
-                <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.5rem' }}>
-                  <strong>{vendorInfo.name}</strong> &nbsp;|&nbsp; ID: {vendorInfo.id}
-                  &nbsp;|&nbsp; Code: {vendorInfo.code}&nbsp;&nbsp;
-                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#22c55e', marginRight: 4, verticalAlign: 'middle', animation: 'pulse 1.5s ease infinite' }} />
-                  <span style={{ fontSize: '0.7rem', color: '#22c55e' }}>Live</span>
-                </p>
-              )}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
-              <div className="vnd-page-header-icon">📈</div>
-              <button onClick={syncOrders} disabled={syncing}
-                style={{ padding: '0.45rem 1rem', background: 'rgba(245,168,0,0.15)', border: '1px solid rgba(245,168,0,0.4)', color: 'var(--yellow)', borderRadius: 8, fontFamily: 'Poppins,sans-serif', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: syncing ? 0.6 : 1 }}>
-                <i className={`fas ${syncing ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true" /> {syncing ? 'Syncing…' : 'Sync Orders'}
-              </button>
-            </div>
-          </div>
+    // Data Processing for Chart
+    const processData = useCallback((data, type) => {
+        const aggregated = {};
+        data.forEach(item => {
+            const d = new Date(item.orderDate);
+            if (isNaN(d.getTime())) return;
+            let key = '';
+            if (type === 'daily') {
+                key = d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+            } else if (type === 'weekly') {
+                const firstDay = new Date(d.setDate(d.getDate() - d.getDay()));
+                key = 'Week of ' + firstDay.toLocaleDateString('en-CA');
+            } else if (type === 'monthly') {
+                key = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+            }
+            aggregated[key] = (aggregated[key] || 0) + (parseFloat(item.amount) || 0);
+        });
+        return aggregated;
+    }, []);
 
-          {/* Period tabs */}
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', animation: 'vnd-fadeUp 0.45s ease 0.05s both' }}>
-            {['daily','weekly','monthly'].map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  padding: '0.55rem 1.25rem', borderRadius: 10, cursor: 'pointer',
-                  fontFamily: 'Poppins,sans-serif', fontSize: '0.82rem', fontWeight: 600,
-                  border: '1px solid var(--glass-border)',
-                  background: tab === t ? 'var(--yellow)' : 'rgba(255,255,255,0.05)',
-                  color: tab === t ? '#1a1000' : 'var(--text-dim)',
-                  boxShadow: tab === t ? '0 4px 16px rgba(245,168,0,0.3)' : 'none',
-                  transition: 'all 0.2s', textTransform: 'capitalize',
-                }}>
-                <i className={`fas fa-calendar-${t === 'daily' ? 'day' : t === 'weekly' ? 'week' : 'alt'}`} aria-hidden="true" /> {t}
-              </button>
-            ))}
-          </div>
+    // Render Chart
+    useEffect(() => {
+        if (!chartLoaded || !window.Chart || !chartRef.current) return;
 
-          {/* Stat cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', animation: 'vnd-fadeUp 0.45s ease 0.1s both' }}>
-            {[
-              { label: 'Total Orders', value: uniqueOrders, icon: 'shopping-bag', cls: 'blue' },
-              { label: 'Revenue',      value: `₹${totalRevenue.toFixed(0)}`, icon: 'rupee-sign', cls: 'green' },
-              { label: 'Items Sold',   value: totalItems,   icon: 'boxes',   cls: 'orange' },
-              { label: 'Avg Order',    value: `₹${avgOrder.toFixed(0)}`, icon: 'chart-line', cls: 'purple' },
-            ].map(s => (
-              <div key={s.label} className={`vnd-stat-card ${s.cls}`}>
-                <div className="vnd-stat-icon"><i className={`fas fa-${s.icon}`} aria-hidden="true" /></div>
-                <div className="vnd-stat-body">
-                  <div className="vnd-stat-label">{s.label}</div>
-                  <div className="vnd-stat-val">{s.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+        if (chartInstance.current) {
+            chartInstance.current.destroy();
+        }
 
-          {/* Charts row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.75rem' }}>
+        const aggregated = processData(salesData, currentTab);
+        const labels = Object.keys(aggregated).sort();
+        const dataPoints = labels.map(l => aggregated[l]);
 
-            {/* Revenue bar chart */}
-            <div className="vnd-glass-card">
-              <div className="vnd-section-label"><i className="fas fa-chart-bar" aria-hidden="true" /> Revenue Over Time</div>
-              {revenueData.some(d => d.rev > 0) ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={revenueData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                    <XAxis dataKey="label" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11, fontFamily: 'Poppins' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11, fontFamily: 'Poppins' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`₹${v.toFixed(0)}`, 'Revenue']} />
-                    <Bar dataKey="rev" fill="#f5a800" fillOpacity={0.8} radius={[6,6,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-dim)' }}>
-                  <i className="fas fa-chart-bar" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', color: 'rgba(245,168,0,0.35)' }} aria-hidden="true" />
-                  <p style={{ fontSize: '0.85rem' }}>No sales data yet for this period</p>
-                </div>
-              )}
-            </div>
+        const ctx = chartRef.current.getContext('2d');
+        
+        // Gradient
+        let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(245, 168, 0, 0.4)');
+        gradient.addColorStop(1, 'rgba(245, 168, 0, 0.0)');
 
-            {/* Category pie */}
-            <div className="vnd-glass-card">
-              <div className="vnd-section-label"><i className="fas fa-chart-pie" aria-hidden="true" /> Category Breakdown</div>
-              {catData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>
-                      {catData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`₹${v.toFixed(0)}`]} />
-                    <Legend iconSize={10} wrapperStyle={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontFamily: 'Poppins' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-dim)' }}>
-                  <i className="fas fa-chart-pie" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', color: 'rgba(245,168,0,0.35)' }} aria-hidden="true" />
-                  <p style={{ fontSize: '0.85rem' }}>No category data yet</p>
-                </div>
-              )}
-            </div>
-          </div>
+        chartInstance.current = new window.Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Revenue (₹)',
+                    data: dataPoints,
+                    borderColor: '#f5a800',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#1a1000',
+                    pointBorderColor: '#f5a800',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(10,12,30,0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#f5a800',
+                        borderColor: 'rgba(245,168,0,0.3)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return '₹ ' + context.parsed.y.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: 'rgba(255,255,255,0.5)', font: { family: "'Poppins', sans-serif" } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.5)', font: { family: "'Poppins', sans-serif" } }
+                    }
+                }
+            }
+        });
+    }, [salesData, currentTab, chartLoaded, processData]);
 
-          {/* Top products + product bar */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.75rem' }}>
+    // Data Polling
+    const refreshSalesData = useCallback(() => {
+        fetch('/vendor/api/sales-data')
+            .then(r => r.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const mapped = data.map(o => ({
+                        id: o.id,
+                        amount: o.amount || 0,
+                        orderDate: o.orderDate,
+                        productName: o.productName || '',
+                        category: o.category || 'Other',
+                        quantity: o.quantity || o.itemCount || 1
+                    }));
+                    setSalesData(mapped);
+                }
+            })
+            .catch(err => console.warn('Sales refresh failed:', err));
+    }, []);
 
-            <div className="vnd-glass-card">
-              <div className="vnd-section-label"><i className="fas fa-trophy" aria-hidden="true" /> Top Products</div>
-              {topProducts.length > 0
-                ? topProducts.map(([name, v], i) => (
-                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0', borderBottom: i < topProducts.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(245,168,0,0.15)', color: 'var(--yellow)', fontSize: '0.72rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {i + 1}
-                      </div>
-                      <div style={{ flex: 1, fontSize: '0.83rem', color: 'var(--text-light)' }}>{name}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginRight: '0.5rem' }}>{v.sold} sold</div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#22c55e' }}>₹{v.revenue.toFixed(0)}</div>
+    useEffect(() => {
+        // Only run fetch logic if we are running in an environment that has fetch (skip for simple SSR preview if needed)
+        if (typeof window !== 'undefined') {
+            const interval = setInterval(refreshSalesData, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [refreshSalesData]);
+
+    // Script Loading Check
+    useEffect(() => {
+        const checkChart = setInterval(() => {
+            if (window.Chart) {
+                setChartLoaded(true);
+                clearInterval(checkChart);
+            }
+        }, 100);
+        return () => clearInterval(checkChart);
+    }, []);
+
+    // Sync Orders Logic
+    const handleSyncOrders = () => {
+        setIsSyncing(true);
+        setSyncMessage('Syncing...');
+        
+        fetch('/vendor/sync-reporting', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                setSyncMessage(`Synced (${data.synced || 0})`);
+                refreshSalesData();
+                setTimeout(() => {
+                    setIsSyncing(false);
+                    setSyncMessage('Sync Orders');
+                }, 3000);
+            })
+            .catch(() => {
+                setIsSyncing(false);
+                setSyncMessage('Sync Orders');
+            });
+    };
+
+    const alertStyle = {
+        transition: 'opacity 0.5s',
+        opacity: fadeAlerts ? 0 : 1
+    };
+
+    return (
+        <>
+            <meta charSet="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Ekart - Sales Report</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+            
+            {/* Chart.js Script */}
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+            
+            <style>{CSS}</style>
+
+            <div className="bg-layer"></div>
+
+            {/* Alerts */}
+            <div className="alert-stack">
+                {showSuccess && (
+                    <div className="alert alert-success" style={alertStyle}>
+                        <i className="fas fa-check-circle"></i>
+                        <span>{successMessage}</span>
+                        <button className="alert-close" onClick={() => setShowSuccess(false)}>×</button>
                     </div>
-                  ))
-                : <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-dim)' }}>
-                    <i className="fas fa-box-open" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', color: 'rgba(245,168,0,0.35)' }} aria-hidden="true" />
-                    <p style={{ fontSize: '0.85rem' }}>No product data yet</p>
-                  </div>
-              }
+                )}
+                {showFailure && (
+                    <div className="alert alert-danger" style={alertStyle}>
+                        <i className="fas fa-exclamation-circle"></i>
+                        <span>{failureMessage}</span>
+                        <button className="alert-close" onClick={() => setShowFailure(false)}>×</button>
+                    </div>
+                )}
             </div>
 
-            <div className="vnd-glass-card">
-              <div className="vnd-section-label"><i className="fas fa-boxes" aria-hidden="true" /> Units Sold</div>
-              {productBarData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={productBarData} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-                    <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11, fontFamily: 'Poppins' }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11, fontFamily: 'Poppins' }} width={80} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [v + ' units', 'Sold']} />
-                    <Bar dataKey="sold" fill="#3b82f6" fillOpacity={0.8} radius={[0,6,6,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-dim)' }}>
-                  <i className="fas fa-boxes" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', color: 'rgba(245,168,0,0.35)' }} aria-hidden="true" />
-                  <p style={{ fontSize: '0.85rem' }}>No product data yet</p>
+            {/* Nav */}
+            <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
+                <a href="/vendor/home" className="nav-brand">
+                    <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
+                    <span>Ekart</span>
+                </a>
+                <div className="nav-right">
+                    <a href="/vendor/home" className="nav-link-btn"><i className="fas fa-th-large"></i> Dashboard</a>
+                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
-              )}
-            </div>
-          </div>
+            </nav>
 
-          {/* Orders table */}
-          <div className="vnd-glass-card">
-            <div className="vnd-section-label" style={{ marginBottom: '1rem' }}>
-              <i className="fas fa-list-ul" aria-hidden="true" /> Order Details
-              <span style={{ background: 'rgba(245,168,0,0.15)', color: 'var(--yellow)', border: '1px solid rgba(245,168,0,0.3)', padding: '0.2rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700 }}>
-                {filtered.length} records
-              </span>
-            </div>
-            <div style={{ overflowX: 'auto', borderRadius: 12 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    {['Order #','Date','Product','Category','Qty','Amount'].map(h => (
-                      <th key={h} style={{ padding: '0.85rem 1rem', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dim)', whiteSpace: 'nowrap', textAlign: 'left' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedOrders.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '2.5rem' }}>No orders in this period</td></tr>
-                  )}
-                  {sortedOrders.map((o, i) => (
-                    <tr key={`${o.id}-${i}`} style={{ borderBottom: i < sortedOrders.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-white)' }}><strong>#{o.id}</strong></td>
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-light)' }}>{o.orderDate ? new Date(o.orderDate).toLocaleDateString('en-IN') : '—'}</td>
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-light)' }}>{o.productName || '—'}</td>
-                      <td style={{ padding: '0.9rem 1rem' }}>
-                        <span style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)', padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 600 }}>
-                          {o.category || '—'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.9rem 1rem', color: 'var(--text-light)' }}>{o.quantity}</td>
-                      <td style={{ padding: '0.9rem 1rem' }}>
-                        <span style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)', padding: '0.25rem 0.75rem', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700 }}>
-                          ₹{o.amount.toFixed(0)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <main className="page">
+                {/* Header */}
+                <div className="page-header">
+                    <div className="page-header-left">
+                        <h1>Sales <span>Report</span> 📈</h1>
+                        <p>Track your revenue, order volume, and business growth.</p>
+                    </div>
+                    <div className="header-actions">
+                        <button className="btn-sync" onClick={handleSyncOrders} disabled={isSyncing}>
+                            {isSyncing ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-sync-alt"></i>}
+                            {syncMessage}
+                        </button>
+                    </div>
+                </div>
 
-        </div>
-      </main>
+                {/* Summary Grid */}
+                <div className="summary-grid">
+                    <div className="summary-card">
+                        <div className="summary-icon"><i className="fas fa-wallet"></i></div>
+                        <div className="summary-text">
+                            <div className="summary-label">Total Revenue</div>
+                            <div className="summary-num">₹<span>{totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                        </div>
+                    </div>
+                    <div className="summary-card">
+                        <div className="summary-icon"><i className="fas fa-boxes"></i></div>
+                        <div className="summary-text">
+                            <div className="summary-label">Total Orders</div>
+                            <div className="summary-num"><span>{totalOrders}</span></div>
+                        </div>
+                    </div>
+                    <div className="summary-card">
+                        <div className="summary-icon"><i class="fas fa-tags"></i></div>
+                        <div className="summary-text">
+                            <div className="summary-label">Items Sold</div>
+                            <div className="summary-num"><span>{totalItems}</span></div>
+                        </div>
+                    </div>
+                </div>
 
-      <footer className="vnd-footer">
-        <div className="vnd-footer-brand"><span>Ekart</span></div>
-        <div className="vnd-footer-copy">© 2026 Ekart. All rights reserved.</div>
-      </footer>
+                {/* Chart Section */}
+                <div className="chart-section">
+                    <div className="chart-header">
+                        <div className="section-label" style={{ marginBottom: 0 }}>
+                            <i className="fas fa-chart-area"></i> Revenue Trend
+                        </div>
+                        <div className="chart-tabs">
+                            <button className={`chart-tab ${currentTab === 'daily' ? 'active' : ''}`} onClick={() => setCurrentTab('daily')}>Daily</button>
+                            <button className={`chart-tab ${currentTab === 'weekly' ? 'active' : ''}`} onClick={() => setCurrentTab('weekly')}>Weekly</button>
+                            <button className={`chart-tab ${currentTab === 'monthly' ? 'active' : ''}`} onClick={() => setCurrentTab('monthly')}>Monthly</button>
+                        </div>
+                    </div>
+                    <div className="chart-container">
+                        <canvas id="salesChart" ref={chartRef}></canvas>
+                    </div>
+                </div>
 
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(1.3);} }
-      `}</style>
-    </div>
-  )
+                {/* Recent Sales Table */}
+                <div className="table-section">
+                    <div className="section-label"><i className="fas fa-list"></i> Recent Sales Activity</div>
+                    <div className="table-responsive">
+                        <table className="sales-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date & Time</th>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Qty</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {salesData.length > 0 ? (
+                                    salesData.map((sale, idx) => (
+                                        <tr key={idx}>
+                                            <td>#{sale.id}</td>
+                                            <td>
+                                                {new Date(sale.orderDate).toLocaleString('en-IN', {
+                                                    day: '2-digit', month: 'short', year: 'numeric',
+                                                    hour: '2-digit', minute: '2-digit', hour12: true
+                                                })}
+                                            </td>
+                                            <td>{sale.productName || '—'}</td>
+                                            <td>{sale.category || '—'}</td>
+                                            <td>{sale.quantity || 1}</td>
+                                            <td className="amt">₹{parseFloat(sale.amount || 0).toFixed(2)}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="empty-row">No recent sales data available.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+
+            <footer>
+                <div className="footer-brand"><span>Ekart</span></div>
+                <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
+            </footer>
+        </>
+    );
 }
