@@ -881,7 +881,7 @@ export default function AddProduct({
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
             </footer>
 
-            <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+            
         </>
     );
 }

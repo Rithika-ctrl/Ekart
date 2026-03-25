@@ -1,0 +1,5 @@
+/* Placeholder common-layout.css - add layout styles here */
+.container { max-width: 1120px; margin: 0 auto; }
+.header { display: block; }
+
+/* Minimal file to satisfy linked pages */

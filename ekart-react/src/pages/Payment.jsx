@@ -848,7 +848,7 @@ export default function Payment({
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
             </footer>
             
-            <script src="/js/ekart-form-spinner.js"></script>
+            
         </>
     );
 }

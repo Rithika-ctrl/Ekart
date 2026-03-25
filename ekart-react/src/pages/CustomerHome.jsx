@@ -1990,8 +1990,8 @@ export default function CustomerHome({
             {/* AI Assistant Placeholder */}
             <div id="ai-chat-widget-placeholder"></div>
             
-            <script src="/js/recently-viewed.js"></script>
-            <script src="/js/ekart-skeleton.js"></script>
+            
+            
         </>
     );
 }

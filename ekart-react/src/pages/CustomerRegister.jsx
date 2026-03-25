@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authApi, saveToken } from '../utils/api';
 
 const CSS = `
         :root {
@@ -289,6 +291,13 @@ export default function CustomerRegister({
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [name, setName] = useState(customer?.name || '');
+    const [email, setEmail] = useState(customer?.email || '');
+    const [mobile, setMobile] = useState(customer?.mobile || '');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [formError, setFormError] = useState('');
+
+    const navigate = useNavigate();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     
     // Password Strength State
@@ -391,8 +400,28 @@ export default function CustomerRegister({
                     </div>
 
                     {/* Form */}
-                    <form action="/customer/register" method="post">
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        setFormError('');
+                        if (password !== confirmPassword) {
+                            setFormError('Passwords do not match');
+                            return;
+                        }
+                        try {
+                            const res = await authApi.register(name, email, password, mobile);
+                            if (res?.data?.success) {
+                                saveToken(res.data.token, res.data.customer);
+                                navigate('/');
+                            } else {
+                                setFormError(res?.data?.message || 'Registration failed');
+                            }
+                        } catch (err) {
+                            setFormError('Registration failed');
+                        }
+                    }}>
                         {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
+
+                        {formError && <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>{formError}</div>}
 
                         <div className="form-row-2">
                             {/* Name */}
@@ -421,7 +450,7 @@ export default function CustomerRegister({
                             <label htmlFor="email">Email Address</label>
                             <div className="input-wrap">
                                 <i className="fas fa-envelope"></i>
-                                <input type="email" id="email" name="email" placeholder="you@example.com" defaultValue={customer?.email || ''} />
+                                <input type="email" id="email" name="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
                             </div>
                             {errors?.email && <span className="error-msg">{errors.email}</span>}
                         </div>
@@ -473,6 +502,8 @@ export default function CustomerRegister({
                                     id="confirmPassword" 
                                     name="confirmPassword" 
                                     placeholder="Re-enter password" 
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
                                 />
                                 <span className="pw-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                     <i className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
@@ -501,7 +532,7 @@ export default function CustomerRegister({
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
             </footer>
 
-            <script src="/js/ekart-form-spinner.js"></script>
+            
         </>
     );
 }

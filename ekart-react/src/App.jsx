@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
 
 // Customer Pages
 import CustomerHome from "./pages/CustomerHome";
@@ -20,17 +19,16 @@ import Payment from "./pages/Payment";
 import VendorHome from "./pages/VendorHome";
 import VendorLogin from "./pages/VendorLogin";
 import VendorRegister from "./pages/VendorRegister";
-import VendorProducts from "./pages/VendorProducts";
 import VendorOrders from "./pages/VendorOrders";
 import VendorSalesReport from "./pages/VendorSalesReport";
+import AccessDenied from "./pages/403";
+import NotFound from "./pages/404";
 
 // Additional pages (routes added)
 import ViewCart from "./pages/ViewCart";
 import Wishlist from "./pages/Wishlist";
 import ViewOrders from "./pages/ViewOrders";
 import CustomerOtp from "./pages/CustomerOtp";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import CustomerForgotPassword from "./pages/CustomerForgotPassword";
 import CustomerResetPassword from "./pages/CustomerResetPassword";
 import VendorForgotPassword from "./pages/VendorForgotPassword";
@@ -51,8 +49,6 @@ import EditProduct from "./pages/EditProduct";
 function App() {
   return (
     <Router>
-      <Navbar />
-
       <Routes>
         {/* ================= CUSTOMER ================= */}
         <Route path="/" element={<CustomerHome />} />
@@ -69,8 +65,8 @@ function App() {
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/view-orders" element={<ViewOrders />} />
         <Route path="/otp" element={<CustomerOtp />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<CustomerForgotPassword />} />
+        <Route path="/reset-password" element={<CustomerResetPassword />} />
         <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
         <Route path="/customer/reset-password" element={<CustomerResetPassword />} />
         <Route path="/vendor/forgot-password" element={<VendorForgotPassword />} />
@@ -94,7 +90,9 @@ function App() {
         <Route path="/vendor" element={<VendorHome />} />
         <Route path="/vendor/login" element={<VendorLogin />} />
         <Route path="/vendor/register" element={<VendorRegister />} />
-        <Route path="/vendor/products" element={<VendorProducts />} />
+        <Route path="/vendor/products" element={<VendorViewProducts />} />
+        <Route path="/403" element={<AccessDenied />} />
+        <Route path="*" element={<NotFound />} />
         <Route path="/vendor/orders" element={<VendorOrders />} />
         <Route path="/vendor/report" element={<VendorSalesReport />} />
 

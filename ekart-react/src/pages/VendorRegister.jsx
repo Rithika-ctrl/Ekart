@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const CSS = `
         :root {
@@ -299,6 +301,40 @@ export default function VendorRegister({
     
     const dropdownRef = useRef(null);
 
+    // Additional form state for SPA submission
+    const navigate = useNavigate();
+    const [businessName, setBusinessName] = useState(vendor?.businessName || '');
+    const [ownerName, setOwnerName] = useState(vendor?.ownerName || '');
+    const [email, setEmail] = useState(vendor?.email || '');
+    const [mobile, setMobile] = useState(vendor?.mobile || '');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [formError, setFormError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        if (password !== confirmPassword) {
+            setFormError('Passwords do not match');
+            return;
+        }
+        setLoading(true);
+        try {
+            const payload = { name: ownerName || businessName, email, password, mobile };
+            const res = await api.post('/api/flutter/auth/vendor/register', payload);
+            if (res?.data?.success) {
+                alert(res.data.message || 'Registered successfully. Wait for admin approval.');
+                navigate('/vendor/login');
+            } else {
+                setFormError(res?.data?.message || 'Registration failed');
+            }
+        } catch (err) {
+            setFormError(err?.response?.data?.message || err.message || 'Registration failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Click outside handler for dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -392,15 +428,14 @@ export default function VendorRegister({
                     </div>
 
                     {/* Form */}
-                    <form action="/vendor/register" method="post">
-                        {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
+                    <form onSubmit={handleSubmit}>
 
                         {/* Business Name */}
                         <div className="form-group">
                             <label htmlFor="businessName">Business Name</label>
                             <div className="input-wrap">
                                 <i className="fas fa-store-alt"></i>
-                                <input type="text" id="businessName" name="businessName" placeholder="e.g. Acme Electronics" defaultValue={vendor?.businessName || ''} />
+                                <input type="text" id="businessName" name="businessName" placeholder="e.g. Acme Electronics" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
                             </div>
                             {errors?.businessName && <span className="error-msg">{errors.businessName}</span>}
                         </div>
@@ -411,7 +446,7 @@ export default function VendorRegister({
                                 <label htmlFor="ownerName">Owner Name</label>
                                 <div className="input-wrap">
                                     <i className="fas fa-user-tie"></i>
-                                    <input type="text" id="ownerName" name="ownerName" placeholder="Jane Doe" defaultValue={vendor?.ownerName || ''} />
+                                    <input type="text" id="ownerName" name="ownerName" placeholder="Jane Doe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
                                 </div>
                                 {errors?.ownerName && <span className="error-msg">{errors.ownerName}</span>}
                             </div>
@@ -421,7 +456,7 @@ export default function VendorRegister({
                                 <label htmlFor="mobile">Mobile</label>
                                 <div className="input-wrap">
                                     <i className="fas fa-phone"></i>
-                                    <input type="tel" id="mobile" name="mobile" placeholder="+91 9876543210" defaultValue={vendor?.mobile || ''} />
+                                    <input type="tel" id="mobile" name="mobile" placeholder="+91 9876543210" value={mobile} onChange={(e) => setMobile(e.target.value)} />
                                 </div>
                                 {errors?.mobile && <span className="error-msg">{errors.mobile}</span>}
                             </div>
@@ -432,7 +467,7 @@ export default function VendorRegister({
                             <label htmlFor="email">Business Email</label>
                             <div className="input-wrap">
                                 <i className="fas fa-envelope"></i>
-                                <input type="email" id="email" name="email" placeholder="contact@acme.com" defaultValue={vendor?.email || ''} />
+                                <input type="email" id="email" name="email" placeholder="contact@acme.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                             {errors?.email && <span className="error-msg">{errors.email}</span>}
                         </div>
@@ -484,6 +519,8 @@ export default function VendorRegister({
                                     id="confirmPassword" 
                                     name="confirmPassword" 
                                     placeholder="Re-enter password" 
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
                                 />
                                 <span className="pw-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                     <i className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
@@ -494,8 +531,9 @@ export default function VendorRegister({
 
                         <hr className="form-divider" />
 
-                        <button type="submit" className="btn-submit">
-                            <i className="fas fa-user-plus"></i> Create Vendor Account
+                        {formError && <div className="error-msg" style={{ marginBottom: '0.8rem' }}>{formError}</div>}
+                        <button type="submit" className="btn-submit" disabled={loading}>
+                            <i className="fas fa-user-plus"></i> {loading ? 'Registering...' : 'Create Vendor Account'}
                         </button>
                     </form>
 
@@ -512,7 +550,7 @@ export default function VendorRegister({
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
             </footer>
 
-            <script src="/js/ekart-form-spinner.js"></script>
+            
         </>
     );
 }
