@@ -452,7 +452,7 @@ export default function VendorHome({
                 {/* Chat Widget Content Here */}
             </div>
 
-            <script src="/js/ekart-skeleton.js"></script>
+            
         </>
     );
 }

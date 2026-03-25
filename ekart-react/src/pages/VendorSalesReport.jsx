@@ -376,7 +376,7 @@ export default function VendorSalesReport({
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
             
             {/* Chart.js Script */}
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+            
             
             <style>{CSS}</style>
 

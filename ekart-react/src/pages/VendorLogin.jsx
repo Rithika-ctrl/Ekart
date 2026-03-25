@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authApi, saveToken } from '../utils/api';
 
 const CSS = `
         :root {
@@ -173,6 +175,10 @@ export default function VendorLogin({
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
     const [fadeAlerts, setFadeAlerts] = useState(false);
+    const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [passwordInput, setPasswordInput] = useState('');
+    const [formError, setFormError] = useState('');
     
     const dropdownRef = useRef(null);
 
@@ -288,20 +294,37 @@ export default function VendorLogin({
 
                     <div className="section-label"><i className="fas fa-key"></i> Credentials</div>
 
-                    <form action="/vendor/login" method="post">
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        setFormError('');
+                        try {
+                            const res = await authApi.login(email, passwordInput);
+                            if (res?.data?.success) {
+                                saveToken(res.data.token, res.data.customer);
+                                navigate('/vendor');
+                            } else {
+                                setFormError(res?.data?.message || 'Login failed');
+                            }
+                        } catch (err) {
+                            setFormError('Invalid email or password');
+                        }
+                    }}>
                         {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
+
+                        {formError && <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>{formError}</div>}
+
                         <div className="form-group">
                             <label htmlFor="email">Email</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-envelope input-icon"></i>
-                                <input type="email" id="email" name="email" className="form-control" placeholder="you@example.com" required />
+                                <input type="email" id="email" name="email" className="form-control" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
                             </div>
                         </div>
                         <div className="form-group">
                             <label htmlFor="password">Password</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-lock input-icon"></i>
-                                <input type="password" id="password" name="password" className="form-control" placeholder="Enter your password" required />
+                                <input type="password" id="password" name="password" className="form-control" placeholder="Enter your password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
                             </div>
                         </div>
                         <div className="forgot-link">
@@ -348,7 +371,7 @@ export default function VendorLogin({
                 <div className="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
             </footer>
 
-            <script src="/js/ekart-form-spinner.js"></script>
+            
         </>
     );
 }

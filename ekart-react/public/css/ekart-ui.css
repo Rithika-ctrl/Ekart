@@ -1,0 +1,7 @@
+/* Placeholder ekart-ui.css - add real styles here */
+:root {
+  --ekart-primary: #f59e0b;
+}
+body { background: transparent; }
+
+/* Keep minimal to stop 404 errors */

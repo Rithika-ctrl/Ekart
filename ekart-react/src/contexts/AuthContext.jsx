@@ -5,20 +5,25 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const raw = localStorage.getItem('ekart_user')
+      // Read from ekart_customer (set by api.js saveToken)
+      const raw = localStorage.getItem('ekart_customer')
       return raw ? JSON.parse(raw) : null
     } catch { return null }
   })
 
-  useEffect(() => {
-    try {
-      if (user) localStorage.setItem('ekart_user', JSON.stringify(user))
-      else localStorage.removeItem('ekart_user')
-    } catch {}
-  }, [user])
+  const login = (payload) => {
+    setUser(payload)
+    try { localStorage.setItem('ekart_customer', JSON.stringify(payload)) } catch {}
+  }
 
-  const login = (payload) => setUser(payload)
-  const logout = () => setUser(null)
+  const logout = () => {
+    setUser(null)
+    try {
+      localStorage.removeItem('ekart_token')
+      localStorage.removeItem('ekart_customer')
+      localStorage.removeItem('ekart_user')
+    } catch {}
+  }
 
   const value = {
     user,

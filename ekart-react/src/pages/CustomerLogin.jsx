@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authApi, saveToken } from '../utils/api';
 
 const CSS = `
         :root {
@@ -372,6 +374,28 @@ export default function CustomerLogin({
         opacity: fadeAlerts ? 0 : 1
     };
 
+    // Login form state
+    const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [passwordInput, setPasswordInput] = useState('');
+    const [formError, setFormError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        try {
+            const res = await authApi.login(email, passwordInput);
+            if (res?.data?.success) {
+                saveToken(res.data.token, res.data.customer);
+                navigate('/');
+            } else {
+                setFormError(res?.data?.message || 'Login failed');
+            }
+        } catch (err) {
+            setFormError('Invalid email or password');
+        }
+    };
+
     return (
         <>
             <meta charSet="UTF-8" />
@@ -450,14 +474,16 @@ export default function CustomerLogin({
                     <a href="/admin/login" className="role-pill"><i className="fas fa-shield-alt" style={{ fontSize: '.65rem' }}></i> Admin</a>
                 </div>
 
-                <form action="/customer/login" method="post">
+                <form onSubmit={handleSubmit}>
                     {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
+
+                    {formError && <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>{formError}</div>}
 
                     <div className="form-group">
                         <label htmlFor="email">Email Address</label>
                         <div className="input-wrap">
                             <i className="fas fa-envelope field-icon"></i>
-                            <input type="email" id="email" name="email" placeholder="you@example.com" required />
+                            <input type="email" id="email" name="email" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
                         </div>
                     </div>
 
@@ -465,7 +491,7 @@ export default function CustomerLogin({
                         <label htmlFor="password">Password</label>
                         <div className="input-wrap">
                             <i className="fas fa-lock field-icon"></i>
-                            <input type={showPassword ? 'text' : 'password'} id="password" name="password" placeholder="Enter your password" required />
+                            <input type={showPassword ? 'text' : 'password'} id="password" name="password" placeholder="Enter your password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
                             <span className="pw-toggle" onClick={() => setShowPassword(!showPassword)}>
                                 <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} id="pw-eye"></i>
                             </span>
@@ -517,8 +543,8 @@ export default function CustomerLogin({
 
             <div className="brand-mark">Ekart · Secure Login</div>
 
-            <script src="/js/ekart-toast.js"></script>
-            <script src="/js/ekart-form-spinner.js"></script>
+            
+            
         </>
     );
 }
