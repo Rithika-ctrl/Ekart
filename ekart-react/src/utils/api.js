@@ -121,7 +121,8 @@ export const productsApi = {
 // ═══════════════════════════════════════════════════════════════════════════
 const customerHeader = () => {
   const u = getStoredUser();
-  return u?.customerId ? { 'X-Customer-Id': u.customerId } : {};
+  const id = u?.customerId ?? u?.id ?? (u?.customer && (u.customer.id ?? u.customer.customerId));
+  return id ? { 'X-Customer-Id': id } : {};
 };
 
 export const cartApi = {
