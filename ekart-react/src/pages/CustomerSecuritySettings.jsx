@@ -1,4 +1,6 @@
 import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerSecuritySettings = ({ 
   customerEmail = "customer@ekart.com", 
@@ -7,8 +9,7 @@ const CustomerSecuritySettings = ({
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
+      <style dangerouslySetInnerHTML={{ __html: `:root {
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -20,13 +21,12 @@ const CustomerSecuritySettings = ({
         }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            background: #060a18; /* Fallback background */
         }
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
@@ -145,19 +145,18 @@ const CustomerSecuritySettings = ({
             .page { padding: 5.5rem 1.25rem 2rem; }
             .page-header { flex-direction: column; text-align: center; }
             footer { flex-direction: column; text-align: center; gap: 0.5rem; }
-        }
-      `}} />
+        }`}} />
 
       <div className="bg-layer"></div>
 
       {/* NAV */}
       <nav id="nav">
-        <a href="/customer/home" className="nav-brand">
+        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
           <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
           Ekart
         </a>
         <div className="nav-right">
-          <a href="/logout" className="btn-logout">
+          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
             <i className="fas fa-sign-out-alt"></i> Logout
           </a>
         </div>

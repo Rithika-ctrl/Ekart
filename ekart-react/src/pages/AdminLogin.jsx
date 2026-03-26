@@ -47,8 +47,7 @@ export default function AdminLogin() {
         }
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -62,7 +61,7 @@ export default function AdminLogin() {
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -71,6 +70,7 @@ export default function AdminLogin() {
             overflow-x: hidden;
         }
 
+        /* ── BACKGROUND ── */
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
@@ -85,6 +85,7 @@ export default function AdminLogin() {
             background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
+        /* ── NAV ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
@@ -104,6 +105,7 @@ export default function AdminLogin() {
         }
         .nav-brand span { color: var(--yellow); }
 
+        /* Nav links — scrollable row on desktop */
         .nav-links {
             display: flex; align-items: center; gap: 0.5rem;
             flex-wrap: wrap; justify-content: flex-end;
@@ -123,6 +125,7 @@ export default function AdminLogin() {
             background: rgba(245,168,0,0.08);
         }
 
+        /* ── ALERTS ── */
         .alert-stack {
             position: fixed; top: 5rem; right: 1.5rem;
             z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
@@ -139,12 +142,14 @@ export default function AdminLogin() {
         .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
         .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
 
+        /* ── PAGE CENTER ── */
         .page-center {
             flex: 1;
             display: flex; align-items: center; justify-content: center;
             padding: 7rem 1.5rem 3rem;
         }
 
+        /* ── AUTH CARD ── */
         .auth-card {
             background: var(--glass-card);
             backdrop-filter: blur(20px);
@@ -157,6 +162,7 @@ export default function AdminLogin() {
             animation: fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both;
         }
 
+        /* ── CARD HEADER ── */
         .auth-header { text-align: center; margin-bottom: 2.25rem; }
 
         .auth-header-icon {
@@ -171,8 +177,10 @@ export default function AdminLogin() {
         .auth-header h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.35rem; }
         .auth-header p  { font-size: 0.825rem; color: var(--text-dim); line-height: 1.55; }
 
+        /* ── DIVIDER ── */
         .divider { border: none; border-top: 1px solid var(--glass-border); margin: 0 0 2rem; }
 
+        /* ── FORM ── */
         .form-group { margin-bottom: 1.5rem; }
 
         .form-group label {
@@ -209,6 +217,7 @@ export default function AdminLogin() {
             box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
         }
 
+        /* ── SUBMIT ── */
         .btn-submit {
             width: 100%;
             background: var(--yellow); color: #1a1000;
@@ -230,6 +239,62 @@ export default function AdminLogin() {
         }
         .btn-submit:active { transform: translateY(0); }
 
+        /* ── OTHER LOGIN LINKS ── */
+        .other-logins {
+            margin-top: 1.75rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--glass-border);
+        }
+        .other-logins p {
+            font-size: 0.7rem; color: var(--text-dim);
+            text-align: center; margin-bottom: 0.875rem;
+            text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .other-login-btns {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
+        }
+        .other-login-link {
+            display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+            color: var(--text-dim); text-decoration: none;
+            font-size: 0.72rem; font-weight: 600;
+            padding: 0.5rem 0.75rem; border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            transition: all 0.2s; text-align: center;
+        }
+        .other-login-link:hover { color: white; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); }
+
+        /* ── FOOTER ── */
+        footer {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
+        }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+        /* ── ANIMATIONS ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── RESPONSIVE ── */
+        @media(max-width: 768px) {
+            nav { padding: 0.875rem 1rem; gap: 0.5rem; }
+            .nav-links { display: none; }
+            .auth-card { padding: 2rem 1.5rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }
+
+        /* ── SOCIAL LOGIN ── */
         .social-divider {
             display: flex; align-items: center; gap: 1rem;
             margin: 1.5rem 0;
@@ -252,37 +317,41 @@ export default function AdminLogin() {
             transition: all 0.2s;
             border: 1px solid var(--glass-border);
         }
-        .google-btn { background: rgba(255,255,255,0.05); color: var(--text-white); }
-        .google-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(66,133,244,0.5); }
-        .facebook-btn { background: rgba(24,119,242,0.1); color: var(--text-white); }
-        .facebook-btn:hover { background: rgba(24,119,242,0.2); border-color: rgba(24,119,242,0.5); }
-        .instagram-btn { background: linear-gradient(45deg, rgba(253,29,29,0.1), rgba(131,58,180,0.1)); color: var(--text-white); }
-        .instagram-btn:hover { background: linear-gradient(45deg, rgba(253,29,29,0.2), rgba(131,58,180,0.2)); border-color: rgba(225,48,108,0.5); }
-        .github-btn { background: rgba(255,255,255,0.05); color: var(--text-white); }
-        .github-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
-
-        footer {
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(16px);
-            border-top: 1px solid var(--glass-border);
-            padding: 1.25rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 0.75rem;
-            margin-top: auto;
+        .google-btn {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-white);
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
-
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
-
-        @media(max-width: 768px) {
-            nav { padding: 0.875rem 1rem; gap: 0.5rem; }
-            .nav-links { display: none; }
-            .auth-card { padding: 2rem 1.5rem; }
-            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        .google-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(66,133,244,0.5);
         }
-    `;
+        .facebook-btn {
+            background: rgba(24,119,242,0.1);
+            color: var(--text-white);
+        }
+        .facebook-btn:hover {
+            background: rgba(24,119,242,0.2);
+            border-color: rgba(24,119,242,0.5);
+        }
+        .instagram-btn {
+            background: linear-gradient(45deg, rgba(253,29,29,0.1), rgba(131,58,180,0.1));
+            color: var(--text-white);
+        }
+        .instagram-btn:hover {
+            background: linear-gradient(45deg, rgba(253,29,29,0.2), rgba(131,58,180,0.2));
+            border-color: rgba(225,48,108,0.5);
+        }
+        .github-btn {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-white);
+        }
+        .github-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.4);
+        }
+        .social-btn i, .social-btn svg {
+            font-size: 1.1rem;
+        }`;
 
     return (
         <>

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.18);
@@ -20,7 +22,7 @@ const CSS = `
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
-        body { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
+        #root { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
         main.page { flex: 1 0 auto; margin-bottom: 0; }
 
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
@@ -379,7 +381,7 @@ const CSS = `
         .sim-img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
         .sim-card:hover .sim-img { transform:scale(1.07); }
         .sim-cat { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); border:1px solid var(--glass-border); color:var(--yellow); font-size:0.6rem; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; }
-        .sim-body { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
+        .sim-#root { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .sim-name { font-size:0.9rem; font-weight:700; color:white; }
         .sim-desc { font-size:0.72rem; color:var(--text-dim); line-height:1.45; }
         .sim-price { font-size:1.3rem; font-weight:800; color:var(--yellow); margin-top:auto; padding-top:0.4rem; }
@@ -611,8 +613,7 @@ const CSS = `
         .share-email     { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.15); }
         .share-email:hover     { background: rgba(255,255,255,0.15); color: white; }
         .share-native    { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.15); }
-        .share-native:hover    { background: rgba(255,255,255,0.15); color: white; }
-`;
+        .share-native:hover    { background: rgba(255,255,255,0.15); color: white; }`;
 
 /**
  * ProductDetail Component
@@ -634,6 +635,9 @@ export default function ProductDetail({
     successMessage = null,
     failureMessage = null,
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -742,7 +746,7 @@ export default function ProductDetail({
         setPinResult({ type: 'ok', msg: 'Checking...' });
 
         // Simulating fetch
-        fetch('/api/check-pincode?pinCode=' + pin)
+        authFetch('/api/check-pincode?pinCode=' + pin)
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -768,7 +772,7 @@ export default function ProductDetail({
         }
 
         // Simulate Add to Cart
-        fetch('/api/cart/add-web', {
+        authFetch('/api/cart/add-web', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ productId: product.id, quantity: qty })
@@ -829,26 +833,26 @@ export default function ProductDetail({
 
             {/* NAV */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
                 </a>
                 <div className="nav-right">
-                    <a href="/track-orders" className="nav-link"><i className="fas fa-truck"></i> <span>Track</span></a>
-                    <a href="/order-history" className="nav-link"><i className="fas fa-history"></i> <span>Orders</span></a>
-                    <a href="/view-orders" className="nav-link"><i className="fas fa-box-open"></i> <span>My Orders</span></a>
-                    <a href="/account/wishlist" className="nav-link wishlist-link"><i className="fas fa-heart"></i> <span>Wishlist</span></a>
-                    <a href="/view-cart" className="nav-link cart-link"><i className="fas fa-shopping-cart"></i> <span>Cart</span>
+                    <Link to="/track" className="nav-link"><i className="fas fa-truck"></i> <span>Track</span></Link>
+                    <Link to="/orders" className="nav-link"><i className="fas fa-history"></i> <span>Orders</span></Link>
+                    <Link to="/view-orders" className="nav-link"><i className="fas fa-box-open"></i> <span>My Orders</span></Link>
+                    <Link to="/wishlist" className="nav-link wishlist-link"><i className="fas fa-heart"></i> <span>Wishlist</span></Link>
+                    <Link to="/cart" className="nav-link cart-link"><i className="fas fa-shopping-cart"></i> <span>Cart</span>
                         {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-                    </a>
-                    <a href="/logout" className="nav-link logout-link"><i className="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+                    </Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link logout-link"><i className="fas fa-sign-out-alt"></i> <span>Logout</span></a>
                 </div>
             </nav>
 
             <main className="page">
                 {/* Breadcrumb */}
                 <nav className="breadcrumb">
-                    <a href="/customer/home" title="Back to Home">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} title="Back to Home">
                         <i className="fas fa-home bc-icon"></i> <span>Home</span>
                     </a>
                     <i className="fas fa-chevron-right bc-sep"></i>
@@ -1083,8 +1087,8 @@ export default function ProductDetail({
                     <h3 className="ekart-modal-title">Sign In to Add to Cart</h3>
                     <p className="ekart-modal-msg">You need an account to add products to your cart and place orders.</p>
                     <div className="ekart-modal-actions" style={{ flexDirection: 'column', gap: '0.6rem' }}>
-                        <a href="/customer/login" className="ekart-modal-btn-primary"><i className="fas fa-sign-in-alt"></i> Sign In</a>
-                        <a href="/customer/register" className="ekart-modal-btn-secondary"><i className="fas fa-user-plus"></i> Create Account</a>
+                        <Link to="/login" className="ekart-modal-btn-primary"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
+                        <Link to="/register" className="ekart-modal-btn-secondary"><i className="fas fa-user-plus"></i> Create Account</Link>
                         <button className="ekart-modal-btn-ghost" onClick={() => setIsGuestModalOpen(false)}>Continue Browsing</button>
                     </div>
                 </div>

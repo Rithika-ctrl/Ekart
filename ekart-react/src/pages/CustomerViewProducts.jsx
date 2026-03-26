@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerViewProducts = ({ 
   products = [], 
@@ -7,6 +10,9 @@ const CustomerViewProducts = ({
 }) => {
   // --- State ---
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
   const [scrolled, setScrolled] = useState(false);
   const [alerts, setAlerts] = useState({ success: sessionSuccess, failure: sessionFailure });
   const [toasts, setToasts] = useState([]);
@@ -48,7 +54,7 @@ const CustomerViewProducts = ({
   useEffect(() => {
     const fetchWishlist = async () => {
       try {
-        const response = await fetch('/api/wishlist/ids');
+        const response = await authFetch('/api/wishlist/ids');
         const data = await response.json();
         if (data.success && data.productIds) {
           setWishlist(new Set(data.productIds));
@@ -82,7 +88,7 @@ const CustomerViewProducts = ({
     });
 
     try {
-      const response = await fetch('/api/wishlist/toggle', {
+      const response = await authFetch('/api/wishlist/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId })
@@ -134,8 +140,7 @@ const CustomerViewProducts = ({
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
+      <style dangerouslySetInnerHTML={{ __html: `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -149,13 +154,12 @@ const CustomerViewProducts = ({
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            background: #060a18;
         }
 
         /* ── BACKGROUND ── */
@@ -486,7 +490,7 @@ const CustomerViewProducts = ({
         }
 
         /* ── CARD BODY ── */
-        .card-body {
+        .card-#root {
             padding: 1.4rem;
             display: flex; flex-direction: column; gap: 0.7rem;
             flex: 1;
@@ -543,6 +547,7 @@ const CustomerViewProducts = ({
         .review-comment { font-size: 0.72rem; color: var(--text-dim); line-height: 1.45; }
 
         /* ── REVIEW FORM ── */
+        /* ★ Avg rating badge on product cards */
         .avg-rating-badge {
             display: inline-flex; align-items: center; gap: 3px;
             background: rgba(245,168,0,0.15); border: 1px solid rgba(245,168,0,0.35);
@@ -645,6 +650,7 @@ const CustomerViewProducts = ({
             to   { opacity: 1; transform: translateX(0); }
         }
 
+        /* stagger cards */
         .product-card-wrapper:nth-child(1) .product-card { animation-delay: 0.05s; }
         .product-card-wrapper:nth-child(2) .product-card { animation-delay: 0.10s; }
         .product-card-wrapper:nth-child(3) .product-card { animation-delay: 0.15s; }
@@ -704,8 +710,7 @@ const CustomerViewProducts = ({
             .product-grid { grid-template-columns: 1fr; }
             .review-form { flex-wrap: wrap; }
             .review-form input { width: 100%; }
-        }
-      `}} />
+        }`}} />
 
       {/* ── PAGE LOADER ── */}
       <div id="page-loader" className={!loading ? 'hidden' : ''}>
@@ -749,24 +754,24 @@ const CustomerViewProducts = ({
 
       {/* ── NAV ── */}
       <nav className={scrolled ? 'scrolled' : ''}>
-        <a href="/customer/home" className="nav-brand">
+        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
           <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
           Ekart
         </a>
         <div className="nav-right">
-          <a href="/account/wishlist" className="nav-link-btn" style={{ borderColor: 'rgba(239,68,68,0.3)' }}>
+          <Link to="/wishlist" className="nav-link-btn" style={{ borderColor: 'rgba(239,68,68,0.3)' }}>
             <i className="fas fa-heart" style={{ color: '#ef4444' }}></i> Wishlist
-          </a>
-          <a href="/account/spending" className="nav-link-btn" style={{ borderColor: 'rgba(16,185,129,0.3)' }}>
+          </Link>
+          <Link to="/spending" className="nav-link-btn" style={{ borderColor: 'rgba(16,185,129,0.3)' }}>
             <i className="fas fa-chart-pie" style={{ color: '#10b981' }}></i> Spending
-          </a>
-          <a href="/view-cart" className="nav-link-btn">
+          </Link>
+          <Link to="/cart" className="nav-link-btn">
             <i className="fas fa-shopping-cart"></i> Cart
-          </a>
-          <a href="/customer/home" className="nav-link-btn">
+          </Link>
+          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link-btn">
             <i className="fas fa-th-large"></i> Dashboard
           </a>
-          <a href="/logout" className="btn-logout">
+          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
             <i className="fas fa-sign-out-alt"></i> Logout
           </a>
         </div>
@@ -966,7 +971,7 @@ const CustomerViewProducts = ({
 
         {/* Back Button */}
         <div className="page-footer-actions">
-          <a href="/customer/home" className="btn-back">
+          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-back">
             <i className="fas fa-arrow-left"></i> Back to Dashboard
           </a>
         </div>

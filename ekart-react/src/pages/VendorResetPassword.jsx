@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +15,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -260,8 +260,7 @@ const CSS = `
             .page-header { flex-direction: column; text-align: center; }
             .form-card { padding: 1.75rem 1.25rem; }
             footer { padding: 1.25rem; flex-direction: column; text-align: center; }
-        }
-`;
+        }`;
 
 /**
  * VendorResetPassword Component
@@ -386,12 +385,12 @@ export default function VendorResetPassword({
 
             {/* Navbar */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="/vendor/login" className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Vendor Login</a>
+                    <Link to="/vendor/login" className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Vendor Login</Link>
                 </div>
             </nav>
 
@@ -475,9 +474,9 @@ export default function VendorResetPassword({
 
                     </form>
 
-                    <a href="/vendor/login" className="back-link">
+                    <Link to="/vendor/login" className="back-link">
                         <i className="fas fa-arrow-left"></i> Back to Login
-                    </a>
+                    </Link>
                 </div>
 
             </main>

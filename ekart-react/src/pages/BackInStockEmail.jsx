@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * BackInStockEmail Component
@@ -19,7 +20,7 @@ export default function BackInStockEmail({
   productId = ""
 }) {
   const CSS = `
-    .email-body {
+    .email-#root {
       margin: 0;
       padding: 0;
       background: #0a0c1e;

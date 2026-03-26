@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +15,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -56,8 +56,6 @@ const CSS = `
             display: flex; align-items: center; gap: 0.5rem;
         }
         .nav-brand span { color: var(--yellow); }
-        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
-
         .nav-link-btn {
             display: flex; align-items: center; gap: 0.4rem;
             color: var(--text-light); text-decoration: none;
@@ -87,12 +85,11 @@ const CSS = `
         /* Page */
         .page {
             flex: 1;
-            padding: 7rem 1.5rem 3rem;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
+            padding: 6rem 1.5rem 3rem;
         }
 
-        /* Form Card */
+        /* Card */
         .form-card {
             background: var(--glass-card);
             backdrop-filter: blur(20px);
@@ -104,19 +101,30 @@ const CSS = `
             animation: fadeUp 0.5s ease both;
         }
 
-        .card-top { text-align: center; margin-bottom: 2rem; }
+        /* Card top */
+        .card-top {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
         .card-icon {
             width: 64px; height: 64px;
             background: rgba(245,168,0,0.15);
             border: 2px solid rgba(245,168,0,0.3);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem; margin: 0 auto 1.1rem;
+            font-size: 1.6rem;
+            margin: 0 auto 1.1rem;
         }
-        .card-top h1 { font-size: 1.4rem; font-weight: 700; color: var(--text-white); margin-bottom: 0.3rem; }
+        .card-top h1 {
+            font-size: 1.4rem; font-weight: 700;
+            color: var(--text-white); margin-bottom: 0.3rem;
+        }
         .card-top h1 span { color: var(--yellow); }
-        .card-top p { font-size: 0.78rem; color: var(--text-dim); }
+        .card-top p {
+            font-size: 0.78rem; color: var(--text-dim); line-height: 1.6;
+        }
 
+        /* Section label */
         .section-label {
             display: flex; align-items: center; gap: 0.6rem;
             font-size: 0.7rem; font-weight: 700;
@@ -125,22 +133,21 @@ const CSS = `
         }
         .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
 
-        .form-group { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.5rem; }
+        /* Form */
+        .form-group { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.25rem; }
         .form-group label {
             font-size: 0.72rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.1em;
             color: var(--text-dim); margin-left: 0.15rem;
         }
-
         .input-wrapper { position: relative; }
-        .input-icon {
+        .input-wrapper .input-icon {
             position: absolute; left: 1rem; top: 50%;
             transform: translateY(-50%);
             color: var(--text-dim); font-size: 0.875rem;
             transition: color 0.3s; pointer-events: none;
         }
         .input-wrapper:focus-within .input-icon { color: var(--yellow); }
-
         .form-control {
             width: 100%;
             background: rgba(255,255,255,0.06);
@@ -157,6 +164,7 @@ const CSS = `
             box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
         }
 
+        /* Submit button */
         .btn-submit {
             width: 100%; background: var(--yellow); color: #1a1000;
             border: none; border-radius: 12px; padding: 0.95rem;
@@ -165,18 +173,16 @@ const CSS = `
             transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
             box-shadow: 0 8px 24px rgba(245,168,0,0.25);
             display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            margin-top: 0.5rem;
         }
-        .btn-submit:hover {
-            background: var(--yellow-d); transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(245,168,0,0.42);
-        }
+        .btn-submit:hover { background: var(--yellow-d); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(245,168,0,0.42); }
         .btn-submit:active { transform: translateY(0); }
 
+        /* Back link */
         .back-link {
             display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-            margin-top: 1.25rem; font-size: 0.78rem;
-            color: var(--text-dim); text-decoration: none;
-            transition: color 0.2s;
+            margin-top: 1.25rem; color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s;
         }
         .back-link:hover { color: var(--text-white); }
 
@@ -197,10 +203,9 @@ const CSS = `
 
         @media (max-width: 500px) {
             nav { padding: 0.875rem 1.25rem; }
-            .form-card { padding: 2rem 1.5rem; }
+            .form-card { padding: 1.75rem 1.25rem; }
             footer { padding: 1.25rem; flex-direction: column; text-align: center; }
-        }
-`;
+        }`;
 
 /**
  * VendorForgotPassword Component
@@ -281,14 +286,14 @@ export default function VendorForgotPassword({
             </div>
 
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="/" className="nav-link-btn"><i className="fas fa-home"></i> Home</a>
-                    <a href="/vendor/login" className="nav-link-btn"><i className="fas fa-store"></i> Vendor Login</a>
-                    <a href="/customer/login" className="nav-link-btn"><i className="fas fa-user"></i> Customer Login</a>
+                    <Link to="/" className="nav-link-btn"><i className="fas fa-home"></i> Home</Link>
+                    <Link to="/vendor/login" className="nav-link-btn"><i className="fas fa-store"></i> Vendor Login</Link>
+                    <Link to="/login" className="nav-link-btn"><i className="fas fa-user"></i> Customer Login</Link>
                 </div>
             </nav>
 
@@ -318,9 +323,9 @@ export default function VendorForgotPassword({
                         </button>
                     </form>
 
-                    <a href="/vendor/login" className="back-link">
+                    <Link to="/vendor/login" className="back-link">
                         <i className="fas fa-arrow-left"></i> Back to Login
-                    </a>
+                    </Link>
 
                 </div>
             </main>

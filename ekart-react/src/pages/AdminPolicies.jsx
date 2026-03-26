@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Admin Policy Management Component
@@ -41,7 +43,7 @@ export default function AdminPolicies({
     // --- ACTIONS ---
     const fetchPolicies = async () => {
         try {
-            const res = await fetch('/api/policies');
+            const res = await authFetch('/api/policies');
             const data = await res.json();
             setPolicies(data);
         } catch (error) {
@@ -51,7 +53,7 @@ export default function AdminPolicies({
 
     const editPolicy = async (slug) => {
         try {
-            const res = await fetch(`/api/policies/${slug}`);
+            const res = await authFetch(`/api/policies/${slug}`);
             const policy = await res.json();
             setFormData({
                 slug: policy.slug,
@@ -70,7 +72,7 @@ export default function AdminPolicies({
     const deletePolicy = async (slug) => {
         if (window.confirm('Delete this policy?')) {
             try {
-                await fetch(`/api/policies/${slug}`, { method: 'DELETE' });
+                await authFetch(`/api/policies/${slug}`, { method: 'DELETE' });
                 fetchPolicies();
             } catch (error) {
                 console.error("Failed to delete policy:", error);
@@ -107,8 +109,7 @@ export default function AdminPolicies({
         setPreviewHtml('');
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -119,66 +120,114 @@ export default function AdminPolicies({
             --text-dim:     rgba(255,255,255,0.50);
         }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Poppins', sans-serif; min-height: 100vh; color: var(--text-white); display: flex; flex-direction: column; }
-        
+        html { scroll-behavior: smooth; }
+        #root {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
-            content: ''; position: absolute; inset: -20px;
+            content: '';
+            position: absolute; inset: -20px;
             background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px); transform: scale(1.08);
+            filter: blur(6px);
+            transform: scale(1.08);
         }
         .bg-layer::after {
-            content: ''; position: absolute; inset: 0;
+            content: '';
+            position: absolute; inset: 0;
             background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
-
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 1rem 3rem; display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav); backdrop-filter: blur(14px); border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
         }
         nav.scrolled { background: rgba(0,0,0,0.45); }
-        .nav-brand { font-size: 1.6rem; font-weight: 700; color: var(--text-white); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
         .nav-brand span { color: var(--yellow); }
-
+        .nav-links {
+            display: flex; align-items: center; gap: 0.5rem;
+        }
         .nav-link {
-            display: flex; align-items: center; gap: 0.4rem; color: var(--text-light); text-decoration: none;
-            font-size: 0.82rem; font-weight: 500; padding: 0.45rem 0.9rem; border-radius: 6px; transition: all 0.2s;
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
         }
         .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
-        .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
-
-        .page { flex: 1; padding: 7rem 3rem 3rem; display: flex; flex-direction: column; gap: 2rem; max-width: 900px; margin: 0 auto; width: 100%; }
-        
-        .glass-card {
-            background: var(--glass-card); backdrop-filter: blur(20px); border: 1px solid var(--glass-border);
-            border-radius: 20px; padding: 2.5rem 3rem; margin-bottom: 2rem; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        .nav-link.active {
+            color: var(--yellow);
+            background: rgba(245,168,0,0.12);
+            border-color: rgba(245,168,0,0.4);
         }
-
-        .policy-item { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0.7em 0; color: var(--text-light); }
+        .page {
+            flex: 1;
+            padding: 7rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .glass-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .policy-list h2, .policy-editor h2, .policy-editor h3 {
+            margin-bottom: 1rem;
+        }
+        .policy-item {
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 0.7em 0;
+            color: var(--text-light);
+        }
         .policy-item:last-child { border-bottom: none; }
-        
-        .editor { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.07); color: white; font-family: inherit; font-size: 1rem; padding: 0.7em; outline: none; }
-        .markdown-preview { border: 1px solid var(--glass-border); padding: 1em; background: rgba(255,255,255,0.05); min-height: 100px; border-radius: 10px; color: var(--text-light); }
-
-        .form-input { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem 0.8rem; color: white; margin-bottom: 0.7rem; outline: none; }
-
+        .editor { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.07); color: #222; font-family: inherit; font-size: 1rem; padding: 0.7em; }
+        .markdown-preview { border: 1px solid var(--glass-border); padding: 1em; background: rgba(255,255,255,0.10); min-height: 100px; border-radius: 10px; color: #222; }
         .btn-yellow {
-            background: var(--yellow); color: #1a1000; text-decoration: none; font-weight: 700;
-            font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.55rem 1.5rem;
-            border-radius: 50px; transition: all 0.25s; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;
+            background: var(--yellow); color: #1a1000;
+            text-decoration: none; font-weight: 700;
+            font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 0.55rem 1.5rem; border-radius: 50px;
+            transition: all 0.25s; border: none; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 0.4rem;
         }
         .btn-yellow:hover { background: var(--yellow-d); transform: translateY(-1px); box-shadow: 0 6px 24px rgba(245,168,0,0.45); }
-
         .btn-secondary {
-            background: transparent; border: 1px solid var(--glass-border); color: var(--text-light);
-            text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 0.06em;
-            padding: 0.55rem 1.5rem; border-radius: 50px; transition: all 0.25s; cursor: pointer; margin-left: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-light); text-decoration: none;
+            font-weight: 600; font-size: 0.9rem; letter-spacing: 0.06em;
+            padding: 0.55rem 1.5rem; border-radius: 50px;
+            transition: all 0.25s; cursor: pointer;
+            margin-left: 0.5rem;
         }
         .btn-secondary:hover { background: rgba(255,255,255,0.12); color: var(--yellow); }
-
-        @media(max-width: 700px) { nav { padding: 0.875rem 1.25rem; } .page { padding: 5.5rem 1.25rem 2rem; } .glass-card { padding: 1.5rem 1rem; } }
-    `;
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1.25rem 2rem; }
+            .glass-card { padding: 1.5rem 1rem; }
+        }`;
 
     return (
         <>
@@ -191,13 +240,13 @@ export default function AdminPolicies({
             <div className="bg-layer"></div>
             
             <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-                <a href="/admin/home" className="nav-brand">
+                <Link to="/admin" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{fontSize: '1.1rem'}}></i>
                     Ekart
-                </a>
+                </Link>
                 <div className="nav-links">
-                    <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-                    <a href="/admin/policies" className="nav-link active"><i className="fas fa-book"></i> Policies & SOPs</a>
+                    <Link to="/admin" className="nav-link"><i className="fas fa-home"></i> Dashboard</Link>
+                    <Link to="/admin/policies" className="nav-link active"><i className="fas fa-book"></i> Policies & SOPs</Link>
                 </div>
             </nav>
 

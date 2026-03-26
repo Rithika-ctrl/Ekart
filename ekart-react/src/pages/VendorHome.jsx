@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +16,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -171,7 +172,7 @@ const CSS = `
         .dash-card::before {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(135deg, rgba(245,168,0,0.06) 0%, transparent 60%);
+            background: linear-height(135deg, rgba(245,168,0,0.06) 0%, transparent 60%);
             opacity: 0; transition: opacity 0.3s;
             pointer-events: none;
         }
@@ -251,8 +252,7 @@ const CSS = `
         }
         @media (max-width: 420px) {
             .dashboard-grid { grid-template-columns: 1fr; }
-        }
-`;
+        }`;
 
 /**
  * VendorHome Component
@@ -266,6 +266,9 @@ export default function VendorHome({
     failureMessage = null,
     alertCount = 0
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/vendor/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -335,16 +338,16 @@ export default function VendorHome({
 
             {/* Nav */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/vendor/home" className="nav-brand">
+                <Link to="/vendor" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="/vendor/store-front" className="nav-link-btn"><i className="fas fa-store"></i> Store</a>
-                    <a href="/vendor/orders" className="nav-link-btn"><i className="fas fa-boxes"></i> Orders</a>
-                    <a href="/manage-products" className="nav-link-btn"><i className="fas fa-box"></i> Products</a>
-                    <a href="/vendor/sales-report" className="nav-link-btn"><i className="fas fa-chart-line"></i> Sales</a>
-                    <a href="/stock-alerts" className="nav-link-btn"><i className="fas fa-bell"></i> Alerts</a>
+                    <Link to="/vendor/storefront" className="nav-link-btn"><i className="fas fa-store"></i> Store</Link>
+                    <Link to="/vendor/orders" className="nav-link-btn"><i className="fas fa-boxes"></i> Orders</Link>
+                    <Link to="/vendor/products" className="nav-link-btn"><i className="fas fa-box"></i> Products</Link>
+                    <Link to="/vendor/report" className="nav-link-btn"><i className="fas fa-chart-line"></i> Sales</Link>
+                    <Link to="/stock-alerts" className="nav-link-btn"><i className="fas fa-bell"></i> Alerts</Link>
 
                     {/* Indian Flag Badge */}
                     <div className="india-flag-badge" title="Made in India">
@@ -365,7 +368,7 @@ export default function VendorHome({
                         </svg>
                         <span>India</span>
                     </div>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -382,52 +385,52 @@ export default function VendorHome({
                 {/* Dashboard grid */}
                 <div className="dashboard-grid">
 
-                    <a href="/vendor/orders" className="dash-card">
+                    <Link to="/vendor/orders" className="dash-card">
                         <div className="card-icon"><i className="fas fa-boxes" style={{ color: 'var(--yellow)' }}></i></div>
                         <div className="card-body-text">
                             <div className="card-title">My Orders</div>
                             <div className="card-desc">Pack new orders and mark them ready for delivery pickup.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> Open</div>
-                    </a>
+                    </Link>
 
-                    <a href="/vendor/store-front" className="dash-card">
+                    <Link to="/vendor/storefront" className="dash-card">
                         <div className="card-icon">&#x1F3EA;</div>
                         <div className="card-body-text">
                             <div className="card-title">Store Front</div>
                             <div className="card-desc">View and manage your public-facing storefront.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> Open</div>
-                    </a>
+                    </Link>
 
-                    <a href="/add-product" className="dash-card">
+                    <Link to="/vendor/add-product" className="dash-card">
                         <div className="card-icon"><i className="fas fa-plus" style={{ color: 'var(--yellow)' }}></i></div>
                         <div className="card-body-text">
                             <div className="card-title">Add Product</div>
                             <div className="card-desc">List a new product with images and details.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> Add</div>
-                    </a>
+                    </Link>
 
-                    <a href="/manage-products" className="dash-card">
+                    <Link to="/vendor/products" className="dash-card">
                         <div className="card-icon"><i className="fas fa-tasks" style={{ color: 'var(--yellow)' }}></i></div>
                         <div className="card-body-text">
                             <div className="card-title">Manage Products</div>
                             <div className="card-desc">Edit, remove, or update your existing listings.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> Manage</div>
-                    </a>
+                    </Link>
 
-                    <a href="/vendor/sales-report" className="dash-card">
+                    <Link to="/vendor/report" className="dash-card">
                         <div className="card-icon"><i className="fas fa-chart-line" style={{ color: 'var(--yellow)' }}></i></div>
                         <div className="card-body-text">
                             <div className="card-title">Sales Report</div>
                             <div className="card-desc">Track revenue, orders, and performance metrics.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> View</div>
-                    </a>
+                    </Link>
 
-                    <a href="/stock-alerts" className="dash-card">
+                    <Link to="/stock-alerts" className="dash-card">
                         {(alertCount != null && alertCount > 0) && (
                             <span className="alert-badge">{alertCount}</span>
                         )}
@@ -437,7 +440,7 @@ export default function VendorHome({
                             <div className="card-desc">Review low-inventory warnings before you run out.</div>
                         </div>
                         <div className="card-arrow"><i className="fas fa-arrow-right"></i> Review</div>
-                    </a>
+                    </Link>
 
                 </div>
             </main>

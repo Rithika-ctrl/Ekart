@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * GuestBrowse Component
@@ -62,8 +63,7 @@ export default function GuestBrowse({
         return budgetValue >= 10000 || price <= budgetValue;
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -74,14 +74,17 @@ export default function GuestBrowse({
             --text-dim:     rgba(255,255,255,0.50);
         }
 
-        .guest-browse-body {
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex; flex-direction: column;
-            position: relative;
         }
 
+        /* ── BACKGROUND ── */
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
             content:''; position:absolute; inset:-20px;
@@ -93,6 +96,7 @@ export default function GuestBrowse({
             background: linear-gradient(180deg,rgba(5,8,20,0.85) 0%,rgba(8,12,28,0.80) 40%,rgba(5,8,20,0.90) 100%);
         }
 
+        /* ── NAV ── */
         nav {
             position:fixed; top:0; left:0; right:0; z-index:100;
             padding:1rem 3rem;
@@ -128,13 +132,17 @@ export default function GuestBrowse({
             border-radius: 50px !important;
             font-weight: 700 !important;
         }
+        .btn-nav-login:hover { background: rgba(245,168,0,0.28) !important; }
+
         .btn-nav-register {
             background: var(--yellow);
             color: #1a1000 !important;
             border-radius: 50px !important;
             font-weight: 700 !important;
         }
+        .btn-nav-register:hover { background: var(--yellow-d) !important; }
 
+        /* ── GUEST BANNER ── */
         .guest-banner {
             margin-top: 72px;
             background: linear-gradient(135deg, rgba(245,168,0,0.18), rgba(245,100,0,0.10));
@@ -143,28 +151,77 @@ export default function GuestBrowse({
             display: flex; align-items: center; justify-content: space-between;
             gap: 1rem; flex-wrap: wrap;
         }
+        .guest-banner-left {
+            display: flex; align-items: center; gap: 0.75rem;
+            font-size: 0.85rem; color: var(--text-light);
+        }
+        .guest-banner-left .icon {
+            width: 32px; height: 32px;
+            background: rgba(245,168,0,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--yellow); font-size: 0.9rem; flex-shrink: 0;
+        }
+        .guest-banner strong { color: var(--yellow); }
+        .guest-banner-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
         .btn-banner {
             font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
             padding: 0.45rem 1.1rem; border-radius: 50px;
             text-decoration: none; transition: all 0.2s;
             border: 1px solid;
         }
-        .btn-banner-login { background: var(--yellow); color: #1a1000; border-color: var(--yellow); }
+        .btn-banner-login {
+            background: var(--yellow); color: #1a1000;
+            border-color: var(--yellow);
+        }
+        .btn-banner-login:hover { background: var(--yellow-d); border-color: var(--yellow-d); }
+        .btn-banner-register {
+            background: transparent; color: var(--text-light);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .btn-banner-register:hover { background: rgba(255,255,255,0.1); color: white; }
 
-        .alert-stack { position:fixed; top:5.5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
-        .alert { padding:0.875rem 1.25rem; background:rgba(10,12,30,0.88); backdrop-filter:blur(16px); border:1px solid; border-radius:10px; display:flex; align-items:center; gap:0.625rem; font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both; }
+        /* ── ALERTS ── */
+        .alert-stack {
+            position:fixed; top:5.5rem; right:1.5rem;
+            z-index:200; display:flex; flex-direction:column; gap:0.5rem;
+        }
+        .alert {
+            padding:0.875rem 1.25rem;
+            background:rgba(10,12,30,0.88); backdrop-filter:blur(16px);
+            border:1px solid; border-radius:10px;
+            display:flex; align-items:center; gap:0.625rem;
+            font-size:0.825rem; min-width:260px;
+            animation:slideIn 0.3s ease both;
+        }
         .alert-success { border-color:rgba(34,197,94,0.45); color:#22c55e; }
         .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
+        .alert-close   { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
+        /* ── MAIN ── */
         main { flex:1; padding: 2rem 3rem 3rem; max-width:1400px; margin:0 auto; width:100%; }
 
+        /* ── SEARCH BAR ── */
+        .search-wrap {
+            display: flex; gap: 0.75rem; margin-bottom: 2rem;
+            align-items: center;
+        }
         .search-input-wrap {
             flex: 1; position: relative;
             background: rgba(255,255,255,0.08);
             border: 1px solid var(--glass-border);
             border-radius: 50px;
             display: flex; align-items: center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input-wrap:focus-within {
+            border-color: rgba(245,168,0,0.5);
+            box-shadow: 0 0 0 3px rgba(245,168,0,0.1);
+        }
+        .search-input-wrap i {
+            position: absolute; left: 1.1rem;
+            color: var(--text-dim); font-size: 0.9rem;
         }
         .search-input-wrap input {
             width: 100%; background: transparent; border: none; outline: none;
@@ -172,7 +229,19 @@ export default function GuestBrowse({
             font-family: 'Poppins', sans-serif;
             font-size: 0.9rem; color: white;
         }
+        .search-input-wrap input::placeholder { color: rgba(255,255,255,0.3); }
+        .btn-search {
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 50px;
+            padding: 0.8rem 1.6rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.85rem; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-search:hover { background: var(--yellow-d); transform: translateY(-1px); }
 
+        /* ── BUDGET SLIDER ── */
         .budget-bar {
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--glass-border);
@@ -181,12 +250,30 @@ export default function GuestBrowse({
             margin-bottom: 1.75rem;
             display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
         }
+        .budget-label { font-size: 0.78rem; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+        .budget-bar input[type=range] {
+            flex: 1; min-width: 140px; accent-color: var(--yellow);
+            cursor: pointer;
+        }
+        .budget-value { font-size: 0.82rem; font-weight: 700; color: var(--yellow); white-space: nowrap; min-width: 90px; text-align: right; }
+        .budget-count { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
 
+        /* ── PAGE HEADER ── */
+        .page-header { margin-bottom: 1.75rem; }
+        .page-header h1 { font-size: 2rem; font-weight: 800; }
+        .page-header h1 span { color: var(--yellow); }
+        .page-header p { font-size: 0.85rem; color: var(--text-dim); margin-top: 0.3rem; }
+
+        /* ── PRODUCTS GRID ── */
         .products-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 1.5rem;
         }
+
+        /* card wrapper for budget filter */
+        .product-card-wrapper { transition: opacity 0.4s, transform 0.4s; }
+        .product-card-wrapper.product-over-budget { opacity: 0.2; pointer-events: none; transform: scale(0.97); }
 
         .product-card {
             background: var(--glass-card);
@@ -198,18 +285,94 @@ export default function GuestBrowse({
             position: relative;
             height: 100%;
         }
-        .product-card-wrapper.product-over-budget { opacity: 0.2; pointer-events: none; transform: scale(0.97); }
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+            border-color: rgba(245,168,0,0.35);
+        }
 
+        /* in-budget badge */
         .budget-badge {
             display: none;
             position: absolute; top: 0.6rem; right: 0.6rem;
             background: rgba(34,197,94,0.9); color: #fff;
             font-size: 0.6rem; font-weight: 700;
             padding: 0.2rem 0.55rem; border-radius: 50px;
-            z-index: 2;
         }
         .within-budget .budget-badge { display: block; }
 
+        .product-img-wrap {
+            width: 100%; height: 200px; overflow: hidden;
+            background: rgba(255,255,255,0.04);
+            position: relative;
+        }
+        .product-img-wrap img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.4s;
+        }
+        .product-card:hover .product-img-wrap img { transform: scale(1.07); }
+
+        .category-pill {
+            position: absolute; top: 0.6rem; left: 0.6rem;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
+            font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--yellow);
+            padding: 0.2rem 0.6rem; border-radius: 50px;
+            border: 1px solid rgba(245,168,0,0.35);
+        }
+
+        .product-info { padding: 1rem; }
+        .product-name {
+            font-size: 0.9rem; font-weight: 700;
+            color: white; margin-bottom: 0.3rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .product-desc {
+            font-size: 0.73rem; color: var(--text-dim);
+            line-height: 1.5; margin-bottom: 0.75rem;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        /* stars */
+        .stars { color: var(--yellow); font-size: 0.65rem; margin-bottom: 0.5rem; }
+
+        .product-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.5rem 1rem 1rem;
+        }
+        .price-tag { font-size: 1.15rem; font-weight: 800; color: white; }
+        .price-tag sup { font-size: 0.85rem; font-weight: 700; vertical-align: super; }
+
+        /* ── LOGIN PROMPT BUTTON (instead of Add to Cart) ── */
+        .btn-login-prompt {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(245,168,0,0.12);
+            border: 1px solid rgba(245,168,0,0.35);
+            color: var(--yellow);
+            border-radius: 50px;
+            padding: 0.5rem 1rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.73rem; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-login-prompt:hover {
+            background: var(--yellow); color: #1a1000;
+            border-color: var(--yellow);
+            transform: translateY(-1px);
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center; padding: 4rem 2rem;
+        }
+        .empty-state i { font-size: 3rem; color: var(--text-dim); margin-bottom: 1rem; }
+        .empty-state h2 { font-size: 1.3rem; color: var(--text-light); margin-bottom: 0.5rem; }
+        .empty-state p { font-size: 0.85rem; color: var(--text-dim); }
+
+        /* ── LOGIN MODAL ── */
         .modal-overlay {
             display: none; position: fixed; inset: 0; z-index: 500;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
@@ -223,14 +386,57 @@ export default function GuestBrowse({
             padding: 2.5rem 2rem;
             max-width: 400px; width: 90%;
             text-align: center;
+            animation: fadeUp 0.35s ease both;
         }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .modal-icon {
+            width: 64px; height: 64px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.4);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1.25rem;
+            font-size: 1.6rem; color: var(--yellow);
+        }
+        .modal-box h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .modal-box p { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6; }
+        .modal-box p strong { color: var(--yellow); }
+        .modal-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+        .btn-modal {
+            padding: 0.7rem 1.5rem; border-radius: 50px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.82rem; font-weight: 700;
+            text-decoration: none; border: 1px solid; transition: all 0.2s;
+        }
+        .btn-modal-login {
+            background: var(--yellow); color: #1a1000; border-color: var(--yellow);
+        }
+        .btn-modal-login:hover { background: var(--yellow-d); }
+        .btn-modal-register {
+            background: transparent; color: var(--text-light);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .btn-modal-register:hover { background: rgba(255,255,255,0.1); color: white; }
+        .btn-modal-dismiss {
+            background: transparent; color: var(--text-dim);
+            border-color: transparent; cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.78rem;
+        }
+        .btn-modal-dismiss:hover { color: var(--text-light); }
 
+        /* ── RESPONSIVE ── */
         @media(max-width: 768px) {
             nav { padding: 0.875rem 1.25rem; }
+            .guest-banner { padding: 0.75rem 1.25rem; }
             main { padding: 1.5rem 1.25rem 2.5rem; }
             .products-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
         }
-    `;
+        @media(max-width: 480px) {
+            .products-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+            .search-wrap { flex-direction: column; }
+            .btn-search { width: 100%; text-align: center; }
+        }`;
 
     return (
         <div className="guest-browse-body">
@@ -257,14 +463,14 @@ export default function GuestBrowse({
 
             {/* NAV */}
             <nav className={isScrolled ? "scrolled" : ""}>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{fontSize:'1.1rem'}}></i>
                     E<span>kart</span>
-                </a>
+                </Link>
                 <ul className="nav-links">
-                    <li><a href="/guest/browse">Browse</a></li>
-                    <li><a href="/customer/login" className="btn-nav-login"><i className="fas fa-sign-in-alt"></i> Login</a></li>
-                    <li><a href="/customer/register" className="btn-nav-register"><i className="fas fa-user-plus"></i> Register</a></li>
+                    <li><Link to="/browse">Browse</Link></li>
+                    <li><Link to="/login" className="btn-nav-login"><i className="fas fa-sign-in-alt"></i> Login</Link></li>
+                    <li><Link to="/register" className="btn-nav-register"><i className="fas fa-user-plus"></i> Register</Link></li>
                 </ul>
             </nav>
 
@@ -278,8 +484,8 @@ export default function GuestBrowse({
                     </div>
                 </div>
                 <div className="guest-banner-actions" style={{display:'flex', gap:'0.5rem'}}>
-                    <a href="/customer/login" className="btn-banner btn-banner-login">Login</a>
-                    <a href="/customer/register" className="btn-banner" style={{background:'transparent', color:'var(--text-light)', borderColor:'rgba(255,255,255,0.3)'}}>Register Free</a>
+                    <Link to="/login" className="btn-banner btn-banner-login">Login</Link>
+                    <Link to="/register" className="btn-banner" style={{background:'transparent', color:'var(--text-light)', borderColor:'rgba(255,255,255,0.3)'}}>Register Free</Link>
                 </div>
             </div>
 
@@ -367,8 +573,8 @@ export default function GuestBrowse({
                     <h2>Login to Add to Cart</h2>
                     <p>You're browsing as a <strong>Guest</strong>.<br />Create a free account or login to add items to your cart and checkout.</p>
                     <div className="modal-actions" style={{display:'flex', gap:'0.75rem', justifyContent:'center', flexWrap:'wrap'}}>
-                        <a href="/customer/login" className="btn-modal btn-modal-login" style={{padding:'0.7rem 1.5rem', borderRadius:'50px', background:'var(--yellow)', color:'#1a1000', fontWeight:700, textDecoration:'none'}}>Login</a>
-                        <a href="/customer/register" className="btn-modal" style={{padding:'0.7rem 1.5rem', borderRadius:'50px', background:'transparent', color:'var(--text-light)', border:'1px solid rgba(255,255,255,0.3)', fontWeight:700, textDecoration:'none'}}>Register Free</a>
+                        <Link to="/login" className="btn-modal btn-modal-login" style={{padding:'0.7rem 1.5rem', borderRadius:'50px', background:'var(--yellow)', color:'#1a1000', fontWeight:700, textDecoration:'none'}}>Login</Link>
+                        <Link to="/register" className="btn-modal" style={{padding:'0.7rem 1.5rem', borderRadius:'50px', background:'transparent', color:'var(--text-light)', border:'1px solid rgba(255,255,255,0.3)', fontWeight:700, textDecoration:'none'}}>Register Free</Link>
                     </div>
                     <br />
                     <button className="btn-modal" onClick={() => setIsModalOpen(false)} style={{background:'transparent', color:'var(--text-dim)', border:'none', cursor:'pointer', fontSize:'0.78rem'}}>No thanks, keep browsing</button>

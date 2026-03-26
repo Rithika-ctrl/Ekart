@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Order History Component
@@ -17,6 +19,9 @@ export default function ViewOrders({
     csrfToken = ""
 }) {
     // --- State ---
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [scrolled, setScrolled] = useState(false);
     const [alerts, setAlerts] = useState({ success: session.success, failure: session.failure });
     const [confirmModal, setConfirmModal] = useState({ active: false, type: null, orderId: null });
@@ -60,8 +65,7 @@ export default function ViewOrders({
         if (e.target.id === 'confirmModal') closeConfirm();
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -72,6 +76,17 @@ export default function ViewOrders({
             --text-dim:     rgba(255,255,255,0.50);
         }
 
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex; flex-direction: column;
+        }
+
+        /* ── Background ── */
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
@@ -85,6 +100,7 @@ export default function ViewOrders({
             background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
+        /* ── Navbar ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
@@ -120,6 +136,7 @@ export default function ViewOrders({
         }
         .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
+        /* ── Alert Stack ── */
         .alert-stack {
             position: fixed; top: 5rem; right: 1.5rem;
             z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
@@ -136,14 +153,16 @@ export default function ViewOrders({
         .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
         .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
 
+        /* ── Page ── */
         .page {
             flex: 1;
             padding: 7rem 1.5rem 3rem;
             display: flex; flex-direction: column; align-items: center;
-            gap: 2rem; min-height: 100vh;
+            gap: 2rem;
         }
         .inner { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 1.5rem; }
 
+        /* ── Page Header ── */
         .page-header {
             background: var(--glass-card);
             backdrop-filter: blur(20px);
@@ -154,7 +173,7 @@ export default function ViewOrders({
             gap: 1.5rem;
             animation: fadeUp 0.45s ease both;
         }
-        .page-header-left h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; color: white; }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
         .page-header-left h1 span { color: var(--yellow); }
         .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
         .page-header-icon {
@@ -166,6 +185,7 @@ export default function ViewOrders({
             font-size: 1.5rem; flex-shrink: 0;
         }
 
+        /* ── Order Card ── */
         .order-card {
             background: var(--glass-card);
             backdrop-filter: blur(20px);
@@ -173,7 +193,6 @@ export default function ViewOrders({
             border-radius: 20px;
             overflow: hidden;
             transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
-            margin-bottom: 1.5rem;
         }
         .order-card:hover {
             transform: translateY(-3px);
@@ -181,6 +200,7 @@ export default function ViewOrders({
             border-color: rgba(245,168,0,0.28);
         }
 
+        /* Card header bar */
         .order-card-header {
             padding: 1.1rem 1.75rem;
             background: rgba(255,255,255,0.06);
@@ -192,8 +212,10 @@ export default function ViewOrders({
         .order-id span { color: var(--yellow); }
         .order-date { font-size: 0.75rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.35rem; }
 
-        .order-card-body { padding: 1.4rem 1.75rem; display: flex; flex-direction: column; gap: 0.9rem; }
+        /* Card body */
+        .order-card-#root { padding: 1.4rem 1.75rem; display: flex; flex-direction: column; gap: 0.9rem; }
 
+        /* Info row */
         .info-row { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.84rem; }
         .info-row .info-label {
             font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
@@ -201,14 +223,20 @@ export default function ViewOrders({
             white-space: nowrap; padding-top: 0.1rem; min-width: 90px;
         }
         .info-row .info-value { color: var(--text-light); }
+
+        /* Amount highlight */
         .amount-value { color: var(--yellow); font-weight: 800; font-size: 1rem; }
 
-        .status-badge {
+        /* Status badge */
+        .status-placed {
             display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(34,197,94,0.12); color: #22c55e;
+            border: 1px solid rgba(34,197,94,0.3);
             padding: 0.2rem 0.7rem; border-radius: 20px;
             font-size: 0.72rem; font-weight: 700;
         }
 
+        /* Delivery slot */
         .delivery-chip {
             display: inline-flex; align-items: center; gap: 0.35rem;
             background: rgba(59,130,246,0.1); color: #60a5fa;
@@ -217,6 +245,7 @@ export default function ViewOrders({
             font-size: 0.72rem; font-weight: 600;
         }
 
+        /* Item chips */
         .items-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
         .item-chip {
             display: inline-flex; align-items: center; gap: 0.3rem;
@@ -227,12 +256,32 @@ export default function ViewOrders({
             font-size: 0.72rem; font-weight: 600;
         }
 
-        .return-badge {
+        /* Return eligibility */
+        .return-eligible {
             display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(34,197,94,0.1); color: #22c55e;
+            border: 1px solid rgba(34,197,94,0.25);
+            padding: 0.25rem 0.75rem; border-radius: 20px;
+            font-size: 0.72rem; font-weight: 700;
+        }
+        .return-ineligible {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(255,255,255,0.05); color: var(--text-dim);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.25rem 0.75rem; border-radius: 20px;
+            font-size: 0.72rem; font-weight: 600;
+        }
+
+        /* Replacement requested */
+        .replacement-badge {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            background: rgba(168,85,247,0.12); color: #c084fc;
+            border: 1px solid rgba(168,85,247,0.3);
             padding: 0.25rem 0.75rem; border-radius: 20px;
             font-size: 0.72rem; font-weight: 700;
         }
 
+        /* Card footer actions */
         .order-card-footer {
             padding: 1rem 1.75rem;
             border-top: 1px solid var(--glass-border);
@@ -242,51 +291,101 @@ export default function ViewOrders({
         .action-btn {
             display: inline-flex; align-items: center; gap: 0.4rem;
             border-radius: 9px; padding: 0.5rem 1rem;
-            font-size: 0.75rem; font-weight: 700;
+            font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700;
             letter-spacing: 0.04em; text-transform: uppercase;
             text-decoration: none; cursor: pointer; border: 1px solid;
             transition: all 0.2s;
         }
-        .btn-cancel { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.25); }
-        .btn-cancel:hover { background: #ef4444; color: white; transform: translateY(-1px); }
-        .btn-retry { background: rgba(245,168,0,0.12); color: var(--yellow); border-color: rgba(245,168,0,0.3); }
-        .btn-retry:hover { background: var(--yellow); color: #1a1000; transform: translateY(-1px); }
-        .btn-replace { background: rgba(168,85,247,0.1); color: #c084fc; border-color: rgba(168,85,247,0.3); }
-        .btn-replace:hover { background: #a855f7; color: white; transform: translateY(-1px); }
-        .btn-track { background: rgba(34,197,94,0.12); color: #22c55e; border-color: rgba(34,197,94,0.3); }
-        .btn-track:hover { background: #22c55e; color: white; transform: translateY(-1px); }
+        .btn-cancel {
+            background: rgba(239,68,68,0.1); color: #ef4444;
+            border-color: rgba(239,68,68,0.25);
+        }
+        .btn-cancel:hover { background: #ef4444; color: white; text-decoration: none; transform: translateY(-1px); }
 
+        .btn-retry {
+            background: rgba(245,168,0,0.12); color: var(--yellow);
+            border-color: rgba(245,168,0,0.3);
+        }
+        .btn-retry:hover { background: var(--yellow); color: #1a1000; text-decoration: none; transform: translateY(-1px); }
+
+        .btn-replace {
+            background: rgba(168,85,247,0.1); color: #c084fc;
+            border-color: rgba(168,85,247,0.3);
+        }
+        .btn-replace:hover { background: #a855f7; color: white; text-decoration: none; transform: translateY(-1px); }
+
+        .btn-track {
+            background: rgba(34,197,94,0.12); color: #22c55e;
+            border-color: rgba(34,197,94,0.3);
+        }
+        .btn-track:hover { background: #22c55e; color: white; text-decoration: none; transform: translateY(-1px); }
+
+        /* ── Empty State ── */
         .empty-state {
             text-align: center; padding: 4rem 2rem;
-            background: var(--glass-card); border-radius: 20px;
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            animation: fadeUp 0.5s ease both;
         }
+        .empty-state-icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; }
+        .empty-state h3  { font-size: 1.1rem; font-weight: 700; color: var(--text-light); margin-bottom: 0.5rem; }
+        .empty-state p   { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+        .btn-shop {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 10px; padding: 0.7rem 1.75rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(245,168,0,0.3);
+            transition: all 0.3s;
+        }
+        .btn-shop:hover { background: var(--yellow-d); color: #1a1000; text-decoration: none; transform: translateY(-2px); }
 
+        /* ── Back link ── */
+        .back-wrap { display: flex; justify-content: center; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text-white); text-decoration: none; }
+
+        /* ── Footer ── */
         footer {
             background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
         }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        .confirm-overlay {
-            position: fixed; inset: 0; z-index: 999;
-            background: rgba(0,0,0,0.70); backdrop-filter: blur(8px);
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
-        }
-        .confirm-overlay.active { opacity: 1; pointer-events: all; }
-        .confirm-box {
-            background: rgba(10,13,32,0.97); border: 1px solid rgba(255,255,255,0.18);
-            border-radius: 22px; padding: 2.5rem 2.75rem; max-width: 400px; width: 92%;
-            text-align: center; transform: scale(0.9) translateY(20px);
-            transition: transform 0.3s cubic-bezier(0.23,1,0.32,1);
-        }
-        .confirm-overlay.active .confirm-box { transform: scale(1) translateY(0); }
-
+        /* ── Animations ── */
+        @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
-    `;
+
+        .order-card:nth-child(1)  { animation: fadeUp 0.4s ease 0.05s both; }
+        .order-card:nth-child(2)  { animation: fadeUp 0.4s ease 0.10s both; }
+        .order-card:nth-child(3)  { animation: fadeUp 0.4s ease 0.15s both; }
+        .order-card:nth-child(4)  { animation: fadeUp 0.4s ease 0.20s both; }
+        .order-card:nth-child(n+5){ animation: fadeUp 0.4s ease 0.25s both; }
+
+        /* ── Responsive ── */
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .order-card-header { flex-direction: column; }
+            .order-card-body, .order-card-footer { padding: 1.1rem 1.25rem; }
+            .info-row { flex-direction: column; gap: 0.2rem; }
+            .info-row .info-label { min-width: unset; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }`;
 
     return (
         <div style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -314,13 +413,13 @@ export default function ViewOrders({
 
             {/* Navbar */}
             <nav className={scrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
                 </a>
                 <div className="nav-right">
-                    <a href="/customer/home" className="nav-link-btn"><i className="fas fa-th-large"></i> Shop</a>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link-btn"><i className="fas fa-th-large"></i> Shop</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -433,9 +532,9 @@ export default function ViewOrders({
                                         )}
 
                                         {o.razorpay_payment_id === 'COD_NA' && (
-                                            <a href="/payment" className="action-btn btn-retry">
+                                            <Link to="/payment" className="action-btn btn-retry">
                                                 <i className="fas fa-redo"></i> Switch to Online Payment
-                                            </a>
+                                            </Link>
                                         )}
 
                                         {returnEligibleMap[o.id] && !replacementRequestedMap[o.id] && (
@@ -462,12 +561,12 @@ export default function ViewOrders({
                             <div className="empty-state-icon">📭</div>
                             <h3>No Orders Yet</h3>
                             <p>Your placed orders will appear here once you start shopping.</p>
-                            <a href="/view-products" className="btn-shop"><i className="fas fa-store"></i> Start Shopping</a>
+                            <Link to="/products" className="btn-shop"><i className="fas fa-store"></i> Start Shopping</Link>
                         </div>
                     )}
 
                     <div className="back-wrap">
-                        <a href="/customer/home" className="back-link">
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="back-link">
                             <i className="fas fa-arrow-left"></i> Back to Home
                         </a>
                     </div>

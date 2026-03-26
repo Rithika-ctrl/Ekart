@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * OtpEmail Component
@@ -8,8 +9,7 @@ import React from 'react';
 export default function OtpEmail({
     otp = "000000"
 }) {
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --primary-color: #2874f0;
             --secondary-color: #fb641b;
             --text-color: #212121;
@@ -17,10 +17,10 @@ export default function OtpEmail({
             --white: #ffffff;
         }
         
-        .email-body {
+        #root {
             font-family: 'Roboto', Arial, sans-serif;
             background-color: #f1f3f6;
-            color: #212121;
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
             line-height: 1.6;
@@ -30,56 +30,55 @@ export default function OtpEmail({
             max-width: 600px;
             margin: 20px auto;
             padding: 30px;
-            background: #ffffff;
+            background: var(--white);
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
         }
         
         h1 {
-            color: #2874f0;
+            color: var(--primary-color);
             font-size: 28px;
             margin-bottom: 15px;
             font-weight: 500;
         }
         
         h2 {
-            color: #fb641b;
-            font-size: 36px;
+            color: var(--secondary-color);
+            font-size: 32px;
             margin: 20px 0;
-            letter-spacing: 5px;
-            font-weight: bold;
+            letter-spacing: 2px;
         }
         
         h3 {
-            color: #212121;
+            color: var(--text-color);
             font-size: 24px;
             margin: 15px 0;
             font-weight: 500;
         }
         
         h4 {
-            color: #212121;
+            color: var(--text-color);
             font-size: 20px;
             margin: 15px 0;
             font-weight: 400;
         }
         
         h5 {
-            color: #212121;
+            color: var(--text-color);
             font-size: 18px;
             margin: 15px 0;
             font-weight: 500;
         }
         
-        .footer-span {
-            color: #878787;
+        span {
+            color: var(--light-text);
             font-size: 14px;
             display: block;
             margin-top: 20px;
         }
         
         @media (max-width: 768px) {
-            .email-body {
+            #root {
                 padding: 10px;
             }
             
@@ -107,8 +106,7 @@ export default function OtpEmail({
             h5 {
                 font-size: 16px;
             }
-        }
-    `;
+        }`;
 
     return (
         <div className="email-body">

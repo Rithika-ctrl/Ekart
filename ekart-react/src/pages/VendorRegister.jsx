@@ -1,26 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
-const CSS = `
-        :root {
-            --yellow:        #f5a800;
-            --yellow-d:      #d48f00;
-            --glass-bg:      rgba(255, 255, 255, 0.10);
-            --glass-border:  rgba(255, 255, 255, 0.22);
-            --glass-card:    rgba(255, 255, 255, 0.13);
-            --text-white:    #ffffff;
-            --text-light:    rgba(255,255,255,0.80);
-            --text-dim:      rgba(255,255,255,0.50);
-            --input-bg:      rgba(255, 255, 255, 0.08);
-            --input-border:  rgba(255, 255, 255, 0.20);
-            --input-focus:   rgba(245, 168, 0, 0.55);
+const CSS = `:root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -28,11 +24,8 @@ const CSS = `
             flex-direction: column;
         }
 
-        /* ── BACKGROUND ── */
-        .bg-layer {
-            position: fixed; inset: 0; z-index: -1;
-            overflow: hidden;
-        }
+        /* ── Background ── */
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
             position: absolute; inset: -20px;
@@ -43,23 +36,20 @@ const CSS = `
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: linear-gradient(
-                180deg,
-                rgba(5, 8, 20, 0.82) 0%,
-                rgba(8, 12, 28, 0.78) 40%,
-                rgba(5, 8, 20, 0.88) 100%
-            );
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
-        /* ── NAV ── */
+        /* ── Navbar ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
-            background: rgba(0,0,0,0.25);
+            background: var(--glass-nav);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
         }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
             color: var(--text-white); text-decoration: none;
@@ -67,199 +57,193 @@ const CSS = `
             display: flex; align-items: center; gap: 0.5rem;
         }
         .nav-brand span { color: var(--yellow); }
-
-        .nav-links { display: flex; align-items: center; gap: 0.25rem; list-style: none; }
-        .nav-links a {
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
             color: var(--text-light); text-decoration: none;
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
-            transition: all 0.2s;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
         }
-        .nav-links a:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); }
 
-        .dropdown { position: relative; }
-        .dropdown > a { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
-        .dropdown-menu {
-            position: absolute; top: calc(100% + 0.75rem); right: 0;
-            background: rgba(10, 12, 30, 0.90);
+        /* ── Alert Stack ── */
+        .alert-stack {
+            position: fixed; top: 5rem; right: 1.5rem;
+            z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .alert {
+            padding: 0.875rem 1.25rem;
+            background: rgba(10,12,30,0.88); backdrop-filter: blur(16px);
+            border: 1px solid; border-radius: 10px;
+            display: flex; align-items: center; gap: 0.625rem;
+            font-size: 0.825rem; min-width: 260px;
+            animation: slideIn 0.3s ease both;
+        }
+        .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
+
+        /* ── Page Layout ── */
+        .page {
+            flex: 1;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 2rem;
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            background: var(--glass-card);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            border-radius: 10px; padding: 0.5rem; min-width: 210px;
-            opacity: 0; visibility: hidden; transform: translateY(-6px);
-            transition: all 0.22s; list-style: none;
-        }
-        .dropdown:hover .dropdown-menu, .dropdown.open .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
-        .dropdown-menu li a {
-            display: flex; align-items: center; gap: 0.625rem;
-            padding: 0.6rem 1rem; border-radius: 7px;
-            color: var(--text-light); text-decoration: none; font-size: 0.82rem;
-            transition: background 0.15s;
-        }
-        .dropdown-menu li a:hover { background: rgba(255,255,255,0.1); color: white; }
-        .dropdown-menu .divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.3rem 0; }
-
-        /* ── PAGE WRAPPER ── */
-        .page-wrapper {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 7rem 1.5rem 3rem;
-        }
-
-        /* ── GLASS CARD ── */
-        .reg-card {
-            background: var(--glass-card);
-            backdrop-filter: blur(22px);
-            border: 1px solid var(--glass-border);
             border-radius: 20px;
-            padding: 2.75rem 2.5rem;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 24px 80px rgba(0,0,0,0.45);
-            animation: fadeUp 0.55s ease both;
+            padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 560px;
+            animation: fadeUp 0.5s ease both;
         }
-
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Card header */
-        .card-header-area {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .card-icon {
-            width: 56px; height: 56px;
-            background: rgba(245,168,0,0.18);
-            border: 1px solid rgba(245,168,0,0.35);
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 1rem;
-            font-size: 1.3rem; color: var(--yellow);
-        }
-        .card-header-area h1 {
-            font-size: 1.55rem; font-weight: 700;
-            color: white; margin-bottom: 0.3rem;
-        }
-        .card-header-area p {
-            font-size: 0.8rem; color: var(--text-dim);
+            font-size: 1.5rem; flex-shrink: 0;
         }
 
-        /* ── FORM ── */
-        .form-row-2 {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+        /* ── Form Card ── */
+        .form-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%; max-width: 560px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+            animation: fadeUp 0.5s ease 0.05s both;
         }
 
-        .form-group {
-            margin-bottom: 1.1rem;
+        /* ── Section Label ── */
+        .section-label {
+            display: flex; align-items: center; gap: 0.6rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.12em;
+            color: var(--yellow); margin-bottom: 1.25rem; margin-top: 0.5rem;
         }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: var(--glass-border); }
+
+        /* ── Form Elements ── */
+        .form-group { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.25rem; }
         .form-group label {
-            display: block;
-            font-size: 0.75rem; font-weight: 600;
-            letter-spacing: 0.06em; text-transform: uppercase;
-            color: var(--text-dim); margin-bottom: 0.45rem;
+            font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-dim); margin-left: 0.15rem;
         }
 
-        .input-wrap {
-            position: relative;
+        .input-wrapper { position: relative; }
+        .input-wrapper .input-icon {
+            position: absolute; left: 1rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim); font-size: 0.875rem;
+            transition: color 0.3s; pointer-events: none; z-index: 1;
         }
-        .input-wrap i {
-            position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%);
-            font-size: 0.85rem; color: var(--text-dim); pointer-events: none;
-            transition: color 0.2s;
+        .input-wrapper:focus-within .input-icon { color: var(--yellow); }
+
+        /* toggle icon on right */
+        .input-wrapper .toggle-pw {
+            position: absolute; right: 1rem; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim); font-size: 0.875rem;
+            cursor: pointer; transition: color 0.2s; z-index: 1;
         }
-        .input-wrap input {
+        .input-wrapper .toggle-pw:hover { color: var(--yellow); }
+
+        .form-control {
             width: 100%;
-            background: var(--input-bg);
-            border: 1px solid var(--input-border);
-            border-radius: 10px;
-            padding: 0.7rem 0.875rem 0.7rem 2.5rem;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.875rem; color: white;
-            transition: all 0.25s;
-            outline: none;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.8rem 1rem 0.8rem 2.75rem;
+            color: white; font-family: 'Poppins', sans-serif;
+            font-size: 0.875rem; transition: all 0.3s;
         }
-        .input-wrap input::placeholder { color: rgba(255,255,255,0.28); }
-        .input-wrap input:focus {
-            border-color: var(--input-focus);
-            background: rgba(255,255,255,0.12);
+        .form-control.has-toggle { padding-right: 2.75rem; }
+        .form-control::placeholder { color: var(--text-dim); }
+        .form-control:focus {
+            outline: none; background: rgba(255,255,255,0.10);
+            border-color: var(--yellow);
             box-shadow: 0 0 0 3px rgba(245,168,0,0.12);
         }
-        .input-wrap input:focus + i,
-        .input-wrap:focus-within i { color: var(--yellow); }
-
-        /* password toggle */
-        .pw-toggle {
-            position: absolute; right: 0.875rem; top: 50%; transform: translateY(-50%);
-            cursor: pointer; color: var(--text-dim); font-size: 0.85rem;
-            transition: color 0.2s; pointer-events: all;
-        }
-        .pw-toggle:hover { color: var(--yellow); }
-
-        /* error */
-        .error-msg {
-            font-size: 0.72rem; color: #ff8060;
-            margin-top: 0.3rem; display: block;
+        .form-control.is-invalid {
+            border-color: rgba(255,100,80,0.6);
+            box-shadow: 0 0 0 3px rgba(255,100,80,0.08);
         }
 
-        /* strength bar */
-        .strength-wrap { margin-top: 0.6rem; }
-        .strength-bar-bg {
-            height: 4px; border-radius: 999px;
-            background: rgba(255,255,255,0.1); overflow: hidden;
+        /* ── Error message ── */
+        .error-message {
+            font-size: 0.7rem; color: #ff8060;
+            display: flex; align-items: center; gap: 0.3rem;
+            margin-left: 0.15rem;
+        }
+        .error-message:empty { display: none; }
+
+        /* ── Password Strength ── */
+        .strength-bar-wrap {
+            height: 6px; border-radius: 99px;
+            background: rgba(255,255,255,0.08);
+            overflow: hidden; margin-top: 0.4rem;
         }
         .strength-bar {
             height: 100%; width: 0%;
-            border-radius: 999px;
+            border-radius: 99px;
             transition: width 0.35s ease, background 0.35s ease;
         }
-        .strength-text {
+        .strength-label {
             font-size: 0.68rem; color: var(--text-dim);
-            margin-top: 0.3rem;
-            transition: color 0.35s ease;
+            margin-top: 0.3rem; margin-left: 0.15rem;
+            transition: color 0.3s;
         }
 
-        /* divider */
-        .form-divider {
-            border: none; border-top: 1px solid rgba(255,255,255,0.1);
-            margin: 1.5rem 0;
-        }
-
-        /* submit */
+        /* ── Submit Button ── */
         .btn-submit {
-            width: 100%;
-            background: var(--yellow); color: #1a1000;
-            border: none; border-radius: 50px;
-            padding: 0.875rem;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.875rem; font-weight: 700;
-            letter-spacing: 0.1em; text-transform: uppercase;
-            cursor: pointer; transition: all 0.3s;
+            width: 100%; background: var(--yellow); color: #1a1000;
+            border: none; border-radius: 12px; padding: 0.95rem;
+            font-family: 'Poppins', sans-serif; font-size: 0.9rem; font-weight: 700;
+            letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow: 0 8px 24px rgba(245,168,0,0.25);
             display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-            box-shadow: 0 6px 24px rgba(245,168,0,0.35);
+            margin-top: 2rem;
         }
-        .btn-submit:hover {
-            background: var(--yellow-d);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 32px rgba(245,168,0,0.5);
-        }
+        .btn-submit:hover { background: var(--yellow-d); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(245,168,0,0.42); }
+        .btn-submit:active { transform: translateY(0); }
 
-        .card-footer-text {
+        /* ── Login redirect ── */
+        .login-redirect {
             text-align: center; margin-top: 1.5rem;
             font-size: 0.8rem; color: var(--text-dim);
         }
-        .card-footer-text a {
+        .login-redirect a {
             color: var(--yellow); text-decoration: none; font-weight: 600;
-            margin-left: 0.25rem;
+            transition: color 0.2s;
         }
-        .card-footer-text a:hover { text-decoration: underline; }
+        .login-redirect a:hover { color: var(--yellow-d); }
 
-        /* ── FOOTER ── */
+        /* ── Back link ── */
+        .back-link {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+            margin-top: 1.25rem; color: var(--text-dim); text-decoration: none;
+            font-size: 0.78rem; transition: color 0.2s; width: 100%;
+        }
+        .back-link:hover { color: var(--text-white); }
+
+        /* ── Footer ── */
         footer {
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(16px);
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
@@ -269,59 +253,79 @@ const CSS = `
         .footer-brand span { color: var(--yellow); }
         .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @media(max-width: 560px) {
-            nav { padding: 0.875rem 1.25rem; }
-            .reg-card { padding: 2rem 1.5rem; }
-            .form-row-2 { grid-template-columns: 1fr; }
-        }
-`;
+        /* ── Animations ── */
+        @keyframes fadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 
-/**
- * VendorRegister Component
- * @param {Object} props
- * @param {Object} props.vendor - Initial vendor object containing default field values
- * @param {Object} props.errors - Field validation errors object
- * @param {string|null} props.csrfToken - CSRF token for secure form submission
- */
+        /* ── Responsive ── */
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .form-card { padding: 1.75rem 1.25rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }`;
+
 export default function VendorRegister({
-    vendor = { businessName: '', ownerName: '', email: '', mobile: '' },
     errors = {},
-    csrfToken = null
+    successMessage = null,
+    failureMessage = null,
 }) {
+    const navigate = useNavigate();
+
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [mobile, setMobile] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    
-    // Password Strength State
+    const [loading, setLoading] = useState(false);
+    const [formError, setFormError] = useState('');
+    const [scrolled, setScrolled] = useState(false);
+
     const [strength, setStrength] = useState(0);
     const [strengthText, setStrengthText] = useState('Must be 6+ chars with A, a, 1, @');
     const [strengthColor, setStrengthColor] = useState('transparent');
-    const [textColor, setTextColor] = useState('rgba(255,255,255,0.4)');
-    
-    const dropdownRef = useRef(null);
+    const [strengthLabelColor, setStrengthLabelColor] = useState('rgba(255,255,255,0.4)');
 
-    // Additional form state for SPA submission
-    const navigate = useNavigate();
-    const [businessName, setBusinessName] = useState(vendor?.businessName || '');
-    const [ownerName, setOwnerName] = useState(vendor?.ownerName || '');
-    const [email, setEmail] = useState(vendor?.email || '');
-    const [mobile, setMobile] = useState(vendor?.mobile || '');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [formError, setFormError] = useState('');
+    const [showSuccess, setShowSuccess] = useState(!!successMessage);
+    const [showFailure, setShowFailure] = useState(!!failureMessage);
+
+    useEffect(() => {
+        const handleScroll = () => setScrolled(window.scrollY > 10);
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useEffect(() => {
+        if (showSuccess || showFailure) {
+            const t = setTimeout(() => { setShowSuccess(false); setShowFailure(false); }, 2500);
+            return () => clearTimeout(t);
+        }
+    }, [showSuccess, showFailure]);
+
+    useEffect(() => {
+        let s = 0;
+        if (password.length >= 6) s += 20;
+        if (/[A-Z]/.test(password)) s += 20;
+        if (/[a-z]/.test(password)) s += 20;
+        if (/[0-9]/.test(password)) s += 20;
+        if (/[@$!%*?&]/.test(password)) s += 20;
+        setStrength(s);
+        if (s === 0) { setStrengthColor('transparent'); setStrengthText('Must be 6+ chars with A, a, 1, @'); setStrengthLabelColor('rgba(255,255,255,0.4)'); }
+        else if (s < 60) { setStrengthColor('#ef4444'); setStrengthText('Strength: Weak'); setStrengthLabelColor('#ef4444'); }
+        else if (s < 100) { setStrengthColor('#f5a800'); setStrengthText('Strength: Medium'); setStrengthLabelColor('#f5a800'); }
+        else { setStrengthColor('#22c55e'); setStrengthText('Strength: Strong ✓'); setStrengthLabelColor('#22c55e'); }
+    }, [password]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
-        if (password !== confirmPassword) {
-            setFormError('Passwords do not match');
-            return;
-        }
+        if (password !== confirmPassword) { setFormError('Passwords do not match'); return; }
         setLoading(true);
         try {
-            const payload = { name: ownerName || businessName, email, password, mobile };
-            const res = await api.post('/api/flutter/auth/vendor/register', payload);
+            const res = await api.post('/api/flutter/auth/vendor/register', { name, email, password, mobile });
             if (res?.data?.success) {
                 alert(res.data.message || 'Registered successfully. Wait for admin approval.');
                 navigate('/vendor/login');
@@ -335,222 +339,182 @@ export default function VendorRegister({
         }
     };
 
-    // Click outside handler for dropdown
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsDropdownOpen(false);
-            }
-        };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, []);
-
-    // Password strength logic
-    useEffect(() => {
-        let s = 0;
-        if (password.length >= 6) s += 20;
-        if (/[A-Z]/.test(password)) s += 20;
-        if (/[a-z]/.test(password)) s += 20;
-        if (/[0-9]/.test(password)) s += 20;
-        if (/[@$!%*?&]/.test(password)) s += 20;
-
-        setStrength(s);
-
-        if (s === 0) {
-            setStrengthColor('transparent');
-            setStrengthText('Must be 6+ chars with A, a, 1, @');
-            setTextColor('rgba(255,255,255,0.4)');
-        } else if (s < 60) {
-            setStrengthColor('#ef4444');
-            setStrengthText('Strength: Weak');
-            setTextColor('#ef4444');
-        } else if (s < 100) {
-            setStrengthColor('#f5a800');
-            setStrengthText('Strength: Medium');
-            setTextColor('#f5a800');
-        } else {
-            setStrengthColor('#22c55e');
-            setStrengthText('Strength: Strong ✓');
-            setTextColor('#22c55e');
-        }
-    }, [password]);
-
     return (
         <>
-            <meta charSet="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Ekart - Vendor Registration</title>
-            <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E" />
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-            
             <style>{CSS}</style>
 
             <div className="bg-layer"></div>
 
-            {/* ── NAV ── */}
-            <nav>
-                <a href="/" className="nav-brand">
+            {/* Alert Stack */}
+            <div className="alert-stack">
+                {showFailure && (
+                    <div className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle"></i>
+                        <span>{failureMessage}</span>
+                        <button className="alert-close" onClick={() => setShowFailure(false)}>×</button>
+                    </div>
+                )}
+                {showSuccess && (
+                    <div className="alert alert-success">
+                        <i className="fas fa-check-circle"></i>
+                        <span>{successMessage}</span>
+                        <button className="alert-close" onClick={() => setShowSuccess(false)}>×</button>
+                    </div>
+                )}
+                {formError && (
+                    <div className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle"></i>
+                        <span>{formError}</span>
+                        <button className="alert-close" onClick={() => setFormError('')}>×</button>
+                    </div>
+                )}
+            </div>
+
+            {/* Navbar */}
+            <nav className={scrolled ? 'scrolled' : ''}>
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
-                    Ek<span>art</span>
-                </a>
-                <ul className="nav-links">
-                    <li><a href="/products">Shop</a></li>
-                    <li className={`dropdown ${isDropdownOpen ? 'open' : ''}`} ref={dropdownRef}>
-                        <a onClick={(e) => { e.preventDefault(); setIsDropdownOpen(!isDropdownOpen); }}>
-                            <i className="fas fa-user-circle"></i> Account
-                            <i className="fas fa-angle-down" style={{ fontSize: '.65rem' }}></i>
-                        </a>
-                        <ul className="dropdown-menu">
-                            <li><a href="/customer/login"><i className="fas fa-sign-in-alt" style={{ color: 'var(--yellow)', width: '14px' }}></i> Customer Login</a></li>
-                            <li><a href="/customer/register"><i className="fas fa-user-plus" style={{ color: '#7dc97d', width: '14px' }}></i> Customer Register</a></li>
-                            <li><hr className="divider" /></li>
-                            <li><a href="/vendor/login"><i className="fas fa-store" style={{ color: 'var(--yellow)', width: '14px' }}></i> Vendor Login</a></li>
-                            <li><a href="/vendor/register"><i className="fas fa-store" style={{ color: '#7dc97d', width: '14px' }}></i> Vendor Register</a></li>
-                            <li><hr className="divider" /></li>
-                            <li><a href="/admin/login"><i className="fas fa-shield-alt" style={{ color: 'rgba(255,255,255,0.4)', width: '14px' }}></i> Admin Login</a></li>
-                        </ul>
-                    </li>
-                </ul>
+                    <span>Ekart</span>
+                </Link>
+                <div className="nav-right">
+                    <Link to="/vendor/login" className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Vendor Login</Link>
+                    <Link to="/login" className="nav-link-btn"><i className="fas fa-user"></i> Customer Login</Link>
+                </div>
             </nav>
 
-            {/* ── MAIN ── */}
-            <div className="page-wrapper">
-                <div className="reg-card">
+            <main className="page">
 
-                    {/* Header */}
-                    <div className="card-header-area">
-                        <div className="card-icon"><i className="fas fa-store"></i></div>
-                        <h1>Partner with Us</h1>
-                        <p>Create your vendor account and start selling on Ekart.</p>
+                {/* Page Header */}
+                <div className="page-header">
+                    <div className="page-header-left">
+                        <h1>Vendor <span>Registration</span> 🏪</h1>
+                        <p>Create your seller account and start listing products on Ekart.</p>
                     </div>
+                    <div className="page-header-icon">🛍️</div>
+                </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit}>
+                {/* Form Card */}
+                <div className="form-card">
+                    <form onSubmit={handleSubmit} noValidate>
 
-                        {/* Business Name */}
+                        {/* Section: Account Info */}
+                        <div className="section-label"><i className="fas fa-user-circle"></i> Account Info</div>
+
+                        {/* Name */}
                         <div className="form-group">
-                            <label htmlFor="businessName">Business Name</label>
-                            <div className="input-wrap">
-                                <i className="fas fa-store-alt"></i>
-                                <input type="text" id="businessName" name="businessName" placeholder="e.g. Acme Electronics" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+                            <label htmlFor="name">Full Name</label>
+                            <div className="input-wrapper">
+                                <i className="fas fa-user input-icon"></i>
+                                <input
+                                    type="text" id="name" name="name"
+                                    className={`form-control${errors?.name ? ' is-invalid' : ''}`}
+                                    placeholder="e.g. Ramesh Kumar"
+                                    value={name} onChange={e => setName(e.target.value)} required
+                                />
                             </div>
-                            {errors?.businessName && <span className="error-msg">{errors.businessName}</span>}
-                        </div>
-
-                        <div className="form-row-2">
-                            {/* Owner Name */}
-                            <div className="form-group">
-                                <label htmlFor="ownerName">Owner Name</label>
-                                <div className="input-wrap">
-                                    <i className="fas fa-user-tie"></i>
-                                    <input type="text" id="ownerName" name="ownerName" placeholder="Jane Doe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
-                                </div>
-                                {errors?.ownerName && <span className="error-msg">{errors.ownerName}</span>}
-                            </div>
-
-                            {/* Mobile */}
-                            <div className="form-group">
-                                <label htmlFor="mobile">Mobile</label>
-                                <div className="input-wrap">
-                                    <i className="fas fa-phone"></i>
-                                    <input type="tel" id="mobile" name="mobile" placeholder="+91 9876543210" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-                                </div>
-                                {errors?.mobile && <span className="error-msg">{errors.mobile}</span>}
-                            </div>
+                            {errors?.name && <span className="error-message"><i className="fas fa-exclamation-circle"></i> {errors.name}</span>}
                         </div>
 
                         {/* Email */}
                         <div className="form-group">
-                            <label htmlFor="email">Business Email</label>
-                            <div className="input-wrap">
-                                <i className="fas fa-envelope"></i>
-                                <input type="email" id="email" name="email" placeholder="contact@acme.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                            <label htmlFor="email">Email Address</label>
+                            <div className="input-wrapper">
+                                <i className="fas fa-envelope input-icon"></i>
+                                <input
+                                    type="email" id="email" name="email"
+                                    className={`form-control${errors?.email ? ' is-invalid' : ''}`}
+                                    placeholder="e.g. ramesh@email.com"
+                                    value={email} onChange={e => setEmail(e.target.value)} required
+                                />
                             </div>
-                            {errors?.email && <span className="error-msg">{errors.email}</span>}
+                            {errors?.email && <span className="error-message"><i className="fas fa-exclamation-circle"></i> {errors.email}</span>}
                         </div>
+
+                        {/* Mobile */}
+                        <div className="form-group">
+                            <label htmlFor="mobile">Mobile Number</label>
+                            <div className="input-wrapper">
+                                <i className="fas fa-phone input-icon"></i>
+                                <input
+                                    type="tel" id="mobile" name="mobile"
+                                    className={`form-control${errors?.mobile ? ' is-invalid' : ''}`}
+                                    placeholder="e.g. 9876543210"
+                                    value={mobile} onChange={e => setMobile(e.target.value)} required
+                                />
+                            </div>
+                            {errors?.mobile && <span className="error-message"><i className="fas fa-exclamation-circle"></i> {errors.mobile}</span>}
+                        </div>
+
+                        {/* Section: Security */}
+                        <div className="section-label" style={{ marginTop: '2rem' }}><i className="fas fa-lock"></i> Security</div>
 
                         {/* Password */}
                         <div className="form-group">
                             <label htmlFor="password">Password</label>
-                            <div className="input-wrap">
-                                <i className="fas fa-lock"></i>
-                                <input 
-                                    type={showPassword ? 'text' : 'password'} 
-                                    id="password" 
-                                    name="password"
-                                    placeholder="Min 6 chars" 
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                            <div className="input-wrapper">
+                                <i className="fas fa-key input-icon"></i>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    id="password" name="password"
+                                    className={`form-control has-toggle${errors?.password ? ' is-invalid' : ''}`}
+                                    placeholder="Min. 6 chars — A, a, 1, @"
+                                    value={password} onChange={e => setPassword(e.target.value)} required
                                 />
-                                <span className="pw-toggle" onClick={() => setShowPassword(!showPassword)}>
-                                    <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                                </span>
+                                <i
+                                    className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'} toggle-pw`}
+                                    onClick={() => setShowPassword(!showPassword)}
+                                ></i>
                             </div>
-                            {errors?.password && <span className="error-msg">{errors.password}</span>}
-                            
-                            <div className="strength-wrap">
-                                <div className="strength-bar-bg">
-                                    <div 
-                                        className="strength-bar" 
-                                        id="strengthBar"
-                                        style={{ width: `${strength}%`, background: strengthColor }}
-                                    ></div>
-                                </div>
-                                <div 
-                                    className="strength-text" 
-                                    id="strengthLabel"
-                                    style={{ color: textColor }}
-                                >
-                                    {strengthText}
-                                </div>
+                            {errors?.password && <span className="error-message"><i className="fas fa-exclamation-circle"></i> {errors.password}</span>}
+                            <div className="strength-bar-wrap">
+                                <div className="strength-bar" style={{ width: `${strength}%`, background: strengthColor }}></div>
                             </div>
+                            <div className="strength-label" style={{ color: strengthLabelColor }}>{strengthText}</div>
                         </div>
 
                         {/* Confirm Password */}
                         <div className="form-group">
                             <label htmlFor="confirmPassword">Confirm Password</label>
-                            <div className="input-wrap">
-                                <i className="fas fa-lock"></i>
-                                <input 
-                                    type={showConfirmPassword ? 'text' : 'password'} 
-                                    id="confirmPassword" 
-                                    name="confirmPassword" 
-                                    placeholder="Re-enter password" 
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                            <div className="input-wrapper">
+                                <i className="fas fa-lock input-icon"></i>
+                                <input
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    id="confirmPassword" name="confirmPassword"
+                                    className={`form-control has-toggle${errors?.confirmPassword ? ' is-invalid' : ''}`}
+                                    placeholder="Re-enter your password"
+                                    value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
                                 />
-                                <span className="pw-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                    <i className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                                </span>
+                                <i
+                                    className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'} toggle-pw`}
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                ></i>
                             </div>
-                            {errors?.confirmPassword && <span className="error-msg">{errors.confirmPassword}</span>}
+                            {errors?.confirmPassword && <span className="error-message"><i className="fas fa-exclamation-circle"></i> {errors.confirmPassword}</span>}
                         </div>
 
-                        <hr className="form-divider" />
-
-                        {formError && <div className="error-msg" style={{ marginBottom: '0.8rem' }}>{formError}</div>}
+                        {/* Submit */}
                         <button type="submit" className="btn-submit" disabled={loading}>
-                            <i className="fas fa-user-plus"></i> {loading ? 'Registering...' : 'Create Vendor Account'}
+                            <i className="fas fa-user-plus"></i> {loading ? 'Creating...' : 'Create Account'}
                         </button>
+
                     </form>
 
-                    <div className="card-footer-text">
-                        Already a vendor?
-                        <a href="/vendor/login">Sign in here</a>
+                    {/* Login redirect */}
+                    <div className="login-redirect">
+                        Already have an account? <Link to="/vendor/login">Sign in here</Link>
                     </div>
-                </div>
-            </div>
 
-            {/* ── FOOTER ── */}
+                    <Link to="/" className="back-link">
+                        <i className="fas fa-arrow-left"></i> Back to Home
+                    </Link>
+                </div>
+
+            </main>
+
             <footer>
-                <div className="footer-brand">Ekart</div>
+                <div className="footer-brand"><span>Ekart</span></div>
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
             </footer>
-
-            
         </>
     );
 }

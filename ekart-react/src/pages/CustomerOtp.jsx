@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +15,7 @@ const CSS = `
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -192,8 +192,7 @@ const CSS = `
             position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
             font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.1em;
         }
-        .brand-mark span { color: var(--yellow); font-weight: 700; }
-`;
+        .brand-mark span { color: var(--yellow); font-weight: 700; }`;
 
 /**
  * CustomerOtp Component
@@ -411,9 +410,9 @@ export default function CustomerOtp({
                     </button>
                 </form>
 
-                <a href="/customer/login" className="back-link">
+                <Link to="/login" className="back-link">
                     <i className="fas fa-arrow-left" style={{ fontSize: '.7rem' }}></i> Back to Login
-                </a>
+                </Link>
             </div>
 
             <div className="brand-mark">Ek<span>art</span> · Secure Verification</div>

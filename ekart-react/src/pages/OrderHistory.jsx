@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -15,7 +17,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -620,8 +622,7 @@ const CSS = `
             .page { padding: 5.5rem 1rem 2rem; }
             .page-header { flex-direction: column; text-align: center; }
             footer { padding: 1.25rem; flex-direction: column; text-align: center; }
-        }
-`;
+        }`;
 
 /**
  * OrderHistory Component
@@ -635,6 +636,9 @@ export default function OrderHistory({
     failureMessage = null,
     orders = []
 }) {
+    const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -711,7 +715,7 @@ export default function OrderHistory({
         setProcessingOrderId(orderId);
 
         try {
-            const response = await fetch(`/api/orders/${orderId}/check-stock`);
+            const response = await authFetch(`/api/orders/${orderId}/check-stock`);
             const data = await response.json();
 
             if (!response.ok) {
@@ -742,7 +746,7 @@ export default function OrderHistory({
         setIsConfirmingReorder(true);
 
         try {
-            const response = await fetch(`/api/orders/${currentOrderId}/reorder`, {
+            const response = await authFetch(`/api/orders/${currentOrderId}/reorder`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -761,7 +765,7 @@ export default function OrderHistory({
                 }
 
                 setTimeout(() => {
-                    window.location.href = '/customer/view-cart';
+                    navigate('/cart');
                 }, 1500);
             } else {
                 addToast(data.message || 'Failed to reorder', 'error');
@@ -814,15 +818,15 @@ export default function OrderHistory({
 
             {/* NAVBAR */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
                 </a>
                 <div className="nav-right">
-                    <a href="/customer/view-products" className="nav-link-btn"><i className="fas fa-store"></i> Shop</a>
-                    <a href="/customer/view-cart"     className="nav-link-btn"><i class="fas fa-shopping-cart"></i> Cart</a>
-                    <a href="/customer/order-history" className="nav-link-btn active"><i className="fas fa-history"></i> Orders</a>
-                    <a href="/customer/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <Link to="/products" className="nav-link-btn"><i className="fas fa-store"></i> Shop</Link>
+                    <Link to="/cart"     className="nav-link-btn"><i class="fas fa-shopping-cart"></i> Cart</Link>
+                    <Link to="/orders" className="nav-link-btn active"><i className="fas fa-history"></i> Orders</Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -993,14 +997,14 @@ export default function OrderHistory({
                         <div className="empty-icon"><i className="fas fa-box-open"></i></div>
                         <h3>No Orders Yet</h3>
                         <p>Your past purchases will show up here once you start shopping.</p>
-                        <a href="/customer/view-products" className="btn btn-primary">
+                        <Link to="/products" className="btn btn-primary">
                             <i className="fas fa-store"></i> Browse Products
-                        </a>
+                        </Link>
                     </div>
                 )}
 
                 {/* Back */}
-                <a href="/customer/home" className="btn btn-ghost">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn btn-ghost">
                     <i className="fas fa-arrow-left"></i> Back to Home
                 </a>
 

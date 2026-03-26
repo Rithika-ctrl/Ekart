@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * OrderEmail Component
@@ -20,10 +21,9 @@ export default function OrderEmail({
     items = [],
     amount = "0.00"
 }) {
-    const CSS = `
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+    const CSS = `* { margin: 0; padding: 0; box-sizing: border-box; }
 
-        .email-body {
+        #root {
             font-family: 'Segoe UI', Arial, sans-serif;
             background: #0d1020;
             padding: 32px 16px;
@@ -100,54 +100,71 @@ export default function OrderEmail({
         }
         .header p {
             font-size: 14px;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.45);
         }
 
         /* ── BODY ── */
-        .body { padding: 32px 36px; text-align: left; }
+        .#root { padding: 32px 36px; }
 
         .greeting {
             font-size: 15px;
             color: rgba(255,255,255,0.75);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             line-height: 1.6;
         }
         .greeting strong { color: #ffffff; }
 
         .sub-text {
             font-size: 13.5px;
-            color: rgba(255,255,255,0.45);
+            color: rgba(255,255,255,0.4);
             margin-bottom: 28px;
             line-height: 1.65;
         }
 
-        /* ── INFO GRID ── */
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 32px;
-        }
-        .info-item {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            padding: 14px 18px;
-            border-radius: 12px;
+        /* ── INFO BOX ── */
+        .info-box {
+            background: rgba(245,168,0,0.06);
+            border: 1px solid rgba(245,168,0,0.18);
+            border-radius: 14px;
+            padding: 18px 22px;
+            margin-bottom: 28px;
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            gap: 20px;
+            flex-wrap: wrap;
         }
+        .info-item { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
         .info-label {
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: rgba(255,255,255,0.35);
+            color: rgba(255,255,255,0.3);
         }
         .info-value {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
             color: #ffffff;
+        }
+
+        /* ── PAYMENT BADGES ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-online {
+            background: rgba(34,197,94,0.15);
+            border: 1px solid rgba(34,197,94,0.3);
+            color: #4ade80;
+        }
+        .badge-cod {
+            background: rgba(245,168,0,0.15);
+            border: 1px solid rgba(245,168,0,0.3);
+            color: #f5a800;
         }
 
         /* ── SECTION TITLE ── */
@@ -156,10 +173,10 @@ export default function OrderEmail({
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.12em;
-            color: rgba(255,255,255,0.35);
+            color: rgba(255,255,255,0.3);
             margin-bottom: 12px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
         }
 
         /* ── TABLE ── */
@@ -179,14 +196,13 @@ export default function OrderEmail({
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.4);
+            color: rgba(255,255,255,0.35);
         }
         td {
             padding: 12px 14px;
             font-size: 13.5px;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.65);
             border-bottom: 1px solid rgba(255,255,255,0.06);
-            text-align: left;
         }
         tr:last-child td { border-bottom: none; }
 
@@ -198,25 +214,24 @@ export default function OrderEmail({
             border-top: 1px solid rgba(245,168,0,0.2);
         }
 
-        /* ── NOTICE BOX ── */
+        /* ── NOTICE ── */
         .notice-box {
-            background: rgba(34,197,94,0.07);
-            border: 1px solid rgba(34,197,94,0.2);
+            background: rgba(59,130,246,0.07);
+            border: 1px solid rgba(59,130,246,0.2);
             border-radius: 12px;
             padding: 14px 18px;
             margin-bottom: 24px;
             font-size: 13px;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.45);
             line-height: 1.6;
         }
-        .notice-box strong { color: #4ade80; }
+        .notice-box strong { color: #60a5fa; }
 
         /* ── SIGN OFF ── */
         .sign-off {
             font-size: 14px;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.45);
             line-height: 1.7;
-            margin-top: 8px;
         }
         .sign-off strong { color: #f5a800; font-size: 15px; }
 
@@ -231,10 +246,9 @@ export default function OrderEmail({
             flex-wrap: wrap;
             gap: 8px;
         }
-        .footer-brand { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.4); }
+        .footer-brand { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.35); }
         .footer-brand span { color: #f5a800; }
-        .footer-copy { font-size: 11px; color: rgba(255,255,255,0.25); }
-    `;
+        .footer-copy { font-size: 11px; color: rgba(255,255,255,0.2); }`;
 
     return (
         <div className="email-body">

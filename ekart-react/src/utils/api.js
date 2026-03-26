@@ -331,4 +331,21 @@ export const searchApi = {
     api.get('/api/flutter/products', { params: { search: query, category } }),
 };
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// authFetch — drop-in replacement for fetch() that auto-attaches the JWT
+// ═══════════════════════════════════════════════════════════════════════════
+// Usage (exactly like fetch, but JWT is attached automatically):
+//   const res = await authFetch('/api/orders/123');
+//   const res = await authFetch('/api/orders/123', { method: 'POST', body: JSON.stringify(data) });
+export function authFetch(url, options = {}) {
+  const token = localStorage.getItem('ekart_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  };
+  return fetch(url, { ...options, headers });
+}
+
 export default api;

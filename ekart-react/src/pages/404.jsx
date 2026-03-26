@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - 404 Error Component
@@ -67,10 +68,10 @@ export default function Error404() {
             <h1>404</h1>
             <p className="error-message">Oops! The page you're looking for doesn't exist.</p>
             
-            <a href="/customer/home" className="back-home">
+            <Link to="/" className="back-home">
                 <i className="fas fa-home" style={{ marginRight: '0.5rem' }}></i>
                 Back to Dashboard
-            </a>
+            </Link>
         </div>
     );
 }

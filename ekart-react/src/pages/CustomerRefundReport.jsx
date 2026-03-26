@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerRefundReport = ({ 
   orderId, 
@@ -12,6 +14,9 @@ const CustomerRefundReport = ({
     failure: sessionFailure
   });
   
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
   const [scrolled, setScrolled] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -128,8 +133,7 @@ const CustomerRefundReport = ({
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
+      <style dangerouslySetInnerHTML={{ __html: `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.18);
@@ -142,7 +146,7 @@ const CustomerRefundReport = ({
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
-        body { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; background:#060a18; }
+        #root { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
 
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
@@ -234,13 +238,15 @@ const CustomerRefundReport = ({
             font-size:0.85rem; font-weight:700; color:white;
         }
         .card-header i { color:var(--yellow); }
-        .card-body { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+        .card-#root { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
 
         /* FORM ELEMENTS */
         .form-group { display:flex; flex-direction:column; gap:0.4rem; }
         .form-label { font-size:0.72rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; }
         .form-label span { color:#ef4444; }
-        .form-select, .form-input, .form-textarea {
+        .form-select,
+        .form-input,
+        .form-textarea {
             background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
             border-radius:10px; color:white;
             font-family:'Poppins',sans-serif; font-size:0.82rem;
@@ -351,8 +357,7 @@ const CustomerRefundReport = ({
         @keyframes fadeUp  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
-        @media(max-width:640px) { .page { padding:6rem 1rem 3rem; } .card-body { padding:1.1rem; } nav { padding:0.7rem 1rem; } .nav-link span { display:none; } }
-      `}} />
+        @media(max-width:640px) { .page { padding:6rem 1rem 3rem; } .card-#root { padding:1.1rem; } nav { padding:0.7rem 1rem; } .nav-link span { display:none; } }`}} />
 
       <div className="bg-layer"></div>
 
@@ -376,18 +381,18 @@ const CustomerRefundReport = ({
 
       {/* NAV */}
       <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-        <a href="/customer/home" className="nav-brand">
+        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
           <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
           Ek<span>art</span>
         </a>
         <div className="nav-right">
-          <a href="/view-orders" className="nav-link back-link">
+          <Link to="/view-orders" className="nav-link back-link">
             <i className="fas fa-arrow-left"></i> <span>My Orders</span>
-          </a>
-          <a href="/view-cart" className="nav-link">
+          </Link>
+          <Link to="/cart" className="nav-link">
             <i className="fas fa-shopping-cart"></i>
-          </a>
-          <a href="/logout" className="nav-link logout-link">
+          </Link>
+          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link logout-link">
             <i className="fas fa-sign-out-alt"></i> <span>Logout</span>
           </a>
         </div>
@@ -459,7 +464,7 @@ const CustomerRefundReport = ({
                     <button type="submit" className="btn-danger-ghost">
                       <i className="fas fa-paper-plane"></i> Submit Request
                     </button>
-                    <a href="/view-orders" className="btn-ghost">Cancel</a>
+                    <Link to="/view-orders" className="btn-ghost">Cancel</Link>
                   </div>
                 </form>
               </div>
@@ -528,9 +533,9 @@ const CustomerRefundReport = ({
                     <button type="submit" className="btn-primary" disabled={selectedFiles.length === 0}>
                       <i className="fas fa-upload"></i> Upload Evidence
                     </button>
-                    <a href="/view-orders" className="btn-ghost">
+                    <Link to="/view-orders" className="btn-ghost">
                       <i className="fas fa-forward"></i> Skip for now
-                    </a>
+                    </Link>
                   </div>
                 </form>
 

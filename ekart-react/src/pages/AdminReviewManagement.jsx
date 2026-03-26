@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * AdminReviewManagement Component
@@ -13,6 +15,9 @@ export default function AdminReviewManagement({
     csrfToken = ""
 }) {
     // --- STATE ---
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/admin/login'); };
     const [scrolled, setScrolled] = useState(false);
     const [alerts, setAlerts] = useState({ success: session.success, failure: session.failure });
     const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
@@ -45,92 +50,197 @@ export default function AdminReviewManagement({
     const closeModal = () => setDeleteModal({ show: false, id: null });
     const closeBulkModal = () => setBulkModal({ show: false, productName: '', productId: null });
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800; --yellow-d: #d48f00;
             --glass-border: rgba(255,255,255,0.18);
             --glass-card: rgba(255,255,255,0.07);
             --glass-nav: rgba(0,0,0,0.30);
             --text-white: #ffffff; --text-light: rgba(255,255,255,0.80); --text-dim: rgba(255,255,255,0.45);
-            --green: #10b981; --red: #ef4444; --orange: #f97316;
+            --green: #10b981; --red: #ef4444; --orange: #f59e0b;
         }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        #root { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); display:flex; flex-direction:column; }
 
-        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
-            content: ''; position: absolute; inset: -20px;
-            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(6px); transform: scale(1.08);
+            content:''; position:absolute; inset:-20px;
+            background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter:blur(6px); transform:scale(1.08);
         }
         .bg-layer::after {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(5,8,20,0.85) 0%, rgba(8,12,28,0.80) 40%, rgba(5,8,20,0.90) 100%);
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(180deg,rgba(5,8,20,0.88) 0%,rgba(8,12,28,0.84) 100%);
         }
 
         nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 1rem 3rem; display: flex; align-items: center; justify-content: space-between;
-            background: var(--glass-nav); backdrop-filter: blur(14px);
-            border-bottom: 1px solid var(--glass-border); transition: background 0.3s;
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:0.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+            background:var(--glass-nav); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border);
         }
-        nav.scrolled { background: rgba(0,0,0,0.45); }
-        .nav-brand { font-size: 1.6rem; font-weight: 700; color: var(--text-white); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
-        .nav-brand span { color: var(--yellow); }
-
-        .alert-stack { position: fixed; top: 5rem; right: 1.5rem; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; }
-        .alert { padding: 0.875rem 1.25rem; background: rgba(10,12,30,0.88); backdrop-filter: blur(16px); border: 1px solid; border-radius: 10px; display: flex; align-items: center; gap: 0.625rem; font-size: 0.825rem; min-width: 260px; animation: slideIn 0.3s ease both; }
-        .alert-success { border-color: rgba(16,185,129,0.45); color: var(--green); }
-        .alert-danger  { border-color: rgba(239,68,68,0.45); color: var(--red); }
-
-        .page { flex: 1; padding: 7rem 3rem 3rem; display: flex; flex-direction: column; gap: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; font-family: 'Poppins', sans-serif; }
-        .page-header { background: var(--glass-card); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 2.5rem 3rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; animation: fadeUp 0.5s ease both; }
-        .page-header h1 span { color: var(--yellow); }
-
-        .product-section { background: var(--glass-card); border: 1px solid var(--glass-border); border-radius: 20px; padding: 1.5rem; margin-bottom: 2rem; animation: fadeUp 0.6s ease both; }
-        .product-meta { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--glass-border); flex-wrap: wrap; }
-        .prod-img { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; border: 1px solid var(--glass-border); }
-        .prod-info h2 { font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 0.25rem; }
-        .prod-info p { font-size: 0.8rem; color: var(--text-dim); }
-
-        .reviews-table { width: 100%; border-collapse: collapse; }
-        .reviews-table th { text-align: left; padding: 1rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--glass-border); }
-        .reviews-table td { padding: 1.25rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; color: var(--text-light); }
-
-        .rating-stars { color: var(--yellow); font-size: 0.75rem; }
-        .customer-name { font-weight: 600; color: white; display: block; margin-bottom: 0.2rem; }
-        .review-date { font-size: 0.7rem; color: var(--text-dim); }
-        .review-comment { font-size: 0.82rem; line-height: 1.6; color: var(--text-light); }
-
-        .btn-delete { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.3); padding: 0.5rem 0.8rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; }
-        .btn-delete:hover { background: var(--red); color: white; }
-
-        .btn-bulk-del { background: none; border: 1.5px solid rgba(239,68,68,0.3); color: var(--red); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-left: auto; transition: 0.2s; }
-        .btn-bulk-del:hover { background: rgba(239,68,68,0.1); border-color: var(--red); }
-
-        .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; }
-        .modal-overlay.show { display: flex; }
-        .modal-box { background: #0a0c1a; border: 1px solid var(--glass-border); border-radius: 24px; padding: 2.5rem; width: 90%; max-width: 400px; text-align: center; }
-        .modal-icon { font-size: 3rem; color: var(--red); margin-bottom: 1rem; }
-        .modal-box h3 { font-size: 1.25rem; font-weight: 700; color: white; margin-bottom: 0.75rem; }
-        .modal-box p { font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 2rem; }
-        
-        .modal-actions { display: flex; gap: 1rem; }
-        .btn-modal { flex: 1; padding: 0.8rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; font-family: 'Poppins', sans-serif; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
-        .btn-cancel { background: rgba(255,255,255,0.08); color: white; }
-        .btn-confirm-del { background: var(--red); color: white; }
-
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
-
-        @media(max-width: 800px) {
-            nav { padding: 1rem 1.5rem; }
-            .page { padding: 6rem 1.25rem 2rem; }
-            .page-header { flex-direction: column; text-align: center; padding: 2rem; }
-            .product-meta { flex-direction: column; text-align: center; }
-            .btn-bulk-del { margin: 1rem 0 0; width: 100%; }
-            .reviews-table thead { display: none; }
-            .reviews-table td { display: block; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .nav-brand { font-size:1.4rem; font-weight:700; color:white; text-decoration:none; display:flex; align-items:center; gap:0.4rem; }
+        .nav-brand span { color:var(--yellow); }
+        .nav-links { display:flex; align-items:center; gap:0.4rem; }
+        .nav-link {
+            color:var(--text-light); text-decoration:none; font-size:0.8rem; font-weight:500;
+            padding:0.4rem 0.85rem; border-radius:6px; border:1px solid var(--glass-border);
+            transition:all 0.2s;
         }
-    `;
+        .nav-link:hover { background:rgba(255,255,255,0.1); color:white; }
+        .nav-link.danger { border-color:rgba(239,68,68,0.35); color:rgba(239,68,68,0.8); }
+        .nav-link.danger:hover { background:rgba(239,68,68,0.12); color:#ef4444; }
+
+        .page { flex:1; padding:6rem 1.5rem 3rem; max-width:1200px; margin:0 auto; width:100%; }
+
+        /* Alert */
+        .alert { padding:0.9rem 1.2rem; border-radius:10px; margin-bottom:1.5rem; font-size:0.85rem; font-weight:500; }
+        .alert-success { background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#10b981; }
+        .alert-danger  { background:rgba(239,68,68,0.15);  border:1px solid rgba(239,68,68,0.35);  color:#ef4444; }
+
+        /* Page header */
+        .page-header { margin-bottom:2rem; }
+        .page-header h1 { font-size:1.8rem; font-weight:800; }
+        .page-header h1 span { color:var(--yellow); }
+        .page-header p { color:var(--text-dim); font-size:0.85rem; margin-top:0.3rem; }
+
+        /* Stats row */
+        .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:2rem; }
+        .stat-card {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.2rem 1.4rem; text-align:center;
+            backdrop-filter:blur(12px); transition:transform 0.2s;
+        }
+        .stat-card:hover { transform:translateY(-3px); }
+        .stat-num { font-size:2rem; font-weight:800; color:var(--yellow); }
+        .stat-label { font-size:0.72rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.08em; margin-top:0.25rem; }
+
+        /* Star distribution */
+        .dist-card {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:16px; padding:1.5rem 2rem; margin-bottom:2rem;
+            backdrop-filter:blur(12px);
+        }
+        .dist-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--yellow); margin-bottom:1rem; }
+        .dist-row { display:flex; align-items:center; gap:0.75rem; margin-bottom:0.6rem; }
+        .dist-stars { font-size:0.8rem; color:var(--yellow); width:55px; flex-shrink:0; }
+        .dist-bar-wrap { flex:1; background:rgba(255,255,255,0.08); border-radius:20px; height:8px; }
+        .dist-bar { height:8px; border-radius:20px; background:var(--yellow); transition:width 0.5s ease; }
+        .dist-count { font-size:0.75rem; color:var(--text-dim); width:28px; text-align:right; flex-shrink:0; }
+
+        /* Filter + Search */
+        .controls {
+            display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.5rem;
+        }
+        .filter-btn {
+            padding:0.4rem 0.9rem; border-radius:20px; border:1px solid var(--glass-border);
+            background:transparent; color:var(--text-dim); font-family:'Poppins',sans-serif;
+            font-size:0.78rem; font-weight:600; cursor:pointer; transition:all 0.2s;
+        }
+        .filter-btn:hover { color:var(--text-light); background:rgba(255,255,255,0.08); }
+        .filter-btn.active { background:var(--yellow); color:#1a1000; border-color:var(--yellow); }
+        .search-wrap { display:flex; align-items:center; gap:0.5rem; margin-left:auto; }
+        .search-input {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:8px; padding:0.45rem 0.9rem; color:white;
+            font-family:'Poppins',sans-serif; font-size:0.82rem; outline:none;
+            min-width:200px;
+        }
+        .search-input::placeholder { color:var(--text-dim); }
+        .search-input:focus { border-color:rgba(245,168,0,0.5); }
+        .btn-search {
+            padding:0.45rem 1rem; background:var(--yellow); color:#1a1000;
+            border:none; border-radius:8px; font-family:'Poppins',sans-serif;
+            font-size:0.8rem; font-weight:700; cursor:pointer; transition:background 0.2s;
+        }
+        .btn-search:hover { background:var(--yellow-d); }
+
+        /* Review cards */
+        .reviews-grid { display:flex; flex-direction:column; gap:1rem; margin-bottom:2.5rem; }
+        .review-card {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.25rem 1.5rem;
+            backdrop-filter:blur(12px); transition:transform 0.2s, box-shadow 0.2s;
+            display:flex; gap:1rem; align-items:flex-start;
+        }
+        .review-card:hover { transform:translateX(3px); box-shadow:0 8px 30px rgba(0,0,0,0.3); }
+        .review-avatar {
+            width:42px; height:42px; border-radius:50%;
+            background:rgba(245,168,0,0.15); border:2px solid rgba(245,168,0,0.3);
+            display:flex; align-items:center; justify-content:center;
+            font-size:1rem; font-weight:700; color:var(--yellow); flex-shrink:0;
+        }
+        .review-#root { flex:1; }
+        .review-top { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem; }
+        .review-name { font-weight:700; font-size:0.9rem; }
+        .review-product { font-size:0.75rem; color:var(--text-dim); background:rgba(255,255,255,0.06); padding:0.15rem 0.6rem; border-radius:10px; }
+        .review-stars { color:var(--yellow); font-size:0.85rem; }
+        .review-date { font-size:0.72rem; color:var(--text-dim); margin-left:auto; }
+        .review-comment { font-size:0.85rem; color:var(--text-light); line-height:1.6; }
+        .review-actions { display:flex; gap:0.5rem; margin-top:0.75rem; }
+        .btn-delete {
+            padding:0.3rem 0.75rem; background:rgba(239,68,68,0.15);
+            color:#ef4444; border:1px solid rgba(239,68,68,0.3);
+            border-radius:6px; font-family:'Poppins',sans-serif; font-size:0.75rem;
+            font-weight:600; cursor:pointer; text-decoration:none;
+            transition:all 0.2s; display:inline-flex; align-items:center; gap:0.35rem;
+        }
+        .btn-delete:hover { background:rgba(239,68,68,0.25); border-color:rgba(239,68,68,0.5); }
+
+        /* Empty state */
+        .empty-state {
+            text-align:center; padding:4rem 1rem;
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:16px; backdrop-filter:blur(12px);
+        }
+        .empty-state i { font-size:2.5rem; color:rgba(245,168,0,0.3); display:block; margin-bottom:0.75rem; }
+        .empty-state p { color:var(--text-dim); font-size:0.9rem; }
+
+        /* Product stats table */
+        .prod-table-card {
+            background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:16px; padding:1.5rem 2rem; margin-bottom:2rem;
+            backdrop-filter:blur(12px);
+        }
+        .section-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--yellow); margin-bottom:1.25rem; }
+        table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+        thead th {
+            padding:0.6rem 1rem; font-size:0.68rem; font-weight:700;
+            text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
+            border-bottom:1px solid var(--glass-border); text-align:left;
+        }
+        tbody tr { border-bottom:1px solid rgba(255,255,255,0.05); transition:background 0.15s; }
+        tbody tr:last-child { border-bottom:none; }
+        tbody tr:hover { background:rgba(255,255,255,0.04); }
+        tbody td { padding:0.75rem 1rem; color:var(--text-light); }
+        tbody td strong { color:white; }
+        .stars-yellow { color:var(--yellow); }
+
+        /* Modal */
+        .modal-bg {
+            display:none; position:fixed; inset:0; z-index:200;
+            background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+            align-items:center; justify-content:center;
+        }
+        .modal-bg.show { display:flex; }
+        .modal {
+            background:#0e1225; border:1px solid var(--glass-border);
+            border-radius:16px; padding:2rem; max-width:400px; width:90%; text-align:center;
+        }
+        .modal h3 { font-size:1.1rem; margin-bottom:0.75rem; }
+        .modal p { color:var(--text-dim); font-size:0.85rem; margin-bottom:1.5rem; }
+        .modal-actions { display:flex; gap:0.75rem; justify-content:center; }
+        .btn-cancel { padding:0.55rem 1.5rem; background:transparent; border:1px solid var(--glass-border); color:var(--text-light); border-radius:8px; cursor:pointer; font-family:'Poppins',sans-serif; font-weight:600; }
+        .btn-confirm-del { padding:0.55rem 1.5rem; background:#ef4444; border:none; color:white; border-radius:8px; cursor:pointer; font-family:'Poppins',sans-serif; font-weight:700; }
+
+        @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        .page { animation:fadeUp 0.4s ease both; }
+
+        @media(max-width:600px) {
+            nav { padding:0.75rem 1rem; }
+            .page { padding:5.5rem 1rem 2rem; }
+            .search-wrap { margin-left:0; width:100%; }
+            .search-input { flex:1; min-width:0; }
+        }`;
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -161,15 +271,15 @@ export default function AdminReviewManagement({
 
             {/* Navbar */}
             <nav className={scrolled ? 'scrolled' : ''}>
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ color: 'var(--yellow)', fontSize: '1.1rem' }}></i>
                     Ek<span>art</span>
                 </a>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <a href="/admin/home" style={{ color: 'var(--text-light)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 500 }}>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} style={{ color: 'var(--text-light)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 500 }}>
                         <i className="fas fa-arrow-left"></i> Dashboard
                     </a>
-                    <a href="/admin/logout" style={{ background: 'rgba(255,100,80,0.1)', color: '#ff8060', border: '1px solid rgba(255,100,80,0.3)', padding: '0.4rem 0.9rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} style={{ background: 'rgba(255,100,80,0.1)', color: '#ff8060', border: '1px solid rgba(255,100,80,0.3)', padding: '0.4rem 0.9rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>
                         <i className="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>

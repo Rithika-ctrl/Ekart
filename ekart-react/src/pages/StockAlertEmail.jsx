@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * StockAlertEmail Component
@@ -16,26 +17,30 @@ export default function StockAlertEmail({
     currentStock = 0,
     threshold = 10
 }) {
-    const CSS = `
-        .stock-alert-container {
+    const CSS = `/* ── Reset ─────────────────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        #root {
             font-family: 'Poppins', Arial, sans-serif;
             background-color: #090c1e;
-            margin: 0;
-            padding: 48px 16px;
-            color: #ffffff;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 50% -10%, rgba(245,168,0,0.13) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(245,168,0,0.07) 0%, transparent 60%);
             min-height: 100vh;
+            padding: 48px 16px;
         }
 
-        .email-wrapper {
+        /* ── Outer wrapper ──────────────────────────────────── */
+        .wrapper {
             max-width: 620px;
             margin: 0 auto;
         }
 
+        /* ── Logo bar ───────────────────────────────────────── */
         .logo-bar {
             text-align: center;
             margin-bottom: 28px;
         }
-
         .logo-bar .brand {
             display: inline-flex;
             align-items: center;
@@ -46,31 +51,40 @@ export default function StockAlertEmail({
             letter-spacing: 0.04em;
             text-decoration: none;
         }
+        .logo-bar .brand span { color: #f5a800; }
+        .logo-bar .brand svg { opacity: 0.9; }
 
-        .brand-accent { color: #f5a800; }
-
-        .main-card {
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.13);
+        /* ── Main card ──────────────────────────────────────── */
+        .card {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.13);
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.55);
         }
 
+        /* ── Card hero ──────────────────────────────────────── */
         .card-hero {
-            background: linear-gradient(135deg, rgba(220, 38, 38, 0.22) 0%, rgba(153, 27, 27, 0.18) 100%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, rgba(220,38,38,0.22) 0%, rgba(153,27,27,0.18) 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
             padding: 40px 40px 36px;
             text-align: center;
             position: relative;
+            overflow: hidden;
         }
-
+        .card-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 70% 80% at 50% 120%, rgba(245,168,0,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
         .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(220, 38, 38, 0.20);
-            border: 1px solid rgba(239, 68, 68, 0.35);
+            background: rgba(220,38,38,0.20);
+            border: 1px solid rgba(239,68,68,0.35);
             border-radius: 100px;
             padding: 5px 14px;
             font-size: 0.68rem;
@@ -80,14 +94,17 @@ export default function StockAlertEmail({
             color: #fca5a5;
             margin-bottom: 18px;
         }
-
         .hero-icon {
             font-size: 3.5rem;
             line-height: 1;
             margin-bottom: 16px;
             display: block;
+            animation: pulse 2.4s ease-in-out infinite;
         }
-
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%       { transform: scale(1.08); opacity: 0.85; }
+        }
         .card-hero h1 {
             font-size: 1.6rem;
             font-weight: 800;
@@ -95,14 +112,15 @@ export default function StockAlertEmail({
             letter-spacing: -0.01em;
             margin-bottom: 6px;
         }
-
-        .hero-subtitle {
+        .card-hero h1 .accent { color: #f5a800; }
+        .card-hero .subtitle {
             font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255,255,255,0.5);
             font-weight: 400;
         }
 
-        .card-body {
+        /* ── Card body ──────────────────────────────────────── */
+        .card-#root {
             padding: 36px 40px;
         }
 
@@ -112,27 +130,34 @@ export default function StockAlertEmail({
             color: #ffffff;
             margin-bottom: 6px;
         }
+        .greeting .name { color: #f5a800; }
 
         .intro-text {
             font-size: 0.82rem;
-            color: rgba(255, 255, 255, 0.55);
+            color: rgba(255,255,255,0.55);
             line-height: 1.7;
             margin-bottom: 28px;
         }
 
+        /* ── Alert strip ────────────────────────────────────── */
         .alert-strip {
             display: flex;
             align-items: flex-start;
             gap: 14px;
-            background: rgba(220, 38, 38, 0.12);
-            border: 1px solid rgba(239, 68, 68, 0.28);
+            background: rgba(220,38,38,0.12);
+            border: 1px solid rgba(239,68,68,0.28);
             border-left: 4px solid #ef4444;
             border-radius: 12px;
             padding: 16px 18px;
             margin-bottom: 28px;
         }
-
-        .strip-content strong {
+        .alert-strip .strip-icon {
+            font-size: 1.25rem;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .alert-strip .strip-content strong {
             display: block;
             font-size: 0.82rem;
             font-weight: 700;
@@ -140,14 +165,13 @@ export default function StockAlertEmail({
             letter-spacing: 0.02em;
             margin-bottom: 4px;
         }
-
-        .strip-content p {
+        .alert-strip .strip-content p {
             font-size: 0.78rem;
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255,255,255,0.5);
             line-height: 1.6;
-            margin: 0;
         }
 
+        /* ── Section label ──────────────────────────────────── */
         .section-label {
             display: flex;
             align-items: center;
@@ -159,67 +183,62 @@ export default function StockAlertEmail({
             color: #f5a800;
             margin-bottom: 14px;
         }
-
         .section-label::after {
             content: '';
             flex: 1;
             height: 1px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.1);
         }
 
+        /* ── Product details grid ───────────────────────────── */
         .product-grid {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 14px;
             overflow: hidden;
             margin-bottom: 28px;
         }
-
         .product-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 13px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-
         .product-row:last-child { border-bottom: none; }
-
-        .row-label {
+        .product-row .row-label {
             display: flex;
             align-items: center;
             gap: 8px;
             font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.45);
+            color: rgba(255,255,255,0.45);
             font-weight: 500;
         }
-
-        .dot {
-            width: 6px;
-            height: 6px;
+        .product-row .row-label .dot {
+            width: 6px; height: 6px;
             border-radius: 50%;
-            background: rgba(245, 168, 0, 0.5);
+            background: rgba(245,168,0,0.5);
+            flex-shrink: 0;
         }
-
-        .row-value {
+        .product-row .row-value {
             font-size: 0.82rem;
             font-weight: 600;
             color: #ffffff;
         }
-
-        .value-danger {
+        .product-row .row-value.danger {
             color: #fca5a5;
-            background: rgba(220, 38, 38, 0.18);
-            border: 1px solid rgba(239, 68, 68, 0.25);
+            background: rgba(220,38,38,0.18);
+            border: 1px solid rgba(239,68,68,0.25);
             padding: 3px 10px;
             border-radius: 100px;
             font-size: 0.75rem;
         }
+        .product-row .row-value.warn {
+            color: #fde68a;
+        }
 
-        .value-warn { color: #fde68a; }
-
+        /* ── CTA ────────────────────────────────────────────── */
         .cta-wrap { text-align: center; margin-bottom: 10px; }
-
         .btn-cta {
             display: inline-flex;
             align-items: center;
@@ -227,52 +246,62 @@ export default function StockAlertEmail({
             background: #f5a800;
             color: #1a1000;
             text-decoration: none;
+            font-family: 'Poppins', Arial, sans-serif;
             font-size: 0.82rem;
             font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             padding: 13px 32px;
             border-radius: 10px;
-            box-shadow: 0 8px 28px rgba(245, 168, 0, 0.28);
-            transition: all 0.2s;
+            box-shadow: 0 8px 28px rgba(245,168,0,0.28);
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-cta:hover {
+            background: #d48f00;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 36px rgba(245,168,0,0.42);
         }
 
         .note {
             font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.38);
+            color: rgba(255,255,255,0.38);
             text-align: center;
             line-height: 1.7;
             margin-top: 20px;
         }
 
+        /* ── Footer ─────────────────────────────────────────── */
         .card-footer {
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255,255,255,0.08);
             padding: 22px 40px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-
         .footer-brand {
             font-size: 1rem;
             font-weight: 800;
             color: #ffffff;
             letter-spacing: 0.04em;
         }
-
+        .footer-brand span { color: #f5a800; }
         .footer-copy {
             font-size: 0.68rem;
-            color: rgba(255, 255, 255, 0.3);
+            color: rgba(255,255,255,0.3);
             text-align: right;
             line-height: 1.6;
         }
 
+        /* ── Responsive ──────────────────────────────────────── */
         @media (max-width: 520px) {
-            .product-row { flex-direction: column; align-items: flex-start; gap: 4px; }
-            .card-footer { flex-direction: column; text-align: center; }
+            #root { padding: 24px 12px; }
+            .card-hero, .card-#root { padding: 28px 22px; }
+            .card-footer { padding: 18px 22px; flex-direction: column; text-align: center; }
             .footer-copy { text-align: center; }
-        }
-    `;
+            .product-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+        }`;
 
     return (
         <div className="stock-alert-container">
@@ -336,9 +365,9 @@ export default function StockAlertEmail({
 
                         {/* CTA */}
                         <div className="cta-wrap">
-                            <a href="/manage-products" className="btn-cta">
+                            <Link to="/vendor/products" className="btn-cta">
                                 🛒 Manage Products
-                            </a>
+                            </Link>
                         </div>
 
                         <p className="note">

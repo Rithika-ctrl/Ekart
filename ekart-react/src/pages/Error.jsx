@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Error Page Component
@@ -9,8 +10,7 @@ export default function Error({
     errorMessage = null
 }) {
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -21,18 +21,17 @@ export default function Error({
             --text-dim:     rgba(255,255,255,0.50);
         }
 
-        .error-page-container {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
         }
 
+        /* ── BACKGROUND ── */
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
@@ -196,8 +195,7 @@ export default function Error({
             nav { padding: 0.875rem 1.25rem; }
             .error-card { padding: 2.5rem 1.5rem; }
             footer { padding: 1.25rem; flex-direction: column; text-align: center; }
-        }
-    `;
+        }`;
 
     return (
         <div className="error-page-container">
@@ -209,10 +207,10 @@ export default function Error({
             <div className="bg-layer"></div>
 
             <nav>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
             </nav>
 
             <main className="page-center">
@@ -244,9 +242,9 @@ export default function Error({
                         <a href="javascript:history.back()" className="btn-back">
                             <i className="fas fa-arrow-left"></i> Go Back
                         </a>
-                        <a href="/" className="btn-home">
+                        <Link to="/" className="btn-home">
                             <i className="fas fa-house"></i> Go to Home
-                        </a>
+                        </Link>
                     </div>
 
                 </div>

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -17,7 +19,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -215,7 +217,7 @@ const CSS = `
         }
 
         /* Body */
-        .cart-body { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+        .cart-#root { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
         .cart-name { font-size: 0.975rem; font-weight: 700; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cart-desc { font-size: 0.74rem; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
         .cart-price { font-size: 1.1rem; font-weight: 800; color: var(--yellow); margin-top: 0.25rem; }
@@ -511,74 +513,7 @@ const CSS = `
         }
         @media(max-width: 500px) {
             .nav-right { gap: 0.4rem; }
-        }
-
-        /* ── Confirm Modal ── */
-        .confirm-overlay {
-            position: fixed; inset: 0; z-index: 999;
-            background: rgba(0,0,0,0.65);
-            backdrop-filter: blur(6px);
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.25s ease;
-        }
-        .confirm-overlay.active {
-            opacity: 1; pointer-events: all;
-        }
-        .confirm-box {
-            background: rgba(12,15,35,0.95);
-            border: 1px solid rgba(255,255,255,0.18);
-            border-radius: 20px;
-            padding: 2.25rem 2.5rem;
-            max-width: 380px; width: 90%;
-            text-align: center;
-            box-shadow: 0 40px 100px rgba(0,0,0,0.7);
-            transform: scale(0.92) translateY(16px);
-            transition: transform 0.28s cubic-bezier(0.23,1,0.32,1);
-        }
-        .confirm-overlay.active .confirm-box {
-            transform: scale(1) translateY(0);
-        }
-        .confirm-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
-        .confirm-title {
-            font-size: 1.1rem; font-weight: 700; color: white;
-            margin-bottom: 0.5rem;
-        }
-        .confirm-msg {
-            font-size: 0.82rem; color: rgba(255,255,255,0.55);
-            line-height: 1.55; margin-bottom: 1.75rem;
-        }
-        .confirm-actions {
-            display: flex; gap: 0.75rem; justify-content: center;
-        }
-        .confirm-btn-cancel {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.18);
-            color: rgba(255,255,255,0.7);
-            padding: 0.65rem 1.4rem; border-radius: 10px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.8rem; font-weight: 600; cursor: pointer;
-            transition: all 0.2s;
-        }
-        .confirm-btn-cancel:hover {
-            background: rgba(255,255,255,0.14); color: white;
-        }
-        .confirm-btn-ok {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            background: rgba(239,68,68,0.15);
-            border: 1px solid rgba(239,68,68,0.35);
-            color: #ef4444;
-            padding: 0.65rem 1.4rem; border-radius: 10px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.8rem; font-weight: 700;
-            text-decoration: none; cursor: pointer;
-            transition: all 0.2s;
-        }
-        .confirm-btn-ok:hover {
-            background: #ef4444; color: white; text-decoration: none;
-        }
-`;
+        }`;
 
 /**
  * ViewCart Component
@@ -596,6 +531,9 @@ export default function ViewCart({
     items = [],
     totalPrice = 0
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -753,7 +691,7 @@ export default function ViewCart({
         }
 
         // Simulate API call
-        fetch(`/api/coupon/validate?code=${encodeURIComponent(couponCode)}&amount=${cartTotal}`)
+        authFetch(`/api/coupon/validate?code=${encodeURIComponent(couponCode)}&amount=${cartTotal}`)
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
@@ -872,31 +810,31 @@ export default function ViewCart({
 
             {/* Navbar */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
                 </a>
 
                 <div className="nav-right">
-                    <a href="/customer/home" className="nav-link-btn" title="Shop">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link-btn" title="Shop">
                         <i className="fas fa-th-large"></i> <span>Shop</span>
                     </a>
-                    <a href="/track-orders" className="nav-link-btn" title="Track Orders">
+                    <Link to="/track" className="nav-link-btn" title="Track Orders">
                         <i className="fas fa-truck"></i> <span>Track</span>
-                    </a>
-                    <a href="/view-orders" className="nav-link-btn" title="My Orders">
+                    </Link>
+                    <Link to="/view-orders" className="nav-link-btn" title="My Orders">
                         <i className="fas fa-box-open"></i> <span>Orders</span>
-                    </a>
-                    <a href="/account/wishlist" className="nav-link-btn" title="Wishlist">
+                    </Link>
+                    <Link to="/wishlist" className="nav-link-btn" title="Wishlist">
                         <i className="fas fa-heart"></i> <span>Wishlist</span>
-                    </a>
-                    <a href="/account/spending" className="nav-link-btn" title="Spending">
+                    </Link>
+                    <Link to="/spending" className="nav-link-btn" title="Spending">
                         <i className="fas fa-chart-pie"></i> <span>Spending</span>
-                    </a>
-                    <a href="/view-cart" className="nav-link-btn nav-link-active" title="Cart">
+                    </Link>
+                    <Link to="/cart" className="nav-link-btn nav-link-active" title="Cart">
                         <i className="fas fa-shopping-cart"></i> <span>Cart</span>
                         {cartItems.length > 0 && <span className="nav-cart-badge">{cartItems.length}</span>}
-                    </a>
+                    </Link>
 
                     {/* Profile dropdown */}
                     <div className="nav-profile-menu" id="navProfileMenu" ref={profileMenuRef}>
@@ -908,17 +846,17 @@ export default function ViewCart({
                                 <i className="fas fa-user"></i>
                                 <span>{customer ? customer.name : 'Account'}</span>
                             </div>
-                            <a href="/customer/proflie" className="nav-profile-item">
+                            <Link to="/profile" className="nav-profile-item">
                                 <i className="fas fa-id-card"></i> My Profile
-                            </a>
-                            <a href="/customer/address" className="nav-profile-item">
+                            </Link>
+                            <Link to="/address" className="nav-profile-item">
                                 <i className="fas fa-map-marker-alt"></i> Addresses
-                            </a>
-                            <a href="/customer/security-settings" className="nav-profile-item">
+                            </Link>
+                            <Link to="/customer/security" className="nav-profile-item">
                                 <i className="fas fa-shield-alt"></i> Security
-                            </a>
+                            </Link>
                             <div className="nav-profile-divider"></div>
-                            <a href="/logout" className="nav-profile-item nav-profile-logout">
+                            <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-profile-item nav-profile-logout">
                                 <i className="fas fa-sign-out-alt"></i> Logout
                             </a>
                         </div>
@@ -1044,9 +982,9 @@ export default function ViewCart({
                             <div className="coupon-box">
                                 <div className="coupon-label">
                                     <i className="fas fa-tag"></i> Promo Code
-                                    <a href="/customer/coupons" target="_blank" style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--yellow)', textDecoration: 'none', fontWeight: 600, opacity: 0.8 }}>
+                                    <Link to="/coupons" target="_blank" style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--yellow)', textDecoration: 'none', fontWeight: 600, opacity: 0.8 }}>
                                         View all coupons <i className="fas fa-external-link-alt" style={{ fontSize: '0.55rem' }}></i>
-                                    </a>
+                                    </Link>
                                 </div>
                                 <div className="coupon-row">
                                     <input type="text" className="coupon-input" id="couponInput"
@@ -1111,15 +1049,15 @@ export default function ViewCart({
                                         <div className="express-sub">Skip the steps — pay instantly with your saved address</div>
                                     </div>
                                 </div>
-                                <a href="/payment" className="btn-express">
+                                <Link to="/payment" className="btn-express">
                                     <i className="fas fa-bolt"></i> Buy Now
-                                </a>
+                                </Link>
                             </div>
 
                             {/* Normal Checkout */}
-                            <a href="/customer/address" className="btn-checkout">
+                            <Link to="/address" className="btn-checkout">
                                 Proceed to Checkout <i className="fas fa-arrow-right"></i>
-                            </a>
+                            </Link>
                         </div>
                     )}
 
@@ -1129,13 +1067,13 @@ export default function ViewCart({
                             <div className="empty-cart-icon">🛒</div>
                             <h3>Your Cart is Empty</h3>
                             <p>Looks like you haven't added anything yet. Start shopping!</p>
-                            <a href="/customer/home" className="btn-shop"><i className="fas fa-store"></i> Browse Products</a>
+                            <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-shop"><i className="fas fa-store"></i> Browse Products</a>
                         </div>
                     )}
 
                     {/* Back */}
                     <div className="back-wrap">
-                        <a href="/customer/home" className="back-link">
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="back-link">
                             <i className="fas fa-arrow-left"></i> Back to Shop
                         </a>
                     </div>

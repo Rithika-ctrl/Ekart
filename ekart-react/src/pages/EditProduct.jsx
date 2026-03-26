@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +16,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -322,26 +323,7 @@ const CSS = `
         .preview-discount { background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:0.78rem; font-weight:800; padding:0.2rem 0.6rem; border-radius:6px; }
         .preview-price { font-size:1.4rem; font-weight:800; color:#f5a800; }
         .preview-mrp   { font-size:0.85rem; color:var(--text-dim); text-decoration:line-through; }
-        .req { color:#ef4444; }
-        
-        /* Pin Input Tags */
-        .pin-tag-box {
-            display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center;
-            background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
-            border-radius:12px; padding:0.55rem 1rem; min-height:48px; cursor:text;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-        .pin-tag-box.focus { border-color: var(--yellow); }
-        .pin-chip {
-            display:inline-flex;align-items:center;gap:0.3rem;background:rgba(245,168,0,0.18);
-            border:1px solid rgba(245,168,0,0.4);border-radius:6px;padding:0.2rem 0.55rem;
-            font-size:0.78rem;font-weight:600;color:#f5a800;
-        }
-        .pin-chip button {
-            background:none;border:none;cursor:pointer;color:rgba(245,168,0,0.7);
-            font-size:0.9rem;line-height:1;padding:0;
-        }
-`;
+        .req { color:#ef4444; }`;
 
 /**
  * EditProduct Component
@@ -374,6 +356,9 @@ export default function EditProduct({
         allowedPinCodes: ''
     }
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/vendor/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -571,14 +556,14 @@ export default function EditProduct({
             </div>
 
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/vendor/home" className="nav-brand">
+                <Link to="/vendor" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="/manage-products" className="nav-link-btn"><i className="fas fa-boxes"></i> My Products</a>
-                    <a href="/vendor/home" className="nav-link-btn"><i className="fas fa-th-large"></i> Dashboard</a>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <Link to="/vendor/products" className="nav-link-btn"><i className="fas fa-boxes"></i> My Products</Link>
+                    <Link to="/vendor" className="nav-link-btn"><i className="fas fa-th-large"></i> Dashboard</Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -812,9 +797,9 @@ export default function EditProduct({
                         </button>
                     </form>
 
-                    <a href="/manage-products" className="back-link">
+                    <Link to="/vendor/products" className="back-link">
                         <i className="fas fa-arrow-left"></i> Back to My Products
-                    </a>
+                    </Link>
                 </div>
             </main>
 

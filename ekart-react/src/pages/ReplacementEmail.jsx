@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * ReplacementEmail Component
@@ -14,10 +15,9 @@ export default function ReplacementEmail({
     amount = "0.0",
     items = []
 }) {
-    const CSS = `
-        /* Reset */
-        .replacement-email-body * { margin: 0; padding: 0; box-sizing: border-box; }
-        .replacement-email-body {
+    const CSS = `/* Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        #root {
             font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
             background: #0f1624;
             padding: 40px 16px;
@@ -84,7 +84,7 @@ export default function ReplacementEmail({
         }
 
         /* ── BODY ── */
-        .email-body {
+        .email-#root {
             background: #111827;
             padding: 36px;
         }
@@ -254,8 +254,7 @@ export default function ReplacementEmail({
             font-size: 11px;
             color: #334155;
             letter-spacing: 0.04em;
-        }
-    `;
+        }`;
 
     return (
         <div className="replacement-email-body">
