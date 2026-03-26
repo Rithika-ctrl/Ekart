@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi, saveToken } from '../utils/api';
+import { vendorAuthApi, saveToken } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const CSS = `
         :root {
@@ -298,9 +299,11 @@ export default function VendorLogin({
                         e.preventDefault();
                         setFormError('');
                         try {
-                            const res = await authApi.login(email, passwordInput);
+                            const res = await vendorAuthApi.login(email, passwordInput);
                             if (res?.data?.success) {
-                                saveToken(res.data.token, res.data.customer);
+                                const user = { vendorId: res.data.vendorId, name: res.data.name, email: res.data.email };
+                                saveToken(res.data.token, user, 'vendor');
+                                login(user, 'vendor');
                                 navigate('/vendor');
                             } else {
                                 setFormError(res?.data?.message || 'Login failed');
