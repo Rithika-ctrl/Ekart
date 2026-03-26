@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi, saveToken } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useAuth } from '../contexts/AuthContext';
 
 const CSS = `
         :root {
@@ -381,6 +380,7 @@ export default function CustomerLogin({
     const [email, setEmail] = useState('');
     const [passwordInput, setPasswordInput] = useState('');
     const [formError, setFormError] = useState('');
+    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -388,7 +388,8 @@ export default function CustomerLogin({
         try {
             const res = await authApi.login(email, passwordInput);
             if (res?.data?.success) {
-                const user = { customerId: res.data.customerId, name: res.data.name, email: res.data.email, mobile: res.data.mobile };
+                const cust = res.data.customer || {};
+                const user = { customerId: cust.id ?? cust.customerId ?? null, id: cust.id ?? cust.customerId ?? null, name: cust.name, email: cust.email, mobile: cust.mobile };
                 saveToken(res.data.token, user, 'customer');
                 login(user, 'customer');
                 navigate('/');

@@ -288,8 +288,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/cart */
     @GetMapping("/cart")
-    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
@@ -302,11 +303,12 @@ public class FlutterApiController {
 
     /** POST /api/flutter/cart/add */
     @PostMapping("/cart/add")
-    public ResponseEntity<Map<String, Object>> addToCart(
-            @RequestHeader("X-Customer-Id") int customerId,
+        public ResponseEntity<Map<String, Object>> addToCart(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
+                if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int productId = Integer.parseInt(body.get("productId").toString());
@@ -337,11 +339,12 @@ public class FlutterApiController {
 
     /** DELETE /api/flutter/cart/remove/{productId} */
     @DeleteMapping("/cart/remove/{productId}")
-    public ResponseEntity<Map<String, Object>> removeFromCart(
-            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int productId) {
+        public ResponseEntity<Map<String, Object>> removeFromCart(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+            Customer customer = customerRepository.findById(customerId).orElse(null);
+            if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         customer.getCart().getItems().removeIf(i -> i.getProductId() != null && i.getProductId() == productId);
         customerRepository.save(customer);
         res.put("success", true); res.put("message", "Removed from cart");
@@ -350,12 +353,13 @@ public class FlutterApiController {
 
     /** PUT /api/flutter/cart/update */
     @PutMapping("/cart/update")
-    public ResponseEntity<Map<String, Object>> updateCart(
-            @RequestHeader("X-Customer-Id") int customerId,
+        public ResponseEntity<Map<String, Object>> updateCart(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+            Customer customer = customerRepository.findById(customerId).orElse(null);
+            if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
         int quantity  = Integer.parseInt(body.get("quantity").toString());
         Cart cart = customer.getCart();
@@ -374,9 +378,10 @@ public class FlutterApiController {
     /** POST /api/flutter/orders/place — splits cart by vendor into sub-orders */
     @PostMapping("/orders/place")
     public ResponseEntity<Map<String, Object>> placeOrder(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
@@ -507,8 +512,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/orders */
     @GetMapping("/orders")
-    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
@@ -520,8 +526,9 @@ public class FlutterApiController {
     /** GET /api/flutter/orders/{id} */
     @GetMapping("/orders/{id}")
     public ResponseEntity<Map<String, Object>> getOrder(
-            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         res.put("success", true); res.put("order", mapOrder(order));
@@ -531,8 +538,9 @@ public class FlutterApiController {
     /** POST /api/flutter/orders/{id}/cancel */
     @PostMapping("/orders/{id}/cancel")
     public ResponseEntity<Map<String, Object>> cancelOrder(
-            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put("success", false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
@@ -552,8 +560,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/wishlist */
     @GetMapping("/wishlist")
-    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
@@ -571,8 +580,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/wishlist/ids */
     @GetMapping("/wishlist/ids")
-    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
@@ -584,9 +594,10 @@ public class FlutterApiController {
     /** POST /api/flutter/wishlist/toggle */
     @PostMapping("/wishlist/toggle")
     public ResponseEntity<Map<String, Object>> toggleWishlist(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Integer productId = body.get("productId");
@@ -612,8 +623,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/profile */
     @GetMapping("/profile")
-    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
@@ -640,9 +652,10 @@ public class FlutterApiController {
     /** PUT /api/flutter/profile/update */
     @PutMapping("/profile/update")
     public ResponseEntity<Map<String, Object>> updateProfile(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
@@ -659,9 +672,10 @@ public class FlutterApiController {
      */
     @PostMapping("/profile/address/add")
     public ResponseEntity<Map<String, Object>> addAddress(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
@@ -702,8 +716,9 @@ public class FlutterApiController {
     /** DELETE /api/flutter/profile/address/{id}/delete */
     @DeleteMapping("/profile/address/{id}/delete")
     public ResponseEntity<Map<String, Object>> deleteAddress(
-            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
@@ -719,9 +734,10 @@ public class FlutterApiController {
     /** POST /api/flutter/reviews/add */
     @PostMapping("/reviews/add")
     public ResponseEntity<Map<String, Object>> addReview(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
@@ -743,8 +759,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/spending-summary */
     @GetMapping("/spending-summary")
-    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader("X-Customer-Id") int customerId) {
+    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
@@ -783,10 +800,11 @@ public class FlutterApiController {
     /** POST /api/flutter/refund/request  —  body: { orderId, reason, type } */
     @PostMapping("/refund/request")
     public ResponseEntity<Map<String, Object>> requestRefund(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int orderId  = Integer.parseInt(body.get("orderId").toString());
@@ -811,8 +829,9 @@ public class FlutterApiController {
     /** GET /api/flutter/refund/status/{orderId} */
     @GetMapping("/refund/status/{orderId}")
     public ResponseEntity<Map<String, Object>> getRefundStatus(
-            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int orderId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
@@ -1185,9 +1204,10 @@ public class FlutterApiController {
      */
     @PostMapping("/orders/{id}/reorder")
     public ResponseEntity<Map<String, Object>> reorder(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
@@ -1227,9 +1247,10 @@ public class FlutterApiController {
      */
     @PutMapping("/profile/change-password")
     public ResponseEntity<Map<String, Object>> changePassword(
-            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         String current = (String) body.get("currentPassword");
