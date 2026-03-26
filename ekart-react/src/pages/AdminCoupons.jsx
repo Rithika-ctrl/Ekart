@@ -229,12 +229,12 @@ export default function AdminCoupons({
 
             {/* NAV */}
             <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
+                <Link to="/admin/home" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> <span>Dashboard</span></a>
+                    <Link to="/admin/home" className="nav-link"><i className="fas fa-home"></i> <span>Dashboard</span></Link>
                     <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> <span>Approvals</span></Link>
                     <Link to="/admin/coupons" className="nav-link active"><i className="fas fa-tag"></i> <span>Coupons</span></Link>
                     <Link to="/admin/refunds" className="nav-link"><i className="fas fa-undo-alt"></i> <span>Refunds</span></Link>
@@ -244,10 +244,10 @@ export default function AdminCoupons({
 
             <main className="page-main">
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div className="page-header">
                     <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>Coupon <span>Management</span></div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>Create and manage promo codes for customers</div>
+                        <div className="page-title">Coupon <span>Management</span></div>
+                        <div className="page-subtitle">Create and manage promo codes for customers</div>
                     </div>
                 </div>
 
@@ -269,7 +269,7 @@ export default function AdminCoupons({
 
                 {/* Create Coupon Form */}
                 <div className="glass-card" style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.4s ease both' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--yellow)', marginBottom: '1.25rem' }}>
+                    <div className="section-label">
                         <i className="fas fa-plus-circle"></i> Create New Coupon
                     </div>
                     <form action="/admin/coupons/create" method="post">
@@ -285,9 +285,9 @@ export default function AdminCoupons({
                                     required 
                                     maxLength="20"
                                     value={couponCode}
-                                    onInput={handleCodeInput}
+                                    onChange={handleCodeInput}
                                 />
-                                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>Auto uppercased, no spaces</span>
+                                <span className="form-hint">Auto uppercased, no spaces</span>
                             </div>
 
                             <div className="form-group">
@@ -310,7 +310,7 @@ export default function AdminCoupons({
                                     step="0.01"
                                     max={discountType === 'PERCENT' ? "100" : ""}
                                 />
-                                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                                <span className="form-hint">
                                     {discountType === 'PERCENT' ? "Enter % value (e.g. 10 = 10% off)" : "Enter ₹ amount (e.g. 50 = ₹50 off)"}
                                 </span>
                             </div>
@@ -318,21 +318,25 @@ export default function AdminCoupons({
                             <div className="form-group">
                                 <label className="form-label">Min Order Amount (₹)</label>
                                 <input type="number" name="minOrderAmount" className="form-control" placeholder="0 = no minimum" min="0" step="1" defaultValue="0" />
+                                <span className="form-hint">Customer needs bill ≥ this amount</span>
                             </div>
 
                             <div className="form-group">
                                 <label className="form-label">Max Discount Cap (₹)</label>
                                 <input type="number" name="maxDiscount" className="form-control" placeholder="0 = no cap" min="0" step="1" defaultValue="0" />
+                                <span className="form-hint">0 means unlimited discount</span>
                             </div>
 
                             <div className="form-group">
                                 <label className="form-label">Usage Limit</label>
                                 <input type="number" name="usageLimit" className="form-control" placeholder="0 = unlimited" min="0" step="1" defaultValue="0" />
+                                <span className="form-hint">How many times total</span>
                             </div>
 
                             <div className="form-group">
                                 <label className="form-label">Expiry Date</label>
                                 <input type="date" name="expiryDate" className="form-control" />
+                                <span className="form-hint">Leave blank = no expiry</span>
                             </div>
 
                             <div className="form-group full">
@@ -351,13 +355,13 @@ export default function AdminCoupons({
 
                 {/* Coupons Table */}
                 <div className="glass-card" style={{ animation: 'fadeUp 0.4s 0.1s ease both' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--yellow)', marginBottom: '1.25rem' }}>
+                    <div className="section-label">
                         <i className="fas fa-list"></i> All Coupons
                     </div>
 
                     {coupons.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-dim)' }}>
-                            <i className="fas fa-tag" style={{ fontSize: '2.5rem', color: 'rgba(245,168,0,0.3)', marginBottom: '1rem', display: 'block' }}></i>
+                        <div className="empty-state">
+                            <i className="fas fa-tag"></i>
                             <p>No coupons yet. Create one above.</p>
                         </div>
                     ) : (
@@ -421,7 +425,7 @@ export default function AdminCoupons({
                                                         <span>{c.active ? 'Disable' : 'Enable'}</span>
                                                     </button>
                                                 </form>
-                                                <form action={`/admin/coupons/delete/${c.id}`} method="post" style={{ display: 'inline' }} onsubmit={(e) => !window.confirm(`Delete coupon ${c.code}?`) && e.preventDefault()}>
+                                                <form action={`/admin/coupons/delete/${c.id}`} method="post" style={{ display: 'inline' }} onSubmit={(e) => { if (!window.confirm(`Delete coupon ${c.code}?`)) e.preventDefault(); }}>
                                                     <button type="submit" className="btn-del">
                                                         <i className="fas fa-trash-alt"></i> Delete
                                                     </button>
