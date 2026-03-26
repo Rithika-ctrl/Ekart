@@ -238,7 +238,7 @@ const CustomerRefundReport = ({
             font-size:0.85rem; font-weight:700; color:white;
         }
         .card-header i { color:var(--yellow); }
-        .card-#root { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+        .card { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
 
         /* FORM ELEMENTS */
         .form-group { display:flex; flex-direction:column; gap:0.4rem; }
@@ -357,7 +357,7 @@ const CustomerRefundReport = ({
         @keyframes fadeUp  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
 
-        @media(max-width:640px) { .page { padding:6rem 1rem 3rem; } .card-#root { padding:1.1rem; } nav { padding:0.7rem 1rem; } .nav-link span { display:none; } }`}} />
+        @media(max-width:640px) { .page { padding:6rem 1rem 3rem; } .card { padding:1.1rem; } nav { padding:0.7rem 1rem; } .nav-link span { display:none; } }`}} />
 
       <div className="bg-layer"></div>
 

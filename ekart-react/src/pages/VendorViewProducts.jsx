@@ -185,7 +185,7 @@ const CSS = `:root {
         }
 
         /* Product body */
-        .product-#root {
+        .product {
             padding: 1.25rem 1.4rem;
             display: flex; flex-direction: column; gap: 0.6rem; flex: 1;
         }

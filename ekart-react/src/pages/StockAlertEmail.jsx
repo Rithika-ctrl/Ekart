@@ -120,7 +120,7 @@ export default function StockAlertEmail({
         }
 
         /* ── Card body ──────────────────────────────────────── */
-        .card-#root {
+        .card {
             padding: 36px 40px;
         }
 
@@ -297,7 +297,7 @@ export default function StockAlertEmail({
         /* ── Responsive ──────────────────────────────────────── */
         @media (max-width: 520px) {
             #root { padding: 24px 12px; }
-            .card-hero, .card-#root { padding: 28px 22px; }
+            .card-hero, .card { padding: 28px 22px; }
             .card-footer { padding: 18px 22px; flex-direction: column; text-align: center; }
             .footer-copy { text-align: center; }
             .product-row { flex-direction: column; align-items: flex-start; gap: 4px; }

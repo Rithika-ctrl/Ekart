@@ -20,7 +20,7 @@ export default function BackInStockEmail({
   productId = ""
 }) {
   const CSS = `
-    .email-#root {
+    .email {
       margin: 0;
       padding: 0;
       background: #0a0c1e;

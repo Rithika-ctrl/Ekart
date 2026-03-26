@@ -114,7 +114,7 @@ const CSS = `:root {
         .drawer-close:hover { background: rgba(255,255,255,0.2); }
 
         /* Drawer scroll body */
-        .drawer-#root {
+        .drawer {
             flex: 1; overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: rgba(255,255,255,0.15) transparent;
@@ -866,7 +866,7 @@ const CSS = `:root {
         }
 
         /* ── CARD BODY ── */
-        .card-#root {
+        .card {
             padding: 1.25rem;
             display: flex; flex-direction: column; gap: 0.6rem; flex: 1;
         }

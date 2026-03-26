@@ -537,7 +537,7 @@ export default function Search({
         .in-stock  { background:rgba(34,197,94,0.18); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
         .out-stock { background:rgba(255,96,96,0.18);  color:#ff8060; border:1px solid rgba(255,96,96,0.3); }
 
-        .product-#root { padding:1.25rem; }
+        .product { padding:1.25rem; }
         .product-category { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--yellow); margin-bottom:0.4rem; }
         .product-name { font-size:0.9rem; font-weight:700; color:var(--text-white); margin-bottom:0.35rem; line-height:1.35; }
         .product-desc { font-size:0.75rem; color:var(--text-dim); line-height:1.55; margin-bottom:0.875rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }

@@ -347,7 +347,7 @@ export default function Wishlist({
         }
 
         /* ── CARD BODY ── */
-        .card-#root {
+        .card {
             padding: 1.25rem;
             display: flex; flex-direction: column; gap: 0.6rem;
             flex: 1;

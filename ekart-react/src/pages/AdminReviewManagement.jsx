@@ -406,11 +406,6 @@ export default function AdminReviewManagement({
                     </div>
                 </div>
             </div>
-
-            <footer style={{ marginTop: 'auto', background: 'rgba(0,0,0,0.5)', padding: '1.25rem 3rem', borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Ekart</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>© 2026 Admin Moderator Panel. All rights reserved.</div>
-            </footer>
         </div>
     );
 }

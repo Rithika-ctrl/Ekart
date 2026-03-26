@@ -166,7 +166,7 @@ export default function DeliveryHome({
         .section-header{padding:1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;gap:0.75rem;}
         .section-header h3{font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;}
         .section-header .count-badge{background:var(--yellow);color:#1a1000;font-size:0.68rem;font-weight:700;padding:0.2rem 0.6rem;border-radius:20px;}
-        .section-#root {padding:1rem;}
+        .section {padding:1rem;}
 
         /* ORDER CARD */
         .order-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:1rem 1.1rem;margin-bottom:0.75rem;transition:border-color 0.2s;}

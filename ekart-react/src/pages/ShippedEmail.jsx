@@ -18,7 +18,7 @@ export default function ShippedEmail({
   items = []
 }) {
   const CSS = `
-    .email-#root {
+    .email {
       margin: 0;
       padding: 0;
       background: #f4f6f8;

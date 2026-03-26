@@ -235,7 +235,7 @@ const CSS = `:root {
         .stat-card.green  .stat-icon { background: rgba(34,197,94,0.15);  color: #22c55e; }
         .stat-card.red    .stat-icon { background: rgba(239,68,68,0.15);  color: #ef4444; }
 
-        .stat-#root { flex: 1; }
+        .stat { flex: 1; }
         .stat-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 0.2rem; }
         .stat-val   { font-size: 1.55rem; font-weight: 800; color: var(--text-white); line-height: 1; }
 
