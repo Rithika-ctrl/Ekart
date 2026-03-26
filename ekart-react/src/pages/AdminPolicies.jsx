@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authFetch } from '../utils/api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 /**
  * Ekart - Admin Policy Management Component
@@ -25,9 +25,21 @@ export default function AdminPolicies({
 
     // --- EFFECTS ---
     useEffect(() => {
+        // Load marked.js dynamically
+        if (!window.marked) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+            script.onload = () => {
+                if (formData.content) {
+                    setPreviewHtml(window.marked.parse(formData.content));
+                }
+            };
+            document.head.appendChild(script);
+        }
+
         const handleScroll = () => setScrolled(window.scrollY > 10);
         window.addEventListener('scroll', handleScroll);
-        
+
         fetchPolicies();
 
         return () => window.removeEventListener('scroll', handleScroll);
@@ -89,7 +101,7 @@ export default function AdminPolicies({
 
         const method = isEditing ? 'PUT' : 'POST';
         const url = isEditing ? `/api/policies/${slug}` : '/api/policies';
-        
+
         try {
             await fetch(url, {
                 method,
@@ -109,7 +121,8 @@ export default function AdminPolicies({
         setPreviewHtml('');
     };
 
-    const CSS = `:root {
+    const CSS = `
+        :root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -202,8 +215,30 @@ export default function AdminPolicies({
             color: var(--text-light);
         }
         .policy-item:last-child { border-bottom: none; }
-        .editor { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.07); color: #222; font-family: inherit; font-size: 1rem; padding: 0.7em; }
-        .markdown-preview { border: 1px solid var(--glass-border); padding: 1em; background: rgba(255,255,255,0.10); min-height: 100px; border-radius: 10px; color: #222; }
+        .editor {
+            width: 100%; min-height: 120px; border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.07);
+            color: #222; font-family: inherit; font-size: 1rem; padding: 0.7em;
+        }
+        .markdown-preview {
+            border: 1px solid var(--glass-border); padding: 1em;
+            background: rgba(255,255,255,0.10); min-height: 100px;
+            border-radius: 10px; color: #222;
+        }
+        .policy-form-input {
+            width: 100%;
+            margin-bottom: 0.7em;
+            padding: 0.45em 0.7em;
+            border-radius: 6px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.07);
+            color: var(--text-white);
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+        }
+        .policy-form-input:focus { border-color: rgba(245,168,0,0.5); }
         .btn-yellow {
             background: var(--yellow); color: #1a1000;
             text-decoration: none; font-weight: 700;
@@ -227,97 +262,112 @@ export default function AdminPolicies({
             nav { padding: 0.875rem 1.25rem; }
             .page { padding: 5.5rem 1.25rem 2rem; }
             .glass-card { padding: 1.5rem 1rem; }
-        }`;
+        }
+    `;
 
     return (
         <>
             <style>{CSS}</style>
-            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-            
+
             <div className="bg-layer"></div>
-            
+
             <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-                <Link to="/admin" className="nav-brand">
-                    <i className="fas fa-shopping-cart" style={{fontSize: '1.1rem'}}></i>
-                    Ekart
+                <Link to="/admin/home" className="nav-brand">
+                    <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
+                    Ek<span>art</span>
                 </Link>
                 <div className="nav-links">
-                    <Link to="/admin" className="nav-link"><i className="fas fa-home"></i> Dashboard</Link>
-                    <Link to="/admin/policies" className="nav-link active"><i className="fas fa-book"></i> Policies & SOPs</Link>
+                    <Link to="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</Link>
+                    <Link to="/admin/policies" className="nav-link active"><i className="fas fa-book"></i> Policies &amp; SOPs</Link>
                 </div>
             </nav>
 
             <main className="page">
-                {/* List Section */}
-                <div className="glass-card">
-                    <h2 style={{marginBottom: '1.5rem'}}>Existing Policies</h2>
-                    <div id="policies" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Existing Policies */}
+                <div className="glass-card policy-list">
+                    <h2>Existing Policies</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {policies.map(policy => (
-                            <div key={policy.slug} className="glass-card policy-item" style={{margin: '0'}}>
-                                <b>{policy.title}</b> [{policy.category || ''}] <br /> 
-                                <small style={{color: 'var(--text-dim)'}}>Last updated: {policy.lastUpdated || 'N/A'}</small><br />
-                                <div style={{marginTop: '0.8rem', display: 'flex', gap: '0.5rem'}}>
-                                    <button className="btn-yellow" style={{padding: '0.3em 1em', fontSize: '0.85em'}} onClick={() => editPolicy(policy.slug)}>
-                                        <i className="fas fa-edit"></i> Edit
-                                    </button>
-                                    <button className="btn-secondary" style={{padding: '0.3em 1em', fontSize: '0.85em', marginLeft: '0'}} onClick={() => deletePolicy(policy.slug)}>
-                                        <i className="fas fa-trash"></i> Delete
-                                    </button>
-                                </div>
+                            <div key={policy.slug} className="glass-card policy-item" style={{ margin: '0' }}>
+                                <b>{policy.title}</b> [{policy.category || ''}] <br />
+                                <small>Last updated: {policy.lastUpdated || ''}</small><br />
+                                <button
+                                    className="btn-yellow"
+                                    style={{ padding: '0.3em 1em', fontSize: '0.85em' }}
+                                    onClick={() => editPolicy(policy.slug)}
+                                >
+                                    <i className="fas fa-edit"></i> Edit
+                                </button>
+                                <button
+                                    className="btn-secondary"
+                                    style={{ padding: '0.3em 1em', fontSize: '0.85em' }}
+                                    onClick={() => deletePolicy(policy.slug)}
+                                >
+                                    <i className="fas fa-trash"></i> Delete
+                                </button>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Editor Section */}
-                <div className="glass-card">
+                {/* Policy Editor */}
+                <div className="glass-card policy-editor">
                     <h2 id="editor-title">{isEditing ? 'Edit Policy' : 'Create New Policy'}</h2>
                     <form id="policyForm" onSubmit={handleSubmit}>
-                        <label style={{fontSize: '0.8rem', color: 'var(--text-dim)'}}>Title:</label>
-                        <input 
-                            type="text" 
-                            className="form-input"
-                            value={formData.title}
-                            onChange={(e) => setFormData({...formData, title: e.target.value})}
-                            required 
-                        />
-                        
-                        <label style={{fontSize: '0.8rem', color: 'var(--text-dim)'}}>Category:</label>
-                        <input 
-                            type="text" 
-                            className="form-input"
-                            value={formData.category}
-                            onChange={(e) => setFormData({...formData, category: e.target.value})}
-                        />
-                        
-                        <label style={{fontSize: '0.8rem', color: 'var(--text-dim)'}}>Content (Markdown):</label>
-                        <textarea 
-                            className="editor" 
-                            value={formData.content}
-                            onChange={(e) => setFormData({...formData, content: e.target.value})}
-                            required 
-                        />
-                        
-                        <label style={{fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.7rem', display: 'block'}}>Author Admin ID:</label>
-                        <input 
-                            type="text" 
-                            className="form-input"
-                            value={formData.authorAdminId}
-                            onChange={(e) => setFormData({...formData, authorAdminId: e.target.value})}
-                        />
-                        
-                        <div style={{marginTop: '1rem'}}>
-                            <button type="submit" className="btn-yellow"><i className="fas fa-save"></i> Save Policy</button>
-                            {isEditing && (
-                                <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                            )}
-                        </div>
+                        <label>
+                            Title:<br />
+                            <input
+                                type="text"
+                                className="policy-form-input"
+                                value={formData.title}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                required
+                            />
+                        </label>
+                        <br />
+                        <label>
+                            Category:<br />
+                            <input
+                                type="text"
+                                className="policy-form-input"
+                                value={formData.category}
+                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                            />
+                        </label>
+                        <br />
+                        <label>
+                            Content (Markdown):<br />
+                            <textarea
+                                className="editor"
+                                value={formData.content}
+                                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                required
+                            />
+                        </label>
+                        <br />
+                        <label>
+                            Author Admin ID:<br />
+                            <input
+                                type="text"
+                                className="policy-form-input"
+                                value={formData.authorAdminId}
+                                onChange={(e) => setFormData({ ...formData, authorAdminId: e.target.value })}
+                            />
+                        </label>
+                        <br />
+                        <button type="submit" className="btn-yellow">
+                            <i className="fas fa-save"></i> Save Policy
+                        </button>
+                        {isEditing && (
+                            <button type="button" id="cancelEdit" className="btn-secondary" onClick={resetForm}>
+                                Cancel
+                            </button>
+                        )}
                     </form>
-                    
-                    <h3 style={{marginTop: '2rem', marginBottom: '1rem'}}>Preview</h3>
+                    <h3>Preview</h3>
                     <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: previewHtml }}></div>
                 </div>
             </main>
