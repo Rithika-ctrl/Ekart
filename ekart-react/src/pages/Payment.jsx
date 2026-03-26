@@ -281,7 +281,7 @@ const CSS = `:root {
         }
         .rec-card:hover { transform:translateY(-5px); border-color:rgba(245,168,0,0.4); }
         .rec-img { width:100%; height:110px; object-fit:cover; }
-        .rec-#root { padding:0.875rem; }
+        .rec { padding:0.875rem; }
         .rec-name { font-size:0.78rem; font-weight:600; color:var(--text-light); margin-bottom:0.35rem; line-height:1.4; }
         .rec-price { font-size:0.9rem; font-weight:800; color:var(--yellow); margin-bottom:0.75rem; }
         .btn-add-cart {

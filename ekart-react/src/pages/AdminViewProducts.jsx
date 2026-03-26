@@ -338,7 +338,7 @@ export default function AdminViewProducts({
         .product-card:hover .card-image { transform: scale(1.07); }
 
         /* ── CARD BODY ── */
-        .card-#root {
+        .card {
             padding: 1.4rem;
             display: flex; flex-direction: column;
             gap: 0.6rem; flex: 1;

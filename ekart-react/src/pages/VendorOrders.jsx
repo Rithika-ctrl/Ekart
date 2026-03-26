@@ -94,7 +94,7 @@ const CSS = `
         .modal-head h2 span{color:var(--yellow);}
         .modal-close{background:none;border:none;color:var(--text-dim);font-size:1.2rem;cursor:pointer;padding:0.2rem;transition:color 0.2s;}
         .modal-close:hover{color:white;}
-        .modal-#root {padding:1.5rem;}
+        .modal {padding:1.5rem;}
         .modal-section{margin-bottom:1.25rem;}
         .modal-section:last-child{margin-bottom:0;}
         .modal-section-title{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--yellow);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;}

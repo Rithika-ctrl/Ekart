@@ -217,7 +217,7 @@ const CSS = `:root {
         }
 
         /* Body */
-        .cart-#root { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+        .cart { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
         .cart-name { font-size: 0.975rem; font-weight: 700; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cart-desc { font-size: 0.74rem; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
         .cart-price { font-size: 1.1rem; font-weight: 800; color: var(--yellow); margin-top: 0.25rem; }

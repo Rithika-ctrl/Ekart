@@ -201,7 +201,7 @@ export default function AdminDeliveryManagement({
         .panel-header{padding:1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:0.75rem;}
         .panel-header h3{font-size:0.9rem;font-weight:600;}
         .panel-icon{width:34px;height:34px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--yellow);flex-shrink:0;}
-        .panel-#root {padding:1.25rem 1.5rem;}
+        .panel {padding:1.25rem 1.5rem;}
 
         /* Pending panel — special highlight */
         .panel.pending-panel{border-color:rgba(245,168,0,0.4);}

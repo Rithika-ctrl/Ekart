@@ -381,7 +381,7 @@ const CSS = `:root {
         .sim-img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
         .sim-card:hover .sim-img { transform:scale(1.07); }
         .sim-cat { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); border:1px solid var(--glass-border); color:var(--yellow); font-size:0.6rem; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; }
-        .sim-#root { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
+        .sim { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .sim-name { font-size:0.9rem; font-weight:700; color:white; }
         .sim-desc { font-size:0.72rem; color:var(--text-dim); line-height:1.45; }
         .sim-price { font-size:1.3rem; font-weight:800; color:var(--yellow); margin-top:auto; padding-top:0.4rem; }

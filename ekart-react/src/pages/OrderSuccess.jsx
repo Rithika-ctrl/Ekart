@@ -107,7 +107,7 @@ const CSS = `:root {
             line-height: 1.6; margin: 0; position: relative; z-index: 1;
         }
         /* Body */
-        .card-#root { padding: 24px 28px 28px; }
+        .card { padding: 24px 28px 28px; }
         /* Info tiles */
         .info-grid {
             display: grid; grid-template-columns: 1fr 1fr;
@@ -229,7 +229,7 @@ const CSS = `:root {
         }
         @media (max-width: 420px) {
             .card-header { padding: 28px 20px 22px; }
-            .card-#root { padding: 20px; }
+            .card { padding: 20px; }
             .info-grid { grid-template-columns: 1fr; }
             .actions { grid-template-columns: 1fr; }
             .card-footer { flex-direction: column; gap: 4px; text-align: center; }

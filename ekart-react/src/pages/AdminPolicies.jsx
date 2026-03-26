@@ -321,11 +321,6 @@ export default function AdminPolicies({
                     <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: previewHtml }}></div>
                 </div>
             </main>
-
-            <footer style={{ background: 'rgba(0,0,0,0.5)', padding: '1.25rem 3rem', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', marginTop: 'auto' }}>
-                <div style={{ fontWeight: 700 }}>Ekart</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>© 2026 Ekart. All rights reserved.</div>
-            </footer>
         </>
     );
 }

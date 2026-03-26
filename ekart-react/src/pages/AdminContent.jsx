@@ -85,6 +85,7 @@ const CSS = `:root {
             font-size: 0.82rem; font-weight: 500;
             padding: 0.45rem 0.9rem; border-radius: 6px;
             border: 1px solid rgba(255,100,80,0.3);
+            background: none; cursor: pointer;
             transition: all 0.2s;
         }
         .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
@@ -103,7 +104,7 @@ const CSS = `:root {
             animation: slideIn 0.3s ease both;
         }
         .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
-        .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
         .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; }
 
         /* ── PAGE ── */
@@ -227,8 +228,33 @@ const CSS = `:root {
             gap: 0.4rem;
             transition: all 0.2s;
             white-space: nowrap;
+            font-family: inherit;
         }
         .btn-primary:hover { background: var(--yellow-d); transform: translateY(-2px); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* ── TAB SWITCHER ── */
+        .tab-switcher {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            overflow: hidden;
+            width: fit-content;
+        }
+        .tab-btn {
+            padding: 0.55rem 1.25rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+        }
+        .tab-btn.active { background: var(--yellow); color: #1a1000; }
 
         /* ── TABLE ── */
         .banner-table {
@@ -339,7 +365,7 @@ const CSS = `:root {
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .status-badge.active { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+        .status-badge.active   { background: rgba(34,197,94,0.15);  color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
         .status-badge.inactive { background: rgba(255,100,80,0.15); color: #ff8060; border: 1px solid rgba(255,100,80,0.3); }
 
         /* ── EMPTY STATE ── */
@@ -348,8 +374,16 @@ const CSS = `:root {
             padding: 4rem 2rem;
             color: var(--text-dim);
         }
-        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; display: block; }
         .empty-state p { font-size: 0.95rem; }
+
+        /* ── BULK CSV INPUT ── */
+        .bulk-file-label { font-weight: 500; color: var(--text-light); font-size: 0.9rem; }
+        .bulk-file-input {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--text-light);
+        }
 
         /* ── FOOTER ── */
         footer {
@@ -360,26 +394,26 @@ const CSS = `:root {
             display: flex; align-items: center; justify-content: space-between;
         }
         .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
-        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+        .footer-copy  { font-size: 0.72rem; color: var(--text-dim); }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(14px); }
-            to { opacity: 1; transform: translateX(0); }
+            to   { opacity: 1; transform: translateX(0); }
         }
 
         @media(max-width: 1024px) {
-            .nav-links { display: none; }
+            .nav-links  { display: none; }
             .nav-divider { display: none; }
-            .form-row { grid-template-columns: 1fr 1fr; }
-            .stats-row { flex-wrap: wrap; }
+            .form-row   { grid-template-columns: 1fr 1fr; }
+            .stats-row  { flex-wrap: wrap; }
         }
         @media(max-width: 768px) {
-            nav { padding: 0.875rem 1.25rem; }
-            .page { padding: 5.5rem 1.25rem 2rem; }
+            nav         { padding: 0.875rem 1.25rem; }
+            .page       { padding: 5.5rem 1.25rem 2rem; }
             .page-header { flex-direction: column; text-align: center; }
-            .form-row { grid-template-columns: 1fr; }
+            .form-row   { grid-template-columns: 1fr; }
             .banner-table { display: block; overflow-x: auto; }
-            footer { flex-direction: column; text-align: center; gap: 0.5rem; }
+            footer      { flex-direction: column; text-align: center; gap: 0.5rem; }
         }`;
 
 /**
@@ -401,6 +435,9 @@ export default function AdminContent({
   banners = [],
   csrfToken = "",
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("upload");
 
@@ -429,12 +466,21 @@ export default function AdminContent({
   }
 
   // ── Bulk-upload state ─────────────────────────────────────────────────────
-  const csvInputRef           = useRef(null);
-  const [bulkProgressText, setBulkProgressText]   = useState("");
-  const [bulkProgressPct,  setBulkProgressPct]    = useState(0);
-  const [bulkProgressShow, setBulkProgressShow]   = useState(false);
-  const [bulkValidationHtml, setBulkValidationHtml] = useState(null); // { type, message?, errors? }
-  const [bulkUploading,    setBulkUploading]       = useState(false);
+  const csvInputRef              = useRef(null);
+  const [bulkProgressText,    setBulkProgressText]    = useState("");
+  const [bulkProgressPct,     setBulkProgressPct]     = useState(0);
+  const [bulkProgressShow,    setBulkProgressShow]    = useState(false);
+  const [bulkValidationHtml,  setBulkValidationHtml]  = useState(null);
+  const [bulkUploading,       setBulkUploading]       = useState(false);
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  async function handleLogout(e) {
+    e.preventDefault();
+    try {
+      await logout();
+    } catch (_) {}
+    navigate("/admin/login");
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handlePreviewImage(e) {
@@ -571,22 +617,22 @@ export default function AdminContent({
 
       {/* ── Nav ── */}
       <nav>
-        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
+        <a href="/admin/home" className="nav-brand">
           <i className="fas fa-shopping-cart" style={{ fontSize: "1.1rem" }}></i>
           Ekart
         </a>
         <div className="nav-right">
           <div className="nav-links">
-            <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}}        className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-            <Link to="/admin/products"  className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
-            <Link to="/admin/users"className="nav-link"><i className="fas fa-users"></i> Users</Link>
-            <Link to="/admin/content"     className="nav-link active"><i className="fas fa-images"></i> Banners</Link>
+            <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
+            <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
+            <Link to="/admin/users"    className="nav-link"><i className="fas fa-users"></i> Users</Link>
+            <Link to="/admin/content"  className="nav-link active"><i className="fas fa-images"></i> Banners</Link>
           </div>
           <div className="nav-divider"></div>
           <span className="nav-badge"><i className="fas fa-shield-alt"></i> Admin</span>
-          <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
+          <button className="btn-logout" onClick={handleLogout}>
             <i className="fas fa-sign-out-alt"></i> Logout
-          </a>
+          </button>
         </div>
       </nav>
 
@@ -626,36 +672,18 @@ export default function AdminContent({
           <h2><i className="fas fa-plus-circle"></i> Add New Banner</h2>
 
           {/* Tab switcher */}
-          <div style={{
-            display: "flex", gap: 0, marginBottom: "1.5rem",
-            border: "1px solid var(--glass-border)", borderRadius: "10px",
-            overflow: "hidden", width: "fit-content",
-          }}>
+          <div className="tab-switcher">
             <button
               type="button"
+              className={`tab-btn${activeTab === "upload" ? " active" : ""}`}
               onClick={() => setActiveTab("upload")}
-              style={{
-                padding: "0.55rem 1.25rem",
-                fontFamily: "'Poppins', sans-serif",
-                fontSize: "0.82rem", fontWeight: 600,
-                border: "none", cursor: "pointer", transition: "all 0.2s",
-                background: activeTab === "upload" ? "var(--yellow)" : "transparent",
-                color:      activeTab === "upload" ? "#1a1000" : "rgba(255,255,255,0.5)",
-              }}
             >
               <i className="fas fa-upload"></i> Upload Image
             </button>
             <button
               type="button"
+              className={`tab-btn${activeTab === "url" ? " active" : ""}`}
               onClick={() => setActiveTab("url")}
-              style={{
-                padding: "0.55rem 1.25rem",
-                fontFamily: "'Poppins', sans-serif",
-                fontSize: "0.82rem", fontWeight: 600,
-                border: "none", cursor: "pointer", transition: "all 0.2s",
-                background: activeTab === "url" ? "var(--yellow)" : "transparent",
-                color:      activeTab === "url" ? "#1a1000" : "rgba(255,255,255,0.5)",
-              }}
             >
               <i className="fas fa-link"></i> Paste URL
             </button>
@@ -762,7 +790,7 @@ export default function AdminContent({
             {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
             <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: "220px" }}>
-                <label htmlFor="csvFile" style={{ fontWeight: 500 }}>CSV File *</label>
+                <label htmlFor="csvFile" className="bulk-file-label">CSV File *</label>
                 <input
                   type="file"
                   id="csvFile"
@@ -770,7 +798,7 @@ export default function AdminContent({
                   accept=".csv"
                   required
                   ref={csvInputRef}
-                  style={{ marginTop: "0.5rem", display: "block" }}
+                  className="bulk-file-input"
                 />
               </div>
               <button type="submit" className="btn-primary" disabled={bulkUploading}>

@@ -490,7 +490,7 @@ const CustomerViewProducts = ({
         }
 
         /* ── CARD BODY ── */
-        .card-#root {
+        .card {
             padding: 1.4rem;
             display: flex; flex-direction: column; gap: 0.7rem;
             flex: 1;

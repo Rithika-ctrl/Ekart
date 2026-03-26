@@ -84,7 +84,7 @@ export default function ReplacementEmail({
         }
 
         /* ── BODY ── */
-        .email-#root {
+        .email {
             background: #111827;
             padding: 36px;
         }
