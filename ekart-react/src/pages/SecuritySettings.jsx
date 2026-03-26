@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * SecuritySettings Component
@@ -34,8 +36,7 @@ export default function SecuritySettings({
     }, [session]);
 
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -46,13 +47,15 @@ export default function SecuritySettings({
             --text-dim: rgba(255,255,255,0.50);
         }
 
-        .security-mgmt-container {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
@@ -96,6 +99,7 @@ export default function SecuritySettings({
             transition: all 0.2s;
         }
         .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
+        .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
 
         .nav-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 0.5rem; }
 
@@ -116,6 +120,7 @@ export default function SecuritySettings({
             border: 1px solid rgba(255,100,80,0.3);
             transition: all 0.2s;
         }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
         /* ── ALERTS ── */
         .alert-stack {
@@ -132,6 +137,7 @@ export default function SecuritySettings({
         }
         .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
         .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; }
 
         /* ── PAGE ── */
         .page {
@@ -159,7 +165,7 @@ export default function SecuritySettings({
         .page-header p { font-size: 0.9rem; color: var(--text-dim); margin-top: 0.3rem; }
         .page-header-icon { font-size: 2.5rem; }
 
-        /* ── INFO CARDS ── */
+        /* ── SECURITY INFO CARD ── */
         .info-card {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -172,98 +178,235 @@ export default function SecuritySettings({
             font-weight: 600;
             margin-bottom: 1.5rem;
             display: flex;
-            align-items: center; gap: 0.5rem;
+            align-items: center;
+            gap: 0.5rem;
         }
         .info-card h2 i { color: var(--yellow); }
 
         .info-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
         .info-row:last-child { border-bottom: none; }
-        .info-row-label { font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; }
+        .info-row-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
         .info-row-label i { color: var(--yellow); font-size: 0.9rem; }
-        
+        .info-row-value {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-white);
+        }
+
         .status-badge {
-            padding: 0.3rem 0.75rem; border-radius: 20px;
-            font-size: 0.75rem; font-weight: 600;
-            background: rgba(34,197,94,0.2); color: #22c55e;
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-badge.active {
+            background: rgba(34,197,94,0.2);
+            color: #22c55e;
             border: 1px solid rgba(34,197,94,0.4);
         }
 
-        /* ── STATS GRID ── */
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-        .stat-card {
-            background: rgba(0,0,0,0.2); border-radius: 12px;
-            padding: 1.5rem; text-align: center;
+        /* ── FORM CARD ── */
+        .form-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(18px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
         }
-        .stat-card-value { font-size: 2rem; font-weight: 700; color: var(--yellow); }
-        .stat-card-label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.3rem; }
+        .form-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .form-card h2 i { color: var(--yellow); }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--yellow);
+        }
+
+        .btn-submit {
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, var(--yellow), var(--yellow-d));
+            border: none;
+            border-radius: 10px;
+            color: #1a1000;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245,168,0,0.3);
+        }
+
+        .security-note {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255,200,0,0.1);
+            border: 1px solid rgba(255,200,0,0.3);
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: var(--yellow);
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+        .security-note i { font-size: 1rem; margin-top: 0.1rem; }
+
+        /* ── USER STATS ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .stat-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .stat-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--yellow);
+        }
+        .stat-card-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.3rem;
+        }
 
         /* ── RBAC LINK CARD ── */
         .rbac-link-card {
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
-            backdrop-filter: blur(18px); border: 1px solid rgba(139,92,246,0.3);
-            border-radius: 16px; padding: 1.5rem 2rem; text-decoration: none; transition: all 0.3s;
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            text-decoration: none;
+            transition: all 0.3s;
         }
-        .rbac-link-card:hover { border-color: rgba(139,92,246,0.6); transform: translateY(-2px); }
-        .rbac-link-content { display: flex; align-items: center; gap: 1.25rem; }
+        .rbac-link-card:hover {
+            border-color: rgba(139,92,246,0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139,92,246,0.2);
+        }
+        .rbac-link-content {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
         .rbac-icon {
-            width: 56px; height: 56px; background: rgba(139,92,246,0.2);
-            border-radius: 14px; display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem; color: #8b5cf6;
+            width: 56px; height: 56px;
+            background: rgba(139,92,246,0.2);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #8b5cf6;
         }
-        .rbac-text h3 { font-size: 1rem; font-weight: 600; color: var(--text-white); margin-bottom: 0.25rem; }
-        .rbac-text p { font-size: 0.8rem; color: var(--text-dim); max-width: 400px; }
-
-        /* ── FORM ── */
-        .form-group { margin-bottom: 1.25rem; }
-        .form-group label {
-            display: block; font-size: 0.8rem; font-weight: 500;
-            color: var(--text-dim); margin-bottom: 0.5rem;
-            text-transform: uppercase; letter-spacing: 0.05em;
+        .rbac-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-white);
+            margin-bottom: 0.25rem;
         }
-        .form-group input {
-            width: 100%; padding: 0.875rem 1rem; background: rgba(0,0,0,0.3);
-            border: 1px solid var(--glass-border); border-radius: 10px;
-            color: white; font-family: inherit; font-size: 0.9rem;
+        .rbac-text p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            max-width: 400px;
         }
-        .form-group input:focus { outline: none; border-color: var(--yellow); }
-
-        .btn-submit {
-            padding: 0.875rem 2rem; background: linear-gradient(135deg, var(--yellow), var(--yellow-d));
-            border: none; border-radius: 10px; color: #1a1000;
-            font-family: inherit; font-size: 0.9rem; font-weight: 600;
-            cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 0.5rem;
+        .rbac-arrow {
+            width: 40px; height: 40px;
+            background: rgba(139,92,246,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b5cf6;
+            transition: all 0.3s;
         }
-        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(245,168,0,0.3); }
-
-        .security-note {
-            margin-top: 1.5rem; padding: 1rem; background: rgba(255,200,0,0.1);
-            border: 1px solid rgba(255,200,0,0.3); border-radius: 10px;
-            font-size: 0.8rem; color: var(--yellow); display: flex; gap: 0.75rem;
+        .rbac-link-card:hover .rbac-arrow {
+            background: #8b5cf6;
+            color: white;
+            transform: translateX(4px);
         }
 
         /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
-            padding: 1.25rem 3rem; display: flex; align-items: center; justify-content: space-between;
+            padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
         }
         .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
         .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
 
-        @media(max-width: 1024px) { .nav-links, .nav-divider { display: none; } }
+        @media(max-width: 1024px) {
+            .nav-links { display: none; }
+            .nav-divider { display: none; }
+        }
         @media(max-width: 768px) {
             nav { padding: 0.875rem 1.25rem; }
             .page { padding: 5.5rem 1.25rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
             .stats-grid { grid-template-columns: 1fr; }
             footer { flex-direction: column; text-align: center; gap: 0.5rem; }
-        }
-    `;
+        }`;
 
     return (
         <div className="security-mgmt-container">
@@ -290,19 +433,19 @@ export default function SecuritySettings({
 
             {/* ── NAV ── */}
             <nav id="nav">
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
                 </a>
                 <div className="nav-right">
                     <div className="nav-links">
-                        <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-                        <a href="/approve-products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</a>
-                        <a href="/admin/search-users" className="nav-link"><i className="fas fa-users"></i> Users</a>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
+                        <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
+                        <Link to="/admin/users" className="nav-link"><i className="fas fa-users"></i> Users</Link>
                     </div>
                     <div className="nav-divider"></div>
                     <span className="nav-badge"><i className="fas fa-shield-alt"></i> Admin</span>
-                    <a href="/admin/logout" className="btn-logout">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
                         <i className="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>
@@ -351,7 +494,7 @@ export default function SecuritySettings({
                 </div>
 
                 {/* RBAC Management Link */}
-                <a href="/admin/security" className="rbac-link-card">
+                <Link to="/admin/security" className="rbac-link-card">
                     <div className="rbac-link-content">
                         <div className="rbac-icon"><i className="fas fa-user-shield"></i></div>
                         <div className="rbac-text">
@@ -360,7 +503,7 @@ export default function SecuritySettings({
                         </div>
                     </div>
                     <div style={{ color: '#8b5cf6' }}><i className="fas fa-arrow-right"></i></div>
-                </a>
+                </Link>
 
                 {/* Change Password Form */}
                 <div className="info-card">

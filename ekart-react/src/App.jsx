@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // ── Customer Pages ───────────────────────────────────────────────────────
@@ -106,115 +105,118 @@ import NotFound                 from "./pages/404";
 import Blocked                  from "./pages/Blocked";
 import Error                    from "./pages/Error";
 
+// ✅ FIX 2: Removed the <AuthProvider> wrapper that was here.
+// AuthProvider is already in main.jsx wrapping everything.
+// Having it twice created two separate auth contexts — login
+// worked in one context but ProtectedRoute read from the other.
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <Router>
+      <Routes>
 
-          {/* ═══════════════════ PUBLIC ═══════════════════ */}
-          <Route path="/"                     element={<CustomerHome />} />
-          <Route path="/home"                 element={<Home />} />
-          <Route path="/login"                element={<CustomerLogin />} />
-          <Route path="/register"             element={<CustomerRegister />} />
-          <Route path="/otp"                  element={<CustomerOtp />} />
-          <Route path="/forgot-password"      element={<CustomerForgotPassword />} />
-          <Route path="/reset-password"       element={<CustomerResetPassword />} />
-          <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
-          <Route path="/customer/reset-password"  element={<CustomerResetPassword />} />
+        {/* ═══════════════════ PUBLIC ═══════════════════ */}
+        <Route path="/"                     element={<CustomerHome />} />
+        <Route path="/home"                 element={<Home />} />
+        <Route path="/login"                element={<CustomerLogin />} />
+        <Route path="/register"             element={<CustomerRegister />} />
+        <Route path="/otp"                  element={<CustomerOtp />} />
+        <Route path="/forgot-password"      element={<CustomerForgotPassword />} />
+        <Route path="/reset-password"       element={<CustomerResetPassword />} />
+        <Route path="/customer/forgot-password" element={<CustomerForgotPassword />} />
+        <Route path="/customer/reset-password"  element={<CustomerResetPassword />} />
 
-          <Route path="/products"             element={<CustomerViewProducts />} />
-          <Route path="/product/:id"          element={<ProductDetail />} />
-          <Route path="/search"               element={<Search />} />
-          <Route path="/browse"               element={<GuestBrowse />} />
-          <Route path="/policies"             element={<Policies />} />
+        <Route path="/products"             element={<CustomerViewProducts />} />
+        <Route path="/product/:id"          element={<ProductDetail />} />
+        <Route path="/search"               element={<Search />} />
+        <Route path="/browse"               element={<GuestBrowse />} />
+        <Route path="/policies"             element={<Policies />} />
 
-          {/* ═══════════════════ CUSTOMER (protected) ═════ */}
-          <Route path="/profile"   element={<ProtectedRoute allowedRoles={['customer']}><CustomerProfile /></ProtectedRoute>} />
-          <Route path="/cart"      element={<ProtectedRoute allowedRoles={['customer']}><ViewCart /></ProtectedRoute>} />
-          <Route path="/wishlist"  element={<ProtectedRoute allowedRoles={['customer']}><Wishlist /></ProtectedRoute>} />
-          <Route path="/address"   element={<ProtectedRoute allowedRoles={['customer']}><AddressPage /></ProtectedRoute>} />
-          <Route path="/payment"   element={<ProtectedRoute allowedRoles={['customer']}><Payment /></ProtectedRoute>} />
-          <Route path="/success"   element={<ProtectedRoute allowedRoles={['customer']}><OrderSuccess /></ProtectedRoute>} />
+        {/* ═══════════════════ CUSTOMER (protected) ═════ */}
+        <Route path="/profile"   element={<ProtectedRoute allowedRoles={['customer']}><CustomerProfile /></ProtectedRoute>} />
+        <Route path="/cart"      element={<ProtectedRoute allowedRoles={['customer']}><ViewCart /></ProtectedRoute>} />
+        <Route path="/wishlist"  element={<ProtectedRoute allowedRoles={['customer']}><Wishlist /></ProtectedRoute>} />
+        <Route path="/address"   element={<ProtectedRoute allowedRoles={['customer']}><AddressPage /></ProtectedRoute>} />
+        <Route path="/payment"   element={<ProtectedRoute allowedRoles={['customer']}><Payment /></ProtectedRoute>} />
+        <Route path="/success"   element={<ProtectedRoute allowedRoles={['customer']}><OrderSuccess /></ProtectedRoute>} />
 
-          <Route path="/orders"          element={<ProtectedRoute allowedRoles={['customer']}><OrderHistory /></ProtectedRoute>} />
-          <Route path="/view-orders"     element={<ProtectedRoute allowedRoles={['customer']}><ViewOrders /></ProtectedRoute>} />
-          <Route path="/track"           element={<ProtectedRoute allowedRoles={['customer']}><TrackOrders /></ProtectedRoute>} />
-          <Route path="/track/:id"       element={<ProtectedRoute allowedRoles={['customer']}><TrackSingleOrder /></ProtectedRoute>} />
-          <Route path="/refunds"         element={<ProtectedRoute allowedRoles={['customer']}><CustomerRefundReport /></ProtectedRoute>} />
-          <Route path="/refund-management" element={<ProtectedRoute allowedRoles={['customer']}><RefundManagement /></ProtectedRoute>} />
+        <Route path="/orders"          element={<ProtectedRoute allowedRoles={['customer']}><OrderHistory /></ProtectedRoute>} />
+        <Route path="/view-orders"     element={<ProtectedRoute allowedRoles={['customer']}><ViewOrders /></ProtectedRoute>} />
+        <Route path="/track"           element={<ProtectedRoute allowedRoles={['customer']}><TrackOrders /></ProtectedRoute>} />
+        <Route path="/track/:id"       element={<ProtectedRoute allowedRoles={['customer']}><TrackSingleOrder /></ProtectedRoute>} />
+        <Route path="/refunds"         element={<ProtectedRoute allowedRoles={['customer']}><CustomerRefundReport /></ProtectedRoute>} />
+        <Route path="/refund-management" element={<ProtectedRoute allowedRoles={['customer']}><RefundManagement /></ProtectedRoute>} />
 
-          <Route path="/coupons"              element={<ProtectedRoute allowedRoles={['customer']}><CustomerCoupons /></ProtectedRoute>} />
-          <Route path="/spending"             element={<ProtectedRoute allowedRoles={['customer']}><Spending /></ProtectedRoute>} />
-          <Route path="/my-spending"          element={<ProtectedRoute allowedRoles={['customer']}><MySpending /></ProtectedRoute>} />
-          <Route path="/user-spending"        element={<ProtectedRoute allowedRoles={['customer']}><UserSpending /></ProtectedRoute>} />
-          <Route path="/stock-alerts"         element={<ProtectedRoute allowedRoles={['customer']}><StockAlerts /></ProtectedRoute>} />
-          <Route path="/security-settings"    element={<ProtectedRoute allowedRoles={['customer']}><SecuritySettings /></ProtectedRoute>} />
-          <Route path="/customer/security"    element={<ProtectedRoute allowedRoles={['customer']}><CustomerSecuritySettings /></ProtectedRoute>} />
-          <Route path="/ai-assistant"         element={<ProtectedRoute allowedRoles={['customer']}><AiAssistantWidget /></ProtectedRoute>} />
-          <Route path="/chat"                 element={<ProtectedRoute allowedRoles={['customer']}><ChatWidget /></ProtectedRoute>} />
-          <Route path="/analytics"            element={<ProtectedRoute allowedRoles={['customer']}><Analytics /></ProtectedRoute>} />
+        <Route path="/coupons"              element={<ProtectedRoute allowedRoles={['customer']}><CustomerCoupons /></ProtectedRoute>} />
+        <Route path="/spending"             element={<ProtectedRoute allowedRoles={['customer']}><Spending /></ProtectedRoute>} />
+        <Route path="/my-spending"          element={<ProtectedRoute allowedRoles={['customer']}><MySpending /></ProtectedRoute>} />
+        <Route path="/user-spending"        element={<ProtectedRoute allowedRoles={['customer']}><UserSpending /></ProtectedRoute>} />
+        <Route path="/stock-alerts"         element={<ProtectedRoute allowedRoles={['customer']}><StockAlerts /></ProtectedRoute>} />
+        <Route path="/security-settings"    element={<ProtectedRoute allowedRoles={['customer']}><SecuritySettings /></ProtectedRoute>} />
+        <Route path="/customer/security"    element={<ProtectedRoute allowedRoles={['customer']}><CustomerSecuritySettings /></ProtectedRoute>} />
+        <Route path="/ai-assistant"         element={<ProtectedRoute allowedRoles={['customer']}><AiAssistantWidget /></ProtectedRoute>} />
+        <Route path="/chat"                 element={<ProtectedRoute allowedRoles={['customer']}><ChatWidget /></ProtectedRoute>} />
+        <Route path="/analytics"            element={<ProtectedRoute allowedRoles={['customer']}><Analytics /></ProtectedRoute>} />
 
-          {/* ═══════════════════ VENDOR ═══════════════════ */}
-          <Route path="/vendor/login"           element={<VendorLogin />} />
-          <Route path="/vendor/register"        element={<VendorRegister />} />
-          <Route path="/vendor/otp"             element={<VendorOtp />} />
-          <Route path="/vendor/forgot-password" element={<VendorForgotPassword />} />
-          <Route path="/vendor/reset-password"  element={<VendorResetPassword />} />
+        {/* ═══════════════════ VENDOR ═══════════════════ */}
+        <Route path="/vendor/login"           element={<VendorLogin />} />
+        <Route path="/vendor/register"        element={<VendorRegister />} />
+        <Route path="/vendor/otp"             element={<VendorOtp />} />
+        <Route path="/vendor/forgot-password" element={<VendorForgotPassword />} />
+        <Route path="/vendor/reset-password"  element={<VendorResetPassword />} />
 
-          <Route path="/vendor"                 element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorHome /></ProtectedRoute>} />
-          <Route path="/vendor/products"        element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorViewProducts /></ProtectedRoute>} />
-          <Route path="/vendor/orders"          element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorOrders /></ProtectedRoute>} />
-          <Route path="/vendor/report"          element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorSalesReport /></ProtectedRoute>} />
-          <Route path="/vendor/storefront"      element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorStoreFront /></ProtectedRoute>} />
-          <Route path="/vendor/add-product"     element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><AddProduct /></ProtectedRoute>} />
-          <Route path="/vendor/edit-product/:id" element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><EditProduct /></ProtectedRoute>} />
+        <Route path="/vendor"                 element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorHome /></ProtectedRoute>} />
+        <Route path="/vendor/products"        element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorViewProducts /></ProtectedRoute>} />
+        <Route path="/vendor/orders"          element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorOrders /></ProtectedRoute>} />
+        <Route path="/vendor/report"          element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorSalesReport /></ProtectedRoute>} />
+        <Route path="/vendor/storefront"      element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><VendorStoreFront /></ProtectedRoute>} />
+        <Route path="/vendor/add-product"     element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><AddProduct /></ProtectedRoute>} />
+        <Route path="/vendor/edit-product/:id" element={<ProtectedRoute allowedRoles={['vendor']} redirectTo="/vendor/login"><EditProduct /></ProtectedRoute>} />
 
-          {/* ═══════════════════ ADMIN ════════════════════ */}
-          <Route path="/admin/login"            element={<AdminLogin />} />
+        {/* ═══════════════════ ADMIN ════════════════════ */}
+        <Route path="/admin/login"            element={<AdminLogin />} />
 
-          <Route path="/admin"                  element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminHome /></ProtectedRoute>} />
-          <Route path="/admin/accounts"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminAccounts /></ProtectedRoute>} />
-          <Route path="/admin/coupons"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminCoupons /></ProtectedRoute>} />
-          <Route path="/admin/content"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminContent /></ProtectedRoute>} />
-          <Route path="/admin/content-management" element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><ContentManagement /></ProtectedRoute>} />
-          <Route path="/admin/delivery"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminDeliveryManagement /></ProtectedRoute>} />
-          <Route path="/admin/policies"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminPolicies /></ProtectedRoute>} />
-          <Route path="/admin/refunds"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminRefunds /></ProtectedRoute>} />
-          <Route path="/admin/reviews"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminReviewManagement /></ProtectedRoute>} />
-          <Route path="/admin/security"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminSecurity /></ProtectedRoute>} />
-          <Route path="/admin/users"            element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminUserSearch /></ProtectedRoute>} />
-          <Route path="/admin/products"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminViewProducts /></ProtectedRoute>} />
-          <Route path="/admin/warehouse"        element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminWarehouse /></ProtectedRoute>} />
+        <Route path="/admin"                  element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminHome /></ProtectedRoute>} />
+        <Route path="/admin/accounts"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminAccounts /></ProtectedRoute>} />
+        <Route path="/admin/coupons"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminCoupons /></ProtectedRoute>} />
+        <Route path="/admin/content"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminContent /></ProtectedRoute>} />
+        <Route path="/admin/content-management" element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><ContentManagement /></ProtectedRoute>} />
+        <Route path="/admin/delivery"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminDeliveryManagement /></ProtectedRoute>} />
+        <Route path="/admin/policies"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminPolicies /></ProtectedRoute>} />
+        <Route path="/admin/refunds"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminRefunds /></ProtectedRoute>} />
+        <Route path="/admin/reviews"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminReviewManagement /></ProtectedRoute>} />
+        <Route path="/admin/security"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminSecurity /></ProtectedRoute>} />
+        <Route path="/admin/users"            element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminUserSearch /></ProtectedRoute>} />
+        <Route path="/admin/products"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminViewProducts /></ProtectedRoute>} />
+        <Route path="/admin/warehouse"        element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminWarehouse /></ProtectedRoute>} />
 
-          {/* ═══════════════════ DELIVERY ═════════════════ */}
-          <Route path="/delivery/login"         element={<DeliveryLogin />} />
-          <Route path="/delivery/register"      element={<DeliveryRegister />} />
-          <Route path="/delivery/otp"           element={<DeliveryOtp />} />
+        {/* ═══════════════════ DELIVERY ═════════════════ */}
+        <Route path="/delivery/login"         element={<DeliveryLogin />} />
+        <Route path="/delivery/register"      element={<DeliveryRegister />} />
+        <Route path="/delivery/otp"           element={<DeliveryOtp />} />
 
-          <Route path="/delivery"               element={<ProtectedRoute allowedRoles={['delivery']} redirectTo="/delivery/login"><DeliveryHome /></ProtectedRoute>} />
-          <Route path="/delivery/pending"       element={<ProtectedRoute allowedRoles={['delivery']} redirectTo="/delivery/login"><DeliveryPending /></ProtectedRoute>} />
+        <Route path="/delivery"               element={<ProtectedRoute allowedRoles={['delivery']} redirectTo="/delivery/login"><DeliveryHome /></ProtectedRoute>} />
+        <Route path="/delivery/pending"       element={<ProtectedRoute allowedRoles={['delivery']} redirectTo="/delivery/login"><DeliveryPending /></ProtectedRoute>} />
 
-          {/* ═══════════════════ EMAIL PREVIEWS ═══════════ */}
-          <Route path="/email/order"            element={<OrderEmail />} />
-          <Route path="/email/cancel"           element={<CancelEmail />} />
-          <Route path="/email/shipped"          element={<ShippedEmail />} />
-          <Route path="/email/delivered"        element={<DeliveredEmail />} />
-          <Route path="/email/replacement"      element={<ReplacementEmail />} />
-          <Route path="/email/otp"              element={<OtpEmail />} />
-          <Route path="/email/back-in-stock"    element={<BackInStockEmail />} />
-          <Route path="/email/stock-alert"      element={<StockAlertEmail />} />
-          <Route path="/email/delivery-otp"     element={<DeliveryOtpEmail />} />
+        {/* ═══════════════════ EMAIL PREVIEWS ═══════════ */}
+        <Route path="/email/order"            element={<OrderEmail />} />
+        <Route path="/email/cancel"           element={<CancelEmail />} />
+        <Route path="/email/shipped"          element={<ShippedEmail />} />
+        <Route path="/email/delivered"        element={<DeliveredEmail />} />
+        <Route path="/email/replacement"      element={<ReplacementEmail />} />
+        <Route path="/email/otp"              element={<OtpEmail />} />
+        <Route path="/email/back-in-stock"    element={<BackInStockEmail />} />
+        <Route path="/email/stock-alert"      element={<StockAlertEmail />} />
+        <Route path="/email/delivery-otp"     element={<DeliveryOtpEmail />} />
 
-          {/* ═══════════════════ ERROR PAGES ══════════════ */}
-          <Route path="/403"     element={<AccessDenied />} />
-          <Route path="/blocked" element={<Blocked />} />
-          <Route path="/error"   element={<Error />} />
-          <Route path="*"        element={<NotFound />} />
+        {/* ═══════════════════ ERROR PAGES ══════════════ */}
+        <Route path="/403"     element={<AccessDenied />} />
+        <Route path="/blocked" element={<Blocked />} />
+        <Route path="/error"   element={<Error />} />
+        <Route path="*"        element={<NotFound />} />
 
-        </Routes>
-      </Router>
-    </AuthProvider>
+      </Routes>
+    </Router>
   );
 }
 

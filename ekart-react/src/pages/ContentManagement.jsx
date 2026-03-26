@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * ContentManagement Component
@@ -36,8 +38,7 @@ export default function ContentManagement({
     }, [session]);
 
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -48,13 +49,15 @@ export default function ContentManagement({
             --text-dim: rgba(255,255,255,0.50);
         }
 
-        .content-mgmt-container {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
@@ -319,8 +322,7 @@ export default function ContentManagement({
             .page-header { flex-direction: column; text-align: center; }
             .stats-grid { grid-template-columns: 1fr; }
             footer { flex-direction: column; text-align: center; gap: 0.5rem; }
-        }
-    `;
+        }`;
 
     return (
         <div className="content-mgmt-container">
@@ -351,19 +353,19 @@ export default function ContentManagement({
 
             {/* ── NAV ── */}
             <nav id="nav">
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
                 </a>
                 <div className="nav-right">
                     <div className="nav-links">
-                        <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-                        <a href="/approve-products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</a>
-                        <a href="/admin/search-users" className="nav-link"><i className="fas fa-users"></i> Users</a>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
+                        <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
+                        <Link to="/admin/users" className="nav-link"><i className="fas fa-users"></i> Users</Link>
                     </div>
                     <div className="nav-divider"></div>
                     <span className="nav-badge"><i className="fas fa-shield-alt"></i> Admin</span>
-                    <a href="/admin/logout" className="btn-logout">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
                         <i className="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>

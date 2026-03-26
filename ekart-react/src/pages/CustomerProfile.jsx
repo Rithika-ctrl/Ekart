@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow: #f5a800; --yellow-d: #d48f00;
             --glass-border: rgba(255,255,255,0.22);
             --glass-card:   rgba(255,255,255,0.10);
@@ -12,7 +12,7 @@ const CSS = `
         }
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
         html{scroll-behavior:smooth;}
-        body{font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
+        #root {font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
 
         .bg-layer{position:fixed;inset:0;z-index:-1;overflow:hidden;}
         .bg-layer::before{content:'';position:absolute;inset:-20px;
@@ -115,8 +115,7 @@ const CSS = `
 
         .spinner{display:none;width:18px;height:18px;border:2px solid rgba(0,0,0,0.3);
             border-top-color:#000;border-radius:50%;animation:spin 0.7s linear infinite;}
-        @keyframes spin{to{transform:rotate(360deg);}}
-`;
+        @keyframes spin{to{transform:rotate(360deg);}}`;
 
 /**
  * CustomerProfile Component
@@ -242,8 +241,8 @@ export default function CustomerProfile({
 
             {/* NAV */}
             <nav>
-                <a href="/customer/home" className="nav-brand">🛒 E<span>kart</span></a>
-                <a href="/customer/home" className="nav-back"><i className="fas fa-arrow-left"></i> Back to Home</a>
+                <Link to="/" className="nav-brand">🛒 E<span>kart</span></Link>
+                <Link to="/" className="nav-back"><i className="fas fa-arrow-left"></i> Back to Home</Link>
             </nav>
 
             {/* ALERTS */}
@@ -337,15 +336,15 @@ export default function CustomerProfile({
                                 </button>
                                 
                                 {customer?.profileImage && (
-                                    <a 
-                                        href="/customer/remove-profile-image" 
+                                    <Link 
+                                        to="/profile" 
                                         className="btn-danger"
                                         onClick={(e) => {
                                             if(!window.confirm('Remove your profile photo?')) e.preventDefault();
                                         }}
                                     >
                                         <i className="fas fa-trash-alt"></i> Remove Photo
-                                    </a>
+                                    </Link>
                                 )}
                             </div>
                         </form>

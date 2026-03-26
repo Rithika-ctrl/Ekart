@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * DeliveryOtpEmail Component
@@ -13,7 +14,7 @@ export default function DeliveryOtpEmail({
   otp = "123456"
 }) {
   const CSS = `
-    .email-body {
+    .email-#root {
       margin: 0;
       padding: 0;
       background: #f4f6f8;

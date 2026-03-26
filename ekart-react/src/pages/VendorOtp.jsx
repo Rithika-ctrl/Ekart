@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -13,7 +13,7 @@ const CSS = `
         }
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
         html{scroll-behavior:smooth;}
-        body{font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
+        #root {font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
 
         .bg-layer{position:fixed;inset:0;z-index:-1;overflow:hidden;}
         .bg-layer::before{content:'';position:absolute;inset:-20px;background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;filter:blur(6px);transform:scale(1.08);}
@@ -51,6 +51,18 @@ const CSS = `
         .otp-box:focus{outline:none;background:rgba(255,255,255,0.10);border-color:var(--yellow);box-shadow:0 0 0 3px rgba(245,168,0,0.12);}
         .otp-box::placeholder{color:rgba(255,255,255,0.15);}
 
+        /* Fallback single input */
+        .form-group{display:flex;flex-direction:column;gap:0.45rem;margin-bottom:1.25rem;}
+        .form-group label{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-left:0.15rem;}
+        .input-wrapper{position:relative;}
+        .input-icon{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.875rem;transition:color 0.3s;pointer-events:none;}
+        .input-wrapper:focus-within .input-icon{color:var(--yellow);}
+        .form-control{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:12px;padding:0.8rem 1rem 0.8rem 2.75rem;color:white;font-family:'Poppins',sans-serif;font-size:0.875rem;transition:all 0.3s;}
+        .form-control::placeholder{color:var(--text-dim);}
+        .form-control:focus{outline:none;background:rgba(255,255,255,0.10);border-color:var(--yellow);box-shadow:0 0 0 3px rgba(245,168,0,0.12);}
+        .form-control::-webkit-outer-spin-button,.form-control::-webkit-inner-spin-button{-webkit-appearance:none;}
+        .form-control[type=number]{-moz-appearance:textfield;}
+
         .form-hint{display:flex;align-items:center;gap:0.35rem;font-size:0.7rem;color:var(--text-dim);margin-left:0.15rem;}
         .form-hint i{color:var(--yellow);font-size:0.65rem;}
 
@@ -74,8 +86,7 @@ const CSS = `
             .form-card{padding:1.75rem 1.25rem;}
             .otp-box{width:42px;height:52px;font-size:1.2rem;}
             footer{padding:1.25rem;flex-direction:column;text-align:center;}
-        }
-`;
+        }`;
 
 /**
  * VendorOtp Component
@@ -211,13 +222,13 @@ export default function VendorOtp({
             </div>
 
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/vendor/login" className="nav-brand">
+                <Link to="/vendor/login" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
-                <a href="/vendor/login" className="nav-link-btn">
+                </Link>
+                <Link to="/vendor/login" className="nav-link-btn">
                     <i className="fas fa-arrow-left"></i> Back to Login
-                </a>
+                </Link>
             </nav>
 
             <main className="page">
@@ -265,9 +276,9 @@ export default function VendorOtp({
                         </button>
                     </form>
 
-                    <a href="/vendor/login" className="back-link">
+                    <Link to="/vendor/login" className="back-link">
                         <i className="fas fa-arrow-left"></i> Back to Login
-                    </a>
+                    </Link>
                 </div>
             </main>
 

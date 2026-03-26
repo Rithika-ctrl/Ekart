@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Coupon Management Component
@@ -17,6 +19,9 @@ export default function AdminCoupons({
     csrfToken = ""
 }) {
     // --- STATE ---
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/admin/login'); };
     const [scrolled, setScrolled] = useState(false);
     const [alerts, setAlerts] = useState({ success: session.success, failure: session.failure });
     const [discountType, setDiscountType] = useState('PERCENT');
@@ -52,8 +57,7 @@ export default function AdminCoupons({
         setDiscountType(e.target.value);
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800; --yellow-d: #d48f00;
             --glass-border: rgba(255,255,255,0.14);
             --glass-card: rgba(255,255,255,0.07);
@@ -65,125 +69,140 @@ export default function AdminCoupons({
             --input-border: rgba(255,255,255,0.14);
             --success: #22c55e; --danger: #f87171;
         }
-
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        #root { font-family:'Poppins',sans-serif; min-height:100vh; color:var(--text-white); background:#060a18; }
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
-        .bg-layer::before { 
-            content:''; position:absolute; inset:-20px;
+        .bg-layer::before { content:''; position:absolute; inset:-20px;
             background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter:blur(6px); transform:scale(1.08); 
-        }
-        .bg-layer::after { 
-            content:''; position:absolute; inset:0;
-            background:linear-gradient(135deg,rgba(5,8,20,0.92),rgba(8,12,28,0.88)); 
-        }
+            filter:blur(6px); transform:scale(1.08); }
+        .bg-layer::after { content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg,rgba(5,8,20,0.92),rgba(8,12,28,0.88)); }
 
-        nav { 
-            position:fixed; top:0; left:0; right:0; z-index:100;
+        /* NAV */
+        nav { position:fixed; top:0; left:0; right:0; z-index:100;
             padding:0.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
-            background: var(--glass-nav); backdrop-filter:blur(14px);
-            border-bottom:1px solid var(--glass-border); gap:1rem; 
-            transition: background 0.3s;
-        }
-        nav.scrolled { background: rgba(0,0,0,0.6); }
-
-        .nav-brand { 
-            font-size:1.6rem; font-weight:700; color:var(--text-white);
+            background:var(--glass-nav); backdrop-filter:blur(14px);
+            border-bottom:1px solid var(--glass-border); gap:1rem; }
+        .nav-brand { font-size:1.6rem; font-weight:700; color:var(--text-white);
             text-decoration:none; letter-spacing:0.04em;
-            display:flex; align-items:center; gap:0.45rem; 
-        }
+            display:flex; align-items:center; gap:0.45rem; }
         .nav-brand span { color:var(--yellow); }
-
-        .nav-link { 
-            display:flex; align-items:center; gap:0.4rem; color:var(--text-light);
+        .nav-right { display:flex; align-items:center; gap:0.75rem; }
+        .nav-link { display:flex; align-items:center; gap:0.4rem; color:var(--text-light);
             text-decoration:none; font-size:0.8rem; font-weight:500; padding:0.4rem 0.75rem;
-            border-radius:8px; border:1px solid transparent; transition:all 0.2s; 
-        }
-        .nav-link:hover, .nav-link.active { border-color:rgba(245,168,0,0.3); background:rgba(245,168,0,0.08); color:var(--yellow); }
-
-        .btn-logout { 
-            display:flex; align-items:center; gap:0.4rem; background:rgba(239,68,68,0.12);
+            border-radius:8px; border:1px solid transparent; transition:all 0.2s; }
+        .nav-link:hover, .nav-link.active { border-color:rgba(245,168,0,0.3);
+            background:rgba(245,168,0,0.08); color:var(--yellow); }
+        .btn-logout { display:flex; align-items:center; gap:0.4rem; background:rgba(239,68,68,0.12);
             border:1px solid rgba(239,68,68,0.25); color:#f87171; text-decoration:none;
-            padding:0.4rem 0.9rem; border-radius:8px; font-size:0.8rem; font-weight:600; transition:all 0.2s; 
-        }
+            padding:0.4rem 0.9rem; border-radius:8px; font-size:0.8rem; font-weight:600; transition:all 0.2s; }
         .btn-logout:hover { background:rgba(239,68,68,0.22); }
 
+        /* PAGE */
+        main { padding:7rem 2rem 3rem; max-width:1100px; margin:0 auto; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ALERTS */
         .alert-stack { position:fixed; top:5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
-        .alert { display:flex; align-items:center; gap:0.6rem; padding:0.7rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:500; animation:fadeUp 0.3s ease both; }
+        .alert { display:flex; align-items:center; gap:0.6rem; padding:0.7rem 1rem;
+            border-radius:10px; font-size:0.82rem; font-weight:500; animation:fadeUp 0.3s ease both; }
         .alert-success { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); color:#22c55e; }
         .alert-danger  { background:rgba(248,113,113,0.15); border:1px solid rgba(248,113,113,0.3); color:#f87171; }
         .alert-close { background:none; border:none; color:inherit; cursor:pointer; margin-left:auto; font-size:1rem; opacity:0.6; }
 
-        .page-main { padding:7rem 2rem 3rem; max-width:1100px; margin:0 auto; flex: 1; }
+        /* PAGE HEADER */
+        .page-header { display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem; }
+        .page-title { font-size:1.5rem; font-weight:700; }
+        .page-title span { color:var(--yellow); }
+        .page-subtitle { font-size:0.82rem; color:var(--text-dim); margin-top:0.2rem; }
 
-        .glass-card { 
-            background:var(--glass-card); backdrop-filter:blur(20px);
-            border:1px solid var(--glass-border); border-radius:18px; padding:1.5rem; 
-        }
+        /* GLASS CARD */
+        .glass-card { background:var(--glass-card); backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border); border-radius:18px; padding:1.5rem; }
 
+        /* FORM */
         .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; }
         .form-group { display:flex; flex-direction:column; gap:0.35rem; }
         .form-group.full { grid-column:1/-1; }
-        .form-control { 
-            background:var(--input-bg); border:1px solid var(--input-border);
+        .form-label { font-size:0.7rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.08em; color:var(--text-dim); }
+        .form-control { background:var(--input-bg); border:1px solid var(--input-border);
             border-radius:10px; color:white; font-family:'Poppins',sans-serif;
-            font-size:0.85rem; padding:0.6rem 0.9rem; outline:none; transition:border-color 0.2s; width:100%; 
-        }
+            font-size:0.85rem; padding:0.6rem 0.9rem; outline:none; transition:border-color 0.2s; width:100%; }
         .form-control:focus { border-color:rgba(245,168,0,0.5); }
+        .form-control option { background:#0f172a; color:white; }
+        select.form-control { appearance:none; cursor:pointer; }
+        .form-hint { font-size:0.68rem; color:var(--text-dim); margin-top:0.2rem; }
 
-        .btn-create { 
-            display:inline-flex; align-items:center; gap:0.5rem;
+        /* SUBMIT */
+        .btn-create { display:inline-flex; align-items:center; gap:0.5rem;
             background:var(--yellow); color:#1a1000; border:none; border-radius:10px;
             padding:0.7rem 1.5rem; font-family:'Poppins',sans-serif;
-            font-size:0.875rem; font-weight:700; cursor:pointer; transition:all 0.2s; 
-        }
+            font-size:0.875rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
         .btn-create:hover { background:var(--yellow-d); transform:translateY(-1px); }
 
-        .coupon-table { width:100%; border-collapse:collapse; }
-        .coupon-table th { 
-            font-size:0.68rem; font-weight:700; text-transform:uppercase;
-            letter-spacing:0.08em; color:var(--text-dim); padding:0 0 0.75rem;
-            border-bottom:1px solid var(--glass-border); text-align:left; 
-        }
-        .coupon-table td { padding:0.85rem 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.83rem; color:var(--text-light); vertical-align:middle; }
+        /* SECTION LABEL */
+        .section-label { display:flex; align-items:center; gap:0.6rem;
+            font-size:0.7rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.12em; color:var(--yellow); margin-bottom:1.25rem; }
+        .section-label::after { content:''; flex:1; height:1px; background:var(--glass-border); }
 
-        .badge { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }
+        /* TABLE */
+        .coupon-table { width:100%; border-collapse:collapse; }
+        .coupon-table th { font-size:0.68rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.08em; color:var(--text-dim); padding:0 0 0.75rem;
+            border-bottom:1px solid var(--glass-border); text-align:left; }
+        .coupon-table td { padding:0.85rem 0; border-bottom:1px solid rgba(255,255,255,0.05);
+            font-size:0.83rem; color:var(--text-light); vertical-align:middle; }
+        .coupon-table tr:last-child td { border-bottom:none; }
+
+        /* BADGES */
+        .badge { display:inline-flex; align-items:center; gap:0.3rem;
+            padding:0.2rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }
         .badge-active   { background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
         .badge-inactive { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
         .badge-percent  { background:rgba(245,168,0,0.12); color:var(--yellow); border:1px solid rgba(245,168,0,0.25); }
         .badge-flat     { background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25); }
 
-        .code-pill { 
-            display:inline-block; background:rgba(245,168,0,0.12);
+        /* CODE PILL */
+        .code-pill { display:inline-block; background:rgba(245,168,0,0.12);
             border:1px solid rgba(245,168,0,0.3); color:var(--yellow);
             padding:0.2rem 0.65rem; border-radius:6px;
-            font-family:monospace; font-size:0.85rem; font-weight:700; letter-spacing:0.06em; 
-        }
+            font-family:monospace; font-size:0.85rem; font-weight:700; letter-spacing:0.06em; }
 
-        .btn-toggle { 
-            display:inline-flex; align-items:center; gap:0.3rem;
+        /* ACTION BUTTONS */
+        .btn-toggle { display:inline-flex; align-items:center; gap:0.3rem;
             background:none; border:1px solid var(--glass-border); border-radius:7px;
             color:var(--text-dim); font-family:'Poppins',sans-serif;
             font-size:0.72rem; font-weight:600; padding:0.3rem 0.7rem;
-            cursor:pointer; transition:all 0.2s; 
-        }
+            cursor:pointer; transition:all 0.2s; }
         .btn-toggle:hover { border-color:rgba(245,168,0,0.4); color:var(--yellow); }
-
-        .btn-del { 
-            display:inline-flex; align-items:center; gap:0.3rem;
+        .btn-del { display:inline-flex; align-items:center; gap:0.3rem;
             background:none; border:1px solid rgba(239,68,68,0.2); border-radius:7px;
             color:#f87171; font-family:'Poppins',sans-serif;
             font-size:0.72rem; font-weight:600; padding:0.3rem 0.7rem;
-            cursor:pointer; transition:all 0.2s; margin-left:0.4rem; 
-        }
+            cursor:pointer; transition:all 0.2s; margin-left:0.4rem; }
         .btn-del:hover { background:rgba(239,68,68,0.1); }
 
-        .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
-        .stat-card { background:var(--glass-card); border:1px solid var(--glass-border); border-radius:14px; padding:1rem 1.25rem; }
-        .stat-val { font-size:1.6rem; font-weight:800; color:var(--yellow); }
-        .stat-label { font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:0.2rem; }
+        /* EMPTY STATE */
+        .empty-state { text-align:center; padding:3rem 1rem; color:var(--text-dim); }
+        .empty-state i { font-size:2.5rem; color:rgba(245,168,0,0.3); margin-bottom:1rem; display:block; }
 
-        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-    `;
+        /* STATS ROW */
+        .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .stat-card { background:var(--glass-card); border:1px solid var(--glass-border);
+            border-radius:14px; padding:1rem 1.25rem; }
+        .stat-val { font-size:1.6rem; font-weight:800; color:var(--yellow); }
+        .stat-label { font-size:0.68rem; color:var(--text-dim); text-transform:uppercase;
+            letter-spacing:0.08em; margin-top:0.2rem; }
+
+        @media(max-width:700px) {
+            main { padding:6rem 1rem 2rem; }
+            .form-grid { grid-template-columns:1fr; }
+            nav { padding:0.75rem 1rem; }
+            .nav-link span { display:none; }
+        }`;
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#060a18' }}>
@@ -210,16 +229,16 @@ export default function AdminCoupons({
 
             {/* NAV */}
             <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
                 </a>
                 <div className="nav-right">
-                    <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> <span>Dashboard</span></a>
-                    <a href="/approve-products" className="nav-link"><i className="fas fa-tasks"></i> <span>Approvals</span></a>
-                    <a href="/admin/coupons" className="nav-link active"><i className="fas fa-tag"></i> <span>Coupons</span></a>
-                    <a href="/admin/refunds" className="nav-link"><i className="fas fa-undo-alt"></i> <span>Refunds</span></a>
-                    <a href="/admin/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> <span>Dashboard</span></a>
+                    <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> <span>Approvals</span></Link>
+                    <Link to="/admin/coupons" className="nav-link active"><i className="fas fa-tag"></i> <span>Coupons</span></Link>
+                    <Link to="/admin/refunds" className="nav-link"><i className="fas fa-undo-alt"></i> <span>Refunds</span></Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 

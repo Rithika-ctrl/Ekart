@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * TrackSingleOrder Component
@@ -29,8 +30,7 @@ export default function TrackSingleOrder({
     }, []);
 
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -39,15 +39,18 @@ export default function TrackSingleOrder({
             --text-white:   #ffffff;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
+            --green:        #22c55e;
         }
 
-        .track-order-container {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
@@ -64,7 +67,6 @@ export default function TrackSingleOrder({
             background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
-        /* ── NAV ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
@@ -72,114 +74,251 @@ export default function TrackSingleOrder({
             background: var(--glass-nav);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--glass-border);
-            transition: all 0.3s;
+            transition: background 0.3s;
         }
-        nav.scrolled { background: rgba(0, 0, 0, 0.45); }
-
+        nav.scrolled { background: rgba(0,0,0,0.45); }
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
             color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
         }
         .nav-brand span { color: var(--yellow); }
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-link-btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid var(--glass-border); transition: all 0.2s;
+        }
+        .nav-link-btn:hover { color: white; background: rgba(255,255,255,0.1); text-decoration: none; }
+        .nav-link-btn.active { color: var(--yellow); border-color: rgba(245,168,0,0.4); background: rgba(245,168,0,0.08); }
+        .btn-logout {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid rgba(255,100,80,0.3); transition: all 0.2s;
+        }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); text-decoration: none; }
 
-        /* ── PAGE ── */
         .page {
             flex: 1;
-            padding: 7rem 3rem 3rem;
-            max-width: 800px;
-            margin: 0 auto;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
+            padding: 7rem 1.5rem 3rem;
+            display: flex; flex-direction: column; align-items: center;
             gap: 2rem;
         }
 
         .page-header {
-            display: flex; align-items: center; justify-content: space-between;
             background: var(--glass-card);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             padding: 2rem 2.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1.5rem; width: 100%; max-width: 800px;
+            animation: fadeUp 0.5s ease both;
         }
-        .page-header h1 { font-size: 1.75rem; font-weight: 700; }
-        .page-header h1 span { color: var(--yellow); }
+        .page-header-left h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 0.25rem; }
+        .page-header-left h1 span { color: var(--yellow); }
+        .page-header-left p { font-size: 0.825rem; color: var(--text-dim); }
+        .page-header-icon {
+            width: 60px; height: 60px;
+            background: rgba(245,168,0,0.15);
+            border: 2px solid rgba(245,168,0,0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
 
-        /* ── TRACKING CARD ── */
-        .tracking-card {
+        .track-card {
             background: var(--glass-card);
-            backdrop-filter: blur(18px);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
-            padding: 2.5rem;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%; max-width: 800px;
+            animation: fadeUp 0.5s ease 0.05s both;
         }
 
-        /* ── TIMELINE ── */
-        .timeline { position: relative; padding-left: 2.5rem; }
-        .timeline::before {
-            content: ''; position: absolute; left: 0.45rem; top: 0; bottom: 0;
-            width: 2px; background: rgba(255,255,255,0.1);
+        .order-header {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; flex-wrap: wrap; gap: 1rem;
+            margin-bottom: 2rem; padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .order-id {
+            font-size: 1.1rem; font-weight: 700; color: var(--text-white);
+            display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;
+        }
+        .order-id i { color: var(--yellow); }
+        .order-id .id-chip {
+            background: rgba(245,168,0,0.12);
+            border: 1px solid rgba(245,168,0,0.28);
+            color: var(--yellow);
+            font-size: 0.8rem; font-weight: 700;
+            padding: 3px 12px; border-radius: 50px;
+        }
+        .order-date { font-size: 0.78rem; color: var(--text-dim); }
+        .order-right { text-align: right; }
+        .order-amount { font-size: 1.1rem; font-weight: 700; color: var(--yellow); margin-bottom: 0.5rem; }
+        .item-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+        .item-chip {
+            display: inline-block; padding: 0.25rem 0.8rem; border-radius: 100px;
+            background: rgba(245,168,0,0.12); border: 1px solid rgba(245,168,0,0.25);
+            color: var(--yellow); font-size: 0.72rem; font-weight: 600;
         }
 
-        .timeline-item { position: relative; margin-bottom: 2rem; }
-        .timeline-item:last-child { margin-bottom: 0; }
-        
-        .timeline-dot {
-            position: absolute; left: -2.5rem; top: 0.25rem;
-            width: 1rem; height: 1rem; border-radius: 50%;
-            background: #333; border: 3px solid rgba(255,255,255,0.1);
+        /* ── VERTICAL STEPPER ── */
+        .tracking-stepper {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            padding-left: 40px;
+            margin: 1.5rem 0;
+        }
+
+        .step {
+            position: relative;
+            padding: 0 0 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .step:last-child { padding-bottom: 0; }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+        .step:last-child::before { display: none; }
+
+        .step.completed::before { background: var(--green); }
+        .step.active::before { 
+            background: linear-gradient(180deg, var(--green) 50%, rgba(255,255,255,0.1) 50%);
+        }
+
+        .step-icon {
+            position: absolute;
+            left: -40px;
+            top: 0;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.15);
+            color: var(--text-dim);
             z-index: 1;
         }
-        .timeline-item.active .timeline-dot {
-            background: var(--yellow);
-            box-shadow: 0 0 15px var(--yellow);
-            border-color: rgba(245,168,0,0.3);
+        .step.completed .step-icon {
+            background: var(--green);
+            border-color: var(--green);
+            color: #000;
+        }
+        .step.active .step-icon {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: var(--green);
+            color: var(--green);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
         }
 
-        .timeline-content { padding-top: 0; }
-        .status-title { font-weight: 700; font-size: 1.1rem; color: white; margin-bottom: 0.25rem; }
-        .timeline-item.active .status-title { color: var(--yellow); }
-        .status-desc { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
-        .status-time { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic; }
+        .step-content h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 0.25rem;
+        }
+        .step.completed .step-content h4,
+        .step.active .step-content h4 {
+            color: var(--text-white);
+        }
 
-        /* ── INFO BOXES ── */
+        .step-content p {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+        .step-content .step-time {
+            font-size: 0.7rem;
+            color: var(--yellow);
+            margin-top: 0.25rem;
+        }
+
+        /* ── DELIVERY INFO ── */
+        .delivery-info {
+            display: flex; align-items: center; gap: 0.75rem;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            border-radius: 12px; padding: 1rem 1.25rem;
+            margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-light);
+        }
+        .delivery-info i { color: var(--green); font-size: 1.2rem; flex-shrink: 0; }
+        .delivery-info.delivered {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        .delivery-info.pending {
+            background: rgba(245, 168, 0, 0.08);
+            border-color: rgba(245, 168, 0, 0.22);
+        }
+        .delivery-info.pending i { color: var(--yellow); }
+
+        /* ── CURRENT LOCATION ── */
         .location-badge {
-            display: inline-flex; align-items: center; gap: 0.6rem;
-            background: rgba(245,168,0,0.1); border: 1px solid rgba(245,168,0,0.25);
-            padding: 0.75rem 1.25rem; border-radius: 12px; margin-top: 1rem;
-            font-size: 0.85rem; color: var(--text-light);
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px; padding: 0.6rem 1rem;
+            font-size: 0.78rem; color: var(--text-light);
+            margin-top: 1rem;
         }
         .location-badge i { color: var(--yellow); }
 
-        .delivery-info {
-            display: flex; align-items: center; gap: 1rem;
-            padding: 1.25rem 1.5rem; border-radius: 15px; margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-        .delivery-info.delivered { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #4ade80; }
-        .delivery-info.pending { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #60a5fa; }
-
         .btn-ghost {
-            display: inline-flex; align-items: center; gap: 0.5rem;
-            color: var(--text-dim); text-decoration: none; font-size: 0.85rem;
-            margin-top: 1rem; transition: color 0.2s;
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.7rem 1.5rem; border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            color: var(--text-light);
+            font-size: 0.85rem; font-weight: 600;
+            text-decoration: none; transition: all 0.2s;
         }
-        .btn-ghost:hover { color: white; }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.11);
+            border-color: rgba(255,255,255,0.35);
+            color: var(--text-white); text-decoration: none;
+        }
 
         footer {
             background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
-            border-top: 1px solid var(--glass-border);
-            padding: 1.5rem 3rem; display: flex; align-items: center; justify-content: space-between;
+            border-top: 1px solid var(--glass-border); padding: 1.25rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+        .footer-brand span { color: var(--yellow); }
+        .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @media(max-width: 768px) {
-            nav { padding: 1rem 1.5rem; }
-            .page { padding: 6rem 1.25rem 2rem; }
-            .page-header { flex-direction: column; text-align: center; gap: 1rem; }
-        }
-    `;
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
+            .track-card { padding: 1.5rem; }
+            .order-header { flex-direction: column; }
+            .order-right { text-align: left; }
+            .item-chips { justify-content: flex-start; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; }
+        }`;
 
     return (
         <div className="track-order-container">
@@ -190,9 +329,9 @@ export default function TrackSingleOrder({
 
             {/* NAV */}
             <nav className={isScrolled ? 'scrolled' : ''} id="nav">
-                <a href="/customer/home" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart"></i> Ek<span>art</span>
-                </a>
+                </Link>
             </nav>
 
             <main className="page">
@@ -248,9 +387,9 @@ export default function TrackSingleOrder({
                     )
                 )}
 
-                <a href="/customer/order-history" className="btn-ghost">
+                <Link to="/orders" className="btn-ghost">
                     <i className="fas fa-arrow-left"></i> Back to Order History
-                </a>
+                </Link>
             </main>
 
             <footer>

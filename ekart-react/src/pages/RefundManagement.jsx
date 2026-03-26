@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * RefundManagement Component
@@ -15,6 +17,9 @@ export default function RefundManagement({
     session = { success: null, failure: null }
 }) {
     // --- STATE ---
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/admin/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [alerts, setAlerts] = useState({ 
         success: session.success, 
@@ -39,8 +44,7 @@ export default function RefundManagement({
     }, [session]);
 
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -51,13 +55,15 @@ export default function RefundManagement({
             --text-dim: rgba(255,255,255,0.50);
         }
 
-        .refund-mgmt-body {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
@@ -81,17 +87,19 @@ export default function RefundManagement({
             background: var(--glass-nav);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--glass-border);
-            transition: all 0.3s;
+            transition: background 0.3s;
         }
-        nav.scrolled { background: rgba(0, 0, 0, 0.45); }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
 
         .nav-brand {
             font-size: 1.6rem; font-weight: 700;
             color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
             display: flex; align-items: center; gap: 0.5rem;
         }
 
         .nav-right { display: flex; align-items: center; gap: 1rem; }
+
         .nav-links { display: flex; align-items: center; gap: 0.5rem; }
 
         .nav-link {
@@ -104,6 +112,8 @@ export default function RefundManagement({
         }
         .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
         .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
+
+        .nav-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 0.5rem; }
 
         .nav-badge {
             display: flex; align-items: center; gap: 0.4rem;
@@ -123,6 +133,7 @@ export default function RefundManagement({
             border: 1px solid rgba(255,100,80,0.3);
             transition: all 0.2s;
         }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
         /* ── ALERTS ── */
         .alert-stack {
@@ -139,7 +150,7 @@ export default function RefundManagement({
         }
         .alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
         .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
-        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; }
+        .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; font-size: 1rem; }
 
         /* ── PAGE ── */
         .page {
@@ -150,6 +161,7 @@ export default function RefundManagement({
             gap: 2rem;
         }
 
+        /* ── PAGE HEADER ── */
         .page-header {
             display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
             background: var(--glass-card);
@@ -163,7 +175,7 @@ export default function RefundManagement({
         .page-header p { font-size: 0.9rem; color: var(--text-dim); margin-top: 0.3rem; }
         .page-header-icon { font-size: 2.5rem; }
 
-        /* ── STATS ── */
+        /* ── STATS ROW ── */
         .stats-row {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -178,10 +190,18 @@ export default function RefundManagement({
             padding: 1.5rem;
             text-align: center;
         }
-        .stat-card-value { font-size: 2rem; font-weight: 700; color: var(--yellow); }
-        .stat-card-label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.3rem; }
+        .stat-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--yellow);
+        }
+        .stat-card-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.3rem;
+        }
 
-        /* ── TABLE ── */
+        /* ── REFUND TABLE ── */
         .refund-table-container {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -189,7 +209,10 @@ export default function RefundManagement({
             border-radius: 16px;
             overflow: hidden;
         }
-        .refund-table { width: 100%; border-collapse: collapse; }
+        .refund-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
         .refund-table th, .refund-table td {
             padding: 1rem 1.25rem;
             text-align: left;
@@ -203,7 +226,11 @@ export default function RefundManagement({
             letter-spacing: 0.05em;
             color: var(--text-dim);
         }
-        .refund-table td { font-size: 0.875rem; color: var(--text-light); }
+        .refund-table td {
+            font-size: 0.875rem;
+            color: var(--text-light);
+        }
+        .refund-table tr:last-child td { border-bottom: none; }
         .refund-table tr:hover td { background: rgba(255,255,255,0.03); }
 
         .order-id { color: var(--yellow); font-weight: 600; }
@@ -228,34 +255,51 @@ export default function RefundManagement({
             color: #22c55e;
             border: 1px solid rgba(34,197,94,0.4);
         }
+        .btn-approve:hover { background: rgba(34,197,94,0.3); }
         .btn-deny {
             background: rgba(255,100,80,0.2);
             color: #ff8060;
             border: 1px solid rgba(255,100,80,0.4);
         }
+        .btn-deny:hover { background: rgba(255,100,80,0.3); }
 
-        .empty-state { text-align: center; padding: 3rem; color: var(--text-dim); }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-dim);
+        }
         .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state p { font-size: 1rem; }
 
+        /* ── FOOTER ── */
         footer {
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(16px);
             border-top: 1px solid var(--glass-border);
             padding: 1.25rem 3rem;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .footer-brand { font-size: 1.1rem; font-weight: 700; }
+        .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
         .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
 
+        @media(max-width: 1024px) {
+            .nav-links { display: none; }
+            .nav-divider { display: none; }
+        }
         @media(max-width: 768px) {
             nav { padding: 0.875rem 1.25rem; }
             .page { padding: 5.5rem 1.25rem 2rem; }
+            .page-header { flex-direction: column; text-align: center; }
             .stats-row { grid-template-columns: 1fr; max-width: 100%; }
-            .refund-table-container { overflow-x: auto; }
-            footer { flex-direction: column; text-align: center; gap: 0.5rem; }
-        }
-    `;
+            .refund-table { font-size: 0.8rem; }
+            .refund-table th, .refund-table td { padding: 0.75rem; }
+            footer { padding: 1.25rem; flex-direction: column; text-align: center; gap: 0.5rem; }
+        }`;
 
     return (
         <div className="refund-mgmt-body">
@@ -284,18 +328,18 @@ export default function RefundManagement({
 
             {/* NAV */}
             <nav className={isScrolled ? 'scrolled' : ''} id="nav">
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i> Ekart
                 </a>
                 <div className="nav-right">
                     <div className="nav-links">
-                        <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-                        <a href="/approve-products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</a>
-                        <a href="/admin/search-users" className="nav-link"><i className="fas fa-users"></i> Users</a>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
+                        <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
+                        <Link to="/admin/users" className="nav-link"><i className="fas fa-users"></i> Users</Link>
                     </div>
                     <div className="nav-divider" style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.15)', margin: '0 0.5rem' }}></div>
                     <span className="nav-badge"><i className="fas fa-shield-alt"></i> Admin</span>
-                    <a href="/admin/logout" className="btn-logout">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
                         <i className="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>

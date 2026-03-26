@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --green:        #22c55e;
@@ -11,247 +11,229 @@ const CSS = `
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.48);
         }
-
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
             color: var(--text-white);
-            display: flex;
-            flex-direction: column;
+            background: #05080f;
         }
-
-        /* ── BACKGROUND ── */
-        .bg-layer {
-            position: fixed; inset: 0; z-index: -1;
-            overflow: hidden;
-            background: #050814;
-        }
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
         .bg-layer::before {
             content: '';
             position: absolute; inset: -20px;
             background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-            filter: blur(12px) brightness(0.6);
-            transform: scale(1.08);
+            filter: blur(7px); transform: scale(1.08);
         }
         .bg-layer::after {
             content: '';
             position: absolute; inset: 0;
-            background: radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.15) 0%, transparent 60%),
-                        linear-gradient(180deg, rgba(5,8,20,0.85) 0%, rgba(5,8,20,0.95) 100%);
+            background: linear-gradient(180deg, rgba(5,8,20,0.88) 0%, rgba(8,12,28,0.82) 50%, rgba(5,8,20,0.92) 100%);
         }
-
-        /* ── NAV ── */
-        nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 1.25rem 3rem;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .nav-brand {
-            font-size: 1.5rem; font-weight: 700;
-            color: var(--text-white); text-decoration: none;
-            letter-spacing: 0.04em;
-            display: flex; align-items: center; gap: 0.5rem;
-        }
-        .nav-brand span { color: var(--yellow); }
-
-        .nav-back {
-            display: flex; align-items: center; gap: 0.5rem;
-            color: var(--text-light); text-decoration: none;
-            font-size: 0.85rem; font-weight: 500;
-            padding: 0.5rem 1.1rem; border-radius: 50px;
+        /* Card */
+        .card {
+            background: var(--glass-card);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border);
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(10px);
-            transition: all 0.2s;
-        }
-        .nav-back:hover {
-            background: rgba(255,255,255,0.1);
-            color: white; border-color: rgba(255,255,255,0.3);
-        }
-
-        /* ── PAGE WRAPPER ── */
-        .page-wrapper {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 6rem 1.5rem 2rem;
-        }
-
-        /* ── SUCCESS CARD ── */
-        .success-card {
-            background: rgba(10, 14, 30, 0.6);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 28px;
-            width: 100%;
-            max-width: 540px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 0 40px rgba(34, 197, 94, 0.05);
-            animation: popIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-            position: relative;
+            border-radius: 24px;
+            width: 95%; max-width: 520px;
             overflow: hidden;
-            display: flex; flex-direction: column;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            animation: fadeUp 0.55s cubic-bezier(0.16,1,0.3,1) both;
         }
-
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.9) translateY(30px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(28px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-
-        /* Confetti Container */
-        .confetti-wrap {
-            position: absolute; inset: 0;
-            pointer-events: none; z-index: 1;
-            overflow: hidden;
-        }
-        .confetti-wrap span {
-            position: absolute; top: -10px;
-            display: block;
-            animation: fall linear forwards;
-            opacity: 0;
-        }
-        @keyframes fall {
-            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(600px) rotate(360deg); opacity: 0; }
-        }
-
-        /* Header Area */
-        .card-header-area {
+        /* Header */
+        .card-header {
+            padding: 36px 32px 28px;
             text-align: center;
-            padding: 3.5rem 2.5rem 2rem;
-            position: relative; z-index: 2;
+            border-bottom: 1px solid var(--glass-border);
+            position: relative; overflow: hidden;
         }
-        .success-icon {
-            width: 80px; height: 80px;
-            background: rgba(34, 197, 94, 0.15);
-            border: 2px solid rgba(34, 197, 94, 0.4);
+        .card-header::before {
+            content: ''; position: absolute; top: -60px; right: -60px;
+            width: 220px; height: 220px;
+            background: radial-gradient(circle, rgba(34,197,94,0.10), transparent 70%);
             border-radius: 50%;
+        }
+        .card-header::after {
+            content: ''; position: absolute; bottom: -50px; left: -50px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, rgba(245,168,0,0.08), transparent 70%);
+            border-radius: 50%;
+        }
+        .header-brand {
+            font-size: 11px; font-weight: 700; color: var(--text-dim);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            margin-bottom: 20px; position: relative; z-index: 1;
+        }
+        .header-brand span { color: var(--yellow); }
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.30);
+            color: var(--green);
+            font-size: 10px; font-weight: 700; padding: 5px 14px; border-radius: 50px;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin-bottom: 20px; position: relative; z-index: 1;
+        }
+        .status-dot {
+            width: 6px; height: 6px; background: var(--green); border-radius: 50%;
+            animation: blink 1.4s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+        .icon-ring {
+            width: 78px; height: 78px; border-radius: 50%;
+            background: rgba(34,197,94,0.10); border: 2px solid rgba(34,197,94,0.35);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 1.9rem; color: var(--green);
+            margin-bottom: 20px; position: relative; z-index: 1;
+            box-shadow: 0 0 50px rgba(34,197,94,0.18);
+            animation: pulse 2.2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 0 50px rgba(34,197,94,0.18); }
+            50%      { box-shadow: 0 0 70px rgba(34,197,94,0.32); }
+        }
+        .card-header h2 {
+            font-size: 19px; font-weight: 800; color: var(--text-white);
+            letter-spacing: -0.02em; margin-bottom: 6px; position: relative; z-index: 1;
+        }
+        .card-header p {
+            font-size: 12.5px; color: var(--text-dim);
+            line-height: 1.6; margin: 0; position: relative; z-index: 1;
+        }
+        /* Body */
+        .card-#root { padding: 24px 28px 28px; }
+        /* Info tiles */
+        .info-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-bottom: 20px;
+        }
+        .info-tile {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 14px; padding: 14px 16px;
+            position: relative; overflow: hidden;
+        }
+        .info-tile::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(245,168,0,0.35), transparent);
+        }
+        .tile-label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 10px; font-weight: 700; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px;
+        }
+        .tile-label i { color: var(--yellow); font-size: 0.68rem; }
+        .tile-value {
+            font-size: 15px; font-weight: 800; color: var(--text-white); line-height: 1.2;
+        }
+        .tile-value.mono {
+            font-family: 'Courier New', monospace; font-size: 13px;
+            letter-spacing: 0.04em; color: var(--yellow);
+        }
+        .tile-sub { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; }
+        .pay-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+        }
+        .pay-badge.cod {
+            background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.28); color: #fbbf24;
+        }
+        .pay-badge.online {
+            background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.28); color: var(--green);
+        }
+        /* Stepper */
+        .stepper {
+            display: flex; align-items: center;
+            margin-bottom: 22px; padding: 0 4px;
+        }
+        .step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .step-dot {
+            width: 28px; height: 28px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 1.5rem;
-            font-size: 2.2rem; color: var(--green);
-            box-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
-            animation: pulseGreen 2s infinite;
+            font-size: 0.65rem; font-weight: 700; z-index: 1;
         }
-        @keyframes pulseGreen {
-            0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
-            50%      { box-shadow: 0 0 40px rgba(34, 197, 94, 0.5); }
+        .step-dot.done {
+            background: var(--green); color: #fff;
+            box-shadow: 0 0 16px rgba(34,197,94,0.4);
         }
-
-        .card-header-area h1 {
-            font-size: 2rem; font-weight: 700;
-            color: white; margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
+        .step-dot.active {
+            background: rgba(245,168,0,0.18); border: 2px solid var(--yellow); color: var(--yellow);
+            animation: pulseStep 1.6s ease-in-out infinite;
         }
-        .card-header-area p {
-            font-size: 0.95rem; color: var(--text-light);
-            line-height: 1.5;
+        .step-dot.pending {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--text-dim);
         }
-        .card-header-area p strong { color: var(--yellow); font-weight: 600; }
-
-        /* Order Details Box */
-        .order-details-box {
-            background: rgba(0,0,0,0.25);
-            border-top: 1px solid rgba(255,255,255,0.06);
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding: 1.75rem 2.5rem;
-            position: relative; z-index: 2;
+        @keyframes pulseStep {
+            0%,100% { box-shadow: 0 0 0 0 rgba(245,168,0,0.25); }
+            50%      { box-shadow: 0 0 0 6px rgba(245,168,0,0); }
         }
-        .detail-row {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 1rem;
+        .step-label {
+            font-size: 9px; font-weight: 600; color: var(--text-dim);
+            margin-top: 6px; text-align: center; text-transform: uppercase;
+            letter-spacing: 0.06em; white-space: nowrap;
         }
-        .detail-row:last-child { margin-bottom: 0; }
-        .detail-label {
-            font-size: 0.8rem; color: var(--text-dim);
-            text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
-        }
-        .detail-val {
-            font-size: 0.95rem; font-weight: 600; color: white;
-            display: flex; align-items: center; gap: 0.4rem;
-        }
-        .detail-val.highlight { color: var(--yellow); font-size: 1.1rem; font-weight: 700; }
-        .detail-val i { font-size: 0.85rem; color: var(--text-dim); }
-
-        /* Next Steps */
-        .next-steps {
-            padding: 2rem 2.5rem;
-            position: relative; z-index: 2;
-        }
-        .next-steps h4 {
-            font-size: 0.85rem; color: var(--text-light); font-weight: 600;
-            margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;
-        }
-        .step-list { list-style: none; }
-        .step-list li {
-            display: flex; align-items: flex-start; gap: 0.75rem;
-            margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--text-dim);
-            line-height: 1.5;
-        }
-        .step-list li:last-child { margin-bottom: 0; }
-        .step-list li i {
-            color: var(--yellow); font-size: 0.9rem; margin-top: 3px;
-        }
-
-        /* Action Buttons */
-        .action-btns {
-            display: flex; gap: 0.75rem; flex-wrap: wrap;
-            padding: 0 2.5rem 2.5rem;
-            position: relative; z-index: 2;
-        }
+        .step-label.active-lbl { color: var(--yellow); }
+        .step-line { flex: 1; height: 1px; background: rgba(255,255,255,0.10); margin-bottom: 18px; }
+        .step-line.done-line { background: linear-gradient(90deg, var(--green), rgba(34,197,94,0.3)); }
+        /* Actions */
+        .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .btn {
-            flex: 1; min-width: 140px;
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-            padding: 0.85rem; border-radius: 12px;
-            font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 600;
-            text-decoration: none; transition: all 0.25s; cursor: pointer;
-            text-align: center;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 11px 10px; border-radius: 12px;
+            font-family: 'Poppins', sans-serif; font-size: 11.5px; font-weight: 700;
+            text-decoration: none; transition: all 0.25s; border: none; cursor: pointer;
+            letter-spacing: 0.02em; white-space: nowrap;
         }
         .btn-track {
-            background: var(--yellow); color: #1a1000; border: none;
-            box-shadow: 0 6px 20px rgba(245,168,0,0.25);
+            background: var(--yellow); color: #1a1000;
+            box-shadow: 0 6px 20px rgba(245,168,0,0.30);
         }
         .btn-track:hover {
             background: var(--yellow-d); transform: translateY(-2px);
-            box-shadow: 0 10px 28px rgba(245,168,0,0.4); color: #1a1000;
+            box-shadow: 0 10px 28px rgba(245,168,0,0.45); color: #1a1000; text-decoration: none;
         }
         .btn-orders {
-            background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
-            color: var(--text-white);
+            background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border); color: var(--text-light);
         }
         .btn-orders:hover {
-            background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3);
-            color: white; transform: translateY(-2px);
+            background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.30);
+            color: var(--text-white); text-decoration: none; transform: translateY(-1px);
         }
         .btn-home {
-            flex-basis: 100%;
-            background: transparent; border: none;
-            color: var(--text-dim); font-size: 0.8rem;
-            padding: 0.5rem; margin-top: 0.25rem;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); color: var(--text-dim);
         }
-        .btn-home:hover { color: var(--yellow); text-decoration: underline; }
-
-        /* Footer inside card */
+        .btn-home:hover { background: rgba(255,255,255,0.08); color: var(--text-light); text-decoration: none; }
+        /* Footer */
         .card-footer {
-            background: rgba(0,0,0,0.4);
-            padding: 1rem 2.5rem; text-align: center;
-            display: flex; justify-content: space-between; align-items: center;
-            position: relative; z-index: 2;
+            background: rgba(0,0,0,0.20); border-top: 1px solid var(--glass-border);
+            padding: 13px 28px; display: flex; align-items: center; justify-content: space-between;
         }
-        .footer-brand { font-size: 0.9rem; font-weight: 700; color: white; }
+        .footer-brand { font-size: 11px; font-weight: 700; color: var(--text-dim); }
         .footer-brand span { color: var(--yellow); }
-        .footer-copy { font-size: 0.7rem; color: var(--text-dim); }
-
-        @media(max-width: 560px) {
-            nav { padding: 1rem 1.5rem; }
-            .page-wrapper { padding: 6rem 1rem 1.5rem; }
-            .card-header-area { padding: 2.5rem 1.5rem 1.5rem; }
-            .order-details-box, .next-steps, .action-btns { padding-left: 1.5rem; padding-right: 1.5rem; }
-            .action-btns { flex-direction: column; }
-            .card-footer { flex-direction: column; gap: 0.4rem; padding: 1rem 1.5rem; }
+        .footer-copy { font-size: 10px; color: var(--text-dim); opacity: 0.55; }
+        /* Confetti */
+        .confetti-wrap { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+        .confetti-wrap span {
+            position: absolute; top: -10px;
+            width: 8px; height: 8px; border-radius: 2px;
+            opacity: 0; animation: fall linear forwards;
         }
-`;
+        @keyframes fall {
+            0%   { transform: translateY(-10px) rotate(0deg); opacity: 0.9; }
+            100% { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+        }
+        @media (max-width: 420px) {
+            .card-header { padding: 28px 20px 22px; }
+            .card-#root { padding: 20px; }
+            .info-grid { grid-template-columns: 1fr; }
+            .actions { grid-template-columns: 1fr; }
+            .card-footer { flex-direction: column; gap: 4px; text-align: center; }
+        }`;
 
 /**
  * OrderSuccess Component
@@ -294,13 +276,13 @@ export default function OrderSuccess({
 
             {/* Nav */}
             <nav>
-                <a href="/customer/home" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.2rem' }}></i>
                     Ek<span>art</span>
-                </a>
-                <a href="/customer/home" className="nav-back">
+                </Link>
+                <Link to="/" className="nav-back">
                     <i className="fas fa-arrow-left"></i> Continue Shopping
-                </a>
+                </Link>
             </nav>
 
             {/* Main Content */}
@@ -360,12 +342,12 @@ export default function OrderSuccess({
                         <a href={`/track/${orderId}`} className="btn btn-track">
                             <i className="fas fa-location-dot"></i> Track Order
                         </a>
-                        <a href="/view-orders" className="btn btn-orders">
+                        <Link to="/view-orders" className="btn btn-orders">
                             <i className="fas fa-list-check"></i> My Orders
-                        </a>
-                        <a href="/customer/home" className="btn btn-home">
+                        </Link>
+                        <Link to="/" className="btn btn-home">
                             <i className="fas fa-home"></i> Home
-                        </a>
+                        </Link>
                     </div>
 
                     {/* Footer inside card */}

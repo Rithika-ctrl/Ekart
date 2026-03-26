@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * DeliveredEmail Component
@@ -18,7 +19,7 @@ export default function DeliveredEmail({
   items = []
 }) {
   const CSS = `
-    .email-body {
+    .email-#root {
       margin: 0;
       padding: 0;
       background: #f4f6f8;
@@ -88,12 +89,12 @@ export default function DeliveredEmail({
                   {/* Footer Actions */}
                   <tr>
                     <td style={{ background: '#f9fafb', padding: '20px 32px', textAlign: 'center' }}>
-                      <a href="/customer/view-products" style={{ background: '#f5a623', color: '#1a1a2e', textDecoration: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: 0.88 + 'rem', marginRight: '12px', display: 'inline-block' }}>
+                      <Link to="/products" style={{ background: '#f5a623', color: '#1a1a2e', textDecoration: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: 0.88 + 'rem', marginRight: '12px', display: 'inline-block' }}>
                         Shop Again
-                      </a>
-                      <a href="/view-orders" style={{ background: '#1a1a2e', color: 'white', textDecoration: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: 0.88 + 'rem', display: 'inline-block' }}>
+                      </Link>
+                      <Link to="/view-orders" style={{ background: '#1a1a2e', color: 'white', textDecoration: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: 0.88 + 'rem', display: 'inline-block' }}>
                         My Orders
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 </tbody>

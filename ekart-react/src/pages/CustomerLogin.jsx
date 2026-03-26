@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi, saveToken } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -18,7 +17,7 @@ const CSS = `
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -328,8 +327,7 @@ const CSS = `
         }
         .social-btn i, .social-btn svg {
             font-size: 1rem;
-        }
-`;
+        }`;
 
 /**
  * CustomerLogin Component
@@ -440,28 +438,28 @@ export default function CustomerLogin({
             </div>
 
             <nav>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
-                </a>
+                </Link>
                 <ul className="nav-links">
-                    <li><a href="/products">Shop</a></li>
+                    <li><Link to="/products">Shop</Link></li>
                     <li className="dropdown">
                         <a href="#">
                             <i className="fas fa-user-circle"></i> Account
                             <i className="fas fa-angle-down" style={{ fontSize: '.65rem' }}></i>
                         </a>
                         <ul className="dropdown-menu">
-                            <li><a href="/customer/login"><i className="fas fa-sign-in-alt" style={{ color: 'var(--yellow)', width: '14px' }}></i> Customer Login</a></li>
-                            <li><a href="/customer/register"><i className="fas fa-user-plus" style={{ color: '#7dc97d', width: '14px' }}></i> Customer Register</a></li>
+                            <li><Link to="/login"><i className="fas fa-sign-in-alt" style={{ color: 'var(--yellow)', width: '14px' }}></i> Customer Login</Link></li>
+                            <li><Link to="/register"><i className="fas fa-user-plus" style={{ color: '#7dc97d', width: '14px' }}></i> Customer Register</Link></li>
                             <li><hr className="divider" /></li>
-                            <li><a href="/vendor/login"><i className="fas fa-store" style={{ color: 'var(--yellow)', width: '14px' }}></i> Vendor Login</a></li>
-                            <li><a href="/vendor/register"><i className="fas fa-store" style={{ color: '#7dc97d', width: '14px' }}></i> Vendor Register</a></li>
+                            <li><Link to="/vendor/login"><i className="fas fa-store" style={{ color: 'var(--yellow)', width: '14px' }}></i> Vendor Login</Link></li>
+                            <li><Link to="/vendor/register"><i className="fas fa-store" style={{ color: '#7dc97d', width: '14px' }}></i> Vendor Register</Link></li>
                             <li><hr className="divider" /></li>
-                            <li><a href="/admin/login"><i className="fas fa-shield-alt" style={{ color: 'rgba(255,255,255,0.4)', width: '14px' }}></i> Admin Login</a></li>
+                            <li><Link to="/admin/login"><i className="fas fa-shield-alt" style={{ color: 'rgba(255,255,255,0.4)', width: '14px' }}></i> Admin Login</Link></li>
                         </ul>
                     </li>
-                    <li><a href="/customer/register" style={{ background: 'var(--yellow)', color: '#1a1000', fontWeight: 700, borderRadius: '50px', padding: '.45rem 1.2rem' }}>Register</a></li>
+                    <li><Link to="/register" style={{ background: 'var(--yellow)', color: '#1a1000', fontWeight: 700, borderRadius: '50px', padding: '.45rem 1.2rem' }}>Register</Link></li>
                 </ul>
             </nav>
 
@@ -474,9 +472,9 @@ export default function CustomerLogin({
                 <p className="subtitle">Sign in to your Ekart account</p>
 
                 <div className="role-pills">
-                    <a href="/customer/login" className="role-pill active"><i className="fas fa-user" style={{ fontSize: '.65rem' }}></i> Customer</a>
-                    <a href="/vendor/login" className="role-pill"><i className="fas fa-store" style={{ fontSize: '.65rem' }}></i> Vendor</a>
-                    <a href="/admin/login" className="role-pill"><i className="fas fa-shield-alt" style={{ fontSize: '.65rem' }}></i> Admin</a>
+                    <Link to="/login" className="role-pill active"><i className="fas fa-user" style={{ fontSize: '.65rem' }}></i> Customer</Link>
+                    <Link to="/vendor/login" className="role-pill"><i className="fas fa-store" style={{ fontSize: '.65rem' }}></i> Vendor</Link>
+                    <Link to="/admin/login" className="role-pill"><i className="fas fa-shield-alt" style={{ fontSize: '.65rem' }}></i> Admin</Link>
                 </div>
 
                 <form onSubmit={handleSubmit}>
@@ -501,7 +499,7 @@ export default function CustomerLogin({
                                 <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} id="pw-eye"></i>
                             </span>
                         </div>
-                        <a href="/customer/forgot-password" className="forgot-link">Forgot password?</a>
+                        <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
                     </div>
 
                     <hr className="form-divider" />
@@ -537,13 +535,13 @@ export default function CustomerLogin({
 
                 <div className="card-footer-text">
                     Don't have an account?
-                    <a href="/customer/register">Sign up free</a>
+                    <Link to="/register">Sign up free</Link>
                 </div>
             </div>
 
             <div className="card-footer-text" style={{ marginTop: '0.75rem' }}>
                 Just looking?
-                <a href="/guest/start">Browse as Guest</a>
+                <Link to="/browse">Browse as Guest</Link>
             </div>
 
             <div className="brand-mark">Ekart · Secure Login</div>

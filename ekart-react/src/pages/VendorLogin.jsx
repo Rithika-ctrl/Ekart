@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { vendorAuthApi, saveToken } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -16,7 +15,7 @@ const CSS = `
         }
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
         html{scroll-behavior:smooth;}
-        body{font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
+        #root {font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
 
         .bg-layer{position:fixed;inset:0;z-index:-1;overflow:hidden;}
         .bg-layer::before{content:'';position:absolute;inset:-20px;background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;filter:blur(6px);transform:scale(1.08);}
@@ -156,8 +155,7 @@ const CSS = `
         }
         .social-btn i, .social-btn svg {
             font-size: 1rem;
-        }
-`;
+        }`;
 
 /**
  * VendorLogin Component
@@ -262,25 +260,25 @@ export default function VendorLogin({
             </div>
 
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className={`nav-dropdown ${isDropdownOpen ? 'open' : ''}`} id="accountDropdown" ref={dropdownRef}>
                     <button type="button" className="nav-dropdown-btn" onClick={toggleDropdown}>
                         <i className="fas fa-user"></i> Account <i className="fas fa-chevron-down" style={{ fontSize: '0.65rem' }}></i>
                     </button>
                     <div className="dropdown-menu">
                         <div className="dropdown-label">Vendor</div>
-                        <a href="/vendor/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Vendor Login</a>
-                        <a href="/vendor/register" className="dropdown-item"><i className="fas fa-user-plus"></i> Vendor Register</a>
+                        <Link to="/vendor/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Vendor Login</Link>
+                        <Link to="/vendor/register" className="dropdown-item"><i className="fas fa-user-plus"></i> Vendor Register</Link>
                         <div className="dropdown-divider"></div>
                         <div className="dropdown-label">Customer</div>
-                        <a href="/customer/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Customer Login</a>
-                        <a href="/customer/register" className="dropdown-item"><i className="fas fa-user-plus"></i> Customer Register</a>
+                        <Link to="/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Customer Login</Link>
+                        <Link to="/register" className="dropdown-item"><i className="fas fa-user-plus"></i> Customer Register</Link>
                         <div className="dropdown-divider"></div>
                         <div className="dropdown-label">Admin</div>
-                        <a href="/admin/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Admin Login</a>
+                        <Link to="/admin/login" className="dropdown-item"><i className="fas fa-sign-in-alt"></i> Admin Login</Link>
                     </div>
                 </div>
             </nav>
@@ -331,7 +329,7 @@ export default function VendorLogin({
                             </div>
                         </div>
                         <div className="forgot-link">
-                            <a href="/vendor/forgot-password">Forgot Password?</a>
+                            <Link to="/vendor/forgot-password">Forgot Password?</Link>
                         </div>
                         <button type="submit" className="btn-submit">
                             <i className="fas fa-sign-in-alt"></i> Login
@@ -364,7 +362,7 @@ export default function VendorLogin({
                     </div>
 
                     <div className="register-row">
-                        Don't have an account? <a href="/vendor/register">Register here</a>
+                        Don't have an account? <Link to="/vendor/register">Register here</Link>
                     </div>
                 </div>
             </main>

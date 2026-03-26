@@ -1,116 +1,93 @@
 import React, { useState, useEffect } from 'react';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-    :root {
-        --yellow:       #f5a800;
-        --yellow-d:     #d48f00;
-        --glass-border: rgba(255, 255, 255, 0.22);
-        --glass-card:   rgba(255, 255, 255, 0.13);
-        --glass-nav:    rgba(0, 0, 0, 0.25);
-        --text-white:   #ffffff;
-        --text-light:   rgba(255,255,255,0.80);
-        --text-dim:     rgba(255,255,255,0.55);
-    }
-
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-    .policies-body {
-        font-family: 'Poppins', sans-serif;
-        min-height: 100vh;
-        color: var(--text-white);
-        display: flex;
-        flex-direction: column;
-        position: relative;
-    }
-
-    .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
-    .bg-layer::before {
-        content: '';
-        position: absolute; inset: -20px;
-        background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
-        filter: blur(6px);
-        transform: scale(1.08);
-    }
-    .bg-layer::after {
-        content: '';
-        position: absolute; inset: 0;
-        background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
-    }
-
-    nav {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-        padding: 1rem 3rem;
-        display: flex; align-items: center; justify-content: space-between;
-        background: var(--glass-nav);
-        backdrop-filter: blur(14px);
-        border-bottom: 1px solid var(--glass-border);
-    }
-
-    .nav-brand {
-        font-size: 1.6rem; font-weight: 700;
-        color: var(--text-white); text-decoration: none;
-        display: flex; align-items: center; gap: 0.5rem;
-    }
-
-    .page {
-        flex: 1;
-        padding: 7rem 3rem 3rem;
-        max-width: 1000px;
-        margin: 0 auto;
-        width: 100%;
-    }
-
-    .glass-card {
-        background: var(--glass-card);
-        backdrop-filter: blur(20px);
-        border: 1px solid var(--glass-border);
-        border-radius: 20px;
-        padding: 2.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .policy-item { transition: transform 0.3s ease; }
-    .policy-item:hover { transform: translateY(-5px); }
-
-    .policy-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--yellow);
-        margin-bottom: 0.5rem;
-    }
-
-    .policy-meta {
-        font-size: 0.75rem;
-        color: var(--text-dim);
-        margin-bottom: 1.5rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .policy-content {
-        line-height: 1.8;
-        color: var(--text-light);
-        font-size: 0.95rem;
-    }
-
-    .policy-content h1, .policy-content h2, .policy-content h3 {
-        color: white;
-        margin: 1.5rem 0 1rem;
-    }
-
-    .policy-content p { margin-bottom: 1rem; }
-    
-    .policy-content ul, .policy-content ol {
-        margin-bottom: 1rem;
-        padding-left: 1.5rem;
-    }
-
-    @media(max-width: 768px) {
-        nav { padding: 1rem 1.5rem; }
-        .page { padding: 6rem 1rem 2rem; }
-        .glass-card { padding: 1.5rem; }
-    }
-`;
+const CSS = `:root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        #root {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 0.75rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+            gap: 1rem;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.5); }
+        .nav-brand {
+            font-size: 1.5rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.45rem;
+            flex-shrink: 0;
+        }
+        .page {
+            flex: 1;
+            padding: 6rem 2rem 3rem;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .glass-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .policy-title {
+            font-size: 1.2em; font-weight: 600; margin-bottom: 0.2em; color: var(--yellow);
+        }
+        .policy-meta {
+            font-size: 0.95em; color: var(--text-dim); margin-bottom: 0.5em;
+        }
+        .policy-content { margin-top: 0.5em; color: #222; background: rgba(255,255,255,0.10); border-radius: 10px; padding: 1em; }
+        .policy-item {
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 1.2em 0;
+        }
+        .policy-item:last-child { border-bottom: none; }
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1.25rem 2rem; }
+            .glass-card { padding: 1.5rem 1rem; }
+        }`;
 
 /**
  * Policies Component
@@ -126,7 +103,7 @@ export default function Policies({
     useEffect(() => {
         // If no initial policies, fetch from API
         if (initialPolicies.length === 0) {
-            fetch('/api/policies')
+            authFetch('/api/policies')
                 .then(res => res.json())
                 .then(data => {
                     setPolicies(data);
@@ -159,10 +136,10 @@ export default function Policies({
             <div className="bg-layer"></div>
 
             <nav id="nav">
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
-                </a>
+                </Link>
             </nav>
 
             <main className="page">

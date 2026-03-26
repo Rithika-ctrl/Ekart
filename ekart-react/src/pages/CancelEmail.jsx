@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * CancelEmail Component
@@ -17,10 +18,9 @@ export default function CancelEmail({
     amount = "0.00", 
     items = [] 
 }) {
-    const CSS = `
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+    const CSS = `* { margin: 0; padding: 0; box-sizing: border-box; }
 
-        .email-body {
+        #root {
             font-family: 'Segoe UI', Arial, sans-serif;
             background: #0d1020;
             padding: 32px 16px;
@@ -44,7 +44,6 @@ export default function CancelEmail({
             padding: 36px 36px 28px;
             position: relative;
             overflow: hidden;
-            text-align: left;
         }
         .header::before {
             content: '';
@@ -102,7 +101,7 @@ export default function CancelEmail({
         }
 
         /* ── BODY ── */
-        .body { padding: 32px 36px; text-align: left; }
+        .#root { padding: 32px 36px; }
 
         .greeting {
             font-size: 15px;
@@ -181,7 +180,6 @@ export default function CancelEmail({
             font-size: 13.5px;
             color: rgba(255,255,255,0.7);
             border-bottom: 1px solid rgba(255,255,255,0.06);
-            text-align: left;
         }
         tr:last-child td { border-bottom: none; }
 
@@ -228,8 +226,7 @@ export default function CancelEmail({
         }
         .footer-brand { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.4); }
         .footer-brand span { color: #f5a800; }
-        .footer-copy { font-size: 11px; color: rgba(255,255,255,0.25); }
-    `;
+        .footer-copy { font-size: 11px; color: rgba(255,255,255,0.25); }`;
 
     return (
         <div className="email-body">

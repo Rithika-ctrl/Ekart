@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +16,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -113,7 +114,7 @@ const CSS = `
         .drawer-close:hover { background: rgba(255,255,255,0.2); }
 
         /* Drawer scroll body */
-        .drawer-body {
+        .drawer-#root {
             flex: 1; overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: rgba(255,255,255,0.15) transparent;
@@ -865,7 +866,7 @@ const CSS = `
         }
 
         /* ── CARD BODY ── */
-        .card-body {
+        .card-#root {
             padding: 1.25rem;
             display: flex; flex-direction: column; gap: 0.6rem; flex: 1;
         }
@@ -1031,6 +1032,7 @@ const CSS = `
         @keyframes popIn { from{opacity:0;transform:scale(0.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
 
+
         /* ── SEARCH RESULTS BANNER ── */
         .search-results-banner {
             display: none;
@@ -1189,8 +1191,7 @@ const CSS = `
 
         /* Push page content down for loc-bar */
         .page { padding-top: 8rem; }
-        @media(max-width:900px) { .page { padding-top: 10.5rem; } .loc-bar { top: auto; position: sticky; top: 0; } }
-`;
+        @media(max-width:900px) { .page { padding-top: 10.5rem; } .loc-bar { top: auto; position: sticky; top: 0; } }`;
 
 /**
  * ProductCard Subcomponent
@@ -1208,7 +1209,7 @@ const ProductCard = ({ p, index, locationPin, toggleWishlist }) => {
 
     return (
         <div className={`product-card-wrapper ${!isDeliverable ? 'pin-unavailable' : ''}`} data-price={p.price} data-name={p.name} data-category={p.category} data-pins={p.allowedPinCodes || ''} data-index={index} data-avg={p.averageRating || 0}>
-            <div className="product-card" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/product/${p.id}`}>
+            <div className="product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/product/${p.id}`)}>
                 
                 {/* Pin-unavailable overlay */}
                 <div className="pin-unavail-overlay">
@@ -1342,6 +1343,9 @@ export default function CustomerHome({
     products = []
 }) {
     // ── STATES ──
+    const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -1621,7 +1625,7 @@ export default function CustomerHome({
                 <button className="hamburger-btn" onClick={() => setIsDrawerOpen(true)} title="Menu" aria-label="Open menu">
                     <span></span><span></span><span></span>
                 </button>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
                 </a>
@@ -1645,25 +1649,25 @@ export default function CustomerHome({
                 </div>
 
                 <div className="nav-right">
-                    <a href="/track-orders" className="nav-link" title="Track Orders">
+                    <Link to="/track" className="nav-link" title="Track Orders">
                         <i className="fas fa-truck"></i> <span>Track</span>
-                    </a>
-                    <a href="/order-history" className="nav-link" title="Order History">
+                    </Link>
+                    <Link to="/orders" className="nav-link" title="Order History">
                         <i className="fas fa-history"></i> <span>Orders</span>
-                    </a>
-                    <a href="/view-orders" className="nav-link" title="View Orders">
+                    </Link>
+                    <Link to="/view-orders" className="nav-link" title="View Orders">
                         <i className="fas fa-box-open"></i> <span>My Orders</span>
-                    </a>
-                    <a href="/account/wishlist" className="nav-link wishlist-link" title="Wishlist">
+                    </Link>
+                    <Link to="/wishlist" className="nav-link wishlist-link" title="Wishlist">
                         <i className="fas fa-heart"></i> <span>Wishlist</span>
-                    </a>
-                    <a href="/account/spending" className="nav-link" title="Spending Analytics" style={{ borderColor: 'rgba(16,185,129,0.3)' }}>
+                    </Link>
+                    <Link to="/spending" className="nav-link" title="Spending Analytics" style={{ borderColor: 'rgba(16,185,129,0.3)' }}>
                         <i className="fas fa-chart-pie" style={{ color: '#10b981' }}></i> <span>Spending</span>
-                    </a>
-                    <a href="/view-cart" className="nav-link cart-link" title="Cart">
+                    </Link>
+                    <Link to="/cart" className="nav-link cart-link" title="Cart">
                         <i className="fas fa-shopping-cart"></i> <span>Cart</span>
                         {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-                    </a>
+                    </Link>
 
                     <div className="india-flag-badge" title="Made in India">
                         <svg width="22" height="16" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', borderRadius: '2px', flexShrink: 0 }}>
@@ -1694,10 +1698,10 @@ export default function CustomerHome({
                                 <i className="fas fa-user"></i>
                                 <span>{customer ? customer.name : 'Account'}</span>
                             </div>
-                            <a href="/customer/security-settings" className="profile-dropdown-item">
+                            <Link to="/customer/security" className="profile-dropdown-item">
                                 <i className="fas fa-shield-alt"></i> Security Settings
-                            </a>
-                            <a href="/logout" className="profile-dropdown-item">
+                            </Link>
+                            <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="profile-dropdown-item">
                                 <i className="fas fa-sign-out-alt"></i> Logout
                             </a>
                         </div>
@@ -1717,15 +1721,15 @@ export default function CustomerHome({
 
                     <div className="drawer-body">
                         <div className="drawer-section-title">Trending</div>
-                        <a href="/customer/home?sort=popular" className="drawer-item">
+                        <Link to="/?sort=popular" className="drawer-item">
                             <div className="drawer-item-left"><i className="fas fa-fire"></i> Bestsellers</div>
-                        </a>
-                        <a href="/customer/home?sort=newest" className="drawer-item">
+                        </Link>
+                        <Link to="/?sort=newest" className="drawer-item">
                             <div className="drawer-item-left"><i className="fas fa-star"></i> New Arrivals</div>
-                        </a>
-                        <a href="/account/spending" className="drawer-item">
+                        </Link>
+                        <Link to="/spending" className="drawer-item">
                             <div className="drawer-item-left"><i className="fas fa-chart-line"></i> My Spending</div>
-                        </a>
+                        </Link>
 
                         <div className="drawer-section-title">Shop by Category</div>
                         {parentCategories && parentCategories.map(pc => (
@@ -1750,39 +1754,39 @@ export default function CustomerHome({
                         ))}
 
                         <div className="drawer-section-title">My Account</div>
-                        <a href="/view-orders" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        <Link to="/view-orders" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-box-open"></i> My Orders</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
-                        <a href="/track-orders" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        </Link>
+                        <Link to="/track" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-truck"></i> Track Orders</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
-                        <a href="/account/wishlist" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        </Link>
+                        <Link to="/wishlist" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-heart"></i> Wishlist</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
-                        <a href="/view-cart" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        </Link>
+                        <Link to="/cart" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-shopping-cart"></i> Cart</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
-                        <a href="/account/spending" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        </Link>
+                        <Link to="/spending" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-chart-pie"></i> Spending Analytics</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
-                        <a href="/customer/security-settings" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        </Link>
+                        <Link to="/customer/security" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-shield-alt"></i> Security Settings</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
+                        </Link>
 
                         <div className="drawer-section-title">Help & Settings</div>
-                        <a href="/policies" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
+                        <Link to="/policies" className="drawer-item" onClick={() => setIsDrawerOpen(false)}>
                             <div className="drawer-item-left"><i className="fas fa-file-alt"></i> Policies & Terms</div>
                             <i className="fas fa-chevron-right drawer-item-arrow"></i>
-                        </a>
+                        </Link>
                     </div>
                     <div className="drawer-footer">
-                        <a href="/logout" className="drawer-footer-link">
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="drawer-footer-link">
                             <i className="fas fa-sign-out-alt"></i> Sign Out
                         </a>
                     </div>
@@ -1796,7 +1800,7 @@ export default function CustomerHome({
                     <div className="banner-carousel">
                         <div className="banner-track" style={{ transform: `translateX(-${bannerIndex * 100}%)` }}>
                             {banners.map((b, i) => (
-                                <div key={i} className="banner-slide" onClick={() => { if(b.linkUrl) window.location.href = b.linkUrl; }}>
+                                <div key={i} className="banner-slide" onClick={() => { if(b.linkUrl) { if(b.linkUrl.startsWith('http')) window.location.href = b.linkUrl; else navigate(b.linkUrl); } }}>
                                     <img src={b.imageUrl} alt={b.title} onError={(e) => { e.target.style.display='none'; }} />
                                     {b.title && (
                                         <div className="banner-text">
@@ -1962,10 +1966,10 @@ export default function CustomerHome({
                 <div className="footer-brand">Ek<span>art</span></div>
                 <div className="footer-copy">© 2026 Ekart. All rights reserved.</div>
                 <div className="footer-links">
-                    <a href="/policies">Policies & SOPs</a>
-                    <a href="#">Privacy</a>
-                    <a href="#">Terms</a>
-                    <a href="#">Contact</a>
+                    <Link to="/policies">Policies & SOPs</Link>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>Privacy</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}}>Terms</a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}}>Contact</a>
                 </div>
             </footer>
 
@@ -1979,9 +1983,9 @@ export default function CustomerHome({
                         <p>
                             You have <strong>{cartCount}</strong> item{cartCount > 1 ? 's' : ''} waiting in your cart.
                         </p>
-                        <a href="/view-cart" className="btn-popup-checkout">
+                        <Link to="/cart" className="btn-popup-checkout">
                             <i className="fas fa-shopping-cart"></i> View My Cart
-                        </a>
+                        </Link>
                         <button className="btn-popup-dismiss" onClick={() => setShowCartPopup(false)}>No thanks, I'll shop later</button>
                     </div>
                 </div>

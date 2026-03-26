@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi, saveToken } from '../utils/api';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:        #f5a800;
             --yellow-d:      #d48f00;
             --glass-bg:      rgba(255, 255, 255, 0.10);
@@ -20,7 +19,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -88,7 +87,7 @@ const CSS = `
             opacity: 0; visibility: hidden; transform: translateY(-6px);
             transition: all 0.22s; list-style: none;
         }
-        .dropdown:hover .dropdown-menu, .dropdown.open .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+        .dropdown:hover .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
         .dropdown-menu li a {
             display: flex; align-items: center; gap: 0.625rem;
             padding: 0.6rem 1rem; border-radius: 7px;
@@ -189,6 +188,8 @@ const CSS = `
         }
         .input-wrap input:focus + i,
         .input-wrap:focus-within i { color: var(--yellow); }
+        /* icon is before input so use sibling trick differently */
+        .input-wrap:focus-within i { color: var(--yellow); }
 
         /* password toggle */
         .pw-toggle {
@@ -218,7 +219,6 @@ const CSS = `
         .strength-text {
             font-size: 0.68rem; color: var(--text-dim);
             margin-top: 0.3rem;
-            transition: color 0.35s ease;
         }
 
         /* divider */
@@ -273,8 +273,7 @@ const CSS = `
             nav { padding: 0.875rem 1.25rem; }
             .reg-card { padding: 2rem 1.5rem; }
             .form-row-2 { grid-template-columns: 1fr; }
-        }
-`;
+        }`;
 
 /**
  * CustomerRegister Component
@@ -364,25 +363,25 @@ export default function CustomerRegister({
 
             {/* ── NAV ── */}
             <nav>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ek<span>art</span>
-                </a>
+                </Link>
                 <ul className="nav-links">
-                    <li><a href="/products">Shop</a></li>
+                    <li><Link to="/products">Shop</Link></li>
                     <li className={`dropdown ${isDropdownOpen ? 'open' : ''}`} ref={dropdownRef}>
                         <a onClick={(e) => { e.preventDefault(); setIsDropdownOpen(!isDropdownOpen); }}>
                             <i className="fas fa-user-circle"></i> Account
                             <i className="fas fa-angle-down" style={{ fontSize: '.65rem' }}></i>
                         </a>
                         <ul className="dropdown-menu">
-                            <li><a href="/customer/login"><i className="fas fa-sign-in-alt" style={{ color: 'var(--yellow)', width: '14px' }}></i> Customer Login</a></li>
-                            <li><a href="/customer/register"><i className="fas fa-user-plus" style={{ color: '#7dc97d', width: '14px' }}></i> Customer Register</a></li>
+                            <li><Link to="/login"><i className="fas fa-sign-in-alt" style={{ color: 'var(--yellow)', width: '14px' }}></i> Customer Login</Link></li>
+                            <li><Link to="/register"><i className="fas fa-user-plus" style={{ color: '#7dc97d', width: '14px' }}></i> Customer Register</Link></li>
                             <li><hr className="divider" /></li>
-                            <li><a href="/vendor/login"><i className="fas fa-store" style={{ color: 'var(--yellow)', width: '14px' }}></i> Vendor Login</a></li>
-                            <li><a href="/vendor/register"><i className="fas fa-store" style={{ color: '#7dc97d', width: '14px' }}></i> Vendor Register</a></li>
+                            <li><Link to="/vendor/login"><i className="fas fa-store" style={{ color: 'var(--yellow)', width: '14px' }}></i> Vendor Login</Link></li>
+                            <li><Link to="/vendor/register"><i className="fas fa-store" style={{ color: '#7dc97d', width: '14px' }}></i> Vendor Register</Link></li>
                             <li><hr className="divider" /></li>
-                            <li><a href="/admin/login"><i className="fas fa-shield-alt" style={{ color: 'rgba(255,255,255,0.4)', width: '14px' }}></i> Admin Login</a></li>
+                            <li><Link to="/admin/login"><i className="fas fa-shield-alt" style={{ color: 'rgba(255,255,255,0.4)', width: '14px' }}></i> Admin Login</Link></li>
                         </ul>
                     </li>
                 </ul>
@@ -521,7 +520,7 @@ export default function CustomerRegister({
 
                     <div className="card-footer-text">
                         Already have an account?
-                        <a href="/customer/login">Sign in here</a>
+                        <Link to="/login">Sign in here</Link>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * ShippedEmail Component
@@ -17,7 +18,7 @@ export default function ShippedEmail({
   items = []
 }) {
   const CSS = `
-    .email-body {
+    .email-#root {
       margin: 0;
       padding: 0;
       background: #f4f6f8;
@@ -115,7 +116,7 @@ export default function ShippedEmail({
                   <tr>
                     <td style={{ background: '#f9fafb', padding: '20px 32px', textAlign: 'center' }}>
                       <a
-                        href="/view-orders"
+                        to="/view-orders"
                         style={{
                           background: '#f5a623',
                           color: '#1a1a2e',

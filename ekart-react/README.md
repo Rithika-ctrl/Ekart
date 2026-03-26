@@ -1,3 +1,38 @@
+
+## 🚀 How to Run
+
+### Prerequisites
+- Node.js 18+
+- Spring Boot backend running on `http://localhost:8080`
+
+### Development
+```bash
+cd ekart-react
+npm install
+npm run dev
+```
+Then open http://localhost:5173
+
+### Production Build
+```bash
+npm run build
+# Output is in dist/ folder
+# Deploy dist/ to any static host (Netlify, Vercel, Nginx, etc.)
+```
+
+### Deployment Notes
+- **Netlify / Vercel**: `public/_redirects` file handles SPA routing automatically
+- **Nginx**: Add `try_files $uri $uri/ /index.html;` inside your `location /` block
+- **Apache**: Add `FallbackResource /index.html` to your `.htaccess`
+
+### Environment Variables
+Create a `.env` file in the project root:
+```
+VITE_API_BASE_URL=http://localhost:8080
+```
+For production, set this to your deployed backend URL.
+
+---
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

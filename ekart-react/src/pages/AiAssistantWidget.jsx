@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-/* ── FAB ── */
+const CSS = `/* ── FAB ── */
 .ai-fab {
     position: fixed; bottom: 2rem; right: 2rem; z-index: 9000;
     width: 60px; height: 60px; border-radius: 50%;
@@ -192,8 +192,7 @@ const CSS = `
 @media(max-width: 480px) {
     .ai-chat-window { width: calc(100vw - 2rem); right: 1rem; bottom: 6rem; }
     .ai-fab { bottom: 1.5rem; right: 1.5rem; }
-}
-`;
+}`;
 
 const SYSTEM_PROMPT = `You are the Ekart AI Assistant — a helpful, friendly support agent for the Ekart e-commerce platform.
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) => {
   // --- Alerts State ---
@@ -19,8 +20,7 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
+      <style dangerouslySetInnerHTML={{ __html: `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -34,7 +34,7 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -43,7 +43,6 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
             align-items: center;
             justify-content: center;
             padding: 2rem 1.5rem;
-            background: #060a18; /* Fallback background */
         }
 
         /* ── BACKGROUND ── */
@@ -124,8 +123,6 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
             box-shadow: 0 24px 80px rgba(0,0,0,0.45);
             animation: fadeUp 0.55s ease both;
             text-align: center;
-            position: relative;
-            z-index: 10;
         }
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(24px); }
@@ -267,8 +264,7 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
             nav { padding: 0.875rem 1.25rem; }
             .fp-card { padding: 2rem 1.5rem; }
             .step-line { width: 28px; }
-        }
-      `}} />
+        }`}} />
 
       <div className="bg-layer"></div>
 
@@ -292,13 +288,13 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
 
       {/* ── NAV ── */}
       <nav>
-        <a href="/" className="nav-brand">
+        <Link to="/" className="nav-brand">
           <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
           Ekart
-        </a>
-        <a href="/customer/login" className="nav-back">
+        </Link>
+        <Link to="/login" className="nav-back">
           <i className="fas fa-arrow-left" style={{ fontSize: '.75rem' }}></i> Back to Login
-        </a>
+        </Link>
       </nav>
 
       {/* ── CARD ── */}
@@ -357,9 +353,9 @@ const CustomerForgotPassword = ({ sessionSuccess, sessionFailure, csrfToken }) =
           </button>
         </form>
 
-        <a href="/customer/login" className="back-link">
+        <Link to="/login" className="back-link">
           <i className="fas fa-arrow-left" style={{ fontSize: '.7rem' }}></i> Back to Login
-        </a>
+        </Link>
       </div>
 
       <div className="brand-mark">Ekart · Account Recovery</div>

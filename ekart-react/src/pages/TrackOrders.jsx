@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.18);
@@ -15,7 +17,7 @@ const CSS = `
 
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
-        body {
+        #root {
             font-family:'Poppins', sans-serif;
             min-height:100vh; color:var(--text-white);
             display:flex; flex-direction:column;
@@ -83,7 +85,7 @@ const CSS = `
         }
         .alert-success { border-color:rgba(245,168,0,0.45); color:var(--yellow); }
         .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
-        .alert-close { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; font-size:1rem; }
+        .alert-close { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; }
 
         /* ── PAGE ── */
         .page {
@@ -405,8 +407,7 @@ const CSS = `
             .order-right { text-align:left; }
             .item-chips  { justify-content:flex-start; }
             footer { padding:1.25rem; flex-direction:column; text-align:center; }
-        }
-`;
+        }`;
 
 /**
  * TrackOrders Component
@@ -424,6 +425,9 @@ export default function TrackOrders({
     trackingStepMap = {},
     progressWidthMap = {}
 }) {
+    const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -461,7 +465,7 @@ export default function TrackOrders({
     const handleQuickReorder = (orderId) => {
         setReorderState(prev => ({ ...prev, [orderId]: 'loading' }));
 
-        fetch(`/api/orders/${orderId}/reorder`, {
+        authFetch(`/api/orders/${orderId}/reorder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         })
@@ -469,7 +473,7 @@ export default function TrackOrders({
         .then(data => {
             if (data.success) {
                 setReorderState(prev => ({ ...prev, [orderId]: 'success' }));
-                setTimeout(() => { window.location.href = '/view-cart'; }, 1200);
+                setTimeout(() => { navigate('/cart'); }, 1200);
             } else {
                 setReorderState(prev => ({ ...prev, [orderId]: null }));
                 alert(data.message || 'Reorder failed');
@@ -560,18 +564,18 @@ export default function TrackOrders({
             </div>
 
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1rem' }}></i>
                     Ek<span>art</span>
                 </a>
                 <div className="nav-right">
-                    <a href="/customer/home" className="nav-link"><i className="fas fa-th-large"></i><span> Home</span></a>
-                    <a href="/search-products" className="nav-link"><i className="fas fa-search"></i><span> Search</span></a>
-                    <a href="/view-orders" className="nav-link"><i className="fas fa-box-open"></i><span> Orders</span></a>
-                    <a href="/track-orders" className="nav-link active"><i className="fas fa-truck"></i><span> Track</span></a>
-                    <a href="/account/wishlist" className="nav-link" style={{ borderColor: 'rgba(239,68,68,0.3)' }}><i className="fas fa-heart" style={{ color: '#ef4444' }}></i><span> Wishlist</span></a>
-                    <a href="/view-cart" className="nav-link cart-link"><i className="fas fa-shopping-cart"></i><span> Cart</span></a>
-                    <a href="/logout" className="nav-link logout-link"><i className="fas fa-sign-out-alt"></i><span> Logout</span></a>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-th-large"></i><span> Home</span></a>
+                    <Link to="/search" className="nav-link"><i className="fas fa-search"></i><span> Search</span></Link>
+                    <Link to="/view-orders" className="nav-link"><i className="fas fa-box-open"></i><span> Orders</span></Link>
+                    <Link to="/track" className="nav-link active"><i className="fas fa-truck"></i><span> Track</span></Link>
+                    <Link to="/wishlist" className="nav-link" style={{ borderColor: 'rgba(239,68,68,0.3)' }}><i className="fas fa-heart" style={{ color: '#ef4444' }}></i><span> Wishlist</span></Link>
+                    <Link to="/cart" className="nav-link cart-link"><i className="fas fa-shopping-cart"></i><span> Cart</span></Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link logout-link"><i className="fas fa-sign-out-alt"></i><span> Logout</span></a>
                 </div>
             </nav>
 
@@ -779,7 +783,7 @@ export default function TrackOrders({
                             );
                         })}
 
-                        <a href="/customer/home" className="back-link">
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="back-link">
                             <i className="fas fa-arrow-left"></i>&nbsp;Back to Home
                         </a>
                     </>
@@ -788,9 +792,9 @@ export default function TrackOrders({
                         <span className="empty-icon">🚚</span>
                         <h3>No Orders to Track</h3>
                         <p>Once you place an order, you can follow its journey here in real time.</p>
-                        <a href="/customer/home" className="btn-shop"><i className="fas fa-shopping-bag"></i> Browse Products</a>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-shop"><i className="fas fa-shopping-bag"></i> Browse Products</a>
                         <br />
-                        <a href="/customer/home" className="back-link" style={{ marginTop: '1.25rem' }}>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="back-link" style={{ marginTop: '1.25rem' }}>
                             <i className="fas fa-arrow-left"></i>&nbsp;Back to Home
                         </a>
                     </div>

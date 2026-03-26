@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Shipping Details Component
@@ -13,6 +15,9 @@ export default function AddressPage({
     csrfToken = "" 
 }) {
     // --- STATE ---
+    const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [scrolled, setScrolled] = useState(false);
     const [alerts, setAlerts] = useState({ success: session.success, failure: session.failure });
     const [homePin, setHomePin] = useState(null);
@@ -102,14 +107,13 @@ export default function AddressPage({
     const useSavedAddress = (addr) => {
         const addrPin = (addr.postalCode || '').trim();
         if (!homePin || homePin.length !== 6 || addrPin === homePin) {
-            window.location.href = '/payment';
+            navigate('/payment');
             return;
         }
         setActiveAddressWarning(addr.id);
     };
 
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -118,8 +122,22 @@ export default function AddressPage({
             --text-white:   #ffffff;
             --text-light:   rgba(255,255,255,0.80);
             --text-dim:     rgba(255,255,255,0.50);
+            --input-bg:     rgba(255,255,255,0.07);
+            --input-border: rgba(255,255,255,0.18);
+            --success:      #22c55e;
         }
 
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; }
+
+        #root {
+            font-family:'Poppins', sans-serif;
+            min-height:100vh;
+            color:var(--text-white);
+            display:flex; flex-direction:column;
+        }
+
+        /* ── BACKGROUND ── */
         .bg-layer { position:fixed; inset:0; z-index:-1; overflow:hidden; }
         .bg-layer::before {
             content:''; position:absolute; inset:-20px;
@@ -131,114 +149,231 @@ export default function AddressPage({
             background:linear-gradient(180deg,rgba(5,8,20,0.82) 0%,rgba(8,12,28,0.78) 40%,rgba(5,8,20,0.88) 100%);
         }
 
+        /* ── NAV ── */
         nav {
             position:fixed; top:0; left:0; right:0; z-index:100;
-            padding:1rem 3rem; display:flex; align-items:center; justify-content:space-between;
+            padding:1rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
             background:var(--glass-nav); backdrop-filter:blur(14px);
             border-bottom:1px solid var(--glass-border); transition:background 0.3s;
         }
         nav.scrolled { background:rgba(0,0,0,0.45); }
-        .nav-brand { font-size:1.6rem; font-weight:700; color:var(--text-white); text-decoration:none; display:flex; align-items:center; gap:0.5rem; }
+        .nav-brand {
+            font-size:1.6rem; font-weight:700; color:var(--text-white);
+            text-decoration:none; letter-spacing:0.04em;
+            display:flex; align-items:center; gap:0.5rem;
+        }
+        .nav-right { display:flex; align-items:center; gap:0.75rem; }
+        .nav-link-btn {
+            display:flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none;
+            font-size:0.82rem; font-weight:500;
+            padding:0.45rem 0.9rem; border-radius:6px;
+            border:1px solid var(--glass-border); transition:all 0.2s;
+        }
+        .nav-link-btn:hover { color:white; background:rgba(255,255,255,0.1); }
+        .btn-logout {
+            display:flex; align-items:center; gap:0.4rem;
+            color:var(--text-light); text-decoration:none;
+            font-size:0.82rem; font-weight:500;
+            padding:0.45rem 0.9rem; border-radius:6px;
+            border:1px solid rgba(255,100,80,0.3); transition:all 0.2s;
+        }
+        .btn-logout:hover { color:#ff8060; border-color:rgba(255,100,80,0.6); background:rgba(255,100,80,0.08); }
 
+        /* ── ALERTS ── */
         .alert-stack { position:fixed; top:5rem; right:1.5rem; z-index:200; display:flex; flex-direction:column; gap:0.5rem; }
-        .alert { padding:0.875rem 1.25rem; background:rgba(10,12,30,0.88); backdrop-filter:blur(16px); border:1px solid; border-radius:10px; display:flex; align-items:center; gap:0.625rem; font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both; }
+        .alert {
+            padding:0.875rem 1.25rem; background:rgba(10,12,30,0.88); backdrop-filter:blur(16px);
+            border:1px solid; border-radius:10px; display:flex; align-items:center; gap:0.625rem;
+            font-size:0.825rem; min-width:260px; animation:slideIn 0.3s ease both;
+        }
         .alert-success { border-color:rgba(34,197,94,0.45); color:#22c55e; }
         .alert-danger  { border-color:rgba(255,100,80,0.45); color:#ff8060; }
+        .alert-close { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; opacity:0.6; font-size:1rem; }
 
-        .page-center { flex:1; display:flex; align-items:center; justify-content:center; padding:7rem 1.5rem 3rem; }
-        .shipping-panel { background:var(--glass-card); backdrop-filter:blur(20px); border:1px solid var(--glass-border); border-radius:20px; padding:2.75rem; width:100%; max-width:560px; box-shadow:0 40px 100px rgba(0,0,0,0.5); animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both; }
+        /* ── PAGE ── */
+        .page-center {
+            flex:1; display:flex; align-items:center; justify-content:center;
+            padding:7rem 1.5rem 3rem;
+        }
 
-        /* Progress Steps */
+        /* ── PANEL ── */
+        .shipping-panel {
+            background:var(--glass-card); backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border); border-radius:20px;
+            padding:2.75rem; width:100%; max-width:560px;
+            box-shadow:0 40px 100px rgba(0,0,0,0.5);
+            animation:fadeUp 0.5s cubic-bezier(0.23,1,0.32,1) both;
+        }
+
+        /* ── PANEL HEADER ── */
+        .panel-header { display:flex; align-items:center; gap:1.1rem; margin-bottom:2rem; }
+        .panel-header-icon {
+            width:52px; height:52px; flex-shrink:0;
+            background:rgba(245,168,0,0.15); border:2px solid rgba(245,168,0,0.3);
+            border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:1.25rem; color:var(--yellow);
+        }
+        .panel-header-text h2 { font-size:1.35rem; font-weight:700; margin-bottom:0.2rem; }
+        .panel-header-text p  { font-size:0.78rem; color:var(--text-dim); }
+
+        /* ── PROGRESS STEPS ── */
         .steps { display:flex; align-items:center; margin-bottom:2rem; }
         .step { display:flex; flex-direction:column; align-items:center; gap:0.35rem; flex:1; }
-        .step-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:800; border:2px solid var(--glass-border); color:var(--text-dim); background:rgba(255,255,255,0.05); }
+        .step-dot {
+            width:28px; height:28px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.65rem; font-weight:800;
+            border:2px solid var(--glass-border); color:var(--text-dim);
+            background:rgba(255,255,255,0.05); transition:all 0.3s;
+        }
         .step.active .step-dot { background:var(--yellow); border-color:var(--yellow); color:#1a1000; box-shadow:0 0 0 4px rgba(245,168,0,0.2); }
-        .step.done .step-dot { background:rgba(34,197,94,0.2); border-color:#22c55e; color:#22c55e; }
+        .step.done   .step-dot { background:rgba(34,197,94,0.2); border-color:#22c55e; color:#22c55e; }
         .step-label { font-size:0.62rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.06em; }
+        .step.active .step-label { color:var(--yellow); }
+        .step.done   .step-label { color:#22c55e; }
         .step-line { flex:1; height:1px; background:var(--glass-border); margin-bottom:1.1rem; }
         .step-line.done { background:rgba(34,197,94,0.4); }
 
-        /* Form Grid Fix */
-        .form-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 1.25rem; 
-            width: 100%;
+        /* ── SECTION LABEL ── */
+        .section-label {
+            display:flex; align-items:center; gap:0.5rem;
+            font-size:0.68rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.12em; color:var(--yellow); margin-bottom:1rem;
         }
-        .form-grid .full { grid-column: 1 / -1; }
-        
-        .field-group { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 0.6rem; 
-            min-width: 0; /* Prevents overflow in grid items */
+        .section-label::after { content:''; flex:1; height:1px; background:var(--glass-border); }
+
+        /* ── SAVED ADDRESS CARDS ── */
+        .address-card {
+            background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+            border-radius:14px; padding:1.2rem 1.4rem; margin-bottom:0.875rem;
+            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
+        }
+        .address-card:hover {
+            border-color:rgba(245,168,0,0.4); background:rgba(245,168,0,0.05);
+            transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.25);
+        }
+        .addr-recipient { font-size:0.85rem; font-weight:700; color:var(--text-white); margin-bottom:0.2rem; }
+        .addr-line      { font-size:0.80rem; color:var(--text-light); line-height:1.55; }
+        .addr-pin       { display:inline-flex; align-items:center; gap:0.3rem; margin-top:0.45rem; font-size:0.72rem; font-weight:700; color:var(--yellow); }
+        .address-actions { display:flex; align-items:center; justify-content:space-between; margin-top:1rem; }
+
+        .btn-use-address {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:var(--yellow); color:#1a1000; border:none;
+            padding:0.45rem 1.1rem; border-radius:50px;
+            font-family:'Poppins',sans-serif; font-size:0.72rem; font-weight:700;
+            letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+            transition:all 0.25s; text-decoration:none;
+            box-shadow:0 4px 14px rgba(245,168,0,0.25);
+        }
+        .btn-use-address:hover { background:var(--yellow-d); transform:translateY(-1px); box-shadow:0 6px 18px rgba(245,168,0,0.4); }
+
+        .btn-delete-address {
+            display:inline-flex; align-items:center; gap:0.35rem;
+            color:rgba(255,100,80,0.6); text-decoration:none; font-size:0.72rem; font-weight:600;
+            transition:color 0.2s; background:none; border:none; cursor:pointer;
+            font-family:'Poppins',sans-serif;
+        }
+        .btn-delete-address:hover { color:#ff8060; }
+
+        /* ── DIVIDER ── */
+        .panel-divider { border:none; border-top:1px solid var(--glass-border); margin:1.75rem 0; }
+
+        /* ── FORM GRID ── */
+        .form-grid {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:1rem;
+        }
+        .form-grid .full { grid-column:1 / -1; }
+
+        .field-group { display:flex; flex-direction:column; gap:0.4rem; }
+        .field-label {
+            font-size:0.68rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.08em; color:var(--text-dim);
+            display:flex; align-items:center; gap:0.35rem;
+        }
+        .field-label i { font-size:0.6rem; }
+        .field-label .req { color:var(--yellow); }
+
+        .form-input {
+            width:100%; background:var(--input-bg); border:1px solid var(--input-border);
+            border-radius:10px; padding:0.75rem 1rem;
+            color:white; font-family:'Poppins',sans-serif; font-size:0.875rem;
+            outline:none; transition:all 0.25s;
+        }
+        .form-input::placeholder { color:var(--text-dim); font-size:0.8rem; }
+        .form-input:focus {
+            background:rgba(255,255,255,0.10); border-color:var(--yellow);
+            box-shadow:0 0 0 3px rgba(245,168,0,0.12);
+        }
+        .form-input.error { border-color:rgba(255,100,80,0.6); }
+        .field-hint { font-size:0.65rem; color:var(--text-dim); margin-top:0.1rem; }
+        .field-error { font-size:0.65rem; color:#ff8060; margin-top:0.1rem; display:none; }
+
+        /* Pin code row */
+        .pin-row { display:flex; gap:0.5rem; align-items:flex-end; }
+        .pin-row .form-input { flex:1; }
+
+        /* Address preview */
+        .addr-preview {
+            background:rgba(245,168,0,0.06); border:1px dashed rgba(245,168,0,0.3);
+            border-radius:12px; padding:1rem 1.25rem;
+            font-size:0.82rem; color:var(--text-light); line-height:1.7;
+            margin-top:1rem; display:none;
+        }
+        .addr-preview.visible { display:block; }
+        .addr-preview .preview-label {
+            font-size:0.62rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.1em; color:var(--yellow); margin-bottom:0.5rem;
         }
 
-        .field-label { 
-            font-size: 0.75rem; 
-            font-weight: 700; 
-            color: var(--text-light); 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        /* ── SUBMIT BUTTON ── */
+        .btn-submit {
+            width:100%; background:var(--yellow); color:#1a1000;
+            border:none; border-radius:12px; padding:0.95rem;
+            margin-top:1.25rem;
+            font-family:'Poppins',sans-serif; font-size:0.875rem; font-weight:700;
+            letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+            transition:all 0.3s cubic-bezier(0.23,1,0.32,1);
+            box-shadow:0 8px 24px rgba(245,168,0,0.25);
+            display:flex; align-items:center; justify-content:center; gap:0.5rem;
         }
-        .field-label .req { color: var(--yellow); }
+        .btn-submit:hover { background:var(--yellow-d); transform:translateY(-2px); box-shadow:0 12px 32px rgba(245,168,0,0.42); }
+        .btn-submit:active { transform:translateY(0); }
 
-        .form-input { 
-            width: 100%; 
-            background: rgba(255, 255, 255, 0.05); 
-            border: 1.5px solid rgba(255, 255, 255, 0.12); 
-            border-radius: 14px; 
-            padding: 1.1rem 1.25rem; 
-            color: white; 
-            font-family: 'Poppins', sans-serif; 
-            font-size: 0.95rem;
-            outline: none; 
-            transition: all 0.25s ease; 
-            box-sizing: border-box; /* Crucial for preventing overlapping widths */
+        /* ── BACK LINK ── */
+        .back-link {
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+            margin-top:1.5rem; color:var(--text-dim); text-decoration:none;
+            font-size:0.78rem; transition:color 0.2s;
         }
-        .form-input::placeholder { color: var(--text-dim); font-size: 0.9rem; }
-        .form-input:focus { 
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--yellow); 
-            box-shadow: 0 0 0 4px rgba(245, 168, 0, 0.1); 
+        .back-link:hover { color:var(--text-white); }
+
+        /* ── FOOTER ── */
+        footer {
+            background:rgba(0,0,0,0.5); backdrop-filter:blur(16px);
+            border-top:1px solid var(--glass-border); padding:1.25rem 3rem;
+            display:flex; align-items:center; justify-content:space-between;
+            flex-wrap:wrap; gap:0.75rem;
         }
-        .form-input.error { border-color: rgba(255, 100, 80, 0.6); }
+        .footer-brand { font-size:1.1rem; font-weight:700; color:white; }
+        .footer-copy  { font-size:0.72rem; color:var(--text-dim); }
 
-        .field-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: -0.25rem; }
-
-        .btn-submit { 
-            width: 100%; 
-            background: #d48f00; 
-            color: #1a1000; 
-            border: none; 
-            border-radius: 16px; 
-            padding: 1.25rem; 
-            margin-top: 2rem; 
-            font-weight: 700; 
-            font-size: 1rem;
-            text-transform: uppercase; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 0.6rem; 
-            transition: all 0.3s cubic-bezier(0.23,1,0.32,1); 
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-        .btn-submit:hover { 
-            background: var(--yellow); 
-            transform: translateY(-2px); 
-            box-shadow: 0 15px 35px rgba(245, 168, 0, 0.25); 
-        }
-
-        .address-card { background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); border-radius:14px; padding:1.2rem 1.4rem; margin-bottom:0.875rem; transition:all 0.3s; }
-
+        /* ── ANIMATIONS ── */
         @keyframes fadeUp  { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
-    `;
+
+        /* ── RESPONSIVE ── */
+        @media(max-width:600px) {
+            nav { padding:0.875rem 1.25rem; }
+            .shipping-panel { padding:2rem 1.25rem; }
+            .form-grid { grid-template-columns:1fr; }
+            .form-grid .full { grid-column:1; }
+            footer { padding:1.25rem; flex-direction:column; text-align:center; }
+        }`;
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -263,12 +398,12 @@ export default function AddressPage({
             </div>
 
             <nav className={scrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i> Ekart
                 </a>
                 <div className="nav-right">
-                    <a href="/view-cart" className="nav-link-btn"><i className="fas fa-shopping-cart"></i> Cart</a>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <Link to="/cart" className="nav-link-btn"><i className="fas fa-shopping-cart"></i> Cart</Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -427,9 +562,9 @@ export default function AddressPage({
                         </button>
                     </form>
 
-                    <a href="/view-cart" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginTop: '1.5rem', color: 'var(--text-dim)', textDecoration: 'none', fontSize: '0.78rem' }}>
+                    <Link to="/cart" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginTop: '1.5rem', color: 'var(--text-dim)', textDecoration: 'none', fontSize: '0.78rem' }}>
                         <i className="fas fa-arrow-left"></i> Back to Cart
-                    </a>
+                    </Link>
                 </div>
             </main>
 

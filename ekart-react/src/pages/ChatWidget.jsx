@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const ChatWidget = ({ role = 'guest', userName = '' }) => {
   // --- Role Configuration ---
@@ -185,204 +186,202 @@ const ChatWidget = ({ role = 'guest', userName = '' }) => {
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        /* ── FAB ── */
-        #ek-fab {
-            position:fixed; bottom:2rem; right:2rem; z-index:9500;
-            width:58px; height:58px; border-radius:50%;
-            background:linear-gradient(135deg,#f5a800,#d48f00);
-            border:none; cursor:pointer;
-            display:flex; align-items:center; justify-content:center;
-            font-size:1.35rem; color:#1a1000;
-            box-shadow:0 6px 28px rgba(245,168,0,0.5);
-            transition:transform 0.3s,box-shadow 0.3s;
-            animation:ekFabPop 0.45s cubic-bezier(0.23,1,0.32,1) both;
-        }
-        #ek-fab:hover { transform:scale(1.12); box-shadow:0 10px 36px rgba(245,168,0,0.7); }
-        .ek-fab-pulse {
-            position:absolute; inset:-4px; border-radius:50%;
-            border:2px solid rgba(245,168,0,0.35);
-            animation:ekPulseRing 2.5s ease-out infinite;
-        }
-        .ek-fab-badge {
-            position:absolute; top:-2px; right:-2px;
-            width:14px; height:14px; border-radius:50%;
-            background:#22c55e; border:2px solid rgba(8,10,24,1);
-            animation:ekDotBlink 2s ease-in-out infinite;
-        }
+      <style dangerouslySetInnerHTML={{ __html: `/* ── FAB ── */
+#ek-fab {
+    position:fixed; bottom:2rem; right:2rem; z-index:9500;
+    width:58px; height:58px; border-radius:50%;
+    background:linear-gradient(135deg,#f5a800,#d48f00);
+    border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.35rem; color:#1a1000;
+    box-shadow:0 6px 28px rgba(245,168,0,0.5);
+    transition:transform 0.3s,box-shadow 0.3s;
+    animation:ekFabPop 0.45s cubic-bezier(0.23,1,0.32,1) both;
+}
+#ek-fab:hover { transform:scale(1.12); box-shadow:0 10px 36px rgba(245,168,0,0.7); }
+.ek-fab-pulse {
+    position:absolute; inset:-4px; border-radius:50%;
+    border:2px solid rgba(245,168,0,0.35);
+    animation:ekPulseRing 2.5s ease-out infinite;
+}
+.ek-fab-badge {
+    position:absolute; top:-2px; right:-2px;
+    width:14px; height:14px; border-radius:50%;
+    background:#22c55e; border:2px solid rgba(8,10,24,1);
+    animation:ekDotBlink 2s ease-in-out infinite;
+}
 
-        /* ── Window ── */
-        #ek-win {
-            position:fixed; bottom:5.5rem; right:2rem; z-index:9499;
-            width:370px; max-height:560px;
-            background:rgba(7,9,22,0.97);
-            backdrop-filter:blur(24px);
-            border:1px solid rgba(245,168,0,0.3);
-            border-radius:20px;
-            display:flex; flex-direction:column;
-            box-shadow:0 28px 80px rgba(0,0,0,0.7);
-            transform:scale(0.85) translateY(24px);
-            opacity:0; pointer-events:none;
-            transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-            overflow:hidden;
-        }
-        #ek-win.ek-open {
-            transform:scale(1) translateY(0);
-            opacity:1; pointer-events:all;
-        }
+/* ── Window ── */
+#ek-win {
+    position:fixed; bottom:5.5rem; right:2rem; z-index:9499;
+    width:370px; max-height:560px;
+    background:rgba(7,9,22,0.97);
+    backdrop-filter:blur(24px);
+    border:1px solid rgba(245,168,0,0.3);
+    border-radius:20px;
+    display:flex; flex-direction:column;
+    box-shadow:0 28px 80px rgba(0,0,0,0.7);
+    transform:scale(0.85) translateY(24px);
+    opacity:0; pointer-events:none;
+    transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    overflow:hidden;
+}
+#ek-win.ek-open {
+    transform:scale(1) translateY(0);
+    opacity:1; pointer-events:all;
+}
 
-        /* ── Header ── */
-        .ek-header {
-            display:flex; align-items:center; justify-content:space-between;
-            padding:0.9rem 1.1rem;
-            background:linear-gradient(135deg,rgba(245,168,0,0.18),rgba(245,100,0,0.08));
-            border-bottom:1px solid rgba(245,168,0,0.18);
-            flex-shrink:0;
-        }
-        .ek-header-left { display:flex; align-items:center; gap:0.65rem; }
-        .ek-av {
-            width:38px; height:38px; border-radius:50%;
-            background:rgba(245,168,0,0.15); border:2px solid rgba(245,168,0,0.45);
-            display:flex; align-items:center; justify-content:center;
-            font-size:1.05rem; color:#f5a800;
-        }
-        .ek-hname { font-size:0.85rem; font-weight:700; color:white; line-height:1.2; }
-        .ek-hstatus {
-            font-size:0.65rem; color:rgba(255,255,255,0.45);
-            display:flex; align-items:center; gap:0.3rem; margin-top:0.1rem;
-        }
-        .ek-dot-green { width:7px; height:7px; border-radius:50%; background:#22c55e; display:inline-block; animation:ekDotBlink 2s infinite; }
-        .ek-hbtns { display:flex; gap:0.25rem; }
-        .ek-hbtn {
-            width:28px; height:28px; border-radius:50%;
-            background:rgba(255,255,255,0.07); border:none; cursor:pointer;
-            color:rgba(255,255,255,0.45); font-size:0.68rem;
-            display:flex; align-items:center; justify-content:center;
-            transition:all 0.2s;
-        }
-        .ek-hbtn:hover { background:rgba(255,255,255,0.15); color:white; }
+/* ── Header ── */
+.ek-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0.9rem 1.1rem;
+    background:linear-gradient(135deg,rgba(245,168,0,0.18),rgba(245,100,0,0.08));
+    border-bottom:1px solid rgba(245,168,0,0.18);
+    flex-shrink:0;
+}
+.ek-header-left { display:flex; align-items:center; gap:0.65rem; }
+.ek-av {
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(245,168,0,0.15); border:2px solid rgba(245,168,0,0.45);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.05rem; color:#f5a800;
+}
+.ek-hname { font-size:0.85rem; font-weight:700; color:white; line-height:1.2; }
+.ek-hstatus {
+    font-size:0.65rem; color:rgba(255,255,255,0.45);
+    display:flex; align-items:center; gap:0.3rem; margin-top:0.1rem;
+}
+.ek-dot-green { width:7px; height:7px; border-radius:50%; background:#22c55e; display:inline-block; animation:ekDotBlink 2s infinite; }
+.ek-hbtns { display:flex; gap:0.25rem; }
+.ek-hbtn {
+    width:28px; height:28px; border-radius:50%;
+    background:rgba(255,255,255,0.07); border:none; cursor:pointer;
+    color:rgba(255,255,255,0.45); font-size:0.68rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+}
+.ek-hbtn:hover { background:rgba(255,255,255,0.15); color:white; }
 
-        /* Role pill */
-        .ek-role-pill {
-            display:inline-flex; align-items:center; gap:0.25rem;
-            padding:0.15rem 0.55rem; border-radius:50px;
-            font-size:0.6rem; font-weight:700; letter-spacing:0.06em;
-            border:1px solid;
-        }
-        .ek-role-customer { background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.35); color:#60a5fa; }
-        .ek-role-vendor   { background:rgba(52,211,153,0.12); border-color:rgba(52,211,153,0.35); color:#34d399; }
-        .ek-role-admin    { background:rgba(167,139,250,0.12); border-color:rgba(167,139,250,0.35); color:#a78bfa; }
-        .ek-role-guest    { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.2);  color:rgba(255,255,255,0.5); }
+/* Role pill */
+.ek-role-pill {
+    display:inline-flex; align-items:center; gap:0.25rem;
+    padding:0.15rem 0.55rem; border-radius:50px;
+    font-size:0.6rem; font-weight:700; letter-spacing:0.06em;
+    border:1px solid;
+}
+.ek-role-customer { background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.35); color:#60a5fa; }
+.ek-role-vendor   { background:rgba(52,211,153,0.12); border-color:rgba(52,211,153,0.35); color:#34d399; }
+.ek-role-admin    { background:rgba(167,139,250,0.12); border-color:rgba(167,139,250,0.35); color:#a78bfa; }
+.ek-role-guest    { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.2);  color:rgba(255,255,255,0.5); }
 
-        /* ── Quick chips ── */
-        .ek-chips {
-            padding:0.6rem 1rem 0.4rem;
-            border-bottom:1px solid rgba(255,255,255,0.06);
-            flex-shrink:0;
-        }
-        .ek-chips-label {
-            font-size:0.6rem; font-weight:700; letter-spacing:0.1em;
-            text-transform:uppercase; color:rgba(255,255,255,0.25);
-            margin-bottom:0.4rem;
-        }
-        .ek-chips-row { display:flex; flex-wrap:wrap; gap:0.3rem; }
-        .ek-chip {
-            font-size:0.68rem; font-weight:500;
-            padding:0.28rem 0.6rem; border-radius:50px;
-            background:rgba(245,168,0,0.08);
-            border:1px solid rgba(245,168,0,0.22);
-            color:rgba(255,255,255,0.65); cursor:pointer;
-            transition:all 0.2s; font-family:inherit;
-            white-space:nowrap;
-        }
-        .ek-chip:hover { background:rgba(245,168,0,0.2); color:white; border-color:rgba(245,168,0,0.5); }
+/* ── Quick chips ── */
+.ek-chips {
+    padding:0.6rem 1rem 0.4rem;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    flex-shrink:0;
+}
+.ek-chips-label {
+    font-size:0.6rem; font-weight:700; letter-spacing:0.1em;
+    text-transform:uppercase; color:rgba(255,255,255,0.25);
+    margin-bottom:0.4rem;
+}
+.ek-chips-row { display:flex; flex-wrap:wrap; gap:0.3rem; }
+.ek-chip {
+    font-size:0.68rem; font-weight:500;
+    padding:0.28rem 0.6rem; border-radius:50px;
+    background:rgba(245,168,0,0.08);
+    border:1px solid rgba(245,168,0,0.22);
+    color:rgba(255,255,255,0.65); cursor:pointer;
+    transition:all 0.2s; font-family:inherit;
+    white-space:nowrap;
+}
+.ek-chip:hover { background:rgba(245,168,0,0.2); color:white; border-color:rgba(245,168,0,0.5); }
 
-        /* ── Messages ── */
-        .ek-msgs {
-            flex:1; overflow-y:auto; padding:0.875rem 1rem;
-            display:flex; flex-direction:column; gap:0.7rem;
-            scroll-behavior:smooth;
-        }
-        .ek-msgs::-webkit-scrollbar { width:3px; }
-        .ek-msgs::-webkit-scrollbar-thumb { background:rgba(245,168,0,0.25); border-radius:2px; }
+/* ── Messages ── */
+.ek-msgs {
+    flex:1; overflow-y:auto; padding:0.875rem 1rem;
+    display:flex; flex-direction:column; gap:0.7rem;
+    scroll-behavior:smooth;
+}
+.ek-msgs::-webkit-scrollbar { width:3px; }
+.ek-msgs::-webkit-scrollbar-thumb { background:rgba(245,168,0,0.25); border-radius:2px; }
 
-        .ek-msg { display:flex; align-items:flex-end; gap:0.45rem; animation:ekMsgIn 0.28s ease both; }
-        .ek-msg.ek-user { flex-direction:row-reverse; }
-        .ek-mav {
-            width:26px; height:26px; border-radius:50%; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:0.65rem;
-        }
-        .ek-msg.ek-bot  .ek-mav { background:rgba(245,168,0,0.12); border:1px solid rgba(245,168,0,0.25); color:#f5a800; }
-        .ek-msg.ek-user .ek-mav { background:rgba(245,168,0,0.2); border:1px solid rgba(245,168,0,0.4); color:#1a1000; }
-        .ek-bubble {
-            max-width:84%; padding:0.6rem 0.875rem;
-            border-radius:14px; font-size:0.8rem; line-height:1.55;
-            font-family:inherit;
-        }
-        .ek-msg.ek-bot  .ek-bubble {
-            background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.1);
-            color:rgba(255,255,255,0.88); border-bottom-left-radius:3px;
-        }
-        .ek-msg.ek-user .ek-bubble {
-            background:linear-gradient(135deg,#f5a800,#d48f00);
-            color:#1a1000; font-weight:600; border-bottom-right-radius:3px;
-        }
+.ek-msg { display:flex; align-items:flex-end; gap:0.45rem; animation:ekMsgIn 0.28s ease both; }
+.ek-msg.ek-user { flex-direction:row-reverse; }
+.ek-mav {
+    width:26px; height:26px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.65rem;
+}
+.ek-msg.ek-bot  .ek-mav { background:rgba(245,168,0,0.12); border:1px solid rgba(245,168,0,0.25); color:#f5a800; }
+.ek-msg.ek-user .ek-mav { background:rgba(245,168,0,0.2); border:1px solid rgba(245,168,0,0.4); color:#1a1000; }
+.ek-bubble {
+    max-width:84%; padding:0.6rem 0.875rem;
+    border-radius:14px; font-size:0.8rem; line-height:1.55;
+    font-family:inherit;
+}
+.ek-msg.ek-bot  .ek-bubble {
+    background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.1);
+    color:rgba(255,255,255,0.88); border-bottom-left-radius:3px;
+}
+.ek-msg.ek-user .ek-bubble {
+    background:linear-gradient(135deg,#f5a800,#d48f00);
+    color:#1a1000; font-weight:600; border-bottom-right-radius:3px;
+}
 
-        /* Typing */
-        .ek-typing { display:flex; align-items:center; gap:0.45rem; padding:0 0 0.25rem 1rem; flex-shrink:0; }
-        .ek-typing-dots {
-            display:flex; gap:4px; padding:0.55rem 0.75rem;
-            background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.1);
-            border-radius:14px; border-bottom-left-radius:3px;
-        }
-        .ek-typing-dots span {
-            width:7px; height:7px; border-radius:50%;
-            background:rgba(245,168,0,0.65);
-            animation:ekTypingBounce 1.2s ease infinite;
-        }
-        .ek-typing-dots span:nth-child(2) { animation-delay:0.2s; }
-        .ek-typing-dots span:nth-child(3) { animation-delay:0.4s; }
+/* Typing */
+.ek-typing { display:flex; align-items:center; gap:0.45rem; padding:0 0 0.25rem 1rem; flex-shrink:0; }
+.ek-typing-dots {
+    display:flex; gap:4px; padding:0.55rem 0.75rem;
+    background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.1);
+    border-radius:14px; border-bottom-left-radius:3px;
+}
+.ek-typing-dots span {
+    width:7px; height:7px; border-radius:50%;
+    background:rgba(245,168,0,0.65);
+    animation:ekTypingBounce 1.2s ease infinite;
+}
+.ek-typing-dots span:nth-child(2) { animation-delay:0.2s; }
+.ek-typing-dots span:nth-child(3) { animation-delay:0.4s; }
 
-        /* ── Input ── */
-        .ek-input-row {
-            display:flex; align-items:flex-end; gap:0.45rem;
-            padding:0.7rem 1rem;
-            border-top:1px solid rgba(255,255,255,0.07);
-            flex-shrink:0;
-        }
-        #ek-input {
-            flex:1; background:rgba(255,255,255,0.07);
-            border:1px solid rgba(255,255,255,0.13); border-radius:10px;
-            padding:0.6rem 0.8rem; color:white;
-            font-family:inherit; font-size:0.8rem; outline:none;
-            resize:none; max-height:90px; line-height:1.4;
-            transition:border-color 0.2s;
-        }
-        #ek-input::placeholder { color:rgba(255,255,255,0.28); }
-        #ek-input:focus { border-color:rgba(245,168,0,0.5); }
-        #ek-send {
-            width:36px; height:36px; border-radius:50%; flex-shrink:0;
-            background:linear-gradient(135deg,#f5a800,#d48f00);
-            border:none; cursor:pointer; color:#1a1000; font-size:0.85rem;
-            display:flex; align-items:center; justify-content:center;
-            transition:all 0.2s;
-        }
-        #ek-send:hover { transform:scale(1.1); }
-        #ek-send:disabled { opacity:0.38; cursor:not-allowed; transform:none; }
+/* ── Input ── */
+.ek-input-row {
+    display:flex; align-items:flex-end; gap:0.45rem;
+    padding:0.7rem 1rem;
+    border-top:1px solid rgba(255,255,255,0.07);
+    flex-shrink:0;
+}
+#ek-input {
+    flex:1; background:rgba(255,255,255,0.07);
+    border:1px solid rgba(255,255,255,0.13); border-radius:10px;
+    padding:0.6rem 0.8rem; color:white;
+    font-family:inherit; font-size:0.8rem; outline:none;
+    resize:none; max-height:90px; line-height:1.4;
+    transition:border-color 0.2s;
+}
+#ek-input::placeholder { color:rgba(255,255,255,0.28); }
+#ek-input:focus { border-color:rgba(245,168,0,0.5); }
+#ek-send {
+    width:36px; height:36px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,#f5a800,#d48f00);
+    border:none; cursor:pointer; color:#1a1000; font-size:0.85rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+}
+#ek-send:hover { transform:scale(1.1); }
+#ek-send:disabled { opacity:0.38; cursor:not-allowed; transform:none; }
 
-        /* ── Animations ── */
-        @keyframes ekFabPop        { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes ekPulseRing     { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.5);opacity:0} }
-        @keyframes ekDotBlink      { 0%,100%{opacity:1} 50%{opacity:0.35} }
-        @keyframes ekMsgIn         { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes ekTypingBounce  { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+/* ── Animations ── */
+@keyframes ekFabPop        { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes ekPulseRing     { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.5);opacity:0} }
+@keyframes ekDotBlink      { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes ekMsgIn         { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+@keyframes ekTypingBounce  { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
 
-        @media(max-width:440px) {
-            #ek-win  { width:calc(100vw - 2rem); right:1rem; bottom:5rem; }
-            #ek-fab  { bottom:1.25rem; right:1.25rem; }
-        }
-      `}} />
+@media(max-width:440px) {
+    #ek-win  { width:calc(100vw - 2rem); right:1rem; bottom:5rem; }
+    #ek-fab  { bottom:1.25rem; right:1.25rem; }
+}`}} />
 
       {/* FAB */}
       <button id="ek-fab" onClick={handleToggle} title="Ekart Assistant">

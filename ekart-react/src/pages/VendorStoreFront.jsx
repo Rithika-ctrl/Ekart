@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -15,7 +16,7 @@ const CSS = `
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
@@ -234,7 +235,7 @@ const CSS = `
         .stat-card.green  .stat-icon { background: rgba(34,197,94,0.15);  color: #22c55e; }
         .stat-card.red    .stat-icon { background: rgba(239,68,68,0.15);  color: #ef4444; }
 
-        .stat-body { flex: 1; }
+        .stat-#root { flex: 1; }
         .stat-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 0.2rem; }
         .stat-val   { font-size: 1.55rem; font-weight: 800; color: var(--text-white); line-height: 1; }
 
@@ -246,7 +247,6 @@ const CSS = `
         }
         .verified-badge.yes { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
         .verified-badge.no  { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
-        
         /* ── Vendor ID Badge ── */
         .vendor-id-card { background: linear-gradient(135deg, rgba(245,168,0,0.18), rgba(245,168,0,0.06)); border-color: rgba(245,168,0,0.4) !important; }
         .vendor-id-code {
@@ -305,8 +305,7 @@ const CSS = `
             .stats-stack { flex-direction: column; }
             .stat-card { flex: unset; }
             footer { padding: 1.25rem; flex-direction: column; text-align: center; }
-        }
-`;
+        }`;
 
 /**
  * VendorStoreFront Component
@@ -331,6 +330,9 @@ export default function VendorStoreFront({
     alertCount = 0,
     csrfToken = null
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/vendor/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -405,13 +407,13 @@ export default function VendorStoreFront({
 
             {/* Navbar */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/vendor/home" className="nav-brand">
+                <Link to="/vendor" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
-                    <a href="/vendor/home" className="nav-link-btn"><i className="fas fa-th-large"></i> Dashboard</a>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <Link to="/vendor" className="nav-link-btn"><i className="fas fa-th-large"></i> Dashboard</Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../utils/api';
+import { Link, useNavigate } from 'react-router-dom';
 
-const CSS = `
-        :root {
+const CSS = `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255,255,255,0.22);
@@ -18,7 +20,7 @@ const CSS = `
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior:smooth; }
 
-        body {
+        #root {
             font-family:'Poppins', sans-serif;
             min-height:100vh;
             color:var(--text-white);
@@ -168,6 +170,7 @@ const CSS = `
         .tag-free { color:var(--success); font-weight:700; }
         .tag-charge { color:#ff8060; font-weight:700; }
 
+
         /* ── CART ITEMS ON PAYMENT PAGE ── */
         .items-table { width:100%; border-collapse:collapse; }
         .items-table th {
@@ -278,7 +281,7 @@ const CSS = `
         }
         .rec-card:hover { transform:translateY(-5px); border-color:rgba(245,168,0,0.4); }
         .rec-img { width:100%; height:110px; object-fit:cover; }
-        .rec-body { padding:0.875rem; }
+        .rec-#root { padding:0.875rem; }
         .rec-name { font-size:0.78rem; font-weight:600; color:var(--text-light); margin-bottom:0.35rem; line-height:1.4; }
         .rec-price { font-size:0.9rem; font-weight:800; color:var(--yellow); margin-bottom:0.75rem; }
         .btn-add-cart {
@@ -311,8 +314,7 @@ const CSS = `
             .page-header { flex-direction:column; text-align:center; }
             .payment-grid { grid-template-columns:1fr; }
             footer { padding:1.25rem; flex-direction:column; text-align:center; }
-        }
-`;
+        }`;
 
 /**
  * Payment Component
@@ -348,6 +350,9 @@ export default function Payment({
     recommendedProducts = [],
     cartItemCategory = ''
 }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
     const [isScrolled, setIsScrolled] = useState(false);
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
@@ -509,7 +514,7 @@ export default function Payment({
             return;
         }
         setPinCheckState({ ...pinCheckState, checking: true, resultHtml: null });
-        fetch('/api/check-pincode?pinCode=' + encodeURIComponent(pinInput))
+        authFetch('/api/check-pincode?pinCode=' + encodeURIComponent(pinInput))
             .then(r => r.json())
             .then(data => {
                 if (!data.hasRestrictions) {
@@ -555,13 +560,13 @@ export default function Payment({
 
             {/* NAV */}
             <nav id="nav" className={isScrolled ? 'scrolled' : ''}>
-                <a href="/customer/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
                 </a>
                 <div className="nav-right">
-                    <a href="/view-cart" className="nav-link-btn"><i className="fas fa-arrow-left"></i> Back to Cart</a>
-                    <a href="/logout" className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
+                    <Link to="/cart" className="nav-link-btn"><i className="fas fa-arrow-left"></i> Back to Cart</Link>
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout"><i className="fas fa-sign-out-alt"></i> Logout</a>
                 </div>
             </nav>
 
@@ -616,7 +621,7 @@ export default function Payment({
                         </span>
                     </div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginLeft: '0.75rem' }}>
-                        Selected on product page · <a href="#!" onClick={() => window.history.back()} style={{ color: 'var(--yellow)', textDecoration: 'none' }}>Change</a>
+                        Selected on product page · <a href="#!" onClick={(e) => { e.preventDefault(); window.history.back(); }} style={{ color: 'var(--yellow)', textDecoration: 'none' }}>Change</a>
                     </span>
                 </div>
 
@@ -654,9 +659,9 @@ export default function Payment({
                                         <i className="fas fa-exclamation-triangle"></i> No shipping address. Please add one.
                                     </div>
                                 )}
-                                <a href="/customer/address" className="change-link">
+                                <Link to="/address" className="change-link">
                                     <i className="fas fa-pen" style={{ fontSize: '.65rem' }}></i> Change
-                                </a>
+                                </Link>
                             </div>
                         </div>
 
@@ -803,9 +808,9 @@ export default function Payment({
                                 </button>
                             </form>
 
-                            <a href="/view-cart" className="cancel-link">
+                            <Link to="/cart" className="cancel-link">
                                 <i className="fas fa-arrow-left" style={{ fontSize: '.7rem' }}></i> Cancel & Go Back
-                            </a>
+                            </Link>
                         </div>
 
                         <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>

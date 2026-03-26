@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Ekart - Delivery Management Component
@@ -161,36 +162,110 @@ export default function AdminDeliveryManagement({
         }
     };
 
-    const CSS = `
-        :root{--yellow:#f5a800;--yellow-d:#d48f00;--glass-border:rgba(255,255,255,0.22);--glass-card:rgba(255,255,255,0.13);--glass-nav:rgba(0,0,0,0.25);--text-white:#ffffff;--text-light:rgba(255,255,255,0.80);--text-dim:rgba(255,255,255,0.50);}
+    const CSS = `:root{--yellow:#f5a800;--yellow-d:#d48f00;--glass-border:rgba(255,255,255,0.22);--glass-card:rgba(255,255,255,0.13);--glass-nav:rgba(0,0,0,0.25);--text-white:#ffffff;--text-light:rgba(255,255,255,0.80);--text-dim:rgba(255,255,255,0.50);}
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        #root {font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
         .bg-layer{position:fixed;inset:0;z-index:-1;overflow:hidden;}
         .bg-layer::before{content:'';position:absolute;inset:-20px;background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;filter:blur(6px);transform:scale(1.08);}
         .bg-layer::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,20,0.82) 0%,rgba(8,12,28,0.78) 40%,rgba(5,8,20,0.88) 100%);}
+
         nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--glass-nav);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);}
         .nav-brand{font-size:1.4rem;font-weight:700;color:var(--text-white);text-decoration:none;display:flex;align-items:center;gap:0.5rem;}
+        .nav-brand span{color:var(--yellow);}
+        .nav-right{display:flex;align-items:center;gap:0.75rem;}
+        .nav-badge{display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;font-weight:700;padding:0.3rem 0.8rem;border-radius:50px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);color:var(--yellow);text-transform:uppercase;letter-spacing:0.06em;}
         .nav-link{display:flex;align-items:center;gap:0.4rem;color:var(--text-light);text-decoration:none;font-size:0.82rem;font-weight:500;padding:0.45rem 0.9rem;border-radius:6px;border:1px solid var(--glass-border);transition:all 0.2s;}
+        .nav-link:hover{color:white;background:rgba(255,255,255,0.08);}
+        .btn-logout{display:flex;align-items:center;gap:0.4rem;color:var(--text-light);text-decoration:none;font-size:0.82rem;font-weight:500;padding:0.45rem 0.9rem;border-radius:6px;border:1px solid rgba(255,100,80,0.3);transition:all 0.2s;}
+        .btn-logout:hover{color:#ff8060;border-color:rgba(255,100,80,0.6);}
+
         .alert-stack{position:fixed;top:5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;gap:0.5rem;}
         .alert{padding:0.875rem 1.25rem;background:rgba(10,12,30,0.88);backdrop-filter:blur(16px);border:1px solid;border-radius:10px;display:flex;align-items:center;gap:0.625rem;font-size:0.825rem;min-width:260px;animation:slideIn 0.3s ease both;}
-        .page{flex:1;padding:7rem 2rem 3rem;display:flex;flex-direction:column;gap:1.5rem;color:white;font-family:'Poppins', sans-serif;}
+        .alert-success{border-color:rgba(34,197,94,0.45);color:#22c55e;}
+        .alert-danger{border-color:rgba(255,100,80,0.45);color:#ff8060;}
+        .alert-close{margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;opacity:0.6;font-size:1rem;}
+
+        .page{flex:1;padding:7rem 2rem 3rem;display:flex;flex-direction:column;gap:1.5rem;}
+
         .page-header{background:var(--glass-card);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;padding:1.75rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+        .page-header h1{font-size:1.5rem;font-weight:700;}
+        .page-header h1 span{color:var(--yellow);}
+        .page-header p{font-size:0.8rem;color:var(--text-dim);margin-top:0.2rem;}
+        .page-header-icon{width:56px;height:56px;background:rgba(245,168,0,0.15);border:2px solid rgba(245,168,0,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
+
+        .layout-grid{display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start;}
+
+        /* Panel */
         .panel{background:var(--glass-card);backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:18px;overflow:hidden;margin-bottom:1.25rem;}
+        .panel:last-child{margin-bottom:0;}
         .panel-header{padding:1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:0.75rem;}
+        .panel-header h3{font-size:0.9rem;font-weight:600;}
+        .panel-icon{width:34px;height:34px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--yellow);flex-shrink:0;}
+        .panel-#root {padding:1.25rem 1.5rem;}
+
+        /* Pending panel — special highlight */
+        .panel.pending-panel{border-color:rgba(245,168,0,0.4);}
+        .panel.pending-panel .panel-header{background:rgba(245,168,0,0.08);border-bottom-color:rgba(245,168,0,0.2);}
+
+        /* Form */
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;}
+        .form-group{margin-bottom:0.9rem;}
+        .form-group:last-child{margin-bottom:0;}
+        .form-label{display:block;font-size:0.72rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;}
+        .form-control{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:10px;padding:0.65rem 0.9rem;color:white;font-family:'Poppins',sans-serif;font-size:0.82rem;outline:none;transition:all 0.2s;}
+        .form-control::placeholder{color:var(--text-dim);}
+        .form-control:focus{border-color:rgba(245,168,0,0.5);background:rgba(255,255,255,0.09);}
+        textarea.form-control{resize:vertical;min-height:70px;}
+        select.form-control option{background:#0d0f1e;color:white;}
+        .btn-action{width:100%;background:var(--yellow);color:#1a1000;border:none;border-radius:10px;padding:0.75rem;font-family:'Poppins',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-top:0.75rem;}
+        .btn-action:hover{background:var(--yellow-d);}
+
+        /* Table */
         .tbl-wrap{overflow-x:auto;}
         table{width:100%;border-collapse:collapse;}
+        thead tr{background:rgba(0,0,0,0.2);}
         th{padding:0.75rem 1rem;text-align:left;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.08);}
         td{padding:0.875rem 1rem;font-size:0.82rem;color:var(--text-light);border-bottom:1px solid rgba(255,255,255,0.06);}
+        tr:last-child td{border-bottom:none;}
+        tr:hover td{background:rgba(255,255,255,0.03);}
+        .order-id-cell{color:var(--yellow);font-weight:700;}
+        .amount-cell{color:#22c55e;font-weight:600;}
+        .empty-row td{text-align:center;padding:2rem;color:var(--text-dim);}
+
+        /* Badges */
         .badge{padding:0.25rem 0.7rem;border-radius:20px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+        .badge-packed{background:rgba(245,168,0,0.15);color:var(--yellow);border:1px solid rgba(245,168,0,0.3);}
+        .badge-shipped{background:rgba(99,179,237,0.15);color:#63b3ed;border:1px solid rgba(99,179,237,0.3);}
+        .badge-out{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
         .badge-pending{background:rgba(245,168,0,0.15);color:var(--yellow);border:1px solid rgba(245,168,0,0.4);animation:pulse 2s ease-in-out infinite;}
+
+        /* Assign row */
         .assign-select{background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:8px;padding:0.5rem 0.75rem;color:white;font-family:'Poppins',sans-serif;font-size:0.78rem;outline:none;width:100%;}
-        .btn-approve{background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:0.45rem 0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;}
-        .btn-reject{background:rgba(255,100,80,0.15);color:#ff8060;border:1px solid rgba(255,100,80,0.35);border-radius:8px;padding:0.45rem 0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;}
-        .toast-wrap{position:fixed;bottom:2rem;right:2rem;z-index:9999;}
+        .assign-select:focus{border-color:rgba(245,168,0,0.5);}
+        .assign-select option{background:#0d0f1e;}
+        .btn-assign{background:var(--yellow);color:#1a1000;border:none;border-radius:8px;padding:0.5rem 0.9rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:background 0.2s;white-space:nowrap;}
+        .btn-assign:hover{background:var(--yellow-d);}
+        .btn-approve{background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:0.45rem 0.85rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+        .btn-approve:hover{background:rgba(34,197,94,0.35);}
+        .btn-reject{background:rgba(255,100,80,0.15);color:#ff8060;border:1px solid rgba(255,100,80,0.35);border-radius:8px;padding:0.45rem 0.85rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+        .btn-reject:hover{background:rgba(255,100,80,0.25);}
+
+        /* Toast */
+        .toast-wrap{position:fixed;bottom:2rem;right:2rem;z-index:9999;display:none;}
         .toast{background:rgba(10,12,30,0.95);backdrop-filter:blur(16px);border:1px solid;border-radius:12px;padding:1rem 1.25rem;font-size:0.85rem;min-width:240px;display:flex;align-items:center;gap:0.6rem;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
         .toast.success{border-color:rgba(34,197,94,0.5);color:#22c55e;}
         .toast.error{border-color:rgba(255,100,80,0.5);color:#ff8060;}
+
+        footer{background:rgba(0,0,0,0.5);backdrop-filter:blur(16px);border-top:1px solid var(--glass-border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .footer-brand{font-size:1.1rem;font-weight:700;color:white;}
+        .footer-brand span{color:var(--yellow);}
+        .footer-copy{font-size:0.72rem;color:var(--text-dim);}
+
+        @keyframes fadeUp{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:translateY(0);}}
         @keyframes slideIn{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:translateX(0);}}
         @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,168,0,0.3);}50%{box-shadow:0 0 0 6px rgba(245,168,0,0);}}
-    `;
+        @media(max-width:1024px){.layout-grid{grid-template-columns:1fr;}}
+        @media(max-width:600px){.form-row{grid-template-columns:1fr;}.page{padding:6rem 1rem 2rem;}}`;
 
     return (
         <>
@@ -215,18 +290,18 @@ export default function AdminDeliveryManagement({
             </div>
 
             <nav>
-                <a className="nav-brand" href="/admin/home">
+                <Link className="nav-brand" to="/admin">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-right">
                     <span className="nav-badge" style={{ background: 'rgba(245,168,0,0.15)', border: '1px solid rgba(245,168,0,0.3)', color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.06em', borderRadius: '50px', padding: '0.3rem 0.8rem', fontSize: '0.72rem', fontWeight: 700 }}>
                         <i className="fas fa-user-shield"></i>&nbsp; Admin
                     </span>
-                    <a href="/admin/home" className="nav-link"><i className="fas fa-arrow-left"></i> Dashboard</a>
-                    <a href="/admin/login" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', textDecoration: 'none', padding: '0.4rem 0.9rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Link to="/admin" className="nav-link"><i className="fas fa-arrow-left"></i> Dashboard</Link>
+                    <Link to="/admin/login" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', textDecoration: 'none', padding: '0.4rem 0.9rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <i className="fas fa-sign-out-alt"></i> Logout
-                    </a>
+                    </Link>
                 </div>
             </nav>
 
@@ -237,9 +312,9 @@ export default function AdminDeliveryManagement({
                         <p>Approve delivery partners and assign orders for delivery</p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <a href="/admin/warehouses" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245,168,0,0.15)', border: '1px solid rgba(245,168,0,0.4)', color: 'var(--yellow)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600, padding: '0.6rem 1.1rem', borderRadius: '10px' }}>
+                        <Link to="/admin/warehouse" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245,168,0,0.15)', border: '1px solid rgba(245,168,0,0.4)', color: 'var(--yellow)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600, padding: '0.6rem 1.1rem', borderRadius: '10px' }}>
                             <i className="fas fa-warehouse"></i> Manage Warehouses
-                        </a>
+                        </Link>
                         <div style={{ width: '56px', height: '56px', background: 'rgba(245,168,0,0.15)', border: '2px solid rgba(245,168,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontSize: '1.5rem', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                             <i className="fas fa-truck" style={{ color: 'var(--yellow)', alignSelf: 'center' }}></i>
                         </div>

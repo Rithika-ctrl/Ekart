@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Analytics Component
@@ -45,8 +47,7 @@ export default function Analytics({
     const categoryChartInstance = useRef(null);
 
     // --- CSS ---
-    const CSS = `
-        :root {
+    const CSS = `:root {
             --yellow: #f5a800;
             --yellow-d: #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -57,13 +58,15 @@ export default function Analytics({
             --text-dim: rgba(255,255,255,0.50);
         }
 
-        .analytics-body {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
         .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
@@ -79,6 +82,7 @@ export default function Analytics({
             background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
         }
 
+        /* ── NAV ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
             padding: 1rem 3rem;
@@ -94,6 +98,7 @@ export default function Analytics({
             display: flex; align-items: center; gap: 0.5rem;
         }
 
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
         .nav-links { display: flex; align-items: center; gap: 0.5rem; }
 
         .nav-link {
@@ -105,6 +110,9 @@ export default function Analytics({
             transition: all 0.2s;
         }
         .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
+        .nav-link.active { color: var(--yellow); background: rgba(245,168,0,0.12); border-color: rgba(245,168,0,0.4); }
+
+        .nav-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); margin: 0 0.5rem; }
 
         .nav-badge {
             display: flex; align-items: center; gap: 0.4rem;
@@ -123,7 +131,9 @@ export default function Analytics({
             border: 1px solid rgba(255,100,80,0.3);
             transition: all 0.2s;
         }
+        .btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
 
+        /* ── ALERTS ── */
         .alert-stack {
             position: fixed; top: 5rem; right: 1.5rem;
             z-index: 200; display: flex; flex-direction: column; gap: 0.5rem;
@@ -140,8 +150,16 @@ export default function Analytics({
         .alert-danger { border-color: rgba(255,100,80,0.45); color: #ff8060; }
         .alert-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; }
 
-        .page { flex: 1; padding: 7rem 3rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+        /* ── PAGE ── */
+        .page {
+            flex: 1;
+            padding: 7rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
 
+        /* ── PAGE HEADER ── */
         .page-header {
             display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
             background: var(--glass-card);
@@ -153,8 +171,14 @@ export default function Analytics({
         .page-header h1 { font-size: 1.75rem; font-weight: 700; }
         .page-header h1 span { color: var(--yellow); }
         .page-header p { font-size: 0.9rem; color: var(--text-dim); margin-top: 0.3rem; }
+        .page-header-icon { font-size: 2.5rem; }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+        /* ── STATS GRID ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
         .stat-card {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -164,7 +188,10 @@ export default function Analytics({
             text-align: center;
             transition: all 0.3s;
         }
-        .stat-card:hover { transform: translateY(-4px); border-color: rgba(245,168,0,0.4); }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(245,168,0,0.4);
+        }
         .stat-card-icon {
             width: 48px; height: 48px;
             margin: 0 auto 0.75rem;
@@ -174,14 +201,25 @@ export default function Analytics({
             font-size: 1.25rem;
             color: var(--yellow);
         }
-        .stat-card-value { font-size: 1.75rem; font-weight: 700; color: var(--text-white); }
+        .stat-card-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-white);
+        }
         .stat-card-label {
-            font-size: 0.75rem; color: var(--text-dim);
-            margin-top: 0.25rem; text-transform: uppercase;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
-        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+        /* ── CHARTS ROW ── */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
         .chart-card {
             background: var(--glass-card);
             backdrop-filter: blur(18px);
@@ -190,14 +228,25 @@ export default function Analytics({
             padding: 1.5rem;
         }
         .chart-card h3 {
-            font-size: 1rem; font-weight: 600;
-            margin-bottom: 1rem; display: flex;
-            align-items: center; gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         .chart-card h3 i { color: var(--yellow); }
-        .chart-container { position: relative; height: 250px; }
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
 
-        .order-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        /* ── ORDER STATUS ── */
+        .order-status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
         .order-status-card {
             background: rgba(0,0,0,0.2);
             border-radius: 12px;
@@ -208,9 +257,18 @@ export default function Analytics({
         .order-status-card.shipped { border-left: 4px solid #3b82f6; }
         .order-status-card.delivered { border-left: 4px solid #22c55e; }
         
-        .order-status-value { font-size: 1.5rem; font-weight: 700; color: var(--text-white); }
-        .order-status-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem; }
+        .order-status-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-white);
+        }
+        .order-status-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
 
+        /* ── REVENUE CARD ── */
         .revenue-card {
             background: linear-gradient(135deg, rgba(245,168,0,0.2), rgba(245,168,0,0.05));
             border: 1px solid rgba(245,168,0,0.4);
@@ -218,10 +276,24 @@ export default function Analytics({
             padding: 2rem;
             text-align: center;
         }
-        .revenue-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-        .revenue-value { font-size: 2.5rem; font-weight: 700; color: var(--yellow); margin: 0.5rem 0; }
-        .revenue-orders { font-size: 0.9rem; color: var(--text-light); }
+        .revenue-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .revenue-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--yellow);
+            margin: 0.5rem 0;
+        }
+        .revenue-orders {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
 
+        /* ── FOOTER ── */
         footer {
             background: rgba(0,0,0,0.5);
             backdrop-filter: blur(16px);
@@ -232,10 +304,14 @@ export default function Analytics({
         .footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
         .footer-copy { font-size: 0.72rem; color: var(--text-dim); }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
 
         @media(max-width: 1024px) {
-            .nav-links, .nav-divider { display: none; }
+            .nav-links { display: none; }
+            .nav-divider { display: none; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .charts-row { grid-template-columns: 1fr; }
         }
@@ -243,10 +319,10 @@ export default function Analytics({
             nav { padding: 0.875rem 1.25rem; }
             .page { padding: 5.5rem 1.25rem 2rem; }
             .page-header { flex-direction: column; text-align: center; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
             .order-status-grid { grid-template-columns: 1fr; }
             footer { flex-direction: column; text-align: center; gap: 0.5rem; }
-        }
-    `;
+        }`;
 
     // --- EFFECTS ---
     useEffect(() => {
@@ -365,19 +441,19 @@ export default function Analytics({
 
             {/* NAV */}
             <nav id="nav">
-                <a href="/admin/home" className="nav-brand">
+                <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     Ekart
                 </a>
                 <div className="nav-right">
                     <div className="nav-links">
-                        <a href="/admin/home" className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
-                        <a href="/approve-products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</a>
-                        <a href="/admin/search-users" className="nav-link"><i className="fas fa-users"></i> Users</a>
+                        <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="nav-link"><i className="fas fa-home"></i> Dashboard</a>
+                        <Link to="/admin/products" className="nav-link"><i className="fas fa-tasks"></i> Approvals</Link>
+                        <Link to="/admin/users" className="nav-link"><i className="fas fa-users"></i> Users</Link>
                     </div>
                     <div className="nav-divider"></div>
                     <span className="nav-badge"><i className="fas fa-shield-alt"></i> Admin</span>
-                    <a href="/admin/logout" className="btn-logout">
+                    <a href="#" onClick={(e)=>{e.preventDefault();if(typeof handleLogout==="function")handleLogout();}} className="btn-logout">
                         <i className="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>

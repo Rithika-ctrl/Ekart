@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerResetPassword = ({ 
   id, 
@@ -8,8 +9,7 @@ const CustomerResetPassword = ({
   return (
     <>
       {/* Embedded CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
+      <style dangerouslySetInnerHTML={{ __html: `:root {
             --yellow:       #f5a800;
             --yellow-d:     #d48f00;
             --glass-border: rgba(255, 255, 255, 0.22);
@@ -22,14 +22,13 @@ const CustomerResetPassword = ({
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        #root {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             color: var(--text-white);
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
-            background: #060a18; /* Fallback */
         }
 
         /* ── BACKGROUND ── */
@@ -89,8 +88,6 @@ const CustomerResetPassword = ({
             max-width: 480px;
             box-shadow: 0 40px 100px rgba(0,0,0,0.5);
             animation: fadeUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
-            position: relative;
-            z-index: 10;
         }
 
         .auth-header { text-align: center; margin-bottom: 2.5rem; }
@@ -170,21 +167,18 @@ const CustomerResetPassword = ({
             padding: 1.5rem; text-align: center;
             border-top: 1px solid var(--glass-border);
             font-size: 0.75rem; color: var(--text-dim);
-            position: relative;
-            z-index: 10;
         }
         footer span { color: var(--yellow); }
 
         @media(max-width: 600px) {
             nav { padding: 1rem 1.5rem; }
             .auth-card { padding: 2rem 1.5rem; }
-        }
-      `}} />
+        }`}} />
 
       <div className="bg-layer"></div>
 
       <nav>
-        <a href="/" className="nav-brand"><span>Ekart</span> Shop</a>
+        <Link to="/" className="nav-brand"><span>Ekart</span> Shop</Link>
       </nav>
 
       <main className="page-center">
@@ -258,9 +252,9 @@ const CustomerResetPassword = ({
             <button type="submit" className="btn-submit">Update Password</button>
           </form>
 
-          <a href="/customer/login" className="back-link">
+          <Link to="/login" className="back-link">
             <i className="fas fa-arrow-left mr-2"></i> Return to Login
-          </a>
+          </Link>
         </div>
       </main>
 
