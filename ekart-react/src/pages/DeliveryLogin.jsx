@@ -1,31 +1,45 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { deliveryAuthApi, saveToken } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
-/**
- * DeliveryLogin Component
- * * @param {Object} props
- * @param {Object} props.session - Session object for notifications {success: string, failure: string}
- * @param {string} props.csrfToken - CSRF token value for security
- */
-export default function DeliveryLogin({
-    session = { success: null, failure: null },
-    csrfToken = ""
-}) {
-    // --- STATE ---
-    const [alerts, setAlerts] = useState({ 
-        success: session.success, 
-        failure: session.failure 
-    });
+export default function DeliveryLogin() {
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
-    // --- EFFECTS ---
-    useEffect(() => {
-        // Auto-dismiss alerts after 2.5 seconds
-        const timer = setTimeout(() => {
-            setAlerts({ success: null, failure: null });
-        }, 2500);
-        return () => clearTimeout(timer);
-    }, [session]);
+    const [email,    setEmail]    = useState('');
+    const [password, setPassword] = useState('');
+    const [loading,  setLoading]  = useState(false);
+    const [alerts,   setAlerts]   = useState({ success: null, failure: null });
 
-    // --- CSS ---
+    const showAlert = (type, msg) => {
+        setAlerts({
+            success: type === 'success' ? msg : null,
+            failure: type === 'failure' ? msg : null,
+        });
+        setTimeout(() => setAlerts({ success: null, failure: null }), 3000);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const { data } = await deliveryAuthApi.login(email, password);
+            if (data.success) {
+                const user = { deliveryId: data.deliveryId, name: data.name, email: data.email };
+                saveToken(data.token, user, 'delivery');
+                login(user, 'delivery');
+                navigate('/delivery');
+            } else {
+                showAlert('failure', data.message || 'Invalid credentials.');
+            }
+        } catch (err) {
+            showAlert('failure', err.response?.data?.message || 'Login failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const CSS = `
         :root {
             --yellow: #f5a800;
@@ -230,42 +244,36 @@ export default function DeliveryLogin({
     return (
         <div className="delivery-login-container">
             <style>{CSS}</style>
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
             <div className="bg-layer"></div>
 
-            {/* ── ALERTS ── */}
             <div className="alert-stack">
                 {alerts.success && (
                     <div className="alert alert-success">
                         <i className="fas fa-check-circle"></i>
                         <span>{alerts.success}</span>
-                        <button className="alert-close" onClick={() => setAlerts({ ...alerts, success: null })}>×</button>
+                        <button className="alert-close" onClick={() => setAlerts(a => ({ ...a, success: null }))}>×</button>
                     </div>
                 )}
                 {alerts.failure && (
                     <div className="alert alert-danger">
                         <i className="fas fa-exclamation-circle"></i>
                         <span>{alerts.failure}</span>
-                        <button className="alert-close" onClick={() => setAlerts({ ...alerts, failure: null })}>×</button>
+                        <button className="alert-close" onClick={() => setAlerts(a => ({ ...a, failure: null }))}>×</button>
                     </div>
                 )}
             </div>
 
-            {/* ── NAV ── */}
             <nav>
-                <a className="nav-brand" href="/">
+                <Link className="nav-brand" to="/">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
-                <a href="/customer/login" className="nav-link-btn">
+                </Link>
+                <Link to="/login" className="nav-link-btn">
                     <i className="fas fa-user"></i> Customer Login
-                </a>
+                </Link>
             </nav>
 
-            {/* ── MAIN CONTENT ── */}
             <main className="page">
                 <div className="form-card">
                     <div className="card-top">
@@ -277,18 +285,18 @@ export default function DeliveryLogin({
                         <p>Sign in to your delivery account</p>
                     </div>
 
-                    <form method="post" action="/delivery/login">
-                        {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
+                    <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label className="form-label">Email Address</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-envelope input-icon"></i>
-                                <input 
-                                    type="email" 
-                                    name="email" 
-                                    className="form-control" 
-                                    placeholder="your@email.com" 
-                                    required 
+                                <input
+                                    type="email"
+                                    className="form-control"
+                                    placeholder="your@email.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>
@@ -296,33 +304,29 @@ export default function DeliveryLogin({
                             <label className="form-label">Password</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-lock input-icon"></i>
-                                <input 
-                                    type="password" 
-                                    name="password" 
-                                    className="form-control" 
-                                    placeholder="Your password" 
-                                    required 
+                                <input
+                                    type="password"
+                                    className="form-control"
+                                    placeholder="Your password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>
-                        <button type="submit" className="btn-submit">
-                            <i className="fas fa-sign-in-alt"></i> Login
+                        <button type="submit" className="btn-submit" disabled={loading}>
+                            {loading
+                                ? <><i className="fas fa-spinner fa-spin"></i> Signing in…</>
+                                : <><i className="fas fa-sign-in-alt"></i> Sign In</>
+                            }
                         </button>
                     </form>
 
-                    <div className="divider">or</div>
-
-                    <a href="/delivery/register" className="btn-register">
-                        <i className="fas fa-user-plus"></i> Register as Delivery Partner
-                    </a>
+                    <div className="card-footer-links">
+                        <Link to="/delivery/register">New delivery partner? Register here</Link>
+                    </div>
                 </div>
             </main>
-
-            {/* ── FOOTER ── */}
-            <footer>
-                <div className="footer-brand"><span>Ekart</span></div>
-                <div className="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
-            </footer>
         </div>
     );
 }

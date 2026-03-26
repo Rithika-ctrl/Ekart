@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi, saveToken } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const CSS = `
         :root {
@@ -386,7 +388,9 @@ export default function CustomerLogin({
         try {
             const res = await authApi.login(email, passwordInput);
             if (res?.data?.success) {
-                saveToken(res.data.token, res.data.customer);
+                const user = { customerId: res.data.customerId, name: res.data.name, email: res.data.email, mobile: res.data.mobile };
+                saveToken(res.data.token, user, 'customer');
+                login(user, 'customer');
                 navigate('/');
             } else {
                 setFormError(res?.data?.message || 'Login failed');

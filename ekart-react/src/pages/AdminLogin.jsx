@@ -1,33 +1,51 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { adminAuthApi, saveToken } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
-/**
- * Ekart - Admin Login Component
- * @param {Object} props
- * @param {Object} props.session - Session object containing alert messages
- */
-export default function AdminLogin({ 
-    session = { success: null, failure: null } 
-}) {
-    // --- STATE ---
-    const [scrolled, setScrolled] = useState(false);
-    const [alerts, setAlerts] = useState({ success: session.success, failure: session.failure });
+export default function AdminLogin() {
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
-    // --- EFFECTS ---
+    const [scrolled,  setScrolled]  = useState(false);
+    const [email,     setEmail]     = useState('');
+    const [password,  setPassword]  = useState('');
+    const [loading,   setLoading]   = useState(false);
+    const [alerts,    setAlerts]    = useState({ success: null, failure: null });
+
+    const showAlert = (type, msg) => {
+        setAlerts({
+            success: type === 'success' ? msg : null,
+            failure: type === 'failure' ? msg : null,
+        });
+        setTimeout(() => setAlerts({ success: null, failure: null }), 3000);
+    };
+
     useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 10);
-        };
+        const handleScroll = () => setScrolled(window.scrollY > 10);
         window.addEventListener('scroll', handleScroll);
-        
-        const alertTimer = setTimeout(() => {
-            setAlerts({ success: null, failure: null });
-        }, 2500);
-
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            clearTimeout(alertTimer);
-        };
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const { data } = await adminAuthApi.login(email, password);
+            if (data.success) {
+                const user = { name: data.name, email: data.email };
+                saveToken(data.token, user, 'admin');
+                login(user, 'admin');
+                navigate('/admin');
+            } else {
+                showAlert('failure', data.message || 'Invalid credentials.');
+            }
+        } catch (err) {
+            showAlert('failure', err.response?.data?.message || 'Login failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const CSS = `
         :root {
@@ -271,42 +289,39 @@ export default function AdminLogin({
             <style>{CSS}</style>
             <div className="bg-layer"></div>
 
-            {/* Alert Stack */}
             <div className="alert-stack">
                 {alerts.success && (
                     <div className="alert alert-success">
                         <i className="fas fa-check-circle"></i>
                         <span>{alerts.success}</span>
-                        <button className="alert-close" onClick={() => setAlerts(prev => ({ ...prev, success: null }))}>×</button>
+                        <button className="alert-close" onClick={() => setAlerts(p => ({ ...p, success: null }))}>×</button>
                     </div>
                 )}
                 {alerts.failure && (
                     <div className="alert alert-danger">
                         <i className="fas fa-exclamation-circle"></i>
                         <span>{alerts.failure}</span>
-                        <button className="alert-close" onClick={() => setAlerts(prev => ({ ...prev, failure: null }))}>×</button>
+                        <button className="alert-close" onClick={() => setAlerts(p => ({ ...p, failure: null }))}>×</button>
                     </div>
                 )}
             </div>
 
-            {/* Navbar */}
             <nav id="nav" className={scrolled ? 'scrolled' : ''}>
-                <a href="/" className="nav-brand">
+                <Link to="/" className="nav-brand">
                     <i className="fas fa-shopping-cart" style={{ fontSize: '1.1rem' }}></i>
                     <span>Ekart</span>
-                </a>
+                </Link>
                 <div className="nav-links">
-                    <a href="/vendor/login" className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Vendor Login</a>
-                    <a href="/vendor/register" className="nav-link-btn"><i className="fas fa-user-plus"></i> Vendor Register</a>
-                    <a href="/customer/login" className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Customer Login</a>
-                    <a href="/customer/register" className="nav-link-btn"><i className="fas fa-user-plus"></i> Customer Register</a>
-                    <a href="/admin/login" className="nav-link-btn active"><i className="fas fa-shield-alt"></i> Admin Login</a>
+                    <Link to="/vendor/login"    className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Vendor Login</Link>
+                    <Link to="/vendor/register" className="nav-link-btn"><i className="fas fa-user-plus"></i> Vendor Register</Link>
+                    <Link to="/login"           className="nav-link-btn"><i className="fas fa-sign-in-alt"></i> Customer Login</Link>
+                    <Link to="/register"        className="nav-link-btn"><i className="fas fa-user-plus"></i> Customer Register</Link>
+                    <Link to="/admin/login"     className="nav-link-btn active"><i className="fas fa-shield-alt"></i> Admin Login</Link>
                 </div>
             </nav>
 
             <main className="page-center">
                 <div className="auth-card">
-                    {/* Header */}
                     <div className="auth-header">
                         <div className="auth-header-icon">
                             <i className="fas fa-user-lock"></i>
@@ -317,19 +332,19 @@ export default function AdminLogin({
 
                     <hr className="divider" />
 
-                    {/* Form */}
-                    <form action="/admin/login" method="post">
+                    <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label htmlFor="email">Email Address</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-envelope input-icon"></i>
-                                <input 
-                                    type="email" 
-                                    id="email" 
-                                    name="email"
+                                <input
+                                    type="email"
+                                    id="email"
                                     className="form-control"
-                                    placeholder="admin@ekart.com" 
-                                    required 
+                                    placeholder="admin@ekart.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>
@@ -338,27 +353,28 @@ export default function AdminLogin({
                             <label htmlFor="password">Password</label>
                             <div className="input-wrapper">
                                 <i className="fas fa-lock input-icon"></i>
-                                <input 
-                                    type="password" 
-                                    id="password" 
-                                    name="password"
+                                <input
+                                    type="password"
+                                    id="password"
                                     className="form-control"
-                                    placeholder="••••••••" 
-                                    required 
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>
 
-                        <button type="submit" className="btn-submit">
-                            <i className="fas fa-sign-in-alt"></i> Sign In
+                        <button type="submit" className="btn-submit" disabled={loading}>
+                            {loading
+                                ? <><i className="fas fa-spinner fa-spin"></i> Signing in…</>
+                                : <><i className="fas fa-sign-in-alt"></i> Sign In</>
+                            }
                         </button>
                     </form>
 
-                    <div className="social-divider">
-                        <span>or continue with</span>
-                    </div>
+                    <div className="social-divider"><span>or continue with</span></div>
 
-                    {/* Social Buttons */}
                     <div className="social-buttons">
                         <a href="/oauth2/authorize/google?type=admin" className="social-btn google-btn">
                             <svg viewBox="0 0 24 24" width="20" height="20">
@@ -369,17 +385,8 @@ export default function AdminLogin({
                             </svg>
                             Google
                         </a>
-                        <a href="/oauth2/authorize/facebook?type=admin" className="social-btn facebook-btn">
-                            <i className="fab fa-facebook-f"></i>
-                            Facebook
-                        </a>
-                        <a href="/oauth2/authorize/instagram?type=admin" className="social-btn instagram-btn">
-                            <i className="fab fa-instagram"></i>
-                            Instagram
-                        </a>
                         <a href="/oauth2/authorize/github?type=admin" className="social-btn github-btn">
-                            <i className="fab fa-github"></i>
-                            GitHub
+                            <i className="fab fa-github"></i> GitHub
                         </a>
                     </div>
                 </div>
