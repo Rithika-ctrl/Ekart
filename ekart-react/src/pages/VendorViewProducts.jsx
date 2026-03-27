@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { vendorApi } from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 
 const CSS = `:root {
@@ -318,6 +319,9 @@ export default function VendorViewProducts({
     const [showSuccess, setShowSuccess] = useState(!!successMessage);
     const [showFailure, setShowFailure] = useState(!!failureMessage);
     const [fadeAlerts, setFadeAlerts] = useState(false);
+    const [localProducts, setLocalProducts] = useState(products || []);
+    const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -343,6 +347,30 @@ export default function VendorViewProducts({
             };
         }
     }, [showSuccess, showFailure]);
+
+    // Fetch vendor products when component mounts if no products prop provided
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            if (products && products.length > 0) return; // props provided
+            setLoading(true);
+            setApiError(null);
+            try {
+                const res = await vendorApi.products();
+                if (res?.data?.success) {
+                    if (mounted) setLocalProducts(res.data.products || []);
+                } else {
+                    if (mounted) setApiError(res?.data?.message || 'Failed to load products');
+                }
+            } catch (err) {
+                if (mounted) setApiError(err?.response?.data?.message || err.message || 'Failed to load products');
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, [products]);
 
     const alertStyle = {
         transition: 'opacity 0.5s',
@@ -406,9 +434,9 @@ export default function VendorViewProducts({
                 </div>
 
                 {/* Products Grid */}
-                {products && products.length > 0 ? (
+                { (localProducts && localProducts.length > 0) ? (
                     <div className="products-grid">
-                        {products.map((p, index) => (
+                        {localProducts.map((p, index) => (
                             <div key={p.id || index} className="product-card">
                                 <div className="product-image-wrapper">
                                     <img src={p.imageLink} alt={p.name} className="product-image" />
@@ -451,8 +479,8 @@ export default function VendorViewProducts({
                 ) : (
                     <div className="empty-state">
                         <div className="empty-state-icon">📭</div>
-                        <h3>No Products Listed Yet</h3>
-                        <p>You haven't added any products. Start by listing your first item!</p>
+                        <h3>{ loading ? 'Loading your products...' : (apiError ? 'Unable to load products' : 'No Products Listed Yet') }</h3>
+                        <p>{ apiError ? apiError : (loading ? 'Please wait while we fetch your listings.' : "You haven't added any products. Start by listing your first item!") }</p>
                         <Link to="/vendor/add-product" className="btn-add"><i className="fas fa-plus-circle"></i> Add Your First Product</Link>
                     </div>
                 )}

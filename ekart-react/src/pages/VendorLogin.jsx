@@ -178,6 +178,7 @@ export default function VendorLogin({
     const [email, setEmail] = useState('');
     const [passwordInput, setPasswordInput] = useState('');
     const [formError, setFormError] = useState('');
+    const { login } = useAuth();
     
     const dropdownRef = useRef(null);
 
