@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { backendUrl } from '../utils/backendUrl';
 import { Link, useNavigate } from 'react-router-dom';
 
 const ChatWidget = ({ role = 'guest', userName = '' }) => {
@@ -145,7 +146,7 @@ const ChatWidget = ({ role = 'guest', userName = '' }) => {
         .filter(m => !m.isHtml) 
         .map(m => ({ role: m.role, text: m.text }));
 
-      const res = await fetch('/chat', {
+      const res = await fetch(backendUrl('/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

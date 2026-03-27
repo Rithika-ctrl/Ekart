@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi, saveToken } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const CSS = `:root {
             --yellow:        #f5a800;
@@ -297,6 +298,7 @@ export default function CustomerRegister({
     const [formError, setFormError] = useState('');
 
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     
     // Password Strength State
@@ -409,7 +411,20 @@ export default function CustomerRegister({
                         try {
                             const res = await authApi.register(name, email, password, mobile);
                             if (res?.data?.success) {
-                                saveToken(res.data.token, res.data.customer);
+                                const data = res.data || {};
+                                // FlutterApiController returns: { success, message, customerId }
+                                // Customer ID is required because backend protected APIs use `X-Customer-Id`.
+                                const customerId = data.customerId ?? data.id ?? null;
+                                const user = {
+                                    customerId,
+                                    id: customerId,
+                                    name,
+                                    email,
+                                    mobile,
+                                };
+                                // token is not returned by FlutterApiController on register
+                                saveToken(data.token || '', user, 'customer');
+                                login(user, 'customer');
                                 navigate('/');
                             } else {
                                 setFormError(res?.data?.message || 'Registration failed');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 /**
  * Ekart - Delivery Registration Component
@@ -30,7 +31,7 @@ export default function DeliveryRegister({
         // Fetch warehouses on mount
         const loadWarehouses = async () => {
             try {
-                const res = await fetch('/delivery/warehouses');
+                const res = await fetch(backendUrl('/delivery/warehouses'));
                 const list = await res.json();
                 if (!list || list.length === 0) {
                     setWhLoadMsg('No warehouses have been added by admin yet. Please check back later.');

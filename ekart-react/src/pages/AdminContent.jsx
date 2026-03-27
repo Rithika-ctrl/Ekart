@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from "react";
+import { backendUrl } from '../utils/backendUrl';
 
 const CSS = `:root {
             --yellow:       #f5a800;
@@ -555,7 +556,7 @@ export default function AdminContent({
         const formData = new FormData();
         formData.append("file", file);
 
-        fetch("/add-product/bulk-upload", { method: "POST", body: formData })
+        fetch(backendUrl("/add-product/bulk-upload"), { method: "POST", body: formData })
           .then((r) => r.json())
           .then((res) => {
             setBulkUploading(false);

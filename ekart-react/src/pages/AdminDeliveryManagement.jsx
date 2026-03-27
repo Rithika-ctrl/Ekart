@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 /**
  * Ekart - Delivery Management Component
@@ -36,7 +37,7 @@ export default function AdminDeliveryManagement({
         
         // Fetch eligible delivery boys for packed orders on mount
         packedOrders.forEach(order => {
-            fetch(`/admin/delivery/boys/for-order/${order.id}`)
+            fetch(backendUrl(`/admin/delivery/boys/for-order/${order.id}`))
                 .then(r => r.json())
                 .then(data => {
                     setDeliveryBoysForOrders(prev => ({
@@ -78,7 +79,7 @@ export default function AdminDeliveryManagement({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const r = await fetch('/admin/delivery/assign', { method: 'POST', body: fd });
+            const r = await fetch(backendUrl('/admin/delivery/assign'), { method: 'POST', body: fd });
             const data = await r.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -98,7 +99,7 @@ export default function AdminDeliveryManagement({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const r = await fetch('/admin/delivery/boy/approve', { method: 'POST', body: fd });
+            const r = await fetch(backendUrl('/admin/delivery/boy/approve'), { method: 'POST', body: fd });
             const data = await r.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -117,7 +118,7 @@ export default function AdminDeliveryManagement({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const r = await fetch('/admin/delivery/boy/reject', { method: 'POST', body: fd });
+            const r = await fetch(backendUrl('/admin/delivery/boy/reject'), { method: 'POST', body: fd });
             const data = await r.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -135,7 +136,7 @@ export default function AdminDeliveryManagement({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const r = await fetch('/admin/delivery/warehouse-change/approve', { method: 'POST', body: fd });
+            const r = await fetch(backendUrl('/admin/delivery/warehouse-change/approve'), { method: 'POST', body: fd });
             const data = await r.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -153,7 +154,7 @@ export default function AdminDeliveryManagement({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const r = await fetch('/admin/delivery/warehouse-change/reject', { method: 'POST', body: fd });
+            const r = await fetch(backendUrl('/admin/delivery/warehouse-change/reject'), { method: 'POST', body: fd });
             const data = await r.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -315,7 +316,7 @@ export default function AdminDeliveryManagement({
                         <Link to="/admin/warehouse" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245,168,0,0.15)', border: '1px solid rgba(245,168,0,0.4)', color: 'var(--yellow)', textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600, padding: '0.6rem 1.1rem', borderRadius: '10px' }}>
                             <i className="fas fa-warehouse"></i> Manage Warehouses
                         </Link>
-                        <div style={{ width: '56px', height: '56px', background: 'rgba(245,168,0,0.15)', border: '2px solid rgba(245,168,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontSize: '1.5rem', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ width: '56px', height: '56px', background: 'rgba(245,168,0,0.15)', border: '2px solid rgba(245,168,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0 }}>
                             <i className="fas fa-truck" style={{ color: 'var(--yellow)', alignSelf: 'center' }}></i>
                         </div>
                     </div>

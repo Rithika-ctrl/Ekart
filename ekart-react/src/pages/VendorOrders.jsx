@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/Toast'
 import VendorNav from '../components/vendor/VendorNav'
+import { backendUrl } from '../utils/backendUrl'
 // import '../styles/vendor-glass.css'
 
 const CSS = `
@@ -285,7 +286,7 @@ export default function VendorOrders() {
   const fetchOrders = async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get('/api/flutter/vendor/orders', {
+      const { data } = await axios.get(backendUrl('/api/flutter/vendor/orders'), {
         headers: { 'X-Vendor-Id': user.id }
       })
       if (!data.success) return
@@ -302,7 +303,7 @@ export default function VendorOrders() {
     setPacking(orderId)
     try {
       // Original web endpoint — returns JSON success/message
-      const { data } = await axios.post(`/vendor/order/${orderId}/ready`)
+      const { data } = await axios.post(backendUrl(`/vendor/order/${orderId}/ready`))
       if (data.success) {
         toast.success(data.message || `Order #${orderId} marked as Packed!`)
         await fetchOrders()

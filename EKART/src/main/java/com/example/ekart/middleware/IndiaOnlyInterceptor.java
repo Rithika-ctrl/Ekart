@@ -54,6 +54,12 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
                              Object handler) throws Exception {
 
         String path = request.getRequestURI();
+        // CORS preflight requests are OPTIONS. If we block them, browsers surface it as a
+        // "CORS error" even though the actual problem is the 403/redirect on OPTIONS.
+        // Allow OPTIONS always so Spring's CORS handling can respond correctly.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
 
         // Skip check for exempt paths
         for (String prefix : EXEMPT_PREFIXES) {
