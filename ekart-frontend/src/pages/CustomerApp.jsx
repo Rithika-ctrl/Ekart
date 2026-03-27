@@ -7,18 +7,27 @@ const stars = r => "★".repeat(r) + "☆".repeat(5 - r);
 const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", CANCELLED: "#ef4444" };
 
 /* ── Layout ── */
-function Layout({ nav, children }) {
-  return <div style={cs.root}><Nav nav={nav} /><main style={cs.main}>{children}</main></div>;
+import AuthPage from "./AuthPage";
+import RefundReportPage from "./CustomerRefundReport";
+import AddressMap from "../components/AddressMap";
+import VendorCsvUpload from "./VendorCsvUpload";
+
+function Layout({ nav, children, onShowAuth }) {
+  return <div style={cs.root}><Nav nav={nav} onShowAuth={onShowAuth} /><main style={cs.main}>{children}</main></div>;
 }
-function Nav({ nav }) {
+function Nav({ nav, onShowAuth }) {
   const { auth, logout } = useAuth();
   const tabs = [
     { key: "home", label: "🏠 Home" }, { key: "search", label: "🔍 Search" },
     { key: "products", label: "🛍️ Shop" }, { key: "cart", label: "🛒 Cart" },
     { key: "orders", label: "📦 Orders" }, { key: "track", label: "🚚 Track" },
     { key: "wishlist", label: "❤️ Wishlist" }, { key: "coupons", label: "🎟️ Coupons" },
-    { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },
+    { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },
   ];
+  // Add vendor tab dynamically for vendor role
+  if (auth && auth.role === 'VENDOR') {
+    tabs.push({ key: 'vendor', label: '🏬 Vendor' });
+  }
   return (
     <nav style={cs.nav}>
       <span style={cs.brand}>🛒 EKART</span>
@@ -29,8 +38,12 @@ function Nav({ nav }) {
         ))}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={cs.greeting}>Hi, {auth.name?.split(" ")[0] || "User"}</span>
-        <button style={cs.logoutBtn} onClick={logout}>Logout</button>
+        <span style={cs.greeting}>Hi, {auth?.name?.split(" ")[0] || "Guest"}</span>
+        {auth ? (
+          <button style={cs.logoutBtn} onClick={logout}>Logout</button>
+        ) : (
+          <button style={cs.logoutBtn} onClick={onShowAuth}>Sign in</button>
+        )}
       </div>
     </nav>
   );
@@ -45,6 +58,7 @@ function Toast({ msg, onHide }) {
 /* ── Main ── */
 export default function CustomerApp() {
   const { auth } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
   const [page, setPage] = useState("home");
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -63,6 +77,69 @@ export default function CustomerApp() {
   const [paymentPage, setPaymentPage] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [reportOrder, setReportOrder] = useState(null);
+
+  // recently viewed products (client + server sync)
+  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
+
+  const readLocalRecentlyViewed = () => {
+    try {
+      const raw = localStorage.getItem("recentlyViewed");
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.map(Number).filter(Boolean);
+    } catch (e) {}
+    return [];
+  };
+
+  const saveLocalRecentlyViewed = (ids) => {
+    try { localStorage.setItem("recentlyViewed", JSON.stringify(ids)); } catch (e) {}
+  };
+
+  const fetchRecentlyViewedProducts = async (ids) => {
+    if (!ids || ids.length === 0) { setRecentlyViewedProducts([]); return; }
+    try {
+      const q = ids.join(",");
+      const res = await fetch(`http://localhost:8080/api/recently-viewed/products?ids=${q}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setRecentlyViewedProducts(data);
+      else setRecentlyViewedProducts([]);
+    } catch (e) { setRecentlyViewedProducts([]); }
+  };
+
+  const syncRecentlyViewedToServer = async (ids) => {
+    if (!auth || auth?.role !== "CUSTOMER") return;
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (auth) headers["X-Customer-Id"] = auth.id;
+      await fetch("http://localhost:8080/api/recently-viewed/sync", { method: "POST", headers, body: JSON.stringify({ productIds: ids }), credentials: "include" });
+    } catch (e) { /* ignore */ }
+  };
+
+  const recordRecentlyViewed = async (productId) => {
+    if (!productId) return;
+    const cur = readLocalRecentlyViewed();
+    const ids = [productId, ...cur.filter(id => id !== productId)].slice(0, 10);
+    saveLocalRecentlyViewed(ids);
+    fetchRecentlyViewedProducts(ids);
+    syncRecentlyViewedToServer(ids);
+  };
+
+  const loadInitialRecentlyViewed = async () => {
+    try {
+      if (auth && auth.role === "CUSTOMER") {
+        const headers = { "Content-Type": "application/json" };
+        if (auth) headers["X-Customer-Id"] = auth.id;
+        const res = await fetch("http://localhost:8080/api/recently-viewed/sync", { headers, credentials: "include" });
+        const d = await res.json();
+        const ids = (d && d.productIds) ? d.productIds : readLocalRecentlyViewed();
+        saveLocalRecentlyViewed(ids);
+        fetchRecentlyViewedProducts(ids);
+        return;
+      }
+      const local = readLocalRecentlyViewed();
+      fetchRecentlyViewedProducts(local);
+    } catch (e) { fetchRecentlyViewedProducts(readLocalRecentlyViewed()); }
+  };
 
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
   const showToast = m => setToast(m);
@@ -112,12 +189,20 @@ export default function CustomerApp() {
     if (d.success) setSpendingData(d);
   }, [api]);
 
-  useEffect(() => { loadProducts(); loadCategories(); loadCart(); loadWishlist(); loadProfile(); }, []);
+  useEffect(() => { 
+    loadProducts(); loadCategories();
+    if (auth?.role === "CUSTOMER") {
+      loadCart(); loadWishlist(); loadProfile();
+    }
+    // load recently viewed products (local or server)
+    loadInitialRecentlyViewed();
+  }, []);
   useEffect(() => { if (page === "orders" || page === "track") loadOrders(); }, [page]);
   useEffect(() => { if (page === "coupons") loadCoupons(); }, [page]);
   useEffect(() => { if (page === "spending") loadSpending(); }, [page]);
 
   const addToCart = async (productId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to add items to cart"); return; }
     setCartLoading(l => ({ ...l, [productId]: true }));
     const d = await api("/cart/add", { method: "POST", body: JSON.stringify({ productId }) });
     if (d.success) { showToast("Added to cart ✓"); loadCart(); }
@@ -126,32 +211,38 @@ export default function CustomerApp() {
   };
 
   const removeFromCart = async (productId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage your cart"); return; }
     await api(`/cart/remove/${productId}`, { method: "DELETE" });
     loadCart(); showToast("Removed from cart");
   };
 
   const updateCartQty = async (productId, quantity) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage your cart"); return; }
     await api("/cart/update", { method: "PUT", body: JSON.stringify({ productId, quantity }) });
     loadCart();
   };
 
   const applyCoupon = async (code) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to apply coupons"); return; }
     const d = await api("/cart/coupon", { method: "POST", body: JSON.stringify({ code }) });
     if (d.success) { showToast(`Coupon applied! ${d.discount || ""}`); loadCart(); }
     else showToast(d.message || "Invalid coupon");
   };
 
   const removeCoupon = async () => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage coupons"); return; }
     await api("/cart/coupon", { method: "DELETE" });
     loadCart(); showToast("Coupon removed");
   };
 
   const toggleWishlist = async (productId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to save items to wishlist"); return; }
     const d = await api("/wishlist/toggle", { method: "POST", body: JSON.stringify({ productId }) });
     if (d.success) { loadWishlist(); showToast(d.message || "Wishlist updated"); }
   };
 
   const placeOrder = async (addressId, paymentMode = "COD") => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to place an order"); return; }
     const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId }) });
     if (d.success) {
       showToast("Order placed! 🎉");
@@ -162,18 +253,21 @@ export default function CustomerApp() {
   };
 
   const cancelOrder = async (orderId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage orders"); return; }
     const d = await api(`/orders/${orderId}/cancel`, { method: "POST" });
     if (d.success) { showToast("Order cancelled"); loadOrders(); }
     else showToast(d.message || "Cannot cancel");
   };
 
   const reorderItems = async (orderId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to reorder items"); return; }
     const d = await api(`/orders/${orderId}/reorder`, { method: "POST" });
     if (d.success) { showToast("Items added to cart!"); loadCart(); setPage("cart"); }
     else showToast(d.message || "Reorder failed");
   };
 
   const reportIssue = async (orderId, data) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to report issues"); return; }
     const d = await api(`/orders/${orderId}/report-issue`, { method: "POST", body: JSON.stringify(data) });
     if (d.success) { showToast("Issue reported successfully"); setReportOrder(null); }
     else showToast(d.message || "Failed to report");
@@ -182,14 +276,16 @@ export default function CustomerApp() {
   const nav = { active: page, go: (p) => { setPage(p); setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); } };
 
   return (
-    <Layout nav={nav}>
+    <>
+      <Layout nav={nav} onShowAuth={() => setShowAuth(true)}>
       <Toast msg={toast} onHide={() => setToast("")} />
       {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} />}
       <AIAssistantWidget api={api} onNavigate={p => setPage(p)} showToast={showToast} />
 
       {page === "home" && <HomePage products={products} categories={categories} onShop={() => setPage("products")}
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }}
-        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
+        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading}
+        recentlyViewedProducts={recentlyViewedProducts} />}
 
       {page === "search" && <SearchPage categories={categories} api={api}
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }}
@@ -202,7 +298,8 @@ export default function CustomerApp() {
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
 
       {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
-        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading} />}
+        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
+        onView={recordRecentlyViewed} />}
 
       {page === "cart" && !paymentPage && <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
         onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
@@ -230,14 +327,26 @@ export default function CustomerApp() {
 
       {page === "spending" && <SpendingPage data={spendingData} orders={orders} onLoadOrders={loadOrders} />}
 
-      {page === "profile" && <ProfilePage profile={profile} api={api}
-        onUpdate={() => { loadProfile(); showToast("Profile updated!"); }} showToast={showToast} />}
-    </Layout>
+          {page === "profile" && <ProfilePage profile={profile} api={api}
+            onUpdate={() => { loadProfile(); showToast("Profile updated!"); }} showToast={showToast} />}
+          {page === "refunds" && <RefundReportPage api={api} onSelectOrder={o => { setSelectedOrder(o); setPage("track-single"); }} />}
+          {page === 'vendor' && auth?.role === 'VENDOR' && (
+            <VendorCsvUpload api={api} auth={auth} />
+          )}
+      </Layout>
+      {showAuth && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999 }} onClick={() => setShowAuth(false)}>
+          <div onClick={e => e.stopPropagation()}>
+            <AuthPage />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 /* ── Home ── */
-function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading }) {
+function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading, recentlyViewedProducts }) {
   return (
     <div>
       <div style={cs.hero}>
@@ -248,6 +357,18 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
         </div>
         <div style={cs.heroIllus}>🛍️</div>
       </div>
+      {recentlyViewedProducts && recentlyViewedProducts.length > 0 && (
+        <section style={cs.section}>
+          <h2 style={cs.secTitle}>Recently Viewed</h2>
+          <div style={cs.productGrid}>
+            {recentlyViewedProducts.map(p => (
+              <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
+                onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
+                isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
+            ))}
+          </div>
+        </section>
+      )}
       {categories.length > 0 && (
         <section style={cs.section}>
           <h2 style={cs.secTitle}>Browse Categories</h2>
@@ -271,6 +392,7 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
           ))}
         </div>
       </section>
+      
     </div>
   );
 }
@@ -284,6 +406,8 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
   const [results, setResults] = useState([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const doSearch = async () => {
     setLoading(true); setSearched(true);
@@ -298,12 +422,51 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
     setLoading(false);
   };
 
+  // Fetch autocomplete suggestions (debounced)
+  useEffect(() => {
+    if (!query || query.trim().length === 0) { setSuggestions([]); setShowSuggestions(false); return; }
+    let active = true;
+    const t = setTimeout(async () => {
+      try {
+        const q = encodeURIComponent(query.trim());
+        const res = await fetch(`http://localhost:8080/api/search/suggestions?q=${q}`);
+        const data = await res.json();
+        if (!active) return;
+        if (Array.isArray(data)) { setSuggestions(data.slice(0, 8)); setShowSuggestions(true); }
+        else { setSuggestions([]); setShowSuggestions(false); }
+      } catch (e) { setSuggestions([]); setShowSuggestions(false); }
+    }, 250);
+    return () => { active = false; clearTimeout(t); };
+  }, [query]);
+
+  const chooseSuggestion = (s) => {
+    setQuery(s.productName || "");
+    setShowSuggestions(false);
+    setTimeout(() => doSearch(), 10);
+  };
+
   return (
     <div>
       <h2 style={cs.pageTitle}>Search Products 🔍</h2>
       <div style={cs.searchBox}>
-        <input style={{ ...cs.searchInput, flex: 2 }} placeholder="Search products, brands..." value={query}
-          onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && doSearch()} />
+        <div style={{ position: "relative", flex: 2 }}>
+          <input style={{ ...cs.searchInput, width: "100%" }} placeholder="Search products, brands..." value={query}
+            onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && doSearch()}
+            onFocus={() => { if (suggestions.length) setShowSuggestions(true); }} />
+          {showSuggestions && suggestions.length > 0 && (
+            <div style={cs.suggestionBox}>
+              {suggestions.map((s, i) => (
+                <div key={i} style={cs.suggestionItem} onMouseDown={() => chooseSuggestion(s)}>
+                  <img src={s.imageLink || ""} alt="" style={cs.suggestionImg} onError={e => e.target.style.display = "none"} />
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{s.productName}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{s.category}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <select style={cs.select} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="">All Categories</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -386,17 +549,66 @@ function ProductCard({ product: p, onSelect, onAddToCart, onToggleWishlist, isWi
 }
 
 /* ── Product Detail ── */
-function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading }) {
+function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView }) {
   const [reviews, setReviews] = useState([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
   const isWishlisted = wishlistIds.includes(p.id);
   const discount = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
 
   useEffect(() => {
     api(`/products/${p.id}/reviews`).then(d => { if (d.success) setReviews(d.reviews || []); });
   }, [p.id]);
+
+  useEffect(() => {
+    if (onView) onView(p.id);
+  }, [p.id]);
+
+  useEffect(() => {
+    // check subscription status when product is out of stock
+    const check = async () => {
+      if (!p || p.stock > 0) return;
+      try {
+        const headers = {};
+        if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+        else if (auth) headers["X-Customer-Id"] = auth.id;
+        const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { headers });
+        const d = await res.json();
+        setSubscribed(!!d.subscribed);
+      } catch (e) { setSubscribed(false); }
+    };
+    check();
+  }, [p.id, p.stock]);
+
+  const subscribeNotify = async () => {
+    if (!p) return;
+    // require login
+    // the backend uses session; guests will get a message asking to login
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+      else if (auth) headers["X-Customer-Id"] = auth.id;
+      const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { method: 'POST', headers });
+      const d = await res.json();
+      if (d.success) setSubscribed(!!d.subscribed);
+      setToast(d.message || (d.subscribed ? "Subscribed" : "Please sign in"));
+    } catch (e) { setToast("Failed to subscribe"); }
+  };
+
+  const unsubscribeNotify = async () => {
+    if (!p) return;
+    try {
+      const headers = {};
+      if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+      else if (auth) headers["X-Customer-Id"] = auth.id;
+      const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { method: 'DELETE', headers });
+      const d = await res.json();
+      setSubscribed(!!d.subscribed);
+      setToast(d.message || "Unsubscribed");
+    } catch (e) { setToast("Failed to unsubscribe"); }
+  };
 
   const submitReview = async () => {
     setSubmitting(true);
@@ -434,6 +646,17 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
             <button style={{ ...cs.wishBtnLarge, color: isWishlisted ? "#ef4444" : "#6b7280" }}
               onClick={() => onToggleWishlist(p.id)}>{isWishlisted ? "❤️ Wishlisted" : "🤍 Wishlist"}</button>
           </div>
+          {p.stock <= 0 && (
+            <div style={{ marginTop: 12 }}>
+              {subscribed ? (
+                <button style={{ padding: "8px 12px", background: "#10b981", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
+                  onClick={unsubscribeNotify}>✅ Subscribed — cancel</button>
+              ) : (
+                <button style={{ padding: "8px 12px", background: "#6366f1", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
+                  onClick={subscribeNotify}>🔔 Notify me when back in stock</button>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div style={cs.reviewSection}>
@@ -1107,6 +1330,8 @@ function WishlistPage({ wishlistIds, products, onRemove, onAddToCart, onSelectPr
 function ProfilePage({ profile, api, onUpdate, showToast }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [form, setForm] = useState({ name: "", mobile: "" });
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [addForm, setAddForm] = useState({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
   const [saving, setSaving] = useState(false);
@@ -1163,7 +1388,36 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
       {activeTab === "profile" && (
         <div style={{ maxWidth: 480 }}>
           <div style={cs.profileCard}>
-            <div style={cs.profileAvatar}>{(profile.name || "?")[0].toUpperCase()}</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  {profile.profileImage || photoPreview ? (
+                    <img src={photoPreview || profile.profileImage} alt="avatar" style={{ width: 96, height: 96, borderRadius: 48, objectFit: "cover" }} onError={e => e.target.style.display = "none"} />
+                  ) : (
+                    <div style={{ width: 96, height: 96, borderRadius: 48, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, color: "#fff" }}>{(profile.name || "?")[0].toUpperCase()}</div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input id="profileImageInput" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
+                      onChange={e => {
+                        const f = e.target.files && e.target.files[0];
+                        if (!f) return; setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f));
+                      }} />
+                    <button style={cs.saveBtn} onClick={() => document.getElementById("profileImageInput").click()}>Change Photo</button>
+                    <button style={{ ...cs.secondaryBtn, height: 40 }} onClick={async () => {
+                      // remove photo
+                      if (!confirm("Remove profile photo?")) return;
+                      try {
+                        const opts = {};
+                        if (auth?.token) opts.headers = { "Authorization": `Bearer ${auth.token}` };
+                        else opts.credentials = 'include';
+                        const res = await fetch("http://localhost:8080/api/profile/remove-image", opts);
+                        const d = await res.json();
+                        showToast(d.message || (d.success ? "Removed" : "Failed"));
+                        if (d.success) onUpdate();
+                      } catch (e) { showToast("Failed to remove photo"); }
+                    }}>Remove</button>
+                  </div>
+                </div>
+              </div>
             <div style={cs.fieldGroup}><label style={cs.label}>Name</label>
               <input style={cs.inputField} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
             <div style={cs.fieldGroup}><label style={cs.label}>Email</label>
@@ -1171,6 +1425,23 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
             <div style={cs.fieldGroup}><label style={cs.label}>Mobile</label>
               <input style={cs.inputField} value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} /></div>
             <button style={cs.saveBtn} onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</button>
+            {photoFile && (
+              <div style={{ marginTop: 12 }}>
+                <button style={cs.saveBtn} onClick={async () => {
+                  const fd = new FormData(); fd.append('profileImage', photoFile);
+                  try {
+                    const opts = { method: 'POST', body: fd };
+                    if (auth?.token) opts.headers = { 'Authorization': `Bearer ${auth.token}` };
+                    else opts.credentials = 'include';
+                    const res = await fetch('http://localhost:8080/api/profile/upload-image', opts);
+                    const d = await res.json();
+                    showToast(d.message || (d.success ? 'Uploaded' : 'Failed'));
+                    if (d.success) { setPhotoFile(null); setPhotoPreview(null); onUpdate(); }
+                  } catch (e) { showToast('Upload failed'); }
+                }}>Upload Photo</button>
+                <button style={{ ...cs.secondaryBtn, marginLeft: 8 }} onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}>Cancel</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1188,8 +1459,18 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
             ))}
             {profile.addresses?.length === 0 && <p style={{ color: "#6b7280", fontSize: 14 }}>No addresses saved yet.</p>}
           </div>
-          <div style={cs.profileCard}>
+            <div style={cs.profileCard}>
             <h3 style={{ ...cs.secTitle, marginBottom: 16 }}>Add New Address</h3>
+            <AddressMap onSelect={(r) => {
+              // populate addForm fields with selected address parts
+              setAddForm(f => ({
+                ...f,
+                houseStreet: r.display_name || f.houseStreet,
+                city: (r.address && (r.address.city || r.address.town || r.address.village)) || f.city,
+                state: (r.address && (r.address.state || r.address.region)) || f.state,
+                postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode
+              }));
+            }} />
             {[["recipientName", "Recipient Name"], ["houseStreet", "House / Street"], ["city", "City"], ["state", "State"], ["postalCode", "PIN Code"]].map(([k, label]) => (
               <div key={k} style={{ marginBottom: 12 }}>
                 <label style={cs.label}>{label}</label>
@@ -1366,6 +1647,9 @@ const cs = {
   searchBox: { display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" },
   filterRow: { display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" },
   searchInput: { flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 14, minWidth: 150 },
+  suggestionBox: { position: "absolute", top: 44, left: 0, right: 0, background: "#0f1724", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.5)", zIndex: 40, overflow: "hidden" },
+  suggestionItem: { display: "flex", gap: 10, alignItems: "center", padding: "8px 10px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.02)" },
+  suggestionImg: { width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, background: "rgba(255,255,255,0.03)" },
   searchBtn: { padding: "10px 20px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 },
   select: { padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1a1a2e", color: "#fff", fontSize: 14 },
   resultCount: { color: "#9ca3af", fontSize: 13, marginBottom: 16 },

@@ -2,6 +2,7 @@ package com.example.ekart.controller;
 
 import com.example.ekart.service.BackInStockService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +26,8 @@ public class BackInStockController {
     @PostMapping("/{productId}")
     public ResponseEntity<Map<String, Object>> subscribe(
             @PathVariable int productId,
-            HttpSession session) {
-        Map<String, Object> result = backInStockService.subscribe(productId, session);
+            HttpServletRequest request) {
+        Map<String, Object> result = backInStockService.subscribe(productId, request);
         boolean success = (boolean) result.get("success");
         return success ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
@@ -35,8 +36,8 @@ public class BackInStockController {
     @DeleteMapping("/{productId}")
     public ResponseEntity<Map<String, Object>> unsubscribe(
             @PathVariable int productId,
-            HttpSession session) {
-        Map<String, Object> result = backInStockService.unsubscribe(productId, session);
+            HttpServletRequest request) {
+        Map<String, Object> result = backInStockService.unsubscribe(productId, request);
         return ResponseEntity.ok(result);
     }
 
@@ -44,8 +45,8 @@ public class BackInStockController {
     @GetMapping("/{productId}")
     public ResponseEntity<Map<String, Object>> status(
             @PathVariable int productId,
-            HttpSession session) {
-        boolean subscribed = backInStockService.isSubscribed(productId, session);
+            HttpServletRequest request) {
+        boolean subscribed = backInStockService.isSubscribed(productId, request);
         return ResponseEntity.ok(Map.of(
                 "success",    true,
                 "subscribed", subscribed
