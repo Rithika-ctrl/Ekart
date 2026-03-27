@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { authFetch } from '../utils/api';
+import { authFetch, productsApi } from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 
 const CustomerViewProducts = ({ 
@@ -17,11 +17,14 @@ const CustomerViewProducts = ({
   const [alerts, setAlerts] = useState({ success: sessionSuccess, failure: sessionFailure });
   const [toasts, setToasts] = useState([]);
   
+  // Local products state (fetch when not provided via props)
+  const [localProducts, setLocalProducts] = useState(products || []);
+
   // Budget Logic
-  const initialMax = products.length > 0 
-    ? Math.ceil(Math.max(...products.map(p => p.price || 0)) / 500) * 500 
+  const initialMax = localProducts.length > 0 
+    ? Math.ceil(Math.max(...localProducts.map(p => p.price || 0)) / 500) * 500 
     : 10000;
-  
+
   const [maxBudget, setMaxBudget] = useState(initialMax || 10000);
   const [budget, setBudget] = useState(initialMax || 10000);
   
@@ -42,6 +45,27 @@ const CustomerViewProducts = ({
       clearTimeout(loaderTimer);
       window.removeEventListener('scroll', handleScroll);
     };
+  }, []);
+
+
+  // Fetch products if none were passed in as props
+  useEffect(() => {
+    const loadProducts = async () => {
+      if ((localProducts?.length || 0) > 0) return; // already have products
+      try {
+        const res = await productsApi.list();
+        const data = res.data || {};
+        if (data.success && Array.isArray(data.products)) {
+          setLocalProducts(data.products);
+          const max = Math.ceil(Math.max(...data.products.map(p => p.price || 0)) / 500) * 500 || 10000;
+          setMaxBudget(max);
+          setBudget(max);
+        }
+      } catch (err) {
+        console.error('Failed to load products:', err);
+      }
+    };
+    loadProducts();
   }, []);
 
   // Auto-dismiss Alerts
@@ -123,7 +147,7 @@ const CustomerViewProducts = ({
 
   // --- Helper Functions ---
   
-  const visibleProductsCount = products.filter(p => p.price <= budget).length;
+  const visibleProductsCount = localProducts.filter(p => p.price <= budget).length;
 
   const renderStars = (avgRating) => {
     return [1, 2, 3, 4, 5].map(i => {
@@ -805,7 +829,7 @@ const CustomerViewProducts = ({
             {budget >= maxBudget ? 'All Products' : `₹${budget.toLocaleString('en-IN')}`}
           </span>
           <span className="budget-count">
-            {visibleProductsCount} of {products.length} products
+            {visibleProductsCount} of {localProducts.length} products
           </span>
           <button className="btn-reset" onClick={() => setBudget(maxBudget)}>
             <i className="fas fa-redo-alt"></i> Reset
@@ -814,7 +838,7 @@ const CustomerViewProducts = ({
 
         {/* Product Grid */}
         <div className="product-grid">
-          {products.map((p) => {
+          {localProducts.map((p) => {
             const isOverBudget = p.price > budget;
             const currentImg = mainImages[p.id] || p.imageLink;
             const isWishlisted = wishlist.has(p.id);

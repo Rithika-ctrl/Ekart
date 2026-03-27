@@ -67,6 +67,7 @@ import EditProduct              from "./pages/EditProduct";
 // ── Admin Pages ──────────────────────────────────────────────────────────
 import AdminLogin               from "./pages/AdminLogin";
 import AdminHome                from "./pages/AdminHome";
+import ApproveProducts          from "./pages/ApproveProducts";
 import AdminAccounts            from "./pages/AdminAccounts";
 import AdminCoupons             from "./pages/AdminCoupons";
 import AdminContent             from "./pages/AdminContent";
@@ -177,6 +178,7 @@ function App() {
         <Route path="/admin/login"            element={<AdminLogin />} />
 
         <Route path="/admin"                  element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminHome /></ProtectedRoute>} />
+        <Route path="/approve-products"       element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><ApproveProducts /></ProtectedRoute>} />
         <Route path="/admin/accounts"         element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminAccounts /></ProtectedRoute>} />
         <Route path="/admin/coupons"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminCoupons /></ProtectedRoute>} />
         <Route path="/admin/content"          element={<ProtectedRoute allowedRoles={['admin']} redirectTo="/admin/login"><AdminContent /></ProtectedRoute>} />
