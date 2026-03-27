@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 const CSS = `:root {
             --yellow:       #f5a800;
@@ -537,7 +538,7 @@ export default function AddProduct({
                     formData.append('file', file);
                     if (csrfToken) formData.append('_csrf', csrfToken);
 
-                    fetch('/add-product/bulk-upload', {
+                    fetch(backendUrl('/add-product/bulk-upload'), {
                         method: 'POST',
                         body: formData
                     })

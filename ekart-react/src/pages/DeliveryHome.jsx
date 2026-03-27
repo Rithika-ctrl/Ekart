@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 /**
  * DeliveryHome Component
@@ -49,7 +50,7 @@ export default function DeliveryHome({
     const confirmPickup = async (orderId) => {
         if (!window.confirm(`Confirm you have picked up Order #${orderId} from the warehouse?`)) return;
         try {
-            const response = await fetch(`/delivery/order/${orderId}/pickup`, { 
+            const response = await fetch(backendUrl(`/delivery/order/${orderId}/pickup`), { 
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': csrfToken }
             });
@@ -71,7 +72,7 @@ export default function DeliveryHome({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const response = await fetch(`/delivery/order/${orderId}/deliver`, { method: 'POST', body: fd });
+            const response = await fetch(backendUrl(`/delivery/order/${orderId}/deliver`), { method: 'POST', body: fd });
             const data = await response.json();
             showToast(data.message, data.success);
             if (data.success) setTimeout(() => window.location.reload(), 1800);
@@ -89,7 +90,7 @@ export default function DeliveryHome({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const response = await fetch('/delivery/warehouse-change/request', { method: 'POST', body: fd });
+            const response = await fetch(backendUrl('/delivery/warehouse-change/request'), { method: 'POST', body: fd });
             const data = await response.json();
             showToast(data.message, data.success);
             if (data.success) {
