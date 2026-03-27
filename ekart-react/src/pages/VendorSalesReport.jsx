@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 const CSS = `:root {
             --yellow: #f5a800; --yellow-d: #d48f00;
@@ -274,7 +275,7 @@ export default function VendorSalesReport({
 
     // Data Polling
     const refreshSalesData = useCallback(() => {
-        fetch('/vendor/api/sales-data')
+        fetch(backendUrl('/vendor/api/sales-data'))
             .then(r => r.json())
             .then(data => {
                 if (Array.isArray(data)) {
@@ -316,7 +317,7 @@ export default function VendorSalesReport({
         setIsSyncing(true);
         setSyncMessage('Syncing...');
         
-        fetch('/vendor/sync-reporting', { method: 'POST' })
+        fetch(backendUrl('/vendor/sync-reporting'), { method: 'POST' })
             .then(r => r.json())
             .then(data => {
                 setSyncMessage(`Synced (${data.synced || 0})`);

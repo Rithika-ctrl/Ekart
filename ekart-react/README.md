@@ -26,11 +26,13 @@ npm run build
 - **Apache**: Add `FallbackResource /index.html` to your `.htaccess`
 
 ### Environment Variables
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (only if needed):
 ```
 VITE_API_BASE_URL=http://localhost:8080
 ```
-For production, set this to your deployed backend URL.
+For local development, you can leave `VITE_API_BASE_URL` unset; Vite will proxy `/api/...` to your Spring Boot backend.
+
+For production (or if you run the frontend from a different origin), set this to your deployed backend URL.
 
 ---
 # React + Vite
