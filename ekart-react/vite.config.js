@@ -13,6 +13,14 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/admin': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/add-product': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
     // NOTE: Vite dev server handles SPA fallback automatically.
     // Do NOT add historyApiFallback here — that is a webpack option and is ignored by Vite.

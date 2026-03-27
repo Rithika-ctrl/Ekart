@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { productsApi } from '../utils/api';
 
 const CSS = `:root {
             --yellow:       #f5a800;
@@ -1356,6 +1357,7 @@ export default function CustomerHome({
     
     const [budget, setBudget] = useState(10000);
     const [maxBudget, setMaxBudget] = useState(10000);
+    const [localProducts, setLocalProducts] = useState(products || []);
     
     const [searchQuery, setSearchQuery] = useState('');
     const [navSearchText, setNavSearchText] = useState('');
@@ -1391,9 +1393,9 @@ export default function CustomerHome({
             setTimeout(() => setIsLocModalOpen(true), 1200);
         }
 
-        // Set max budget dynamically
-        if (products && products.length > 0) {
-            const prices = products.map(p => parseFloat(p.price || 0));
+        // Set max budget dynamically (use localProducts)
+        if (localProducts && localProducts.length > 0) {
+            const prices = localProducts.map(p => parseFloat(p.price || 0));
             const calculatedMax = Math.ceil(Math.max(...prices) * 1.1 / 50) * 50;
             setMaxBudget(calculatedMax);
             setBudget(calculatedMax);
@@ -1414,7 +1416,7 @@ export default function CustomerHome({
             const timer = setTimeout(() => setShowCartPopup(true), 1800);
             return () => clearTimeout(timer);
         }
-    }, [products, cartCount]);
+    }, [localProducts, cartCount]);
 
     useEffect(() => {
         // Banners interval
@@ -1437,6 +1439,28 @@ export default function CustomerHome({
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+
+    // Fetch products if none were passed via props
+    useEffect(() => {
+        const load = async () => {
+            if (localProducts && localProducts.length > 0) return;
+            try {
+                const res = await productsApi.list();
+                const data = res.data || {};
+                if (data.success && Array.isArray(data.products)) {
+                    setLocalProducts(data.products);
+                    const prices = data.products.map(p => parseFloat(p.price || 0));
+                    const calculatedMax = Math.ceil(Math.max(...prices) * 1.1 / 50) * 50 || 10000;
+                    setMaxBudget(calculatedMax);
+                    setBudget(calculatedMax);
+                }
+            } catch (err) {
+                console.error('Failed to load products for CustomerHome:', err);
+            }
+        };
+        load();
     }, []);
 
     // ── HELPERS ──
@@ -1502,7 +1526,7 @@ export default function CustomerHome({
     };
 
     // ── FILTERING AND SORTING ──
-    let displayedProducts = [...(products || [])];
+    let displayedProducts = [...(localProducts || [])];
 
     // 1. Budget Filter
     displayedProducts = displayedProducts.filter(p => parseFloat(p.price || 0) <= budget);
@@ -1901,7 +1925,7 @@ export default function CustomerHome({
                     <input type="range" id="budgetSlider" min="0" max={maxBudget} step="50" value={budget}
                            onChange={(e) => setBudget(parseFloat(e.target.value))} />
                     <span className="budget-value">₹{budget.toLocaleString('en-IN')}</span>
-                    <span className="budget-count">{displayedProducts.length} of {products.length} products</span>
+                    <span className="budget-count">{displayedProducts.length} of {localProducts.length} products</span>
                     <button className="btn-reset" onClick={() => setBudget(maxBudget)}>
                         <i className="fas fa-redo-alt"></i> Reset
                     </button>
