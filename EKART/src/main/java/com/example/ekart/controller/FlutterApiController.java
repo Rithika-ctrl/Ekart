@@ -7,6 +7,7 @@ import com.example.ekart.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -977,6 +978,111 @@ public class FlutterApiController {
         productRepository.delete(p);
         res.put("success", true); res.put("message", "Product deleted.");
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/vendor/products/upload-csv
+     * Multipart form: file (CSV)
+     * CSV columns supported: id (optional), name, description, price, mrp (optional), category, stock, imageLink, stockAlertThreshold
+     * If id is provided and product belongs to vendor, the product is updated; otherwise a new product is created (approved=false).
+     */
+    @PostMapping("/vendor/products/upload-csv")
+    public ResponseEntity<Map<String, Object>> vendorUploadCsv(
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @RequestParam("file") MultipartFile file) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (file == null || file.isEmpty()) { res.put("success", false); res.put("message", "No file uploaded"); return ResponseEntity.badRequest().body(res); }
+
+        int created = 0, updated = 0; List<String> errors = new ArrayList<>();
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
+            String header = reader.readLine();
+            if (header == null) { res.put("success", false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
+            String[] cols = parseCsvLine(header);
+            Map<String, Integer> idx = new HashMap<>();
+            for (int i = 0; i < cols.length; i++) idx.put(cols[i].trim().toLowerCase(), i);
+
+            String line; int row = 1;
+            while ((line = reader.readLine()) != null) {
+                row++;
+                if (line.isBlank()) continue;
+                String[] cells = parseCsvLine(line);
+                try {
+                    String idStr = getCell(cells, idx.get("id"));
+                    String name = getCell(cells, idx.get("name"));
+                    String desc = getCell(cells, idx.get("description"));
+                    String priceStr = getCell(cells, idx.get("price"));
+                    String mrpStr = getCell(cells, idx.get("mrp"));
+                    String category = getCell(cells, idx.get("category"));
+                    String stockStr = getCell(cells, idx.get("stock"));
+                    String imageLink = getCell(cells, idx.get("imagelink"));
+                    String threshStr = getCell(cells, idx.get("stockalertthreshold"));
+
+                    if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
+                    if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
+
+                    double price = Double.parseDouble(priceStr);
+                    int stock = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr);
+                    Integer thresh = (threshStr == null || threshStr.isBlank()) ? null : Integer.parseInt(threshStr);
+                    Double mrp = (mrpStr == null || mrpStr.isBlank()) ? 0.0 : Double.parseDouble(mrpStr);
+
+                    if (idStr != null && !idStr.isBlank()) {
+                        int id = Integer.parseInt(idStr);
+                        Product p = productRepository.findById(id).orElse(null);
+                        if (p == null) throw new IllegalArgumentException("Product id " + id + " not found");
+                        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException("Product id " + id + " does not belong to you");
+                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
+                        if (imageLink != null) p.setImageLink(imageLink);
+                        if (thresh != null) p.setStockAlertThreshold(thresh);
+                        productRepository.save(p); updated++;
+                    } else {
+                        Product p = new Product();
+                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
+                        if (imageLink != null) p.setImageLink(imageLink);
+                        if (thresh != null) p.setStockAlertThreshold(thresh);
+                        p.setVendor(vendor); p.setApproved(false);
+                        productRepository.save(p); created++;
+                    }
+                } catch (Exception e) {
+                    errors.add("Row " + row + ": " + e.getMessage());
+                    if (errors.size() > 50) break;
+                }
+            }
+        } catch (Exception e) { res.put("success", false); res.put("message", "Failed to process file: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+
+        res.put("success", true); res.put("created", created); res.put("updated", updated); res.put("errors", errors);
+        return ResponseEntity.ok(res);
+    }
+
+    // Simple CSV parsing for one line: handles quoted commas and trims quotes
+    private String[] parseCsvLine(String line) {
+        List<String> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder(); boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') { cur.append('"'); i++; }
+                else inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                out.add(cur.toString().trim()); cur.setLength(0);
+            } else cur.append(c);
+        }
+        out.add(cur.toString().trim());
+        // strip surrounding quotes if any
+        for (int i = 0; i < out.size(); i++) {
+            String s = out.get(i);
+            if (s.startsWith("\"") && s.endsWith("\"") && s.length() >= 2) s = s.substring(1, s.length() - 1);
+            out.set(i, s);
+        }
+        return out.toArray(new String[0]);
+    }
+
+    private String getCell(String[] cells, Integer idx) {
+        if (idx == null) return null;
+        if (idx < 0 || idx >= cells.length) return null;
+        String s = cells[idx];
+        return (s == null || s.isBlank()) ? null : s.trim();
     }
 
     /** GET /api/flutter/vendor/sales-report */

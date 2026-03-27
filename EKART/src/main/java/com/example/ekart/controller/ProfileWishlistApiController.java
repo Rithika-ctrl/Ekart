@@ -3,6 +3,9 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
+import com.example.ekart.helper.CloudinaryHelper;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +45,7 @@ public class ProfileWishlistApiController {
     @Autowired private AddressRepository  addressRepository;
     @Autowired private ReviewRepository   reviewRepository;
     @Autowired private JwtUtil            jwtUtil;
+    @Autowired private CloudinaryHelper   cloudinaryHelper;
 
     // ══════════════════════════════════════════════════════════
     //  PROFILE
@@ -217,6 +221,68 @@ public class ProfileWishlistApiController {
         }
 
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/profile/upload-image — multipart upload, Authorization: Bearer <token>
+     */
+    @PostMapping("/api/profile/upload-image")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> uploadProfileImageApi(
+            @RequestParam("profileImage") MultipartFile file,
+            @RequestHeader("Authorization") String authHeader) {
+
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = getCustomer(authHeader);
+        if (customer == null) return unauthorized(res);
+
+        if (file == null || file.isEmpty()) {
+            res.put("success", false);
+            res.put("message", "No file uploaded");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            String url = cloudinaryHelper.saveToCloudinary(file);
+            Customer db = customerRepository.findById(customer.getId()).orElse(null);
+            if (db != null) {
+                db.setProfileImage(url);
+                customerRepository.save(db);
+            }
+            res.put("success", true);
+            res.put("profileImage", url);
+            res.put("message", "Profile photo updated");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Upload failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/profile/remove-image — remove profile photo for JWT-authenticated user
+     */
+    @GetMapping("/api/profile/remove-image")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> removeProfileImageApi(@RequestHeader("Authorization") String authHeader) {
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = getCustomer(authHeader);
+        if (customer == null) return unauthorized(res);
+        try {
+            Customer db = customerRepository.findById(customer.getId()).orElse(null);
+            if (db != null) {
+                db.setProfileImage(null);
+                customerRepository.save(db);
+            }
+            res.put("success", true);
+            res.put("message", "Profile photo removed");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to remove photo: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
     }
 
     /** GET /api/mobile/wishlist/ids — returns just the product IDs */

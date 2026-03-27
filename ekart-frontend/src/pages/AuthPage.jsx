@@ -71,8 +71,9 @@ export default function AuthPage() {
     try {
       const data = await post(`/auth/${role}/login`, { email: form.email, password: form.password });
       if (!data.success) { setError(data.message || "Login failed"); setLoading(false); return; }
-      const id = role === "customer" ? data.customerId : role === "vendor" ? data.vendorId : null;
-      login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email });
+      const id = role === "customer" ? (data.customer?.id || data.customerId) : role === "vendor" ? data.vendorId : null;
+      const token = data.token || null;
+      login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token });
     } catch { setError("Network error — is the backend running on port 8080?"); }
     setLoading(false);
   }
@@ -182,6 +183,7 @@ export default function AuthPage() {
                 </div>
               )}
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Signing in…" : `Sign in as ${role}`}</button>
+              
             </form>
           )}
 

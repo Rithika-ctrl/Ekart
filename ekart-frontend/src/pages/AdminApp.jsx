@@ -54,6 +54,47 @@ export default function AdminApp() {
   useEffect(() => { if (page === "analytics") api("/admin/analytics").then(d => d.success && setAnalytics(d)); }, [page]);
   useEffect(() => { if (page === "warehouse") api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
   useEffect(() => { if (page === "delivery")  api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }, [page]);
+  
+  useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
+
+  const [policies, setPolicies] = useState([]);
+
+  const fetchPolicies = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/api/policies");
+      if (!res.ok) throw new Error("Failed to fetch policies");
+      const data = await res.json();
+      setPolicies(Array.isArray(data) ? data : (data.policies || []));
+    } catch (err) { show("Failed to load policies"); }
+  };
+
+  const createPolicy = async (p) => {
+    try {
+      const res = await fetch("http://localhost:8080/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      if (!res.ok) throw new Error("create failed");
+      await fetchPolicies();
+      show("Policy created");
+    } catch { show("Failed to create policy"); }
+  };
+
+  const updatePolicy = async (slug, p) => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/policies/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      if (!res.ok) throw new Error("update failed");
+      await fetchPolicies();
+      show("Policy updated");
+    } catch { show("Failed to update policy"); }
+  };
+
+  const deletePolicy = async (slug) => {
+    if (!window.confirm("Delete policy?")) return;
+    try {
+      const res = await fetch(`http://localhost:8080/api/policies/${slug}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+      await fetchPolicies();
+      show("Policy deleted");
+    } catch { show("Failed to delete policy"); }
+  };
 
   const approveProduct = async (id) => { const d = await api(`/admin/products/${id}/approve`, { method: "POST" }); if (d.success) { show("Approved ✓"); loadAll(); } else show(d.message || "Error"); };
   const rejectProduct  = async (id) => { const d = await api(`/admin/products/${id}/reject`,  { method: "POST" }); if (d.success) { show("Rejected");   loadAll(); } else show(d.message || "Error"); };
@@ -84,6 +125,10 @@ export default function AdminApp() {
     { key: "reviews",    label: "⭐ Reviews" },
     { key: "analytics",  label: "📈 Analytics" },
     { key: "usersearch", label: "🔍 User Search" },
+    { key: "policies",   label: "📜 Policies" },
+    { key: "security",   label: "🔐 Security" },
+    { key: "accounts",   label: "🔐 Accounts" },
+    { key: "content",    label: "🖼️ Content" },
   ];
 
   return (
@@ -117,6 +162,10 @@ export default function AdminApp() {
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} />}
           {page === "analytics"  && <AnalyticsAdmin data={analytics} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
+          {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
+          {page === "security"   && <SecurityAdmin />}
+          {page === "accounts"   && <AccountsAdmin />}
+          {page === "content"    && <ContentAdmin />}
         </>}
       </main>
     </div>
@@ -726,3 +775,692 @@ const as = {
   label: { display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "#0d0d0d" },
   empty: { textAlign: "center", padding: "40px", color: "rgba(13,13,13,0.4)", fontSize: 15 },
 };
+
+/* ── Accounts Admin ── */
+function AccountsAdmin() {
+  const [accounts, setAccounts] = useState([]);
+  const [stats, setStats] = useState({ total: 0, active: 0, suspended: 0 });
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
+  const [modal, setModal] = useState(null); // { type: "profile"|"delete"|"reset", account, data }
+
+  const show = m => setToast(m);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
+
+  const load = async (search = "") => {
+    setLoading(true);
+    try {
+      const url = search ? `/api/admin/accounts?search=${encodeURIComponent(search)}` : "/api/admin/accounts";
+      const res = await fetch(url);
+      const d = await res.json();
+      if (d.success) {
+        setAccounts(d.accounts || []);
+        const total = (d.accounts || []).length;
+        const active = (d.accounts || []).filter(a => a.isActive).length;
+        setStats({ total, active, suspended: total - active });
+      }
+    } catch { show("Failed to load accounts"); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSearch = e => {
+    setQ(e.target.value);
+    clearTimeout(window._acctSearch);
+    window._acctSearch = setTimeout(() => load(e.target.value), 400);
+  };
+
+  const toggleStatus = async (id, activate) => {
+    try {
+      const res = await fetch(`/api/admin/accounts/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: activate }),
+      });
+      const d = await res.json();
+      if (d.success) { show(activate ? "Account activated" : "Account suspended"); load(q); }
+      else show(d.message || "Error");
+    } catch { show("Request failed"); }
+  };
+
+  const resetPassword = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/accounts/${id}/reset-password`, { method: "POST" });
+      const d = await res.json();
+      if (d.success) setModal({ type: "reset", data: d });
+      else show(d.message || "Error");
+    } catch { show("Request failed"); }
+  };
+
+  const deleteAccount = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/accounts/${id}`, { method: "DELETE" });
+      const d = await res.json();
+      if (d.success) { show("Account deleted"); setModal(null); load(q); }
+      else show(d.message || "Error");
+    } catch { show("Request failed"); }
+  };
+
+  const viewProfile = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/accounts/${id}/profile`);
+      const d = await res.json();
+      if (d.error) { show(d.error); return; }
+      setModal({ type: "profile", data: d });
+    } catch { show("Failed to load profile"); }
+  };
+
+  const roleColor = { CUSTOMER: "#2563eb", VENDOR: "#d4a017", ADMIN: "#7c3aed" };
+
+  return (
+    <div>
+      {toast && <div style={as.toast}>{toast}</div>}
+      <h2 style={as.pageTitle}>Account Management 🔐</h2>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { label: "Total Accounts", value: stats.total,     icon: "👤", color: "#2563eb" },
+          { label: "Active",         value: stats.active,    icon: "✅", color: "#1db882" },
+          { label: "Suspended",      value: stats.suspended, icon: "🚫", color: "#e84c3c" },
+        ].map(s => (
+          <div key={s.label} style={as.statCard}>
+            <div style={as.statIcon(s.color)}>{s.icon}</div>
+            <div style={as.statVal}>{s.value}</div>
+            <div style={as.statLabel}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input
+        style={{ ...as.searchInput, marginBottom: 20 }}
+        placeholder="Search by name, email, or mobile…"
+        value={q}
+        onChange={handleSearch}
+      />
+
+      {/* Table */}
+      {loading ? (
+        <div style={as.empty}>Loading accounts…</div>
+      ) : accounts.length === 0 ? (
+        <div style={as.empty}>No accounts found</div>
+      ) : (
+        <div style={as.tableWrap}>
+          <table style={as.table}>
+            <thead>
+              <tr style={as.thead}>
+                {["ID","Name","Email","Mobile","Role","Verified","Status","Actions"].map(c => (
+                  <th key={c} style={as.th}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map(a => (
+                <tr key={a.id} style={as.tr}>
+                  <td style={as.td}>#{a.id}</td>
+                  <td style={{ ...as.td, fontWeight: 600, cursor: "pointer", color: "#2563eb" }}
+                      onClick={() => viewProfile(a.id)}>{a.name}</td>
+                  <td style={as.td}>{a.email}</td>
+                  <td style={as.td}>{a.mobile || "—"}</td>
+                  <td style={as.td}>
+                    <span style={{ ...as.badge, background: (roleColor[a.role] || "#6b7280") + "18", color: roleColor[a.role] || "#6b7280" }}>
+                      {a.role || "—"}
+                    </span>
+                  </td>
+                  <td style={as.td}>
+                    <span style={{ color: a.verified ? "#1db882" : "#e84c3c", fontWeight: 700 }}>
+                      {a.verified ? "✓" : "✗"}
+                    </span>
+                  </td>
+                  <td style={as.td}>
+                    <span style={{ ...as.badge, background: a.isActive ? "#e8f9f2" : "#fef2f2", color: a.isActive ? "#1db882" : "#e84c3c" }}>
+                      {a.isActive ? "Active" : "Suspended"}
+                    </span>
+                  </td>
+                  <td style={{ ...as.td, whiteSpace: "nowrap" }}>
+                    <button
+                      style={a.isActive ? as.rejectBtn : as.approveBtn}
+                      onClick={() => toggleStatus(a.id, !a.isActive)}
+                      title={a.isActive ? "Suspend" : "Activate"}
+                    >
+                      {a.isActive ? "Suspend" : "Activate"}
+                    </button>
+                    <button
+                      style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px", marginRight: 6 }}
+                      onClick={() => resetPassword(a.id)}
+                      title="Reset Password"
+                    >
+                      🔑 Reset
+                    </button>
+                    <button
+                      style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid #fca5a5", background: "#fef2f2", color: "#e84c3c", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
+                      onClick={() => setModal({ type: "delete", account: a })}
+                      title="Delete Account"
+                    >
+                      🗑 Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {modal?.type === "profile" && (
+        <div style={modalOverlay} onClick={() => setModal(null)}>
+          <div style={modalBox} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>User Profile</h3>
+              <button style={closeBtnStyle} onClick={() => setModal(null)}>✕</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#2563eb18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#2563eb" }}>
+                {(modal.data.name || "?")[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{modal.data.name || "Unknown"}</div>
+                <div style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{modal.data.email}</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[
+                ["Mobile",      modal.data.mobile || "N/A"],
+                ["Role",        modal.data.role || "—"],
+                ["Status",      modal.data.isActive ? "Active" : "Suspended"],
+                ["Verified",    modal.data.verified ? "Yes" : "No"],
+                ["Joined",      modal.data.createdAt ? new Date(modal.data.createdAt).toLocaleDateString("en-IN") : "—"],
+                ["Last Login",  modal.data.lastLogin ? new Date(modal.data.lastLogin).toLocaleString("en-IN") : "Never"],
+                ["Orders",      modal.data.orderCount ?? "—"],
+                ["Total Spent", modal.data.totalSpent != null ? "₹" + Number(modal.data.totalSpent).toLocaleString("en-IN") : "—"],
+              ].map(([label, value]) => (
+                <div key={label} style={{ background: "#f2f0eb", borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {modal?.type === "delete" && (
+        <div style={modalOverlay} onClick={() => setModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>Delete Account?</h3>
+            <p style={{ color: "rgba(13,13,13,0.6)", marginBottom: 24, fontSize: 14 }}>
+              This will permanently delete <strong>{modal.account.name}</strong>'s account. This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setModal(null)}>Cancel</button>
+              <button
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#e84c3c", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                onClick={() => deleteAccount(modal.account.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Result Modal */}
+      {modal?.type === "reset" && (
+        <div style={modalOverlay} onClick={() => setModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>Password Reset Link</h3>
+            <p style={{ color: "rgba(13,13,13,0.6)", fontSize: 13, marginBottom: 14 }}>{modal.data.message || "Reset link generated successfully."}</p>
+            {modal.data.resetLink && (
+              <input
+                readOnly
+                value={modal.data.resetLink}
+                style={{ ...as.searchInput, marginBottom: 16, fontSize: 12, background: "#f2f0eb" }}
+                onClick={e => e.target.select()}
+              />
+            )}
+            <button style={{ ...as.approveBtn, padding: "8px 20px" }} onClick={() => setModal(null)}>Done</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Content / Banner Admin ── */
+function ContentAdmin() {
+  const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editModal, setEditModal] = useState(null); // banner object
+  const [form, setForm] = useState({ title: "", imageUrl: "", linkUrl: "" });
+  const [saving, setSaving] = useState(false);
+
+  const show = m => setToast(m);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
+
+  const loadBanners = async () => {
+    setLoading(true);
+    try {
+      // Backend exposes banners via the Thymeleaf page; fetch via the JSON-friendly generic endpoint
+      const res = await fetch("/api/admin/accounts/stats"); // ping to confirm auth
+      // Use the admin content page data via a lightweight fetch
+      const r2 = await fetch("/admin/content", { headers: { Accept: "application/json, text/html" } });
+      // Since no dedicated JSON endpoint exists, we parse the page or use an iframe-free approach.
+      // Instead, call the flutter-compatible endpoint if available, else fall back to HTML scraping.
+      // Best approach: expose via /api/flutter/admin/banners — check if it exists
+      const r3 = await fetch("/api/flutter/admin/banners");
+      if (r3.ok) {
+        const d = await r3.json();
+        if (d.success) { setBanners(d.banners || []); setLoading(false); return; }
+      }
+      // Fallback: use a generic read-only endpoint
+      const r4 = await fetch("/api/read/Banner");
+      if (r4.ok) {
+        const d = await r4.json();
+        setBanners(Array.isArray(d) ? d : (d.data || []));
+      }
+    } catch { show("Failed to load banners"); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadBanners(); }, []);
+
+  const postAction = async (url) => {
+    try {
+      const res = await fetch(url, { method: "POST" });
+      if (res.redirected || res.ok) { loadBanners(); return true; }
+      return false;
+    } catch { return false; }
+  };
+
+  const toggleBanner = async (id) => {
+    const ok = await postAction(`/admin/content/toggle/${id}`);
+    if (ok) show("Banner updated");
+    else show("Error toggling banner");
+  };
+
+  const deleteBanner = async (id) => {
+    if (!window.confirm("Delete this banner?")) return;
+    const ok = await postAction(`/admin/content/delete/${id}`);
+    if (ok) show("Banner deleted");
+    else show("Error deleting banner");
+  };
+
+  const toggleHome = async (id) => {
+    await postAction(`/admin/content/toggle-home/${id}`);
+    loadBanners();
+  };
+
+  const toggleCustomerHome = async (id) => {
+    await postAction(`/admin/content/toggle-customer-home/${id}`);
+    loadBanners();
+  };
+
+  const addBanner = async () => {
+    if (!form.title.trim() || !form.imageUrl.trim()) { show("Title and Image URL are required"); return; }
+    setSaving(true);
+    try {
+      const params = new URLSearchParams({ title: form.title, imageUrl: form.imageUrl, linkUrl: form.linkUrl });
+      const res = await fetch("/admin/content/add", { method: "POST", body: params, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (res.ok || res.redirected) {
+        show("Banner added ✓");
+        setForm({ title: "", imageUrl: "", linkUrl: "" });
+        setShowAddForm(false);
+        loadBanners();
+      } else show("Failed to add banner");
+    } catch { show("Error adding banner"); }
+    setSaving(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editModal) return;
+    setSaving(true);
+    try {
+      const params = new URLSearchParams({ title: editModal.title, imageUrl: editModal.imageUrl, linkUrl: editModal.linkUrl || "" });
+      const res = await fetch(`/admin/content/update/${editModal.id}`, { method: "POST", body: params, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (res.ok || res.redirected) {
+        show("Banner updated ✓");
+        setEditModal(null);
+        loadBanners();
+      } else show("Failed to update banner");
+    } catch { show("Error updating banner"); }
+    setSaving(false);
+  };
+
+  const stats = {
+    total:    banners.length,
+    active:   banners.filter(b => b.active).length,
+    onHome:   banners.filter(b => b.showOnHome).length,
+    onCust:   banners.filter(b => b.showOnCustomerHome).length,
+  };
+
+  return (
+    <div>
+      {toast && <div style={as.toast}>{toast}</div>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ ...as.pageTitle, marginBottom: 0 }}>Content Management 🖼️</h2>
+        <button
+          style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "#0d0d0d", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+          onClick={() => setShowAddForm(v => !v)}
+        >
+          {showAddForm ? "✕ Cancel" : "+ Add Banner"}
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { label: "Total Banners",      value: stats.total,  icon: "🖼️", color: "#7c3aed" },
+          { label: "Active",             value: stats.active, icon: "✅", color: "#1db882" },
+          { label: "On Landing Page",    value: stats.onHome, icon: "🏠", color: "#2563eb" },
+          { label: "On Customer Home",   value: stats.onCust, icon: "👤", color: "#d4a017" },
+        ].map(s => (
+          <div key={s.label} style={as.statCard}>
+            <div style={as.statIcon(s.color)}>{s.icon}</div>
+            <div style={as.statVal}>{s.value}</div>
+            <div style={as.statLabel}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add Banner Form */}
+      {showAddForm && (
+        <div style={{ ...as.card, marginBottom: 24, border: "2px dashed #e8e4dc" }}>
+          <h3 style={as.cardTitle}>Add New Banner</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+            {[
+              { key: "title",    label: "Banner Title *",   placeholder: "e.g. Summer Sale" },
+              { key: "imageUrl", label: "Image URL *",      placeholder: "https://example.com/banner.jpg" },
+              { key: "linkUrl",  label: "Link URL",         placeholder: "https://ekart.com/sale" },
+            ].map(f => (
+              <div key={f.key}>
+                <label style={as.label}>{f.label}</label>
+                <input
+                  style={as.inputFull}
+                  placeholder={f.placeholder}
+                  value={form[f.key]}
+                  onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          {form.imageUrl && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={as.label}>Preview</label>
+              <img src={form.imageUrl} alt="preview" style={{ height: 80, borderRadius: 8, objectFit: "cover", border: "1px solid #e8e4dc" }} onError={e => e.target.style.display = "none"} />
+            </div>
+          )}
+          <button
+            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#0d0d0d", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: saving ? 0.6 : 1 }}
+            onClick={addBanner}
+            disabled={saving}
+          >
+            {saving ? "Adding…" : "Add Banner"}
+          </button>
+        </div>
+      )}
+
+      {/* Banners Table */}
+      {loading ? (
+        <div style={as.empty}>Loading banners…</div>
+      ) : banners.length === 0 ? (
+        <div style={as.empty}>No banners found. Use the backend at <strong>/admin/content</strong> to manage banners, or add one above.</div>
+      ) : (
+        <div style={as.tableWrap}>
+          <table style={as.table}>
+            <thead>
+              <tr style={as.thead}>
+                {["Preview","Title","Active","Landing Page","Customer Home","Order","Actions"].map(c => (
+                  <th key={c} style={as.th}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {banners.map(b => (
+                <tr key={b.id} style={as.tr}>
+                  <td style={as.td}>
+                    {b.imageUrl
+                      ? <img src={b.imageUrl} alt={b.title} style={{ height: 44, width: 80, objectFit: "cover", borderRadius: 6, border: "1px solid #e8e4dc" }} />
+                      : <div style={{ width: 80, height: 44, background: "#f2f0eb", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(13,13,13,0.3)", fontSize: 11 }}>No img</div>
+                    }
+                  </td>
+                  <td style={{ ...as.td, fontWeight: 600 }}>
+                    {b.title}
+                    {b.linkUrl && <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", marginTop: 2 }}>{b.linkUrl}</div>}
+                  </td>
+                  <td style={as.td}>
+                    <button
+                      style={{ ...as.badge, cursor: "pointer", border: "none", background: b.active ? "#e8f9f2" : "#fef2f2", color: b.active ? "#1db882" : "#e84c3c" }}
+                      onClick={() => toggleBanner(b.id)}
+                      title="Toggle active"
+                    >
+                      {b.active ? "✓ Active" : "✗ Off"}
+                    </button>
+                  </td>
+                  <td style={as.td}>
+                    <button
+                      style={{ ...as.badge, cursor: "pointer", border: "none", background: b.showOnHome ? "#e8f9f2" : "#f2f0eb", color: b.showOnHome ? "#1db882" : "rgba(13,13,13,0.4)" }}
+                      onClick={() => toggleHome(b.id)}
+                      title="Toggle landing page"
+                    >
+                      {b.showOnHome ? "✓ Yes" : "✗ No"}
+                    </button>
+                  </td>
+                  <td style={as.td}>
+                    <button
+                      style={{ ...as.badge, cursor: "pointer", border: "none", background: b.showOnCustomerHome ? "#e8f9f2" : "#f2f0eb", color: b.showOnCustomerHome ? "#1db882" : "rgba(13,13,13,0.4)" }}
+                      onClick={() => toggleCustomerHome(b.id)}
+                      title="Toggle customer home"
+                    >
+                      {b.showOnCustomerHome ? "✓ Yes" : "✗ No"}
+                    </button>
+                  </td>
+                  <td style={as.td}>{b.displayOrder ?? 0}</td>
+                  <td style={{ ...as.td, whiteSpace: "nowrap" }}>
+                    <button style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px", marginRight: 6 }} onClick={() => setEditModal({ ...b })}>✏️ Edit</button>
+                    <button
+                      style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid #fca5a5", background: "#fef2f2", color: "#e84c3c", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
+                      onClick={() => deleteBanner(b.id)}
+                    >
+                      🗑 Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editModal && (
+        <div style={modalOverlay} onClick={() => setEditModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>Edit Banner</h3>
+              <button style={closeBtnStyle} onClick={() => setEditModal(null)}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { key: "title",    label: "Title *" },
+                { key: "imageUrl", label: "Image URL *" },
+                { key: "linkUrl",  label: "Link URL" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={as.label}>{f.label}</label>
+                  <input
+                    style={as.inputFull}
+                    value={editModal[f.key] || ""}
+                    onChange={e => setEditModal(v => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+              {editModal.imageUrl && (
+                <img src={editModal.imageUrl} alt="preview" style={{ height: 80, borderRadius: 8, objectFit: "cover", border: "1px solid #e8e4dc" }} onError={e => e.target.style.display = "none"} />
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+              <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setEditModal(null)}>Cancel</button>
+              <button
+                style={{ padding: "8px 22px", borderRadius: 9, border: "none", background: "#0d0d0d", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: saving ? 0.6 : 1 }}
+                onClick={saveEdit}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Shared modal styles ── */
+const modalOverlay = {
+  position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 500,
+  display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+};
+const modalBox = {
+  background: "#fff", borderRadius: 18, padding: 28, maxWidth: 600, width: "100%",
+  maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+};
+const closeBtnStyle = {
+  background: "none", border: "none", fontSize: 18, cursor: "pointer",
+  color: "rgba(13,13,13,0.4)", lineHeight: 1,
+};
+
+/* ── Policies Admin ── */
+function PoliciesAdmin({ policies = [], onCreate, onUpdate, onDelete }) {
+  const [list, setList] = useState(policies || []);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ title: "", slug: "", category: "terms", content: "" });
+  useEffect(() => { setList(policies || []); }, [policies]);
+
+  const startCreate = () => { setEditing(null); setForm({ title: "", slug: "", category: "terms", content: "" }); };
+  const startEdit = (p) => { setEditing(p.slug); setForm({ title: p.title || "", slug: p.slug || "", category: p.category || "terms", content: p.content || "" }); };
+
+  const save = async () => {
+    const payload = { title: form.title, slug: form.slug, category: form.category, content: form.content };
+    if (!form.title || !form.slug) { alert("Title and slug required"); return; }
+    if (editing) await onUpdate(editing, payload);
+    else await onCreate(payload);
+    setEditing(null);
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <h2 style={as.pageTitle}>Policy Management 📜</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...as.filterBtn }} onClick={startCreate}>+ New Policy</button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16 }}>
+        <div>
+          <div style={{ marginBottom: 10 }}>
+            {list.length === 0 ? <div style={as.empty}>No policies found</div> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {list.map(p => (
+                  <div key={p.slug} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 12, borderRadius: 10, background: "#fff", border: "1px solid #f2f0eb" }}>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{p.title}</div>
+                      <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>{p.slug} · {p.category}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button style={as.filterBtn} onClick={() => startEdit(p)}>Edit</button>
+                      <button style={as.rejectBtn} onClick={() => onDelete(p.slug)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 12, padding: 14 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>{editing ? "Edit Policy" : "Create Policy"}</h3>
+          <label style={as.label}>Title</label>
+          <input style={as.inputFull} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          <label style={as.label}>Slug</label>
+          <input style={as.inputFull} value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} />
+          <label style={as.label}>Category</label>
+          <select style={as.inputFull} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+            <option value="terms">terms</option>
+            <option value="privacy">privacy</option>
+            <option value="refund">refund</option>
+          </select>
+          <label style={as.label}>Content</label>
+          <textarea style={{ ...as.inputFull, minHeight: 180, resize: "vertical" }} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} />
+          <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+            <button style={as.filterBtn} onClick={() => { setEditing(null); setForm({ title: "", slug: "", category: "terms", content: "" }); }}>Clear</button>
+            <button style={as.approveBtn} onClick={save}>{editing ? "Save" : "Create"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Security Admin ── */
+function SecurityAdmin() {
+  const [current, setCurrent] = useState("");
+  const [npass, setNpass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!current || !npass || !confirm) { setMsg("Please fill all fields"); return; }
+    setLoading(true);
+    try {
+      const body = new URLSearchParams({ currentPassword: current, newPassword: npass, confirmPassword: confirm });
+      const res = await fetch("/update-admin-password", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+      if (res.ok || res.redirected) setMsg("Request submitted — check server messages");
+      else setMsg("Failed to change password");
+    } catch (e) { setMsg("Request failed"); }
+    setLoading(false);
+  };
+
+  const logoutNow = () => {
+    // navigate to backend logout which invalidates the session
+    window.location.href = "/admin/logout";
+  };
+
+  return (
+    <div>
+      <h2 style={as.pageTitle}>Security Settings 🔐</h2>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16 }}>
+        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 12, padding: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Change Admin Password</h3>
+          <label style={as.label}>Current Password</label>
+          <input style={as.inputFull} type="password" value={current} onChange={e => setCurrent(e.target.value)} />
+          <label style={as.label}>New Password</label>
+          <input style={as.inputFull} type="password" value={npass} onChange={e => setNpass(e.target.value)} />
+          <label style={as.label}>Confirm New Password</label>
+          <input style={as.inputFull} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+            <button style={as.filterBtn} onClick={() => { setCurrent(""); setNpass(""); setConfirm(""); setMsg(""); }}>Clear</button>
+            <button style={as.approveBtn} onClick={submit} disabled={loading}>{loading ? "Submitting…" : "Change Password"}</button>
+          </div>
+          {msg && <div style={{ marginTop: 12, color: "#0d0d0d" }}>{msg}</div>}
+        </div>
+
+        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 12, padding: 16 }}>
+          <h3 style={{ marginTop: 0 }}>Session</h3>
+          <p style={{ color: "rgba(13,13,13,0.6)" }}>Invalidate your current admin session (logs you out).</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button style={{ ...as.rejectBtn }} onClick={logoutNow}>Logout Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -26,8 +26,9 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
-      {!auth && <AuthPage />}
+      {!auth && <CustomerApp />}
       {auth?.role === "CUSTOMER"  && <CustomerApp />}
+      {auth?.role === "GUEST"     && <CustomerApp />}
       {auth?.role === "VENDOR"    && <VendorApp />}
       {auth?.role === "ADMIN"     && <AdminApp />}
       {auth?.role === "DELIVERY"  && <DeliveryApp />}

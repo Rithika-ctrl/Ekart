@@ -8,6 +8,7 @@ import com.example.ekart.repository.BackInStockRepository;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ProductRepository;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,14 +26,15 @@ public class BackInStockService {
     @Autowired private ProductRepository     productRepository;
     @Autowired private CustomerRepository    customerRepository;
     @Autowired private EmailSender           emailSender;
+    @Autowired private com.example.ekart.helper.JwtUtil jwtUtil;
 
     // ── SUBSCRIBE ──────────────────────────────────────────────────────────
     /**
      * Subscribe a customer to back-in-stock notifications for a product.
      * Returns a result map with { success, message, subscribed }.
      */
-    public Map<String, Object> subscribe(int productId, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+    public Map<String, Object> subscribe(int productId, HttpServletRequest request) {
+        Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
             return Map.of("success", false, "message", "Please log in to subscribe.");
         }
@@ -88,8 +90,8 @@ public class BackInStockService {
     }
 
     // ── UNSUBSCRIBE ────────────────────────────────────────────────────────
-    public Map<String, Object> unsubscribe(int productId, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+    public Map<String, Object> unsubscribe(int productId, HttpServletRequest request) {
+        Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
             return Map.of("success", false, "message", "Not logged in.");
         }
@@ -115,8 +117,8 @@ public class BackInStockService {
     /**
      * Returns true if the logged-in customer has a pending subscription for productId.
      */
-    public boolean isSubscribed(int productId, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+    public boolean isSubscribed(int productId, HttpServletRequest request) {
+        Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) return false;
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
@@ -126,6 +128,42 @@ public class BackInStockService {
         if (product == null) return false;
 
         return backInStockRepository.existsByCustomerAndProductAndNotifiedFalse(customer, product);
+    }
+
+    /**
+     * Resolve the customer from (in order): HTTP session attribute, Authorization Bearer token, X-Customer-Id header
+     */
+    private Customer resolveCustomer(HttpServletRequest request) {
+        // 1) Session
+        if (request != null) {
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                Object o = session.getAttribute("customer");
+                if (o instanceof Customer) return (Customer) o;
+            }
+
+            // 2) Authorization: Bearer <token>
+            String auth = request.getHeader("Authorization");
+            if (auth != null && auth.startsWith("Bearer ")) {
+                String token = auth.substring(7);
+                try {
+                    if (jwtUtil.isValid(token)) {
+                        int cid = jwtUtil.getCustomerId(token);
+                        return customerRepository.findById(cid).orElse(null);
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // 3) X-Customer-Id header (fallback)
+            String xcid = request.getHeader("X-Customer-Id");
+            if (xcid != null) {
+                try {
+                    int cid = Integer.parseInt(xcid);
+                    return customerRepository.findById(cid).orElse(null);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return null;
     }
 
     // ── NOTIFY ALL SUBSCRIBERS (called when stock is restored) ─────────────
