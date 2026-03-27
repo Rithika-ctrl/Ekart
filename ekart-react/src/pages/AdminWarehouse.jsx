@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { backendUrl } from '../utils/backendUrl';
 
 /**
  * AdminWarehouse Component
@@ -69,7 +70,7 @@ export default function AdminWarehouse({
         if (csrfToken) fd.append('_csrf', csrfToken);
 
         try {
-            const response = await fetch('/admin/delivery/warehouse', { 
+            const response = await fetch(backendUrl('/admin/delivery/warehouse'), { 
                 method: 'POST', 
                 body: fd 
             });

@@ -386,9 +386,20 @@ export default function CustomerLogin({
         try {
             const res = await authApi.login(email, passwordInput);
             if (res?.data?.success) {
-                const cust = res.data.customer || {};
-                const user = { customerId: cust.id ?? cust.customerId ?? null, id: cust.id ?? cust.customerId ?? null, name: cust.name, email: cust.email, mobile: cust.mobile };
-                saveToken(res.data.token, user, 'customer');
+                const data = res.data || {};
+                // FlutterApiController returns fields at the top-level:
+                // { success, token, customerId, name, email, mobile }
+                // Some other controllers may return { customer: {...} } — support both.
+                const cust = data.customer || {};
+                const customerId = data.customerId ?? cust.id ?? cust.customerId ?? null;
+                const user = {
+                    customerId,
+                    id: customerId,
+                    name: data.name ?? cust.name,
+                    email: data.email ?? cust.email,
+                    mobile: data.mobile ?? cust.mobile,
+                };
+                saveToken(data.token, user, 'customer');
                 login(user, 'customer');
                 navigate('/');
             } else {

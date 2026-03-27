@@ -2,7 +2,10 @@ import axios from 'axios';
 
 // ── Base Axios instance ────────────────────────────────────────────────────
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  // In dev we intentionally keep requests same-origin so Vite can proxy `/api/...`
+  // to your Spring Boot backend (avoids CORS issues).
+  // In production, set `VITE_API_BASE_URL` to your backend URL.
+  baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   headers: { 'Content-Type': 'application/json' },
 });
 
