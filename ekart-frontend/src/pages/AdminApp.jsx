@@ -336,7 +336,7 @@ function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTra
   const [filter, setFilter] = useState("pending");
 
   useEffect(() => {
-    api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.requests || []); setLoadingTransfers(false); });
+    api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.transfers || []); setLoadingTransfers(false); });
   }, []);
 
   const filtered = filter === "pending" ? deliveryBoys.filter(d => !d.approved) : deliveryBoys;
@@ -1534,10 +1534,24 @@ function SecurityAdmin() {
     if (!current || !npass || !confirm) { setMsg("Please fill all fields"); return; }
     setLoading(true);
     try {
-      const body = new URLSearchParams({ currentPassword: current, newPassword: npass, confirmPassword: confirm });
-      const res = await fetch("/update-admin-password", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
-      if (res.ok || res.redirected) setMsg("Request submitted — check server messages");
-      else setMsg("Failed to change password");
+      // Fix: /update-admin-password is a Thymeleaf form endpoint that checks
+      // HttpSession("admin") — always null in a stateless JWT admin session —
+      // so it redirects to /admin/login instead of changing the password.
+      // The new /api/flutter/admin/change-password endpoint is session-free,
+      // validates against the live in-memory adminPassword, persists to .env,
+      // and updates the in-memory field immediately without a restart.
+      const res = await fetch("/api/flutter/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: current, newPassword: npass, confirmPassword: confirm }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setMsg("✓ Password changed successfully");
+        setCurrent(""); setNpass(""); setConfirm("");
+      } else {
+        setMsg(d.message || "Failed to change password");
+      }
     } catch (e) { setMsg("Request failed"); }
     setLoading(false);
   };

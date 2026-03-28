@@ -234,6 +234,7 @@ public class FlutterApiController {
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
+    @Autowired private BannerRepository                   bannerRepository;
 
     /**
      * POST /api/flutter/auth/delivery/login
@@ -2428,6 +2429,722 @@ public class FlutterApiController {
         return success
                 ? ResponseEntity.ok(result)
                 : ResponseEntity.badRequest().body(result);
+    }
+
+    // ── ADMIN — WAREHOUSE MANAGEMENT ─────────────────────────────────────────
+    //
+    // Fix: DeliveryAdminController.GET /admin/warehouses returns a Thymeleaf
+    // view (HTML), not JSON.  The Flutter AdminApp calls
+    //   api('/admin/warehouses') → GET /api/flutter/admin/warehouses
+    // so we add the correct JSON endpoint here in FlutterApiController.
+
+    /**
+     * GET /api/flutter/admin/warehouses
+     * Returns a JSON list of all warehouses (active and inactive).
+     * No extra auth check needed — the FlutterAuthFilter already validates
+     * the JWT and role before this method is reached.
+     */
+    @GetMapping("/admin/warehouses")
+    public ResponseEntity<Map<String, Object>> adminGetWarehouses() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Warehouse> warehouses = warehouseRepository.findAll();
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Warehouse w : warehouses) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",             w.getId());
+                m.put("name",           w.getName());
+                m.put("city",           w.getCity());
+                m.put("state",          w.getState());
+                m.put("warehouseCode",  w.getWarehouseCode());
+                m.put("servedPinCodes", w.getServedPinCodes());
+                m.put("active",         w.isActive());
+                list.add(m);
+            }
+            res.put("success", true);
+            res.put("warehouses", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load warehouses: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/flutter/admin/warehouses/add
+     * Creates a new warehouse.
+     *
+     * Fix: DeliveryAdminController handles POST /admin/delivery/warehouse
+     * (Thymeleaf path, no /api/flutter prefix). The Flutter AdminApp posts to
+     * /api/flutter/admin/warehouses/add — that endpoint did not exist.
+     *
+     * Request body (JSON):
+     *   { "name": "...", "city": "...", "state": "...", "servedPinCodes": "..." }
+     *
+     * Response:
+     *   { "success": true, "message": "...", "warehouseId": 3, "warehouseCode": "WH-003" }
+     */
+    @PostMapping("/admin/warehouses/add")
+    public ResponseEntity<Map<String, Object>> adminAddWarehouse(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String name           = body.getOrDefault("name",           "").toString().trim();
+            String city           = body.getOrDefault("city",           "").toString().trim();
+            String state          = body.getOrDefault("state",          "").toString().trim();
+            String servedPinCodes = body.getOrDefault("servedPinCodes", "").toString().trim();
+
+            if (name.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Warehouse name is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            Warehouse wh = new Warehouse();
+            wh.setName(name);
+            wh.setCity(city);
+            wh.setState(state);
+            wh.setServedPinCodes(servedPinCodes);
+            wh.setActive(true);
+            warehouseRepository.save(wh);
+            // Generate code after save so we have the auto-generated id
+            wh.setWarehouseCode(String.format("WH-%03d", wh.getId()));
+            warehouseRepository.save(wh);
+
+            res.put("success",       true);
+            res.put("message",       "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
+            res.put("warehouseId",   wh.getId());
+            res.put("warehouseCode", wh.getWarehouseCode());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to add warehouse: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/flutter/admin/delivery-boys
+     * Returns ALL delivery boys with their approval/active status, warehouse,
+     * and assigned pin codes — so the Flutter admin screen can show the full list
+     * and filter/sort client-side.
+     *
+     * Fix: DeliveryAdminController only exposes /admin/delivery/boys/{warehouseId}
+     * (session-based, filtered by warehouse, different path structure). The Flutter
+     * AdminApp needs a flat unfiltered list at /api/flutter/admin/delivery-boys.
+     *
+     * Approval status field logic (mirrors login flow in FlutterApiController):
+     *   "PENDING"   — verified=true  but adminApproved=false
+     *   "APPROVED"  — adminApproved=true  and active=true
+     *   "REJECTED"  — adminApproved=false and active=false  (admin blocked them)
+     *   "UNVERIFIED"— verified=false (email OTP not yet confirmed)
+     */
+    @GetMapping("/admin/delivery-boys")
+    public ResponseEntity<Map<String, Object>> adminGetDeliveryBoys() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<DeliveryBoy> boys = deliveryBoyRepository.findAll();
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (DeliveryBoy db : boys) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",               db.getId());
+                m.put("name",             db.getName());
+                m.put("email",            db.getEmail());
+                m.put("mobile",           db.getMobile());
+                m.put("deliveryBoyCode",  db.getDeliveryBoyCode());
+                m.put("verified",         db.isVerified());
+                m.put("adminApproved",    db.isAdminApproved());
+                m.put("active",           db.isActive());
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
+
+                // Derive a single human-readable status string
+                String status;
+                if (!db.isVerified()) {
+                    status = "UNVERIFIED";
+                } else if (!db.isAdminApproved() && !db.isActive()) {
+                    status = "REJECTED";
+                } else if (!db.isAdminApproved()) {
+                    status = "PENDING";
+                } else {
+                    status = "APPROVED";
+                }
+                m.put("approvalStatus", status);
+
+                // Warehouse — may be null for pending/unverified boys
+                if (db.getWarehouse() != null) {
+                    Map<String, Object> wh = new LinkedHashMap<>();
+                    wh.put("id",            db.getWarehouse().getId());
+                    wh.put("name",          db.getWarehouse().getName());
+                    wh.put("city",          db.getWarehouse().getCity());
+                    wh.put("warehouseCode", db.getWarehouse().getWarehouseCode());
+                    m.put("warehouse", wh);
+                } else {
+                    m.put("warehouse", null);
+                }
+
+                list.add(m);
+            }
+            res.put("success",      true);
+            res.put("deliveryBoys", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load delivery boys: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/flutter/admin/delivery-boys/{id}/approve
+     * Approves a delivery boy account and optionally assigns pin codes.
+     *
+     * Fix: DeliveryAdminController exposes POST /admin/delivery/boy/approve
+     * which takes @RequestParam (form fields) and uses HttpSession for auth —
+     * neither works from Flutter. This endpoint uses a JSON body and JWT auth
+     * (already validated upstream by FlutterAuthFilter).
+     *
+     * Request body (JSON, all optional):
+     *   { "assignedPinCodes": "600001,600002" }
+     *
+     * Business rules (mirrors DeliveryBoyService.approveDeliveryBoy):
+     *   - Delivery boy must exist
+     *   - Must have a warehouse already set (self-registered boys pick one on signup)
+     *   - Sets adminApproved=true, active=true, saves assignedPinCodes
+     *   - Sends approval email (failure is non-fatal — logged, not thrown)
+     */
+    @PostMapping("/admin/delivery-boys/{id}/approve")
+    public ResponseEntity<Map<String, Object>> adminApproveDeliveryBoy(
+            @PathVariable int id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String assignedPinCodes = (body != null)
+                    ? body.getOrDefault("assignedPinCodes", "").toString().trim()
+                    : "";
+
+            DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "Delivery boy not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (db.getWarehouse() == null) {
+                res.put("success", false);
+                res.put("message", "No warehouse selected by this delivery boy");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            db.setAdminApproved(true);
+            db.setActive(true);
+            db.setAssignedPinCodes(assignedPinCodes);
+            deliveryBoyRepository.save(db);
+
+            try { emailSender.sendDeliveryBoyApproved(db); }
+            catch (Exception e) { System.err.println("Approval email failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", db.getName() + " approved for " + db.getWarehouse().getName());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to approve delivery boy: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    // ── ADMIN — WAREHOUSE TRANSFER REQUESTS ──────────────────────────────────
+    //
+    // Fix: No /api/flutter endpoint existed for warehouse transfer management.
+    // DeliveryAdminController only has POST /admin/delivery/warehouse-change/approve|reject
+    // (session-based, @RequestParam, no /api/flutter prefix).
+    // The Flutter AdminApp calls:
+    //   GET  /api/flutter/admin/warehouse-transfers
+    //   POST /api/flutter/admin/warehouse-transfers/{id}/approve
+    //   POST /api/flutter/admin/warehouse-transfers/{id}/reject
+
+    /**
+     * GET /api/flutter/admin/warehouse-transfers
+     * Returns ALL warehouse transfer requests ordered by most recent first,
+     * enriched with delivery boy and warehouse details so the Flutter screen
+     * can render the list without extra round-trips.
+     *
+     * Query param (optional): ?status=PENDING|APPROVED|REJECTED
+     * Omitting the param returns all requests across all statuses.
+     */
+    @GetMapping("/admin/warehouse-transfers")
+    public ResponseEntity<Map<String, Object>> adminGetWarehouseTransfers(
+            @RequestParam(required = false) String status) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<WarehouseChangeRequest> requests;
+            if (status != null && !status.isBlank()) {
+                try {
+                    WarehouseChangeRequest.Status s = WarehouseChangeRequest.Status.valueOf(status.toUpperCase());
+                    requests = warehouseChangeRequestRepository.findByStatusOrderByRequestedAtDesc(s);
+                } catch (IllegalArgumentException ex) {
+                    res.put("success", false);
+                    res.put("message", "Invalid status value. Use PENDING, APPROVED, or REJECTED");
+                    return ResponseEntity.badRequest().body(res);
+                }
+            } else {
+                // No filter — return everything, newest first
+                requests = warehouseChangeRequestRepository.findAll(
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC, "requestedAt"));
+            }
+
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (WarehouseChangeRequest r : requests) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",          r.getId());
+                m.put("status",      r.getStatus().name());
+                m.put("reason",      r.getReason());
+                m.put("adminNote",   r.getAdminNote());
+                m.put("requestedAt", r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+                m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
+
+                // Delivery boy summary
+                DeliveryBoy db = r.getDeliveryBoy();
+                Map<String, Object> dbMap = new LinkedHashMap<>();
+                dbMap.put("id",              db.getId());
+                dbMap.put("name",            db.getName());
+                dbMap.put("email",           db.getEmail());
+                dbMap.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                // Current warehouse (where they are now)
+                if (db.getWarehouse() != null) {
+                    Map<String, Object> cw = new LinkedHashMap<>();
+                    cw.put("id",            db.getWarehouse().getId());
+                    cw.put("name",          db.getWarehouse().getName());
+                    cw.put("city",          db.getWarehouse().getCity());
+                    cw.put("warehouseCode", db.getWarehouse().getWarehouseCode());
+                    dbMap.put("currentWarehouse", cw);
+                } else {
+                    dbMap.put("currentWarehouse", null);
+                }
+                m.put("deliveryBoy", dbMap);
+
+                // Requested warehouse (where they want to move TO)
+                Warehouse rw = r.getRequestedWarehouse();
+                Map<String, Object> rwMap = new LinkedHashMap<>();
+                rwMap.put("id",            rw.getId());
+                rwMap.put("name",          rw.getName());
+                rwMap.put("city",          rw.getCity());
+                rwMap.put("warehouseCode", rw.getWarehouseCode());
+                m.put("requestedWarehouse", rwMap);
+
+                list.add(m);
+            }
+
+            res.put("success",   true);
+            res.put("transfers", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load warehouse transfers: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/flutter/admin/warehouse-transfers/{id}/approve
+     * Approves a pending warehouse transfer request.
+     *
+     * Business rules (mirrors DeliveryBoyService.approveWarehouseChange):
+     *   - Request must exist and be PENDING (already-resolved requests return a clear error)
+     *   - Delivery boy's warehouse is updated to the requested warehouse
+     *   - assignedPinCodes is cleared (admin re-assigns from the main panel)
+     *   - Approval email sent (failure is non-fatal)
+     *
+     * Request body (JSON, optional):
+     *   { "adminNote": "Approved — good coverage needed in north zone" }
+     */
+    @PostMapping("/admin/warehouse-transfers/{id}/approve")
+    public ResponseEntity<Map<String, Object>> adminApproveWarehouseTransfer(
+            @PathVariable int id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String adminNote = (body != null)
+                    ? body.getOrDefault("adminNote", "").toString().trim()
+                    : "";
+
+            WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
+            if (req == null) {
+                res.put("success", false);
+                res.put("message", "Transfer request not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
+                res.put("success", false);
+                res.put("message", "Request already resolved");
+                return ResponseEntity.ok(res);
+            }
+
+            DeliveryBoy db = req.getDeliveryBoy();
+            Warehouse newWarehouse = req.getRequestedWarehouse();
+
+            // Apply the warehouse change
+            db.setWarehouse(newWarehouse);
+            db.setAssignedPinCodes(""); // Admin re-assigns pin codes from the main panel
+            deliveryBoyRepository.save(db);
+
+            req.setStatus(WarehouseChangeRequest.Status.APPROVED);
+            req.setAdminNote(adminNote);
+            req.setResolvedAt(java.time.LocalDateTime.now());
+            warehouseChangeRequestRepository.save(req);
+
+            try { emailSender.sendWarehouseChangeApproved(db, newWarehouse, adminNote); }
+            catch (Exception e) { System.err.println("Warehouse change approval email failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", db.getName() + " has been transferred to " + newWarehouse.getName());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to approve warehouse transfer: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/flutter/admin/warehouse-transfers/{id}/reject
+     * Rejects a pending warehouse transfer request.
+     *
+     * Business rules (mirrors DeliveryBoyService.rejectWarehouseChange):
+     *   - Request must exist and be PENDING
+     *   - Delivery boy's warehouse is NOT changed
+     *   - Rejection email sent (failure is non-fatal)
+     *
+     * Request body (JSON, optional):
+     *   { "adminNote": "Not enough capacity at requested warehouse" }
+     */
+    @PostMapping("/admin/warehouse-transfers/{id}/reject")
+    public ResponseEntity<Map<String, Object>> adminRejectWarehouseTransfer(
+            @PathVariable int id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String adminNote = (body != null)
+                    ? body.getOrDefault("adminNote", "").toString().trim()
+                    : "";
+
+            WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
+            if (req == null) {
+                res.put("success", false);
+                res.put("message", "Transfer request not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
+                res.put("success", false);
+                res.put("message", "Request already resolved");
+                return ResponseEntity.ok(res);
+            }
+
+            req.setStatus(WarehouseChangeRequest.Status.REJECTED);
+            req.setAdminNote(adminNote);
+            req.setResolvedAt(java.time.LocalDateTime.now());
+            warehouseChangeRequestRepository.save(req);
+
+            DeliveryBoy db = req.getDeliveryBoy();
+            try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
+            catch (Exception e) { System.err.println("Warehouse change rejection email failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", "Warehouse transfer request rejected");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to reject warehouse transfer: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/flutter/admin/users/search?q=&type=
+     * Searches users by name or email across customers, vendors, and delivery boys.
+     *
+     * Fix — two mismatches between AdminApp and the existing UserAdminApiController:
+     *   1. Path:  AdminApp calls /api/flutter/admin/users/search
+     *             Existing endpoint is   /api/admin/users/search  (wrong prefix)
+     *   2. Param: AdminApp sends          ?q=
+     *             Existing endpoint reads @RequestParam String query  (wrong name)
+     *
+     * This endpoint lives in FlutterApiController (/api/flutter) and accepts ?q=,
+     * matching the AdminApp exactly. The existing UserAdminApiController is left
+     * untouched — it serves the web admin UI.
+     *
+     * Params:
+     *   q    — search string (name or email, case-insensitive substring match)
+     *   type — optional filter: "customer" | "vendor" | "delivery_boy"
+     *           omit (or any other value) to search all three types
+     *
+     * Response:
+     *   { "success": true, "users": [ { id, name, email, type, ... }, ... ] }
+     */
+    @GetMapping("/admin/users/search")
+    public ResponseEntity<Map<String, Object>> adminSearchUsers(
+            @RequestParam(name = "q", defaultValue = "") String q,
+            @RequestParam(name = "type", defaultValue = "") String type) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String term = q.toLowerCase().trim();
+            String typeFilter = type.toLowerCase().trim();
+
+            List<Map<String, Object>> results = new ArrayList<>();
+
+            // ── Customers ──────────────────────────────────────────────────
+            if (typeFilter.isEmpty() || typeFilter.equals("customer")) {
+                for (Customer c : customerRepository.findAll()) {
+                    if (matchesQuery(term, c.getName(), c.getEmail())) {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id",       c.getId());
+                        m.put("name",     c.getName());
+                        m.put("email",    c.getEmail());
+                        m.put("type",     "customer");
+                        m.put("verified", c.isVerified());
+                        m.put("active",   c.isActive());
+                        results.add(m);
+                    }
+                }
+            }
+
+            // ── Vendors ────────────────────────────────────────────────────
+            if (typeFilter.isEmpty() || typeFilter.equals("vendor")) {
+                for (Vendor v : vendorRepository.findAll()) {
+                    if (matchesQuery(term, v.getName(), v.getEmail())) {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id",         v.getId());
+                        m.put("name",       v.getName());
+                        m.put("email",      v.getEmail());
+                        m.put("type",       "vendor");
+                        m.put("vendorCode", v.getVendorCode());
+                        m.put("verified",   v.isVerified());
+                        results.add(m);
+                    }
+                }
+            }
+
+            // ── Delivery Boys ──────────────────────────────────────────────
+            if (typeFilter.isEmpty() || typeFilter.equals("delivery_boy")) {
+                for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+                    if (matchesQuery(term, db.getName(), db.getEmail())) {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id",              db.getId());
+                        m.put("name",            db.getName());
+                        m.put("email",           db.getEmail());
+                        m.put("type",            "delivery_boy");
+                        m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                        m.put("verified",        db.isVerified());
+                        m.put("adminApproved",   db.isAdminApproved());
+                        m.put("active",          db.isActive());
+                        results.add(m);
+                    }
+                }
+            }
+
+            res.put("success", true);
+            res.put("query",   q);
+            res.put("type",    type);
+            res.put("count",   results.size());
+            res.put("users",   results);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Search failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /** True if the search term matches either field (case-insensitive substring). Empty term matches all. */
+    private boolean matchesQuery(String term, String name, String email) {
+        if (term.isEmpty()) return true;
+        return (name  != null && name.toLowerCase().contains(term))
+            || (email != null && email.toLowerCase().contains(term));
+    }
+
+    // ── ADMIN — BANNER MANAGEMENT ─────────────────────────────────────────────
+    //
+    // Fix: The Flutter ContentAdmin component tries GET /api/flutter/admin/banners
+    // first, then falls back to GET /api/read/Banner.
+    //
+    // The /api/read/Banner fallback (GenericReadOnlyController) returns raw
+    // findAll() — unordered, no consistent shape, and @CrossOrigin(*) is a
+    // security concern. The primary path /api/flutter/admin/banners didn't exist
+    // at all, so every load hit the fragile fallback.
+    //
+    // This endpoint fixes the primary path. The existing Thymeleaf form actions
+    // (POST /admin/content/*) are untouched — they serve the web admin UI.
+
+    /**
+     * GET /api/flutter/admin/banners
+     * Returns all banners ordered by displayOrder ascending — same ordering
+     * used by the admin panel (findAllByOrderByDisplayOrderAsc).
+     *
+     * All banners are returned regardless of active/showOnHome/showOnCustomerHome
+     * so the admin screen can show and toggle every banner, not just active ones.
+     *
+     * Response:
+     *   { "success": true, "banners": [ { id, title, imageUrl, linkUrl,
+     *     active, showOnHome, showOnCustomerHome, displayOrder }, ... ] }
+     */
+    @GetMapping("/admin/banners")
+    public ResponseEntity<Map<String, Object>> adminGetBanners() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Banner> banners = bannerRepository.findAllByOrderByDisplayOrderAsc();
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Banner b : banners) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",                 b.getId());
+                m.put("title",              b.getTitle());
+                m.put("imageUrl",           b.getImageUrl());
+                m.put("linkUrl",            b.getLinkUrl());
+                m.put("active",             b.isActive());
+                m.put("showOnHome",         b.isShowOnHome());
+                m.put("showOnCustomerHome", b.isShowOnCustomerHome());
+                m.put("displayOrder",       b.getDisplayOrder());
+                list.add(m);
+            }
+            res.put("success", true);
+            res.put("banners", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load banners: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/flutter/admin/change-password
+     * Changes the admin password for the stateless Flutter admin session.
+     *
+     * Fix: The existing POST /update-admin-password is a Thymeleaf form endpoint
+     * that checks session.getAttribute("admin") — always null in a stateless
+     * JWT-based Flutter session — so it immediately redirects to /admin/login
+     * instead of changing the password.
+     *
+     * AdminService.updateAdminPassword() doesn't persist either: it reads
+     * adminPassword from @Value("${admin.password}") at startup and never writes
+     * it back, so the comment "contact system admin to update credentials" is the
+     * real behaviour of that method.
+     *
+     * This endpoint:
+     *   1. Validates currentPassword against the live in-memory adminPassword field
+     *   2. Persists the new password to the .env file (ADMIN_PASSWORD=REDACTED
+     *      the change survives a server restart
+     *   3. Updates the in-memory adminPassword field on this controller so
+     *      subsequent JWT logins and API calls use the new password immediately,
+     *      without needing a restart
+     *
+     * Request body (JSON):
+     *   { "currentPassword": "...", "newPassword": "...", "confirmPassword": "..." }
+     *
+     * The .env file is located relative to the JVM working directory (project root),
+     * which is where Spring Boot / DotenvConfig loads it from at startup.
+     */
+    @PostMapping("/admin/change-password")
+    public ResponseEntity<Map<String, Object>> adminChangePassword(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            String currentPassword  = body.getOrDefault("currentPassword",  "").toString().trim();
+            String newPassword      = body.getOrDefault("newPassword",      "").toString().trim();
+            String confirmPassword  = body.getOrDefault("confirmPassword",  "").toString().trim();
+
+            // ── Validate inputs ────────────────────────────────────────────
+            if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "All password fields are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!currentPassword.equals(adminPassword)) {
+                res.put("success", false);
+                res.put("message", "Current password is incorrect");
+                return ResponseEntity.status(403).body(res);
+            }
+            if (!newPassword.equals(confirmPassword)) {
+                res.put("success", false);
+                res.put("message", "New passwords do not match");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPassword.length() < 6) {
+                res.put("success", false);
+                res.put("message", "Password must be at least 6 characters");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPassword.equals(currentPassword)) {
+                res.put("success", false);
+                res.put("message", "New password must be different from the current password");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // ── Persist to .env so the change survives a restart ───────────
+            persistPasswordToEnv(newPassword);
+
+            // ── Update in-memory field so the change takes effect immediately
+            // without a restart (subsequent logins and API calls use this field)
+            this.adminPassword = newPassword;
+
+            res.put("success", true);
+            res.put("message", "Admin password updated successfully");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to change password: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * Rewrites ADMIN_PASSWORD in the .env file in the JVM working directory.
+     * Reads the file line-by-line, replaces the ADMIN_PASSWORD=REDACTED
+     * writes the result back atomically via a temp file + rename.
+     *
+     * If the .env file does not exist or the key is not present, the method
+     * appends the key so the next startup picks it up.
+     */
+    private void persistPasswordToEnv(String newPassword) throws java.io.IOException {
+        java.io.File envFile = new java.io.File(".env");
+        String newLine = "ADMIN_PASSWORD=REDACTED
+
+        if (!envFile.exists()) {
+            // .env doesn't exist at runtime working dir — create it with just the key
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(envFile)) {
+                pw.println(newLine);
+            }
+            return;
+        }
+
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        boolean found = false;
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(envFile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("ADMIN_PASSWORD=REDACTED
+                    lines.add(newLine);
+                    found = true;
+                } else {
+                    lines.add(line);
+                }
+            }
+        }
+        if (!found) {
+            lines.add(newLine);
+        }
+
+        // Write atomically: temp file → rename
+        java.io.File tmp = new java.io.File(".env.tmp");
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(tmp)) {
+            for (String l : lines) pw.println(l);
+        }
+        if (!tmp.renameTo(envFile)) {
+            // renameTo can fail across filesystems — fall back to copy + delete
+            java.nio.file.Files.copy(tmp.toPath(), envFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            tmp.delete();
+        }
     }
 
     // ═══════════════════════════════════════════════════════
