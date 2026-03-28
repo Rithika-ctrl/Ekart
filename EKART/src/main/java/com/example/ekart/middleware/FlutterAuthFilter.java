@@ -25,6 +25,9 @@ import java.util.Set;
  * PROTECTED paths (Bearer JWT required):
  *   Everything else under /api/flutter/**
  *
+ * ADMIN-ONLY paths (Bearer JWT with role=ADMIN required):
+ *   /api/flutter/admin/**              — any non-ADMIN token is rejected with 403
+ *
  * Token contract (issued by login endpoints):
  *   JWT signed with HS256, claims: sub=<id>, email=<email>, role=<CUSTOMER|VENDOR|ADMIN|DELIVERY>
  *
@@ -91,6 +94,18 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
 
         int    userId = jwtUtil.getCustomerId(token);   // works for all roles (sub = id)
         String role   = jwtUtil.getRole(token);
+
+        // ── Admin-only path guard ─────────────────────────────────────────────
+        // Any request to /api/flutter/admin/** MUST carry an ADMIN token.
+        // A valid CUSTOMER, VENDOR, or DELIVERY token is explicitly rejected here
+        // so that non-admin roles can never reach admin data even with a valid JWT.
+        if (sub.startsWith("/admin/") || sub.equals("/admin")) {
+            if (!"ADMIN".equals(role)) {
+                reject(response, 403,
+                    "Admin access required — your token role is '" + role + "'");
+                return;
+            }
+        }
 
         // ── Header-ID spoofing check ──────────────────────────────────────────
         // Verify that the identity header matches the token subject.

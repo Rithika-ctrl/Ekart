@@ -12,6 +12,45 @@ import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
 import VendorCsvUpload from "./VendorCsvUpload";
 
+/* ── GuestGate ────────────────────────────────────────────────────
+   Wraps any page that requires login. When auth is null or GUEST,
+   renders a friendly login prompt instead of the real content.
+   onShowAuth is passed from the Layout/CustomerApp root so clicking
+   "Sign In" opens the auth modal inline without a page reload.
+─────────────────────────────────────────────────────────────────── */
+function GuestGate({ auth, onShowAuth, children, pageName = "this page" }) {
+  if (!auth || auth.role === "GUEST") {
+    return (
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", minHeight: 320, textAlign: "center",
+        padding: "40px 24px",
+      }}>
+        <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1f2937", marginBottom: 8 }}>
+          Sign in to access {pageName}
+        </h2>
+        <p style={{ color: "#6b7280", fontSize: 15, maxWidth: 360, marginBottom: 28 }}>
+          Create a free account or sign in to unlock your cart, orders, wishlist and more.
+        </p>
+        <button
+          style={{
+            background: "#6366f1", color: "#fff", border: "none",
+            borderRadius: 10, padding: "12px 32px", fontSize: 15,
+            fontWeight: 600, cursor: "pointer",
+          }}
+          onClick={onShowAuth}
+        >
+          Sign In / Register
+        </button>
+      </div>
+    );
+  }
+  return children;
+}
+
+
+
 function Layout({ nav, children, onShowAuth }) {
   return <div style={cs.root}><Nav nav={nav} onShowAuth={onShowAuth} /><main style={cs.main}>{children}</main></div>;
 }
@@ -345,35 +384,71 @@ export default function CustomerApp() {
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
         onView={recordRecentlyViewed} />}
 
-      {page === "cart" && !paymentPage && <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
-        onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
-        onCheckout={() => setPaymentPage(true)} profile={profile} />}
+      {page === "cart" && !paymentPage && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
+          <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
+            onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
+            onCheckout={() => setPaymentPage(true)} profile={profile} />
+        </GuestGate>
+      )}
 
-      {page === "cart" && paymentPage && <PaymentPage cart={cart} profile={profile}
-        onPlaceOrder={placeOrder} onBack={() => setPaymentPage(false)} />}
+      {page === "cart" && paymentPage && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
+          <PaymentPage cart={cart} profile={profile}
+            onPlaceOrder={placeOrder} onBack={() => setPaymentPage(false)} />
+        </GuestGate>
+      )}
 
       {page === "success" && orderSuccess && <OrderSuccessPage order={orderSuccess}
         onTrack={() => { setPage("track"); setOrderSuccess(null); }}
         onHome={() => { setPage("home"); setOrderSuccess(null); }} />}
 
-      {page === "orders" && !selectedOrder && <OrdersPage orders={orders} onCancel={cancelOrder}
-        onReorder={reorderItems} onReport={o => setReportOrder(o)}
-        onTrack={o => { setSelectedOrder(o); setPage("track-single"); }} />}
+      {page === "orders" && !selectedOrder && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your orders">
+          <OrdersPage orders={orders} onCancel={cancelOrder}
+            onReorder={reorderItems} onReport={o => setReportOrder(o)}
+            onTrack={o => { setSelectedOrder(o); setPage("track-single"); }} />
+        </GuestGate>
+      )}
 
-      {page === "track" && <TrackOrdersPage orders={orders} onSelectOrder={o => { setSelectedOrder(o); setPage("track-single"); }} />}
+      {page === "track" && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+          <TrackOrdersPage orders={orders} onSelectOrder={o => { setSelectedOrder(o); setPage("track-single"); }} />
+        </GuestGate>
+      )}
 
-      {page === "track-single" && selectedOrder && <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />}
+      {page === "track-single" && selectedOrder && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+          <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />
+        </GuestGate>
+      )}
 
-      {page === "wishlist" && <WishlistPage wishlistIds={wishlistIds} products={products} onRemove={toggleWishlist}
-        onAddToCart={addToCart} onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }} />}
+      {page === "wishlist" && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your wishlist">
+          <WishlistPage wishlistIds={wishlistIds} products={products} onRemove={toggleWishlist}
+            onAddToCart={addToCart} onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }} />
+        </GuestGate>
+      )}
 
       {page === "coupons" && <CouponsPage coupons={coupons} showToast={showToast} />}
 
-      {page === "spending" && <SpendingPage data={spendingData} orders={orders} onLoadOrders={loadOrders} />}
+      {page === "spending" && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="spending analytics">
+          <SpendingPage data={spendingData} orders={orders} onLoadOrders={loadOrders} />
+        </GuestGate>
+      )}
 
-          {page === "profile" && <ProfilePage profile={profile} api={api}
-            onUpdate={() => { loadProfile(); showToast("Profile updated!"); }} showToast={showToast} />}
-          {page === "refunds" && <RefundReportPage api={api} onSelectOrder={o => { setSelectedOrder(o); setPage("track-single"); }} />}
+          {page === "profile" && (
+            <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your profile">
+              <ProfilePage profile={profile} api={api}
+                onUpdate={() => { loadProfile(); showToast("Profile updated!"); }} showToast={showToast} />
+            </GuestGate>
+          )}
+          {page === "refunds" && (
+            <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your refunds">
+              <RefundReportPage api={api} onSelectOrder={o => { setSelectedOrder(o); setPage("track-single"); }} />
+            </GuestGate>
+          )}
           {page === 'vendor' && auth?.role === 'VENDOR' && (
             <VendorCsvUpload api={api} auth={auth} />
           )}
