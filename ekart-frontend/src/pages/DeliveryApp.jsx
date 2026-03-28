@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../App";
-import { apiFetch } from "../api";
+import { apiFetch, API_BASE } from "../api";
 
-const API = "http://localhost:8080/api/flutter";
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
 const S = `

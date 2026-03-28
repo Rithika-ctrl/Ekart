@@ -4,12 +4,14 @@ import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
+import com.example.ekart.service.AiAssistantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,6 +40,18 @@ public class FlutterApiController {
     @Autowired private AddressRepository   addressRepository;
     @Autowired private ReviewRepository    reviewRepository;
     @Autowired private RefundRepository    refundRepository;
+    @Autowired private CouponRepository    couponRepository;
+    @Autowired private AiAssistantService  aiAssistantService;
+
+    private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+    /**
+     * In-memory coupon store: customerId → applied Coupon.
+     * Cleared on coupon removal or successful order placement.
+     * ConcurrentHashMap keeps concurrent requests safe without a DB column.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<Integer, Coupon> appliedCoupons =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     // Admin credentials come from application.properties (admin.email / admin.password)
     @org.springframework.beans.factory.annotation.Value("${admin.email}")
@@ -295,14 +309,146 @@ public class FlutterApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
-        if (cart == null) { res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("count", 0); return ResponseEntity.ok(res); }
+        if (cart == null) { res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put("count", 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
-        double total = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-        res.put("success", true); res.put("items", items); res.put("total", total); res.put("count", items.size());
+        double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
+
+        // Attach any currently-applied coupon so the frontend can restore UI state
+        Coupon applied = appliedCoupons.get(customerId);
+        double couponDiscount = 0;
+        if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
+            couponDiscount = applied.calculateDiscount(subtotal);
+            res.put("couponApplied",  true);
+            res.put("couponCode",     applied.getCode());
+            res.put("couponDiscount", couponDiscount);
+        } else {
+            if (applied != null) appliedCoupons.remove(customerId); // expired/invalid since applied
+            res.put("couponApplied",  false);
+            res.put("couponCode",     "");
+            res.put("couponDiscount", 0.0);
+        }
+
+        double total = Math.max(0, subtotal - couponDiscount);
+        res.put("success", true); res.put("items", items); res.put("subtotal", subtotal);
+        res.put("total", total); res.put("count", items.size());
         return ResponseEntity.ok(res);
     }
 
-    /** POST /api/flutter/cart/add */
+    // ── COUPON ENDPOINTS ──────────────────────────────────────────────────────
+
+    /**
+     * GET /api/flutter/coupons
+     * Returns all currently valid (active, not expired, within usage limit) coupons
+     * for display on the customer Coupons page.
+     * Wraps the result in { success, coupons: [...] } to match the apiFetch convention.
+     */
+    @GetMapping("/coupons")
+    public ResponseEntity<Map<String, Object>> getActiveCoupons() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> list = couponRepository.findByActiveTrue().stream()
+                .filter(Coupon::isValid)
+                .map(c -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("code",           c.getCode());
+                    m.put("description",    c.getDescription());
+                    m.put("type",           c.getType().name());
+                    m.put("value",          c.getValue());
+                    m.put("typeLabel",      c.getTypeLabel());
+                    m.put("minOrderAmount", c.getMinOrderAmount());
+                    m.put("maxDiscount",    c.getMaxDiscount());
+                    m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
+                    return m;
+                })
+                .collect(Collectors.toList());
+        res.put("success", true);
+        res.put("coupons", list);
+        return ResponseEntity.ok(res);
+    }
+
+    
+
+    /**
+     * POST /api/flutter/cart/coupon
+     * Body: { "code": "SAVE10" }
+     * Validates the coupon against the customer's current cart total and
+     * stores it in the in-memory appliedCoupons map for this session.
+     * Returns discount amount so the frontend can update the summary immediately.
+     */
+    @PostMapping("/cart/coupon")
+    public ResponseEntity<Map<String, Object>> applyCoupon(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) {
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.badRequest().body(res);
+        }
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) {
+            res.put("success", false); res.put("message", "Customer not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        String code = body.get("code") instanceof String s ? s.toUpperCase().trim() : "";
+        if (code.isEmpty()) {
+            res.put("success", false); res.put("message", "Coupon code is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // Look up the coupon
+        Coupon coupon = couponRepository.findByCode(code).orElse(null);
+        if (coupon == null) {
+            res.put("success", false); res.put("message", "Invalid coupon code");
+            return ResponseEntity.ok(res);
+        }
+        if (!coupon.isValid()) {
+            res.put("success", false); res.put("message", "This coupon has expired or reached its usage limit");
+            return ResponseEntity.ok(res);
+        }
+
+        // Calculate current cart subtotal
+        Cart cart = customer.getCart();
+        double subtotal = (cart == null) ? 0 :
+                cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
+
+        if (subtotal < coupon.getMinOrderAmount()) {
+            res.put("success", false);
+            res.put("message", "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
+            return ResponseEntity.ok(res);
+        }
+
+        double discount = coupon.calculateDiscount(subtotal);
+
+        // Store for this customer (overwrites any previously applied coupon)
+        appliedCoupons.put(customerId, coupon);
+
+        res.put("success",      true);
+        res.put("code",         coupon.getCode());
+        res.put("description",  coupon.getDescription());
+        res.put("discount",     discount);
+        res.put("typeLabel",    coupon.getTypeLabel());
+        res.put("message",      coupon.getDescription() + " — saving ₹" + (int) discount);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * DELETE /api/flutter/cart/coupon
+     * Removes any currently-applied coupon for this customer.
+     */
+    @DeleteMapping("/cart/coupon")
+    public ResponseEntity<Map<String, Object>> removeCoupon(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) {
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.badRequest().body(res);
+        }
+        appliedCoupons.remove(customerId);
+        res.put("success", true); res.put("message", "Coupon removed");
+        return ResponseEntity.ok(res);
+    }
+
+        /** POST /api/flutter/cart/add */
     @PostMapping("/cart/add")
         public ResponseEntity<Map<String, Object>> addToCart(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
@@ -399,6 +545,9 @@ public class FlutterApiController {
             String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
+            // ── Coupon — resolve discount from in-memory store ───────────────
+            Coupon appliedCoupon = appliedCoupons.get(customerId);
+
             // ── Validate stock for all items first ──────────────
             for (Item cartItem : cart.getItems()) {
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
@@ -424,6 +573,16 @@ public class FlutterApiController {
                 grandTotal += cartItem.getPrice() * cartItem.getQuantity();
             }
 
+            // Apply coupon discount to grandTotal (validate again in case cart changed)
+            double couponDiscount = 0;
+            String appliedCouponCode = "";
+            if (appliedCoupon != null && appliedCoupon.isValid()
+                    && grandTotal >= appliedCoupon.getMinOrderAmount()) {
+                couponDiscount   = appliedCoupon.calculateDiscount(grandTotal);
+                appliedCouponCode = appliedCoupon.getCode();
+            }
+            double discountedTotal = Math.max(0, grandTotal - couponDiscount);
+
             // ── Deduct stock ────────────────────────────────────
             for (Item cartItem : cart.getItems()) {
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
@@ -445,6 +604,8 @@ public class FlutterApiController {
 
                 double subTotal = 0;
                 for (Item ci : group) subTotal += ci.getPrice() * ci.getQuantity();
+                // Pro-rate the coupon discount across vendor sub-orders by their share of grandTotal
+                double subDiscount = (grandTotal > 0) ? couponDiscount * (subTotal / grandTotal) : 0;
                 double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
 
                 List<Item> orderItems = new ArrayList<>();
@@ -463,9 +624,9 @@ public class FlutterApiController {
                 Order subOrder = new Order();
                 subOrder.setCustomer(customer);
                 subOrder.setItems(orderItems);
-                subOrder.setAmount(subTotal + subDelivery);
+                subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
                 subOrder.setDeliveryCharge(subDelivery);
-                subOrder.setTotalPrice(subTotal + subDelivery);
+                subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
                 subOrder.setPaymentMode(paymentMode);
                 subOrder.setDeliveryTime(deliveryTime);
                 subOrder.setDateTime(LocalDateTime.now());
@@ -497,11 +658,20 @@ public class FlutterApiController {
             cart.getItems().clear();
             customerRepository.save(customer);
 
-            res.put("success",     true);
-            res.put("message",     "Order placed successfully");
-            res.put("orderId",     firstOrder.getId());
-            res.put("subOrderIds", subOrderIds);
-            res.put("totalPrice",  grandTotal + deliveryCharge);
+            // Increment coupon usedCount and clear from in-memory store
+            if (appliedCoupon != null && !appliedCouponCode.isEmpty()) {
+                appliedCoupon.setUsedCount(appliedCoupon.getUsedCount() + 1);
+                couponRepository.save(appliedCoupon);
+                appliedCoupons.remove(customerId);
+            }
+
+            res.put("success",        true);
+            res.put("message",        "Order placed successfully");
+            res.put("orderId",        firstOrder.getId());
+            res.put("subOrderIds",    subOrderIds);
+            res.put("totalPrice",     discountedTotal + deliveryCharge);
+            res.put("couponDiscount", couponDiscount);
+            res.put("couponCode",     appliedCouponCode);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -633,6 +803,8 @@ public class FlutterApiController {
         profile.put("id", customer.getId()); profile.put("name", customer.getName());
         profile.put("email", customer.getEmail()); profile.put("mobile", customer.getMobile());
         profile.put("profileImage", customer.getProfileImage());
+        profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
+        profile.put("provider",  customer.getProvider()  != null ? customer.getProvider() : "local");
         profile.put("addresses", customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
             am.put("id",            a.getId());
@@ -1467,5 +1639,158 @@ public class FlutterApiController {
         stockAlertRepository.save(alert);
         res.put("success", true); res.put("message", "Alert acknowledged");
         return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // AI ASSISTANT CHAT  (X-Customer-Id)
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * POST /api/flutter/assistant/chat
+     *
+     * Stateless equivalent of POST /chat (ChatController) for the React SPA.
+     * Identifies the customer via X-Customer-Id header (no session required),
+     * builds the same personalised context block, then delegates to AiAssistantService.
+     *
+     * Body: { message: String, history?: [{role, text}] }
+     * Returns: { reply: String, role: String, name: String }
+     */
+    @PostMapping("/assistant/chat")
+    public ResponseEntity<Map<String, Object>> assistantChat(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestBody Map<String, Object> body) {
+
+        Map<String, Object> res = new HashMap<>();
+
+        String userMessage = ((String) body.getOrDefault("message", "")).trim();
+        if (userMessage.isEmpty()) {
+            res.put("reply", "Please type a message.");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> history =
+                (List<Map<String, String>>) body.getOrDefault("history", new ArrayList<>());
+
+        // ── Resolve customer (guest fallback if no header) ──
+        String role     = "guest";
+        String userName = "there";
+        String contextBlock = "=== GUEST USER ===\nNot logged in. Browsing as guest.\n";
+
+        if (customerId != null) {
+            Customer customer = customerRepository.findById(customerId).orElse(null);
+            if (customer != null) {
+                role        = "customer";
+                userName    = customer.getName();
+                contextBlock = buildCustomerContext(customer);
+            }
+        }
+
+        String reply = aiAssistantService.getReply(userMessage, role, userName, contextBlock, history);
+
+        res.put("reply", reply);
+        res.put("role",  role);
+        res.put("name",  userName);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Builds the personalised context block for a customer —
+     * mirrors the "customer" case in ChatController.buildContext().
+     */
+    private String buildCustomerContext(Customer c) {
+        StringBuilder ctx = new StringBuilder();
+        ctx.append("=== CUSTOMER DATA ===\n");
+        ctx.append("Name: ").append(c.getName()).append("\n");
+        ctx.append("Email: ").append(c.getEmail()).append("\n");
+        ctx.append("Customer ID: ").append(c.getId()).append("\n");
+
+        // Cart
+        if (c.getCart() != null && c.getCart().getItems() != null
+                && !c.getCart().getItems().isEmpty()) {
+            List<Item> cartItems = c.getCart().getItems();
+            double cartTotal = cartItems.stream()
+                    .mapToDouble(i -> i.getUnitPrice() > 0
+                            ? i.getUnitPrice() * i.getQuantity()
+                            : i.getPrice())
+                    .sum();
+            ctx.append("\nCART (").append(cartItems.size()).append(" items, ₹")
+               .append(String.format("%.0f", cartTotal)).append(" total):\n");
+            for (Item item : cartItems) {
+                double unitP = item.getUnitPrice() > 0
+                        ? item.getUnitPrice()
+                        : item.getPrice() / Math.max(item.getQuantity(), 1);
+                ctx.append("  - ").append(item.getName())
+                   .append(" × ").append(item.getQuantity())
+                   .append(" @ ₹").append(String.format("%.0f", unitP))
+                   .append(" [category: ").append(item.getCategory()).append("]\n");
+            }
+            ctx.append("  Delivery: ").append(cartTotal >= 500 ? "FREE" : "₹40").append("\n");
+        } else {
+            ctx.append("\nCART: Empty\n");
+        }
+
+        // Orders (last 10, newest first)
+        List<Order> orders = orderRepository.findByCustomer(c);
+        if (orders.isEmpty()) {
+            ctx.append("\nORDERS: No orders placed yet.\n");
+        } else {
+            orders.sort((a, b) -> {
+                if (a.getOrderDate() == null) return 1;
+                if (b.getOrderDate() == null) return -1;
+                return b.getOrderDate().compareTo(a.getOrderDate());
+            });
+            List<Order> recent = orders.stream().limit(10).collect(Collectors.toList());
+            ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
+               .append(recent.size()).append("):\n");
+            for (Order o : recent) {
+                ctx.append("  Order #").append(o.getId())
+                   .append(" | ₹").append(String.format("%.0f", o.getAmount()))
+                   .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
+                   .append(" | Items: ");
+                if (o.getItems() != null && !o.getItems().isEmpty()) {
+                    ctx.append(o.getItems().stream()
+                            .map(i -> i.getName() + " ×" + i.getQuantity())
+                            .collect(Collectors.joining(", ")));
+                }
+                if (o.getOrderDate() != null)
+                    ctx.append(" | Placed: ").append(o.getOrderDate().format(CHAT_DATE_FMT));
+                if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank())
+                    ctx.append(" | ETA: ").append(o.getDeliveryTime());
+                if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
+                        && o.getTrackingStatus() != TrackingStatus.DELIVERED)
+                    ctx.append(" | Currently at: ").append(o.getCurrentCity());
+                ctx.append("\n");
+            }
+        }
+
+        // Pending refunds
+        List<Refund> pendingRefunds = refundRepository.findByCustomer(c).stream()
+                .filter(r -> r.getStatus() == RefundStatus.PENDING)
+                .collect(Collectors.toList());
+        if (!pendingRefunds.isEmpty()) {
+            ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
+            for (Refund r : pendingRefunds) {
+                ctx.append("  - Refund #").append(r.getId())
+                   .append(" | Order #").append(r.getOrder() != null ? r.getOrder().getId() : "?")
+                   .append(" | ₹").append(String.format("%.0f", r.getAmount()))
+                   .append(" | Reason: ").append(r.getReason())
+                   .append("\n");
+            }
+        }
+
+        // Saved addresses
+        if (c.getAddresses() != null && !c.getAddresses().isEmpty()) {
+            ctx.append("\nSAVED ADDRESSES: ").append(c.getAddresses().size()).append("\n");
+            for (Address a : c.getAddresses()) {
+                ctx.append("  - ")
+                   .append(a.getRecipientName() != null ? a.getRecipientName() : "")
+                   .append(", ").append(a.getCity() != null ? a.getCity() : "")
+                   .append(" ").append(a.getPostalCode() != null ? a.getPostalCode() : "")
+                   .append("\n");
+            }
+        }
+
+        return ctx.toString();
     }
 }
