@@ -28,9 +28,13 @@ export default function AdminApp() {
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    if (auth?.token) {
+      headers["Authorization"] = `Bearer ${auth.token}`;
+      headers["X-Admin-Email"] = auth.email || "";
+    }
     const res = await fetch("/api/flutter" + path, { ...opts, headers });
     return res.json();
-  }, []);
+  }, [auth]);
   const show = m => setToast(m);
 
   const loadAll = useCallback(async () => {
@@ -624,22 +628,43 @@ function ReviewsAdmin({ reviews, onDelete }) {
 
 /* ── Analytics ── */
 function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
-  const statusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
-  const catCounts = products.reduce((a, p) => { a[p.category] = (a[p.category] || 0) + 1; return a; }, {});
-  const s = data || { totalCustomers: users.customers.length, totalVendors: users.vendors.length, totalProducts: products.length, totalOrders: orders.length, totalRevenue };
+  // Fallback values computed client-side when server data is unavailable
+  const fallbackStatusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
+  const fallbackCatCounts    = products.reduce((a, p) => { a[p.category] = (a[p.category] || 0) + 1; return a; }, {});
+
+  // Prefer server-side data; fall back to client-computed values
+  const s = data || {
+    totalCustomers: users.customers.length,
+    totalVendors:   users.vendors.length,
+    totalProducts:  products.length,
+    totalOrders:    orders.length,
+    totalRevenue,
+  };
+
+  const statusBreakdown = data?.statusBreakdown || fallbackStatusCounts;
+  const categoryStats   = data?.categoryStats   || fallbackCatCounts;
+  const monthlyRevenue  = data?.monthlyRevenue  || {};
+  const dailyOrders     = data?.dailyOrders     || {};
+  const topProducts     = data?.topProducts     || [];
+  const totalOrders     = Number(s.totalOrders  || orders.length) || 1;
+  const totalCats       = Object.values(categoryStats).reduce((a, b) => a + Number(b), 0) || 1;
+  const maxMonthRev     = Math.max(...Object.values(monthlyRevenue), 1);
+  const maxDailyOrders  = Math.max(...Object.values(dailyOrders), 1);
 
   return (
     <div>
       <h2 style={as.pageTitle}>Analytics & Reports 📈</h2>
+
+      {/* KPI cards */}
       <div style={as.statsGrid}>
         {[
-          ["👥","Customers", s.totalCustomers || users.customers.length,"#2563eb"],
-          ["🏪","Vendors",   s.totalVendors   || users.vendors.length,  "#d4a017"],
-          ["🏷️","Products",  s.totalProducts  || products.length,       "#7c3aed"],
-          ["📦","Orders",    s.totalOrders    || orders.length,          "#0284c7"],
-          ["💰","Revenue",   fmt(s.totalRevenue || totalRevenue),        "#1db882"],
-          ["✅","Delivered", orders.filter(o => o.trackingStatus === "DELIVERED").length, "#1db882"],
-        ].map(([icon,label,value,color]) => (
+          ["👥", "Customers",    s.totalCustomers || users.customers.length, "#2563eb"],
+          ["🏪", "Vendors",      s.totalVendors   || users.vendors.length,   "#d4a017"],
+          ["🏷️", "Products",     s.totalProducts  || products.length,        "#7c3aed"],
+          ["📦", "Orders",       s.totalOrders    || orders.length,           "#0284c7"],
+          ["💰", "Revenue",      fmt(s.totalRevenue || totalRevenue),         "#1db882"],
+          ["✅", "Delivered",    s.deliveredOrders ?? orders.filter(o => o.trackingStatus === "DELIVERED").length, "#1db882"],
+        ].map(([icon, label, value, color]) => (
           <div key={label} style={as.statCard}>
             <div style={as.statIcon(color)}>{icon}</div>
             <div style={as.statVal}>{value}</div>
@@ -647,32 +672,121 @@ function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
           </div>
         ))}
       </div>
+
+      {/* Secondary KPIs (server-only) */}
+      {data && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
+          {[
+            ["📊", "Avg Order Value",  fmt(data.avgOrderValue),                       "#7c3aed"],
+            ["⭐", "Avg Rating",       (data.avgRating || 0).toFixed(1) + " / 5",     "#d4a017"],
+            ["💬", "Total Reviews",    data.totalReviews,                             "#0284c7"],
+            ["⏳", "Pending Products", data.pendingProducts,                           "#e84c3c"],
+          ].map(([icon, label, value, color]) => (
+            <div key={label} style={as.statCard}>
+              <div style={as.statIcon(color)}>{icon}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0d0d0d", marginBottom: 2 }}>{value}</div>
+              <div style={as.statLabel}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={as.twoCol}>
+        {/* Monthly Revenue Trend */}
+        <div style={as.card}>
+          <h3 style={as.cardTitle}>Monthly Revenue (Last 6 Months)</h3>
+          {Object.keys(monthlyRevenue).length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {Object.entries(monthlyRevenue).map(([month, rev]) => (
+                <div key={month} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 12, minWidth: 72, color: "rgba(13,13,13,0.55)" }}>{month}</span>
+                  <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 5, width: `${Math.round((rev / maxMonthRev) * 100)}%`, transition: "width .4s" }} />
+                  </div>
+                  <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 72, textAlign: "right" }}>{fmt(rev)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "rgba(13,13,13,0.4)", fontSize: 13 }}>No order data yet</p>
+          )}
+        </div>
+
+        {/* Daily Orders – last 7 days */}
+        <div style={as.card}>
+          <h3 style={as.cardTitle}>Daily Orders (Last 7 Days)</h3>
+          {Object.keys(dailyOrders).length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {Object.entries(dailyOrders).map(([date, count]) => (
+                <div key={date} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 12, minWidth: 88, color: "rgba(13,13,13,0.55)" }}>{date.slice(5)}</span>
+                  <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 5, width: `${Math.round((count / maxDailyOrders) * 100)}%`, transition: "width .4s" }} />
+                  </div>
+                  <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 28, textAlign: "right" }}>{count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "rgba(13,13,13,0.4)", fontSize: 13 }}>No order data yet</p>
+          )}
+        </div>
+      </div>
+
+      <div style={as.twoCol}>
+        {/* Order Status Breakdown */}
         <div style={as.card}>
           <h3 style={as.cardTitle}>Order Status Breakdown</h3>
-          {Object.entries(statusCounts).map(([status, count]) => (
+          {Object.entries(statusBreakdown).map(([status, count]) => (
             <div key={status} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <span style={{ fontSize: 13, minWidth: 170 }}>{status.replace(/_/g, " ")}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4 }}>
-                <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round(count / Math.max(orders.length,1) * 100)}%` }} />
+              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round(Number(count) / totalOrders * 100)}%` }} />
               </div>
               <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
             </div>
           ))}
         </div>
+
+        {/* Products by Category */}
         <div style={as.card}>
           <h3 style={as.cardTitle}>Products by Category</h3>
-          {Object.entries(catCounts).slice(0, 8).map(([cat, count]) => (
+          {Object.entries(categoryStats).slice(0, 8).map(([cat, count]) => (
             <div key={cat} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <span style={{ fontSize: 13, minWidth: 140 }}>{cat}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4 }}>
-                <div style={{ height: "100%", background: "linear-gradient(90deg,#d4a017,#e84c3c)", borderRadius: 4, width: `${Math.round(count / Math.max(products.length,1) * 100)}%` }} />
+              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "linear-gradient(90deg,#d4a017,#e84c3c)", borderRadius: 4, width: `${Math.round(Number(count) / totalCats * 100)}%` }} />
               </div>
               <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Top Products by Revenue */}
+      {topProducts.length > 0 && (
+        <div style={as.card}>
+          <h3 style={as.cardTitle}>Top 5 Products by Revenue</h3>
+          <div style={as.tableWrap}>
+            <table style={as.table}>
+              <thead><tr style={as.thead}>
+                {["Rank","Product","Category","Units Sold","Revenue"].map(c => <th key={c} style={as.th}>{c}</th>)}
+              </tr></thead>
+              <tbody>
+                {topProducts.map((p, i) => (
+                  <tr key={p.id} style={as.tr}>
+                    <td style={as.td}><span style={{ fontWeight: 800, color: ["#d4a017","#6b7280","#c97b38","#0d0d0d","#0d0d0d"][i] }}>{["🥇","🥈","🥉","4th","5th"][i]}</span></td>
+                    <td style={{ ...as.td, fontWeight: 600 }}>{p.name || `Product #${p.id}`}</td>
+                    <td style={as.td}>{p.category || "—"}</td>
+                    <td style={as.td}>{p.unitsSold}</td>
+                    <td style={{ ...as.td, fontWeight: 700, color: "#1db882" }}>{fmt(p.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
