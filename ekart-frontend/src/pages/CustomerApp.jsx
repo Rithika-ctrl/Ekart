@@ -213,14 +213,23 @@ export default function CustomerApp() {
 
   const removeFromCart = async (productId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage your cart"); return; }
-    await api(`/cart/remove/${productId}`, { method: "DELETE" });
-    loadCart(); showToast("Removed from cart");
+    const d = await api(`/cart/remove/${productId}`, { method: "DELETE" });
+    if (d?.success) {
+      await loadCart();
+      showToast("Removed from cart");
+    } else {
+      showToast(d?.message || "Failed to remove item — please try again");
+    }
   };
 
   const updateCartQty = async (productId, quantity) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage your cart"); return; }
-    await api("/cart/update", { method: "PUT", body: JSON.stringify({ productId, quantity }) });
-    loadCart();
+    const d = await api("/cart/update", { method: "PUT", body: JSON.stringify({ productId, quantity }) });
+    if (d?.success) {
+      await loadCart();
+    } else {
+      showToast(d?.message || "Failed to update quantity");
+    }
   };
 
   const applyCoupon = async (code) => {
@@ -228,8 +237,8 @@ export default function CustomerApp() {
     if (!code || !code.trim()) { showToast("Enter a coupon code"); return; }
     const d = await api("/cart/coupon", { method: "POST", body: JSON.stringify({ code: code.trim().toUpperCase() }) });
     if (d.success) {
+      await loadCart(); // refresh so couponApplied / couponDiscount / total update first
       showToast(d.message || `Coupon applied! Saving ₹${Math.round(d.discount || 0)}`);
-      loadCart(); // refresh so couponApplied / couponDiscount fields update
     } else {
       showToast(d.message || "Invalid coupon");
     }
@@ -237,8 +246,13 @@ export default function CustomerApp() {
 
   const removeCoupon = async () => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to manage coupons"); return; }
-    await api("/cart/coupon", { method: "DELETE" });
-    loadCart(); showToast("Coupon removed");
+    const d = await api("/cart/coupon", { method: "DELETE" });
+    if (d?.success) {
+      await loadCart();
+      showToast("Coupon removed");
+    } else {
+      showToast(d?.message || "Failed to remove coupon");
+    }
   };
 
   const toggleWishlist = async (productId) => {

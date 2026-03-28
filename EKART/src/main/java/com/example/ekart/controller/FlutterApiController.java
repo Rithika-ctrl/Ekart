@@ -671,9 +671,18 @@ public class FlutterApiController {
             res.put("couponDiscount", 0.0);
         }
 
-        double total = Math.max(0, subtotal - couponDiscount);
-        res.put("success", true); res.put("items", items); res.put("subtotal", subtotal);
-        res.put("total", total); res.put("count", items.size());
+        double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+        double deliveryCharge     = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
+        double total              = discountedSubtotal + deliveryCharge;
+
+        res.put("success",       true);
+        res.put("items",         items);
+        res.put("itemCount",     items.size());
+        res.put("subtotal",      subtotal);           // pre-discount subtotal (for "add ₹X for free delivery" hint)
+        res.put("couponDiscount",couponDiscount);      // already set above, re-affirm here for clarity
+        res.put("deliveryCharge",deliveryCharge);      // 0 when free, 40 otherwise
+        res.put("total",         total);               // discounted subtotal + delivery
+        res.put("count",         items.size());
         return ResponseEntity.ok(res);
     }
 
@@ -835,8 +844,16 @@ public class FlutterApiController {
             if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
-        customer.getCart().getItems().removeIf(i -> i.getProductId() != null && i.getProductId() == productId);
+        List<Item> toRemove = customer.getCart().getItems().stream()
+            .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+            .collect(java.util.stream.Collectors.toList());
+        if (toRemove.isEmpty()) {
+            res.put("success", false); res.put("message", "Item not found in cart");
+            return ResponseEntity.status(404).body(res);
+        }
+        customer.getCart().getItems().removeAll(toRemove);
         customerRepository.save(customer);
+        itemRepository.deleteAll(toRemove);  // explicit delete — ensures DB row is gone even without orphanRemoval
         res.put("success", true); res.put("message", "Removed from cart");
         return ResponseEntity.ok(res);
     }
@@ -853,9 +870,19 @@ public class FlutterApiController {
         int productId = Integer.parseInt(body.get("productId").toString());
         int quantity  = Integer.parseInt(body.get("quantity").toString());
         Cart cart = customer.getCart();
-        if (quantity <= 0) { cart.getItems().removeIf(i -> i.getProductId() != null && i.getProductId() == productId); }
-        else { cart.getItems().stream().filter(i -> i.getProductId() != null && i.getProductId() == productId).findFirst().ifPresent(i -> i.setQuantity(quantity)); }
-        customerRepository.save(customer);
+        if (quantity <= 0) {
+            List<Item> toRemove = cart.getItems().stream()
+                .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+                .collect(java.util.stream.Collectors.toList());
+            cart.getItems().removeAll(toRemove);
+            customerRepository.save(customer);
+            itemRepository.deleteAll(toRemove);
+        } else {
+            cart.getItems().stream()
+                .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+                .findFirst().ifPresent(i -> i.setQuantity(quantity));
+            customerRepository.save(customer);
+        }
         res.put("success", true); res.put("message", "Cart updated");
         return ResponseEntity.ok(res);
     }

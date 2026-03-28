@@ -34,6 +34,9 @@ const S = `
   .otp-inp{width:46px;height:54px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid #e8e4dc;background:#fafaf8;font-family:'Syne',sans-serif;outline:none;transition:border-color 200ms}
   .otp-inp:focus{border-color:#0d0d0d}
   .back-link{background:none;border:none;cursor:pointer;font-size:13px;color:rgba(13,13,13,0.5);font-family:'DM Sans',sans-serif;padding:12px 0 0;display:block;text-align:center;width:100%}
+  .remember-row{display:flex;align-items:center;gap:8px;margin:12px 0 4px}
+  .remember-row input[type=checkbox]{width:16px;height:16px;accent-color:#e84c3c;cursor:pointer;flex-shrink:0}
+  .remember-row label{font-size:13px;color:rgba(13,13,13,0.65);cursor:pointer;user-select:none}
   .screen-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;color:#0d0d0d}
   .screen-sub{font-size:14px;color:rgba(13,13,13,0.55);margin-bottom:20px;line-height:1.5}
   .timer-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
@@ -49,6 +52,14 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  /**
+   * rememberMe – controls which storage backend is used by App.login().
+   *   true  → localStorage  (default; session survives browser restart)
+   *   false → sessionStorage (session cleared when tab/browser is closed)
+   * Checked by default so most users get the improved experience without
+   * extra clicks.  Unchecking gives the old session-only behaviour.
+   */
+  const [rememberMe, setRememberMe] = useState(true);
   const [timer, setTimer] = useState(120);
   const otpRefs = useRef([]);
   const timerRef = useRef(null);
@@ -80,7 +91,7 @@ export default function AuthPage() {
                : role === "delivery" ? data.deliveryBoyId
                : null;
       const token = data.token || null;
-      login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token });
+      login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token }, rememberMe);
     } catch { setError("Network error — is the backend running on port 8080?"); }
     setLoading(false);
   }
@@ -202,6 +213,17 @@ export default function AuthPage() {
                   <button type="button" className="link-btn" onClick={() => { setScreen("forgot"); clear(); }}>Forgot password?</button>
                 </div>
               )}
+              <div className="remember-row">
+                <input
+                  id="rememberMe"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                />
+                {/* rememberMe=true  → localStorage (survives browser close) */}
+                {/* rememberMe=false → sessionStorage (cleared on tab close) */}
+                <label htmlFor="rememberMe">Remember me</label>
+              </div>
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Signing in…" : `Sign in as ${role}`}</button>
               {(role === "customer" || role === "vendor") && (
                 <>
