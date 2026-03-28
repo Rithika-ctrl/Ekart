@@ -6,6 +6,7 @@ import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
+import com.example.ekart.service.RefundService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -43,6 +44,7 @@ public class FlutterApiController {
     @Autowired private RefundRepository    refundRepository;
     @Autowired private CouponRepository    couponRepository;
     @Autowired private AiAssistantService  aiAssistantService;
+    @Autowired private RefundService        refundService;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -2093,6 +2095,254 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
+    // ADMIN — ANALYTICS
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * GET /api/flutter/admin/analytics
+     *
+     * Returns server-side analytics so AdminApp's AnalyticsAdmin component
+     * gets richer data than it can compute from the already-loaded lists.
+     *
+     * Response shape (all fields also used as fallback by AnalyticsAdmin):
+     * {
+     *   success          : true,
+     *   totalCustomers   : long,
+     *   totalVendors     : long,
+     *   totalProducts    : long,
+     *   approvedProducts : long,
+     *   pendingProducts  : long,
+     *   totalOrders      : long,
+     *   totalRevenue     : double,
+     *   deliveredOrders  : long,
+     *   processingOrders : long,
+     *   shippedOrders    : long,
+     *   cancelledOrders  : long,
+     *   avgOrderValue    : double,
+     *   totalReviews     : long,
+     *   avgRating        : double,
+     *
+     *   // Last-7-days order counts  { "2025-03-22": 4, ... }
+     *   dailyOrders      : Map<String,Long>,
+     *
+     *   // Last-6-months revenue     { "2025-10": 48200.0, ... }
+     *   monthlyRevenue   : Map<String,Double>,
+     *
+     *   // Top 5 products by revenue { id, name, category, revenue, unitsSold }
+     *   topProducts      : List<Map>,
+     *
+     *   // Products per category     { "Electronics": 12, ... }
+     *   categoryStats    : Map<String,Long>,
+     *
+     *   // Status breakdown          { "DELIVERED": 40, "PROCESSING": 5, ... }
+     *   statusBreakdown  : Map<String,Long>
+     * }
+     */
+    @GetMapping("/admin/analytics")
+    public ResponseEntity<Map<String, Object>> adminGetAnalytics(
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
+        }
+
+        // ── Core counts ──────────────────────────────────────────────────────
+        long totalCustomers    = customerRepository.count();
+        long totalVendors      = vendorRepository.count();
+        long totalProducts     = productRepository.count();
+        long approvedProducts  = productRepository.findAll().stream()
+                .filter(com.example.ekart.dto.Product::isApproved).count();
+        long pendingProducts   = totalProducts - approvedProducts;
+        long totalReviews      = reviewRepository.count();
+
+        double avgRating = totalReviews > 0 ? reviewRepository.getOverallAverageRating() : 0.0;
+
+        // ── Order aggregates ─────────────────────────────────────────────────
+        List<Order> allOrders = orderRepository.findAll();
+        long totalOrders = allOrders.size();
+
+        double totalRevenue = allOrders.stream()
+                .mapToDouble(Order::getTotalPrice).sum();
+
+        double avgOrderValue = totalOrders > 0
+                ? Math.round((totalRevenue / totalOrders) * 100.0) / 100.0
+                : 0.0;
+
+        // Status counts
+        Map<String, Long> statusBreakdown = new java.util.LinkedHashMap<>();
+        for (Order o : allOrders) {
+            String status = o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "UNKNOWN";
+            statusBreakdown.merge(status, 1L, Long::sum);
+        }
+        long deliveredOrders  = statusBreakdown.getOrDefault("DELIVERED",    0L);
+        long processingOrders = statusBreakdown.getOrDefault("PROCESSING",   0L);
+        long shippedOrders    = statusBreakdown.getOrDefault("SHIPPED",      0L);
+        long cancelledOrders  = statusBreakdown.getOrDefault("CANCELLED",    0L);
+
+        // ── Daily orders — last 7 days ───────────────────────────────────────
+        java.time.LocalDate today = java.time.LocalDate.now();
+        Map<String, Long> dailyOrders = new java.util.LinkedHashMap<>();
+        for (int i = 6; i >= 0; i--) {
+            java.time.LocalDate date = today.minusDays(i);
+            java.time.LocalDateTime start = date.atStartOfDay();
+            java.time.LocalDateTime end   = date.plusDays(1).atStartOfDay();
+            long count = allOrders.stream()
+                    .filter(o -> o.getOrderDate() != null
+                            && !o.getOrderDate().isBefore(start)
+                            &&  o.getOrderDate().isBefore(end))
+                    .count();
+            dailyOrders.put(date.toString(), count);
+        }
+
+        // ── Monthly revenue — last 6 months ─────────────────────────────────
+        Map<String, Double> monthlyRevenue = new java.util.LinkedHashMap<>();
+        java.time.YearMonth currentMonth = java.time.YearMonth.now();
+        for (int i = 5; i >= 0; i--) {
+            java.time.YearMonth ym = currentMonth.minusMonths(i);
+            java.time.LocalDateTime start = ym.atDay(1).atStartOfDay();
+            java.time.LocalDateTime end   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
+            double rev = allOrders.stream()
+                    .filter(o -> o.getOrderDate() != null
+                            && !o.getOrderDate().isBefore(start)
+                            &&  o.getOrderDate().isBefore(end))
+                    .mapToDouble(Order::getTotalPrice).sum();
+            monthlyRevenue.put(ym.toString(), Math.round(rev * 100.0) / 100.0);
+        }
+
+        // ── Top 5 products by revenue ────────────────────────────────────────
+        // Aggregate revenue from order line-items (Item.getLineTotal())
+        Map<Integer, double[]> productRevMap = new HashMap<>(); // productId → [revenue, unitsSold]
+        for (Order o : allOrders) {
+            if (o.getItems() == null) continue;
+            for (com.example.ekart.dto.Item item : o.getItems()) {
+                if (item.getProductId() == null) continue;
+                productRevMap.computeIfAbsent(item.getProductId(), k -> new double[]{0, 0});
+                productRevMap.get(item.getProductId())[0] += item.getLineTotal();
+                productRevMap.get(item.getProductId())[1] += item.getQuantity();
+            }
+        }
+        List<Map<String, Object>> topProducts = productRevMap.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue()[0], a.getValue()[0]))
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id",        e.getKey());
+                    m.put("revenue",   Math.round(e.getValue()[0] * 100.0) / 100.0);
+                    m.put("unitsSold", (long) e.getValue()[1]);
+                    // Enrich with product name / category if available
+                    productRepository.findById(e.getKey()).ifPresent(p -> {
+                        m.put("name",     p.getName());
+                        m.put("category", p.getCategory());
+                        m.put("price",    p.getPrice());
+                    });
+                    return m;
+                }).collect(Collectors.toList());
+
+        // ── Category distribution ────────────────────────────────────────────
+        Map<String, Long> categoryStats = productRepository.findAll().stream()
+                .filter(p -> p.getCategory() != null)
+                .collect(Collectors.groupingBy(
+                        com.example.ekart.dto.Product::getCategory,
+                        Collectors.counting()));
+
+        // ── Assemble response ────────────────────────────────────────────────
+        Map<String, Object> res = new HashMap<>();
+        res.put("success",          true);
+        res.put("totalCustomers",   totalCustomers);
+        res.put("totalVendors",     totalVendors);
+        res.put("totalProducts",    totalProducts);
+        res.put("approvedProducts", approvedProducts);
+        res.put("pendingProducts",  pendingProducts);
+        res.put("totalOrders",      totalOrders);
+        res.put("totalRevenue",     Math.round(totalRevenue * 100.0) / 100.0);
+        res.put("avgOrderValue",    avgOrderValue);
+        res.put("deliveredOrders",  deliveredOrders);
+        res.put("processingOrders", processingOrders);
+        res.put("shippedOrders",    shippedOrders);
+        res.put("cancelledOrders",  cancelledOrders);
+        res.put("totalReviews",     totalReviews);
+        res.put("avgRating",        Math.round(avgRating * 10.0) / 10.0);
+        res.put("dailyOrders",      dailyOrders);
+        res.put("monthlyRevenue",   monthlyRevenue);
+        res.put("topProducts",      topProducts);
+        res.put("categoryStats",    categoryStats);
+        res.put("statusBreakdown",  statusBreakdown);
+        return ResponseEntity.ok(res);
+    }
+
+        // ═══════════════════════════════════════════════════════
+    // ADMIN — REVIEW MANAGEMENT
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * GET /api/flutter/admin/reviews
+     * Returns all reviews sorted newest-first.
+     * Response: { success, reviews: [{id, rating, comment, customerName,
+     *             productName, productId, createdAt}], count }
+     */
+    @GetMapping("/admin/reviews")
+    public ResponseEntity<Map<String, Object>> adminGetReviews(
+            jakarta.servlet.http.HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
+        }
+        List<Review> all = reviewRepository.findAll();
+        // Sort newest first (nulls last)
+        all.sort((a, b) -> {
+            if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+            if (a.getCreatedAt() == null) return 1;
+            if (b.getCreatedAt() == null) return -1;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+        List<Map<String, Object>> list = all.stream().map(r -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id",           r.getId());
+            m.put("rating",       r.getRating());
+            m.put("comment",      r.getComment());
+            m.put("customerName", r.getCustomerName());
+            m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
+            m.put("productId",    r.getProduct() != null ? r.getProduct().getId()   : null);
+            m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
+            return m;
+        }).collect(Collectors.toList());
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("reviews", list);
+        res.put("count",   list.size());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * DELETE /api/flutter/admin/reviews/{id}
+     * Deletes the review with the given id.
+     * AdminApp calls: DELETE /api/flutter/admin/reviews/{id}/delete
+     * (the trailing /delete segment is tolerated via the path variable below,
+     *  but AdminApp actually sends DELETE to .../reviews/{id}/delete — so we
+     *  register both paths to be safe.)
+     * Response: { success, message }
+     */
+    @DeleteMapping({"/admin/reviews/{id}", "/admin/reviews/{id}/delete"})
+    public ResponseEntity<Map<String, Object>> adminDeleteReview(
+            @PathVariable int id,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
+        }
+        if (!reviewRepository.existsById(id)) {
+            return ResponseEntity.status(404)
+                    .body(Map.of("success", false, "message", "Review not found"));
+        }
+        reviewRepository.deleteById(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Review deleted"));
+    }
+
+    // ═══════════════════════════════════════════════════════
     // ADMIN — REFUND MANAGEMENT
     // ═══════════════════════════════════════════════════════
 
@@ -2102,7 +2352,13 @@ public class FlutterApiController {
      * AdminApp filters by r.status === "PENDING" for the pending badge count.
      */
     @GetMapping("/admin/refunds")
-    public ResponseEntity<Map<String, Object>> adminGetRefunds() {
+    public ResponseEntity<Map<String, Object>> adminGetRefunds(
+            jakarta.servlet.http.HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
+        }
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
                 .map(r -> {
@@ -2130,63 +2386,48 @@ public class FlutterApiController {
     /**
      * POST /api/flutter/admin/refunds/{id}/approve
      * Approves a pending refund and marks the order as REFUNDED.
+     * Delegates to RefundService which handles status update, order flag clearing,
+     * and customer notification in one place.
      */
     @PostMapping("/admin/refunds/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveRefund(@PathVariable int id) {
-        Map<String, Object> res = new HashMap<>();
-        Refund refund = refundRepository.findById(id).orElse(null);
-        if (refund == null) { res.put("success", false); res.put("message", "Refund not found"); return ResponseEntity.status(404).body(res); }
-        if (refund.getStatus() != RefundStatus.PENDING) { res.put("success", false); res.put("message", "Refund has already been processed"); return ResponseEntity.badRequest().body(res); }
-
-        refund.setStatus(RefundStatus.APPROVED);
-        refund.setProcessedAt(java.time.LocalDateTime.now());
-        refund.setProcessedBy(adminEmail);
-        refundRepository.save(refund);
-
-        Order order = refund.getOrder();
-        if (order != null) {
-            order.setTrackingStatus(TrackingStatus.REFUNDED);
-            order.setReplacementRequested(false);
-            orderRepository.save(order);
+    public ResponseEntity<Map<String, Object>> adminApproveRefund(
+            @PathVariable int id,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
-
-        res.put("success", true);
-        res.put("message", "Refund approved for Order #" + (order != null ? order.getId() : id));
-        return ResponseEntity.ok(res);
+        Map<String, Object> result = refundService.approveRefund(id, adminEmail);
+        boolean success = Boolean.TRUE.equals(result.get("success"));
+        return success
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.badRequest().body(result);
     }
 
     /**
      * POST /api/flutter/admin/refunds/{id}/reject
      * Body: { reason }
      * Rejects a pending refund with a mandatory reason.
+     * Delegates to RefundService which handles status update, reason persistence,
+     * order flag clearing, and customer notification in one place.
      */
     @PostMapping("/admin/refunds/{id}/reject")
     public ResponseEntity<Map<String, Object>> adminRejectRefund(
             @PathVariable int id,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        Refund refund = refundRepository.findById(id).orElse(null);
-        if (refund == null) { res.put("success", false); res.put("message", "Refund not found"); return ResponseEntity.status(404).body(res); }
-        if (refund.getStatus() != RefundStatus.PENDING) { res.put("success", false); res.put("message", "Refund has already been processed"); return ResponseEntity.badRequest().body(res); }
-
-        String reason = body.getOrDefault("reason", "").toString().trim();
-        if (reason.isEmpty()) { res.put("success", false); res.put("message", "Rejection reason is required"); return ResponseEntity.badRequest().body(res); }
-
-        refund.setStatus(RefundStatus.REJECTED);
-        refund.setRejectionReason(reason);
-        refund.setProcessedAt(java.time.LocalDateTime.now());
-        refund.setProcessedBy(adminEmail);
-        refundRepository.save(refund);
-
-        Order order = refund.getOrder();
-        if (order != null) {
-            order.setReplacementRequested(false);
-            orderRepository.save(order);
+            @RequestBody Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
-
-        res.put("success", true);
-        res.put("message", "Refund rejected for Order #" + (order != null ? order.getId() : id));
-        return ResponseEntity.ok(res);
+        String reason = body.getOrDefault("reason", "").toString().trim();
+        Map<String, Object> result = refundService.rejectRefund(id, reason, adminEmail);
+        boolean success = Boolean.TRUE.equals(result.get("success"));
+        return success
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.badRequest().body(result);
     }
 
     // ═══════════════════════════════════════════════════════
