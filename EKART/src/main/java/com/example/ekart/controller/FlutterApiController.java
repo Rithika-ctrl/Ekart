@@ -227,7 +227,11 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 
-    @Autowired private DeliveryBoyRepository deliveryBoyRepository;
+    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
+    @Autowired private WarehouseRepository                warehouseRepository;
+    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
+    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
+    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
 
     /**
      * POST /api/flutter/auth/delivery/login
@@ -297,6 +301,92 @@ public class FlutterApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Login failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /**
+     * GET /api/flutter/auth/delivery/warehouses  (public — no auth required)
+     * Returns active warehouses for the delivery registration warehouse dropdown.
+     */
+    @GetMapping("/auth/delivery/warehouses")
+    public ResponseEntity<Map<String, Object>> deliveryRegisterWarehouses() {
+        Map<String, Object> res = new HashMap<>();
+        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Warehouse wh : warehouses) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id",   wh.getId());
+            m.put("name", wh.getName());
+            m.put("city", wh.getCity());
+            list.add(m);
+        }
+        res.put("success",    true);
+        res.put("warehouses", list);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/auth/delivery/register
+     * Body: { name, email, mobile, password, confirmPassword, warehouseId }
+     * Mirrors DeliveryBoyService.selfRegister() but returns JSON.
+     * On success: account created, OTP emailed, pending admin approval.
+     * Returns: { success, message }
+     */
+    @PostMapping("/auth/delivery/register")
+    public ResponseEntity<Map<String, Object>> deliveryRegister(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String name            = ((String) body.getOrDefault("name",            "")).trim();
+            String email           = ((String) body.getOrDefault("email",           "")).trim().toLowerCase();
+            String password        = ((String) body.getOrDefault("password",        "")).trim();
+            String confirmPassword = ((String) body.getOrDefault("confirmPassword", "")).trim();
+            String mobileStr       = body.getOrDefault("mobile", "").toString().trim();
+            int warehouseId;
+            try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
+            catch (NumberFormatException e) { warehouseId = 0; }
+
+            if (name.length() < 3)                    { res.put("success", false); res.put("message", "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
+            if (!email.contains("@"))                  { res.put("success", false); res.put("message", "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
+            if (deliveryBoyRepository.existsByEmail(email)) { res.put("success", false); res.put("message", "This email is already registered"); return ResponseEntity.badRequest().body(res); }
+            if (!password.equals(confirmPassword))     { res.put("success", false); res.put("message", "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
+            if (password.length() < 6)                 { res.put("success", false); res.put("message", "Password must be at least 6 characters"); return ResponseEntity.badRequest().body(res); }
+            if (warehouseId <= 0)                      { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
+
+            long mobile;
+            try { mobile = Long.parseLong(mobileStr); }
+            catch (NumberFormatException e) { res.put("success", false); res.put("message", "Enter a valid 10-digit mobile number"); return ResponseEntity.badRequest().body(res); }
+
+            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+            if (warehouse == null) { res.put("success", false); res.put("message", "Selected warehouse not found"); return ResponseEntity.badRequest().body(res); }
+
+            DeliveryBoy db = new DeliveryBoy();
+            db.setName(name);
+            db.setEmail(email);
+            db.setMobile(mobile);
+            db.setPassword(AES.encrypt(password));
+            db.setVerified(false);
+            db.setAdminApproved(false);
+            db.setActive(true);
+            db.setWarehouse(warehouse);
+            db.setAssignedPinCodes("");
+
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            db.setOtp(otp);
+            deliveryBoyRepository.save(db);
+            db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
+            deliveryBoyRepository.save(db);
+
+            try { emailSender.sendDeliveryBoyOtp(db); }
+            catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Registration failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1437,6 +1527,73 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 
+    /**
+     * POST /api/flutter/vendor/orders/{orderId}/mark-packed
+     *
+     * Marks an order as PACKED (vendor has physically packed the items,
+     * ready for courier pickup). Only succeeds when the order contains at
+     * least one product belonging to this vendor.
+     *
+     * Request headers: X-Vendor-Id  (set automatically by apiFetch for VENDOR role)
+     * Path variable  : orderId
+     * Response body  : { success, message, orderId, newStatus }
+     */
+    @PostMapping("/vendor/orders/{orderId}/mark-packed")
+    public ResponseEntity<Map<String, Object>> vendorMarkOrderPacked(
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @PathVariable int orderId) {
+        Map<String, Object> res = new HashMap<>();
+
+        // 1. Validate vendor
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) {
+            res.put("success", false);
+            res.put("message", "Vendor not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // 2. Validate order
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        // 3. Confirm the order contains at least one product owned by this vendor
+        List<Integer> vendorProductIds = productRepository.findByVendor(vendor)
+                .stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        boolean hasVendorItem = order.getItems().stream()
+                .anyMatch(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()));
+
+        if (!hasVendorItem) {
+            res.put("success", false);
+            res.put("message", "This order does not contain any of your products");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        // 4. Reject if already past PACKED (can't go backwards)
+        TrackingStatus current = order.getTrackingStatus();
+        if (current != null && current.getStepIndex() > TrackingStatus.PACKED.getStepIndex()) {
+            res.put("success", false);
+            res.put("message", "Order is already " + current.getDisplayName() + " — cannot revert to Packed");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // 5. Update status and persist
+        order.setTrackingStatus(TrackingStatus.PACKED);
+        orderRepository.save(order);
+
+        res.put("success", true);
+        res.put("message", "Order marked as packed");
+        res.put("orderId", orderId);
+        res.put("newStatus", TrackingStatus.PACKED.name());
+        return ResponseEntity.ok(res);
+    }
+
     /** GET /api/flutter/vendor/stats */
     @GetMapping("/vendor/stats")
     public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader("X-Vendor-Id") int vendorId) {
@@ -1839,6 +1996,200 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
+    // ADMIN — COUPON MANAGEMENT
+    // ═══════════════════════════════════════════════════════
+
+    /** GET /api/flutter/admin/coupons — all coupons with stats */
+    @GetMapping("/admin/coupons")
+    public ResponseEntity<Map<String, Object>> adminGetCoupons() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc().stream().map(c -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id",             c.getId());
+            m.put("code",           c.getCode());
+            m.put("description",    c.getDescription());
+            m.put("type",           c.getType() != null ? c.getType().name() : null);
+            m.put("typeLabel",      c.getTypeLabel());
+            m.put("value",          c.getValue());
+            m.put("minOrderAmount", c.getMinOrderAmount());
+            m.put("maxDiscount",    c.getMaxDiscount());
+            m.put("usageLimit",     c.getUsageLimit());
+            m.put("usedCount",      c.getUsedCount());
+            m.put("active",         c.isActive());
+            m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true);
+        res.put("coupons", list);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/coupons/create
+     * Body: { code, description, type, value, minOrderAmount, maxDiscount, usageLimit, expiryDate }
+     * type defaults to "PERCENT" if omitted.
+     */
+    @PostMapping("/admin/coupons/create")
+    public ResponseEntity<Map<String, Object>> adminCreateCoupon(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        String code = body.getOrDefault("code", "").toString().toUpperCase().trim();
+        if (code.isEmpty()) { res.put("success", false); res.put("message", "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
+        if (couponRepository.findByCode(code).isPresent()) {
+            res.put("success", false); res.put("message", "Coupon code '" + code + "' already exists");
+            return ResponseEntity.badRequest().body(res);
+        }
+        double value;
+        try { value = Double.parseDouble(body.getOrDefault("value", "0").toString()); }
+        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid discount value"); return ResponseEntity.badRequest().body(res); }
+
+        Coupon coupon = new Coupon();
+        coupon.setCode(code);
+        coupon.setDescription(body.getOrDefault("description", "").toString());
+        coupon.setValue(value);
+        coupon.setActive(true);
+        try { coupon.setMinOrderAmount(Double.parseDouble(body.getOrDefault("minOrderAmount", "0").toString())); } catch (Exception ignored) {}
+        try { coupon.setMaxDiscount(Double.parseDouble(body.getOrDefault("maxDiscount", "0").toString())); } catch (Exception ignored) {}
+        try { coupon.setUsageLimit(Integer.parseInt(body.getOrDefault("usageLimit", "0").toString())); } catch (Exception ignored) {}
+        try {
+            String typeStr = body.getOrDefault("type", "PERCENT").toString().toUpperCase();
+            coupon.setType(Coupon.CouponType.valueOf(typeStr));
+        } catch (Exception e) { coupon.setType(Coupon.CouponType.PERCENT); }
+        try {
+            String expiry = body.getOrDefault("expiryDate", "").toString();
+            if (!expiry.isBlank()) coupon.setExpiryDate(java.time.LocalDate.parse(expiry));
+        } catch (Exception ignored) {}
+
+        couponRepository.save(coupon);
+        res.put("success", true);
+        res.put("message", "Coupon '" + coupon.getCode() + "' created successfully");
+        res.put("id", coupon.getId());
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/coupons/{id}/toggle — flip active flag */
+    @PostMapping("/admin/coupons/{id}/toggle")
+    public ResponseEntity<Map<String, Object>> adminToggleCoupon(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Coupon coupon = couponRepository.findById(id).orElse(null);
+        if (coupon == null) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
+        coupon.setActive(!coupon.isActive());
+        couponRepository.save(coupon);
+        res.put("success", true);
+        res.put("message", coupon.isActive() ? "Coupon enabled" : "Coupon disabled");
+        res.put("active", coupon.isActive());
+        return ResponseEntity.ok(res);
+    }
+
+    /** DELETE /api/flutter/admin/coupons/{id}/delete */
+    @DeleteMapping("/admin/coupons/{id}/delete")
+    public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        if (!couponRepository.existsById(id)) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
+        couponRepository.deleteById(id);
+        res.put("success", true);
+        res.put("message", "Coupon deleted");
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ADMIN — REFUND MANAGEMENT
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * GET /api/flutter/admin/refunds
+     * Returns ALL refunds (pending + processed) so AdminApp can filter client-side.
+     * AdminApp filters by r.status === "PENDING" for the pending badge count.
+     */
+    @GetMapping("/admin/refunds")
+    public ResponseEntity<Map<String, Object>> adminGetRefunds() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
+                .map(r -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id",              r.getId());
+                    m.put("orderId",         r.getOrder() != null ? r.getOrder().getId() : null);
+                    m.put("customerName",    r.getCustomer() != null ? r.getCustomer().getName() : null);
+                    m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
+                    m.put("amount",          r.getAmount());
+                    m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
+                    m.put("reason",          r.getReason());
+                    m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
+                    m.put("statusDisplay",   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
+                    m.put("requestedAt",     r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+                    m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
+                    m.put("processedBy",     r.getProcessedBy());
+                    m.put("rejectionReason", r.getRejectionReason());
+                    return m;
+                }).collect(Collectors.toList());
+        res.put("success", true);
+        res.put("refunds", list);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/refunds/{id}/approve
+     * Approves a pending refund and marks the order as REFUNDED.
+     */
+    @PostMapping("/admin/refunds/{id}/approve")
+    public ResponseEntity<Map<String, Object>> adminApproveRefund(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Refund refund = refundRepository.findById(id).orElse(null);
+        if (refund == null) { res.put("success", false); res.put("message", "Refund not found"); return ResponseEntity.status(404).body(res); }
+        if (refund.getStatus() != RefundStatus.PENDING) { res.put("success", false); res.put("message", "Refund has already been processed"); return ResponseEntity.badRequest().body(res); }
+
+        refund.setStatus(RefundStatus.APPROVED);
+        refund.setProcessedAt(java.time.LocalDateTime.now());
+        refund.setProcessedBy(adminEmail);
+        refundRepository.save(refund);
+
+        Order order = refund.getOrder();
+        if (order != null) {
+            order.setTrackingStatus(TrackingStatus.REFUNDED);
+            order.setReplacementRequested(false);
+            orderRepository.save(order);
+        }
+
+        res.put("success", true);
+        res.put("message", "Refund approved for Order #" + (order != null ? order.getId() : id));
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/refunds/{id}/reject
+     * Body: { reason }
+     * Rejects a pending refund with a mandatory reason.
+     */
+    @PostMapping("/admin/refunds/{id}/reject")
+    public ResponseEntity<Map<String, Object>> adminRejectRefund(
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Refund refund = refundRepository.findById(id).orElse(null);
+        if (refund == null) { res.put("success", false); res.put("message", "Refund not found"); return ResponseEntity.status(404).body(res); }
+        if (refund.getStatus() != RefundStatus.PENDING) { res.put("success", false); res.put("message", "Refund has already been processed"); return ResponseEntity.badRequest().body(res); }
+
+        String reason = body.getOrDefault("reason", "").toString().trim();
+        if (reason.isEmpty()) { res.put("success", false); res.put("message", "Rejection reason is required"); return ResponseEntity.badRequest().body(res); }
+
+        refund.setStatus(RefundStatus.REJECTED);
+        refund.setRejectionReason(reason);
+        refund.setProcessedAt(java.time.LocalDateTime.now());
+        refund.setProcessedBy(adminEmail);
+        refundRepository.save(refund);
+
+        Order order = refund.getOrder();
+        if (order != null) {
+            order.setReplacementRequested(false);
+            orderRepository.save(order);
+        }
+
+        res.put("success", true);
+        res.put("message", "Refund rejected for Order #" + (order != null ? order.getId() : id));
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
     // NEW ENDPOINTS — Reorder, Password Change, Vendor Profile,
     // Stock Alerts
     // ═══════════════════════════════════════════════════════
@@ -1931,6 +2282,7 @@ public class FlutterApiController {
         v.put("id", vendor.getId()); v.put("name", vendor.getName());
         v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
         v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
+        v.put("description", vendor.getDescription());
         res.put("success", true); res.put("vendor", v);
         return ResponseEntity.ok(res);
     }
@@ -1954,6 +2306,67 @@ public class FlutterApiController {
         vendorRepository.save(vendor);
         res.put("success", true); res.put("message", "Profile updated successfully");
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * PUT /api/flutter/vendor/storefront/update
+     * Header: X-Vendor-Id
+     * Body: { name, description }
+     *
+     * Updates the vendor's public storefront details. Only non-blank values
+     * are applied so partial updates are safe (e.g. updating name only).
+     */
+    @PutMapping("/vendor/storefront/update")
+    public ResponseEntity<Map<String, Object>> updateVendorStorefront(
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) {
+            res.put("success", false);
+            res.put("message", "Vendor not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (body.containsKey("name")) {
+            String name = ((String) body.get("name")).trim();
+            if (!name.isBlank()) vendor.setName(name);
+        }
+        if (body.containsKey("description")) {
+            // Allow empty string to clear the description
+            vendor.setDescription((String) body.get("description"));
+        }
+        vendorRepository.save(vendor);
+        res.put("success", true);
+        res.put("message", "Storefront updated successfully");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * PUT /api/flutter/vendor/profile/change-password
+     * Header: X-Vendor-Id
+     * Body: { currentPassword, newPassword }
+     */
+    @PutMapping("/vendor/profile/change-password")
+    public ResponseEntity<Map<String, Object>> vendorChangePassword(
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        String current = (String) body.get("currentPassword");
+        String newPwd  = (String) body.get("newPassword");
+        if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        try {
+            if (!AES.decrypt(vendor.getPassword()).equals(current)) {
+                res.put("success", false); res.put("message", "Current password is incorrect");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
+            vendor.setPassword(AES.encrypt(newPwd));
+            vendorRepository.save(vendor);
+            res.put("success", true); res.put("message", "Password changed successfully");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /**
@@ -2068,6 +2481,278 @@ public class FlutterApiController {
      * Builds the personalised context block for a customer —
      * mirrors the "customer" case in ChatController.buildContext().
      */
+    // ═══════════════════════════════════════════════════════════════════
+    // DELIVERY BOY — Flutter API  (X-Delivery-Id header)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * GET /api/flutter/delivery/profile
+     * Returns the delivery boy's profile including warehouse and assigned pin codes.
+     */
+    @GetMapping("/delivery/profile")
+    public ResponseEntity<Map<String, Object>> deliveryProfile(
+            @RequestHeader("X-Delivery-Id") int deliveryId) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("id",               db.getId());
+        profile.put("name",             db.getName());
+        profile.put("email",            db.getEmail());
+        profile.put("mobile",           db.getMobile());
+        profile.put("deliveryBoyCode",  db.getDeliveryBoyCode());
+        profile.put("assignedPinCodes", db.getAssignedPinCodes());
+        profile.put("active",           db.isActive());
+        profile.put("adminApproved",    db.isAdminApproved());
+
+        if (db.getWarehouse() != null) {
+            Warehouse wh = db.getWarehouse();
+            Map<String, Object> w = new HashMap<>();
+            w.put("id",            wh.getId());
+            w.put("name",          wh.getName());
+            w.put("city",          wh.getCity());
+            w.put("state",         wh.getState());
+            w.put("warehouseCode", wh.getWarehouseCode());
+            profile.put("warehouse", w);
+        } else {
+            profile.put("warehouse", null);
+        }
+
+        res.put("success", true);
+        res.put("deliveryBoy", profile);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/flutter/delivery/orders
+     * Returns orders assigned to this delivery boy split into three lists:
+     *   toPickUp  — status SHIPPED  (needs to be picked up from warehouse)
+     *   outNow    — status OUT_FOR_DELIVERY (currently en route)
+     *   delivered — status DELIVERED (completed today/recently)
+     */
+    @GetMapping("/delivery/orders")
+    public ResponseEntity<Map<String, Object>> deliveryOrders(
+            @RequestHeader("X-Delivery-Id") int deliveryId) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        List<Order> allAssigned = orderRepository.findByDeliveryBoy(db);
+
+        List<Map<String, Object>> toPickUp  = new ArrayList<>();
+        List<Map<String, Object>> outNow    = new ArrayList<>();
+        List<Map<String, Object>> delivered = new ArrayList<>();
+
+        for (Order o : allAssigned) {
+            TrackingStatus s = o.getTrackingStatus();
+            Map<String, Object> m = mapDeliveryOrder(o);
+            if (s == TrackingStatus.SHIPPED)               toPickUp.add(m);
+            else if (s == TrackingStatus.OUT_FOR_DELIVERY) outNow.add(m);
+            else if (s == TrackingStatus.DELIVERED)        delivered.add(m);
+        }
+
+        res.put("success",   true);
+        res.put("toPickUp",  toPickUp);
+        res.put("outNow",    outNow);
+        res.put("delivered", delivered);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/delivery/orders/{id}/pickup
+     * Marks the order as OUT_FOR_DELIVERY and emails the customer a delivery OTP.
+     */
+    @PostMapping("/delivery/orders/{id}/pickup")
+    public ResponseEntity<Map<String, Object>> deliveryPickup(
+            @RequestHeader("X-Delivery-Id") int deliveryId,
+            @PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false); res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+        if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
+            res.put("success", false);
+            res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        String city = db.getWarehouse() != null ? db.getWarehouse().getCity() : "Warehouse";
+        order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
+        order.setCurrentCity("On the way — " + city);
+        orderRepository.save(order);
+
+        trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.OUT_FOR_DELIVERY,
+                "On the way — " + city,
+                "Parcel picked up by delivery boy " + db.getName(), "delivery_boy"));
+
+        int otp = new java.util.Random().nextInt(100000, 1000000);
+        deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
+        deliveryOtpRepository.save(new DeliveryOtp(order, otp));
+
+        try { emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId()); }
+        catch (Exception e) { System.err.println("Delivery OTP email failed: " + e.getMessage()); }
+
+        res.put("success", true);
+        res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/delivery/orders/{id}/deliver
+     * Body: { otp }
+     * Verifies customer OTP and marks the order as DELIVERED.
+     */
+    @PostMapping("/delivery/orders/{id}/deliver")
+    public ResponseEntity<Map<String, Object>> deliveryConfirm(
+            @RequestHeader("X-Delivery-Id") int deliveryId,
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false); res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+        if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
+            res.put("success", false); res.put("message", "Order is not out for delivery");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        int submittedOtp;
+        try { submittedOtp = Integer.parseInt(body.getOrDefault("otp", "").toString().trim()); }
+        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid OTP format"); return ResponseEntity.badRequest().body(res); }
+
+        DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
+        if (deliveryOtp == null)   { res.put("success", false); res.put("message", "No OTP found for this order"); return ResponseEntity.badRequest().body(res); }
+        if (deliveryOtp.isUsed())  { res.put("success", false); res.put("message", "OTP already used"); return ResponseEntity.badRequest().body(res); }
+        if (deliveryOtp.getOtp() != submittedOtp) { res.put("success", false); res.put("message", "Wrong OTP. Ask customer for the correct OTP."); return ResponseEntity.badRequest().body(res); }
+
+        deliveryOtp.setUsed(true);
+        deliveryOtp.setUsedAt(java.time.LocalDateTime.now());
+        deliveryOtpRepository.save(deliveryOtp);
+
+        order.setTrackingStatus(TrackingStatus.DELIVERED);
+        order.setCurrentCity("Delivered");
+        orderRepository.save(order);
+
+        trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.DELIVERED,
+                "Delivered to customer",
+                "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy"));
+
+        try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
+        catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
+
+        res.put("success", true);
+        res.put("message", "Order #" + id + " marked as Delivered!");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/flutter/delivery/warehouses
+     * Returns all active warehouses for the transfer-request dropdown.
+     */
+    @GetMapping("/delivery/warehouses")
+    public ResponseEntity<Map<String, Object>> deliveryWarehouses(
+            @RequestHeader("X-Delivery-Id") int deliveryId) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Warehouse wh : warehouses) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id",            wh.getId());
+            m.put("name",          wh.getName());
+            m.put("city",          wh.getCity());
+            m.put("state",         wh.getState());
+            m.put("warehouseCode", wh.getWarehouseCode());
+            list.add(m);
+        }
+        res.put("success",    true);
+        res.put("warehouses", list);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/delivery/transfer-request
+     * Body: { warehouseId }
+     * Submits a warehouse transfer request for admin approval.
+     * Only one pending request allowed at a time.
+     */
+    @PostMapping("/delivery/transfer-request")
+    public ResponseEntity<Map<String, Object>> deliveryTransferRequest(
+            @RequestHeader("X-Delivery-Id") int deliveryId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        int warehouseId;
+        try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
+        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
+
+        if (warehouseId <= 0) { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
+
+        // One pending request at a time
+        java.util.Optional<WarehouseChangeRequest> existing =
+                warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
+        if (existing.isPresent()) {
+            res.put("success", false);
+            res.put("message", "You already have a pending transfer request. Please wait for admin to review it.");
+            return ResponseEntity.ok(res);
+        }
+
+        Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
+        if (requested == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
+
+        if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
+            res.put("success", false); res.put("message", "You are already assigned to this warehouse");
+            return ResponseEntity.ok(res);
+        }
+
+        WarehouseChangeRequest req = new WarehouseChangeRequest();
+        req.setDeliveryBoy(db);
+        req.setRequestedWarehouse(requested);
+        req.setReason(body.containsKey("reason") ? (String) body.get("reason") : "");
+        req.setStatus(WarehouseChangeRequest.Status.PENDING);
+        req.setRequestedAt(java.time.LocalDateTime.now());
+        warehouseChangeRequestRepository.save(req);
+
+        res.put("success", true);
+        res.put("message", "Transfer request submitted. Admin will review it shortly.");
+        return ResponseEntity.ok(res);
+    }
+
+    /** Helper — maps an Order to a flat map for delivery-boy API responses */
+    private Map<String, Object> mapDeliveryOrder(Order o) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",              o.getId());
+        m.put("status",          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
+        m.put("statusDisplay",   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
+        m.put("currentCity",     o.getCurrentCity());
+        m.put("deliveryAddress", o.getDeliveryAddress());
+        m.put("totalAmount",     o.getAmount());
+        m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
+        // Customer name for the delivery boy to know who they're delivering to
+        m.put("customerName",    o.getCustomer() != null ? o.getCustomer().getName() : null);
+        // Item count summary
+        m.put("itemCount",       o.getItems() != null ? o.getItems().size() : 0);
+        return m;
+    }
+
+
     private String buildCustomerContext(Customer c) {
         StringBuilder ctx = new StringBuilder();
         ctx.append("=== CUSTOMER DATA ===\n");

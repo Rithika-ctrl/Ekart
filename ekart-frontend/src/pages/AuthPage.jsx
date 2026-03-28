@@ -61,12 +61,22 @@ export default function AuthPage() {
    */
   const [rememberMe, setRememberMe] = useState(true);
   const [timer, setTimer] = useState(120);
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouseId, setWarehouseId] = useState("");
   const otpRefs = useRef([]);
   const timerRef = useRef(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const clear = () => { setError(""); setInfo(""); };
   const fmtTimer = t => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (role === "delivery" && screen === "register" && warehouses.length === 0) {
+      fetch(`${API_BASE}/auth/delivery/warehouses`).then(r => r.json()).then(d => {
+        if (d.success) setWarehouses(d.warehouses || []);
+      }).catch(() => {});
+    }
+  }, [role, screen]);
 
   useEffect(() => {
     if (screen === "otp") {
@@ -101,9 +111,16 @@ export default function AuthPage() {
     if (form.password !== form.confirmPassword) { setError("Passwords don't match"); return; }
     setLoading(true);
     try {
-      const data = await post(`/auth/${role}/register`, { name: form.name, email: form.email, password: form.password, mobile: form.mobile });
+      const body = { name: form.name, email: form.email, password: form.password, confirmPassword: form.confirmPassword, mobile: form.mobile };
+      if (role === "delivery") body.warehouseId = parseInt(warehouseId) || 0;
+      const data = await post(`/auth/${role}/register`, body);
       if (!data.success) { setError(data.message || "Registration failed"); setLoading(false); return; }
-      setInfo("Registered! Please sign in."); setScreen("login");
+      if (role === "delivery") {
+        setInfo(data.message || "Account created! Awaiting email verification and admin approval.");
+        setScreen("login");
+      } else {
+        setInfo("Registered! Please sign in."); setScreen("login");
+      }
     } catch { setError("Network error."); }
     setLoading(false);
   }
@@ -191,7 +208,7 @@ export default function AuthPage() {
           )}
 
           {/* Login / Register tabs */}
-          {["login", "register"].includes(screen) && role !== "admin" && role !== "delivery" && (
+          {["login", "register"].includes(screen) && role !== "admin" && (
             <div className="auth-tabs">
               <button className={`auth-tab${screen === "login" ? " active" : ""}`} onClick={() => { setScreen("login"); clear(); }}>Sign In</button>
               <button className={`auth-tab${screen === "register" ? " active" : ""}`} onClick={() => { setScreen("register"); clear(); }}>Register</button>
@@ -248,6 +265,15 @@ export default function AuthPage() {
               <div className="form-group"><label className="form-label">Mobile</label><input className="form-input" placeholder="9876543210" value={form.mobile} onChange={e => set("mobile", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required /></div>
+              {role === "delivery" && (
+                <div className="form-group">
+                  <label className="form-label">Select Warehouse</label>
+                  <select className="form-input" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
+                    <option value="">Select your warehouse…</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} — {w.city}</option>)}
+                  </select>
+                </div>
+              )}
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Creating account…" : `Register as ${role}`}</button>
               {(role === "customer" || role === "vendor") && (
                 <>
