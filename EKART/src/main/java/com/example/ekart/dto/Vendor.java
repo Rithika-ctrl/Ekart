@@ -62,6 +62,10 @@ public class Vendor implements Serializable {
 	@Column(unique = true, nullable = true)
 	private String vendorCode;
 
+	// Storefront description shown on vendor's public store page
+	@Column(nullable = true, columnDefinition = "TEXT")
+	private String description;
+
 	// ── Getters & Setters ──────────────────────────────────────
 	public int getId() { return id; }
 	public void setId(int id) { this.id = id; }
@@ -96,4 +100,7 @@ public class Vendor implements Serializable {
 	// 🔥 NEW
 	public String getVendorCode() { return vendorCode; }
 	public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
+
+	public String getDescription() { return description; }
+	public void setDescription(String description) { this.description = description; }
 }
