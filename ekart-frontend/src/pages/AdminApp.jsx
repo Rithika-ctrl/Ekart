@@ -930,7 +930,7 @@ function AccountsAdmin() {
     try {
       const res = await fetch(`/api/admin/accounts/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}` },
         body: JSON.stringify({ isActive: activate }),
       });
       const d = await res.json();
@@ -941,7 +941,7 @@ function AccountsAdmin() {
 
   const resetPassword = async (id) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}/reset-password`, { method: "POST" });
+      const res = await fetch(`/api/admin/accounts/${id}/reset-password`, { method: "POST", headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
       const d = await res.json();
       if (d.success) setModal({ type: "reset", data: d });
       else show(d.message || "Error");
@@ -950,7 +950,7 @@ function AccountsAdmin() {
 
   const deleteAccount = async (id) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/accounts/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
       const d = await res.json();
       if (d.success) { show("Account deleted"); setModal(null); load(q); }
       else show(d.message || "Error");
@@ -959,7 +959,7 @@ function AccountsAdmin() {
 
   const viewProfile = async (id) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}/profile`);
+      const res = await fetch(`/api/admin/accounts/${id}/profile`, { headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
       const d = await res.json();
       if (d.error) { show(d.error); return; }
       setModal({ type: "profile", data: d });
@@ -1162,13 +1162,13 @@ function ContentAdmin() {
     setLoading(true);
     try {
       // Backend exposes banners via the Thymeleaf page; fetch via the JSON-friendly generic endpoint
-      const res = await fetch("/api/admin/accounts/stats"); // ping to confirm auth
+      const res = await fetch("/api/admin/accounts/stats", { headers: { "Authorization": `Bearer ${auth?.token || ""}` } }); // ping to confirm auth
       // Use the admin content page data via a lightweight fetch
       const r2 = await fetch("/admin/content", { headers: { Accept: "application/json, text/html" } });
       // Since no dedicated JSON endpoint exists, we parse the page or use an iframe-free approach.
       // Instead, call the flutter-compatible endpoint if available, else fall back to HTML scraping.
       // Best approach: expose via /api/flutter/admin/banners — check if it exists
-      const r3 = await fetch("/api/flutter/admin/banners");
+      const r3 = await fetch("/api/flutter/admin/banners", { headers: { "Authorization": `Bearer ${auth?.token || ""}`, "Content-Type": "application/json" } });
       if (r3.ok) {
         const d = await r3.json();
         if (d.success) { setBanners(d.banners || []); setLoading(false); return; }
@@ -1542,7 +1542,7 @@ function SecurityAdmin() {
       // and updates the in-memory field immediately without a restart.
       const res = await fetch("/api/flutter/admin/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}` },
         body: JSON.stringify({ currentPassword: current, newPassword: npass, confirmPassword: confirm }),
       });
       const d = await res.json();

@@ -10,6 +10,7 @@ import com.example.ekart.service.RefundService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -80,6 +81,24 @@ public class FlutterApiController {
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
     // ═══════════════════════════════════════════════════════
+
+    
+    // ── Admin role guard ─────────────────────────────────────────────────────
+    /**
+     * Defence-in-depth check: rejects non-ADMIN callers at the controller level.
+     * Primary enforcement is in FlutterAuthFilter (role check on /admin/**).
+     * Returns a 403 ResponseEntity when the caller is not ADMIN, null otherwise.
+     */
+    private ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest request) {
+        String role = (String) request.getAttribute("flutter.role");
+        if (!"ADMIN".equals(role)) {
+            Map<String, Object> err = new java.util.HashMap<>();
+            err.put("success", false);
+            err.put("message", "Admin access required");
+            return ResponseEntity.status(403).body(err);
+        }
+        return null;
+    }
 
     /** POST /api/flutter/auth/customer/register */
     @PostMapping("/auth/customer/register")
@@ -1874,7 +1893,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/admin/users — returns all customers + vendors */
     @GetMapping("/admin/users")
-    public ResponseEntity<Map<String, Object>> adminGetUsers() {
+    public ResponseEntity<Map<String, Object>> adminGetUsers(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
@@ -1895,7 +1916,9 @@ public class FlutterApiController {
 
     /** POST /api/flutter/admin/customers/{id}/toggle-active */
     @PostMapping("/admin/customers/{id}/toggle-active")
-    public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Customer c = customerRepository.findById(id).orElse(null);
         if (c == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
@@ -1907,7 +1930,9 @@ public class FlutterApiController {
 
     /** POST /api/flutter/admin/vendors/{id}/toggle-active */
     @PostMapping("/admin/vendors/{id}/toggle-active")
-    public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Vendor v = vendorRepository.findById(id).orElse(null);
         if (v == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
@@ -1919,7 +1944,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/admin/products — returns all products with approval status */
     @GetMapping("/admin/products")
-    public ResponseEntity<Map<String, Object>> adminGetProducts() {
+    public ResponseEntity<Map<String, Object>> adminGetProducts(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> products = productRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
@@ -1930,7 +1957,9 @@ public class FlutterApiController {
 
     /** POST /api/flutter/admin/products/{id}/approve */
     @PostMapping("/admin/products/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
         if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
@@ -1942,7 +1971,9 @@ public class FlutterApiController {
 
     /** POST /api/flutter/admin/products/{id}/reject */
     @PostMapping("/admin/products/{id}/reject")
-    public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
         if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
@@ -1954,7 +1985,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/admin/orders — all orders with customer info */
     @GetMapping("/admin/orders")
-    public ResponseEntity<Map<String, Object>> adminGetOrders() {
+    public ResponseEntity<Map<String, Object>> adminGetOrders(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
@@ -1967,7 +2000,10 @@ public class FlutterApiController {
     /** POST /api/flutter/admin/orders/{id}/status  body: { status } */
     @PostMapping("/admin/orders/{id}/status")
     public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
-            @PathVariable int id, @RequestBody Map<String, String> body) {
+            @PathVariable int id, @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
@@ -1985,7 +2021,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/admin/vendors — vendor list (alias of user list vendor section) */
     @GetMapping("/admin/vendors")
-    public ResponseEntity<Map<String, Object>> adminGetVendors() {
+    public ResponseEntity<Map<String, Object>> adminGetVendors(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
@@ -2004,7 +2042,9 @@ public class FlutterApiController {
 
     /** GET /api/flutter/admin/coupons — all coupons with stats */
     @GetMapping("/admin/coupons")
-    public ResponseEntity<Map<String, Object>> adminGetCoupons() {
+    public ResponseEntity<Map<String, Object>> adminGetCoupons(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
@@ -2034,7 +2074,10 @@ public class FlutterApiController {
      */
     @PostMapping("/admin/coupons/create")
     public ResponseEntity<Map<String, Object>> adminCreateCoupon(
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         String code = body.getOrDefault("code", "").toString().toUpperCase().trim();
         if (code.isEmpty()) { res.put("success", false); res.put("message", "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
@@ -2072,7 +2115,9 @@ public class FlutterApiController {
 
     /** POST /api/flutter/admin/coupons/{id}/toggle — flip active flag */
     @PostMapping("/admin/coupons/{id}/toggle")
-    public ResponseEntity<Map<String, Object>> adminToggleCoupon(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminToggleCoupon(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Coupon coupon = couponRepository.findById(id).orElse(null);
         if (coupon == null) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
@@ -2086,7 +2131,9 @@ public class FlutterApiController {
 
     /** DELETE /api/flutter/admin/coupons/{id}/delete */
     @DeleteMapping("/admin/coupons/{id}/delete")
-    public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id) {
+    public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         if (!couponRepository.existsById(id)) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
         couponRepository.deleteById(id);
@@ -2142,6 +2189,9 @@ public class FlutterApiController {
     @GetMapping("/admin/analytics")
     public ResponseEntity<Map<String, Object>> adminGetAnalytics(
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
 
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
@@ -2286,6 +2336,9 @@ public class FlutterApiController {
     @GetMapping("/admin/reviews")
     public ResponseEntity<Map<String, Object>> adminGetReviews(
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
@@ -2330,6 +2383,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminDeleteReview(
             @PathVariable int id,
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
@@ -2355,6 +2411,9 @@ public class FlutterApiController {
     @GetMapping("/admin/refunds")
     public ResponseEntity<Map<String, Object>> adminGetRefunds(
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
@@ -2394,6 +2453,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminApproveRefund(
             @PathVariable int id,
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
@@ -2418,6 +2480,9 @@ public class FlutterApiController {
             @PathVariable int id,
             @RequestBody Map<String, Object> body,
             jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
         String role = (String) request.getAttribute("flutter.role");
         if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
@@ -2445,7 +2510,9 @@ public class FlutterApiController {
      * the JWT and role before this method is reached.
      */
     @GetMapping("/admin/warehouses")
-    public ResponseEntity<Map<String, Object>> adminGetWarehouses() {
+    public ResponseEntity<Map<String, Object>> adminGetWarehouses(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<Warehouse> warehouses = warehouseRepository.findAll();
@@ -2487,7 +2554,10 @@ public class FlutterApiController {
      */
     @PostMapping("/admin/warehouses/add")
     public ResponseEntity<Map<String, Object>> adminAddWarehouse(
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String name           = body.getOrDefault("name",           "").toString().trim();
@@ -2541,7 +2611,9 @@ public class FlutterApiController {
      *   "UNVERIFIED"— verified=false (email OTP not yet confirmed)
      */
     @GetMapping("/admin/delivery-boys")
-    public ResponseEntity<Map<String, Object>> adminGetDeliveryBoys() {
+    public ResponseEntity<Map<String, Object>> adminGetDeliveryBoys(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<DeliveryBoy> boys = deliveryBoyRepository.findAll();
@@ -2616,7 +2688,10 @@ public class FlutterApiController {
     @PostMapping("/admin/delivery-boys/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveDeliveryBoy(
             @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String assignedPinCodes = (body != null)
@@ -2674,7 +2749,10 @@ public class FlutterApiController {
      */
     @GetMapping("/admin/warehouse-transfers")
     public ResponseEntity<Map<String, Object>> adminGetWarehouseTransfers(
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<WarehouseChangeRequest> requests;
@@ -2762,7 +2840,10 @@ public class FlutterApiController {
     @PostMapping("/admin/warehouse-transfers/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveWarehouseTransfer(
             @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
@@ -2822,7 +2903,10 @@ public class FlutterApiController {
     @PostMapping("/admin/warehouse-transfers/{id}/reject")
     public ResponseEntity<Map<String, Object>> adminRejectWarehouseTransfer(
             @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
@@ -2885,7 +2969,10 @@ public class FlutterApiController {
     @GetMapping("/admin/users/search")
     public ResponseEntity<Map<String, Object>> adminSearchUsers(
             @RequestParam(name = "q", defaultValue = "") String q,
-            @RequestParam(name = "type", defaultValue = "") String type) {
+            @RequestParam(name = "type", defaultValue = "") String type,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String term = q.toLowerCase().trim();
@@ -2989,7 +3076,9 @@ public class FlutterApiController {
      *     active, showOnHome, showOnCustomerHome, displayOrder }, ... ] }
      */
     @GetMapping("/admin/banners")
-    public ResponseEntity<Map<String, Object>> adminGetBanners() {
+    public ResponseEntity<Map<String, Object>> adminGetBanners(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<Banner> banners = bannerRepository.findAllByOrderByDisplayOrderAsc();
@@ -3046,7 +3135,10 @@ public class FlutterApiController {
      */
     @PostMapping("/admin/change-password")
     public ResponseEntity<Map<String, Object>> adminChangePassword(
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String currentPassword  = body.getOrDefault("currentPassword",  "").toString().trim();
