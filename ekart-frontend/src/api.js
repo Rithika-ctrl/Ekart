@@ -1,4 +1,4 @@
-export const API_BASE = "http://localhost:8080/api/flutter";
+export const API_BASE = "/api/flutter";
 
 export async function apiFetch(path, options = {}, auth = null) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };

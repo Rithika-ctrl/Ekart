@@ -28,7 +28,7 @@ export default function AdminApp() {
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-    const res = await fetch("http://localhost:8080/api/flutter" + path, { ...opts, headers });
+    const res = await fetch("/api/flutter" + path, { ...opts, headers });
     return res.json();
   }, []);
   const show = m => setToast(m);
@@ -61,7 +61,7 @@ export default function AdminApp() {
 
   const fetchPolicies = async () => {
     try {
-      const res = await fetch("http://localhost:8080/api/policies");
+      const res = await fetch("/api/policies");
       if (!res.ok) throw new Error("Failed to fetch policies");
       const data = await res.json();
       setPolicies(Array.isArray(data) ? data : (data.policies || []));
@@ -70,7 +70,7 @@ export default function AdminApp() {
 
   const createPolicy = async (p) => {
     try {
-      const res = await fetch("http://localhost:8080/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      const res = await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
       if (!res.ok) throw new Error("create failed");
       await fetchPolicies();
       show("Policy created");
@@ -79,7 +79,7 @@ export default function AdminApp() {
 
   const updatePolicy = async (slug, p) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/policies/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      const res = await fetch(`/api/policies/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
       if (!res.ok) throw new Error("update failed");
       await fetchPolicies();
       show("Policy updated");
@@ -89,7 +89,7 @@ export default function AdminApp() {
   const deletePolicy = async (slug) => {
     if (!window.confirm("Delete policy?")) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/policies/${slug}`, { method: "DELETE" });
+      const res = await fetch(`/api/policies/${slug}`, { method: "DELETE" });
       if (!res.ok) throw new Error("delete failed");
       await fetchPolicies();
       show("Policy deleted");

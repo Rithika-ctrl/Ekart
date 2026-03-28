@@ -77,6 +77,7 @@ export default function CustomerApp() {
   const [paymentPage, setPaymentPage] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [reportOrder, setReportOrder] = useState(null);
+  const [reorderStockCheck, setReorderStockCheck] = useState(null); // { orderId, items, hasOutOfStock }
 
   // recently viewed products (client + server sync)
   const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
@@ -99,7 +100,7 @@ export default function CustomerApp() {
     if (!ids || ids.length === 0) { setRecentlyViewedProducts([]); return; }
     try {
       const q = ids.join(",");
-      const res = await fetch(`http://localhost:8080/api/recently-viewed/products?ids=${q}`);
+      const res = await fetch(`/api/recently-viewed/products?ids=${q}`);
       const data = await res.json();
       if (Array.isArray(data)) setRecentlyViewedProducts(data);
       else setRecentlyViewedProducts([]);
@@ -111,7 +112,7 @@ export default function CustomerApp() {
     try {
       const headers = { "Content-Type": "application/json" };
       if (auth) headers["X-Customer-Id"] = auth.id;
-      await fetch("http://localhost:8080/api/recently-viewed/sync", { method: "POST", headers, body: JSON.stringify({ productIds: ids }), credentials: "include" });
+      await fetch("/api/recently-viewed/sync", { method: "POST", headers, body: JSON.stringify({ productIds: ids }), credentials: "include" });
     } catch (e) { /* ignore */ }
   };
 
@@ -129,7 +130,7 @@ export default function CustomerApp() {
       if (auth && auth.role === "CUSTOMER") {
         const headers = { "Content-Type": "application/json" };
         if (auth) headers["X-Customer-Id"] = auth.id;
-        const res = await fetch("http://localhost:8080/api/recently-viewed/sync", { headers, credentials: "include" });
+        const res = await fetch("/api/recently-viewed/sync", { headers, credentials: "include" });
         const d = await res.json();
         const ids = (d && d.productIds) ? d.productIds : readLocalRecentlyViewed();
         saveLocalRecentlyViewed(ids);
@@ -185,7 +186,7 @@ export default function CustomerApp() {
   }, [api]);
 
   const loadSpending = useCallback(async () => {
-    const d = await api("/spending");
+    const d = await api("/spending-summary");
     if (d.success) setSpendingData(d);
   }, [api]);
 
@@ -224,9 +225,14 @@ export default function CustomerApp() {
 
   const applyCoupon = async (code) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to apply coupons"); return; }
-    const d = await api("/cart/coupon", { method: "POST", body: JSON.stringify({ code }) });
-    if (d.success) { showToast(`Coupon applied! ${d.discount || ""}`); loadCart(); }
-    else showToast(d.message || "Invalid coupon");
+    if (!code || !code.trim()) { showToast("Enter a coupon code"); return; }
+    const d = await api("/cart/coupon", { method: "POST", body: JSON.stringify({ code: code.trim().toUpperCase() }) });
+    if (d.success) {
+      showToast(d.message || `Coupon applied! Saving ₹${Math.round(d.discount || 0)}`);
+      loadCart(); // refresh so couponApplied / couponDiscount fields update
+    } else {
+      showToast(d.message || "Invalid coupon");
+    }
   };
 
   const removeCoupon = async () => {
@@ -241,11 +247,14 @@ export default function CustomerApp() {
     if (d.success) { loadWishlist(); showToast(d.message || "Wishlist updated"); }
   };
 
-  const placeOrder = async (addressId, paymentMode = "COD") => {
+  const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD") => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to place an order"); return; }
-    const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId }) });
+    // Pass coupon code (if applied) so the backend can cross-validate at order time
+    const couponCode = cart?.couponCode || "";
+    const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId, couponCode, deliveryTime }) });
     if (d.success) {
-      showToast("Order placed! 🎉");
+      const savedMsg = d.couponDiscount > 0 ? ` You saved ₹${Math.round(d.couponDiscount)}!` : "";
+      showToast("Order placed! 🎉" + savedMsg);
       setOrderSuccess(d);
       setPaymentPage(false);
       loadCart(); loadOrders(); setPage("success");
@@ -261,9 +270,29 @@ export default function CustomerApp() {
 
   const reorderItems = async (orderId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to reorder items"); return; }
+    // Step 1: pre-check stock before touching the cart
+    const stock = await api(`/orders/${orderId}/check-stock`);
+    if (!stock.success) { showToast(stock.message || "Could not check stock"); return; }
+    if (stock.hasOutOfStock) {
+      // Show modal so the customer can decide whether to proceed
+      setReorderStockCheck({ orderId, items: stock.items });
+      return;
+    }
+    // All items in stock — proceed directly
     const d = await api(`/orders/${orderId}/reorder`, { method: "POST" });
     if (d.success) { showToast("Items added to cart!"); loadCart(); setPage("cart"); }
     else showToast(d.message || "Reorder failed");
+  };
+
+  const confirmReorder = async (orderId) => {
+    setReorderStockCheck(null);
+    const d = await api(`/orders/${orderId}/reorder`, { method: "POST" });
+    if (d.success) {
+      const partial = d.outOfStockItems?.length > 0;
+      showToast(partial ? `Cart updated — ${d.outOfStockItems.length} item(s) unavailable` : "Items added to cart!");
+      loadCart();
+      setPage("cart");
+    } else showToast(d.message || "Reorder failed");
   };
 
   const reportIssue = async (orderId, data) => {
@@ -280,6 +309,7 @@ export default function CustomerApp() {
       <Layout nav={nav} onShowAuth={() => setShowAuth(true)}>
       <Toast msg={toast} onHide={() => setToast("")} />
       {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} />}
+      {reorderStockCheck && <ReorderStockModal stockCheck={reorderStockCheck} onClose={() => setReorderStockCheck(null)} onConfirm={confirmReorder} />}
       <AIAssistantWidget api={api} onNavigate={p => setPage(p)} showToast={showToast} />
 
       {page === "home" && <HomePage products={products} categories={categories} onShop={() => setPage("products")}
@@ -346,17 +376,99 @@ export default function CustomerApp() {
 }
 
 /* ── Home ── */
+/* ── Banner Carousel ── */
+function BannerCarousel({ banners }) {
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (banners.length <= 1 || paused) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % banners.length), 4000);
+    return () => clearInterval(t);
+  }, [banners.length, paused]);
+
+  if (!banners || banners.length === 0) return null;
+
+  const prev = () => setIdx(i => (i - 1 + banners.length) % banners.length);
+  const next = () => setIdx(i => (i + 1) % banners.length);
+  const b = banners[idx];
+
+  return (
+    <div
+      style={cs.carouselWrap}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      {/* Slide */}
+      <a
+        href={b.linkUrl || undefined}
+        target={b.linkUrl ? "_blank" : undefined}
+        rel="noopener noreferrer"
+        style={{ display: "block", textDecoration: "none" }}
+      >
+        <img
+          key={b.id}
+          src={b.imageUrl}
+          alt={b.title || "Banner"}
+          style={cs.carouselImg}
+          onError={e => { e.target.style.display = "none"; }}
+        />
+        {b.title && (
+          <div style={cs.carouselCaption}>{b.title}</div>
+        )}
+      </a>
+
+      {/* Prev / Next arrows — only show when >1 banner */}
+      {banners.length > 1 && (
+        <>
+          <button style={{ ...cs.carouselArrow, left: 14 }} onClick={e => { e.preventDefault(); prev(); }} aria-label="Previous">‹</button>
+          <button style={{ ...cs.carouselArrow, right: 14 }} onClick={e => { e.preventDefault(); next(); }} aria-label="Next">›</button>
+
+          {/* Dot indicators */}
+          <div style={cs.carouselDots}>
+            {banners.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIdx(i)}
+                style={{ ...cs.carouselDot, ...(i === idx ? cs.carouselDotActive : {}) }}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading, recentlyViewedProducts }) {
+  const { auth } = useAuth();
+  const [banners, setBanners] = useState([]);
+
+  useEffect(() => {
+    const endpoint = auth ? "/api/banners" : "/api/home-banners";
+    fetch(endpoint)
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.banners)) setBanners(d.banners); })
+      .catch(() => {});
+  }, [auth]);
+
   return (
     <div>
-      <div style={cs.hero}>
-        <div>
-          <h1 style={cs.heroTitle}>Shop Everything<br /><span style={cs.heroAccent}>You Love</span></h1>
-          <p style={cs.heroSub}>Discover thousands of products from trusted vendors across India</p>
-          <button style={cs.heroCta} onClick={onShop}>Explore Products →</button>
-        </div>
-        <div style={cs.heroIllus}>🛍️</div>
-      </div>
+      {/* Banner carousel — shown above the hero when banners are available */}
+      {banners.length > 0
+        ? <BannerCarousel banners={banners} />
+        : (
+          <div style={cs.hero}>
+            <div>
+              <h1 style={cs.heroTitle}>Shop Everything<br /><span style={cs.heroAccent}>You Love</span></h1>
+              <p style={cs.heroSub}>Discover thousands of products from trusted vendors across India</p>
+              <button style={cs.heroCta} onClick={onShop}>Explore Products →</button>
+            </div>
+            <div style={cs.heroIllus}>🛍️</div>
+          </div>
+        )
+      }
       {recentlyViewedProducts && recentlyViewedProducts.length > 0 && (
         <section style={cs.section}>
           <h2 style={cs.secTitle}>Recently Viewed</h2>
@@ -392,7 +504,6 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
           ))}
         </div>
       </section>
-      
     </div>
   );
 }
@@ -408,17 +519,32 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [fuzzySuggestion, setFuzzySuggestion] = useState("");
 
-  const doSearch = async () => {
-    setLoading(true); setSearched(true);
+  const doSearch = async (overrideQuery) => {
+    const q = overrideQuery !== undefined ? overrideQuery : query;
+    setLoading(true); setSearched(true); setFuzzySuggestion("");
     const params = [];
-    if (query) params.push(`search=${encodeURIComponent(query)}`);
+    if (q) params.push(`search=${encodeURIComponent(q)}`);
     if (cat) params.push(`category=${encodeURIComponent(cat)}`);
     if (minPrice) params.push(`minPrice=${minPrice}`);
     if (maxPrice) params.push(`maxPrice=${maxPrice}`);
     const path = "/products" + (params.length ? "?" + params.join("&") : "");
     const d = await api(path);
-    if (d.success) setResults(d.products || []);
+    const found = d.success ? (d.products || []) : [];
+    setResults(found);
+
+    // If no results and there's a query, try fuzzy spelling correction
+    if (found.length === 0 && q && q.trim().length >= 2) {
+      try {
+        const res = await fetch(`/api/search/fuzzy?q=${encodeURIComponent(q.trim())}`);
+        const data = await res.json();
+        if (data && data.suggestion && data.suggestion.trim().length > 0) {
+          setFuzzySuggestion(data.suggestion.trim());
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     setLoading(false);
   };
 
@@ -429,7 +555,7 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
     const t = setTimeout(async () => {
       try {
         const q = encodeURIComponent(query.trim());
-        const res = await fetch(`http://localhost:8080/api/search/suggestions?q=${q}`);
+        const res = await fetch(`/api/search/suggestions?q=${q}`);
         const data = await res.json();
         if (!active) return;
         if (Array.isArray(data)) { setSuggestions(data.slice(0, 8)); setShowSuggestions(true); }
@@ -442,7 +568,13 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
   const chooseSuggestion = (s) => {
     setQuery(s.productName || "");
     setShowSuggestions(false);
-    setTimeout(() => doSearch(), 10);
+    setTimeout(() => doSearch(s.productName || ""), 10);
+  };
+
+  const applyFuzzySuggestion = () => {
+    setQuery(fuzzySuggestion);
+    setFuzzySuggestion("");
+    doSearch(fuzzySuggestion);
   };
 
   return (
@@ -473,7 +605,7 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
         </select>
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Min ₹" type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Max ₹" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
-        <button style={cs.searchBtn} onClick={doSearch} disabled={loading}>{loading ? "..." : "Search"}</button>
+        <button style={cs.searchBtn} onClick={() => doSearch()} disabled={loading}>{loading ? "..." : "Search"}</button>
       </div>
       {searched && <p style={cs.resultCount}>{results.length} result{results.length !== 1 ? "s" : ""} found</p>}
       {results.length > 0 && (
@@ -485,7 +617,24 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
           ))}
         </div>
       )}
-      {searched && results.length === 0 && !loading && <div style={cs.empty}>No products found 😕<br /><span style={{ fontSize: 14 }}>Try different keywords or filters</span></div>}
+      {searched && results.length === 0 && !loading && (
+        <div style={cs.empty}>
+          No products found 😕<br />
+          <span style={{ fontSize: 14 }}>Try different keywords or filters</span>
+          {fuzzySuggestion && (
+            <div style={{ marginTop: 12 }}>
+              <span style={{ fontSize: 14, color: "#9ca3af" }}>Did you mean: </span>
+              <button
+                onClick={applyFuzzySuggestion}
+                style={{ background: "none", border: "none", color: "#6366f1", fontWeight: 700, fontSize: 14, cursor: "pointer", textDecoration: "underline" }}
+              >
+                {fuzzySuggestion}
+              </button>
+              <span style={{ fontSize: 14, color: "#9ca3af" }}>?</span>
+            </div>
+          )}
+        </div>
+      )}
       {!searched && <div style={cs.empty}>Start typing to search 🔍</div>}
     </div>
   );
@@ -574,7 +723,7 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
         const headers = {};
         if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
         else if (auth) headers["X-Customer-Id"] = auth.id;
-        const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { headers });
+        const res = await fetch(`/api/notify-me/${p.id}`, { headers });
         const d = await res.json();
         setSubscribed(!!d.subscribed);
       } catch (e) { setSubscribed(false); }
@@ -590,7 +739,7 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
       const headers = { "Content-Type": "application/json" };
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { method: 'POST', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'POST', headers });
       const d = await res.json();
       if (d.success) setSubscribed(!!d.subscribed);
       setToast(d.message || (d.subscribed ? "Subscribed" : "Please sign in"));
@@ -603,7 +752,7 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
       const headers = {};
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`http://localhost:8080/api/notify-me/${p.id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'DELETE', headers });
       const d = await res.json();
       setSubscribed(!!d.subscribed);
       setToast(d.message || "Unsubscribed");
@@ -775,16 +924,43 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
 }
 
 /* ── Payment Page ── */
+const DELIVERY_OPTIONS = [
+  {
+    id: "STANDARD",
+    icon: "📦",
+    label: "Standard Delivery",
+    sub: "3–5 business days",
+    badge: "FREE",
+    surcharge: 0,
+    badgeColor: "#22c55e",
+  },
+  {
+    id: "EXPRESS",
+    icon: "⚡",
+    label: "Express Delivery",
+    sub: "Next business day by 10 AM",
+    badge: "+₹50",
+    surcharge: 50,
+    badgeColor: "#f59e0b",
+  },
+];
+
 function PaymentPage({ cart, profile, onPlaceOrder, onBack }) {
   const [payMode, setPayMode] = useState("COD");
+  const [deliveryTime, setDeliveryTime] = useState("STANDARD");
   const [selectedAddr, setSelectedAddr] = useState(null);
   const [placing, setPlacing] = useState(false);
   const addrs = profile?.addresses || [];
 
+  const expressSurcharge = deliveryTime === "EXPRESS" ? 50 : 0;
+  const subtotal = cart.subtotal || cart.total || 0;
+  const couponDiscount = cart.couponDiscount || 0;
+  const grandTotal = Math.max(0, subtotal - couponDiscount) + expressSurcharge;
+
   const handlePlace = async () => {
     if (!selectedAddr && addrs.length > 0) { alert("Please select a delivery address"); return; }
     setPlacing(true);
-    await onPlaceOrder(selectedAddr, payMode);
+    await onPlaceOrder(selectedAddr, payMode, deliveryTime);
     setPlacing(false);
   };
 
@@ -813,6 +989,28 @@ function PaymentPage({ cart, profile, onPlaceOrder, onBack }) {
                 </div>
               ))
             )}
+          </div>
+
+          {/* Delivery speed */}
+          <div style={cs.paySection}>
+            <h3 style={cs.paySectionTitle}>🚚 Delivery Speed</h3>
+            {DELIVERY_OPTIONS.map(opt => (
+              <div key={opt.id}
+                style={{ ...cs.addrCard, borderColor: deliveryTime === opt.id ? "#6366f1" : "rgba(255,255,255,0.1)", marginBottom: 10, cursor: "pointer" }}
+                onClick={() => setDeliveryTime(opt.id)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid", borderColor: deliveryTime === opt.id ? "#6366f1" : "#6b7280", background: deliveryTime === opt.id ? "#6366f1" : "transparent", flexShrink: 0 }} />
+                  <span style={{ fontSize: 22 }}>{opt.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{opt.label}</div>
+                    <div style={{ color: "#9ca3af", fontSize: 12 }}>{opt.sub}</div>
+                  </div>
+                  <span style={{ background: deliveryTime === opt.id ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.06)", color: opt.badgeColor, fontWeight: 800, fontSize: 13, padding: "4px 10px", borderRadius: 8, whiteSpace: "nowrap" }}>
+                    {opt.badge}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Payment mode */}
@@ -848,11 +1046,29 @@ function PaymentPage({ cart, profile, onPlaceOrder, onBack }) {
 
         <div style={cs.cartSummary}>
           <h3 style={{ color: "#e5e7eb", marginBottom: 16 }}>Bill Summary</h3>
-          <div style={cs.sumRow}><span>Subtotal</span><span>{fmt(cart.subtotal)}</span></div>
-          {cart.couponDiscount > 0 && <div style={{ ...cs.sumRow, color: "#22c55e" }}><span>Coupon</span><span>-{fmt(cart.couponDiscount)}</span></div>}
-          <div style={cs.sumRow}><span>Delivery</span><span style={{ color: !cart.deliveryCharge ? "#22c55e" : "#e5e7eb" }}>{!cart.deliveryCharge ? "FREE" : fmt(cart.deliveryCharge)}</span></div>
-          {cart.gstAmount > 0 && <div style={cs.sumRow}><span>GST (included)</span><span>{fmt(cart.gstAmount)}</span></div>}
-          <div style={cs.totalRow}><span>Total</span><span>{fmt(cart.total)}</span></div>
+          <div style={cs.sumRow}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+          {couponDiscount > 0 && (
+            <div style={{ ...cs.sumRow, color: "#22c55e" }}><span>Coupon</span><span>-{fmt(couponDiscount)}</span></div>
+          )}
+          <div style={cs.sumRow}>
+            <span>Delivery</span>
+            <span style={{ color: expressSurcharge === 0 ? "#22c55e" : "#f59e0b" }}>
+              {expressSurcharge === 0 ? "FREE" : fmt(expressSurcharge)}
+            </span>
+          </div>
+          {cart.gstAmount > 0 && (
+            <div style={cs.sumRow}><span>GST (included)</span><span>{fmt(cart.gstAmount)}</span></div>
+          )}
+          <div style={cs.totalRow}><span>Total</span><span>{fmt(grandTotal)}</span></div>
+
+          {/* Selected delivery speed pill */}
+          <div style={{ marginTop: 10, padding: "8px 12px", background: deliveryTime === "EXPRESS" ? "rgba(245,158,11,0.12)" : "rgba(34,197,94,0.1)", borderRadius: 8, display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 16 }}>{deliveryTime === "EXPRESS" ? "⚡" : "📦"}</span>
+            <span style={{ color: deliveryTime === "EXPRESS" ? "#fbbf24" : "#4ade80", fontSize: 13, fontWeight: 600 }}>
+              {deliveryTime === "EXPRESS" ? "Express — Next Day" : "Standard — 3–5 Days"}
+            </span>
+          </div>
+
           <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(99,102,241,0.1)", borderRadius: 8, display: "flex", gap: 8, alignItems: "center" }}>
             <span style={{ fontSize: 18 }}>{payMode === "COD" ? "💵" : "💳"}</span>
             <span style={{ color: "#a5b4fc", fontSize: 13, fontWeight: 600 }}>{payMode === "COD" ? "Cash on Delivery" : "Online Payment"}</span>
@@ -1173,7 +1389,7 @@ function CouponsPage({ coupons, showToast }) {
               <div style={cs.couponBody}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={cs.couponCode}>{c.code}</div>
-                  <div style={cs.couponValue}>{c.value}% OFF</div>
+                  <div style={cs.couponValue}>{c.typeLabel || `${c.value}% OFF`}</div>
                 </div>
                 <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12, lineHeight: 1.5 }}>{c.description || "Apply this coupon at checkout"}</p>
                 {c.expiryDate && (
@@ -1197,32 +1413,46 @@ function CouponsPage({ coupons, showToast }) {
 function SpendingPage({ data, orders, onLoadOrders }) {
   useEffect(() => { if (!orders || orders.length === 0) onLoadOrders(); }, []);
 
-  const totalSpent = data?.totalSpent || orders?.filter(o => o.trackingStatus === "DELIVERED").reduce((s, o) => s + (o.amount || 0), 0) || 0;
-  const totalOrders = data?.totalOrders || orders?.length || 0;
-  const avgOrder = totalOrders > 0 ? totalSpent / totalOrders : 0;
-  const topCategory = data?.topCategory || "—";
+  const totalSpent   = data?.totalSpent   || orders?.filter(o => o.trackingStatus === "DELIVERED").reduce((s, o) => s + (o.amount || 0), 0) || 0;
+  const totalOrders  = data?.totalOrders  || orders?.length || 0;
+  const avgOrder     = data?.averageOrderValue || (totalOrders > 0 ? totalSpent / totalOrders : 0);
+  const topCategory  = data?.topCategory  || "—";
 
-  // Monthly spending from orders
-  const monthlySpending = {};
-  (orders || []).forEach(o => {
-    if (!o.orderDate) return;
-    const d = new Date(o.orderDate);
-    const key = d.toLocaleString("en-IN", { month: "short", year: "2-digit" });
-    monthlySpending[key] = (monthlySpending[key] || 0) + (o.amount || 0);
-  });
-  const months = Object.entries(monthlySpending).slice(-6);
-  const maxSpend = Math.max(...months.map(([, v]) => v), 1);
+  // ── Monthly: prefer server data, fall back to client-computed from orders ──
+  const months = (() => {
+    if (data?.monthlySpending && Object.keys(data.monthlySpending).length > 0) {
+      return Object.entries(data.monthlySpending).slice(-6);
+    }
+    const acc = {};
+    (orders || []).forEach(o => {
+      if (!o.orderDate) return;
+      const d = new Date(o.orderDate);
+      const key = d.toLocaleString("en-IN", { month: "short", year: "2-digit" });
+      acc[key] = (acc[key] || 0) + (o.amount || 0);
+    });
+    return Object.entries(acc).slice(-6);
+  })();
+  const maxMonthSpend = Math.max(...months.map(([, v]) => v), 1);
+
+  // ── Category breakdown: from server data ──
+  const categoryEntries = data?.categorySpending
+    ? Object.entries(data.categorySpending).sort(([, a], [, b]) => b - a)
+    : [];
+  const maxCatSpend = Math.max(...categoryEntries.map(([, v]) => v), 1);
+
+  const catColors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#22c55e", "#3b82f6", "#ef4444", "#10b981"];
 
   return (
     <div>
       <h2 style={cs.pageTitle}>My Spending 💰</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 32 }}>
+      {/* ── Stat cards ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 28 }}>
         {[
-          { label: "Total Spent", value: fmt(totalSpent), icon: "💰", color: "#22c55e" },
-          { label: "Total Orders", value: totalOrders, icon: "📦", color: "#6366f1" },
-          { label: "Avg Order", value: fmt(avgOrder), icon: "📊", color: "#f59e0b" },
-          { label: "Top Category", value: topCategory, icon: "🏆", color: "#8b5cf6" },
+          { label: "Total Spent",   value: fmt(totalSpent),  icon: "💰", color: "#22c55e" },
+          { label: "Total Orders",  value: totalOrders,      icon: "📦", color: "#6366f1" },
+          { label: "Avg Order",     value: fmt(avgOrder),    icon: "📊", color: "#f59e0b" },
+          { label: "Top Category",  value: topCategory,      icon: "🏆", color: "#8b5cf6" },
         ].map(s => (
           <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20 }}>
             <div style={{ fontSize: 28, marginBottom: 8, width: 44, height: 44, borderRadius: 12, background: s.color + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</div>
@@ -1232,21 +1462,46 @@ function SpendingPage({ data, orders, onLoadOrders }) {
         ))}
       </div>
 
-      {months.length > 0 && (
-        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24, marginBottom: 24 }}>
-          <h3 style={{ ...cs.secTitle, marginBottom: 24 }}>Monthly Spending Trends</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 160 }}>
-            {months.map(([month, amount]) => (
-              <div key={month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 11, color: "#9ca3af" }}>{fmt(amount)}</div>
-                <div style={{ width: "100%", background: "linear-gradient(180deg, #6366f1, #8b5cf6)", borderRadius: "6px 6px 0 0", height: `${(amount / maxSpend) * 120}px`, minHeight: 4 }} />
-                <div style={{ fontSize: 11, color: "#6b7280" }}>{month}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: categoryEntries.length > 0 ? "1fr 1fr" : "1fr", gap: 20, marginBottom: 24 }}>
 
+        {/* ── Monthly bar chart ── */}
+        {months.length > 0 && (
+          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
+            <h3 style={{ ...cs.secTitle, marginBottom: 24, fontSize: 16 }}>Monthly Spending</h3>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 140 }}>
+              {months.map(([month, amount]) => (
+                <div key={month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 10, color: "#9ca3af" }}>{fmt(amount)}</div>
+                  <div style={{ width: "100%", background: "linear-gradient(180deg, #6366f1, #8b5cf6)", borderRadius: "4px 4px 0 0", height: `${(amount / maxMonthSpend) * 110}px`, minHeight: 4 }} />
+                  <div style={{ fontSize: 10, color: "#6b7280" }}>{month}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Category breakdown ── */}
+        {categoryEntries.length > 0 && (
+          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
+            <h3 style={{ ...cs.secTitle, marginBottom: 20, fontSize: 16 }}>Spending by Category</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {categoryEntries.slice(0, 6).map(([cat, amount], i) => (
+                <div key={cat}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 500 }}>{cat}</span>
+                    <span style={{ color: "#9ca3af", fontSize: 13 }}>{fmt(amount)}</span>
+                  </div>
+                  <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: `${(amount / maxCatSpend) * 100}%`, height: "100%", background: catColors[i % catColors.length], borderRadius: 3 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Recent Transactions ── */}
       <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
         <h3 style={{ ...cs.secTitle, marginBottom: 16 }}>Recent Transactions</h3>
         {(orders || []).slice(0, 10).map(o => (
@@ -1262,6 +1517,84 @@ function SpendingPage({ data, orders, onLoadOrders }) {
           </div>
         ))}
         {(!orders || orders.length === 0) && <div style={cs.empty}>No transactions yet. Start shopping!</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Reorder Stock Check Modal ── */
+function ReorderStockModal({ stockCheck, onClose, onConfirm }) {
+  const { orderId, items } = stockCheck;
+  const [confirming, setConfirming] = useState(false);
+
+  const statusMeta = {
+    in_stock:    { icon: "✅", color: "#22c55e", label: "In stock" },
+    partial:     { icon: "⚠️", color: "#f59e0b", label: "Partial stock" },
+    out_of_stock:{ icon: "❌", color: "#ef4444", label: "Out of stock" },
+    unavailable: { icon: "🚫", color: "#6b7280", label: "Unavailable" },
+  };
+
+  const canProceed = items.some(i => i.status === "in_stock" || i.status === "partial");
+  const allUnavailable = items.every(i => i.status === "out_of_stock" || i.status === "unavailable");
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    await onConfirm(orderId);
+  };
+
+  return (
+    <div style={cs.overlay}>
+      <div style={{ ...cs.dialog, maxWidth: 520, textAlign: "left" }}>
+        <h3 style={{ color: "#fff", marginBottom: 4 }}>🔄 Reorder Stock Check</h3>
+        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 20 }}>
+          Some items from this order have limited or no stock. Review before proceeding.
+        </p>
+
+        {/* Item list */}
+        <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
+          {/* Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 110px", gap: 8, padding: "8px 14px", background: "rgba(255,255,255,0.06)", fontSize: 11, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <span>Item</span><span style={{ textAlign: "center" }}>Ordered</span><span style={{ textAlign: "center" }}>Available</span><span style={{ textAlign: "center" }}>Status</span>
+          </div>
+          {items.map((item, i) => {
+            const meta = statusMeta[item.status] || statusMeta.unavailable;
+            return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 110px", gap: 8, padding: "10px 14px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none", alignItems: "center", background: item.status === "in_stock" ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                <span style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 500 }}>{item.name}</span>
+                <span style={{ color: "#9ca3af", fontSize: 13, textAlign: "center" }}>{item.quantity}</span>
+                <span style={{ color: item.status === "in_stock" ? "#22c55e" : item.status === "partial" ? "#f59e0b" : "#ef4444", fontSize: 13, fontWeight: 600, textAlign: "center" }}>
+                  {item.status === "unavailable" ? "—" : item.currentStock}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "center" }}>
+                  <span>{meta.icon}</span>
+                  <span style={{ color: meta.color, fontSize: 11, fontWeight: 600 }}>{meta.label}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Contextual message */}
+        {allUnavailable ? (
+          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", color: "#fca5a5", fontSize: 13, marginBottom: 20 }}>
+            ❌ All items are currently out of stock. Reorder is not possible right now.
+          </div>
+        ) : (
+          <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, padding: "10px 14px", color: "#fcd34d", fontSize: 13, marginBottom: 20 }}>
+            ⚠️ Available items will be added at current prices. Out-of-stock items will be skipped.
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 12 }}>
+          {canProceed && (
+            <button style={{ ...cs.addCartBtn, flex: 1 }} onClick={handleConfirm} disabled={confirming}>
+              {confirming ? "Adding to cart…" : "Proceed with Available Items"}
+            </button>
+          )}
+          <button style={cs.secondaryBtn} onClick={onClose}>
+            {allUnavailable ? "Close" : "Cancel"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1409,7 +1742,7 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
                         const opts = {};
                         if (auth?.token) opts.headers = { "Authorization": `Bearer ${auth.token}` };
                         else opts.credentials = 'include';
-                        const res = await fetch("http://localhost:8080/api/profile/remove-image", opts);
+                        const res = await fetch("/api/profile/remove-image", opts);
                         const d = await res.json();
                         showToast(d.message || (d.success ? "Removed" : "Failed"));
                         if (d.success) onUpdate();
@@ -1433,7 +1766,7 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
                     const opts = { method: 'POST', body: fd };
                     if (auth?.token) opts.headers = { 'Authorization': `Bearer ${auth.token}` };
                     else opts.credentials = 'include';
-                    const res = await fetch('http://localhost:8080/api/profile/upload-image', opts);
+                    const res = await fetch('/api/profile/upload-image', opts);
                     const d = await res.json();
                     showToast(d.message || (d.success ? 'Uploaded' : 'Failed'));
                     if (d.success) { setPhotoFile(null); setPhotoPreview(null); onUpdate(); }
@@ -1483,23 +1816,115 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
       )}
 
       {activeTab === "security" && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 520 }}>
+
+          {/* ── Account overview card ── */}
           <div style={cs.profileCard}>
-            <h3 style={cs.secTitle}>Security Settings 🔐</h3>
-            <div style={{ background: "rgba(99,102,241,0.1)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-              <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 4 }}>Account</div>
-              <div style={{ color: "#e5e7eb", fontWeight: 600 }}>{profile.email}</div>
-              <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>Role: Customer Account</div>
-            </div>
-            <h4 style={{ color: "#e5e7eb", marginBottom: 12 }}>Change Password</h4>
-            {[["currentPassword", "Current Password"], ["newPassword", "New Password"], ["confirmNewPassword", "Confirm New Password"]].map(([k, label]) => (
-              <div key={k} style={{ marginBottom: 12 }}>
-                <label style={cs.label}>{label}</label>
-                <input style={cs.inputField} type="password" placeholder={label} value={pwForm[k]} onChange={e => setPwForm(f => ({ ...f, [k]: e.target.value }))} />
+            <h3 style={{ ...cs.secTitle, marginBottom: 18 }}>🛡️ Account Security</h3>
+
+            {/* Email row */}
+            {[
+              {
+                icon: "📧", label: "Email Address",
+                value: profile.email,
+                note: null,
+              },
+              {
+                icon: "🕐", label: "Last Sign-in",
+                value: profile.lastLogin
+                  ? new Date(profile.lastLogin).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—",
+                note: null,
+              },
+              {
+                icon: "🔗", label: "Sign-in Method",
+                value: profile.provider && profile.provider !== "local"
+                  ? profile.provider.charAt(0).toUpperCase() + profile.provider.slice(1) + " (OAuth)"
+                  : "Email & Password",
+                note: profile.provider && profile.provider !== "local"
+                  ? "Password change not available for OAuth accounts"
+                  : null,
+              },
+              {
+                icon: "✅", label: "Account Status",
+                value: "Active",
+                valueColor: "#22c55e",
+              },
+            ].map(row => (
+              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>{row.icon}</span>
+                  <div>
+                    <div style={{ color: "#9ca3af", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{row.label}</div>
+                    {row.note && <div style={{ color: "#6b7280", fontSize: 11, marginTop: 2 }}>{row.note}</div>}
+                  </div>
+                </div>
+                <span style={{ color: row.valueColor || "#e5e7eb", fontWeight: 600, fontSize: 13, textAlign: "right", maxWidth: 220 }}>{row.value}</span>
               </div>
             ))}
-            <button style={cs.saveBtn} onClick={changePw}>Change Password</button>
           </div>
+
+          {/* ── Change password card — hidden for OAuth users ── */}
+          {(!profile.provider || profile.provider === "local") && (
+            <div style={cs.profileCard}>
+              <h3 style={{ color: "#e5e7eb", fontWeight: 700, marginBottom: 4, fontSize: 15 }}>🔑 Change Password</h3>
+              <p style={{ color: "#6b7280", fontSize: 12, marginBottom: 18 }}>
+                Choose a strong password you haven't used before.
+              </p>
+              {[
+                ["currentPassword", "Current Password"],
+                ["newPassword", "New Password"],
+                ["confirmNewPassword", "Confirm New Password"],
+              ].map(([k, label]) => (
+                <div key={k} style={{ marginBottom: 12 }}>
+                  <label style={cs.label}>{label}</label>
+                  <input
+                    style={cs.inputField}
+                    type="password"
+                    placeholder={label}
+                    value={pwForm[k]}
+                    onChange={e => setPwForm(f => ({ ...f, [k]: e.target.value }))}
+                  />
+                </div>
+              ))}
+              {/* Strength hint */}
+              {pwForm.newPassword && (
+                <div style={{ marginBottom: 14 }}>
+                  {(() => {
+                    const p = pwForm.newPassword;
+                    const score = [p.length >= 8, /[A-Z]/.test(p), /[0-9]/.test(p), /[^A-Za-z0-9]/.test(p)].filter(Boolean).length;
+                    const labels = ["", "Weak", "Fair", "Good", "Strong"];
+                    const colors = ["", "#ef4444", "#f59e0b", "#6366f1", "#22c55e"];
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                          <div style={{ width: `${score * 25}%`, height: "100%", background: colors[score], borderRadius: 2, transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: colors[score], fontWeight: 700, minWidth: 40 }}>{labels[score]}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              <button style={cs.saveBtn} onClick={changePw}>Update Password</button>
+            </div>
+          )}
+
+          {/* ── Security tips card ── */}
+          <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: 18 }}>
+            <div style={{ color: "#a5b4fc", fontWeight: 700, fontSize: 13, marginBottom: 12 }}>💡 Security Tips</div>
+            {[
+              "Use a unique password you don't use on other sites.",
+              "Never share your password or OTP with anyone.",
+              "Sign out from shared or public devices after use.",
+            ].map((tip, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, fontSize: 12, color: "#9ca3af" }}>
+                <span style={{ color: "#6366f1", fontWeight: 700, flexShrink: 0 }}>→</span>
+                <span>{tip}</span>
+              </div>
+            ))}
+          </div>
+
         </div>
       )}
     </div>
@@ -1529,10 +1954,17 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim(); setInput("");
+    // Snapshot current messages before the state update for the history payload
+    const historyPayload = messages
+      .filter(m => m.role === "user" || m.role === "bot")
+      .map(m => ({ role: m.role === "bot" ? "assistant" : "user", text: m.text }));
     setMessages(m => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
-      const d = await api("/assistant/chat", { method: "POST", body: JSON.stringify({ message: userMsg }) });
+      const d = await api("/assistant/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: userMsg, history: historyPayload }),
+      });
       setMessages(m => [...m, { role: "bot", text: d.reply || d.message || "I can help you with tracking orders, coupons, and more!" }]);
     } catch {
       setMessages(m => [...m, { role: "bot", text: "I'm having trouble connecting. Try using the navigation above!" }]);
@@ -1615,6 +2047,13 @@ const cs = {
   heroSub: { color: "#c7d2fe", margin: "16px 0 24px", fontSize: 16 },
   heroCta: { padding: "14px 32px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" },
   heroIllus: { fontSize: 100 },
+  carouselWrap: { position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 40, background: "rgba(255,255,255,0.04)", userSelect: "none" },
+  carouselImg: { width: "100%", height: 360, objectFit: "cover", display: "block" },
+  carouselCaption: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 24px", background: "linear-gradient(transparent, rgba(0,0,0,0.72))", color: "#fff", fontSize: 18, fontWeight: 700, letterSpacing: 0.2 },
+  carouselArrow: { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", fontSize: 28, fontWeight: 700, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, backdropFilter: "blur(4px)", zIndex: 2 },
+  carouselDots: { position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, zIndex: 2 },
+  carouselDot: { width: 8, height: 8, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.35)", cursor: "pointer", padding: 0, transition: "background 0.2s, transform 0.2s" },
+  carouselDotActive: { background: "#fff", transform: "scale(1.3)" },
   section: { marginBottom: 40 },
   secTitle: { fontSize: 20, fontWeight: 700, color: "#e5e7eb", marginBottom: 20 },
   catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))", gap: 12 },
