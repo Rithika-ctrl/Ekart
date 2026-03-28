@@ -23,6 +23,10 @@ const S = `
   .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:#e84c3c;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all 200ms;margin-top:4px}
   .btn-primary:hover{background:#c73e2e;transform:translateY(-1px)}
   .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+  .btn-google{width:100%;padding:12px;border-radius:10px;border:2px solid #e8e4dc;background:#fff;color:#0d0d0d;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
+  .btn-google:hover{border-color:#0d0d0d;background:#fafaf8;transform:translateY(-1px)}
+  .divider{display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(13,13,13,0.35);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:#e8e4dc}
   .err-box{background:#fef2f2;color:#e84c3c;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
   .ok-box{background:#e8f9f2;color:#1db882;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
   .link-btn{background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:#e84c3c;padding:0}
@@ -71,7 +75,10 @@ export default function AuthPage() {
     try {
       const data = await post(`/auth/${role}/login`, { email: form.email, password: form.password });
       if (!data.success) { setError(data.message || "Login failed"); setLoading(false); return; }
-      const id = role === "customer" ? (data.customer?.id || data.customerId) : role === "vendor" ? data.vendorId : null;
+      const id = role === "customer" ? (data.customer?.id || data.customerId)
+               : role === "vendor"   ? data.vendorId
+               : role === "delivery" ? data.deliveryBoyId
+               : null;
       const token = data.token || null;
       login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token });
     } catch { setError("Network error — is the backend running on port 8080?"); }
@@ -123,6 +130,19 @@ export default function AuthPage() {
       setInfo("Password reset! Please sign in."); setScreen("login"); setResetForm({ newPassword: "", confirmPassword: "" });
     } catch { setError("Network error."); }
     setLoading(false);
+  }
+
+  /**
+   * Redirects to backend OAuth2 flow with type=flutter-{role}.
+   * The backend sets session["oauth_login_type"] = "flutter-customer" (or vendor),
+   * then Google authenticates, then the success handler redirects back to
+   * /oauth2/callback?role=...&id=...&name=...&email=...&token=...
+   * which is handled by OAuthCallback in App.jsx.
+   * Only available for customer and vendor roles (not admin/delivery).
+   */
+  function handleGoogleLogin() {
+    if (role !== "customer" && role !== "vendor") return;
+    window.location.href = `/oauth2/authorize/google?type=flutter-${role}`;
   }
 
   async function resendOtp() {
@@ -183,6 +203,15 @@ export default function AuthPage() {
                 </div>
               )}
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Signing in…" : `Sign in as ${role}`}</button>
+              {(role === "customer" || role === "vendor") && (
+                <>
+                  <div className="divider">or</div>
+                  <button type="button" className="btn-google" onClick={handleGoogleLogin}>
+                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+                    Continue with Google
+                  </button>
+                </>
+              )}
               
             </form>
           )}
@@ -198,6 +227,15 @@ export default function AuthPage() {
               <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required /></div>
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Creating account…" : `Register as ${role}`}</button>
+              {(role === "customer" || role === "vendor") && (
+                <>
+                  <div className="divider">or</div>
+                  <button type="button" className="btn-google" onClick={handleGoogleLogin}>
+                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+                    Continue with Google
+                  </button>
+                </>
+              )}
             </form>
           )}
 

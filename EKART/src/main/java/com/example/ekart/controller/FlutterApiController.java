@@ -2,6 +2,7 @@ package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
+import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
@@ -52,6 +53,20 @@ public class FlutterApiController {
      */
     private final java.util.concurrent.ConcurrentHashMap<Integer, Coupon> appliedCoupons =
             new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * In-memory store of emails whose OTP has been successfully verified.
+     * Key: email (lower-cased).  Value: role tag ("customer" | "vendor").
+     * Entry is cleared once reset-password consumes it, preventing replay.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, String> otpVerified =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Autowired
+    private com.example.ekart.helper.EmailSender emailSender;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     // Admin credentials come from application.properties (admin.email / admin.password)
     @org.springframework.beans.factory.annotation.Value("${admin.email}")
@@ -111,7 +126,7 @@ public class FlutterApiController {
                 res.put("success", false); res.put("message", "Account suspended. Contact support.");
                 return ResponseEntity.badRequest().body(res);
             }
-            String token = Base64.getEncoder().encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
+            String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
             res.put("success", true);
             res.put("customerId", c.getId());
             res.put("name", c.getName());
@@ -168,7 +183,7 @@ public class FlutterApiController {
                 res.put("success", false); res.put("message", "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
-            String token = Base64.getEncoder().encodeToString((v.getId() + ":" + v.getEmail()).getBytes());
+            String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
             res.put("success", true);
             res.put("vendorId", v.getId());
             res.put("name", v.getName());
@@ -202,14 +217,342 @@ public class FlutterApiController {
             return ResponseEntity.status(401).body(res);
         }
         // Token is a simple signed marker — not sensitive since admin screen is read-only
-        String token = Base64.getEncoder().encodeToString(("admin:" + adminEmail).getBytes());
+        String token = jwtUtil.generateToken(0, adminEmail, "ADMIN");
         res.put("success", true);
-        res.put("adminId", 0);          // admin has no DB id
+        res.put("adminId", 0);
         res.put("name", "Admin");
         res.put("email", adminEmail);
         res.put("token", token);
         res.put("role", "ADMIN");
         return ResponseEntity.ok(res);
+    }
+
+    @Autowired private DeliveryBoyRepository deliveryBoyRepository;
+
+    /**
+     * POST /api/flutter/auth/delivery/login
+     * Body: { email, password }
+     * Mirrors the same checks as DeliveryBoyService.login() but returns JSON.
+     * Returns: { success, deliveryBoyId, name, email, token }
+     *
+     * Failure cases (matching the session-based flow):
+     *   - Unknown email           → 400 + message
+     *   - Wrong password          → 400 + message
+     *   - Email not verified      → 403 + message (OTP resent)
+     *   - Account deactivated     → 403 + message
+     *   - Pending admin approval  → 403 + message
+     */
+    @PostMapping("/auth/delivery/login")
+    public ResponseEntity<Map<String, Object>> deliveryLogin(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email    = ((String) body.getOrDefault("email",    "")).trim().toLowerCase();
+            String password = ((String) body.getOrDefault("password", "")).trim();
+            if (email.isEmpty() || password.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email and password are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "No account found with this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            String decrypted = AES.decrypt(db.getPassword());
+            if (decrypted == null || !decrypted.equals(password)) {
+                res.put("success", false);
+                res.put("message", "Wrong password");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!db.isVerified()) {
+                // Resend OTP exactly like the web flow does
+                int otp = new java.util.Random().nextInt(100000, 1000000);
+                db.setOtp(otp);
+                deliveryBoyRepository.save(db);
+                try { emailSender.sendDeliveryBoyOtp(db); } catch (Exception ignored) {}
+                res.put("success", false);
+                res.put("message", "Please verify your email first — OTP resent to " + email);
+                return ResponseEntity.status(403).body(res);
+            }
+            if (!db.isActive()) {
+                res.put("success", false);
+                res.put("message", "Your account has been deactivated. Contact admin.");
+                return ResponseEntity.status(403).body(res);
+            }
+            if (!db.isAdminApproved()) {
+                res.put("success", false);
+                res.put("message", "Your account is pending admin approval. You will receive an email once approved.");
+                return ResponseEntity.status(403).body(res);
+            }
+            // All checks passed — issue a simple token (same pattern as customer/vendor)
+            String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
+            res.put("success",       true);
+            res.put("deliveryBoyId", db.getId());
+            res.put("name",          db.getName());
+            res.put("email",         db.getEmail());
+            res.put("token",         token);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Login failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // AUTH — FORGOT PASSWORD  (Customer + Vendor)
+    //
+    // Flow driven by AuthPage.jsx:
+    //   Step 1 — POST /auth/{role}/forgot-password   body: { email }
+    //            → generates OTP, emails it, returns { success }
+    //   Step 2 — POST /auth/{role}/verify-otp        body: { email, otp }  (otp is a STRING "123456")
+    //            → validates OTP, marks email as verified in otpVerified map
+    //   Step 3 — POST /auth/{role}/reset-password    body: { email, newPassword }
+    //            → checks otpVerified map, sets new password, clears flag
+    //
+    // The frontend never sends customerId/vendorId — email is the key throughout.
+    // OTP is transmitted as a string from the 6-box input widget.
+    // ═══════════════════════════════════════════════════════
+
+    /** POST /api/flutter/auth/customer/forgot-password */
+    @PostMapping("/auth/customer/forgot-password")
+    public ResponseEntity<Map<String, Object>> customerForgotPassword(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (email.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Customer customer = customerRepository.findByEmail(email);
+            if (customer == null) {
+                // Generic response — avoids leaking which emails are registered
+                res.put("success", true);
+                res.put("message", "If that email is registered, an OTP has been sent");
+                return ResponseEntity.ok(res);
+            }
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            customer.setOtp(otp);
+            customerRepository.save(customer);
+            emailSender.send(customer);   // reuses existing OTP email template
+            // Clear any previously-verified flag for this email so a fresh verify is required
+            otpVerified.remove(email);
+            res.put("success", true);
+            res.put("message", "OTP sent to your registered email");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to send OTP: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/flutter/auth/customer/verify-otp */
+    @PostMapping("/auth/customer/verify-otp")
+    public ResponseEntity<Map<String, Object>> customerVerifyOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            if (email.isEmpty() || otpStr.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email and OTP are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Customer customer = customerRepository.findByEmail(email);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "No account found with this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            int otp;
+            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
+                res.put("success", false);
+                res.put("message", "Invalid OTP format");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (customer.getOtp() != otp) {
+                res.put("success", false);
+                res.put("message", "Invalid or expired OTP");
+                return ResponseEntity.badRequest().body(res);
+            }
+            // Mark this email as OTP-verified so reset-password can proceed
+            otpVerified.put(email, "customer");
+            res.put("success", true);
+            res.put("message", "OTP verified");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/flutter/auth/customer/reset-password */
+    @PostMapping("/auth/customer/reset-password")
+    public ResponseEntity<Map<String, Object>> customerResetPassword(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String newPassword = (String) body.get("newPassword");
+            if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
+                res.put("success", false);
+                res.put("message", "Email and new password are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!otpVerified.containsKey(email)) {
+                res.put("success", false);
+                res.put("message", "OTP not verified — please complete the OTP step first");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Customer customer = customerRepository.findByEmail(email);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPassword.length() < 8) {
+                res.put("success", false);
+                res.put("message", "Password must be at least 8 characters");
+                return ResponseEntity.badRequest().body(res);
+            }
+            customer.setPassword(AES.encrypt(newPassword));
+            customer.setOtp(0);   // invalidate OTP so it cannot be reused
+            customerRepository.save(customer);
+            otpVerified.remove(email);   // consume the verified flag — one use only
+            res.put("success", true);
+            res.put("message", "Password reset successfully. Please log in.");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Reset failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    // ── Vendor mirror ─────────────────────────────────────────────────────────
+
+    /** POST /api/flutter/auth/vendor/forgot-password */
+    @PostMapping("/auth/vendor/forgot-password")
+    public ResponseEntity<Map<String, Object>> vendorForgotPassword(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (email.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Vendor vendor = vendorRepository.findByEmail(email);
+            if (vendor == null) {
+                res.put("success", true);
+                res.put("message", "If that email is registered, an OTP has been sent");
+                return ResponseEntity.ok(res);
+            }
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            vendor.setOtp(otp);
+            vendorRepository.save(vendor);
+            emailSender.send(vendor);
+            otpVerified.remove(email);
+            res.put("success", true);
+            res.put("message", "OTP sent to your registered email");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to send OTP: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/flutter/auth/vendor/verify-otp */
+    @PostMapping("/auth/vendor/verify-otp")
+    public ResponseEntity<Map<String, Object>> vendorVerifyOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            if (email.isEmpty() || otpStr.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email and OTP are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Vendor vendor = vendorRepository.findByEmail(email);
+            if (vendor == null) {
+                res.put("success", false);
+                res.put("message", "No account found with this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            int otp;
+            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
+                res.put("success", false);
+                res.put("message", "Invalid OTP format");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (vendor.getOtp() != otp) {
+                res.put("success", false);
+                res.put("message", "Invalid or expired OTP");
+                return ResponseEntity.badRequest().body(res);
+            }
+            otpVerified.put(email, "vendor");
+            res.put("success", true);
+            res.put("message", "OTP verified");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/flutter/auth/vendor/reset-password */
+    @PostMapping("/auth/vendor/reset-password")
+    public ResponseEntity<Map<String, Object>> vendorResetPassword(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String newPassword = (String) body.get("newPassword");
+            if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
+                res.put("success", false);
+                res.put("message", "Email and new password are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!otpVerified.containsKey(email)) {
+                res.put("success", false);
+                res.put("message", "OTP not verified — please complete the OTP step first");
+                return ResponseEntity.badRequest().body(res);
+            }
+            Vendor vendor = vendorRepository.findByEmail(email);
+            if (vendor == null) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPassword.length() < 8) {
+                res.put("success", false);
+                res.put("message", "Password must be at least 8 characters");
+                return ResponseEntity.badRequest().body(res);
+            }
+            vendor.setPassword(AES.encrypt(newPassword));
+            vendor.setOtp(0);
+            vendorRepository.save(vendor);
+            otpVerified.remove(email);
+            res.put("success", true);
+            res.put("message", "Password reset successfully. Please log in.");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Reset failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
     }
 
     // ═══════════════════════════════════════════════════════

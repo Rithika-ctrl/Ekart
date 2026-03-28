@@ -40,14 +40,20 @@ public class OAuth2Controller {
                                 @RequestParam(defaultValue = "customer") String type,
                                 HttpSession session) {
         
+        // Strip "flutter-" prefix for validation — flutter-customer/flutter-vendor
+        // share the same provider allowlist as their base roles.
+        // The full type is stored in the session so OAuth2LoginSuccessHandler
+        // can redirect back to the React app instead of a Thymeleaf page.
+        String baseType = type.startsWith("flutter-") ? type.substring("flutter-".length()) : type;
+
         // Validate provider access using middleware
-        if (!providerValidator.isProviderAllowed(provider, type)) {
+        if (!providerValidator.isProviderAllowed(provider, baseType)) {
             String providerName = providerValidator.getProviderDisplayName(provider);
-            session.setAttribute("failure", providerName + " login is not available for " + type + " accounts");
-            return getRedirectForType(type);
+            session.setAttribute("failure", providerName + " login is not available for " + baseType + " accounts");
+            return getRedirectForType(baseType);
         }
-        
-        session.setAttribute("oauth_login_type", type);
+
+        session.setAttribute("oauth_login_type", type);   // preserve full type e.g. "flutter-customer"
         return "redirect:/oauth2/authorization/" + provider;
     }
 

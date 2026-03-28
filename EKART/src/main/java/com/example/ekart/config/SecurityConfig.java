@@ -20,6 +20,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.example.ekart.middleware.FlutterAuthFilter;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import java.util.List;
 
 @Configuration
@@ -28,6 +30,9 @@ public class SecurityConfig {
 
     @Autowired
     private CustomOAuth2UserService customOAuth2UserService;
+
+    @Autowired
+    private FlutterAuthFilter flutterAuthFilter;
 
     @Autowired
     private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -47,7 +52,11 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll()
-            );
+            )
+            // JWT validation — rejects requests missing/invalid token on protected endpoints.
+            // Public endpoints (auth/**, products/**, assistant/chat) are whitelisted inside
+            // the filter itself, so they pass through regardless.
+            .addFilterBefore(flutterAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
