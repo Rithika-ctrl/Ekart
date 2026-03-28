@@ -18,7 +18,7 @@ public class Cart implements Serializable {
 	@GeneratedValue
 	private int id;
 
-	@OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+	@OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
 	private List<Item> items = new ArrayList<>();
 
 	public int getId() { return id; }
