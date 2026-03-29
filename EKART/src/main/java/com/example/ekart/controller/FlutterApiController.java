@@ -4371,4 +4371,76 @@ public class FlutterApiController {
 
         return ctx.toString();
     }
+
+    // ── PUBLIC BANNER ENDPOINTS ───────────────────────────────────────────────
+    //
+    // GET /api/flutter/banners       — active banners for logged-in customers
+    //                                  (showOnCustomerHome = true)
+    // GET /api/flutter/home-banners  — active banners for the pre-login page
+    //                                  (showOnHome = true)
+    //
+    // Both are unauthenticated (no requireCustomer guard) so the React
+    // CustomerApp can call them before and after login without token overhead.
+    // Response shape matches /api/flutter/admin/banners for consistency.
+
+    /**
+     * GET /api/flutter/banners
+     * Active banners shown on the customer home page (after login).
+     * Filtered by active=true AND showOnCustomerHome=true, ordered by displayOrder.
+     */
+    @GetMapping("/banners")
+    public ResponseEntity<Map<String, Object>> getCustomerBanners() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Banner> banners = bannerRepository.findByActiveTrueAndShowOnCustomerHomeTrueOrderByDisplayOrderAsc();
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Banner b : banners) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",           b.getId());
+                m.put("title",        b.getTitle());
+                m.put("imageUrl",     b.getImageUrl());
+                m.put("linkUrl",      b.getLinkUrl());
+                m.put("displayOrder", b.getDisplayOrder());
+                list.add(m);
+            }
+            res.put("success", true);
+            res.put("banners", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load banners: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/flutter/home-banners
+     * Active banners shown on the pre-login landing page.
+     * Filtered by active=true AND showOnHome=true, ordered by displayOrder.
+     */
+    @GetMapping("/home-banners")
+    public ResponseEntity<Map<String, Object>> getHomeBanners() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Banner> banners = bannerRepository.findByActiveTrueAndShowOnHomeTrueOrderByDisplayOrderAsc();
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Banner b : banners) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",           b.getId());
+                m.put("title",        b.getTitle());
+                m.put("imageUrl",     b.getImageUrl());
+                m.put("linkUrl",      b.getLinkUrl());
+                m.put("displayOrder", b.getDisplayOrder());
+                list.add(m);
+            }
+            res.put("success", true);
+            res.put("banners", list);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load banners: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
 }
