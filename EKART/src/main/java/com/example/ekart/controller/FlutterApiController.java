@@ -677,22 +677,13 @@ public class FlutterApiController {
     @GetMapping("/products")
     public ResponseEntity<Map<String, Object>> getProducts(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String category) {
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false, defaultValue = "default") String sortBy) {
         Map<String, Object> res = new HashMap<>();
         List<Product> products;
-        if (search != null && !search.isBlank()) {
-            products = productRepository.findByNameContainingIgnoreCase(search)
-                    .stream().filter(Product::isApproved).collect(Collectors.toList());
-        } else if (category != null && !category.isBlank()) {
-            products = productRepository.findByCategoryAndApprovedTrue(category);
-        } else {
-            products = productRepository.findByApprovedTrue();
-        }
-        res.put("success", true);
-        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
-        res.put("count", products.size());
-        return ResponseEntity.ok(res);
-    }
+        if (search != null && !search
 
     /** GET /api/flutter/products/{id} — includes reviews */
     @GetMapping("/products/{id}")
@@ -1557,6 +1548,89 @@ public class FlutterApiController {
         reviewRepository.save(review);
         res.put("success", true); res.put("message", "Review added successfully");
         res.put("reviewId", review.getId());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/reviews/{reviewId}/upload-image
+     * Multipart upload of up to 5 evidence photos for a review.
+     * Field name: "images" (multiple files).
+     * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per review.
+     * Header: X-Customer-Id — ownership enforced via customerName match.
+     */
+    @PostMapping(value = "/reviews/{reviewId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> uploadReviewImageFlutter(
+            @PathVariable int reviewId,
+            @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) {
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.status(401).body(res);
+        }
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) {
+            res.put("success", false); res.put("message", "Customer not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        Review review = reviewRepository.findById(reviewId).orElse(null);
+        if (review == null) {
+            res.put("success", false); res.put("message", "Review not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        // Ownership: Review stores customerName (no FK), match against logged-in customer
+        if (!review.getCustomerName().equals(customer.getName())) {
+            res.put("success", false); res.put("message", "You can only add photos to your own reviews");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        long existing = reviewImageRepository.countByReviewId(reviewId);
+        int slots = (int) (5 - existing);
+        if (slots <= 0) {
+            res.put("success", false); res.put("message", "Maximum 5 photos already uploaded for this review");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        int uploaded = 0;
+        List<String> errors  = new java.util.ArrayList<>();
+        List<String> urls    = new java.util.ArrayList<>();
+
+        for (int i = 0; i < Math.min(files.size(), slots); i++) {
+            org.springframework.web.multipart.MultipartFile file = files.get(i);
+            if (file == null || file.isEmpty()) continue;
+            String ct = file.getContentType();
+            boolean validType = ct != null && (ct.equals("image/jpeg") || ct.equals("image/png") || ct.equals("image/webp"));
+            boolean validSize = file.getSize() <= 5 * 1024 * 1024;
+            if (!validType || !validSize) {
+                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : "file")
+                    + ": must be JPG/PNG/WEBP, max 5 MB");
+                continue;
+            }
+            try {
+                String url = cloudinaryHelper.saveToCloudinary(file);
+                ReviewImage img = new ReviewImage();
+                img.setReview(review);
+                img.setImageUrl(url);
+                reviewImageRepository.save(img);
+                urls.add(url);
+                uploaded++;
+            } catch (Exception e) {
+                errors.add("Upload failed: " + e.getMessage());
+            }
+        }
+
+        if (uploaded == 0 && !errors.isEmpty()) {
+            res.put("success", false);
+            res.put("message", String.join("; ", errors));
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        res.put("success", true);
+        res.put("uploaded", uploaded);
+        res.put("urls", urls);
+        if (!errors.isEmpty()) res.put("warnings", errors);
+        res.put("message", uploaded + " photo(s) added to your review");
         return ResponseEntity.ok(res);
     }
 
