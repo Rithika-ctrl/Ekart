@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  CSS custom properties for the Ekart Admin theme.
+  These drive all Tailwind's semantic color classes:
+  bg-background, text-foreground, border-border, etc.
+
+  Light theme (admin panel uses a clean light design).
+  Non-admin pages (CustomerApp, VendorApp, DeliveryApp) still use their
+  own inline styles and are unaffected by these variables.
+*/
+:root {
+  /* Base */
+  --background:         0 0% 98%;        /* #fafafa  – page background   */
+  --foreground:         0 0% 5%;         /* #0d0d0d  – primary text       */
+
+  /* Card / surface */
+  --card:               0 0% 100%;       /* #ffffff  – card background    */
+  --card-foreground:    0 0% 5%;
+
+  /* Primary action (dark ink) */
+  --primary:            0 0% 5%;         /* #0d0d0d  – buttons, active    */
+  --primary-foreground: 0 0% 98%;        /* #fafafa  – text on primary    */
+
+  /* Muted / subtle surfaces */
+  --muted:              40 12% 93%;      /* #f2f0eb  – muted bg           */
+  --muted-foreground:   0 0% 40%;        /* #666     – secondary text     */
+
+  /* Accent (same as muted for this theme) */
+  --accent:             40 12% 93%;
+  --accent-foreground:  0 0% 5%;
+
+  /* Borders & inputs */
+  --border:             36 14% 88%;      /* #e8e4dc  – dividers           */
+  --input:              36 14% 88%;
+  --ring:               0 0% 5%;
+
+  /* Border-radius base */
+  --radius: 0.5rem;
+}
+
+/* ── Base resets (keep existing main.jsx resets intact, add scroll) ────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input, select, textarea {
+    outline: none;
+  }
+
+  button {
+    transition: opacity 0.15s;
+  }
+
+  button:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: hsl(var(--muted)); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+}

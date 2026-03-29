@@ -1,18 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './index.css'
 import App from './App.jsx'
 
+/*
+  Global style resets for non-admin pages (CustomerApp, VendorApp, DeliveryApp)
+  that still use inline styles. Tailwind's base layer handles the admin styles.
+  We keep these imperative additions so those pages look correct too.
+*/
 const style = document.createElement('style')
 style.textContent = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0f0f1a; }
-  input, select, textarea { outline: none; }
   input::placeholder, textarea::placeholder { color: #6b7280; }
-  button { transition: opacity 0.2s; }
-  button:hover:not(:disabled) { opacity: 0.85; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 `
 document.head.appendChild(style)
 
