@@ -442,9 +442,31 @@ export default function CustomerApp() {
 
   const reportIssue = async (orderId, data) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to report issues"); return; }
+
+    // 1. Create a Refund DB record — returns refundId so the modal can
+    //    immediately show the inline image upload without navigating away.
+    let refundId = null;
+    try {
+      const rf = await api("/refund/request", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId,
+          reason: data.reason + (data.details ? " — " + data.details : ""),
+          type: data.type || "REFUND",
+        }),
+      });
+      if (rf.success) refundId = rf.refundId ?? null;
+    } catch { /* non-fatal */ }
+
+    // 2. Also log the dispute / notify admin (existing behaviour).
     const d = await api(`/orders/${orderId}/report-issue`, { method: "POST", body: JSON.stringify(data) });
-    if (d.success) { showToast("Issue reported successfully"); setReportOrder(null); }
-    else showToast(d.message || "Failed to report");
+
+    if (!d.success && refundId === null) {
+      showToast(d.message || "Failed to report");
+      return null;
+    }
+    // Return refundId so ReportIssueModal can show inline upload
+    return refundId;
   };
 
   const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
@@ -453,7 +475,7 @@ export default function CustomerApp() {
     <>
       <Layout nav={nav} onShowAuth={() => setShowAuth(true)}>
       <Toast msg={toast} onHide={() => setToast("")} />
-      {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} />}
+      {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} api={api} />}
       {reorderStockCheck && <ReorderStockModal stockCheck={reorderStockCheck} onClose={() => setReorderStockCheck(null)} onConfirm={confirmReorder} />}
 
       {auth?.role === "GUEST" && (
@@ -1350,6 +1372,14 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
+  // review image upload state
+  const [reviewId, setReviewId]         = useState(null);
+  const [reviewFiles, setReviewFiles]   = useState([]);
+  const [reviewPreviews, setReviewPreviews] = useState([]);
+  const [reviewUploading, setReviewUploading] = useState(false);
+  const [reviewUploadMsg, setReviewUploadMsg] = useState("");
+  const [reviewUploadedCount, setReviewUploadedCount] = useState(0);
+  const reviewFileRef = useRef(null);
   const [subscribed, setSubscribed] = useState(false);
   const isWishlisted = wishlistIds.includes(p.id);
   const discount = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
@@ -1409,9 +1439,45 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
   const submitReview = async () => {
     setSubmitting(true);
     const d = await api("/reviews/add", { method: "POST", body: JSON.stringify({ productId: p.id, rating: newReview.rating, comment: newReview.comment }) });
-    if (d.success) { setToast("Review submitted!"); api(`/products/${p.id}/reviews`).then(d => { if (d.success) setReviews(d.reviews || []); }); setNewReview({ rating: 5, comment: "" }); }
-    else setToast(d.message || "Failed");
+    if (d.success) {
+      setToast("Review submitted! You can now add photos below.");
+      setReviewId(d.reviewId ?? null);
+      setReviewUploadedCount(0);
+      setReviewFiles([]); setReviewPreviews([]); setReviewUploadMsg("");
+      if (reviewFileRef.current) reviewFileRef.current.value = "";
+      api(`/products/${p.id}/reviews`).then(r => { if (r.success) setReviews(r.reviews || []); });
+      setNewReview({ rating: 5, comment: "" });
+    } else setToast(d.message || "Failed");
     setSubmitting(false);
+  };
+
+  const onReviewFilesChange = (e) => {
+    const slotsLeft = 5 - reviewUploadedCount;
+    const picked = Array.from(e.target.files).slice(0, slotsLeft);
+    setReviewFiles(picked);
+    setReviewPreviews(picked.map(f => URL.createObjectURL(f)));
+    setReviewUploadMsg("");
+  };
+
+  const doReviewUpload = async () => {
+    if (!reviewFiles.length || !reviewId) return;
+    setReviewUploading(true); setReviewUploadMsg("");
+    try {
+      const form = new FormData();
+      reviewFiles.forEach(f => form.append("images", f));
+      const d = await api(`/reviews/${reviewId}/upload-image`, { method: "POST", body: form, headers: {} });
+      if (d.success) {
+        setReviewUploadMsg(`✓ ${d.uploaded} photo${d.uploaded !== 1 ? "s" : ""} added`);
+        setReviewUploadedCount(c => c + d.uploaded);
+        setReviewFiles([]); setReviewPreviews([]);
+        if (reviewFileRef.current) reviewFileRef.current.value = "";
+        // Refresh reviews so photos appear in the list
+        api(`/products/${p.id}/reviews`).then(r => { if (r.success) setReviews(r.reviews || []); });
+      } else {
+        setReviewUploadMsg(`✗ ${d.message || "Upload failed"}`);
+      }
+    } catch { setReviewUploadMsg("✗ Upload failed — please try again"); }
+    setReviewUploading(false);
   };
 
   return (
@@ -1458,6 +1524,7 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
       <div style={cs.reviewSection}>
         <h3 style={cs.secTitle}>Customer Reviews</h3>
         <div style={cs.reviewForm}>
+          {/* ── star rating + text ── */}
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             {[1,2,3,4,5].map(n => (
               <button key={n} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 24, color: n <= newReview.rating ? "#f59e0b" : "#d1d5db" }}
@@ -1466,9 +1533,77 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
           </div>
           <textarea style={cs.reviewInput} placeholder="Write your review..." value={newReview.comment}
             onChange={e => setNewReview(r => ({ ...r, comment: e.target.value }))} />
-          <button style={cs.submitReviewBtn} onClick={submitReview} disabled={submitting}>
-            {submitting ? "Submitting..." : "Submit Review"}
+          <button style={cs.submitReviewBtn} onClick={submitReview} disabled={submitting || !!reviewId}>
+            {submitting ? "Submitting..." : reviewId ? "✓ Review Submitted" : "Submit Review"}
           </button>
+
+          {/* ── inline photo upload — shown after review is submitted ── */}
+          {reviewId && (
+            <div style={{ marginTop: 16, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "14px 16px" }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 4 }}>
+                📸 Add Review Photos <span style={{ fontWeight: 400, color: "#6b7280" }}>(optional · up to 5)</span>
+              </p>
+              <p style={{ fontSize: 11, color: "#4b5563", marginBottom: 10 }}>
+                JPG, PNG or WEBP · max 5 MB each
+              </p>
+
+              {reviewUploadedCount > 0 && (
+                <div style={{ marginBottom: 8, fontSize: 12, color: "#22c55e", fontWeight: 600 }}>
+                  ✓ {reviewUploadedCount} photo{reviewUploadedCount !== 1 ? "s" : ""} added to your review
+                </div>
+              )}
+
+              {(5 - reviewUploadedCount) > 0 && (
+                <>
+                  <input
+                    ref={reviewFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={onReviewFilesChange}
+                    style={{ fontSize: 12, color: "#d1d5db", display: "block", marginBottom: 10, cursor: "pointer", width: "100%" }}
+                  />
+                  {reviewPreviews.length > 0 && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                      {reviewPreviews.map((src, i) => (
+                        <img key={i} src={src} alt={`preview ${i+1}`}
+                          style={{ width: 68, height: 68, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      style={{ ...cs.submitReviewBtn, marginTop: 0, opacity: reviewFiles.length === 0 || reviewUploading ? 0.5 : 1, cursor: reviewFiles.length === 0 || reviewUploading ? "not-allowed" : "pointer" }}
+                      onClick={doReviewUpload}
+                      disabled={reviewFiles.length === 0 || reviewUploading}
+                    >
+                      {reviewUploading ? "Uploading…" : reviewFiles.length > 0 ? `Upload ${reviewFiles.length} Photo${reviewFiles.length !== 1 ? "s" : ""}` : "Select Photos First"}
+                    </button>
+                    {reviewFiles.length > 0 && !reviewUploading && (
+                      <button
+                        style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
+                        onClick={() => { setReviewFiles([]); setReviewPreviews([]); if (reviewFileRef.current) reviewFileRef.current.value = ""; }}
+                      >Clear</button>
+                    )}
+                  </div>
+                  {reviewUploadMsg && (
+                    <p style={{ marginTop: 8, fontSize: 12, color: reviewUploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>
+                      {reviewUploadMsg}
+                    </p>
+                  )}
+                </>
+              )}
+              {(5 - reviewUploadedCount) === 0 && (
+                <p style={{ fontSize: 12, color: "#6b7280" }}>Maximum 5 photos added.</p>
+              )}
+              <button
+                style={{ marginTop: 12, fontSize: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
+                onClick={() => { setReviewId(null); setReviewUploadMsg(""); setReviewFiles([]); setReviewPreviews([]); setReviewUploadedCount(0); }}
+              >
+                Done with photos
+              </button>
+            </div>
+          )}
         </div>
         {reviews.map((r, i) => (
           <div key={i} style={cs.reviewCard}>
@@ -2612,41 +2747,178 @@ function ReorderStockModal({ stockCheck, onClose, onConfirm }) {
 }
 
 /* ── Report Issue Modal ── */
-function ReportIssueModal({ order, onClose, onSubmit }) {
-  const [reason, setReason] = useState("");
-  const [details, setDetails] = useState("");
+function ReportIssueModal({ order, onClose, onSubmit, api }) {
+  const [reason, setReason]       = useState("");
+  const [details, setDetails]     = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Phase 2 — after submit
+  const [refundId, setRefundId]   = useState(null);
+  const [files, setFiles]         = useState([]);
+  const [previews, setPreviews]   = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const fileInputRef = useRef(null);
+
   const reasons = ["Damaged/Defective Product", "Wrong Item Delivered", "Missing Items", "Quality Not as Expected", "Delivery Issue", "Other"];
 
   const handleSubmit = async () => {
     if (!reason) { alert("Please select a reason"); return; }
     setSubmitting(true);
-    await onSubmit(order.id, { reason, details, type: "REFUND" });
+    const rid = await onSubmit(order.id, { reason, details, type: "REFUND" });
     setSubmitting(false);
+    if (rid) {
+      setRefundId(rid);   // move to upload phase
+    } else {
+      onClose();          // no refundId but dispute logged — just close
+    }
   };
 
+  const onFilesChange = (e) => {
+    const slotsLeft = 5 - uploadedCount;
+    const picked = Array.from(e.target.files).slice(0, slotsLeft);
+    setFiles(picked);
+    setPreviews(picked.map(f => URL.createObjectURL(f)));
+    setUploadMsg("");
+  };
+
+  const doUpload = async () => {
+    if (!files.length || !refundId) return;
+    setUploading(true);
+    setUploadMsg("");
+    try {
+      const form = new FormData();
+      files.forEach(f => form.append("images", f));
+      const d = await api(`/refund/${refundId}/upload-image`, {
+        method: "POST",
+        body: form,
+        headers: {},  // let browser set multipart boundary
+      });
+      if (d.success) {
+        setUploadMsg(`✓ ${d.uploaded} photo${d.uploaded !== 1 ? "s" : ""} uploaded`);
+        setUploadedCount(c => c + d.uploaded);
+        setFiles([]);
+        setPreviews([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } else {
+        setUploadMsg(`✗ ${d.message || "Upload failed"}`);
+      }
+    } catch {
+      setUploadMsg("✗ Upload failed — please try again");
+    }
+    setUploading(false);
+  };
+
+  const slotsLeft = 5 - uploadedCount;
+
+  /* ── Phase 1: fill in reason + details ── */
+  if (!refundId) {
+    return (
+      <div style={cs.overlay}>
+        <div style={{ ...cs.dialog, maxWidth: 500, textAlign: "left" }}>
+          <h3 style={{ color: "#fff", marginBottom: 4 }}>⚠️ Report an Issue</h3>
+          <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 20 }}>Order #{order.id}</p>
+
+          <label style={cs.label}>Reason for Return / Refund *</label>
+          <select style={{ ...cs.searchInput, width: "100%", marginBottom: 16 }} value={reason} onChange={e => setReason(e.target.value)}>
+            <option value="">Select a reason...</option>
+            {reasons.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+
+          <label style={cs.label}>Additional Details</label>
+          <textarea style={{ ...cs.reviewInput, marginBottom: 20, width: "100%", boxSizing: "border-box" }}
+            placeholder="Describe the issue in detail..." value={details} onChange={e => setDetails(e.target.value)} />
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <button style={{ ...cs.addCartBtn, flex: 1 }} onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Request"}
+            </button>
+            <button style={cs.secondaryBtn} onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Phase 2: refund created — upload evidence photos ── */
   return (
     <div style={cs.overlay}>
       <div style={{ ...cs.dialog, maxWidth: 500, textAlign: "left" }}>
-        <h3 style={{ color: "#fff", marginBottom: 4 }}>⚠️ Report an Issue</h3>
-        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 20 }}>Order #{order.id}</p>
 
-        <label style={cs.label}>Reason for Return / Refund *</label>
-        <select style={{ ...cs.searchInput, width: "100%", marginBottom: 16 }} value={reason} onChange={e => setReason(e.target.value)}>
-          <option value="">Select a reason...</option>
-          {reasons.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-
-        <label style={cs.label}>Additional Details</label>
-        <textarea style={{ ...cs.reviewInput, marginBottom: 20, width: "100%", boxSizing: "border-box" }}
-          placeholder="Describe the issue in detail..." value={details} onChange={e => setDetails(e.target.value)} />
-
-        <div style={{ display: "flex", gap: 12 }}>
-          <button style={{ ...cs.addCartBtn, flex: 1 }} onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Submitting..." : "Submit Request"}
-          </button>
-          <button style={cs.secondaryBtn} onClick={onClose}>Cancel</button>
+        {/* success header */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+          <h3 style={{ color: "#22c55e", margin: 0 }}>Issue Reported!</h3>
+          <p style={{ color: "#9ca3af", fontSize: 13, marginTop: 4 }}>
+            Order #{order.id} · Refund #{refundId}
+          </p>
         </div>
+
+        {/* upload box */}
+        <div style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "16px" }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 4 }}>
+            📎 Upload Evidence Photos <span style={{ fontWeight: 400, color: "#6b7280" }}>(optional)</span>
+          </p>
+          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+            Add up to 5 photos to support your refund request. JPG, PNG or WEBP · max 5 MB each.
+          </p>
+
+          {uploadedCount > 0 && (
+            <div style={{ marginBottom: 10, fontSize: 12, color: "#22c55e", fontWeight: 600 }}>
+              ✓ {uploadedCount} photo{uploadedCount !== 1 ? "s" : ""} uploaded so far
+            </div>
+          )}
+
+          {slotsLeft > 0 ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={onFilesChange}
+                style={{ fontSize: 12, color: "#d1d5db", display: "block", marginBottom: 10, width: "100%", cursor: "pointer" }}
+              />
+
+              {previews.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  {previews.map((src, i) => (
+                    <img key={i} src={src} alt={`preview ${i + 1}`}
+                      style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  style={{ ...cs.addCartBtn, opacity: files.length === 0 || uploading ? 0.5 : 1, cursor: files.length === 0 || uploading ? "not-allowed" : "pointer" }}
+                  onClick={doUpload}
+                  disabled={files.length === 0 || uploading}
+                >
+                  {uploading ? "Uploading…" : files.length > 0 ? `Upload ${files.length} Photo${files.length !== 1 ? "s" : ""}` : "Select Photos First"}
+                </button>
+                {files.length > 0 && !uploading && (
+                  <button style={{ ...cs.secondaryBtn, fontSize: 12, padding: "6px 12px" }}
+                    onClick={() => { setFiles([]); setPreviews([]); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {uploadMsg && (
+                <p style={{ marginTop: 8, fontSize: 12, color: uploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>
+                  {uploadMsg}
+                </p>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: 12, color: "#6b7280" }}>Maximum 5 photos uploaded.</p>
+          )}
+        </div>
+
+        <button style={{ ...cs.addCartBtn, width: "100%", marginTop: 16 }} onClick={onClose}>
+          Done
+        </button>
       </div>
     </div>
   );
