@@ -8,7 +8,11 @@ const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 function Toast({ msg, onHide }) {
   useEffect(() => { if (msg) { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); } }, [msg]);
   if (!msg) return null;
-  return <div style={as.toast}>{msg}</div>;
+  return (
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-lg shadow-lg text-sm font-semibold z-[999]">
+      {msg}
+    </div>
+  );
 }
 
 export default function AdminApp() {
@@ -16,9 +20,9 @@ export default function AdminApp() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Derive current page from URL: /admin/:page → page, default "overview"
   const page = location.pathname.replace(/^\/admin\/?/, "").split("/")[0] || "overview";
   const setPage = (p) => navigate(`/admin/${p}`);
+
   const [users, setUsers] = useState({ customers: [], vendors: [] });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -32,6 +36,7 @@ export default function AdminApp() {
   const [spending, setSpending] = useState(null);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -42,6 +47,7 @@ export default function AdminApp() {
     const res = await fetch("/api/flutter" + path, { ...opts, headers });
     return res.json();
   }, [auth]);
+
   const show = m => setToast(m);
 
   const loadAll = useCallback(async () => {
@@ -56,8 +62,6 @@ export default function AdminApp() {
       if (v.success) setVendors(v.vendors || []);
     } catch { show("Failed to load"); }
     setLoading(false);
-    // Fetch analytics in the background after core data loads — needed by Overview's revenue card.
-    // Not awaited so it doesn't block the initial render.
     api("/admin/analytics").then(d => { if (d.success) setAnalytics(d); }).catch(() => {});
   }, [api]);
 
@@ -69,11 +73,9 @@ export default function AdminApp() {
   useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
   useEffect(() => { if (page === "warehouse") api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
   useEffect(() => { if (page === "delivery")  api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }, [page]);
-  
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
 
   const [policies, setPolicies] = useState([]);
-
   const fetchPolicies = async () => {
     try {
       const res = await fetch("/api/policies");
@@ -125,8 +127,6 @@ export default function AdminApp() {
 
   const pendingProducts = products.filter(p => !p.approved);
   const pendingRefunds  = refunds.filter(r => r.status === "PENDING");
-  // Use totalPrice (matches Order entity) across all orders to align with backend analytics endpoint.
-  // The backend sums Order::getTotalPrice for all orders regardless of status.
   const totalRevenue    = orders.reduce((s, o) => s + (o.totalPrice || o.amount || 0), 0);
 
   const tabs = [
@@ -148,51 +148,111 @@ export default function AdminApp() {
     { key: "content",    label: "🖼️ Content" },
   ];
 
-  return (
-    <div style={as.root}>
-      <Toast msg={toast} onHide={() => setToast("")} />
-      <nav style={as.nav}>
-        <span style={as.brand}>⚙️ EKART Admin</span>
-        <div style={as.navLinks}>
-          {tabs.map(t => (
-            <button key={t.key} style={{ ...as.navBtn, ...(page === t.key ? as.navBtnActive : {}) }}
-              onClick={() => setPage(t.key)}>{t.label}</button>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>Admin</span>
-          <button style={as.logoutBtn} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
-        </div>
-      </nav>
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/admin/usersearch?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
 
-      <main style={as.main}>
-        {loading ? <div style={as.empty}>Loading admin data…</div> : <>
-          {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
-          {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} />}
-          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
-          {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
-          {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
-          {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} onApprove={approveDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} api={api} showToast={show} />}
-          {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
-          {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
-          {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
-          {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} />}
-          {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
-          {page === "usersearch" && <UserSearch api={api} showToast={show} />}
-          {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
-          {page === "security"   && <SecurityAdmin />}
-          {page === "accounts"   && <AccountsAdmin />}
-          {page === "content"    && <ContentAdmin />}
-        </>}
-      </main>
+  return (
+    <div className="min-h-screen bg-background">
+      <Toast msg={toast} onHide={() => setToast("")} />
+
+      {/* Sidebar + Main content */}
+      <div className="flex flex-col md:flex-row">
+        {/* Sidebar */}
+        <aside className="w-full md:w-64 bg-card border-b md:border-b-0 md:border-r border-border p-4 md:p-6 overflow-x-auto md:overflow-y-auto">
+          <div className="flex md:flex-col gap-1">
+            {tabs.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setPage(t.key)}
+                className={`
+                  flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap
+                  ${page === t.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  }
+                `}
+              >
+                {t.label}
+              </button>
+            ))}
+            <hr className="my-4 border-border" />
+            <button
+              onClick={() => { logout(); navigate("/auth", { replace: true }); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap"
+            >
+              🚪 Logout
+            </button>
+          </div>
+        </aside>
+
+        {/* Main content area */}
+        <main className="flex-1 p-4 md:p-6">
+          {/* Header with search & profile */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <h1 className="text-2xl font-bold text-foreground">
+              {tabs.find(t => t.key === page)?.label || "Dashboard"}
+            </h1>
+            <div className="flex items-center gap-3">
+              <form onSubmit={handleSearch} className="relative">
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-64 px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  🔍
+                </button>
+              </form>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {auth?.email?.[0]?.toUpperCase() || "A"}
+                </div>
+                <span className="text-sm text-muted-foreground hidden sm:inline">{auth?.email}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Page content */}
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading admin data…</div>
+          ) : (
+            <>
+              {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
+              {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} />}
+              {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
+              {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
+              {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
+              {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} onApprove={approveDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} api={api} showToast={show} />}
+              {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
+              {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
+              {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
+              {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} />}
+              {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
+              {page === "usersearch" && <UserSearch api={api} showToast={show} />}
+              {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
+              {page === "security"   && <SecurityAdmin />}
+              {page === "accounts"   && <AccountsAdmin />}
+              {page === "content"    && <ContentAdmin />}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-/* ── Overview ── */
+/* -------------------------------------------------------------------------- */
+/* All sub‑components follow – they now use Tailwind classes.                 */
+/* The logic remains unchanged – only the styling has been updated.           */
+/* -------------------------------------------------------------------------- */
+
 function Overview({ users, products, orders, totalRevenue, pendingProducts, analyticsRevenue }) {
-  // Prefer the server-side figure from /admin/analytics when available (uses all orders + totalPrice).
-  // Falls back to the client-computed value while the analytics tab hasn't been visited yet.
   const displayRevenue = analyticsRevenue != null ? analyticsRevenue : totalRevenue;
   const stats = [
     { label: "Customers",       value: users.customers.length, icon: "👥", color: "#2563eb" },
@@ -205,55 +265,55 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
   const statusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   return (
     <div>
-      <h2 style={as.pageTitle}>Platform Overview</h2>
-      <div style={as.statsGrid}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
         {stats.map(s => (
-          <div key={s.label} style={as.statCard}>
-            <div style={as.statIcon(s.color)}>{s.icon}</div>
-            <div style={as.statVal}>{s.value}</div>
-            <div style={as.statLabel}>{s.label}</div>
+          <div key={s.label} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl mb-3" style={{ background: `${s.color}18` }}>{s.icon}</div>
+            <div className="text-2xl font-bold text-foreground">{s.value}</div>
+            <div className="text-sm text-muted-foreground mt-1">{s.label}</div>
           </div>
         ))}
       </div>
-      <div style={as.twoCol}>
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Order Status Breakdown</h3>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-foreground mb-4">Order Status Breakdown</h3>
           {Object.entries(statusCounts).map(([status, count]) => (
-            <div key={status} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <span style={{ fontSize: 13, minWidth: 170, color: "#0d0d0d" }}>{status.replace(/_/g, " ")}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round(count / Math.max(orders.length, 1) * 100)}%` }} />
+            <div key={status} className="flex items-center gap-3 mb-3">
+              <span className="text-sm w-40 text-muted-foreground">{status.replace(/_/g, " ")}</span>
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-indigo-500 rounded-full" style={{ width: `${Math.round(count / Math.max(orders.length, 1) * 100)}%` }} />
               </div>
-              <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
+              <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
             </div>
           ))}
         </div>
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Pending Approvals</h3>
-          {pendingProducts.length === 0 ? <p style={{ color: "#1db882", fontSize: 14 }}>✓ All products reviewed</p> :
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-foreground mb-4">Pending Approvals</h3>
+          {pendingProducts.length === 0 ? (
+            <p className="text-sm text-green-600">✓ All products reviewed</p>
+          ) : (
             pendingProducts.slice(0, 5).map(p => (
-              <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f2f0eb" }}>
-                <span style={{ flex: 1, fontSize: 14 }}>{p.name}</span>
-                <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>{p.category}</span>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{fmt(p.price)}</span>
+              <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <span className="text-sm font-medium">{p.name}</span>
+                <span className="text-xs text-muted-foreground">{p.category}</span>
+                <span className="text-sm font-semibold">{fmt(p.price)}</span>
               </div>
-            ))}
+            ))
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-/* ── Products ── */
 function ProductsAdmin({ products, onApprove, onReject }) {
   const [filter, setFilter] = useState("pending");
   const filtered = filter === "all" ? products : filter === "pending" ? products.filter(p => !p.approved) : products.filter(p => p.approved);
   return (
     <div>
-      <h2 style={as.pageTitle}>Product Management</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div className="flex flex-wrap gap-2 mb-6">
         {[["all","All"],["pending","Pending"],["approved","Approved"]].map(([k,l]) => (
-          <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>
+          <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === k ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
             {l} ({k === "all" ? products.length : k === "pending" ? products.filter(p => !p.approved).length : products.filter(p => p.approved).length})
           </button>
         ))}
@@ -261,12 +321,12 @@ function ProductsAdmin({ products, onApprove, onReject }) {
       <AdminTable
         cols={["Product","Vendor","Category","Price","Stock","Status","Actions"]}
         rows={filtered.map(p => [
-          <div><div style={{ fontWeight: 700 }}>{p.name}</div><div style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>#{p.id}</div></div>,
+          <div><div className="font-semibold">{p.name}</div><div className="text-xs text-muted-foreground">#{p.id}</div></div>,
           p.vendorName || "—", p.category, fmt(p.price), p.stock,
-          <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>{p.approved ? "Approved" : "Pending"}</span>,
-          <div style={{ display: "flex", gap: 6 }}>
-            {!p.approved && <button style={as.approveBtn} onClick={() => onApprove(p.id)}>✓</button>}
-            {p.approved  && <button style={as.rejectBtn}  onClick={() => onReject(p.id)}>✗</button>}
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.approved ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{p.approved ? "Approved" : "Pending"}</span>,
+          <div className="flex gap-2">
+            {!p.approved && <button onClick={() => onApprove(p.id)} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200">✓</button>}
+            {p.approved && <button onClick={() => onReject(p.id)} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">✗</button>}
           </div>
         ])}
         empty="No products to show"
@@ -275,7 +335,6 @@ function ProductsAdmin({ products, onApprove, onReject }) {
   );
 }
 
-/* ── Orders ── */
 function OrdersAdmin({ orders, onUpdateStatus }) {
   const statuses = ["PLACED","CONFIRMED","SHIPPED","OUT_FOR_DELIVERY","DELIVERED","CANCELLED"];
   const [filter, setFilter] = useState("");
@@ -283,18 +342,17 @@ function OrdersAdmin({ orders, onUpdateStatus }) {
   const sColor = { PLACED:"#d4a017",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#1db882",CANCELLED:"#e84c3c" };
   return (
     <div>
-      <h2 style={as.pageTitle}>Order Management</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <button style={{ ...as.filterBtn, ...(filter === "" ? as.filterBtnActive : {}) }} onClick={() => setFilter("")}>All ({orders.length})</button>
-        {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 ? <button key={s} style={{ ...as.filterBtn, ...(filter === s ? as.filterBtnActive : {}) }} onClick={() => setFilter(s)}>{s.replace(/_/g," ")} ({c})</button> : null; })}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button onClick={() => setFilter("")} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>All ({orders.length})</button>
+        {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 && <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{s.replace(/_/g," ")} ({c})</button>; })}
       </div>
       <AdminTable
         cols={["ID","Customer","Amount","Date","Status","Update"]}
         rows={filtered.map(o => [
           `#${o.id}`, o.customerName || "—", fmt(o.amount || o.totalPrice),
           o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—",
-          <span style={{ ...as.badge, background: (sColor[o.trackingStatus] || "#6b7280") + "22", color: sColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g," ")}</span>,
-          <select style={as.statusSelect} value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)}>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: `${sColor[o.trackingStatus] || "#6b7280"}22`, color: sColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g," ")}</span>,
+          <select value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)} className="text-sm border border-border rounded-md px-2 py-1 bg-background">
             {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
           </select>
         ])}
@@ -304,21 +362,15 @@ function OrdersAdmin({ orders, onUpdateStatus }) {
   );
 }
 
-/* ── Customers ── */
 function CustomersAdmin({ customers, onToggle, api, showToast }) {
   const [q, setQ] = useState("");
   const [localCustomers, setLocalCustomers] = useState(customers);
-  const [roleModal, setRoleModal] = useState(null); // { customer, newRole }
+  const [roleModal, setRoleModal] = useState(null);
   const [roleChanging, setRoleChanging] = useState(false);
 
-  // Keep local copy in sync if parent reloads
   useEffect(() => { setLocalCustomers(customers); }, [customers]);
 
-  const filtered = q
-    ? localCustomers.filter(c =>
-        c.name?.toLowerCase().includes(q.toLowerCase()) ||
-        c.email?.toLowerCase().includes(q.toLowerCase()))
-    : localCustomers;
+  const filtered = q ? localCustomers.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.email?.toLowerCase().includes(q.toLowerCase())) : localCustomers;
 
   const roleColor = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
   const roleBg    = { ADMIN: "#f5f3ff", ORDER_MANAGER: "#eff6ff", CUSTOMER: "#f0fdf4" };
@@ -333,9 +385,7 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
         body: JSON.stringify({ role: roleModal.newRole }),
       });
       if (d.success) {
-        setLocalCustomers(prev =>
-          prev.map(c => c.id === roleModal.customer.id ? { ...c, role: roleModal.newRole } : c)
-        );
+        setLocalCustomers(prev => prev.map(c => c.id === roleModal.customer.id ? { ...c, role: roleModal.newRole } : c));
         showToast(`✓ ${roleModal.customer.name || "User"}'s role set to ${roleModal.newRole}`);
       } else {
         showToast(d.message || d.error || "Role update failed");
@@ -347,63 +397,41 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
 
   return (
     <div>
-      <h2 style={as.pageTitle}>Customer Management</h2>
       <input
-        style={{ ...as.searchInput, marginBottom: 20 }}
+        className="w-full px-4 py-2 mb-6 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         placeholder="Search customers…"
         value={q}
         onChange={e => setQ(e.target.value)}
       />
-
-      <div style={as.tableWrap}>
-        <table style={as.table}>
-          <thead style={as.thead}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-card border border-border rounded-lg">
+          <thead className="bg-muted">
             <tr>
-              {["ID","Name","Email","Mobile","Role","Verified","Active","Actions"].map(h => (
-                <th key={h} style={as.th}>{h}</th>
-              ))}
+              {["ID","Name","Email","Mobile","Role","Verified","Active","Actions"].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>)}
             </tr>
           </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={8} style={{ ...as.td, textAlign: "center", color: "rgba(13,13,13,0.4)" }}>No customers</td></tr>
-            )}
+          <tbody className="divide-y divide-border">
+            {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No customers</td></tr>}
             {filtered.map(c => (
-              <tr key={c.id} style={as.tr}>
-                <td style={as.td}>#{c.id}</td>
-                <td style={{ ...as.td, fontWeight: 600 }}>{c.name}</td>
-                <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{c.email}</td>
-                <td style={as.td}>{c.mobile || "—"}</td>
-                <td style={as.td}>
+              <tr key={c.id} className="hover:bg-muted/50 transition">
+                <td className="px-4 py-3 text-sm">#{c.id}</td>
+                <td className="px-4 py-3 text-sm font-medium">{c.name}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{c.email}</td>
+                <td className="px-4 py-3 text-sm">{c.mobile || "—"}</td>
+                <td className="px-4 py-3 text-sm">
                   <select
-                    style={{ ...as.statusSelect, minWidth: 130,
-                      background: roleBg[c.role || "CUSTOMER"] || "#f2f0eb",
-                      color: roleColor[c.role || "CUSTOMER"] || "#0d0d0d",
-                      fontWeight: 700, border: "1px solid #e8e4dc" }}
                     value={c.role || "CUSTOMER"}
-                    onChange={e => {
-                      if (e.target.value !== (c.role || "CUSTOMER"))
-                        setRoleModal({ customer: c, newRole: e.target.value });
-                    }}
+                    onChange={e => { if (e.target.value !== (c.role || "CUSTOMER")) setRoleModal({ customer: c, newRole: e.target.value }); }}
+                    className="border border-border rounded-md px-2 py-1 text-sm bg-background"
+                    style={{ background: roleBg[c.role || "CUSTOMER"], color: roleColor[c.role || "CUSTOMER"], fontWeight: 600 }}
                   >
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </td>
-                <td style={as.td}>
-                  <span style={{ color: c.verified ? "#1db882" : "#e84c3c" }}>
-                    {c.verified ? "✓" : "✗"}
-                  </span>
-                </td>
-                <td style={as.td}>
-                  <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#fef2f2", color: c.active ? "#1db882" : "#e84c3c" }}>
-                    {c.active ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td style={as.td}>
-                  <button
-                    style={c.active ? as.rejectBtn : as.approveBtn}
-                    onClick={() => onToggle(c.id)}
-                  >
+                <td className="px-4 py-3 text-sm"><span className={c.verified ? "text-green-600" : "text-red-600"}>{c.verified ? "✓" : "✗"}</span></td>
+                <td className="px-4 py-3 text-sm"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{c.active ? "Active" : "Inactive"}</span></td>
+                <td className="px-4 py-3 text-sm">
+                  <button onClick={() => onToggle(c.id)} className={`px-2 py-1 text-xs rounded ${c.active ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}>
                     {c.active ? "Deactivate" : "Activate"}
                   </button>
                 </td>
@@ -413,36 +441,21 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
         </table>
       </div>
 
-      {/* Role change confirmation modal */}
       {roleModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: roleBg[roleModal.newRole] || "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 16px" }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div className="bg-card rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4" style={{ background: roleBg[roleModal.newRole] }}>
               {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
             </div>
-            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" :
-               (roleModal.customer.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?")}
-            </h3>
-            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
-              Set <strong>{roleModal.customer.name || roleModal.customer.email}</strong>'s role from{" "}
-              <strong style={{ color: roleColor[roleModal.customer.role || "CUSTOMER"] }}>{roleModal.customer.role || "CUSTOMER"}</strong>{" "}
-              to <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
-              {roleModal.newRole === "ADMIN" && " This grants full platform access."}
-              {roleModal.customer.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose admin access."}
+            <h3 className="text-center font-bold text-lg mb-2">{roleModal.newRole === "ADMIN" ? "Grant Admin Access?" : (roleModal.customer.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?")}</h3>
+            <p className="text-center text-sm text-muted-foreground mb-6">
+              Change <strong>{roleModal.customer.name || roleModal.customer.email}</strong> from{" "}
+              <strong style={{ color: roleColor[roleModal.customer.role || "CUSTOMER"] }}>{roleModal.customer.role || "CUSTOMER"}</strong> to{" "}
+              <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>
-                Cancel
-              </button>
-              <button
-                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.customer.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
-                  color: "#fff" }}
-                onClick={confirmRoleChange}
-                disabled={roleChanging}
-              >
+            <div className="flex gap-3">
+              <button onClick={() => setRoleModal(null)} disabled={roleChanging} className="flex-1 px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted">Cancel</button>
+              <button onClick={confirmRoleChange} disabled={roleChanging} className="flex-1 px-4 py-2 rounded-md text-sm font-medium text-white" style={{ background: roleModal.newRole === "ADMIN" ? "#7c3aed" : (roleModal.customer.role === "ADMIN" ? "#e84c3c" : "#0d0d0d") }}>
                 {roleChanging ? "Updating…" : "Confirm"}
               </button>
             </div>
@@ -453,18 +466,16 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
   );
 }
 
-/* ── Vendors ── */
 function VendorsAdmin({ vendors, onToggle }) {
   return (
     <div>
-      <h2 style={as.pageTitle}>Vendor Management</h2>
       <AdminTable
         cols={["ID","Name","Email","Mobile","Verified","Active","Action"]}
         rows={vendors.map(v => [
           `#${v.id}`, v.name, v.email, v.mobile,
-          <span style={{ color: v.verified ? "#1db882" : "#e84c3c" }}>{v.verified ? "✓" : "✗"}</span>,
-          <span style={{ ...as.badge, background: v.active !== false ? "#e8f9f2" : "#fef2f2", color: v.active !== false ? "#1db882" : "#e84c3c" }}>{v.active !== false ? "Active" : "Inactive"}</span>,
-          <button style={v.active !== false ? as.rejectBtn : as.approveBtn} onClick={() => onToggle(v.id)}>{v.active !== false ? "Deactivate" : "Activate"}</button>
+          <span className={v.verified ? "text-green-600" : "text-red-600"}>{v.verified ? "✓" : "✗"}</span>,
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${v.active !== false ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{v.active !== false ? "Active" : "Inactive"}</span>,
+          <button onClick={() => onToggle(v.id)} className={`px-2 py-1 text-xs rounded ${v.active !== false ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}>{v.active !== false ? "Deactivate" : "Activate"}</button>
         ])}
         empty="No vendors"
       />
@@ -472,7 +483,6 @@ function VendorsAdmin({ vendors, onToggle }) {
   );
 }
 
-/* ── Delivery Management ── */
 function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTransfer, api, showToast }) {
   const [transfers, setTransfers] = useState([]);
   const [loadingTransfers, setLoadingTransfers] = useState(true);
@@ -487,32 +497,27 @@ function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTra
 
   return (
     <div>
-      <h2 style={as.pageTitle}>Delivery Management 🛵</h2>
-
-      {/* Pending Transfers */}
       {pendingTransfers.length > 0 && (
-        <div style={{ ...as.card, marginBottom: 24, borderColor: "#d4a017" }}>
-          <h3 style={{ ...as.cardTitle, color: "#d4a017" }}>⚠️ Warehouse Transfer Requests ({pendingTransfers.length})</h3>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 mb-6">
+          <h3 className="text-yellow-800 font-semibold mb-3">⚠️ Warehouse Transfer Requests ({pendingTransfers.length})</h3>
           {pendingTransfers.map(t => (
-            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f2f0eb" }}>
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-2 border-b border-yellow-100 last:border-0">
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{t.deliveryBoy?.name || "—"} ({t.deliveryBoy?.deliveryBoyCode})</div>
-                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)" }}>
-                  {t.deliveryBoy?.warehouse?.name} → {t.requestedWarehouse?.name}, {t.requestedWarehouse?.city}
-                </div>
+                <div className="font-medium">{t.deliveryBoy?.name || "—"} ({t.deliveryBoy?.deliveryBoyCode})</div>
+                <div className="text-sm text-muted-foreground">{t.deliveryBoy?.warehouse?.name} → {t.requestedWarehouse?.name}, {t.requestedWarehouse?.city}</div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={as.approveBtn} onClick={() => { onApproveTransfer(t.id); setTransfers(tr => tr.filter(x => x.id !== t.id)); }}>Approve</button>
-                <button style={as.rejectBtn}  onClick={() => { onRejectTransfer(t.id);  setTransfers(tr => tr.filter(x => x.id !== t.id)); }}>Reject</button>
+              <div className="flex gap-2">
+                <button onClick={() => { onApproveTransfer(t.id); setTransfers(tr => tr.filter(x => x.id !== t.id)); }} className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">Approve</button>
+                <button onClick={() => { onRejectTransfer(t.id); setTransfers(tr => tr.filter(x => x.id !== t.id)); }} className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div className="flex flex-wrap gap-2 mb-6">
         {[["pending","Pending Approval"],["all","All Delivery Boys"]].map(([k, l]) => (
-          <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>{l}</button>
+          <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === k ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{l}</button>
         ))}
       </div>
 
@@ -521,8 +526,8 @@ function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTra
         rows={filtered.map(d => [
           `#${d.id}`, d.name, d.email, d.mobile, d.deliveryBoyCode,
           d.warehouse ? `${d.warehouse.name}` : "—",
-          <span style={{ ...as.badge, background: d.approved ? "#e8f9f2" : "#fef9e7", color: d.approved ? "#1db882" : "#d4a017" }}>{d.approved ? "Active" : "Pending"}</span>,
-          !d.approved ? <button style={as.approveBtn} onClick={() => onApprove(d.id)}>Approve</button> : null
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${d.approved ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{d.approved ? "Active" : "Pending"}</span>,
+          !d.approved && <button onClick={() => onApprove(d.id)} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200">Approve</button>
         ])}
         empty="No delivery boys"
       />
@@ -530,7 +535,6 @@ function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTra
   );
 }
 
-/* ── Warehouse Management ── */
 function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", city: "", state: "", warehouseCode: "", servedPinCodes: "" });
@@ -546,62 +550,61 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={as.pageTitle}>Warehouse Management 🏭</h2>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>+ Add Warehouse</button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">Warehouse Management 🏭</h2>
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">+ Add Warehouse</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Total Warehouses", value: warehouses.length },
           { label: "Cities Covered", value: new Set(warehouses.map(w => w.city)).size },
           { label: "States Covered", value: new Set(warehouses.map(w => w.state)).size },
         ].map(s => (
-          <div key={s.label} style={as.statCard}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#0d0d0d", marginBottom: 4 }}>{s.value}</div>
-            <div style={as.statLabel}>{s.label}</div>
+          <div key={s.label} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="text-2xl font-bold text-foreground">{s.value}</div>
+            <div className="text-sm text-muted-foreground mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
       {showForm && (
-        <div style={{ ...as.card, marginBottom: 24 }}>
-          <h3 style={as.cardTitle}>Add New Warehouse</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="bg-card rounded-xl border border-border p-5 mb-6 shadow-sm">
+          <h3 className="font-semibold mb-4">Add New Warehouse</h3>
+          <div className="grid sm:grid-cols-2 gap-4">
             {[["name","Warehouse Name"],["city","City"],["state","State"],["warehouseCode","Warehouse Code"]].map(([k,l]) => (
               <div key={k}>
-                <label style={as.label}>{l}</label>
-                <input style={as.inputFull} value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
+                <label className="block text-xs font-medium text-muted-foreground uppercase mb-1">{l}</label>
+                <input className="w-full px-3 py-2 border border-border rounded-md bg-background" value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
               </div>
             ))}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={as.label}>Served PIN Codes (comma-separated)</label>
-              <input style={as.inputFull} value={form.servedPinCodes} onChange={e => setForm(f => ({ ...f, servedPinCodes: e.target.value }))} placeholder="560001, 560002, 560003" />
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground uppercase mb-1">Served PIN Codes (comma-separated)</label>
+              <input className="w-full px-3 py-2 border border-border rounded-md bg-background" value={form.servedPinCodes} onChange={e => setForm(f => ({ ...f, servedPinCodes: e.target.value }))} placeholder="560001, 560002, 560003" />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>{saving ? "Saving…" : "Add Warehouse"}</button>
-            <button style={{ ...as.filterBtn }} onClick={() => setShowForm(false)}>Cancel</button>
+          <div className="flex gap-3 mt-5">
+            <button onClick={save} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">{saving ? "Saving…" : "Add Warehouse"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted">Cancel</button>
           </div>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {warehouses.map(w => (
-          <div key={w.id} style={{ ...as.card, borderLeft: "4px solid #2563eb" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{w.name}</div>
-            <div style={{ fontSize: 13, color: "rgba(13,13,13,0.55)", marginBottom: 8 }}>{w.city}, {w.state}</div>
-            <div style={{ fontSize: 12, fontFamily: "monospace", background: "#f2f0eb", padding: "4px 8px", borderRadius: 6, display: "inline-block", marginBottom: 8 }}>{w.warehouseCode}</div>
-            {w.servedPinCodes && <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>📍 {w.servedPinCodes}</div>}
+          <div key={w.id} className="bg-card rounded-xl border-l-4 border-primary border-border p-4 shadow-sm">
+            <div className="font-bold text-lg">{w.name}</div>
+            <div className="text-sm text-muted-foreground mb-2">{w.city}, {w.state}</div>
+            <div className="text-xs font-mono bg-muted px-2 py-1 rounded inline-block mb-2">{w.warehouseCode}</div>
+            {w.servedPinCodes && <div className="text-xs text-muted-foreground">📍 {w.servedPinCodes}</div>}
           </div>
         ))}
-        {warehouses.length === 0 && <div style={as.empty}>No warehouses yet</div>}
+        {warehouses.length === 0 && <div className="col-span-full text-center py-12 text-muted-foreground">No warehouses yet</div>}
       </div>
     </div>
   );
 }
 
-/* ── Coupons ── */
 function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ code: "", description: "", value: "", expiryDate: "", minOrderAmount: "" });
@@ -619,49 +622,55 @@ function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={as.pageTitle}>Coupon Management 🎟️</h2>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>+ Create Coupon</button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">Coupon Management 🎟️</h2>
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">+ Create Coupon</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[["Total",coupons.length],["Active",coupons.filter(c=>c.active).length],["Total Uses",coupons.reduce((s,c)=>s+(c.usedCount||0),0)]].map(([l,v]) => (
-          <div key={l} style={as.statCard}><div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>{v}</div><div style={as.statLabel}>{l}</div></div>
+          <div key={l} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="text-2xl font-bold text-foreground">{v}</div>
+            <div className="text-sm text-muted-foreground mt-1">{l}</div>
+          </div>
         ))}
       </div>
+
       {showForm && (
-        <div style={{ ...as.card, marginBottom: 24 }}>
-          <h3 style={as.cardTitle}>Create Coupon</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="bg-card rounded-xl border border-border p-5 mb-6 shadow-sm">
+          <h3 className="font-semibold mb-4">Create Coupon</h3>
+          <div className="grid sm:grid-cols-2 gap-4">
             {[["code","Coupon Code"],["value","Discount %"],["minOrderAmount","Min Order ₹"],["expiryDate","Expiry Date"]].map(([k,l]) => (
               <div key={k}>
-                <label style={as.label}>{l}</label>
-                <input style={as.inputFull} type={k === "expiryDate" ? "date" : k === "value" || k === "minOrderAmount" ? "number" : "text"} value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
+                <label className="block text-xs font-medium text-muted-foreground uppercase mb-1">{l}</label>
+                <input type={k === "expiryDate" ? "date" : k === "value" || k === "minOrderAmount" ? "number" : "text"} className="w-full px-3 py-2 border border-border rounded-md bg-background" value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
               </div>
             ))}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={as.label}>Description</label>
-              <input style={as.inputFull} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-muted-foreground uppercase mb-1">Description</label>
+              <input className="w-full px-3 py-2 border border-border rounded-md bg-background" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>{saving ? "Creating…" : "Create"}</button>
-            <button style={{ ...as.filterBtn }} onClick={() => setShowForm(false)}>Cancel</button>
+          <div className="flex gap-3 mt-5">
+            <button onClick={save} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">{saving ? "Creating…" : "Create"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted">Cancel</button>
           </div>
         </div>
       )}
+
       <AdminTable
         cols={["Code","Description","Discount","Min Order","Used","Expiry","Status","Actions"]}
         rows={coupons.map(c => [
-          <code style={{ fontWeight: 700, color: "#2563eb" }}>{c.code}</code>,
+          <code className="font-bold text-primary">{c.code}</code>,
           c.description || "—",
-          <span style={{ color: "#1db882", fontWeight: 700 }}>{c.value}% OFF</span>,
+          <span className="text-green-600 font-bold">{c.value}% OFF</span>,
           c.minOrderAmount > 0 ? fmt(c.minOrderAmount) : "—",
           c.usedCount || 0,
           c.expiryDate ? new Date(c.expiryDate).toLocaleDateString("en-IN") : "—",
-          <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#f2f0eb", color: c.active ? "#1db882" : "rgba(13,13,13,0.4)" }}>{c.active ? "Active" : "Disabled"}</span>,
-          <div style={{ display: "flex", gap: 6 }}>
-            <button style={c.active ? as.rejectBtn : as.approveBtn} onClick={() => toggleCoupon(c.id)}>{c.active ? "Disable" : "Enable"}</button>
-            <button style={as.rejectBtn} onClick={() => { if(window.confirm("Delete?")) deleteCoupon(c.id); }}>Delete</button>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>{c.active ? "Active" : "Disabled"}</span>,
+          <div className="flex gap-2">
+            <button onClick={() => toggleCoupon(c.id)} className={`px-2 py-1 text-xs rounded ${c.active ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}>{c.active ? "Disable" : "Enable"}</button>
+            <button onClick={() => { if(window.confirm("Delete?")) deleteCoupon(c.id); }} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">Delete</button>
           </div>
         ])}
         empty="No coupons"
@@ -670,7 +679,6 @@ function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
   );
 }
 
-/* ── Refunds ── */
 function RefundsAdmin({ refunds, onApprove, onReject }) {
   const [filter, setFilter] = useState("PENDING");
   const [rejectModal, setRejectModal] = useState(null);
@@ -679,51 +687,57 @@ function RefundsAdmin({ refunds, onApprove, onReject }) {
   const sColor = { PENDING: "#d4a017", APPROVED: "#1db882", REJECTED: "#e84c3c" };
   return (
     <div>
-      <h2 style={as.pageTitle}>Refund Management 💸</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[["Pending",refunds.filter(r=>r.status==="PENDING").length],["Pending Amount",fmt(refunds.filter(r=>r.status==="PENDING").reduce((s,r)=>s+(r.amount||0),0))],["Total",refunds.length]].map(([l,v]) => (
-          <div key={l} style={as.statCard}><div style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{v}</div><div style={as.statLabel}>{l}</div></div>
+          <div key={l} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="text-2xl font-bold text-foreground">{v}</div>
+            <div className="text-sm text-muted-foreground mt-1">{l}</div>
+          </div>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+
+      <div className="flex flex-wrap gap-2 mb-6">
         {["PENDING","APPROVED","REJECTED","ALL"].map(f => (
-          <button key={f} style={{ ...as.filterBtn, ...(filter === f ? as.filterBtnActive : {}) }} onClick={() => setFilter(f)}>
+          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
             {f} ({f === "ALL" ? refunds.length : refunds.filter(r => r.status === f).length})
           </button>
         ))}
       </div>
+
       {filtered.map(r => (
-        <div key={r.id} style={{ ...as.card, marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+        <div key={r.id} className="bg-card rounded-xl border border-border p-5 mb-4 shadow-sm">
+          <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Refund #{r.id} — Order #{r.orderId || r.order?.id}</div>
-              <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)" }}>{r.customerName || r.customer?.name} · {r.customerEmail || r.customer?.email}</div>
+              <div className="font-bold">Refund #{r.id} — Order #{r.orderId || r.order?.id}</div>
+              <div className="text-sm text-muted-foreground">{r.customerName || r.customer?.name} · {r.customerEmail || r.customer?.email}</div>
             </div>
-            <span style={{ ...as.badge, background: (sColor[r.status] || "#888") + "22", color: sColor[r.status] || "#888" }}>{r.status}</span>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: `${sColor[r.status]}22`, color: sColor[r.status] }}>{r.status}</span>
           </div>
-          <div style={{ fontSize: 14, marginBottom: 6 }}>Reason: <strong>{r.reason}</strong></div>
-          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>{fmt(r.amount)}</div>
-          <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
+          <div className="text-sm mb-2">Reason: <strong>{r.reason}</strong></div>
+          <div className="text-2xl font-bold mb-3">{fmt(r.amount)}</div>
+          <div className="text-xs text-muted-foreground mb-3">
             {r.requestedAt ? new Date(r.requestedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-            {r.rejectionReason && <span style={{ marginLeft: 12, color: "#e84c3c" }}>Reason: {r.rejectionReason}</span>}
+            {r.rejectionReason && <span className="ml-3 text-red-600">Reason: {r.rejectionReason}</span>}
           </div>
           {r.status === "PENDING" && (
-            <div style={{ display: "flex", gap: 10 }}>
-              <button style={{ ...as.approveBtn, padding: "8px 18px" }} onClick={() => onApprove(r.id)}>✓ Approve</button>
-              <button style={{ ...as.rejectBtn, padding: "8px 18px" }} onClick={() => { setRejectModal(r.id); setRejectReason(""); }}>✗ Reject</button>
+            <div className="flex gap-3">
+              <button onClick={() => onApprove(r.id)} className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">✓ Approve</button>
+              <button onClick={() => { setRejectModal(r.id); setRejectReason(""); }} className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">✗ Reject</button>
             </div>
           )}
         </div>
       ))}
-      {filtered.length === 0 && <div style={as.empty}>No {filter.toLowerCase()} refunds</div>}
+
+      {filtered.length === 0 && <div className="text-center py-12 text-muted-foreground">No {filter.toLowerCase()} refunds</div>}
+
       {rejectModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 400, width: "100%" }}>
-            <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, marginBottom: 12 }}>Reject Refund</h3>
-            <textarea style={{ ...as.inputFull, minHeight: 80, resize: "vertical", marginBottom: 16 }} placeholder="Rejection reason…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button style={{ ...as.rejectBtn, flex: 1, padding: "10px" }} onClick={() => { onReject(rejectModal, rejectReason); setRejectModal(null); }}>Reject</button>
-              <button style={as.filterBtn} onClick={() => setRejectModal(null)}>Cancel</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) setRejectModal(null); }}>
+          <div className="bg-card rounded-xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="font-bold text-lg mb-3">Reject Refund</h3>
+            <textarea className="w-full px-3 py-2 border border-border rounded-md bg-background mb-4" rows={3} placeholder="Rejection reason…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+            <div className="flex gap-3">
+              <button onClick={() => { onReject(rejectModal, rejectReason); setRejectModal(null); }} className="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
+              <button onClick={() => setRejectModal(null)} className="flex-1 px-4 py-2 border border-border rounded hover:bg-muted">Cancel</button>
             </div>
           </div>
         </div>
@@ -732,52 +746,52 @@ function RefundsAdmin({ refunds, onApprove, onReject }) {
   );
 }
 
-/* ── Reviews ── */
 function ReviewsAdmin({ reviews, onDelete }) {
   const [starFilter, setStarFilter] = useState(0);
   const filtered = starFilter ? reviews.filter(r => r.rating === starFilter) : reviews;
   return (
     <div>
-      <h2 style={as.pageTitle}>Review Management ⭐</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[["Total",reviews.length],["Avg Rating",(reviews.length ? (reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1) : 0) + " ⭐"],["5-Star",reviews.filter(r=>r.rating===5).length],["1-Star",reviews.filter(r=>r.rating===1).length]].map(([l,v]) => (
-          <div key={l} style={as.statCard}><div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{v}</div><div style={as.statLabel}>{l}</div></div>
+          <div key={l} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="text-2xl font-bold text-foreground">{v}</div>
+            <div className="text-sm text-muted-foreground mt-1">{l}</div>
+          </div>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button style={{ ...as.filterBtn, ...(starFilter === 0 ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(0)}>All</button>
-        {[5,4,3,2,1].map(n => <button key={n} style={{ ...as.filterBtn, ...(starFilter === n ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(n)}>{"★".repeat(n)}{"☆".repeat(5-n)}</button>)}
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button onClick={() => setStarFilter(0)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${starFilter === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>All</button>
+        {[5,4,3,2,1].map(n => <button key={n} onClick={() => setStarFilter(n)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${starFilter === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{"★".repeat(n)}{"☆".repeat(5-n)}</button>)}
       </div>
+
       {filtered.map(r => (
-        <div key={r.id} style={{ ...as.card, marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#0d0d0d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{(r.customerName || "?")[0].toUpperCase()}</div>
+        <div key={r.id} className="bg-card rounded-xl border border-border p-5 mb-4 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div className="flex gap-3">
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">{ (r.customerName || "?")[0].toUpperCase() }</div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.customerName || "Customer"}</div>
-                <div style={{ color: "#d4a017" }}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</div>
+                <div className="font-medium">{r.customerName || "Customer"}</div>
+                <div className="text-yellow-500">{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</div>
               </div>
             </div>
-            <button style={{ ...as.rejectBtn, padding: "4px 10px" }} onClick={() => { if(window.confirm("Delete?")) onDelete(r.id); }}>🗑️</button>
+            <button onClick={() => { if(window.confirm("Delete?")) onDelete(r.id); }} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">🗑️</button>
           </div>
-          <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", marginTop: 4 }}>Product: {r.productName || "—"}</div>
-          <p style={{ fontSize: 14, color: "rgba(13,13,13,0.6)", marginTop: 6 }}>{r.comment}</p>
+          <div className="text-xs text-muted-foreground mt-2">Product: {r.productName || "—"}</div>
+          <p className="text-sm text-muted-foreground mt-2">{r.comment}</p>
         </div>
       ))}
-      {filtered.length === 0 && <div style={as.empty}>No reviews found</div>}
+      {filtered.length === 0 && <div className="text-center py-12 text-muted-foreground">No reviews found</div>}
     </div>
   );
 }
 
-/* ── Analytics ── */
 function AnalyticsAdmin({ data, spending, orders, products, users, totalRevenue }) {
   const [subTab, setSubTab] = useState("platform");
 
-  // Fallback values computed client-side when server data is unavailable
   const fallbackStatusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   const fallbackCatCounts    = products.reduce((a, p) => { a[p.category] = (a[p.category] || 0) + 1; return a; }, {});
 
-  // Prefer server-side data; fall back to client-computed values
   const s = data || {
     totalCustomers: users.customers.length,
     totalVendors:   users.vendors.length,
@@ -798,171 +812,163 @@ function AnalyticsAdmin({ data, spending, orders, products, users, totalRevenue 
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <h2 style={as.pageTitle}>Analytics & Reports 📈</h2>
-        <div style={{ display: "flex", gap: 6 }}>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h2 className="text-xl font-bold text-foreground">Analytics & Reports 📈</h2>
+        <div className="flex gap-2">
           {[["platform", "📊 Platform"], ["spending", "💸 User Spending"]].map(([k, l]) => (
-            <button key={k} style={{ ...as.filterBtn, ...(subTab === k ? as.filterBtnActive : {}) }}
-              onClick={() => setSubTab(k)}>{l}</button>
+            <button key={k} onClick={() => setSubTab(k)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${subTab === k ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{l}</button>
           ))}
         </div>
       </div>
 
       {subTab === "spending" && <UserSpending spending={spending} />}
-      {subTab === "platform" && <div>
-
-      {/* KPI cards */}
-      <div style={as.statsGrid}>
-        {[
-          ["👥", "Customers",    s.totalCustomers || users.customers.length, "#2563eb"],
-          ["🏪", "Vendors",      s.totalVendors   || users.vendors.length,   "#d4a017"],
-          ["🏷️", "Products",     s.totalProducts  || products.length,        "#7c3aed"],
-          ["📦", "Orders",       s.totalOrders    || orders.length,           "#0284c7"],
-          ["💰", "Revenue",      fmt(s.totalRevenue || totalRevenue),         "#1db882"],
-          ["✅", "Delivered",    s.deliveredOrders ?? orders.filter(o => o.trackingStatus === "DELIVERED").length, "#1db882"],
-        ].map(([icon, label, value, color]) => (
-          <div key={label} style={as.statCard}>
-            <div style={as.statIcon(color)}>{icon}</div>
-            <div style={as.statVal}>{value}</div>
-            <div style={as.statLabel}>{label}</div>
+      {subTab === "platform" && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            {[
+              ["👥", "Customers",    s.totalCustomers || users.customers.length, "#2563eb"],
+              ["🏪", "Vendors",      s.totalVendors   || users.vendors.length,   "#d4a017"],
+              ["🏷️", "Products",     s.totalProducts  || products.length,        "#7c3aed"],
+              ["📦", "Orders",       s.totalOrders    || orders.length,           "#0284c7"],
+              ["💰", "Revenue",      fmt(s.totalRevenue || totalRevenue),         "#1db882"],
+              ["✅", "Delivered",    s.deliveredOrders ?? orders.filter(o => o.trackingStatus === "DELIVERED").length, "#1db882"],
+            ].map(([icon, label, value, color]) => (
+              <div key={label} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg mb-2" style={{ background: `${color}18` }}>{icon}</div>
+                <div className="text-xl font-bold text-foreground">{value}</div>
+                <div className="text-xs text-muted-foreground mt-1">{label}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Secondary KPIs (server-only) */}
-      {data && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
-          {[
-            ["📊", "Avg Order Value",  fmt(data.avgOrderValue),                       "#7c3aed"],
-            ["⭐", "Avg Rating",       (data.avgRating || 0).toFixed(1) + " / 5",     "#d4a017"],
-            ["💬", "Total Reviews",    data.totalReviews,                             "#0284c7"],
-            ["⏳", "Pending Products", data.pendingProducts,                           "#e84c3c"],
-          ].map(([icon, label, value, color]) => (
-            <div key={label} style={as.statCard}>
-              <div style={as.statIcon(color)}>{icon}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0d0d0d", marginBottom: 2 }}>{value}</div>
-              <div style={as.statLabel}>{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={as.twoCol}>
-        {/* Monthly Revenue Trend */}
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Monthly Revenue (Last 6 Months)</h3>
-          {Object.keys(monthlyRevenue).length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {Object.entries(monthlyRevenue).map(([month, rev]) => {
-                const [yr, mo] = month.split("-");
-                const label = mo && yr
-                  ? new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short", year: "2-digit" })
-                  : month;
-                return (
-                  <div key={month} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 12, minWidth: 72, color: "rgba(13,13,13,0.55)" }}>{label}</span>
-                    <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
-                      <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 5, width: `${Math.round((rev / maxMonthRev) * 100)}%`, transition: "width .4s" }} />
-                    </div>
-                    <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 72, textAlign: "right" }}>{fmt(rev)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={{ color: "rgba(13,13,13,0.4)", fontSize: 13 }}>No order data yet</p>
-          )}
-        </div>
-
-        {/* Daily Orders – last 7 days */}
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Daily Orders (Last 7 Days)</h3>
-          {Object.keys(dailyOrders).length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {Object.entries(dailyOrders).map(([date, count]) => (
-                <div key={date} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 12, minWidth: 88, color: "rgba(13,13,13,0.55)" }}>{date.slice(5)}</span>
-                  <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 5, width: `${Math.round((count / maxDailyOrders) * 100)}%`, transition: "width .4s" }} />
-                  </div>
-                  <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 28, textAlign: "right" }}>{count}</span>
+          {data && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              {[
+                ["📊", "Avg Order Value",  fmt(data.avgOrderValue),                       "#7c3aed"],
+                ["⭐", "Avg Rating",       (data.avgRating || 0).toFixed(1) + " / 5",     "#d4a017"],
+                ["💬", "Total Reviews",    data.totalReviews,                             "#0284c7"],
+                ["⏳", "Pending Products", data.pendingProducts,                           "#e84c3c"],
+              ].map(([icon, label, value, color]) => (
+                <div key={label} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg mb-2" style={{ background: `${color}18` }}>{icon}</div>
+                  <div className="text-lg font-bold text-foreground">{value}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{label}</div>
                 </div>
               ))}
             </div>
-          ) : (
-            <p style={{ color: "rgba(13,13,13,0.4)", fontSize: 13 }}>No order data yet</p>
           )}
-        </div>
-      </div>
 
-      <div style={as.twoCol}>
-        {/* Order Status Breakdown */}
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Order Status Breakdown</h3>
-          {Object.entries(statusBreakdown).map(([status, count]) => (
-            <div key={status} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <span style={{ fontSize: 13, minWidth: 170 }}>{status.replace(/_/g, " ")}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round(Number(count) / totalOrders * 100)}%` }} />
-              </div>
-              <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h3 className="font-semibold mb-4">Monthly Revenue (Last 6 Months)</h3>
+              {Object.keys(monthlyRevenue).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(monthlyRevenue).map(([month, rev]) => {
+                    const [yr, mo] = month.split("-");
+                    const label = mo && yr ? new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short", year: "2-digit" }) : month;
+                    return (
+                      <div key={month} className="flex items-center gap-3">
+                        <span className="text-sm w-20 text-muted-foreground">{label}</span>
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full" style={{ width: `${Math.round((rev / maxMonthRev) * 100)}%` }} />
+                        </div>
+                        <span className="text-sm text-muted-foreground w-20 text-right">{fmt(rev)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No order data yet</p>
+              )}
             </div>
-          ))}
-        </div>
 
-        {/* Products by Category */}
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Products by Category</h3>
-          {Object.entries(categoryStats).slice(0, 8).map(([cat, count]) => (
-            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <span style={{ fontSize: 13, minWidth: 140 }}>{cat}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: "linear-gradient(90deg,#d4a017,#e84c3c)", borderRadius: 4, width: `${Math.round(Number(count) / totalCats * 100)}%` }} />
-              </div>
-              <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h3 className="font-semibold mb-4">Daily Orders (Last 7 Days)</h3>
+              {Object.keys(dailyOrders).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(dailyOrders).map(([date, count]) => (
+                    <div key={date} className="flex items-center gap-3">
+                      <span className="text-sm w-24 text-muted-foreground">{date.slice(5)}</span>
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${Math.round((count / maxDailyOrders) * 100)}%` }} />
+                      </div>
+                      <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No order data yet</p>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Top Products by Revenue */}
-      {topProducts.length > 0 && (
-        <div style={as.card}>
-          <h3 style={as.cardTitle}>Top 5 Products by Revenue</h3>
-          <div style={as.tableWrap}>
-            <table style={as.table}>
-              <thead><tr style={as.thead}>
-                {["Rank","Product","Category","Units Sold","Revenue"].map(c => <th key={c} style={as.th}>{c}</th>)}
-              </tr></thead>
-              <tbody>
-                {topProducts.map((p, i) => (
-                  <tr key={p.id} style={as.tr}>
-                    <td style={as.td}><span style={{ fontWeight: 800, color: ["#d4a017","#6b7280","#c97b38","#0d0d0d","#0d0d0d"][i] }}>{["🥇","🥈","🥉","4th","5th"][i]}</span></td>
-                    <td style={{ ...as.td, fontWeight: 600 }}>{p.name || `Product #${p.id}`}</td>
-                    <td style={as.td}>{p.category || "—"}</td>
-                    <td style={as.td}>{p.unitsSold}</td>
-                    <td style={{ ...as.td, fontWeight: 700, color: "#1db882" }}>{fmt(p.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h3 className="font-semibold mb-4">Order Status Breakdown</h3>
+              {Object.entries(statusBreakdown).map(([status, count]) => (
+                <div key={status} className="flex items-center gap-3 mb-3">
+                  <span className="text-sm w-40 text-muted-foreground">{status.replace(/_/g, " ")}</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${Math.round(Number(count) / totalOrders * 100)}%` }} />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h3 className="font-semibold mb-4">Products by Category</h3>
+              {Object.entries(categoryStats).slice(0, 8).map(([cat, count]) => (
+                <div key={cat} className="flex items-center gap-3 mb-3">
+                  <span className="text-sm w-32 text-muted-foreground">{cat}</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-yellow-500 to-red-500 rounded-full" style={{ width: `${Math.round(Number(count) / totalCats * 100)}%` }} />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {topProducts.length > 0 && (
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h3 className="font-semibold mb-4">Top 5 Products by Revenue</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      {["Rank","Product","Category","Units Sold","Revenue"].map(c => <th key={c} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{c}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {topProducts.map((p, i) => (
+                      <tr key={p.id} className="hover:bg-muted/50">
+                        <td className="px-4 py-3 text-sm font-bold" style={{ color: ["#d4a017","#6b7280","#c97b38","#0d0d0d","#0d0d0d"][i] }}>{["🥇","🥈","🥉","4th","5th"][i]}</td>
+                        <td className="px-4 py-3 text-sm font-medium">{p.name || `Product #${p.id}`}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{p.category || "—"}</td>
+                        <td className="px-4 py-3 text-sm">{p.unitsSold}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-green-600">{fmt(p.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
-      </div>}
     </div>
   );
 }
 
-/* ── User Spending ── */
 function UserSpending({ spending }) {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState(null);
 
   if (!spending) return (
-    <div style={{ ...as.card, textAlign: "center", padding: 48 }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
-      <div style={{ color: "rgba(13,13,13,0.4)", fontSize: 15 }}>Loading spending data…</div>
+    <div className="bg-card rounded-xl border border-border p-12 text-center">
+      <div className="text-3xl mb-3">⏳</div>
+      <div className="text-muted-foreground">Loading spending data…</div>
     </div>
   );
 
@@ -971,147 +977,119 @@ function UserSpending({ spending }) {
   const avgSpendPerCustomer = withOrders.length ? totalPlatformSpend / withOrders.length : 0;
   const topSpender = withOrders[0] || null;
 
-  const filtered = q
-    ? spending.filter(c =>
-        c.name?.toLowerCase().includes(q.toLowerCase()) ||
-        c.email?.toLowerCase().includes(q.toLowerCase()))
-    : spending;
-
+  const filtered = q ? spending.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.email?.toLowerCase().includes(q.toLowerCase())) : spending;
   const maxSpend = Math.max(...spending.map(c => c.totalSpent), 1);
 
   return (
     <div>
-      {/* KPI cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
           { icon: "👥", label: "Total Customers",      value: spending.length,            color: "#2563eb" },
           { icon: "💰", label: "Platform Spend",        value: fmt(totalPlatformSpend),    color: "#1db882" },
           { icon: "📊", label: "Avg Spend / Customer",  value: fmt(avgSpendPerCustomer),   color: "#7c3aed" },
           { icon: "🏆", label: "Top Spender",           value: topSpender?.name || "—",    color: "#d4a017" },
         ].map(s => (
-          <div key={s.label} style={as.statCard}>
-            <div style={as.statIcon(s.color)}>{s.icon}</div>
-            <div style={{ fontSize: s.label === "Top Spender" ? 14 : 20, fontWeight: 800, color: "#0d0d0d", marginBottom: 2, wordBreak: "break-word" }}>{s.value}</div>
-            <div style={as.statLabel}>{s.label}</div>
+          <div key={s.label} className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg mb-2" style={{ background: `${s.color}18` }}>{s.icon}</div>
+            <div className={`text-xl font-bold text-foreground ${s.label === "Top Spender" ? "truncate" : ""}`}>{s.value}</div>
+            <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Search */}
       <input
-        style={{ ...as.searchInput, marginBottom: 16 }}
+        className="w-full px-4 py-2 mb-6 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         placeholder="Search customers by name or email…"
         value={q}
         onChange={e => setQ(e.target.value)}
       />
 
-      {/* Table */}
-      <div style={as.tableWrap}>
-        <table style={as.table}>
-          <thead>
-            <tr style={as.thead}>
-              {["Rank", "Customer", "Email", "Total Spent", "Orders", "Avg Order", "Top Category", "Spend Share"].map(c => (
-                <th key={c} style={as.th}>{c}</th>
-              ))}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-card border border-border rounded-lg">
+          <thead className="bg-muted">
+            <tr>
+              {["Rank", "Customer", "Email", "Total Spent", "Orders", "Avg Order", "Top Category", "Spend Share"].map(c => <th key={c} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{c}</th>)}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {filtered.map((c, i) => (
               <>
-                <tr
-                  key={c.id}
-                  style={{ ...as.tr, cursor: "pointer", background: expanded === c.id ? "#f8f7f4" : undefined }}
-                  onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                >
-                  <td style={as.td}>
-                    <span style={{ fontWeight: 800, color: i === 0 ? "#d4a017" : i === 1 ? "#6b7280" : i === 2 ? "#c97b38" : "rgba(13,13,13,0.4)", fontSize: i < 3 ? 16 : 13 }}>
+                <tr key={c.id} onClick={() => setExpanded(expanded === c.id ? null : c.id)} className="cursor-pointer hover:bg-muted/50 transition">
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`font-bold ${i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-500" : i === 2 ? "text-orange-500" : "text-muted-foreground"}`}>
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
                     </span>
                   </td>
-                  <td style={{ ...as.td, fontWeight: 600 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#0d0d0d18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                        {(c.name || "?")[0].toUpperCase()}
-                      </div>
+                  <td className="px-4 py-3 text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{ (c.name || "?")[0].toUpperCase() }</div>
                       {c.name}
                     </div>
                   </td>
-                  <td style={{ ...as.td, color: "rgba(13,13,13,0.5)" }}>{c.email}</td>
-                  <td style={{ ...as.td, fontWeight: 700, color: c.totalSpent > 0 ? "#1db882" : "rgba(13,13,13,0.3)" }}>{fmt(c.totalSpent)}</td>
-                  <td style={as.td}>{c.totalOrders}</td>
-                  <td style={as.td}>{c.totalOrders > 0 ? fmt(c.avgOrderValue) : "—"}</td>
-                  <td style={as.td}>
-                    {c.topCategory !== "—" && c.topCategory
-                      ? <span style={{ ...as.badge, background: "#eff6ff", color: "#2563eb" }}>{c.topCategory}</span>
-                      : <span style={{ color: "rgba(13,13,13,0.3)" }}>—</span>}
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{c.email}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-green-600">{fmt(c.totalSpent)}</td>
+                  <td className="px-4 py-3 text-sm">{c.totalOrders}</td>
+                  <td className="px-4 py-3 text-sm">{c.totalOrders > 0 ? fmt(c.avgOrderValue) : "—"}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {c.topCategory !== "—" && c.topCategory ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{c.topCategory}</span>
+                    ) : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td style={{ ...as.td, minWidth: 120 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, background: "#f2f0eb", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 3, width: `${Math.round((c.totalSpent / maxSpend) * 100)}%`, transition: "width .4s" }} />
+                  <td className="px-4 py-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-green-500 to-cyan-500 rounded-full" style={{ width: `${Math.round((c.totalSpent / maxSpend) * 100)}%` }} />
                       </div>
-                      <span style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", minWidth: 34, textAlign: "right" }}>
-                        {totalPlatformSpend > 0 ? `${((c.totalSpent / totalPlatformSpend) * 100).toFixed(1)}%` : "0%"}
-                      </span>
+                      <span className="text-xs text-muted-foreground w-10 text-right">{totalPlatformSpend > 0 ? `${((c.totalSpent / totalPlatformSpend) * 100).toFixed(1)}%` : "0%"}</span>
                     </div>
                   </td>
                 </tr>
 
-                {/* Expanded detail row */}
                 {expanded === c.id && (
-                  <tr key={`${c.id}-detail`} style={{ background: "#f8f7f4" }}>
-                    <td colSpan={8} style={{ padding: "16px 20px", borderBottom: "2px solid #e8e4dc" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                        {/* Category breakdown */}
+                  <tr className="bg-muted/30">
+                    <td colSpan={8} className="px-4 py-4">
+                      <div className="grid sm:grid-cols-2 gap-6">
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
-                            Spend by Category
-                          </div>
-                          {Object.keys(c.categorySpending || {}).length === 0
-                            ? <div style={{ fontSize: 13, color: "rgba(13,13,13,0.35)" }}>No category data</div>
-                            : (() => {
-                                const maxCat = Math.max(...Object.values(c.categorySpending), 1);
-                                return Object.entries(c.categorySpending)
-                                  .sort(([, a], [, b]) => b - a)
-                                  .map(([cat, amt]) => (
-                                    <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
-                                      <span style={{ fontSize: 12, minWidth: 110, color: "#0d0d0d" }}>{cat}</span>
-                                      <div style={{ flex: 1, height: 7, background: "#e8e4dc", borderRadius: 4, overflow: "hidden" }}>
-                                        <div style={{ height: "100%", background: "linear-gradient(90deg,#d4a017,#e84c3c)", borderRadius: 4, width: `${Math.round((amt / maxCat) * 100)}%` }} />
-                                      </div>
-                                      <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 64, textAlign: "right" }}>{fmt(amt)}</span>
-                                    </div>
-                                  ));
-                              })()
-                          }
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Spend by Category</div>
+                          {Object.keys(c.categorySpending || {}).length === 0 ? (
+                            <div className="text-sm text-muted-foreground">No category data</div>
+                          ) : (
+                            (() => {
+                              const maxCat = Math.max(...Object.values(c.categorySpending), 1);
+                              return Object.entries(c.categorySpending).sort(([,a],[,b]) => b - a).map(([cat, amt]) => (
+                                <div key={cat} className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm w-24">{cat}</span>
+                                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-yellow-500 to-red-500 rounded-full" style={{ width: `${Math.round((amt / maxCat) * 100)}%` }} />
+                                  </div>
+                                  <span className="text-xs text-muted-foreground w-16 text-right">{fmt(amt)}</span>
+                                </div>
+                              ));
+                            })()
+                          )}
                         </div>
-
-                        {/* Monthly spend */}
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
-                            Monthly Spend (This Year)
-                          </div>
-                          {Object.keys(c.monthlySpending || {}).length === 0
-                            ? <div style={{ fontSize: 13, color: "rgba(13,13,13,0.35)" }}>No orders this year</div>
-                            : (() => {
-                                const maxMo = Math.max(...Object.values(c.monthlySpending), 1);
-                                return Object.entries(c.monthlySpending)
-                                  .filter(([, amt]) => amt > 0)
-                                  .map(([ym, amt]) => {
-                                    const [yr, mo] = ym.split("-");
-                                    const label = new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short" });
-                                    return (
-                                      <div key={ym} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
-                                        <span style={{ fontSize: 12, minWidth: 36, color: "#0d0d0d" }}>{label}</span>
-                                        <div style={{ flex: 1, height: 7, background: "#e8e4dc", borderRadius: 4, overflow: "hidden" }}>
-                                          <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round((amt / maxMo) * 100)}%` }} />
-                                        </div>
-                                        <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 64, textAlign: "right" }}>{fmt(amt)}</span>
-                                      </div>
-                                    );
-                                  });
-                              })()
-                          }
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Monthly Spend (This Year)</div>
+                          {Object.keys(c.monthlySpending || {}).length === 0 ? (
+                            <div className="text-sm text-muted-foreground">No orders this year</div>
+                          ) : (
+                            (() => {
+                              const maxMo = Math.max(...Object.values(c.monthlySpending), 1);
+                              return Object.entries(c.monthlySpending).filter(([,amt]) => amt > 0).map(([ym, amt]) => {
+                                const [yr, mo] = ym.split("-");
+                                const label = new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short" });
+                                return (
+                                  <div key={ym} className="flex items-center gap-2 mb-2">
+                                    <span className="text-sm w-12">{label}</span>
+                                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                      <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${Math.round((amt / maxMo) * 100)}%` }} />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground w-16 text-right">{fmt(amt)}</span>
+                                  </div>
+                                );
+                              });
+                            })()
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1121,19 +1099,18 @@ function UserSpending({ spending }) {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <div style={as.empty}>No customers match "{q}"</div>}
+        {filtered.length === 0 && <div className="text-center py-12 text-muted-foreground">No customers match "{q}"</div>}
       </div>
     </div>
   );
 }
 
-/* ── User Search ── */
 function UserSearch({ api, showToast }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [roleModal, setRoleModal] = useState(null); // { user, newRole }
+  const [roleModal, setRoleModal] = useState(null);
   const [roleChanging, setRoleChanging] = useState(false);
 
   const roleColor = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
@@ -1158,11 +1135,7 @@ function UserSearch({ api, showToast }) {
         body: JSON.stringify({ role: roleModal.newRole }),
       });
       if (d.success) {
-        setResults(prev =>
-          prev.map(u => u.id === roleModal.user.id && u.type === "customer"
-            ? { ...u, role: roleModal.newRole }
-            : u)
-        );
+        setResults(prev => prev.map(u => u.id === roleModal.user.id && u.type === "customer" ? { ...u, role: roleModal.newRole } : u));
         showToast(`✓ ${roleModal.user.name || "User"}'s role set to ${roleModal.newRole}`);
       } else {
         showToast(d.message || d.error || "Role update failed");
@@ -1174,82 +1147,63 @@ function UserSearch({ api, showToast }) {
 
   return (
     <div>
-      <h2 style={as.pageTitle}>Search Users 👥</h2>
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+      <div className="flex flex-wrap gap-3 mb-6">
         <input
-          style={{ ...as.searchInput, flex: 1 }}
+          className="flex-1 px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="Search by name or email…"
           value={q}
           onChange={e => setQ(e.target.value)}
           onKeyDown={e => e.key === "Enter" && search()}
         />
-        <select style={as.statusSelect} value={filter} onChange={e => setFilter(e.target.value)}>
+        <select value={filter} onChange={e => setFilter(e.target.value)} className="px-4 py-2 border border-border rounded-md bg-background">
           <option value="all">All Users</option>
           <option value="customer">Customers</option>
           <option value="vendor">Vendors</option>
           <option value="delivery">Delivery</option>
         </select>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={search} disabled={loading}>
+        <button onClick={search} disabled={loading} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
           {loading ? "Searching…" : "Search"}
         </button>
       </div>
 
       {results.length > 0 && (
-        <div style={as.tableWrap}>
-          <table style={as.table}>
-            <thead style={as.thead}>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-card border border-border rounded-lg">
+            <thead className="bg-muted">
               <tr>
-                {["ID","Name","Email","Type","Role / Details","Verified","Active"].map(h => (
-                  <th key={h} style={as.th}>{h}</th>
-                ))}
+                {["ID","Name","Email","Type","Role / Details","Verified","Active"].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>)}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {results.map((u, i) => {
                 const isCustomer = u.type === "customer";
                 const currentRole = u.role || "CUSTOMER";
                 return (
-                  <tr key={i} style={as.tr}>
-                    <td style={as.td}>#{u.id}</td>
-                    <td style={{ ...as.td, fontWeight: 600 }}>{u.name}</td>
-                    <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{u.email}</td>
-                    <td style={as.td}>
-                      <span style={{ ...as.badge, background: "#f2f0eb", color: "rgba(13,13,13,0.7)", textTransform: "capitalize" }}>
-                        {(u.type || "—").replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td style={as.td}>
+                  <tr key={i} className="hover:bg-muted/50">
+                    <td className="px-4 py-3 text-sm">#{u.id}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{u.name}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
+                    <td className="px-4 py-3 text-sm"><span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{u.type?.replace(/_/g, " ")}</span></td>
+                    <td className="px-4 py-3 text-sm">
                       {isCustomer ? (
-                        /* Customers carry the Role enum — show editable select */
                         <select
-                          style={{ ...as.statusSelect, minWidth: 130,
-                            background: roleBg[currentRole] || "#f2f0eb",
-                            color: roleColor[currentRole] || "#0d0d0d",
-                            fontWeight: 700, border: "1px solid #e8e4dc" }}
                           value={currentRole}
-                          onChange={e => {
-                            if (e.target.value !== currentRole)
-                              setRoleModal({ user: { ...u, role: currentRole }, newRole: e.target.value });
-                          }}
+                          onChange={e => { if (e.target.value !== currentRole) setRoleModal({ user: { ...u, role: currentRole }, newRole: e.target.value }); }}
+                          className="border border-border rounded-md px-2 py-1 text-sm bg-background"
+                          style={{ background: roleBg[currentRole], color: roleColor[currentRole], fontWeight: 600 }}
                         >
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                       ) : (
-                        /* Vendors / delivery boys — show descriptive info instead */
-                        <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 12 }}>
-                          {u.vendorCode ? `Code: ${u.vendorCode}` :
-                           u.deliveryBoyCode ? `Code: ${u.deliveryBoyCode}` : "—"}
+                        <span className="text-xs text-muted-foreground">
+                          {u.vendorCode ? `Code: ${u.vendorCode}` : u.deliveryBoyCode ? `Code: ${u.deliveryBoyCode}` : "—"}
                         </span>
                       )}
                     </td>
-                    <td style={as.td}>
-                      <span style={{ color: u.verified ? "#1db882" : "#e84c3c" }}>
-                        {u.verified ? "✓" : "✗"}
-                      </span>
-                    </td>
-                    <td style={as.td}>
+                    <td className="px-4 py-3 text-sm"><span className={u.verified ? "text-green-600" : "text-red-600"}>{u.verified ? "✓" : "✗"}</span></td>
+                    <td className="px-4 py-3 text-sm">
                       {u.active !== undefined ? (
-                        <span style={{ ...as.badge, background: u.active ? "#e8f9f2" : "#fef2f2", color: u.active ? "#1db882" : "#e84c3c" }}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                           {u.active ? "Active" : "Inactive"}
                         </span>
                       ) : "—"}
@@ -1262,43 +1216,24 @@ function UserSearch({ api, showToast }) {
         </div>
       )}
 
-      {results.length === 0 && q && !loading && (
-        <div style={as.empty}>No results for "{q}"</div>
-      )}
-      {!q && (
-        <div style={as.empty}>Enter a name or email to search</div>
-      )}
+      {results.length === 0 && q && !loading && <div className="text-center py-12 text-muted-foreground">No results for "{q}"</div>}
+      {!q && <div className="text-center py-12 text-muted-foreground">Enter a name or email to search</div>}
 
-      {/* Role change confirmation modal */}
       {roleModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: roleBg[roleModal.newRole] || "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 16px" }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div className="bg-card rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4" style={{ background: roleBg[roleModal.newRole] }}>
               {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
             </div>
-            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" :
-               roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?"}
-            </h3>
-            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
-              Set <strong>{roleModal.user.name || roleModal.user.email}</strong>'s role from{" "}
-              <strong style={{ color: roleColor[roleModal.user.role] }}>{roleModal.user.role}</strong>{" "}
-              to <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
-              {roleModal.newRole === "ADMIN" && " This grants full platform access."}
-              {roleModal.user.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose admin access."}
+            <h3 className="text-center font-bold text-lg mb-2">{roleModal.newRole === "ADMIN" ? "Grant Admin Access?" : (roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?")}</h3>
+            <p className="text-center text-sm text-muted-foreground mb-6">
+              Change <strong>{roleModal.user.name || roleModal.user.email}</strong> from{" "}
+              <strong style={{ color: roleColor[roleModal.user.role] }}>{roleModal.user.role}</strong> to{" "}
+              <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>
-                Cancel
-              </button>
-              <button
-                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.user.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
-                  color: "#fff" }}
-                onClick={confirmRoleChange}
-                disabled={roleChanging}
-              >
+            <div className="flex gap-3">
+              <button onClick={() => setRoleModal(null)} disabled={roleChanging} className="flex-1 px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted">Cancel</button>
+              <button onClick={confirmRoleChange} disabled={roleChanging} className="flex-1 px-4 py-2 rounded-md text-sm font-medium text-white" style={{ background: roleModal.newRole === "ADMIN" ? "#7c3aed" : (roleModal.user.role === "ADMIN" ? "#e84c3c" : "#0d0d0d") }}>
                 {roleChanging ? "Updating…" : "Confirm"}
               </button>
             </div>
@@ -1309,56 +1244,28 @@ function UserSearch({ api, showToast }) {
   );
 }
 
-/* ── Shared table component ── */
 function AdminTable({ cols, rows, empty }) {
-  if (rows.length === 0) return <div style={as.empty}>{empty}</div>;
+  if (rows.length === 0) return <div className="text-center py-12 text-muted-foreground">{empty}</div>;
   return (
-    <div style={as.tableWrap}>
-      <table style={as.table}>
-        <thead><tr style={as.thead}>{cols.map(c => <th key={c} style={as.th}>{c}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={i} style={as.tr}>{row.map((cell, j) => <td key={j} style={as.td}>{cell}</td>)}</tr>)}</tbody>
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-card border border-border rounded-lg">
+        <thead className="bg-muted">
+          <tr>
+            {cols.map(c => <th key={c} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{c}</th>)}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((row, i) => (
+            <tr key={i} className="hover:bg-muted/50 transition">
+              {row.map((cell, j) => <td key={j} className="px-4 py-3 text-sm">{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
 }
 
-/* ── Styles ── */
-const as = {
-  root: { minHeight: "100vh", background: "#fafaf8", fontFamily: "'DM Sans', sans-serif", color: "#0d0d0d" },
-  main: { maxWidth: 1300, margin: "0 auto", padding: "32px 24px" },
-  nav: { background: "#fff", borderBottom: "1px solid #e8e4dc", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, overflowX: "auto" },
-  brand: { fontSize: 18, fontWeight: 800, color: "#0d0d0d", whiteSpace: "nowrap", letterSpacing: "-0.5px" },
-  navLinks: { display: "flex", gap: 2, flex: 1 },
-  navBtn: { padding: "7px 12px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(13,13,13,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" },
-  navBtnActive: { background: "#0d0d0d", color: "#fff" },
-  logoutBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid #e8e4dc", background: "transparent", color: "#e84c3c", cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" },
-  toast: { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#0d0d0d", color: "#fff", padding: "12px 24px", borderRadius: 10, fontSize: 14, fontWeight: 600, zIndex: 999 },
-  pageTitle: { fontSize: 24, fontWeight: 800, marginBottom: 24, color: "#0d0d0d", letterSpacing: "-0.5px" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 14, marginBottom: 32 },
-  statCard: { background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18 },
-  statIcon: c => ({ fontSize: 22, marginBottom: 8, width: 40, height: 40, borderRadius: 10, background: c + "18", display: "flex", alignItems: "center", justifyContent: "center" }),
-  statVal: { fontSize: 22, fontWeight: 900, color: "#0d0d0d", marginBottom: 2 },
-  statLabel: { color: "rgba(13,13,13,0.5)", fontSize: 12 },
-  twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
-  card: { background: "#fff", border: "1px solid #e8e4dc", borderRadius: 16, padding: 20, marginBottom: 16 },
-  cardTitle: { fontSize: 15, fontWeight: 700, color: "#0d0d0d", marginBottom: 16 },
-  badge: { padding: "3px 10px", borderRadius: 50, fontSize: 11, fontWeight: 700 },
-  tableWrap: { background: "#fff", borderRadius: 16, border: "1px solid #e8e4dc", overflow: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", minWidth: 600 },
-  thead: { background: "#f2f0eb" },
-  th: { padding: "12px 14px", textAlign: "left", color: "rgba(13,13,13,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" },
-  tr: { borderBottom: "1px solid #f2f0eb" },
-  td: { padding: "12px 14px", fontSize: 13, color: "#0d0d0d" },
-  approveBtn: { padding: "5px 12px", borderRadius: 7, border: "1px solid #86efac", background: "#e8f9f2", color: "#1db882", cursor: "pointer", fontSize: 12, fontWeight: 700, marginRight: 6 },
-  rejectBtn: { padding: "5px 12px", borderRadius: 7, border: "1px solid #fca5a5", background: "#fef2f2", color: "#e84c3c", cursor: "pointer", fontSize: 12, fontWeight: 700 },
-  filterBtn: { padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e4dc", background: "transparent", color: "rgba(13,13,13,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 600 },
-  filterBtnActive: { background: "#0d0d0d", color: "#fff", border: "1px solid #0d0d0d" },
-  statusSelect: { padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e4dc", background: "#fafaf8", color: "#0d0d0d", fontSize: 12 },
-  searchInput: { padding: "10px 16px", borderRadius: 10, border: "1px solid #e8e4dc", background: "#fff", color: "#0d0d0d", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" },
-  inputFull: { width: "100%", padding: "10px 14px", borderRadius: 10, border: "2px solid #e8e4dc", background: "#fafaf8", color: "#0d0d0d", fontSize: 14, boxSizing: "border-box", outline: "none" },
-  label: { display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "#0d0d0d" },
-  empty: { textAlign: "center", padding: "40px", color: "rgba(13,13,13,0.4)", fontSize: 15 },
-};
 
 /* ── Accounts Admin ── */
 function AccountsAdmin() {
