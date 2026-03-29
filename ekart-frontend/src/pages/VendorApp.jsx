@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
@@ -361,75 +361,564 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
   );
 }
 
-function ProductsManager({ products, api, onRefresh, showToast }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editProduct, setEditProduct] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", mrp: "", stock: "", category: "", imageLink: "", stockAlertThreshold: 10, allowedPinCodes: "" });
-  const [saving, setSaving] = useState(false);
+// ── Indian PIN code validator (mirrors HTML page logic) ──────────────────────
+function isIndianPin(val) {
+  if (!/^\d{6}$/.test(val)) return false;
+  const prefix = val.slice(0, 2);
+  const valid = new Set(["11","12","13","14","15","16","17","18","19",
+    "20","21","22","23","24","25","26","27","28",
+    "30","31","32","33","34","36","37","38","39",
+    "40","41","42","43","44","45","46","47","48","49",
+    "50","51","52","53","56","57","58","59",
+    "60","61","62","63","64","65","66","67","68","69",
+    "70","71","72","73","74","75","76","77","78","79",
+    "80","81","82","83","84","85",
+    "90","91","92","93","94","95","96","97","98","99"]);
+  return valid.has(prefix);
+}
 
-  const openAdd = () => { setForm({ name: "", description: "", price: "", mrp: "", stock: "", category: "", imageLink: "", stockAlertThreshold: 10, allowedPinCodes: "" }); setEditProduct(null); setShowForm(true); };
-  const openEdit = (p) => { setForm({ name: p.name, description: p.description, price: p.price, mrp: p.mrp || "", stock: p.stock, category: p.category, imageLink: p.imageLink || "", stockAlertThreshold: p.stockAlertThreshold || 10, allowedPinCodes: p.allowedPinCodes || "" }); setEditProduct(p); setShowForm(true); };
+// ── PIN Code Tag Input component ─────────────────────────────────────────────
+function PinTagInput({ value, onChange }) {
+  const [input, setInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const pins = value ? value.split(",").filter(Boolean) : [];
+
+  const addPin = (raw) => {
+    const val = raw.trim().replace(/\D/g, "");
+    if (!isIndianPin(val)) { setPinError("Please enter a valid Indian pin code."); return; }
+    if (pins.includes(val)) { setPinError(val + " already added"); return; }
+    onChange([...pins, val].join(","));
+    setInput("");
+    setPinError("");
+  };
+
+  const removePin = (pin) => onChange(pins.filter(p => p !== pin).join(","));
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (input.trim()) addPin(input);
+    } else if (e.key === "Backspace" && !input && pins.length) {
+      removePin(pins[pins.length - 1]);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center",
+        background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
+        borderRadius: 10, padding: "8px 12px", minHeight: 44, cursor: "text" }}>
+        {pins.map(p => (
+          <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 4,
+            background: "rgba(245,168,0,0.18)", border: "1px solid rgba(245,168,0,0.4)",
+            borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 700, color: "#f5a800" }}>
+            {p}
+            <button type="button" onClick={() => removePin(p)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(245,168,0,0.7)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={e => { setInput(e.target.value.replace(/\D/g, "").slice(0, 6)); setPinError(""); }}
+          onKeyDown={handleKeyDown}
+          onBlur={() => { if (input.trim()) addPin(input); }}
+          placeholder={pins.length === 0 ? "Type a 6-digit pin code & press Enter" : ""}
+          inputMode="numeric"
+          style={{ background: "none", border: "none", outline: "none", color: "#fff",
+            fontSize: 13, minWidth: 180, flex: 1, fontFamily: "inherit" }}
+        />
+      </div>
+      {pinError && <div style={{ color: "#f87171", fontSize: 11, marginTop: 4 }}>{pinError}</div>}
+    </div>
+  );
+}
+
+// ── File Upload Area component ────────────────────────────────────────────────
+function FileUploadArea({ label, accept, multiple, onChange, fileNames, icon }) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = React.useRef();
+
+  const handleChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    onChange(multiple ? files : files[0] || null);
+  };
+
+  return (
+    <div>
+      {label && <label style={vs.label}>{label}</label>}
+      <div
+        onClick={() => inputRef.current.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); const files = Array.from(e.dataTransfer.files); onChange(multiple ? files : files[0] || null); }}
+        style={{ background: dragging ? "rgba(245,168,0,0.08)" : "rgba(255,255,255,0.04)",
+          border: `2px dashed ${dragging ? "#f5a800" : "rgba(255,255,255,0.18)"}`,
+          borderRadius: 10, padding: "16px 12px", textAlign: "center", cursor: "pointer",
+          transition: "all 0.2s" }}>
+        <input ref={inputRef} type="file" accept={accept} multiple={multiple}
+          onChange={handleChange} style={{ display: "none" }} />
+        <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+          <strong style={{ color: "rgba(255,255,255,0.8)", display: "block", marginBottom: 2 }}>
+            Click or drag to upload
+          </strong>
+          {accept}
+        </div>
+        {fileNames && <div style={{ marginTop: 6, fontSize: 11, color: "#f5a800", fontWeight: 600, wordBreak: "break-all" }}>{fileNames}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Bulk CSV Upload section ───────────────────────────────────────────────────
+function BulkCsvUpload({ api, showToast }) {
+  const [file, setFile] = useState(null);
+  const [progress, setProgress] = useState(null); // null | { pct, msg, error }
+  const [uploading, setUploading] = useState(false);
+
+  const REQUIRED = ["Product Name", "Price", "Stock"];
+
+  const parseCsv = (text) => {
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+    const parseLine = (line) => {
+      const out = []; let cur = ""; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+        else if (c === ',' && !inQ) { out.push(cur); cur = ""; }
+        else cur += c;
+      }
+      out.push(cur);
+      return out.map(s => s.trim().replace(/^"|"$/g, ""));
+    };
+    const headers = parseLine(lines[0]);
+    return lines.slice(1).map(l => {
+      const vals = parseLine(l);
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = vals[i] ?? ""; });
+      return obj;
+    });
+  };
+
+  const handleSubmit = () => {
+    if (!file) { showToast("Please select a CSV file"); return; }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const rows = parseCsv(e.target.result);
+      const errors = [];
+      rows.forEach((row, idx) => {
+        REQUIRED.forEach(col => {
+          if (!row[col] || !row[col].trim()) errors.push(`Row ${idx + 2}: ${col} is required`);
+        });
+      });
+      if (errors.length) {
+        setProgress({ pct: 0, msg: "Validation failed.", error: errors.slice(0, 5).join(" · ") + (errors.length > 5 ? ` … +${errors.length - 5} more` : "") });
+        return;
+      }
+      setProgress({ pct: 60, msg: `Validated ${rows.length} products. Uploading…` });
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const d = await api("/vendor/products/upload-csv", { method: "POST", body: fd });
+        if (d.success) {
+          setProgress({ pct: 100, msg: d.message || "Upload successful!" });
+          showToast("Bulk upload successful! ✓");
+          setFile(null);
+        } else {
+          setProgress({ pct: 0, msg: "Upload failed.", error: d.message || "Server error" });
+        }
+      } catch {
+        setProgress({ pct: 0, msg: "Upload failed.", error: "Network error" });
+      }
+      setUploading(false);
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#f5a800", textTransform: "uppercase", letterSpacing: 1 }}>📄 Bulk CSV Import</span>
+      </div>
+      <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 16 }}>
+        Upload a CSV to add multiple products at once. Required columns: <strong style={{ color: "#9ca3af" }}>Product Name, Price, Stock</strong>.
+        {" "}<a href="/sample-product-upload.csv" style={{ color: "#f5a800" }}>Download sample CSV</a>
+      </p>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <FileUploadArea
+            accept=".csv"
+            icon="📊"
+            onChange={f => { setFile(f); setProgress(null); }}
+            fileNames={file ? file.name : null}
+          />
+        </div>
+        <button style={{ ...vs.primaryBtn, whiteSpace: "nowrap" }} onClick={handleSubmit} disabled={uploading || !file}>
+          {uploading ? "Uploading…" : "⬆ Upload & Import"}
+        </button>
+      </div>
+      {progress && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", height: 8 }}>
+            <div style={{ height: "100%", width: `${progress.pct}%`, background: progress.error ? "#ef4444" : "#f5a800", transition: "width 0.4s" }} />
+          </div>
+          <div style={{ fontSize: 12, marginTop: 6, color: progress.error ? "#f87171" : "#9ca3af" }}>
+            {progress.msg}{progress.error ? ` — ${progress.error}` : ""}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Upload overlay (shown while Cloudinary processes images/video) ─────────────
+function UploadOverlay() {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(5,8,20,0.88)", backdropFilter: "blur(8px)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%",
+        border: "4px solid rgba(245,168,0,0.2)", borderTopColor: "#f5a800",
+        animation: "pm-spin 0.9s linear infinite" }} />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Uploading your product…</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>Uploading images &amp; video to Cloudinary — please wait, this can take up to 60 seconds</div>
+      </div>
+      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Please don't close this tab</div>
+      <style>{`@keyframes pm-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function ProductsManager({ products, api, onRefresh, showToast }) {
+  const EMPTY_FORM = { name: "", description: "", price: "", mrp: "", discountPct: "",
+    stock: "", category: "", stockAlertThreshold: 10, allowedPinCodes: "" };
+
+  const [showForm, setShowForm]     = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
+  const [form, setForm]             = useState(EMPTY_FORM);
+  const [mainImage, setMainImage]   = useState(null);
+  const [extraImages, setExtraImages] = useState([]);
+  const [video, setVideo]           = useState(null);
+  const [saving, setSaving]         = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  // Load sub-categories for the dropdown
+  useEffect(() => {
+    api("/vendor/categories").then(d => { if (d.success && d.categories) setCategories(d.categories); });
+  }, []);
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Live pricing calculator — mirrors HTML page exactly
+  const onMrpChange = (val) => {
+    setF("mrp", val);
+    const mrp = parseFloat(val) || 0;
+    const price = parseFloat(form.price) || 0;
+    if (mrp > 0 && price > 0 && mrp > price)
+      setF("discountPct", String(Math.round((mrp - price) / mrp * 100)));
+    else setF("discountPct", "");
+  };
+
+  const onPriceChange = (val) => {
+    setF("price", val);
+    const mrp = parseFloat(form.mrp) || 0;
+    const price = parseFloat(val) || 0;
+    if (mrp > 0 && price > 0 && mrp > price)
+      setF("discountPct", String(Math.round((mrp - price) / mrp * 100)));
+    else setF("discountPct", "");
+  };
+
+  const onDiscountChange = (val) => {
+    setF("discountPct", val);
+    const mrp = parseFloat(form.mrp) || 0;
+    const pct = parseFloat(val) || 0;
+    if (mrp > 0 && pct > 0 && pct < 100)
+      setF("price", String(Math.round(mrp * (1 - pct / 100))));
+  };
+
+  // Pricing preview values
+  const previewMrp   = parseFloat(form.mrp) || 0;
+  const previewPrice = parseFloat(form.price) || 0;
+  const previewPct   = previewMrp > previewPrice && previewMrp > 0
+    ? Math.round((previewMrp - previewPrice) / previewMrp * 100) : 0;
+  const showPreview  = previewPrice > 0;
+
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setMainImage(null); setExtraImages([]); setVideo(null);
+    setEditProduct(null); setShowForm(true);
+  };
+
+  const openEdit = (p) => {
+    const mrp = p.mrp || "";
+    const price = p.price || "";
+    const discountPct = (mrp && price && mrp > price)
+      ? String(Math.round((mrp - price) / mrp * 100)) : "";
+    setForm({ name: p.name, description: p.description || "", price: String(price),
+      mrp: String(mrp), discountPct, stock: String(p.stock),
+      category: p.category || "", stockAlertThreshold: p.stockAlertThreshold || 10,
+      allowedPinCodes: p.allowedPinCodes || "" });
+    setMainImage(null); setExtraImages([]); setVideo(null);
+    setEditProduct(p); setShowForm(true);
+  };
 
   const save = async () => {
     setSaving(true);
-    const body = { ...form, price: parseFloat(form.price), mrp: parseFloat(form.mrp) || 0, stock: parseInt(form.stock), stockAlertThreshold: parseInt(form.stockAlertThreshold) };
+    // Build multipart FormData (supports files + JSON fields)
+    const fd = new FormData();
+    fd.append("name", form.name);
+    fd.append("description", form.description);
+    fd.append("price", parseFloat(form.price) || 0);
+    fd.append("mrp", parseFloat(form.mrp) || 0);
+    fd.append("stock", parseInt(form.stock) || 0);
+    fd.append("category", form.category);
+    fd.append("stockAlertThreshold", parseInt(form.stockAlertThreshold) || 10);
+    fd.append("allowedPinCodes", form.allowedPinCodes || "");
+    if (mainImage) fd.append("image", mainImage);
+    extraImages.forEach(f => fd.append("extraImages", f));
+    if (video) fd.append("video", video);
+
     let d;
-    if (editProduct) d = await api(`/vendor/products/${editProduct.id}/update`, { method: "PUT", body: JSON.stringify(body) });
-    else d = await api("/vendor/products/add", { method: "POST", body: JSON.stringify(body) });
-    if (d.success) { showToast(editProduct ? "Product updated!" : "Product added!"); setShowForm(false); onRefresh(); }
-    else showToast(d.message || "Error");
+    if (editProduct)
+      d = await api(`/vendor/products/${editProduct.id}/update`, { method: "PUT", body: fd });
+    else
+      d = await api("/vendor/products/add", { method: "POST", body: fd });
+
+    if (d.success) {
+      showToast(editProduct ? "Product updated! ✓" : "Product added! ✓");
+      setShowForm(false); onRefresh();
+    } else {
+      showToast(d.message || "Error saving product");
+    }
     setSaving(false);
   };
 
   const deleteProduct = async (id) => {
     if (!window.confirm("Delete this product?")) return;
     const d = await api(`/vendor/products/${id}/delete`, { method: "DELETE" });
-    if (d.success) { showToast("Product deleted"); onRefresh(); } else showToast(d.message || "Error");
+    if (d.success) { showToast("Product deleted"); onRefresh(); }
+    else showToast(d.message || "Error");
   };
 
   return (
     <div>
+      {saving && <UploadOverlay />}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={vs.pageTitle}>My Products</h2>
         <button style={vs.primaryBtn} onClick={openAdd}>+ Add Product</button>
       </div>
+
+      {/* ── Add / Edit modal ── */}
       {showForm && (
         <div style={vs.modal}>
-          <div style={vs.modalContent}>
-            <h3 style={vs.cardTitle}>{editProduct ? "Edit Product" : "Add New Product"}</h3>
+          <div style={{ ...vs.modalContent, maxWidth: 780 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={vs.cardTitle}>{editProduct ? "✏️ Edit Product" : "📦 Add New Product"}</h3>
+              <button onClick={() => setShowForm(false)}
+                style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+
+            {/* ── Basic Details ── */}
+            <SectionLabel icon="🏷️" text="Basic Details" />
             <div style={vs.formGrid}>
-              {[["name", "Product Name"], ["category", "Category"], ["price", "Selling Price"], ["mrp", "MRP (optional)"], ["stock", "Stock Qty"], ["stockAlertThreshold", "Stock Alert Threshold"], ["imageLink", "Image URL"], ["allowedPinCodes", "Allowed PIN Codes (comma-separated)"]].map(([k, label]) => (
-                <div key={k} style={{ gridColumn: ["imageLink", "allowedPinCodes"].includes(k) ? "1 / -1" : "" }}>
-                  <label style={vs.label}>{label}</label>
-                  <input style={vs.input} value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
-                </div>
-              ))}
               <div style={{ gridColumn: "1 / -1" }}>
-                <label style={vs.label}>Description</label>
-                <textarea style={{ ...vs.input, minHeight: 80, resize: "vertical" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+                <label style={vs.label}>Product Name *</label>
+                <input style={vs.input} placeholder="e.g. Premium Wireless Headphones"
+                  value={form.name} onChange={e => setF("name", e.target.value)} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={vs.label}>Description *</label>
+                <textarea style={{ ...vs.input, minHeight: 80, resize: "vertical" }}
+                  placeholder="Describe your product — features, materials, use cases…"
+                  value={form.description} onChange={e => setF("description", e.target.value)} />
+              </div>
+              <div>
+                <label style={vs.label}>Category *</label>
+                <select style={{ ...vs.input, cursor: "pointer", appearance: "none" }}
+                  value={form.category} onChange={e => setF("category", e.target.value)}>
+                  <option value="" disabled>— Select a category —</option>
+                  {categories.length > 0
+                    ? categories.map(c => (
+                        <option key={c.name} value={c.name}>
+                          {c.parentCategory ? `${c.parentCategory.emoji || ""} ${c.parentCategory.name} › ${c.name}` : c.name}
+                        </option>
+                      ))
+                    : <option value={form.category}>{form.category || "No categories loaded"}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label style={vs.label}>M.R.P. / Original Price (₹) <span style={{ color: "#6b7280", fontWeight: 400, textTransform: "none" }}>(leave blank if no discount)</span></label>
+                <input style={vs.input} type="number" placeholder="e.g. 699" min="0" step="0.01"
+                  value={form.mrp} onChange={e => onMrpChange(e.target.value)} />
+              </div>
+
+              {/* Selling price + OR + discount % — exactly matching the HTML page */}
+              <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "flex-end", gap: 12 }}>
+                {/* Selling Price */}
+                <div style={{ flex: 1 }}>
+                  <label style={vs.label}>Selling Price (₹) <span style={{ color: "#ef4444" }}>*</span></label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                      color: "#6b7280", fontSize: 14, pointerEvents: "none", userSelect: "none" }}>₹</span>
+                    <input style={{ ...vs.input, paddingLeft: 28 }} type="number" placeholder="e.g. 179"
+                      min="0" step="0.01" value={form.price} onChange={e => onPriceChange(e.target.value)} />
+                  </div>
+                </div>
+
+                {/* OR divider */}
+                <div style={{ paddingBottom: 10, color: "#6b7280", fontSize: 11, fontWeight: 800,
+                  textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>OR</div>
+
+                {/* Discount % */}
+                <div style={{ flex: 1 }}>
+                  <label style={vs.label}>Discount %</label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                      color: "#6b7280", fontSize: 14, pointerEvents: "none", userSelect: "none" }}>%</span>
+                    <input style={{ ...vs.input, paddingLeft: 28 }} type="number" placeholder="e.g. 74"
+                      min="1" max="99" step="1" value={form.discountPct} onChange={e => onDiscountChange(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live pricing preview */}
+              {showPreview && (
+                <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                  background: "rgba(245,168,0,0.07)", border: "1px solid rgba(245,168,0,0.25)",
+                  borderRadius: 10, padding: "10px 14px" }}>
+                  {previewPct > 0 && (
+                    <span style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444",
+                      border: "1px solid rgba(239,68,68,0.3)", fontSize: 12, fontWeight: 800,
+                      padding: "2px 8px", borderRadius: 6 }}>-{previewPct}%</span>
+                  )}
+                  <span style={{ fontSize: 22, fontWeight: 900, color: "#f5a800" }}>
+                    ₹{previewPrice.toLocaleString("en-IN")}
+                  </span>
+                  {previewMrp > previewPrice && (
+                    <span style={{ fontSize: 13, color: "#6b7280", textDecoration: "line-through" }}>
+                      M.R.P.: ₹{previewMrp.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label style={vs.label}>Stock (Units) *</label>
+                <input style={vs.input} type="number" placeholder="e.g. 100" min="0"
+                  value={form.stock} onChange={e => setF("stock", e.target.value)} />
+              </div>
+              <div>
+                <label style={vs.label}>Stock Alert Threshold</label>
+                <input style={vs.input} type="number" placeholder="Default: 10" min="1"
+                  value={form.stockAlertThreshold} onChange={e => setF("stockAlertThreshold", e.target.value)} />
+                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                  ⚡ Get an email when stock drops below this level
+                </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-              <button style={vs.primaryBtn} onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+
+            {/* ── Media ── */}
+            <SectionLabel icon="🖼️" text="Media" />
+            <div style={vs.formGrid}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <FileUploadArea
+                  label={editProduct ? "Replace Main Image (optional)" : "Main Image *"}
+                  accept="image/*"
+                  icon="🖼️"
+                  onChange={f => setMainImage(f)}
+                  fileNames={mainImage ? mainImage.name : (editProduct?.imageLink ? "Current image kept" : null)}
+                />
+              </div>
+              <div>
+                <FileUploadArea
+                  label="Extra Images (optional · up to 4)"
+                  accept="image/*"
+                  multiple
+                  icon="📷"
+                  onChange={files => setExtraImages(files.slice(0, 4))}
+                  fileNames={extraImages.length > 0 ? `${extraImages.length} file(s) selected` : null}
+                />
+              </div>
+              <div>
+                <FileUploadArea
+                  label="Product Video (optional)"
+                  accept="video/*"
+                  icon="🎬"
+                  onChange={f => setVideo(f)}
+                  fileNames={video ? video.name : null}
+                />
+                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>MP4, MOV or AVI · Max 100 MB</div>
+              </div>
+            </div>
+
+            {/* ── Delivery Restrictions ── */}
+            <SectionLabel icon="📍" text="Delivery Restrictions" optional />
+            <label style={vs.label}>Allowed Delivery Pin Codes</label>
+            <PinTagInput value={form.allowedPinCodes} onChange={v => setF("allowedPinCodes", v)} />
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4, marginBottom: 20 }}>
+              ℹ️ Leave blank to allow delivery to all pin codes. Add each pin code one at a time.
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button style={{ ...vs.primaryBtn, flex: 1 }} onClick={save} disabled={saving}>
+                {saving ? "Saving…" : (editProduct ? "💾 Save Changes" : "✚ Add Product")}
+              </button>
               <button style={vs.secondaryBtn} onClick={() => setShowForm(false)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Products table ── */}
       <div style={vs.tableWrap}>
         <table style={vs.table}>
           <thead><tr style={vs.thead}>
-            {["Product", "Category", "Price", "MRP", "Stock", "Status", "Actions"].map(h => <th key={h} style={vs.th}>{h}</th>)}
+            {["Product", "Category", "Price", "MRP", "Stock", "Status", "Actions"].map(h =>
+              <th key={h} style={vs.th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {products.map(p => (
               <tr key={p.id} style={vs.tr}>
-                <td style={vs.td}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ color: "#6b7280", fontSize: 12 }}>#{p.id}</div></td>
+                <td style={vs.td}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {p.imageLink && (
+                      <img src={p.imageLink} alt={p.name}
+                        style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{p.name}</div>
+                      <div style={{ color: "#6b7280", fontSize: 12 }}>#{p.id}</div>
+                    </div>
+                  </div>
+                </td>
                 <td style={vs.td}><span style={vs.catBadge}>{p.category}</span></td>
                 <td style={vs.td}>{fmt(p.price)}</td>
-                <td style={vs.td}>{p.mrp ? fmt(p.mrp) : "–"}</td>
-                <td style={vs.td}><span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{p.stock}</span></td>
-                <td style={vs.td}><span style={{ ...vs.badge, background: p.approved ? "#22c55e" : "#f59e0b" }}>{p.approved ? "Approved" : "Pending"}</span></td>
+                <td style={vs.td}>
+                  {p.mrp ? (
+                    <div>
+                      <div style={{ textDecoration: "line-through", color: "#6b7280", fontSize: 12 }}>{fmt(p.mrp)}</div>
+                      {p.mrp > p.price && (
+                        <div style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>
+                          -{Math.round((p.mrp - p.price) / p.mrp * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  ) : "–"}
+                </td>
+                <td style={vs.td}>
+                  <span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{p.stock}</span>
+                  {p.stock <= p.stockAlertThreshold && <div style={{ fontSize: 10, color: "#f59e0b" }}>⚠ Low</div>}
+                </td>
+                <td style={vs.td}>
+                  <span style={{ ...vs.badge, background: p.approved ? "#22c55e" : "#f59e0b" }}>
+                    {p.approved ? "Approved" : "Pending"}
+                  </span>
+                </td>
                 <td style={vs.td}>
                   <button style={vs.editBtn} onClick={() => openEdit(p)}>Edit</button>
                   <button style={vs.deleteBtn} onClick={() => deleteProduct(p.id)}>Delete</button>
@@ -440,6 +929,20 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
         </table>
         {products.length === 0 && <div style={vs.empty}>No products yet. Add your first product!</div>}
       </div>
+
+      {/* ── Bulk CSV Import ── */}
+      <BulkCsvUpload api={api} showToast={showToast} />
+    </div>
+  );
+}
+
+function SectionLabel({ icon, text, optional }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "20px 0 12px",
+      fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#f5a800" }}>
+      {icon} {text}
+      {optional && <span style={{ color: "#6b7280", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(Optional)</span>}
+      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
     </div>
   );
 }
