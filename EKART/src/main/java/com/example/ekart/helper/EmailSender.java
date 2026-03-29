@@ -471,4 +471,53 @@ public class EmailSender {
             System.err.println("Warehouse change rejected email failed: " + e.getMessage());
         }
     }
+
+    // ===================== ORDER DISPUTE / REPORT ISSUE =====================
+    @Async
+    public void sendDisputeNotification(String adminEmail, String fromEmail,
+                                         int orderId, int customerId,
+                                         String customerEmail, String reason,
+                                         String description) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, "Ekart");
+            helper.setTo(adminEmail);
+            helper.setSubject("⚠️ Order Dispute Raised — Order #" + orderId);
+
+            String descHtml = (description != null && !description.isBlank())
+                ? "<div style='background:#fff8e1;border-left:3px solid #f5a800;padding:10px 14px;"
+                  + "border-radius:4px;margin:12px 0;'>"
+                  + "<p style='color:#555;margin:0;font-size:0.9rem;'><strong>Details:</strong> "
+                  + description + "</p></div>"
+                : "";
+
+            String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:560px;'>"
+                + "<h2 style='color:#e53935;margin-bottom:4px;'>Order Dispute Raised</h2>"
+                + "<p style='color:#555;'>A customer has reported an issue with an order.</p>"
+                + "<table style='width:100%;border-collapse:collapse;margin:16px 0;font-size:0.9rem;'>"
+                + "<tr><td style='padding:6px 0;color:#888;width:140px;'>Order ID</td>"
+                +     "<td style='padding:6px 0;font-weight:bold;'>#" + orderId + "</td></tr>"
+                + "<tr><td style='padding:6px 0;color:#888;'>Customer ID</td>"
+                +     "<td style='padding:6px 0;'>" + customerId + "</td></tr>"
+                + "<tr><td style='padding:6px 0;color:#888;'>Customer Email</td>"
+                +     "<td style='padding:6px 0;'>" + customerEmail + "</td></tr>"
+                + "<tr><td style='padding:6px 0;color:#888;'>Reason</td>"
+                +     "<td style='padding:6px 0;color:#e53935;font-weight:bold;'>" + reason + "</td></tr>"
+                + "<tr><td style='padding:6px 0;color:#888;'>Raised At</td>"
+                +     "<td style='padding:6px 0;'>"
+                +     java.time.LocalDateTime.now()
+                          .format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"))
+                +     "</td></tr>"
+                + "</table>"
+                + descHtml
+                + "<p style='color:#aaa;font-size:0.75rem;margin-top:20px;'>— Ekart Admin Alerts</p>"
+                + "</div>";
+
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Dispute notification email failed: " + e.getMessage());
+        }
+    }
 }
