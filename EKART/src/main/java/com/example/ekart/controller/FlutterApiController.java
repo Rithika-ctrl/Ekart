@@ -41,7 +41,8 @@ public class FlutterApiController {
     @Autowired private ItemRepository      itemRepository;
     @Autowired private WishlistRepository  wishlistRepository;
     @Autowired private AddressRepository   addressRepository;
-    @Autowired private ReviewRepository    reviewRepository;
+    @Autowired private ReviewRepository      reviewRepository;
+    @Autowired private ReviewImageRepository reviewImageRepository;
     @Autowired private RefundRepository      refundRepository;
     @Autowired private RefundImageRepository  refundImageRepository;
     @Autowired private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
@@ -683,7 +684,55 @@ public class FlutterApiController {
             @RequestParam(required = false, defaultValue = "default") String sortBy) {
         Map<String, Object> res = new HashMap<>();
         List<Product> products;
-        if (search != null && !search
+
+        // 1. Build the candidate set using search / category / all
+        if (search != null && !search.isBlank()) {
+            java.util.Set<Product> found = new java.util.LinkedHashSet<>();
+            found.addAll(productRepository.findByNameContainingIgnoreCase(search));
+            found.addAll(productRepository.findByDescriptionContainingIgnoreCase(search));
+            found.addAll(productRepository.findByCategoryContainingIgnoreCase(search));
+            products = found.stream()
+                    .filter(Product::isApproved)
+                    .collect(Collectors.toList());
+        } else if (category != null && !category.isBlank()) {
+            products = productRepository.findByCategoryAndApprovedTrue(category);
+        } else {
+            products = productRepository.findByApprovedTrue();
+        }
+
+        // 2. Apply price range filters (in-memory — avoids extra repo methods)
+        if (minPrice != null) {
+            products = products.stream()
+                    .filter(p -> p.getPrice() >= minPrice)
+                    .collect(Collectors.toList());
+        }
+        if (maxPrice != null) {
+            products = products.stream()
+                    .filter(p -> p.getPrice() <= maxPrice)
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Sort
+        switch (sortBy == null ? "default" : sortBy.toLowerCase()) {
+            case "price_asc":
+                products.sort(Comparator.comparingDouble(Product::getPrice));
+                break;
+            case "price_desc":
+                products.sort(Comparator.comparingDouble(Product::getPrice).reversed());
+                break;
+            case "name":
+                products.sort(Comparator.comparing(p -> p.getName() == null ? "" : p.getName().toLowerCase()));
+                break;
+            default:
+                // default order: approved products as returned by the DB
+                break;
+        }
+
+        res.put("success",  true);
+        res.put("count",    products.size());
+        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
+        return ResponseEntity.ok(res);
+    }
 
     /** GET /api/flutter/products/{id} — includes reviews */
     @GetMapping("/products/{id}")
@@ -2190,17 +2239,23 @@ public class FlutterApiController {
         String bucketUnit; // "day", "week", "month"
 
         switch (period.toLowerCase()) {
-            case "monthly":
-                windowStart = now.minusMonths(6).withDayOfMonth(1).toLocalDate().atStartOfDay();
-                buckets     = 6;
-                bucketUnit  = "month";
-                break;
             case "daily":
                 windowStart = now.minusDays(6).toLocalDate().atStartOfDay();
                 buckets     = 7;
                 bucketUnit  = "day";
                 break;
-            default: // "weekly"
+            case "monthly":
+                windowStart = now.minusMonths(6).withDayOfMonth(1).toLocalDate().atStartOfDay();
+                buckets     = 6;
+                bucketUnit  = "month";
+                break;
+            case "yearly":
+                windowStart = now.minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
+                buckets     = 12;
+                bucketUnit  = "year_month";
+                break;
+            case "weekly":
+            default:
                 windowStart = now.minusWeeks(6).toLocalDate().atStartOfDay();
                 buckets     = 6;
                 bucketUnit  = "week";
@@ -2244,6 +2299,13 @@ public class FlutterApiController {
                 bucketStart = ym.atDay(1).atStartOfDay();
                 bucketEnd   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
                 label       = ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
+            } else if ("year_month".equals(bucketUnit)) {
+                // yearly view: 12 monthly buckets, labeled "Jan '25" style
+                java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - i);
+                bucketStart = ym.atDay(1).atStartOfDay();
+                bucketEnd   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
+                label       = ym.getMonth().name().substring(0, 3)
+                              + " '" + String.valueOf(ym.getYear()).substring(2);
             } else { // week
                 java.time.LocalDate weekStart = now.toLocalDate().minusWeeks(i).with(java.time.DayOfWeek.MONDAY);
                 bucketStart = weekStart.atStartOfDay();
