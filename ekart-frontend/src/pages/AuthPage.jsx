@@ -294,20 +294,31 @@ export default function AuthPage() {
           {screen === "register" && (
             <form onSubmit={handleRegister}>
               <div className="auth-title">Create account</div>
-              <div className="auth-sub">Join thousands of happy shoppers</div>
+              <div className="auth-sub">
+                {role === "delivery"
+                  ? "Apply to become a delivery partner. Your account will need admin approval."
+                  : role === "vendor"
+                  ? "Register your store and start selling on ekart."
+                  : "Join thousands of happy shoppers"}
+              </div>
               <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Rahul Sharma" value={form.name} onChange={e => set("name", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Mobile</label><input className="form-input" placeholder="9876543210" value={form.mobile} onChange={e => set("mobile", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required /></div>
               <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required /></div>
               {role === "delivery" && (
-                <div className="form-group">
-                  <label className="form-label">Select Warehouse</label>
-                  <select className="form-input" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
-                    <option value="">Select your warehouse…</option>
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} — {w.city}</option>)}
-                  </select>
-                </div>
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Select Warehouse</label>
+                    <select className="form-input" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
+                      <option value="">Select your warehouse…</option>
+                      {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} — {w.city}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 8, padding: "9px 13px", fontSize: 12, color: "#92610a", marginBottom: 16, lineHeight: 1.5 }}>
+                    ⏳ After registering, your account will be reviewed by an admin before you can log in.
+                  </div>
+                </>
               )}
               <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Creating account…" : `Register as ${role}`}</button>
               {(role === "customer" || role === "vendor") && (

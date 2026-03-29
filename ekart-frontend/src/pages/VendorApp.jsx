@@ -209,17 +209,13 @@ function SalesReport({ salesData, onPeriodChange }) {
 
   const data = salesData?.data || [];
   const maxRevenue = Math.max(...data.map(d => d.revenue || 0), 1);
-  const periodLabel = { daily: "Last 7 Days", weekly: "Last 6 Weeks", monthly: "Last 6 Months", yearly: "Last 12 Months" };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h2 style={vs.pageTitle}>Sales Report 📊</h2>
-          <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{periodLabel[period]}</div>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {["daily", "weekly", "monthly", "yearly"].map(p => (
+        <h2 style={vs.pageTitle}>Sales Report 📊</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {["daily", "weekly", "monthly"].map(p => (
             <button key={p} style={{ ...vs.secondaryBtn, ...(period === p ? { background: "rgba(34,197,94,0.2)", color: "#86efac", borderColor: "rgba(34,197,94,0.4)" } : {}) }}
               onClick={() => changePeriod(p)}>
               {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -234,8 +230,6 @@ function SalesReport({ salesData, onPeriodChange }) {
           { label: "Orders", value: salesData?.totalOrders || 0, icon: "📦", color: "#6366f1" },
           { label: "Avg Order Value", value: fmt(salesData?.avgOrderValue || 0), icon: "📊", color: "#f59e0b" },
           { label: "Top Product", value: salesData?.topProduct || "—", icon: "🏆", color: "#8b5cf6" },
-          { label: "Pending Orders", value: salesData?.pendingOrders ?? "—", icon: "⏳", color: "#ef4444" },
-          { label: "Total Products", value: salesData?.totalProducts ?? "—", icon: "🛍️", color: "#06b6d4" },
         ].map(s => (
           <div key={s.label} style={vs.statCard}>
             <div style={vs.statIcon(s.color)}>{s.icon}</div>
@@ -248,12 +242,12 @@ function SalesReport({ salesData, onPeriodChange }) {
       {data.length > 0 && (
         <div style={{ ...vs.card, marginBottom: 20 }}>
           <h3 style={vs.cardTitle}>Revenue Trend</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: period === "yearly" ? 4 : 12, height: 140, overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 140 }}>
             {data.map((d, i) => (
-              <div key={i} style={{ flex: period === "yearly" ? "0 0 auto" : 1, minWidth: period === "yearly" ? 44 : undefined, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ fontSize: 9, color: "#9ca3af", whiteSpace: "nowrap" }}>{fmt(d.revenue || 0)}</div>
-                <div style={{ width: period === "yearly" ? 32 : "100%", background: "linear-gradient(180deg,#22c55e,#16a34a)", borderRadius: "4px 4px 0 0", height: `${Math.max(((d.revenue || 0) / maxRevenue) * 100, 4)}px` }} />
-                <div style={{ fontSize: 9, color: "#6b7280", whiteSpace: "nowrap" }}>{d.label || d.date || i + 1}</div>
+              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 10, color: "#9ca3af" }}>{fmt(d.revenue || 0)}</div>
+                <div style={{ width: "100%", background: "linear-gradient(180deg,#22c55e,#16a34a)", borderRadius: "4px 4px 0 0", height: `${((d.revenue || 0) / maxRevenue) * 100}px`, minHeight: 4 }} />
+                <div style={{ fontSize: 10, color: "#6b7280" }}>{d.label || d.date || i + 1}</div>
               </div>
             ))}
           </div>
