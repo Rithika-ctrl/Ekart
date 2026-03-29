@@ -447,7 +447,7 @@ export default function CustomerApp() {
     else showToast(d.message || "Failed to report");
   };
 
-  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); track("PAGE_VIEW", { page: p }); navigate(`/shop/${p}`); } };
+  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
 
   return (
     <>
@@ -455,7 +455,6 @@ export default function CustomerApp() {
       <Toast msg={toast} onHide={() => setToast("")} />
       {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} />}
       {reorderStockCheck && <ReorderStockModal stockCheck={reorderStockCheck} onClose={() => setReorderStockCheck(null)} onConfirm={confirmReorder} />}
-      <AIAssistantWidget api={api} onNavigate={p => setPage(p)} showToast={showToast} />
 
       {auth?.role === "GUEST" && (
         <div style={{
@@ -583,6 +582,7 @@ export default function CustomerApp() {
             <VendorCsvUpload api={api} auth={auth} />
           )}
       </Layout>
+      <AIAssistantWidget api={api} onNavigate={p => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); setTimeout(() => navigate(`/shop/${p}`), 0); }} showToast={showToast} />
       {showAuth && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999 }} onClick={() => setShowAuth(false)}>
           <div onClick={e => e.stopPropagation()}>
