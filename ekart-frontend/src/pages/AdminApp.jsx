@@ -1682,13 +1682,114 @@ function ContentAdmin() {
     if (ok) loadBanners(); else show("Error updating banner");
   };
 
+  // ── Upload tab state ──────────────────────────────────────────────
+  const [addTab, setAddTab] = useState("upload"); // "upload" | "url"
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // ── Bulk CSV state ─────────────────────────────────────────────────
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkProgress, setBulkProgress] = useState(null); // null | { pct, msg, error }
+  const [bulkUploading, setBulkUploading] = useState(false);
+
+  const handleImageFile = (file) => {
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = e => setImagePreview(e.target.result);
+    reader.readAsDataURL(file);
+  };
+
   const addBanner = async () => {
-    if (!form.title.trim() || !form.imageUrl.trim()) { show("Title and Image URL are required"); return; }
+    if (!form.title.trim()) { show("Banner title is required"); return; }
+
     setSaving(true);
-    const ok = await flutterPost("/admin/banners/add", { title: form.title.trim(), imageUrl: form.imageUrl.trim(), linkUrl: form.linkUrl.trim() });
-    if (ok) { show("Banner added ✓"); setForm({ title: "", imageUrl: "", linkUrl: "" }); setShowAddForm(false); loadBanners(); }
-    else show("Failed to add banner");
+
+    if (addTab === "upload") {
+      // ── File upload path ──────────────────────────────────────────
+      if (!imageFile) { show("Please select an image file"); setSaving(false); return; }
+      const fd = new FormData();
+      fd.append("title", form.title.trim());
+      fd.append("imageFile", imageFile);
+      if (form.linkUrl.trim()) fd.append("linkUrl", form.linkUrl.trim());
+      setUploading(true);
+      try {
+        const res = await fetch("/api/flutter/admin/banners/add-upload", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
+          body: fd,
+        });
+        const d = await res.json();
+        if (d.success) {
+          show("Banner added ✓");
+          setForm({ title: "", imageUrl: "", linkUrl: "" });
+          setImageFile(null); setImagePreview("");
+          setShowAddForm(false); loadBanners();
+        } else show(d.message || "Failed to add banner");
+      } catch { show("Upload failed"); }
+      setUploading(false);
+    } else {
+      // ── Paste URL path ────────────────────────────────────────────
+      if (!form.imageUrl.trim()) { show("Image URL is required"); setSaving(false); return; }
+      const ok = await flutterPost("/admin/banners/add", { title: form.title.trim(), imageUrl: form.imageUrl.trim(), linkUrl: form.linkUrl.trim() });
+      if (ok) { show("Banner added ✓"); setForm({ title: "", imageUrl: "", linkUrl: "" }); setShowAddForm(false); loadBanners(); }
+      else show("Failed to add banner");
+    }
     setSaving(false);
+  };
+
+  // ── Bulk CSV upload ────────────────────────────────────────────────
+  const handleBulkSubmit = () => {
+    if (!bulkFile) { show("Please select a CSV file"); return; }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      // Parse CSV manually (no PapaParse dep in React bundle)
+      const lines = e.target.result.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) { setBulkProgress({ pct: 0, msg: "CSV is empty.", error: true }); return; }
+      const parseLine = (line) => {
+        const out = []; let cur = ""; let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+          else if (c === ',' && !inQ) { out.push(cur); cur = ""; }
+          else cur += c;
+        }
+        out.push(cur);
+        return out.map(s => s.trim().replace(/^"|"$/g, ""));
+      };
+      const headers = parseLine(lines[0]);
+      const rows = lines.slice(1).map(l => { const vals = parseLine(l); const o = {}; headers.forEach((h,i) => o[h] = vals[i] ?? ""); return o; });
+      const errors = [];
+      rows.forEach((row, idx) => {
+        ["Product Name","Price","Stock"].forEach(col => {
+          if (!row[col] || !row[col].trim()) errors.push(`Row ${idx+2}: ${col} is required`);
+        });
+      });
+      if (errors.length) {
+        setBulkProgress({ pct: 0, msg: "Validation failed — " + errors.slice(0,3).join(" · ") + (errors.length > 3 ? ` +${errors.length-3} more` : ""), error: true });
+        return;
+      }
+      setBulkProgress({ pct: 60, msg: `Validated ${rows.length} products. Uploading…`, error: false });
+      setBulkUploading(true);
+      const fd = new FormData(); fd.append("file", bulkFile);
+      try {
+        const res = await fetch("/api/flutter/vendor/products/upload-csv", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
+          body: fd,
+        });
+        const d = await res.json();
+        if (d.success) {
+          setBulkProgress({ pct: 100, msg: d.message || "Upload successful!", error: false });
+          show("Bulk import successful! ✓"); setBulkFile(null);
+        } else {
+          setBulkProgress({ pct: 0, msg: d.message || "Upload failed.", error: true });
+        }
+      } catch { setBulkProgress({ pct: 0, msg: "Network error. Please try again.", error: true }); }
+      setBulkUploading(false);
+    };
+    reader.readAsText(bulkFile);
   };
 
   const saveEdit = async () => {
@@ -1740,38 +1841,108 @@ function ContentAdmin() {
       {showAddForm && (
         <div style={{ ...as.card, marginBottom: 24, border: "2px dashed #e8e4dc" }}>
           <h3 style={as.cardTitle}>Add New Banner</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
-            {[
-              { key: "title",    label: "Banner Title *",   placeholder: "e.g. Summer Sale" },
-              { key: "imageUrl", label: "Image URL *",      placeholder: "https://example.com/banner.jpg" },
-              { key: "linkUrl",  label: "Link URL",         placeholder: "https://ekart.com/sale" },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={as.label}>{f.label}</label>
-                <input
-                  style={as.inputFull}
-                  placeholder={f.placeholder}
-                  value={form[f.key]}
-                  onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
-                />
-              </div>
+
+          {/* Tab switcher: Upload Image vs Paste URL */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 18, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, overflow: "hidden", width: "fit-content" }}>
+            {[["upload","⬆ Upload Image"],["url","🔗 Paste URL"]].map(([key, label]) => (
+              <button key={key} type="button"
+                style={{ padding: "7px 18px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: "inherit",
+                  background: addTab === key ? "#f5a800" : "transparent",
+                  color: addTab === key ? "#1a1000" : "rgba(255,255,255,0.45)",
+                  transition: "all 0.2s" }}
+                onClick={() => setAddTab(key)}>
+                {label}
+              </button>
             ))}
           </div>
-          {form.imageUrl && (
-            <div style={{ marginBottom: 14 }}>
-              <label style={as.label}>Preview</label>
-              <img src={form.imageUrl} alt="preview" style={{ height: 80, borderRadius: 8, objectFit: "cover", border: "1px solid #e8e4dc" }} onError={e => e.target.style.display = "none"} />
+
+          {/* Upload Image tab */}
+          {addTab === "upload" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+              <div>
+                <label style={as.label}>Banner Title *</label>
+                <input style={as.inputFull} placeholder="e.g. Summer Sale 50% Off"
+                  value={form.title} onChange={e => setForm(v => ({ ...v, title: e.target.value }))} />
+              </div>
+              <div>
+                <label style={as.label}>Banner Image *</label>
+                <input type="file" accept="image/*"
+                  style={{ width: "100%", padding: "7px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", cursor: "pointer", fontSize: 12 }}
+                  onChange={e => handleImageFile(e.target.files[0])} />
+                {imagePreview && (
+                  <img src={imagePreview} alt="preview"
+                    style={{ marginTop: 8, height: 64, borderRadius: 7, objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }} />
+                )}
+              </div>
+              <div>
+                <label style={as.label}>Link URL (Optional)</label>
+                <input style={as.inputFull} placeholder="https://ekart.com/sale"
+                  value={form.linkUrl} onChange={e => setForm(v => ({ ...v, linkUrl: e.target.value }))} />
+              </div>
             </div>
           )}
+
+          {/* Paste URL tab */}
+          {addTab === "url" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+              {[
+                { key: "title",    label: "Banner Title *",   placeholder: "e.g. Summer Sale" },
+                { key: "imageUrl", label: "Image URL *",      placeholder: "https://res.cloudinary.com/..." },
+                { key: "linkUrl",  label: "Link URL",         placeholder: "https://ekart.com/sale" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={as.label}>{f.label}</label>
+                  <input style={as.inputFull} placeholder={f.placeholder}
+                    value={form[f.key]} onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))} />
+                </div>
+              ))}
+              {form.imageUrl && (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <img src={form.imageUrl} alt="preview"
+                    style={{ height: 72, borderRadius: 8, objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }}
+                    onError={e => e.target.style.display = "none"} />
+                </div>
+              )}
+            </div>
+          )}
+
           <button
-            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#0d0d0d", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: saving ? 0.6 : 1 }}
-            onClick={addBanner}
-            disabled={saving}
-          >
-            {saving ? "Adding…" : "Add Banner"}
+            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#f5a800", color: "#1a1000", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: (saving || uploading) ? 0.6 : 1 }}
+            onClick={addBanner} disabled={saving || uploading}>
+            {uploading ? "☁ Uploading to Cloudinary…" : saving ? "Adding…" : addTab === "upload" ? "☁ Upload & Add Banner" : "＋ Add Banner"}
           </button>
         </div>
       )}
+
+      {/* Bulk Product Induction */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <h3 style={{ ...as.cardTitle, marginBottom: 8 }}>📄 Bulk Product Induction</h3>
+        <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 14 }}>
+          Upload a CSV to add multiple products at once. Required columns: <strong style={{ color: "#e5e7eb" }}>Product Name, Price, Stock</strong>.{" "}
+          <a href="/sample-product-upload.csv" style={{ color: "#f5a800" }}>Download sample CSV</a>
+        </p>
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label style={as.label}>CSV File *</label>
+            <input type="file" accept=".csv"
+              style={{ width: "100%", padding: "7px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", cursor: "pointer", fontSize: 12 }}
+              onChange={e => { setBulkFile(e.target.files[0] || null); setBulkProgress(null); }} />
+          </div>
+          <button
+            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#f5a800", color: "#1a1000", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", opacity: (!bulkFile || bulkUploading) ? 0.5 : 1 }}
+            onClick={handleBulkSubmit} disabled={!bulkFile || bulkUploading}>
+            {bulkUploading ? "Uploading…" : "⬆ Upload & Import"}
+          </button>
+        </div>
+        {bulkProgress && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", height: 8 }}>
+              <div style={{ height: "100%", width: `${bulkProgress.pct}%`, background: bulkProgress.error ? "#ef4444" : "#f5a800", transition: "width 0.4s" }} />
+            </div>
+            <div style={{ fontSize: 12, marginTop: 5, color: bulkProgress.error ? "#f87171" : "#9ca3af" }}>{bulkProgress.msg}</div>
+          </div>
+        )}
+      </div>
 
       {/* Banners Table */}
       {loading ? (

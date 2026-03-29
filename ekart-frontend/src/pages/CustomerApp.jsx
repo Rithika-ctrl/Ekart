@@ -1727,172 +1727,434 @@ const DELIVERY_OPTIONS = [
   },
 ];
 
+/* ── Indian PIN validator (shared with VendorApp) ───────────────── */
+function isIndianPinAddr(val) {
+  if (!/^\d{6}$/.test(val)) return false;
+  const p = val.slice(0, 2);
+  const ok = new Set(["11","12","13","14","15","16","17","18","19",
+    "20","21","22","23","24","25","26","27","28",
+    "30","31","32","33","34","36","37","38","39",
+    "40","41","42","43","44","45","46","47","48","49",
+    "50","51","52","53","56","57","58","59",
+    "60","61","62","63","64","65","66","67","68","69",
+    "70","71","72","73","74","75","76","77","78","79",
+    "80","81","82","83","84","85",
+    "90","91","92","93","94","95","96","97","98","99"]);
+  return ok.has(p);
+}
+
 /* ── Address Step Page ─────────────────────────────────────────────
    Step 2 of checkout: select a saved address OR add a new one inline.
-   Shows a progress stepper (Cart → Address → Payment) for orientation.
+   Features mirrored from the HTML shipping page:
+   • Progress stepper (Cart ✓ → Shipping active → Payment)
+   • Saved address cards with hover + "Use This Address" button
+   • Per-card PIN mismatch warning (vs localStorage ekart_delivery_pin)
+   • New-address form with per-field validation & error messages
+   • Live address preview as user types
+   • Home-PIN hint banner when delivery PIN is set
+   • Real-time PIN mismatch warning on the new-address form
+   • Delete saved address
 ──────────────────────────────────────────────────────────────────── */
 function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast }) {
+  const EMPTY = { recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" };
+
   const [selectedAddr, setSelectedAddr] = useState(() => {
     const addrs = profile?.addresses || [];
     return addrs.length === 1 ? addrs[0].id : null;
   });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
-  const [saving, setSaving] = useState(false);
+  const [showAddForm, setShowAddForm]   = useState(false);
+  const [addForm, setAddForm]           = useState(EMPTY);
+  const [errors, setErrors]             = useState({});
+  const [saving, setSaving]             = useState(false);
+  const [homePin, setHomePin]           = useState("");
+  const [cardWarnings, setCardWarnings] = useState({}); // addrId → msg
+  const [formPinMismatch, setFormPinMismatch] = useState("");
+
   const addrs = profile?.addresses || [];
 
-  const handleAddAddress = async () => {
-    if (!addForm.recipientName || !addForm.houseStreet || !addForm.city || !addForm.state || !addForm.postalCode) {
-      showToast("Please fill all address fields"); return;
+  // Read home delivery PIN from localStorage on mount
+  useEffect(() => {
+    const p = localStorage.getItem("ekart_delivery_pin") || "";
+    setHomePin(p.length === 6 ? p : "");
+  }, []);
+
+  // ── Field change helpers ──────────────────────────────────────────
+  const setF = (k, v) => {
+    setAddForm(f => ({ ...f, [k]: v }));
+    setErrors(e => ({ ...e, [k]: "" }));
+    if (k === "postalCode") {
+      const pin = v.replace(/\D/g, "").slice(0, 6);
+      if (pin.length === 6 && homePin && pin !== homePin) {
+        setFormPinMismatch(pin);
+      } else {
+        setFormPinMismatch("");
+      }
     }
+  };
+
+  // ── Validation ────────────────────────────────────────────────────
+  const validate = () => {
+    const e = {};
+    if (!addForm.recipientName.trim() || addForm.recipientName.trim().length < 2)
+      e.recipientName = "Please enter the recipient's name.";
+    if (!addForm.houseStreet.trim() || addForm.houseStreet.trim().length < 5)
+      e.houseStreet = "Please enter a house/street address.";
+    if (!addForm.city.trim() || addForm.city.trim().length < 2)
+      e.city = "Please enter a city or locality.";
+    if (!addForm.state.trim() || addForm.state.trim().length < 2)
+      e.state = "Please enter a state or province.";
+    const pin = addForm.postalCode.replace(/\D/g, "");
+    if (!isIndianPinAddr(pin))
+      e.postalCode = "Please enter a valid 6-digit Indian pin code.";
+    else if (homePin && pin !== homePin)
+      e.postalCode = `PIN mismatch — your delivery location is set to ${homePin}.`;
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // ── Save new address ──────────────────────────────────────────────
+  const handleAddAddress = async () => {
+    if (!validate()) return;
     setSaving(true);
-    const d = await api("/profile/address/add", { method: "POST", body: JSON.stringify(addForm) });
+    const d = await api("/profile/address/add", { method: "POST", body: JSON.stringify({ ...addForm, postalCode: addForm.postalCode.replace(/\D/g,"").slice(0,6) }) });
     if (d.success) {
-      showToast("Address saved!");
+      showToast("Address saved! ✓");
       await onRefreshProfile();
       setShowAddForm(false);
-      setAddForm({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
+      setAddForm(EMPTY);
+      setErrors({});
+      setFormPinMismatch("");
     } else {
       showToast(d.message || "Failed to save address");
     }
     setSaving(false);
   };
 
-  const handleContinue = () => {
-    if (!selectedAddr) { showToast("Please select a delivery address"); return; }
-    onContinue(selectedAddr);
+  // ── Delete saved address ──────────────────────────────────────────
+  const handleDeleteAddr = async (addrId) => {
+    if (!window.confirm("Delete this address?")) return;
+    const d = await api(`/profile/address/delete/${addrId}`, { method: "DELETE" });
+    if (d.success) { showToast("Address deleted"); onRefreshProfile(); if (selectedAddr === addrId) setSelectedAddr(null); }
+    else showToast(d.message || "Error");
   };
 
+  // ── Use saved address — with PIN mismatch check ───────────────────
+  const handleUseAddress = (a) => {
+    const addrPin = (a.postalCode || "").trim();
+
+    // Clear all card warnings first
+    setCardWarnings({});
+
+    if (!homePin) {
+      // No home PIN set — proceed directly
+      setSelectedAddr(a.id);
+      onContinue(a.id);
+      return;
+    }
+
+    if (!addrPin || addrPin.length !== 6) {
+      // Legacy address with no PIN — warn but allow after delay
+      setCardWarnings({ [a.id]: `This address has no PIN code saved. Your delivery location is set to ${homePin}. Proceeding anyway…` });
+      setSelectedAddr(a.id);
+      setTimeout(() => onContinue(a.id), 2200);
+      return;
+    }
+
+    if (addrPin === homePin) {
+      setSelectedAddr(a.id);
+      onContinue(a.id);
+      return;
+    }
+
+    // MISMATCH
+    setCardWarnings({ [a.id]: `PIN mismatch — your delivery location is set to ${homePin}, but this address has PIN ${addrPin}.` });
+  };
+
+  // ── Continue with selected address ───────────────────────────────
+  const handleContinue = () => {
+    if (!selectedAddr) { showToast("Please select a delivery address"); return; }
+    const a = addrs.find(x => x.id === selectedAddr);
+    handleUseAddress(a);
+  };
+
+  // ── Live address preview text ─────────────────────────────────────
+  const preview = [
+    addForm.recipientName.trim(),
+    addForm.houseStreet.trim(),
+    [addForm.city.trim(), addForm.state.trim()].filter(Boolean).join(", "),
+    addForm.postalCode.trim() ? `📍 ${addForm.postalCode.trim()}` : "",
+  ].filter(Boolean);
+
+  // ── Stepper ───────────────────────────────────────────────────────
   const steps = [
-    { label: "Cart", icon: "🛒", done: true },
-    { label: "Address", icon: "📍", active: true },
-    { label: "Payment", icon: "💳", done: false },
+    { label: "Cart",     done: true,  active: false },
+    { label: "Shipping", done: false, active: true  },
+    { label: "Payment",  done: false, active: false },
   ];
 
+  const inp = (k, placeholder, opts = {}) => (
+    <div style={{ marginBottom: 4 }}>
+      <input
+        style={{ ...cs.inputField, ...(errors[k] ? { borderColor: "rgba(255,100,80,0.6)" } : {}) }}
+        placeholder={placeholder}
+        value={addForm[k]}
+        maxLength={opts.maxLength}
+        inputMode={opts.inputMode}
+        onChange={e => setF(k, opts.numeric ? e.target.value.replace(/\D/g,"").slice(0, opts.maxLength || 99) : e.target.value)}
+      />
+      {errors[k] && <div style={{ fontSize: 11, color: "#f87171", marginTop: 3 }}>{errors[k]}</div>}
+    </div>
+  );
+
   return (
-    <div>
-      {/* Stepper */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
+    <div style={{ maxWidth: 600, margin: "0 auto" }}>
+
+      {/* ── Progress stepper ── */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
         {steps.map((s, i) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <React.Fragment key={s.label}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: "0 0 auto" }}>
               <div style={{
-                width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18,
-                background: s.active ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : s.done ? "#22c55e" : "rgba(255,255,255,0.08)",
-                border: s.active ? "none" : s.done ? "none" : "2px solid rgba(255,255,255,0.15)",
-                boxShadow: s.active ? "0 4px 14px rgba(99,102,241,0.4)" : "none",
+                width: 30, height: 30, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 800,
+                background: s.active ? "#f5a800" : s.done ? "rgba(34,197,94,0.2)" : "rgba(255,255,255,0.05)",
+                border: `2px solid ${s.active ? "#f5a800" : s.done ? "#22c55e" : "rgba(255,255,255,0.15)"}`,
+                color: s.active ? "#1a1000" : s.done ? "#22c55e" : "#6b7280",
+                boxShadow: s.active ? "0 0 0 4px rgba(245,168,0,0.2)" : "none",
               }}>
-                {s.done && !s.active ? "✓" : s.icon}
+                {s.done ? "✓" : i + 1}
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: s.active ? "#a5b4fc" : s.done ? "#4ade80" : "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+                color: s.active ? "#f5a800" : s.done ? "#22c55e" : "#6b7280" }}>
                 {s.label}
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div style={{ width: 64, height: 2, background: i === 0 ? "#22c55e" : "rgba(255,255,255,0.1)", margin: "0 8px", marginBottom: 22 }} />
+              <div style={{ flex: 1, height: 1, background: i === 0 ? "rgba(34,197,94,0.4)" : "rgba(255,255,255,0.1)", margin: "0 8px", marginBottom: 18 }} />
             )}
-          </div>
+          </React.Fragment>
         ))}
       </div>
 
-      <button style={cs.backBtn} onClick={onBack}>← Back to Cart</button>
-      <h2 style={cs.pageTitle}>Select Delivery Address 📍</h2>
+      {/* ── Home PIN hint banner ── */}
+      {homePin && (
+        <div style={{ background: "rgba(245,168,0,0.08)", border: "1px solid rgba(245,168,0,0.3)",
+          borderRadius: 10, padding: "10px 14px", marginBottom: 20,
+          fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6 }}>
+          ℹ️ Your delivery location is set to PIN{" "}
+          <strong style={{ color: "#f5a800" }}>{homePin}</strong>.
+          The postal code you enter below must match this.
+        </div>
+      )}
 
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        {/* Saved addresses */}
-        {addrs.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 14 }}>Choose where to deliver your order:</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {addrs.map(a => {
-                const chosen = selectedAddr === a.id;
-                return (
-                  <div key={a.id}
-                    onClick={() => setSelectedAddr(a.id)}
-                    style={{
-                      border: `2px solid ${chosen ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
-                      borderRadius: 16, padding: "16px 18px", cursor: "pointer",
-                      background: chosen ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
-                      transition: "border-color 0.2s, background 0.2s",
-                      display: "flex", alignItems: "flex-start", gap: 14,
-                    }}>
-                    {/* Radio circle */}
-                    <div style={{
-                      width: 20, height: 20, borderRadius: "50%", border: `2px solid ${chosen ? "#6366f1" : "#4b5563"}`,
-                      background: chosen ? "#6366f1" : "transparent", flexShrink: 0, marginTop: 2,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {chosen && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: "#e5e7eb", fontWeight: 700, marginBottom: 4 }}>{a.recipientName}</div>
-                      <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.5 }}>
-                        {a.houseStreet}<br />{a.city}, {a.state} — {a.postalCode}
-                      </div>
-                    </div>
-                    {chosen && <div style={{ fontSize: 20, flexShrink: 0 }}>✅</div>}
+      {/* ── Saved address cards ── */}
+      {addrs.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em",
+            color: "#f5a800", display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+            📍 Saved Addresses
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+          </div>
+
+          {addrs.map(a => {
+            const chosen  = selectedAddr === a.id;
+            const warning = cardWarnings[a.id];
+            const isMismatch = warning?.includes("mismatch");
+            return (
+              <div key={a.id} style={{
+                background: chosen ? "rgba(245,168,0,0.05)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${chosen ? "rgba(245,168,0,0.4)" : "rgba(255,255,255,0.1)"}`,
+                borderRadius: 14, padding: "16px 18px", marginBottom: 12,
+                transition: "all 0.25s", cursor: "pointer",
+              }} onClick={() => setSelectedAddr(a.id)}>
+                <div style={{ fontWeight: 700, color: "#e5e7eb", marginBottom: 3, fontSize: 14 }}>
+                  {a.recipientName}
+                </div>
+                {a.houseStreet && <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.55 }}>{a.houseStreet}</div>}
+                <div style={{ color: "#9ca3af", fontSize: 13 }}>
+                  {[a.city, a.state].filter(Boolean).join(", ")}
+                </div>
+                {a.postalCode && (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 5,
+                    fontSize: 12, fontWeight: 700, color: "#f5a800" }}>
+                    📍 {a.postalCode}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                )}
 
-        {addrs.length === 0 && !showAddForm && (
-          <div style={{ ...cs.paySection, textAlign: "center", padding: "32px 24px" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-            <p style={{ color: "#9ca3af", marginBottom: 20 }}>You have no saved addresses yet. Add one to continue.</p>
-          </div>
-        )}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+                  <button
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5,
+                      background: "#f5a800", color: "#1a1000", border: "none",
+                      padding: "6px 16px", borderRadius: 50, fontSize: 11, fontWeight: 700,
+                      letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer",
+                      boxShadow: "0 4px 14px rgba(245,168,0,0.25)", transition: "all 0.2s" }}
+                    onClick={e => { e.stopPropagation(); handleUseAddress(a); }}
+                  >
+                    ✓ Use This Address
+                  </button>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer",
+                      color: "rgba(255,100,80,0.6)", fontSize: 12, fontWeight: 600 }}
+                    onClick={e => { e.stopPropagation(); handleDeleteAddr(a.id); }}
+                  >
+                    🗑 Delete
+                  </button>
+                </div>
 
-        {/* Add address toggle */}
-        {!showAddForm ? (
-          <button
-            style={{ ...cs.outlineBtn, width: "100%", padding: "12px", marginBottom: 24, fontSize: 14, borderStyle: "dashed" }}
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add a New Address
-          </button>
-        ) : (
-          <div style={{ ...cs.paySection, marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={cs.paySectionTitle}>Add New Address</h3>
-              <button style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 20 }} onClick={() => setShowAddForm(false)}>×</button>
-            </div>
-            <AddressMap onSelect={(r) => {
-              setAddForm(f => ({
-                ...f,
-                houseStreet: r.display_name || f.houseStreet,
-                city: (r.address && (r.address.city || r.address.town || r.address.village)) || f.city,
-                state: (r.address && (r.address.state || r.address.region)) || f.state,
-                postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode,
-              }));
-            }} />
-            {[["recipientName","Recipient Name"],["houseStreet","House / Street"],["city","City"],["state","State"],["postalCode","PIN Code"]].map(([k, label]) => (
-              <div key={k} style={{ marginBottom: 12 }}>
-                <label style={cs.label}>{label}</label>
-                <input style={cs.inputField} placeholder={label} value={addForm[k]}
-                  onChange={e => setAddForm(f => ({ ...f, [k]: e.target.value }))} />
+                {/* Per-card PIN mismatch warning */}
+                {warning && (
+                  <div style={{ marginTop: 10,
+                    background: isMismatch ? "rgba(255,96,60,0.1)" : "rgba(245,168,0,0.08)",
+                    border: `1.5px solid ${isMismatch ? "rgba(255,96,60,0.45)" : "rgba(245,168,0,0.3)"}`,
+                    borderRadius: 10, padding: "10px 12px",
+                    fontSize: 12, color: isMismatch ? "#ff8060" : "rgba(255,255,255,0.7)", lineHeight: 1.65 }}>
+                    {isMismatch ? (
+                      <>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ PIN Code Mismatch</div>
+                        <div>{warning}</div>
+                        <div style={{ marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <span style={{ color: "#f5a800", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                            onClick={() => { localStorage.setItem("ekart_delivery_pin", a.postalCode); setHomePin(a.postalCode); setCardWarnings({}); }}>
+                            Use {a.postalCode} as my location
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div>ℹ️ {warning}</div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
-            <button style={cs.saveBtn} onClick={handleAddAddress} disabled={saving}>
-              {saving ? "Saving…" : "Save & Use This Address"}
-            </button>
-          </div>
-        )}
+            );
+          })}
 
-        {/* Continue button */}
-        <button
-          style={{
-            ...cs.addCartBtn, width: "100%", padding: "15px", fontSize: 16,
-            opacity: selectedAddr ? 1 : 0.45,
-          }}
-          onClick={handleContinue}
-        >
+          <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", margin: "20px 0" }} />
+        </div>
+      )}
+
+      {addrs.length === 0 && !showAddForm && (
+        <div style={{ textAlign: "center", padding: "32px 24px", background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, marginBottom: 20 }}>
+          <div style={{ fontSize: 44, marginBottom: 10 }}>📭</div>
+          <p style={{ color: "#9ca3af" }}>No saved addresses yet. Add one to continue.</p>
+        </div>
+      )}
+
+      {/* ── New address form toggle ── */}
+      {!showAddForm ? (
+        <button style={{ ...cs.outlineBtn, width: "100%", padding: "12px", marginBottom: 20,
+          fontSize: 13, borderStyle: "dashed" }}
+          onClick={() => setShowAddForm(true)}>
+          + Add a New Address
+        </button>
+      ) : (
+        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 16, padding: "20px", marginBottom: 20 }}>
+
+          {/* Form header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "0.12em", color: "#f5a800", display: "flex", alignItems: "center", gap: 6 }}>
+              📍 New Address
+            </div>
+            <button style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 18 }}
+              onClick={() => { setShowAddForm(false); setErrors({}); setFormPinMismatch(""); }}>✕</button>
+          </div>
+
+          {/* Map picker */}
+          <AddressMap onSelect={(r) => {
+            setAddForm(f => ({
+              ...f,
+              houseStreet: r.display_name || f.houseStreet,
+              city: (r.address && (r.address.city || r.address.town || r.address.village)) || f.city,
+              state: (r.address && (r.address.state || r.address.region)) || f.state,
+              postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode,
+            }));
+          }} />
+
+          {/* 2-column grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+            {/* Recipient Name — full width */}
+            <div style={{ gridColumn: "1 / -1", marginBottom: 2 }}>
+              <label style={{ ...cs.label, marginBottom: 5 }}>👤 Recipient Name <span style={{ color: "#f5a800" }}>*</span></label>
+              {inp("recipientName", "Full name of the person receiving the order", { maxLength: 100 })}
+            </div>
+            {/* House / Street — full width */}
+            <div style={{ gridColumn: "1 / -1", marginBottom: 2 }}>
+              <label style={{ ...cs.label, marginBottom: 5 }}>🏠 House / Building & Street <span style={{ color: "#f5a800" }}>*</span></label>
+              {inp("houseStreet", "e.g. Flat 4B, Sunrise Apts, MG Road", { maxLength: 200 })}
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>Include flat/house number, building name, and street.</div>
+            </div>
+            {/* City */}
+            <div style={{ marginBottom: 2 }}>
+              <label style={{ ...cs.label, marginBottom: 5 }}>🏙 City / Locality <span style={{ color: "#f5a800" }}>*</span></label>
+              {inp("city", "e.g. Bengaluru", { maxLength: 100 })}
+            </div>
+            {/* State */}
+            <div style={{ marginBottom: 2 }}>
+              <label style={{ ...cs.label, marginBottom: 5 }}>🗺 State / Province <span style={{ color: "#f5a800" }}>*</span></label>
+              {inp("state", "e.g. Karnataka", { maxLength: 100 })}
+            </div>
+            {/* Postal Code — full width */}
+            <div style={{ gridColumn: "1 / -1", marginBottom: 2 }}>
+              <label style={{ ...cs.label, marginBottom: 5 }}>✉️ Postal Code <span style={{ color: "#f5a800" }}>*</span></label>
+              {inp("postalCode", "6-digit PIN code", { maxLength: 6, inputMode: "numeric", numeric: true })}
+            </div>
+          </div>
+
+          {/* PIN mismatch banner on new-address form */}
+          {formPinMismatch && homePin && (
+            <div style={{ background: "rgba(255,96,60,0.1)", border: "1.5px solid rgba(255,96,60,0.45)",
+              borderRadius: 10, padding: "12px 14px", marginTop: 4, marginBottom: 8,
+              fontSize: 12, color: "#ff8060", lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ PIN Code Mismatch</div>
+              <div>
+                You set your delivery location to{" "}
+                <strong style={{ color: "#f5a800" }}>{homePin}</strong> on the home page,
+                but entered <strong style={{ color: "#ff8060" }}>{formPinMismatch}</strong> here.
+              </div>
+              <div style={{ marginTop: 6 }}>
+                Please use the same pin code, or{" "}
+                <span style={{ color: "#f5a800", textDecoration: "underline", cursor: "pointer" }}
+                  onClick={() => { localStorage.setItem("ekart_delivery_pin", formPinMismatch); setHomePin(formPinMismatch); setFormPinMismatch(""); }}>
+                  update your delivery location to {formPinMismatch}
+                </span>.
+              </div>
+            </div>
+          )}
+
+          {/* Live address preview */}
+          {preview.length > 0 && (
+            <div style={{ background: "rgba(245,168,0,0.06)", border: "1px dashed rgba(245,168,0,0.3)",
+              borderRadius: 10, padding: "12px 14px", marginTop: 8, marginBottom: 12,
+              fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "#f5a800", marginBottom: 6 }}>👁 Address Preview</div>
+              {preview.map((line, i) => (
+                <div key={i} style={{ fontWeight: i === 0 ? 700 : 400,
+                  color: line.startsWith("📍") ? "#f5a800" : undefined }}>{line}</div>
+              ))}
+            </div>
+          )}
+
+          <button style={{ ...cs.saveBtn, width: "100%", marginTop: 8 }}
+            onClick={handleAddAddress} disabled={saving}>
+            {saving ? "Saving…" : "💾 Save & Use This Address"}
+          </button>
+        </div>
+      )}
+
+      {/* ── Continue button ── */}
+      {addrs.length > 0 && (
+        <button style={{ ...cs.addCartBtn, width: "100%", padding: "15px", fontSize: 15,
+          opacity: selectedAddr ? 1 : 0.45 }}
+          onClick={handleContinue}>
           Continue to Payment →
         </button>
-      </div>
+      )}
+
+      <button style={{ ...cs.backBtn, marginTop: 16 }} onClick={onBack}>← Back to Cart</button>
     </div>
   );
 }
@@ -2951,7 +3213,10 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
   const [addForm, setAddForm] = useState({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
   const [saving, setSaving] = useState(false);
+  const [addrErrors, setAddrErrors] = useState({});
+  const [addrPinMismatch, setAddrPinMismatch] = useState("");
   const { auth } = useAuth();
+  const homePin = (localStorage.getItem("ekart_delivery_pin") || "");
 
   useEffect(() => {
     if (profile) setForm({ name: profile.name || "", mobile: profile.mobile || "" });
@@ -2965,10 +3230,33 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
     setSaving(false);
   };
 
+  const setAF = (k, v) => {
+    setAddForm(f => ({ ...f, [k]: v }));
+    setAddrErrors(e => ({ ...e, [k]: "" }));
+    if (k === "postalCode") {
+      const pin = v.replace(/\D/g, "").slice(0, 6);
+      setAddrPinMismatch(pin.length === 6 && homePin && pin !== homePin ? pin : "");
+    }
+  };
+
+  const validateAddr = () => {
+    const e = {};
+    if (!addForm.recipientName.trim() || addForm.recipientName.trim().length < 2) e.recipientName = "Please enter the recipient's name.";
+    if (!addForm.houseStreet.trim() || addForm.houseStreet.trim().length < 5)     e.houseStreet   = "Please enter a house/street address.";
+    if (!addForm.city.trim()  || addForm.city.trim().length  < 2)                 e.city          = "Please enter a city or locality.";
+    if (!addForm.state.trim() || addForm.state.trim().length < 2)                 e.state         = "Please enter a state or province.";
+    const pin = addForm.postalCode.replace(/\D/g, "");
+    if (!isIndianPinAddr(pin)) e.postalCode = "Please enter a valid 6-digit Indian pin code.";
+    else if (homePin && pin !== homePin) e.postalCode = `PIN mismatch — your delivery location is set to ${homePin}.`;
+    setAddrErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
   const addAddress = async () => {
-    const d = await api("/profile/address/add", { method: "POST", body: JSON.stringify(addForm) });
+    if (!validateAddr()) return;
+    const d = await api("/profile/address/add", { method: "POST", body: JSON.stringify({ ...addForm, postalCode: addForm.postalCode.replace(/\D/g,"").slice(0,6) }) });
     showToast(d.message || (d.success ? "Address added!" : "Error"));
-    if (d.success) { onUpdate(); setAddForm({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" }); }
+    if (d.success) { onUpdate(); setAddForm({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" }); setAddrErrors({}); setAddrPinMismatch(""); }
   };
 
   const deleteAddress = async (id) => {
@@ -3064,35 +3352,82 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
 
       {activeTab === "addresses" && (
         <div style={{ maxWidth: 600 }}>
+          {/* Saved addresses list */}
           <div style={cs.profileCard}>
             <h3 style={cs.secTitle}>Saved Addresses</h3>
             {(profile.addresses || []).map(a => (
               <div key={a.id} style={cs.addressCard}>
-                <div style={{ color: "#e5e7eb" }}><strong>{a.recipientName}</strong></div>
-                <div style={{ color: "#9ca3af", fontSize: 13 }}>{a.houseStreet}, {a.city}, {a.state} {a.postalCode}</div>
+                <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.recipientName}</div>
+                <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 2 }}>{a.houseStreet}</div>
+                <div style={{ color: "#9ca3af", fontSize: 13 }}>{[a.city, a.state].filter(Boolean).join(", ")}</div>
+                {a.postalCode && <div style={{ fontSize: 12, fontWeight: 700, color: "#f5a800", marginTop: 4 }}>📍 {a.postalCode}</div>}
                 <button style={{ ...cs.removeBtn, marginTop: 8 }} onClick={() => deleteAddress(a.id)}>🗑️ Remove</button>
               </div>
             ))}
-            {profile.addresses?.length === 0 && <p style={{ color: "#6b7280", fontSize: 14 }}>No addresses saved yet.</p>}
+            {(profile.addresses?.length === 0) && <p style={{ color: "#6b7280", fontSize: 14 }}>No addresses saved yet.</p>}
           </div>
-            <div style={cs.profileCard}>
+
+          {/* Add new address */}
+          <div style={cs.profileCard}>
             <h3 style={{ ...cs.secTitle, marginBottom: 16 }}>Add New Address</h3>
+
+            {/* Home PIN hint */}
+            {homePin && (
+              <div style={{ background: "rgba(245,168,0,0.08)", border: "1px solid rgba(245,168,0,0.25)", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                ℹ️ Your delivery location is set to PIN <strong style={{ color: "#f5a800" }}>{homePin}</strong>. The postal code must match.
+              </div>
+            )}
+
             <AddressMap onSelect={(r) => {
-              // populate addForm fields with selected address parts
               setAddForm(f => ({
                 ...f,
                 houseStreet: r.display_name || f.houseStreet,
                 city: (r.address && (r.address.city || r.address.town || r.address.village)) || f.city,
                 state: (r.address && (r.address.state || r.address.region)) || f.state,
-                postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode
+                postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode,
               }));
             }} />
-            {[["recipientName", "Recipient Name"], ["houseStreet", "House / Street"], ["city", "City"], ["state", "State"], ["postalCode", "PIN Code"]].map(([k, label]) => (
+
+            {/* Fields with per-field validation */}
+            {[
+              ["recipientName", "Recipient Name", "Full name of the person receiving the order", {}],
+              ["houseStreet",   "House / Building & Street", "e.g. Flat 4B, Sunrise Apts, MG Road", {}],
+              ["city",          "City / Locality",  "e.g. Bengaluru", {}],
+              ["state",         "State / Province", "e.g. Karnataka", {}],
+              ["postalCode",    "Postal Code (PIN)", "6-digit PIN code", { inputMode: "numeric", maxLength: 6, numeric: true }],
+            ].map(([k, label, placeholder, opts]) => (
               <div key={k} style={{ marginBottom: 12 }}>
                 <label style={cs.label}>{label}</label>
-                <input style={cs.inputField} placeholder={label} value={addForm[k]} onChange={e => setAddForm(f => ({ ...f, [k]: e.target.value }))} />
+                <input
+                  style={{ ...cs.inputField, ...(addrErrors[k] ? { borderColor: "rgba(255,100,80,0.6)" } : {}) }}
+                  placeholder={placeholder}
+                  value={addForm[k]}
+                  inputMode={opts.inputMode}
+                  maxLength={opts.maxLength}
+                  onChange={e => setAF(k, opts.numeric ? e.target.value.replace(/\D/g,"").slice(0, opts.maxLength || 99) : e.target.value)}
+                />
+                {addrErrors[k] && <div style={{ fontSize: 11, color: "#f87171", marginTop: 3 }}>{addrErrors[k]}</div>}
               </div>
             ))}
+
+            {/* PIN mismatch warning */}
+            {addrPinMismatch && homePin && (
+              <div style={{ background: "rgba(255,96,60,0.1)", border: "1px solid rgba(255,96,60,0.4)", borderRadius: 8, padding: "10px 12px", marginBottom: 10, fontSize: 12, color: "#ff8060", lineHeight: 1.6 }}>
+                <strong>⚠️ PIN mismatch</strong> — your delivery location is <strong style={{ color: "#f5a800" }}>{homePin}</strong> but you entered <strong>{addrPinMismatch}</strong>.
+              </div>
+            )}
+
+            {/* Live address preview */}
+            {(addForm.recipientName || addForm.houseStreet || addForm.city || addForm.postalCode) && (
+              <div style={{ background: "rgba(245,168,0,0.06)", border: "1px dashed rgba(245,168,0,0.25)", borderRadius: 8, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#f5a800", marginBottom: 4 }}>👁 Preview</div>
+                {addForm.recipientName && <div style={{ fontWeight: 700 }}>{addForm.recipientName}</div>}
+                {addForm.houseStreet && <div>{addForm.houseStreet}</div>}
+                {(addForm.city || addForm.state) && <div>{[addForm.city, addForm.state].filter(Boolean).join(", ")}</div>}
+                {addForm.postalCode && <div style={{ color: "#f5a800", fontWeight: 700 }}>📍 {addForm.postalCode}</div>}
+              </div>
+            )}
+
             <button style={cs.saveBtn} onClick={addAddress}>+ Add Address</button>
           </div>
         </div>
