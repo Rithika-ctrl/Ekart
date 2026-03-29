@@ -28,6 +28,9 @@ export default function AdminApp() {
   const [reviews, setReviews] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const [packedOrders, setPackedOrders] = useState([]);
+  const [shippedOrders, setShippedOrders] = useState([]);
+  const [outOrders, setOutOrders] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [spending, setSpending] = useState(null);
   const [toast, setToast] = useState("");
@@ -68,7 +71,15 @@ export default function AdminApp() {
   useEffect(() => { if (page === "analytics") api("/admin/analytics").then(d => d.success && setAnalytics(d)); }, [page]);
   useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
   useEffect(() => { if (page === "warehouse") api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
-  useEffect(() => { if (page === "delivery")  api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }, [page]);
+  useEffect(() => {
+    if (page === "delivery") {
+      api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || []));
+      api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []));
+      api("/admin/orders/packed").then(d => d.success && setPackedOrders(d.orders || []));
+      api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
+      api("/admin/orders/out-for-delivery").then(d => d.success && setOutOrders(d.orders || []));
+    }
+  }, [page]);
   
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
 
@@ -119,7 +130,24 @@ export default function AdminApp() {
   const approveRefund  = async (id) => { const d = await api(`/admin/refunds/${id}/approve`, { method: "POST" }); if (d.success) { show("Refund approved"); api("/admin/refunds").then(d => d.success && setRefunds(d.refunds || [])); } else show(d.message || "Error"); };
   const rejectRefund   = async (id, reason) => { const d = await api(`/admin/refunds/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }); if (d.success) { show("Refund rejected"); api("/admin/refunds").then(d => d.success && setRefunds(d.refunds || [])); } else show(d.message || "Error"); };
   const deleteReview   = async (id) => { const d = await api(`/admin/reviews/${id}/delete`, { method: "DELETE" }); if (d.success) { show("Deleted"); api("/admin/reviews").then(d => d.success && setReviews(d.reviews || [])); } else show(d.message || "Error"); };
-  const approveDelivery = async (id) => { const d = await api(`/admin/delivery-boys/${id}/approve`, { method: "POST" }); if (d.success) { show("Approved ✓"); api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); } else show(d.message || "Error"); };
+  const approveDelivery = async (id, warehouseId, pins) => {
+    const d = await api(`/admin/delivery-boys/${id}/approve`, { method: "POST", body: JSON.stringify({ warehouseId, assignedPinCodes: pins }) });
+    if (d.success) { show("Approved ✓"); api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }
+    else show(d.message || "Error");
+  };
+  const rejectDelivery = async (id, reason) => {
+    const d = await api(`/admin/delivery-boys/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+    if (d.success) { show("Rejected"); api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }
+    else show(d.message || "Error");
+  };
+  const assignDeliveryBoy = async (orderId, deliveryBoyId) => {
+    const d = await api(`/admin/delivery/assign`, { method: "POST", body: JSON.stringify({ orderId, deliveryBoyId }) });
+    if (d.success) {
+      show("Assigned ✓");
+      api("/admin/orders/packed").then(d => d.success && setPackedOrders(d.orders || []));
+      api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
+    } else show(d.message || "Error");
+  };
   const approveTransfer = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/approve`, { method: "POST" }); if (d.success) { show("Transfer approved!"); } else show(d.message || "Error"); };
   const rejectTransfer  = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/reject`,  { method: "POST" }); if (d.success) { show("Transfer rejected"); } else show(d.message || "Error"); };
 
@@ -172,11 +200,11 @@ export default function AdminApp() {
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
-          {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} onApprove={approveDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} api={api} showToast={show} />}
+          {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
-          {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} />}
+          {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
           {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
@@ -473,59 +501,232 @@ function VendorsAdmin({ vendors, onToggle }) {
 }
 
 /* ── Delivery Management ── */
-function DeliveryAdmin({ deliveryBoys, onApprove, onApproveTransfer, onRejectTransfer, api, showToast }) {
+function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, outOrders, onApprove, onReject, onApproveTransfer, onRejectTransfer, onAssign, api, showToast }) {
   const [transfers, setTransfers] = useState([]);
-  const [loadingTransfers, setLoadingTransfers] = useState(true);
   const [filter, setFilter] = useState("pending");
+  const [selectMap, setSelectMap] = useState({}); // orderId -> deliveryBoyId
+  const [eligibleMap, setEligibleMap] = useState({}); // orderId -> [{id,name,code,warehouse}]
 
   useEffect(() => {
-    api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.transfers || []); setLoadingTransfers(false); });
+    api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.transfers || []); });
   }, []);
 
-  const filtered = filter === "pending" ? deliveryBoys.filter(d => !d.approved) : deliveryBoys;
+  // Load eligible delivery boys for each packed order
+  useEffect(() => {
+    (packedOrders || []).forEach(order => {
+      fetch(`/api/flutter/admin/delivery/boys/for-order/${order.id}`, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token") || ""}` }
+      })
+        .then(r => r.json())
+        .then(d => {
+          setEligibleMap(prev => ({ ...prev, [order.id]: d.success ? (d.deliveryBoys || []) : [] }));
+        })
+        .catch(() => setEligibleMap(prev => ({ ...prev, [order.id]: [] })));
+    });
+  }, [packedOrders]);
+
+  const pendingApprovals = (deliveryBoys || []).filter(d => !d.approved);
   const pendingTransfers = transfers.filter(t => t.status === "PENDING");
+  const filtered = filter === "pending" ? pendingApprovals : (deliveryBoys || []);
+
+  // Local warehouse+pins state for pending approval rows
+  const [approvalWh, setApprovalWh] = useState({});
+  const [approvalPins, setApprovalPins] = useState({});
+
+  const handleApprove = (id) => {
+    const warehouseId = approvalWh[id] || "";
+    const pins = approvalPins[id] || "";
+    onApprove(id, warehouseId, pins);
+  };
+
+  const handleReject = (id, name) => {
+    const reason = window.prompt(`Enter rejection reason for ${name} (optional — will be emailed):`);
+    if (reason === null) return;
+    onReject(id, reason);
+  };
+
+  const handleApproveTransfer = (t) => {
+    const note = window.prompt(`Approve warehouse transfer for ${t.deliveryBoy?.name}?\nOptional note for delivery boy (leave blank to skip):`);
+    if (note === null) return;
+    onApproveTransfer(t.id);
+    setTransfers(tr => tr.filter(x => x.id !== t.id));
+  };
+
+  const handleRejectTransfer = (t) => {
+    const note = window.prompt(`Reject transfer for ${t.deliveryBoy?.name}.\nReason (will be emailed to delivery boy):`);
+    if (note === null) return;
+    onRejectTransfer(t.id);
+    setTransfers(tr => tr.filter(x => x.id !== t.id));
+  };
+
+  const inputStyle = { background: "rgba(13,13,13,0.06)", border: "1px solid rgba(13,13,13,0.15)", borderRadius: 8, padding: "6px 10px", fontSize: 13, width: "100%", outline: "none" };
 
   return (
     <div>
       <h2 style={as.pageTitle}>Delivery Management 🛵</h2>
 
-      {/* Pending Transfers */}
-      {pendingTransfers.length > 0 && (
-        <div style={{ ...as.card, marginBottom: 24, borderColor: "#d4a017" }}>
-          <h3 style={{ ...as.cardTitle, color: "#d4a017" }}>⚠️ Warehouse Transfer Requests ({pendingTransfers.length})</h3>
-          {pendingTransfers.map(t => (
-            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f2f0eb" }}>
+      {/* ── Pending Approvals ── */}
+      {pendingApprovals.length > 0 && (
+        <div style={{ ...as.card, marginBottom: 24, border: "1px solid rgba(245,168,0,0.4)", background: "rgba(245,168,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 18 }}>⏳</span>
+            <h3 style={{ ...as.cardTitle, color: "#d4a017", margin: 0 }}>Pending Approval Requests</h3>
+            <span style={{ marginLeft: "auto", background: "#d4a017", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{pendingApprovals.length}</span>
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(245,168,0,0.08)", padding: "8px 12px", borderRadius: 8 }}>
+            ℹ️ These delivery boys have verified their email and are waiting for your approval. Select a warehouse and enter their pin codes before approving.
+          </div>
+          <AdminTable
+            cols={["Name", "Email / Mobile", "Code", "Assign Warehouse", "Pin Codes", "Action"]}
+            rows={pendingApprovals.map(db => [
+              <span style={{ fontWeight: 600 }}>{db.name}</span>,
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{t.deliveryBoy?.name || "—"} ({t.deliveryBoy?.deliveryBoyCode})</div>
-                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)" }}>
-                  {t.deliveryBoy?.warehouse?.name} → {t.requestedWarehouse?.name}, {t.requestedWarehouse?.city}
-                </div>
+                <div style={{ fontSize: 13 }}>{db.email}</div>
+                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{db.mobile}</div>
+              </div>,
+              <span style={{ fontWeight: 700, fontSize: 12, fontFamily: "monospace", color: "#d4a017" }}>{db.deliveryBoyCode}</span>,
+              <select style={inputStyle} value={approvalWh[db.id] || ""} onChange={e => setApprovalWh(prev => ({ ...prev, [db.id]: e.target.value }))}>
+                <option value="">Select warehouse</option>
+                {(warehouses || []).map(wh => <option key={wh.id} value={wh.id}>{wh.name} — {wh.city}</option>)}
+              </select>,
+              <input style={inputStyle} type="text" placeholder="e.g. 600001,600002"
+                value={approvalPins[db.id] || ""}
+                onChange={e => setApprovalPins(prev => ({ ...prev, [db.id]: e.target.value }))} />,
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={as.approveBtn} onClick={() => handleApprove(db.id)}>✓ Approve</button>
+                <button style={as.rejectBtn} onClick={() => handleReject(db.id, db.name)}>✕ Reject</button>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={as.approveBtn} onClick={() => { onApproveTransfer(t.id); setTransfers(tr => tr.filter(x => x.id !== t.id)); }}>Approve</button>
-                <button style={as.rejectBtn}  onClick={() => { onRejectTransfer(t.id);  setTransfers(tr => tr.filter(x => x.id !== t.id)); }}>Reject</button>
-              </div>
-            </div>
-          ))}
+            ])}
+            empty=""
+          />
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {[["pending","Pending Approval"],["all","All Delivery Boys"]].map(([k, l]) => (
-          <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>{l}</button>
-        ))}
+      {/* ── Warehouse Transfer Requests ── */}
+      {pendingTransfers.length > 0 && (
+        <div style={{ ...as.card, marginBottom: 24, border: "1px solid rgba(99,179,237,0.4)", background: "rgba(99,179,237,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 18 }}>🔄</span>
+            <h3 style={{ ...as.cardTitle, color: "#63b3ed", margin: 0 }}>Warehouse Transfer Requests</h3>
+            <span style={{ marginLeft: "auto", background: "#63b3ed", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{pendingTransfers.length}</span>
+          </div>
+          <AdminTable
+            cols={["Delivery Boy", "Current Warehouse", "Requested Warehouse", "Reason", "Requested At", "Action"]}
+            rows={pendingTransfers.map(t => [
+              <div>
+                <div style={{ fontWeight: 600 }}>{t.deliveryBoy?.name || "—"}</div>
+                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{t.deliveryBoy?.deliveryBoyCode}</div>
+              </div>,
+              t.deliveryBoy?.warehouse ? `${t.deliveryBoy.warehouse.name} · ${t.deliveryBoy.warehouse.city}` : <span style={{ color: "rgba(13,13,13,0.35)" }}>None</span>,
+              <div>
+                <div style={{ fontWeight: 600, color: "#63b3ed" }}>{t.requestedWarehouse?.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{t.requestedWarehouse?.city}, {t.requestedWarehouse?.state}</div>
+              </div>,
+              <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>{t.reason || "—"}</span>,
+              <span style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{t.requestedAt ? new Date(t.requestedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</span>,
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={as.approveBtn} onClick={() => handleApproveTransfer(t)}>✓ Approve</button>
+                <button style={as.rejectBtn} onClick={() => handleRejectTransfer(t)}>✕ Reject</button>
+              </div>
+            ])}
+            empty=""
+          />
+        </div>
+      )}
+
+      {/* ── Packed Orders — Assign Delivery Boy ── */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>📦</span>
+          <h3 style={{ ...as.cardTitle, margin: 0 }}>Packed Orders — Assign Delivery Boy</h3>
+          <span style={{ marginLeft: "auto", background: "#d4a017", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{(packedOrders || []).length}</span>
+        </div>
+        <AdminTable
+          cols={["Order", "Customer", "Pin", "Warehouse", "Amount", "Assign To", ""]}
+          rows={(packedOrders || []).map(order => {
+            const eligible = eligibleMap[order.id] || [];
+            return [
+              <div>
+                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
+                <div><span style={{ ...as.badge, background: "#fef9e7", color: "#d4a017", fontSize: 10 }}>PACKED</span></div>
+              </div>,
+              <div>
+                <div style={{ fontWeight: 500 }}>{order.customer?.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{order.customer?.mobile}</div>
+              </div>,
+              <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{order.deliveryPinCode || "N/A"}</span>,
+              order.warehouse ? order.warehouse.name : <span style={{ color: "#e84c3c", fontSize: 12 }}>Not assigned</span>,
+              <span style={{ fontWeight: 600, color: "#1db882" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
+              <select style={{ ...inputStyle, minWidth: 180 }}
+                value={selectMap[order.id] || ""}
+                onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
+                <option value="">{eligible.length === 0 ? `No delivery boys for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
+                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse}</option>)}
+              </select>,
+              <button style={as.approveBtn} onClick={() => {
+                if (!selectMap[order.id]) { showToast("Select a delivery boy first"); return; }
+                onAssign(order.id, selectMap[order.id]);
+              }}>✓ Assign</button>
+            ];
+          })}
+          empty="✓ All packed orders have been assigned."
+        />
       </div>
 
-      <AdminTable
-        cols={["ID","Name","Email","Mobile","Code","Warehouse","Status","Action"]}
-        rows={filtered.map(d => [
-          `#${d.id}`, d.name, d.email, d.mobile, d.deliveryBoyCode,
-          d.warehouse ? `${d.warehouse.name}` : "—",
-          <span style={{ ...as.badge, background: d.approved ? "#e8f9f2" : "#fef9e7", color: d.approved ? "#1db882" : "#d4a017" }}>{d.approved ? "Active" : "Pending"}</span>,
-          !d.approved ? <button style={as.approveBtn} onClick={() => onApprove(d.id)}>Approve</button> : null
-        ])}
-        empty="No delivery boys"
-      />
+      {/* ── In Progress ── */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>🚚</span>
+          <h3 style={{ ...as.cardTitle, margin: 0 }}>In Progress</h3>
+        </div>
+        <AdminTable
+          cols={["Order", "Customer", "Pin", "Delivery Boy", "Status"]}
+          rows={[
+            ...(shippedOrders || []).map(o => [
+              <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
+              o.customer?.name || "—",
+              o.deliveryPinCode || "—",
+              o.deliveryBoy?.name || "—",
+              <span style={{ ...as.badge, background: "rgba(99,179,237,0.15)", color: "#63b3ed" }}>SHIPPED</span>
+            ]),
+            ...(outOrders || []).map(o => [
+              <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
+              o.customer?.name || "—",
+              o.deliveryPinCode || "—",
+              o.deliveryBoy?.name || "—",
+              <span style={{ ...as.badge, background: "rgba(34,197,94,0.15)", color: "#1db882" }}>OUT FOR DELIVERY</span>
+            ])
+          ]}
+          empty="No orders in transit right now."
+        />
+      </div>
+
+      {/* ── All Delivery Boys ── */}
+      <div style={{ ...as.card }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={as.cardTitle}>Delivery Boys</h3>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[["pending","Pending Approval"],["all","All"]].map(([k, l]) => (
+              <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <AdminTable
+          cols={["ID","Name","Email","Mobile","Code","Warehouse","Status","Action"]}
+          rows={filtered.map(d => [
+            `#${d.id}`, d.name, d.email, d.mobile || "—", d.deliveryBoyCode,
+            d.warehouse ? d.warehouse.name : "—",
+            <span style={{ ...as.badge, background: d.approved ? "#e8f9f2" : "#fef9e7", color: d.approved ? "#1db882" : "#d4a017" }}>{d.approved ? "Active" : "Pending"}</span>,
+            !d.approved ? (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={as.approveBtn} onClick={() => onApprove(d.id, "", "")}>✓ Approve</button>
+                <button style={as.rejectBtn} onClick={() => handleReject(d.id, d.name)}>✕ Reject</button>
+              </div>
+            ) : null
+          ])}
+          empty="No delivery boys"
+        />
+      </div>
     </div>
   );
 }
@@ -604,67 +805,156 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
 /* ── Coupons ── */
 function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ code: "", description: "", value: "", expiryDate: "", minOrderAmount: "" });
+  const emptyForm = { code: "", description: "", type: "PERCENT", value: "", minOrderAmount: "0", maxDiscount: "0", usageLimit: "0", expiryDate: "" };
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    if (!form.code || !form.value || !form.description) { showToast("Code, value and description are required"); return; }
     setSaving(true);
-    const d = await api("/admin/coupons/create", { method: "POST", body: JSON.stringify({ ...form, value: parseFloat(form.value), minOrderAmount: parseFloat(form.minOrderAmount) || 0 }) });
-    if (d.success) { showToast("Coupon created!"); setShowForm(false); setForm({ code: "", description: "", value: "", expiryDate: "", minOrderAmount: "" }); onRefresh(); }
+    const payload = {
+      ...form,
+      value: parseFloat(form.value),
+      minOrderAmount: parseFloat(form.minOrderAmount) || 0,
+      maxDiscount: parseFloat(form.maxDiscount) || 0,
+      usageLimit: parseInt(form.usageLimit) || 0,
+    };
+    const d = await api("/admin/coupons/create", { method: "POST", body: JSON.stringify(payload) });
+    if (d.success) { showToast("Coupon created!"); setShowForm(false); setForm(emptyForm); onRefresh(); }
     else showToast(d.message || "Error");
     setSaving(false);
   };
-  const deleteCoupon = async (id) => { const d = await api(`/admin/coupons/${id}/delete`, { method: "DELETE" }); if (d.success) { showToast("Deleted"); onRefresh(); } else showToast(d.message || "Error"); };
+  const deleteCoupon = async (id, code) => {
+    if (!window.confirm(`Delete coupon ${code}?`)) return;
+    const d = await api(`/admin/coupons/${id}/delete`, { method: "DELETE" });
+    if (d.success) { showToast("Deleted"); onRefresh(); } else showToast(d.message || "Error");
+  };
   const toggleCoupon = async (id) => { const d = await api(`/admin/coupons/${id}/toggle`, { method: "POST" }); if (d.success) { showToast("Updated"); onRefresh(); } else showToast(d.message || "Error"); };
+
+  const field = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={as.pageTitle}>Coupon Management 🎟️</h2>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>+ Create Coupon</button>
+        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>
+          {showForm ? "✕ Cancel" : "+ Create Coupon"}
+        </button>
       </div>
+
+      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
-        {[["Total",coupons.length],["Active",coupons.filter(c=>c.active).length],["Total Uses",coupons.reduce((s,c)=>s+(c.usedCount||0),0)]].map(([l,v]) => (
+        {[["Total", coupons.length], ["Active", coupons.filter(c => c.active).length], ["Total Uses", coupons.reduce((s, c) => s + (c.usedCount || 0), 0)]].map(([l, v]) => (
           <div key={l} style={as.statCard}><div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>{v}</div><div style={as.statLabel}>{l}</div></div>
         ))}
       </div>
+
+      {/* Create Form */}
       {showForm && (
         <div style={{ ...as.card, marginBottom: 24 }}>
-          <h3 style={as.cardTitle}>Create Coupon</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {[["code","Coupon Code"],["value","Discount %"],["minOrderAmount","Min Order ₹"],["expiryDate","Expiry Date"]].map(([k,l]) => (
-              <div key={k}>
-                <label style={as.label}>{l}</label>
-                <input style={as.inputFull} type={k === "expiryDate" ? "date" : k === "value" || k === "minOrderAmount" ? "number" : "text"} value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
+          <h3 style={as.cardTitle}>Create New Coupon</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 }}>
+
+            {/* Coupon Code */}
+            <div>
+              <label style={as.label}>Coupon Code *</label>
+              <input style={as.inputFull} type="text" placeholder="e.g. SAVE20" maxLength={20}
+                value={form.code}
+                onChange={e => field("code", e.target.value.toUpperCase().replace(/\s/g, ""))} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>Auto uppercased, no spaces</div>
+            </div>
+
+            {/* Discount Type */}
+            <div>
+              <label style={as.label}>Discount Type *</label>
+              <select style={{ ...as.inputFull, cursor: "pointer" }} value={form.type} onChange={e => field("type", e.target.value)}>
+                <option value="PERCENT">Percentage (%) Off</option>
+                <option value="FLAT">Flat (₹) Off</option>
+              </select>
+            </div>
+
+            {/* Discount Value */}
+            <div>
+              <label style={as.label}>Discount Value *</label>
+              <input style={as.inputFull} type="number" min="1" step="0.01"
+                placeholder={form.type === "PERCENT" ? "e.g. 10" : "e.g. 50"}
+                value={form.value} onChange={e => field("value", e.target.value)} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>
+                {form.type === "PERCENT" ? "Enter % value (e.g. 10 = 10% off)" : "Enter ₹ amount (e.g. 50 = ₹50 off)"}
               </div>
-            ))}
+            </div>
+
+            {/* Min Order Amount */}
+            <div>
+              <label style={as.label}>Min Order Amount (₹)</label>
+              <input style={as.inputFull} type="number" min="0" step="1" placeholder="0 = no minimum"
+                value={form.minOrderAmount} onChange={e => field("minOrderAmount", e.target.value)} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>Customer needs bill ≥ this amount</div>
+            </div>
+
+            {/* Max Discount Cap */}
+            <div>
+              <label style={as.label}>Max Discount Cap (₹)</label>
+              <input style={as.inputFull} type="number" min="0" step="1" placeholder="0 = no cap"
+                value={form.maxDiscount} onChange={e => field("maxDiscount", e.target.value)} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>0 means unlimited discount</div>
+            </div>
+
+            {/* Usage Limit */}
+            <div>
+              <label style={as.label}>Usage Limit</label>
+              <input style={as.inputFull} type="number" min="0" step="1" placeholder="0 = unlimited"
+                value={form.usageLimit} onChange={e => field("usageLimit", e.target.value)} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>How many times total</div>
+            </div>
+
+            {/* Expiry Date */}
+            <div>
+              <label style={as.label}>Expiry Date</label>
+              <input style={as.inputFull} type="date" value={form.expiryDate} onChange={e => field("expiryDate", e.target.value)} />
+              <div style={{ fontSize: 10, color: "rgba(13,13,13,0.4)", marginTop: 3 }}>Leave blank = no expiry</div>
+            </div>
+
+            {/* Description — full width */}
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={as.label}>Description</label>
-              <input style={as.inputFull} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+              <label style={as.label}>Description (shown to customers) *</label>
+              <input style={as.inputFull} type="text" maxLength={200}
+                placeholder="e.g. Get 20% off on orders above ₹500"
+                value={form.description} onChange={e => field("description", e.target.value)} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>{saving ? "Creating…" : "Create"}</button>
-            <button style={{ ...as.filterBtn }} onClick={() => setShowForm(false)}>Cancel</button>
+            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>
+              {saving ? "Creating…" : "+ Create Coupon"}
+            </button>
+            <button style={as.filterBtn} onClick={() => { setShowForm(false); setForm(emptyForm); }}>Cancel</button>
           </div>
         </div>
       )}
+
+      {/* Coupons Table */}
       <AdminTable
-        cols={["Code","Description","Discount","Min Order","Used","Expiry","Status","Actions"]}
+        cols={["Code", "Description", "Discount", "Min Order", "Cap", "Usage", "Expiry", "Status", "Actions"]}
         rows={coupons.map(c => [
-          <code style={{ fontWeight: 700, color: "#2563eb" }}>{c.code}</code>,
-          c.description || "—",
-          <span style={{ color: "#1db882", fontWeight: 700 }}>{c.value}% OFF</span>,
-          c.minOrderAmount > 0 ? fmt(c.minOrderAmount) : "—",
-          c.usedCount || 0,
-          c.expiryDate ? new Date(c.expiryDate).toLocaleDateString("en-IN") : "—",
+          <code style={{ fontWeight: 700, color: "#2563eb", fontFamily: "monospace", letterSpacing: "0.05em" }}>{c.code}</code>,
+          <span style={{ color: "rgba(13,13,13,0.6)", fontSize: 12 }}>{c.description || "—"}</span>,
+          c.type === "FLAT"
+            ? <span style={{ fontWeight: 700, color: "#6366f1" }}>₹{Number(c.value).toFixed(0)} off</span>
+            : <span style={{ fontWeight: 700, color: "#1db882" }}>{c.value}% off</span>,
+          c.minOrderAmount > 0 ? <span>₹{Number(c.minOrderAmount).toLocaleString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)" }}>None</span>,
+          c.maxDiscount > 0 ? <span>₹{Number(c.maxDiscount).toLocaleString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)" }}>No cap</span>,
+          <span>
+            <span style={{ fontWeight: 700, color: "#d4a017" }}>{c.usedCount || 0}</span>
+            <span style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>{c.usageLimit > 0 ? ` / ${c.usageLimit}` : " / ∞"}</span>
+          </span>,
+          c.expiryDate ? <span style={{ fontSize: 11 }}>{new Date(c.expiryDate).toLocaleDateString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)", fontSize: 11 }}>Never</span>,
           <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#f2f0eb", color: c.active ? "#1db882" : "rgba(13,13,13,0.4)" }}>{c.active ? "Active" : "Disabled"}</span>,
           <div style={{ display: "flex", gap: 6 }}>
             <button style={c.active ? as.rejectBtn : as.approveBtn} onClick={() => toggleCoupon(c.id)}>{c.active ? "Disable" : "Enable"}</button>
-            <button style={as.rejectBtn} onClick={() => { if(window.confirm("Delete?")) deleteCoupon(c.id); }}>Delete</button>
+            <button style={as.rejectBtn} onClick={() => deleteCoupon(c.id, c.code)}>Delete</button>
           </div>
         ])}
-        empty="No coupons"
+        empty="No coupons yet. Create one above."
       />
     </div>
   );
@@ -733,38 +1023,226 @@ function RefundsAdmin({ refunds, onApprove, onReject }) {
 }
 
 /* ── Reviews ── */
-function ReviewsAdmin({ reviews, onDelete }) {
+function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
   const [starFilter, setStarFilter] = useState(0);
-  const filtered = starFilter ? reviews.filter(r => r.rating === starFilter) : reviews;
+  const [search, setSearch] = useState("");
+  const [bulkModal, setBulkModal] = useState(null); // productName
+  const [deleteModal, setDeleteModal] = useState(null); // review id
+
+  // Computed stats
+  const count = n => reviews.filter(r => r.rating === n).length;
+  const total = reviews.length;
+  const avgRating = total ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1) : "0.0";
+  const starCounts = { 5: count(5), 4: count(4), 3: count(3), 2: count(2), 1: count(1) };
+  const maxCount = Math.max(...Object.values(starCounts), 1);
+
+  // Product-wise stats
+  const productMap = {};
+  reviews.forEach(r => {
+    const name = r.productName || "Unknown";
+    if (!productMap[name]) productMap[name] = { count: 0, total: 0 };
+    productMap[name].count++;
+    productMap[name].total += r.rating;
+  });
+  const productStats = Object.entries(productMap).map(([name, d]) => ({
+    productName: name, count: d.count, avgRating: (d.total / d.count).toFixed(1)
+  })).sort((a, b) => b.count - a.count);
+
+  // Filtered list
+  const filtered = reviews.filter(r => {
+    if (starFilter && r.rating !== starFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (r.customerName || "").toLowerCase().includes(q)
+        || (r.productName || "").toLowerCase().includes(q)
+        || (r.comment || "").toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const handleBulkDelete = async () => {
+    if (!bulkModal) return;
+    const d = await api(`/admin/reviews/bulk-delete?productName=${encodeURIComponent(bulkModal)}`, { method: "DELETE" });
+    if (d.success) { showToast("Bulk deleted"); setBulkModal(null); api("/admin/reviews").then(d => d.success && window.location.reload()); }
+    else { showToast(d.message || "Error"); setBulkModal(null); }
+  };
+
+  const barColors = { 5: "#d4a017", 4: "#a3e635", 3: "#38bdf8", 2: "#fb923c", 1: "#ef4444" };
+  const starLabel = { 5: "★★★★★", 4: "★★★★☆", 3: "★★★☆☆", 2: "★★☆☆☆", 1: "★☆☆☆☆" };
+
   return (
     <div>
-      <h2 style={as.pageTitle}>Review Management ⭐</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
-        {[["Total",reviews.length],["Avg Rating",(reviews.length ? (reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1) : 0) + " ⭐"],["5-Star",reviews.filter(r=>r.rating===5).length],["1-Star",reviews.filter(r=>r.rating===1).length]].map(([l,v]) => (
-          <div key={l} style={as.statCard}><div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{v}</div><div style={as.statLabel}>{l}</div></div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={as.pageTitle}>Review Management ⭐</h2>
+        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.45)", marginTop: 4 }}>Monitor, filter, and moderate all customer reviews across the platform.</div>
+      </div>
+
+      {/* Stats Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 20 }}>
+        {[
+          ["Total Reviews", total, "#d4a017"],
+          ["Avg Rating", avgRating + " ⭐", "#d4a017"],
+          ["5-Star", starCounts[5], "#d4a017"],
+          ["4-Star", starCounts[4], "#a3e635"],
+          ["1–2 Star", starCounts[1] + starCounts[2], "#ef4444"],
+        ].map(([l, v, col]) => (
+          <div key={l} style={as.statCard}>
+            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, color: col }}>{v}</div>
+            <div style={as.statLabel}>{l}</div>
+          </div>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button style={{ ...as.filterBtn, ...(starFilter === 0 ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(0)}>All</button>
-        {[5,4,3,2,1].map(n => <button key={n} style={{ ...as.filterBtn, ...(starFilter === n ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(n)}>{"★".repeat(n)}{"☆".repeat(5-n)}</button>)}
-      </div>
-      {filtered.map(r => (
-        <div key={r.id} style={{ ...as.card, marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#0d0d0d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{(r.customerName || "?")[0].toUpperCase()}</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.customerName || "Customer"}</div>
-                <div style={{ color: "#d4a017" }}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</div>
-              </div>
+
+      {/* Rating Distribution Bar */}
+      <div style={{ ...as.card, marginBottom: 20 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#d4a017", marginBottom: 14 }}>📊 Rating Distribution</div>
+        {[5,4,3,2,1].map(n => (
+          <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 55, fontSize: 12, color: "#d4a017", flexShrink: 0 }}>{starLabel[n]}</div>
+            <div style={{ flex: 1, background: "rgba(13,13,13,0.08)", borderRadius: 20, height: 8 }}>
+              <div style={{ height: 8, borderRadius: 20, background: barColors[n], width: `${Math.round((starCounts[n] / maxCount) * 100)}%`, transition: "width 0.5s ease" }} />
             </div>
-            <button style={{ ...as.rejectBtn, padding: "4px 10px" }} onClick={() => { if(window.confirm("Delete?")) onDelete(r.id); }}>🗑️</button>
+            <div style={{ width: 28, fontSize: 12, color: "rgba(13,13,13,0.4)", textAlign: "right", flexShrink: 0 }}>{starCounts[n]}</div>
           </div>
-          <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", marginTop: 4 }}>Product: {r.productName || "—"}</div>
-          <p style={{ fontSize: 14, color: "rgba(13,13,13,0.6)", marginTop: 6 }}>{r.comment}</p>
+        ))}
+      </div>
+
+      {/* Reviews by Product Table */}
+      {productStats.length > 0 && (
+        <div style={{ ...as.card, marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#d4a017", marginBottom: 14 }}>📦 Reviews by Product</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Product","Reviews","Avg Rating","Action"].map(h => (
+                  <th key={h} style={{ padding: "6px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", borderBottom: "1px solid rgba(13,13,13,0.1)", textAlign: "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {productStats.map(ps => (
+                <tr key={ps.productName} style={{ borderBottom: "1px solid rgba(13,13,13,0.06)" }}>
+                  <td style={{ padding: "8px 10px", fontWeight: 600 }}>{ps.productName}</td>
+                  <td style={{ padding: "8px 10px" }}>{ps.count}</td>
+                  <td style={{ padding: "8px 10px" }}>
+                    <span style={{ color: "#d4a017", fontWeight: 700 }}>{ps.avgRating}</span>
+                    <span style={{ color: "#d4a017", fontSize: 11 }}> ★</span>
+                  </td>
+                  <td style={{ padding: "8px 10px" }}>
+                    <button
+                      style={{ ...as.rejectBtn, fontSize: 11, padding: "3px 10px" }}
+                      onClick={() => setBulkModal(ps.productName)}
+                    >
+                      🗑 Clear All
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Filter + Search Controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <button style={{ ...as.filterBtn, ...(starFilter === 0 ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(0)}>
+          All ({total})
+        </button>
+        {[5,4,3,2,1].map(n => (
+          <button key={n} style={{ ...as.filterBtn, ...(starFilter === n ? as.filterBtnActive : {}) }} onClick={() => setStarFilter(n)}>
+            {"★".repeat(n)}{"☆".repeat(5-n)} ({starCounts[n]})
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <input
+            style={{ ...as.inputFull, width: 220, padding: "6px 12px", fontSize: 13 }}
+            placeholder="Search by customer, product, comment…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Showing count */}
+      <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)", marginBottom: 12 }}>
+        Showing <strong style={{ color: "rgba(13,13,13,0.7)" }}>{filtered.length}</strong> review(s)
+      </div>
+
+      {/* Review Cards */}
+      {filtered.map(r => (
+        <div key={r.id} style={{ ...as.card, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          {/* Avatar */}
+          <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(212,160,23,0.15)", border: "2px solid rgba(212,160,23,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#d4a017", fontSize: 16, flexShrink: 0 }}>
+            {(r.customerName || "?")[0].toUpperCase()}
+          </div>
+          <div style={{ flex: 1 }}>
+            {/* Top row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{r.customerName || "Anonymous"}</span>
+              {r.productName && (
+                <span style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", background: "rgba(13,13,13,0.06)", padding: "2px 8px", borderRadius: 10 }}>{r.productName}</span>
+              )}
+              <span style={{ color: "#d4a017", fontSize: 14 }}>
+                {"★".repeat(r.rating)}<span style={{ color: "rgba(13,13,13,0.15)" }}>{"★".repeat(5 - r.rating)}</span>
+              </span>
+              <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(13,13,13,0.35)" }}>
+                {r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
+              </span>
+            </div>
+            {/* Comment */}
+            <div style={{ fontSize: 13, color: "rgba(13,13,13,0.6)", lineHeight: 1.6 }}>{r.comment || "No comment provided."}</div>
+            {/* Actions */}
+            <div style={{ marginTop: 8 }}>
+              <button
+                style={{ ...as.rejectBtn, fontSize: 12, padding: "4px 12px" }}
+                onClick={() => setDeleteModal(r.id)}
+              >
+                🗑 Delete
+              </button>
+            </div>
+          </div>
         </div>
       ))}
-      {filtered.length === 0 && <div style={as.empty}>No reviews found</div>}
+
+      {filtered.length === 0 && <div style={as.empty}>No reviews found for the selected filter.</div>}
+
+      {/* Delete Confirm Modal */}
+      {deleteModal !== null && (
+        <div style={modalOverlay} onClick={() => setDeleteModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🗑️</div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Delete Review?</h3>
+              <p style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>This action cannot be undone. The review will be permanently removed.</p>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setDeleteModal(null)}>Cancel</button>
+              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                onClick={() => { onDelete(deleteModal); setDeleteModal(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirm Modal */}
+      {bulkModal && (
+        <div style={modalOverlay} onClick={() => setBulkModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🗑️</div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Delete All Reviews?</h3>
+              <p style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>
+                This will permanently delete ALL reviews for <strong>"{bulkModal}"</strong>. Cannot be undone.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setBulkModal(null)}>Cancel</button>
+              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                onClick={handleBulkDelete}>Delete All</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1131,155 +1609,277 @@ function UserSpending({ spending }) {
 function UserSearch({ api, showToast }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [roleModal, setRoleModal] = useState(null); // { user, newRole }
+  const [allUsers, setAllUsers] = useState({ customers: [], vendors: [] });
+  const [loadingAll, setLoadingAll] = useState(true);
+  const [openActivity, setOpenActivity] = useState(null); // userId
+  const [activityCache, setActivityCache] = useState({}); // userId -> []
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(null); // { user }
+  const [roleModal, setRoleModal] = useState(null);
   const [roleChanging, setRoleChanging] = useState(false);
 
   const roleColor = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
   const roleBg    = { ADMIN: "#f5f3ff", ORDER_MANAGER: "#eff6ff", CUSTOMER: "#f0fdf4" };
   const ROLES     = ["CUSTOMER", "ORDER_MANAGER", "ADMIN"];
 
-  const search = async () => {
-    if (!q.trim()) return;
-    setLoading(true);
-    const d = await api(`/admin/users/search?q=${encodeURIComponent(q)}&type=${filter}`);
-    if (d.success) setResults(d.users || []);
-    else showToast(d.message || "Search failed");
-    setLoading(false);
+  // Load all users upfront
+  useEffect(() => {
+    api("/admin/users").then(d => {
+      if (d.success) setAllUsers({ customers: d.customers || [], vendors: d.vendors || [] });
+      setLoadingAll(false);
+    }).catch(() => setLoadingAll(false));
+  }, []);
+
+  // Derived stats
+  const totalUsers = allUsers.customers.length + allUsers.vendors.length;
+  const verifiedCount = allUsers.customers.filter(c => c.verified).length + allUsers.vendors.filter(v => v.verified).length;
+
+  // Client-side filter
+  const filtered = (() => {
+    const lq = q.toLowerCase().trim();
+    const match = u => !lq || (u.name + u.email + (u.mobile || "")).toLowerCase().includes(lq);
+    let results = [];
+    if (filter !== "vendors") results.push(...allUsers.customers.filter(match).map(u => ({ ...u, type: "customer" })));
+    if (filter !== "customers") results.push(...allUsers.vendors.filter(match).map(u => ({ ...u, type: "vendor" })));
+    return results;
+  })();
+
+  const toggleActivity = async (userId) => {
+    if (openActivity === userId) { setOpenActivity(null); return; }
+    setOpenActivity(userId);
+    if (activityCache[userId]) return;
+    setActivityLoading(true);
+    try {
+      const res = await fetch(`/api/user-activity/user/${userId}`);
+      const actions = await res.json();
+      setActivityCache(prev => ({ ...prev, [userId]: Array.isArray(actions) ? actions : [] }));
+    } catch {
+      setActivityCache(prev => ({ ...prev, [userId]: [] }));
+    }
+    setActivityLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    const { user } = deleteModal;
+    const isVendor = user.type === "vendor";
+    const path = isVendor ? `/admin/delete-vendor/${user.id}` : `/admin/delete-customer/${user.id}`;
+    const d = await api(path, { method: "DELETE" });
+    if (d.success) {
+      showToast("Account deleted");
+      setAllUsers(prev => ({
+        customers: isVendor ? prev.customers : prev.customers.filter(c => c.id !== user.id),
+        vendors: isVendor ? prev.vendors.filter(v => v.id !== user.id) : prev.vendors,
+      }));
+    } else showToast(d.message || "Error");
+    setDeleteModal(null);
   };
 
   const confirmRoleChange = async () => {
     if (!roleModal) return;
     setRoleChanging(true);
     try {
-      const d = await api(`/admin/users/${roleModal.user.id}/role`, {
-        method: "PATCH",
-        body: JSON.stringify({ role: roleModal.newRole }),
-      });
+      const d = await api(`/admin/users/${roleModal.user.id}/role`, { method: "PATCH", body: JSON.stringify({ role: roleModal.newRole }) });
       if (d.success) {
-        setResults(prev =>
-          prev.map(u => u.id === roleModal.user.id && u.type === "customer"
-            ? { ...u, role: roleModal.newRole }
-            : u)
-        );
-        showToast(`✓ ${roleModal.user.name || "User"}'s role set to ${roleModal.newRole}`);
-      } else {
-        showToast(d.message || d.error || "Role update failed");
-      }
+        setAllUsers(prev => ({ ...prev, customers: prev.customers.map(u => u.id === roleModal.user.id ? { ...u, role: roleModal.newRole } : u) }));
+        showToast(`✓ ${roleModal.user.name}'s role set to ${roleModal.newRole}`);
+      } else showToast(d.message || "Role update failed");
     } catch { showToast("Role update failed"); }
     setRoleChanging(false);
     setRoleModal(null);
   };
 
+  const inputStyle = { background: "rgba(13,13,13,0.06)", border: "1px solid rgba(13,13,13,0.15)", borderRadius: 8, padding: "6px 10px", fontSize: 13, outline: "none" };
+
   return (
     <div>
-      <h2 style={as.pageTitle}>Search Users 👥</h2>
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <input
-          style={{ ...as.searchInput, flex: 1 }}
-          placeholder="Search by name or email…"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && search()}
-        />
-        <select style={as.statusSelect} value={filter} onChange={e => setFilter(e.target.value)}>
-          <option value="all">All Users</option>
-          <option value="customer">Customers</option>
-          <option value="vendor">Vendors</option>
-          <option value="delivery">Delivery</option>
-        </select>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={search} disabled={loading}>
-          {loading ? "Searching…" : "Search"}
-        </button>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={as.pageTitle}>Search Users 👥</h2>
+        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.45)", marginTop: -16, marginBottom: 4 }}>Find and inspect customer and vendor accounts across the platform.</div>
       </div>
 
-      {results.length > 0 && (
-        <div style={as.tableWrap}>
-          <table style={as.table}>
-            <thead style={as.thead}>
-              <tr>
-                {["ID","Name","Email","Type","Role / Details","Verified","Active"].map(h => (
-                  <th key={h} style={as.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((u, i) => {
-                const isCustomer = u.type === "customer";
-                const currentRole = u.role || "CUSTOMER";
-                return (
-                  <tr key={i} style={as.tr}>
-                    <td style={as.td}>#{u.id}</td>
-                    <td style={{ ...as.td, fontWeight: 600 }}>{u.name}</td>
-                    <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{u.email}</td>
-                    <td style={as.td}>
-                      <span style={{ ...as.badge, background: "#f2f0eb", color: "rgba(13,13,13,0.7)", textTransform: "capitalize" }}>
-                        {(u.type || "—").replace(/_/g, " ")}
+      {/* Stats Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          ["👥", "Total Users", totalUsers, "#d4a017"],
+          ["👤", "Customers", allUsers.customers.length, "#2563eb"],
+          ["🏪", "Vendors", allUsers.vendors.length, "#10b981"],
+          ["✅", "Verified", verifiedCount, "#22c55e"],
+        ].map(([icon, label, val, color]) => (
+          <div key={label} style={as.statCard}>
+            <div style={{ ...as.statIcon(color), marginBottom: 8 }}>{icon}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#0d0d0d", marginBottom: 2 }}>{loadingAll ? "…" : val}</div>
+            <div style={as.statLabel}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + Filter Bar */}
+      <div style={{ ...as.card, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "rgba(13,13,13,0.35)" }}>🔍</span>
+          <input
+            style={{ ...as.searchInput, paddingLeft: 36 }}
+            placeholder="Search by name, email or mobile…"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["all","All"],["customers","Customers"],["vendors","Vendors"]].map(([k, l]) => (
+            <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Results Meta */}
+      <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)", marginBottom: 12, fontWeight: 600 }}>
+        {q
+          ? <>Showing <strong style={{ color: "#d4a017" }}>{filtered.length}</strong> result(s) for "<strong>{q}</strong>"</>
+          : <>Showing all <strong style={{ color: "#d4a017" }}>{filtered.length}</strong> users</>
+        }
+      </div>
+
+      {/* User Cards */}
+      {loadingAll ? (
+        <div style={as.empty}>Loading users…</div>
+      ) : filtered.length === 0 ? (
+        <div style={as.empty}>{q ? `No users found matching "${q}"` : "No users registered yet."}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.map(u => {
+            const isVendor = u.type === "vendor";
+            const isCustomer = u.type === "customer";
+            const currentRole = u.role || "CUSTOMER";
+            const activityOpen = openActivity === u.id && isCustomer;
+            const acts = activityCache[u.id] || [];
+
+            return (
+              <div key={`${u.type}-${u.id}`}>
+                {/* Card */}
+                <div style={{ ...as.card, display: "flex", alignItems: "center", gap: 14, marginBottom: 0, cursor: "default", transition: "box-shadow 0.2s" }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: 46, height: 46, borderRadius: "50%", flexShrink: 0,
+                    background: isVendor ? "linear-gradient(135deg,#10b981,#059669)" : "linear-gradient(135deg,#3b82f6,#6366f1)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: 18, color: "#fff"
+                  }}>
+                    {(u.name || "?")[0].toUpperCase()}
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{u.name || "Unknown"}</span>
+                      <span style={{ ...as.badge, background: isVendor ? "rgba(16,185,129,0.15)" : "rgba(59,130,246,0.15)", color: isVendor ? "#10b981" : "#3b82f6", fontSize: 10 }}>
+                        {isVendor ? "🏪 Vendor" : "👤 Customer"}
                       </span>
-                    </td>
-                    <td style={as.td}>
-                      {isCustomer ? (
-                        /* Customers carry the Role enum — show editable select */
+                      <span style={{ ...as.badge, background: u.verified ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)", color: u.verified ? "#1db882" : "#e84c3c", fontSize: 10 }}>
+                        {u.verified ? "✓ Verified" : "✗ Unverified"}
+                      </span>
+                      {isCustomer && (
                         <select
-                          style={{ ...as.statusSelect, minWidth: 130,
-                            background: roleBg[currentRole] || "#f2f0eb",
-                            color: roleColor[currentRole] || "#0d0d0d",
-                            fontWeight: 700, border: "1px solid #e8e4dc" }}
+                          style={{ ...as.statusSelect, background: roleBg[currentRole] || "#f2f0eb", color: roleColor[currentRole] || "#0d0d0d", fontWeight: 700, fontSize: 11, padding: "2px 8px" }}
                           value={currentRole}
-                          onChange={e => {
-                            if (e.target.value !== currentRole)
-                              setRoleModal({ user: { ...u, role: currentRole }, newRole: e.target.value });
-                          }}
+                          onChange={e => { if (e.target.value !== currentRole) setRoleModal({ user: { ...u, role: currentRole }, newRole: e.target.value }); }}
                         >
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                      ) : (
-                        /* Vendors / delivery boys — show descriptive info instead */
-                        <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 12 }}>
-                          {u.vendorCode ? `Code: ${u.vendorCode}` :
-                           u.deliveryBoyCode ? `Code: ${u.deliveryBoyCode}` : "—"}
-                        </span>
                       )}
-                    </td>
-                    <td style={as.td}>
-                      <span style={{ color: u.verified ? "#1db882" : "#e84c3c" }}>
-                        {u.verified ? "✓" : "✗"}
-                      </span>
-                    </td>
-                    <td style={as.td}>
-                      {u.active !== undefined ? (
-                        <span style={{ ...as.badge, background: u.active ? "#e8f9f2" : "#fef2f2", color: u.active ? "#1db882" : "#e84c3c" }}>
-                          {u.active ? "Active" : "Inactive"}
-                        </span>
-                      ) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                    <div style={{ fontSize: 12, color: "rgba(13,13,13,0.45)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <span>✉️ {u.email}</span>
+                      {u.mobile && <span>📞 {u.mobile}</span>}
+                      {(u.vendorCode || u.deliveryBoyCode) && <span>🔖 {u.vendorCode || u.deliveryBoyCode}</span>}
+                    </div>
+                  </div>
+
+                  {/* ID */}
+                  <span style={{ fontSize: 11, color: "rgba(13,13,13,0.35)", fontWeight: 600, flexShrink: 0 }}>ID #{u.id}</span>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {isCustomer && (
+                      <button
+                        style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px", ...(activityOpen ? as.filterBtnActive : {}) }}
+                        onClick={() => toggleActivity(u.id)}
+                        title="View recent activity"
+                      >
+                        📈 Activity
+                      </button>
+                    )}
+                    <button
+                      style={{ ...as.rejectBtn, fontSize: 11, padding: "4px 10px" }}
+                      onClick={() => setDeleteModal({ user: u })}
+                    >
+                      🗑 Delete
+                    </button>
+                  </div>
+                </div>
+
+                {/* Activity Panel */}
+                {activityOpen && (
+                  <div style={{ background: "rgba(13,13,13,0.04)", borderLeft: "3px solid #d4a017", borderRadius: "0 0 12px 12px", padding: "14px 20px", marginTop: -4 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#d4a017", marginBottom: 10 }}>📋 Recent Activity</div>
+                    {activityLoading && !activityCache[u.id] ? (
+                      <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)" }}>Loading…</div>
+                    ) : acts.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)" }}>No activity recorded for this user.</div>
+                    ) : (
+                      acts.slice(0, 20).map((a, i) => {
+                        const label = a.actionType ? a.actionType.replace(/_/g, " ") : "Action";
+                        let meta = "";
+                        try {
+                          const m = typeof a.metadata === "string" ? JSON.parse(a.metadata) : a.metadata;
+                          if (m?.productName) meta = "— " + m.productName;
+                          else if (m?.category) meta = "— " + m.category;
+                        } catch { if (a.metadata) meta = "— " + a.metadata; }
+                        const time = a.timestamp ? new Date(a.timestamp).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" }) : "";
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(13,13,13,0.06)", fontSize: 12 }}>
+                            <strong style={{ color: "#0d0d0d", textTransform: "capitalize", flexShrink: 0 }}>{label}</strong>
+                            <span style={{ color: "rgba(13,13,13,0.45)", flex: 1 }}>{meta}</span>
+                            <time style={{ color: "rgba(13,13,13,0.35)", fontSize: 11, flexShrink: 0 }}>{time}</time>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {results.length === 0 && q && !loading && (
-        <div style={as.empty}>No results for "{q}"</div>
-      )}
-      {!q && (
-        <div style={as.empty}>Enter a name or email to search</div>
+      {/* Delete Confirm Modal */}
+      {deleteModal && (
+        <div style={modalOverlay} onClick={() => setDeleteModal(null)}>
+          <div style={{ ...modalBox, maxWidth: 380, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#ef4444", marginBottom: 8 }}>Delete Account?</h3>
+            <p style={{ color: "rgba(13,13,13,0.55)", fontSize: 13, marginBottom: 24 }}>
+              Permanently delete <strong>{deleteModal.user.name}</strong>? This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.filterBtn, flex: 1, padding: "10px" }} onClick={() => setDeleteModal(null)}>Cancel</button>
+              <button style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }} onClick={handleDelete}>Yes, Delete</button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Role change confirmation modal */}
+      {/* Role Change Modal */}
       {roleModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+        <div style={modalOverlay} onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div style={{ ...modalBox, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: roleBg[roleModal.newRole] || "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 16px" }}>
               {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
             </div>
             <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" :
-               roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?"}
+              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" : roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?"}
             </h3>
             <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
               Set <strong>{roleModal.user.name || roleModal.user.email}</strong>'s role from{" "}
@@ -1289,9 +1889,7 @@ function UserSearch({ api, showToast }) {
               {roleModal.user.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose admin access."}
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>
-                Cancel
-              </button>
+              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>Cancel</button>
               <button
                 style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
                   background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.user.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
@@ -1477,7 +2075,7 @@ function AccountsAdmin() {
           <table style={as.table}>
             <thead>
               <tr style={as.thead}>
-                {["ID","Name","Email","Mobile","Role","Verified","Status","Actions"].map(c => (
+                {["ID","Name","Email","Mobile","Role","Verified","Status","Total Orders","Last Login","Actions"].map(c => (
                   <th key={c} style={as.th}>{c}</th>
                 ))}
               </tr>
@@ -1504,6 +2102,10 @@ function AccountsAdmin() {
                     <span style={{ ...as.badge, background: a.isActive ? "#e8f9f2" : "#fef2f2", color: a.isActive ? "#1db882" : "#e84c3c" }}>
                       {a.isActive ? "Active" : "Suspended"}
                     </span>
+                  </td>
+                  <td style={as.td}>{a.totalOrders ?? 0}</td>
+                  <td style={{ ...as.td, fontSize: 12, color: "rgba(13,13,13,0.55)" }}>
+                    {a.lastLogin ? new Date(a.lastLogin).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never"}
                   </td>
                   <td style={{ ...as.td, whiteSpace: "nowrap" }}>
                     <button
@@ -1538,36 +2140,136 @@ function AccountsAdmin() {
       {/* Profile Modal */}
       {modal?.type === "profile" && (
         <div style={modalOverlay} onClick={() => setModal(null)}>
-          <div style={modalBox} onClick={e => e.stopPropagation()}>
+          <div style={{ ...modalBox, maxWidth: 680, maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 800 }}>User Profile</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>👤 User Profile</h3>
               <button style={closeBtnStyle} onClick={() => setModal(null)}>✕</button>
             </div>
+
+            {/* Avatar + name */}
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#2563eb18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#2563eb" }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#2563eb18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800, color: "#2563eb", flexShrink: 0 }}>
                 {(modal.data.name || "?")[0].toUpperCase()}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{modal.data.name || "Unknown"}</div>
+                <div style={{ fontWeight: 700, fontSize: 17 }}>{modal.data.name || "Unknown"}</div>
                 <div style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{modal.data.email}</div>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {[
-                ["Mobile",      modal.data.mobile || "N/A"],
-                ["Role",        modal.data.role || "—"],
-                ["Status",      modal.data.isActive ? "Active" : "Suspended"],
-                ["Verified",    modal.data.verified ? "Yes" : "No"],
-                ["Joined",      modal.data.createdAt ? new Date(modal.data.createdAt).toLocaleDateString("en-IN") : "—"],
-                ["Last Login",  modal.data.lastLogin ? new Date(modal.data.lastLogin).toLocaleString("en-IN") : "Never"],
-                ["Orders",      modal.data.orderCount ?? "—"],
-                ["Total Spent", modal.data.totalSpent != null ? "₹" + Number(modal.data.totalSpent).toLocaleString("en-IN") : "—"],
-              ].map(([label, value]) => (
-                <div key={label} style={{ background: "#f2f0eb", borderRadius: 8, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 3 }}>{label}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{value}</div>
+
+            {/* Account Information */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                ℹ️ Account Information
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  ["Mobile",         modal.data.mobile || "N/A"],
+                  ["Role",           modal.data.role || "—"],
+                  ["Status",         modal.data.isActive ? "Active" : "Suspended"],
+                  ["Last Login",     modal.data.lastLogin ? new Date(modal.data.lastLogin).toLocaleString("en-IN") : "Never"],
+                  ["Login Provider", modal.data.provider || "Email/Password"],
+                  ["Verified",       modal.data.verified ? "Yes" : "No"],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ background: "#f2f0eb", borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600,
+                      color: label === "Status" ? (modal.data.isActive ? "#1db882" : "#e84c3c")
+                           : label === "Verified" ? (modal.data.verified ? "#1db882" : "#d4a017")
+                           : "inherit"
+                    }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Spending Summary */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10 }}>
+                📈 Spending Summary
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  ["Total Orders",       modal.data.totalOrders ?? modal.data.orderCount ?? 0],
+                  ["Total Spent",        modal.data.totalSpent != null ? "₹" + Number(modal.data.totalSpent).toLocaleString("en-IN") : "₹0.00"],
+                  ["Avg Order Value",    modal.data.averageOrderValue != null ? "₹" + Number(modal.data.averageOrderValue).toFixed(2) : "₹0.00"],
+                  ["Wishlist Items",     modal.data.wishlistCount ?? 0],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ background: "#f2f0eb", borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600,
+                      color: label === "Total Spent" || label === "Avg Order Value" ? "#d4a017" : "inherit"
+                    }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent Orders */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10 }}>
+                🛍 Recent Orders ({modal.data.recentOrders?.length || 0})
+              </div>
+              {modal.data.recentOrders && modal.data.recentOrders.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+                  {modal.data.recentOrders.map(order => (
+                    <div key={order.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f2f0eb", borderRadius: 8, padding: "8px 14px", gap: 10 }}>
+                      <span style={{ fontSize: 13 }}>Order #{order.id} — {order.itemCount} item{order.itemCount !== 1 ? "s" : ""}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#d4a017" }}>₹{Number(order.amount || 0).toFixed(2)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 50, background: order.status === "Delivered" ? "#e8f9f2" : "#f2f0eb", color: order.status === "Delivered" ? "#1db882" : "#888" }}>
+                        {order.status}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.4)", padding: "8px 0" }}>No orders found</div>
+              )}
+            </div>
+
+            {/* Wishlist Items */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10 }}>
+                ❤️ Wishlist Items ({modal.data.wishlistCount || 0})
+              </div>
+              {modal.data.wishlistItems && modal.data.wishlistItems.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+                  {modal.data.wishlistItems.map((item, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f2f0eb", borderRadius: 8, padding: "8px 14px" }}>
+                      <span style={{ fontSize: 13 }}>{item.productName}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#d4a017" }}>₹{Number(item.productPrice || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.4)", padding: "8px 0" }}>No wishlist items</div>
+              )}
+            </div>
+
+            {/* Modal Action Buttons */}
+            <div style={{ display: "flex", gap: 10, borderTop: "1px solid rgba(13,13,13,0.1)", paddingTop: 16 }}>
+              <button
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(13,13,13,0.15)", background: "transparent", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                onClick={() => setModal(null)}
+              >
+                ✕ Close
+              </button>
+              <button
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                  background: modal.data.isActive ? "#fef2f2" : "#e8f9f2",
+                  color: modal.data.isActive ? "#e84c3c" : "#1db882"
+                }}
+                onClick={() => { toggleStatus(modal.data.id, !modal.data.isActive); setModal(null); }}
+              >
+                {modal.data.isActive ? "🚫 Deactivate Account" : "✅ Activate Account"}
+              </button>
+              <button
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}
+                onClick={() => { setModal(null); resetPassword(modal.data.id); }}
+              >
+                🔑 Reset Password
+              </button>
             </div>
           </div>
         </div>
