@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch, API_BASE } from "../api";
 
@@ -49,7 +50,12 @@ function Toast({ msg, onHide }) {
 
 export default function DeliveryApp() {
   const { auth, logout } = useAuth();
-  const [page, setPage] = useState("dashboard");
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive current page from URL: /delivery/:page → page, default "dashboard"
+  const page = location.pathname.replace(/^\/delivery\/?/, "").split("/")[0] || "dashboard";
+  const setPage = (p) => navigate(`/delivery/${p}`);
   const [profile, setProfile] = useState(null);
   const [toPickUp, setToPickUp] = useState([]);
   const [outNow, setOutNow] = useState([]);
@@ -173,7 +179,7 @@ export default function DeliveryApp() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)" }}>{auth.email}</span>
-            <button className="d-logout" onClick={logout}>Logout</button>
+            <button className="d-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
           </div>
         </nav>
 

@@ -9,7 +9,11 @@ export const API_BASE = "/api/flutter";
  *     that read the header directly. The filter cross-checks these against the token.
  */
 export async function apiFetch(path, options = {}, auth = null) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  // When body is FormData let the browser set Content-Type (multipart + boundary).
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData
+    ? { ...(options.headers || {}) }
+    : { "Content-Type": "application/json", ...(options.headers || {}) };
 
   if (auth) {
     // JWT — primary auth mechanism validated server-side by FlutterAuthFilter

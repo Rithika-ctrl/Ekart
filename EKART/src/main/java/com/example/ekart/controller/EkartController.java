@@ -878,6 +878,60 @@ public class EkartController {
         return adminService.analytics(session, map);
     }
 
+    @GetMapping("/user-spending")
+    public String userSpending(HttpSession session, ModelMap map) {
+        if (session.getAttribute("admin") == null) {
+            session.setAttribute("failure", "Please login as admin");
+            return "redirect:/admin/login";
+        }
+
+        List<Customer> allCustomers = customerRepository.findAll();
+
+        // Build per-customer spending rows — only DELIVERED orders count
+        List<java.util.Map<String, Object>> spendingData = new java.util.ArrayList<>();
+        double platformTotal = 0;
+        int activeCustomers = 0;
+
+        for (Customer c : allCustomers) {
+            List<com.example.ekart.dto.Order> delivered = orderRepository.findByCustomer(c)
+                    .stream()
+                    .filter(o -> o.getTrackingStatus() == com.example.ekart.dto.TrackingStatus.DELIVERED)
+                    .collect(java.util.stream.Collectors.toList());
+
+            double totalSpent = delivered.stream()
+                    .mapToDouble(com.example.ekart.dto.Order::getAmount).sum();
+            int orderCount = delivered.size();
+            double avgOrder = orderCount > 0 ? totalSpent / orderCount : 0;
+
+            java.util.Map<String, Object> row = new java.util.HashMap<>();
+            row.put("name",       c.getName());
+            row.put("email",      c.getEmail());
+            row.put("orderCount", orderCount);
+            row.put("totalSpent", totalSpent);
+            row.put("avgOrder",   avgOrder);
+            spendingData.add(row);
+
+            platformTotal += totalSpent;
+            if (orderCount > 0) activeCustomers++;
+        }
+
+        // Sort by totalSpent descending — top spenders first
+        spendingData.sort((a, b) -> Double.compare(
+                ((Number) b.get("totalSpent")).doubleValue(),
+                ((Number) a.get("totalSpent")).doubleValue()));
+
+        double avgSpendPerCustomer = allCustomers.isEmpty() ? 0
+                : platformTotal / allCustomers.size();
+
+        map.put("spendingData",         spendingData);
+        map.put("platformTotal",        platformTotal);
+        map.put("totalCustomers",       allCustomers.size());
+        map.put("activeCustomers",      activeCustomers);
+        map.put("avgSpendPerCustomer",  avgSpendPerCustomer);
+
+        return "user-spending.html";
+    }
+
     // ── BANNER CONTENT MANAGEMENT (Admin Only) ─────────────────────────────────
 
     @GetMapping("/admin/content")

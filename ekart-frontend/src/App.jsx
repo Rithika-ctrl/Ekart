@@ -1,14 +1,23 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import AuthPage from "./pages/AuthPage.jsx";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import AuthPage    from "./pages/AuthPage.jsx";
 import CustomerApp from "./pages/CustomerApp.jsx";
-import VendorApp from "./pages/VendorApp.jsx";
-import AdminApp from "./pages/AdminApp.jsx";
+import VendorApp   from "./pages/VendorApp.jsx";
+import AdminApp    from "./pages/AdminApp.jsx";
 import DeliveryApp from "./pages/DeliveryApp.jsx";
+
+// ─── Auth Context ───────────────────────────────────────────────────────────
 
 const AuthContext = createContext(null);
 export function useAuth() { return useContext(AuthContext); }
 
-// ─── Storage key used in both localStorage and sessionStorage ──────────────
 const AUTH_KEY = "ekart_auth";
 
 /**
@@ -59,11 +68,21 @@ function clearAuth() {
   } catch { /* ignore */ }
 }
 
-// ─── OAuthCallback ─────────────────────────────────────────────────────────
+// ─── Role → default landing path mapping ────────────────────────────────────
+
+const ROLE_HOME = {
+  CUSTOMER: "/shop/home",
+  GUEST:    "/shop/home",
+  VENDOR:   "/vendor/dashboard",
+  ADMIN:    "/admin/overview",
+  DELIVERY: "/delivery/dashboard",
+};
+
+// ─── OAuthCallback ──────────────────────────────────────────────────────────
 
 /**
- * OAuthCallback — rendered when the backend redirects back to /oauth2/callback
- * after a successful Google/GitHub login initiated from the React app.
+ * OAuthCallback — rendered at /oauth2/callback after a successful
+ * Google/GitHub login initiated from the React app.
  *
  * The backend encodes: ?role=CUSTOMER&id=1&name=...&email=...&token=...
  * or on failure:       ?error=suspended
@@ -73,6 +92,7 @@ function clearAuth() {
  * they stay logged in.
  */
 function OAuthCallback({ login }) {
+  const navigate = useNavigate();
   const [status, setStatus] = useState("Processing…");
 
   useEffect(() => {
@@ -83,7 +103,7 @@ function OAuthCallback({ login }) {
       setStatus(error === "suspended"
         ? "⚠️ Your account has been suspended. Contact support."
         : "OAuth login failed. Please try again.");
-      setTimeout(() => { window.location.replace("/"); }, 3000);
+      setTimeout(() => navigate("/auth", { replace: true }), 3000);
       return;
     }
 
@@ -95,13 +115,14 @@ function OAuthCallback({ login }) {
 
     if (!role || !id || !email) {
       setStatus("Invalid callback. Redirecting…");
-      setTimeout(() => { window.location.replace("/"); }, 2000);
+      setTimeout(() => navigate("/auth", { replace: true }), 2000);
       return;
     }
 
     // OAuth always persists — user started a full redirect flow intentionally.
-    login({ role, id, name, email, token }, true /* rememberMe */);
-    window.history.replaceState({}, "", "/");
+    const user = { role, id, name, email, token };
+    login(user, true /* rememberMe */);
+    navigate(ROLE_HOME[role] ?? "/auth", { replace: true });
   }, []);
 
   return (
@@ -116,19 +137,29 @@ function OAuthCallback({ login }) {
   );
 }
 
-// ─── Root App ──────────────────────────────────────────────────────────────
+// ─── Guards ─────────────────────────────────────────────────────────────────
+
+/**
+ * RequireAuth — redirects unauthenticated users to /auth.
+ * Remembers the page they were trying to reach via `state.from` so
+ * AuthPage can send them straight there after login.
+ */
+function RequireAuth({ auth, allowedRoles, children }) {
+  const location = useLocation();
+
+  if (!auth) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+  if (allowedRoles && !allowedRoles.includes(auth.role)) {
+    // Logged in but wrong role — send to their own home
+    return <Navigate to={ROLE_HOME[auth.role] ?? "/auth"} replace />;
+  }
+  return children;
+}
+
+// ─── Root App ────────────────────────────────────────────────────────────────
 
 export default function App() {
-  /**
-   * Auth state bootstrap:
-   *   - Checks localStorage first (rememberMe sessions), then sessionStorage
-   *     (non-persistent sessions).  Falls back to null (not logged in).
-   *
-   * Session lifecycle:
-   *   - rememberMe=true  → state survives browser close (localStorage)
-   *   - rememberMe=false → state cleared on tab/browser close (sessionStorage)
-   *   - logout()         → clears both storages; user must sign in again
-   */
   const [auth, setAuth] = useState(() => readAuth());
 
   /**
@@ -137,10 +168,6 @@ export default function App() {
    * @param {object}  user       - { role, id, email, name, token }
    * @param {boolean} rememberMe - true  → localStorage (persists across restarts)
    *                               false → sessionStorage (cleared on tab close)
-   *
-   * Default is true so that OAuth callbacks and any future callers that omit
-   * the flag get the safer, more user-friendly persistent behaviour.  The
-   * AuthPage always passes the flag explicitly from the "Remember me" checkbox.
    */
   const login = (user, rememberMe = true) => {
     setAuth(user);
@@ -150,32 +177,83 @@ export default function App() {
   /**
    * logout()
    *
-   * Clears auth from BOTH localStorage and sessionStorage so that stale state
-   * cannot linger regardless of which storage the session was written to.
-   * The user must sign in again after calling this.
+   * Clears auth from BOTH storages so that stale state cannot linger
+   * regardless of which storage the session was written to.
    */
   const logout = () => {
     setAuth(null);
     clearAuth();
   };
 
-  // Handle OAuth2 callback redirect from backend
-  if (window.location.pathname === "/oauth2/callback") {
-    return (
-      <AuthContext.Provider value={{ auth, login, logout }}>
-        <OAuthCallback login={login} />
-      </AuthContext.Provider>
-    );
-  }
-
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
-      {!auth && <AuthPage />}
-      {auth?.role === "CUSTOMER"  && <CustomerApp />}
-      {auth?.role === "GUEST"     && <CustomerApp />}
-      {auth?.role === "VENDOR"    && <VendorApp />}
-      {auth?.role === "ADMIN"     && <AdminApp />}
-      {auth?.role === "DELIVERY"  && <DeliveryApp />}
+      <BrowserRouter>
+        <Routes>
+          {/* ── Public ────────────────────────────────────────────── */}
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/oauth2/callback" element={<OAuthCallback login={login} />} />
+
+          {/* ── Customer / Guest (all sub-pages handled inside CustomerApp) ── */}
+          <Route
+            path="/shop/*"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["CUSTOMER", "GUEST", "VENDOR"]}>
+                <CustomerApp />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Vendor ────────────────────────────────────────────── */}
+          <Route
+            path="/vendor/*"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["VENDOR"]}>
+                <VendorApp />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Admin ─────────────────────────────────────────────── */}
+          <Route
+            path="/admin/*"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
+                <AdminApp />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Delivery ──────────────────────────────────────────── */}
+          <Route
+            path="/delivery/*"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["DELIVERY"]}>
+                <DeliveryApp />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Root redirect ─────────────────────────────────────── */}
+          <Route
+            path="/"
+            element={
+              auth
+                ? <Navigate to={ROLE_HOME[auth.role] ?? "/auth"} replace />
+                : <Navigate to="/auth" replace />
+            }
+          />
+
+          {/* ── Catch-all ─────────────────────────────────────────── */}
+          <Route
+            path="*"
+            element={
+              auth
+                ? <Navigate to={ROLE_HOME[auth.role] ?? "/auth"} replace />
+                : <Navigate to="/auth" replace />
+            }
+          />
+        </Routes>
+      </BrowserRouter>
     </AuthContext.Provider>
   );
 }

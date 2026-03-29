@@ -5,9 +5,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    // SPA fallback: serve index.html for any non-asset path so that
+    // react-router-dom routes like /shop/cart or /admin/orders work
+    // when the user hits refresh or pastes a direct URL.
+    historyApiFallback: true,
     proxy: {
-      // Flutter REST API
+      // Flutter REST API — proxied to Spring Boot in dev
       '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      // Web admin/policy endpoints used by AdminApp
+      '/admin': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
