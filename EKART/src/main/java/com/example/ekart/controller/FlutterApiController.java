@@ -1277,6 +1277,88 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
+    // REPORT ISSUE / RAISE DISPUTE  (X-Customer-Id)
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * POST /api/flutter/orders/{id}/report-issue
+     *
+     * Request body (JSON):
+     *   { "reason": "Wrong item delivered", "description": "Optional extra details..." }
+     *
+     * - Validates the order exists and belongs to the authenticated customer.
+     * - Sends an HTML admin notification email via EmailSender (async, fire-and-forget).
+     * - Writes a structured audit line to stdout for log aggregation / search.
+     * - Returns { success: true } to the Flutter app regardless of email outcome,
+     *   so the UI never shows a false failure.
+     *
+     * TODO (future): create an OrderDispute entity + repository and persist here
+     *   instead of (or in addition to) the email/log approach.
+     */
+    @PostMapping("/orders/{id}/report-issue")
+    public ResponseEntity<Map<String, Object>> reportIssue(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @PathVariable int id,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest req) {
+
+        Map<String, Object> res = new HashMap<>();
+
+        // ── 1. Auth check ──────────────────────────────────────────────────
+        if (customerId == null) {
+            res.put("success", false);
+            res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // ── 2. Validate order ownership ────────────────────────────────────
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getCustomer().getId() != customerId) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        // ── 3. Extract and validate body ───────────────────────────────────
+        String reason      = body != null ? body.get("reason")      : null;
+        String description = body != null ? body.get("description") : null;
+
+        if (reason == null || reason.isBlank()) {
+            res.put("success", false);
+            res.put("message", "reason is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // ── 4. Structured audit log (searchable without a DB table) ────────
+        String customerEmail = order.getCustomer().getEmail();
+        System.out.printf(
+            "[DISPUTE] orderId=%d customerId=%d customerEmail=%s reason=\"%s\" description=\"%s\" ip=%s at=%s%n",
+            id, customerId, customerEmail, reason,
+            description != null ? description : "",
+            req.getRemoteAddr(),
+            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        );
+
+        // ── 5. Admin notification email (async — failure won't break API) ──
+        try {
+            emailSender.sendDisputeNotification(
+                adminEmail,    // to
+                adminEmail,    // from (reuse admin email as sender identity)
+                id, customerId, customerEmail, reason, description
+            );
+        } catch (Exception e) {
+            System.err.println("[DISPUTE] Admin email dispatch failed: " + e.getMessage());
+        }
+
+        // ── 6. Respond ─────────────────────────────────────────────────────
+        res.put("success", true);
+        res.put("message", "Your issue has been reported. Our team will review it shortly.");
+        res.put("orderId", id);
+        res.put("reason", reason);
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
     // WISHLIST  (X-Customer-Id)
     // ═══════════════════════════════════════════════════════
 
