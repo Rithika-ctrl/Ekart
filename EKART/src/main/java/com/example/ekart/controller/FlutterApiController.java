@@ -3776,6 +3776,175 @@ public class FlutterApiController {
     }
 
     /**
+     * POST /api/flutter/admin/banners/add
+     * Body: { title, imageUrl, linkUrl? }
+     * Creates a new banner. Mirrors POST /admin/content/add but JWT-auth.
+     */
+    @PostMapping("/admin/banners/add")
+    public ResponseEntity<Map<String, Object>> adminAddBanner(
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        String title    = body.getOrDefault("title",    "").toString().trim();
+        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
+        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
+        if (title.isEmpty())    { res.put("success", false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
+        if (imageUrl.isEmpty()) { res.put("success", false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
+        Banner b = new Banner();
+        b.setTitle(title);
+        b.setImageUrl(imageUrl);
+        b.setLinkUrl(linkUrl.isEmpty() ? null : linkUrl);
+        b.setActive(true);
+        b.setShowOnHome(true);
+        b.setShowOnCustomerHome(true);
+        b.setDisplayOrder(0);
+        bannerRepository.save(b);
+        res.put("success", true);
+        res.put("message", "Banner added");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/banners/{id}/update
+     * Body: { title, imageUrl, linkUrl? }
+     * Updates title/imageUrl/linkUrl of an existing banner.
+     */
+    @PostMapping("/admin/banners/{id}/update")
+    public ResponseEntity<Map<String, Object>> adminUpdateBanner(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        Banner b = bannerRepository.findById(id).orElse(null);
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        String title    = body.getOrDefault("title",    "").toString().trim();
+        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
+        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
+        if (title.isEmpty())    { res.put("success", false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
+        if (imageUrl.isEmpty()) { res.put("success", false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
+        b.setTitle(title);
+        b.setImageUrl(imageUrl);
+        b.setLinkUrl(linkUrl.isEmpty() ? null : linkUrl);
+        bannerRepository.save(b);
+        res.put("success", true);
+        res.put("message", "Banner updated");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/banners/{id}/toggle
+     * Toggles the master active flag on a banner.
+     */
+    @PostMapping("/admin/banners/{id}/toggle")
+    public ResponseEntity<Map<String, Object>> adminToggleBanner(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        Banner b = bannerRepository.findById(id).orElse(null);
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        b.setActive(!b.isActive());
+        bannerRepository.save(b);
+        res.put("success", true);
+        res.put("active", b.isActive());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/banners/{id}/toggle-home
+     * Toggles showOnHome (pre-login landing page).
+     */
+    @PostMapping("/admin/banners/{id}/toggle-home")
+    public ResponseEntity<Map<String, Object>> adminToggleBannerHome(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        Banner b = bannerRepository.findById(id).orElse(null);
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        b.setShowOnHome(!b.isShowOnHome());
+        bannerRepository.save(b);
+        res.put("success", true);
+        res.put("showOnHome", b.isShowOnHome());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/banners/{id}/toggle-customer-home
+     * Toggles showOnCustomerHome (post-login customer page).
+     */
+    @PostMapping("/admin/banners/{id}/toggle-customer-home")
+    public ResponseEntity<Map<String, Object>> adminToggleBannerCustomerHome(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        Banner b = bannerRepository.findById(id).orElse(null);
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
+        bannerRepository.save(b);
+        res.put("success", true);
+        res.put("showOnCustomerHome", b.isShowOnCustomerHome());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/admin/banners/{id}/delete
+     * Permanently deletes a banner.
+     */
+    @PostMapping("/admin/banners/{id}/delete")
+    public ResponseEntity<Map<String, Object>> adminDeleteBanner(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        bannerRepository.deleteById(id);
+        res.put("success", true);
+        res.put("message", "Banner deleted");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * DELETE /api/flutter/admin/accounts/{id}
+     * Permanently deletes a customer account.
+     * Mirrors DELETE /api/admin/accounts/{id} but uses JWT auth (requireAdmin)
+     * instead of session.getAttribute("admin"), so React admin JWT sessions can
+     * call it — the old session-guarded endpoint always rejected them.
+     */
+    @DeleteMapping("/admin/accounts/{id}")
+    public ResponseEntity<Map<String, Object>> adminDeleteAccount(
+            @org.springframework.web.bind.annotation.PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            if (!customerRepository.existsById(id)) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            customerRepository.deleteById(id);
+            res.put("success", true);
+            res.put("message", "Account deleted");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Delete failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
      * POST /api/flutter/admin/change-password
      * Changes the admin password for the stateless Flutter admin session.
      *
