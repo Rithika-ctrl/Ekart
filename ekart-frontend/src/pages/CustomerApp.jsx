@@ -1,10 +1,76 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
 const stars = r => "★".repeat(r) + "☆".repeat(5 - r);
 const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", CANCELLED: "#ef4444" };
+
+// ─── Activity tracker ──────────────────────────────────────────────────────
+//
+// Buffers user events and flushes them to POST /api/user-activity/batch.
+// Matches the actionType vocabulary used by the Thymeleaf templates so the
+// admin-user-search activity panel displays React-generated events too.
+//
+// Flush triggers:
+//   1. Every 30 s (interval)
+//   2. When buffer hits 20 events (eager flush)
+//   3. On tab hide / page unload (visibilitychange + navigator.sendBeacon)
+//
+// Events are only recorded for authenticated CUSTOMER users — guests produce
+// nothing. Failures are silently swallowed; tracking must never break UX.
+//
+function useActivityTracker(auth) {
+  const bufferRef = useRef([]);
+
+  const flush = useCallback((sync = false) => {
+    const buf = bufferRef.current;
+    if (!buf.length) return;
+    bufferRef.current = [];
+    const payload = JSON.stringify(buf);
+    if (sync && typeof navigator.sendBeacon === "function") {
+      // sendBeacon is fire-and-forget on page hide — guaranteed delivery
+      navigator.sendBeacon("/api/user-activity/batch", new Blob([payload], { type: "application/json" }));
+    } else {
+      fetch("/api/user-activity/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).catch(() => {
+        // On failure re-buffer so events aren't lost entirely
+        bufferRef.current = buf.concat(bufferRef.current);
+      });
+    }
+  }, []);
+
+  // Periodic flush (30 s) + visibilitychange beacon
+  useEffect(() => {
+    const interval = setInterval(() => flush(false), 30_000);
+    const onHide = () => { if (document.visibilityState === "hidden") flush(true); };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onHide);
+      flush(false); // drain on unmount
+    };
+  }, [flush]);
+
+  // Public: record one event. Silently ignored for guests / non-customers.
+  const track = useCallback((actionType, metadata = {}) => {
+    if (!auth?.id || auth?.role !== "CUSTOMER") return;
+    bufferRef.current.push({
+      userId:     auth.id,
+      actionType,
+      metadata:   JSON.stringify(metadata),
+      timestamp:  new Date().toISOString().slice(0, 19), // LocalDateTime format
+    });
+    // Eager flush at 20 events
+    if (bufferRef.current.length >= 20) flush(false);
+  }, [auth?.id, auth?.role, flush]);
+
+  return track;
+}
 
 /* ── Layout ── */
 import AuthPage from "./AuthPage";
@@ -56,6 +122,9 @@ function Layout({ nav, children, onShowAuth }) {
 }
 function Nav({ nav, onShowAuth }) {
   const { auth, logout } = useAuth();
+  const navigate = useNavigate();
+  const track = useActivityTracker(auth);
+  const handleLogout = () => { logout(); navigate("/auth", { replace: true }); };
   const tabs = [
     { key: "home", label: "🏠 Home" }, { key: "search", label: "🔍 Search" },
     { key: "products", label: "🛍️ Shop" }, { key: "cart", label: "🛒 Cart" },
@@ -78,10 +147,10 @@ function Nav({ nav, onShowAuth }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={cs.greeting}>Hi, {auth?.name?.split(" ")[0] || "Guest"}</span>
-        {auth ? (
-          <button style={cs.logoutBtn} onClick={logout}>Logout</button>
+        {auth && auth.role !== "GUEST" ? (
+          <button style={cs.logoutBtn} onClick={handleLogout}>Logout</button>
         ) : (
-          <button style={cs.logoutBtn} onClick={onShowAuth}>Sign in</button>
+          <button style={{ ...cs.logoutBtn, borderColor: "rgba(99,102,241,0.5)", color: "#a5b4fc" }} onClick={onShowAuth}>Sign In</button>
         )}
       </div>
     </nav>
@@ -97,8 +166,15 @@ function Toast({ msg, onHide }) {
 /* ── Main ── */
 export default function CustomerApp() {
   const { auth } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showAuth, setShowAuth] = useState(false);
-  const [page, setPage] = useState("home");
+
+  // Derive current page from URL: /shop/:page  → page
+  // Falls back to "home" so /shop/ and /shop still work.
+  const page = location.pathname.replace(/^\/shop\/?/, "").split("/")[0] || "home";
+  const setPage = (p) => navigate(`/shop/${p}`, { replace: false });
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState({ items: [], total: 0, itemCount: 0, subtotal: 0, deliveryCharge: 0 });
@@ -114,6 +190,8 @@ export default function CustomerApp() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cartLoading, setCartLoading] = useState({});
   const [paymentPage, setPaymentPage] = useState(false);
+  const [addressPage, setAddressPage] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [reportOrder, setReportOrder] = useState(null);
   const [reorderStockCheck, setReorderStockCheck] = useState(null); // { orderId, items, hasOutOfStock }
@@ -245,7 +323,11 @@ export default function CustomerApp() {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to add items to cart"); return; }
     setCartLoading(l => ({ ...l, [productId]: true }));
     const d = await api("/cart/add", { method: "POST", body: JSON.stringify({ productId }) });
-    if (d.success) { showToast("Added to cart ✓"); loadCart(); }
+    if (d.success) {
+      showToast("Added to cart ✓");
+      loadCart();
+      track("ADD_TO_CART", { productId });
+    }
     else showToast(d.message || "Failed to add");
     setCartLoading(l => ({ ...l, [productId]: false }));
   };
@@ -296,8 +378,13 @@ export default function CustomerApp() {
 
   const toggleWishlist = async (productId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to save items to wishlist"); return; }
+    const adding = !wishlistIds.includes(productId);
     const d = await api("/wishlist/toggle", { method: "POST", body: JSON.stringify({ productId }) });
-    if (d.success) { loadWishlist(); showToast(d.message || "Wishlist updated"); }
+    if (d.success) {
+      loadWishlist();
+      showToast(d.message || "Wishlist updated");
+      track(adding ? "WISHLIST_ADD" : "WISHLIST_REMOVE", { productId });
+    }
   };
 
   const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD") => {
@@ -308,6 +395,11 @@ export default function CustomerApp() {
     if (d.success) {
       const savedMsg = d.couponDiscount > 0 ? ` You saved ₹${Math.round(d.couponDiscount)}!` : "";
       showToast("Order placed! 🎉" + savedMsg);
+      track("ORDER_PLACED", {
+        paymentMode,
+        orderCount: d.orders?.length ?? 1,
+        couponApplied: !!couponCode,
+      });
       setOrderSuccess(d);
       setPaymentPage(false);
       loadCart(); loadOrders(); setPage("success");
@@ -355,7 +447,7 @@ export default function CustomerApp() {
     else showToast(d.message || "Failed to report");
   };
 
-  const nav = { active: page, go: (p) => { setPage(p); setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); } };
+  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); track("PAGE_VIEW", { page: p }); navigate(`/shop/${p}`); } };
 
   return (
     <>
@@ -365,37 +457,75 @@ export default function CustomerApp() {
       {reorderStockCheck && <ReorderStockModal stockCheck={reorderStockCheck} onClose={() => setReorderStockCheck(null)} onConfirm={confirmReorder} />}
       <AIAssistantWidget api={api} onNavigate={p => setPage(p)} showToast={showToast} />
 
+      {auth?.role === "GUEST" && (
+        <div style={{
+          background: "linear-gradient(90deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
+          border: "1px solid rgba(99,102,241,0.3)",
+          borderRadius: 12,
+          padding: "10px 18px",
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 10,
+        }}>
+          <span style={{ color: "#a5b4fc", fontSize: 14 }}>
+            &#x1F441; <strong>Browsing as Guest</strong> — Explore products freely. Sign in to shop, track orders and more.
+          </span>
+          <button
+            style={{ padding: "6px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            onClick={() => setShowAuth(true)}
+          >
+            Sign In / Register
+          </button>
+        </div>
+      )}
+
       {page === "home" && <HomePage products={products} categories={categories} onShop={() => setPage("products")}
-        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }}
+        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading}
         recentlyViewedProducts={recentlyViewedProducts} />}
 
       {page === "search" && <SearchPage categories={categories} api={api}
-        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }}
+        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
 
       {page === "products" && <ProductsPage products={products} categories={categories} search={search} selectedCat={selectedCat}
-        onSearch={q => { setSearch(q); loadProducts(q, selectedCat); }}
+        onSearch={q => { setSearch(q); loadProducts(q, selectedCat); if (q.trim()) track("SEARCH", { query: q.trim() }); }}
         onCat={c => { setSelectedCat(c); loadProducts(search, c); }}
-        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); }}
+        onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
 
       {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
         onView={recordRecentlyViewed} />}
 
-      {page === "cart" && !paymentPage && (
+      {page === "cart" && !addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
           <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
             onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
-            onCheckout={() => setPaymentPage(true)} profile={profile} />
+            onCheckout={() => setAddressPage(true)} profile={profile} />
+        </GuestGate>
+      )}
+
+      {page === "cart" && addressPage && !paymentPage && (
+        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
+          <AddressStepPage
+            profile={profile}
+            api={api}
+            onRefreshProfile={() => loadProfile()}
+            onBack={() => setAddressPage(false)}
+            onContinue={(addrId) => { setSelectedAddressId(addrId); setAddressPage(false); setPaymentPage(true); }}
+            showToast={showToast}
+          />
         </GuestGate>
       )}
 
       {page === "cart" && paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
-          <PaymentPage cart={cart} profile={profile}
-            onPlaceOrder={placeOrder} onBack={() => setPaymentPage(false)} />
+          <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
+            onPlaceOrder={placeOrder} onBack={() => { setPaymentPage(false); setAddressPage(true); }} />
         </GuestGate>
       )}
 
@@ -1034,12 +1164,184 @@ const DELIVERY_OPTIONS = [
   },
 ];
 
-function PaymentPage({ cart, profile, onPlaceOrder, onBack }) {
+/* ── Address Step Page ─────────────────────────────────────────────
+   Step 2 of checkout: select a saved address OR add a new one inline.
+   Shows a progress stepper (Cart → Address → Payment) for orientation.
+──────────────────────────────────────────────────────────────────── */
+function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast }) {
+  const [selectedAddr, setSelectedAddr] = useState(() => {
+    const addrs = profile?.addresses || [];
+    return addrs.length === 1 ? addrs[0].id : null;
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
+  const [saving, setSaving] = useState(false);
+  const addrs = profile?.addresses || [];
+
+  const handleAddAddress = async () => {
+    if (!addForm.recipientName || !addForm.houseStreet || !addForm.city || !addForm.state || !addForm.postalCode) {
+      showToast("Please fill all address fields"); return;
+    }
+    setSaving(true);
+    const d = await api("/profile/address/add", { method: "POST", body: JSON.stringify(addForm) });
+    if (d.success) {
+      showToast("Address saved!");
+      await onRefreshProfile();
+      setShowAddForm(false);
+      setAddForm({ recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" });
+    } else {
+      showToast(d.message || "Failed to save address");
+    }
+    setSaving(false);
+  };
+
+  const handleContinue = () => {
+    if (!selectedAddr) { showToast("Please select a delivery address"); return; }
+    onContinue(selectedAddr);
+  };
+
+  const steps = [
+    { label: "Cart", icon: "🛒", done: true },
+    { label: "Address", icon: "📍", active: true },
+    { label: "Payment", icon: "💳", done: false },
+  ];
+
+  return (
+    <div>
+      {/* Stepper */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
+        {steps.map((s, i) => (
+          <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18,
+                background: s.active ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : s.done ? "#22c55e" : "rgba(255,255,255,0.08)",
+                border: s.active ? "none" : s.done ? "none" : "2px solid rgba(255,255,255,0.15)",
+                boxShadow: s.active ? "0 4px 14px rgba(99,102,241,0.4)" : "none",
+              }}>
+                {s.done && !s.active ? "✓" : s.icon}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: s.active ? "#a5b4fc" : s.done ? "#4ade80" : "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {s.label}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ width: 64, height: 2, background: i === 0 ? "#22c55e" : "rgba(255,255,255,0.1)", margin: "0 8px", marginBottom: 22 }} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button style={cs.backBtn} onClick={onBack}>← Back to Cart</button>
+      <h2 style={cs.pageTitle}>Select Delivery Address 📍</h2>
+
+      <div style={{ maxWidth: 680, margin: "0 auto" }}>
+        {/* Saved addresses */}
+        {addrs.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 14 }}>Choose where to deliver your order:</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {addrs.map(a => {
+                const chosen = selectedAddr === a.id;
+                return (
+                  <div key={a.id}
+                    onClick={() => setSelectedAddr(a.id)}
+                    style={{
+                      border: `2px solid ${chosen ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
+                      borderRadius: 16, padding: "16px 18px", cursor: "pointer",
+                      background: chosen ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.03)",
+                      transition: "border-color 0.2s, background 0.2s",
+                      display: "flex", alignItems: "flex-start", gap: 14,
+                    }}>
+                    {/* Radio circle */}
+                    <div style={{
+                      width: 20, height: 20, borderRadius: "50%", border: `2px solid ${chosen ? "#6366f1" : "#4b5563"}`,
+                      background: chosen ? "#6366f1" : "transparent", flexShrink: 0, marginTop: 2,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {chosen && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: "#e5e7eb", fontWeight: 700, marginBottom: 4 }}>{a.recipientName}</div>
+                      <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.5 }}>
+                        {a.houseStreet}<br />{a.city}, {a.state} — {a.postalCode}
+                      </div>
+                    </div>
+                    {chosen && <div style={{ fontSize: 20, flexShrink: 0 }}>✅</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {addrs.length === 0 && !showAddForm && (
+          <div style={{ ...cs.paySection, textAlign: "center", padding: "32px 24px" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
+            <p style={{ color: "#9ca3af", marginBottom: 20 }}>You have no saved addresses yet. Add one to continue.</p>
+          </div>
+        )}
+
+        {/* Add address toggle */}
+        {!showAddForm ? (
+          <button
+            style={{ ...cs.outlineBtn, width: "100%", padding: "12px", marginBottom: 24, fontSize: 14, borderStyle: "dashed" }}
+            onClick={() => setShowAddForm(true)}
+          >
+            + Add a New Address
+          </button>
+        ) : (
+          <div style={{ ...cs.paySection, marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={cs.paySectionTitle}>Add New Address</h3>
+              <button style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 20 }} onClick={() => setShowAddForm(false)}>×</button>
+            </div>
+            <AddressMap onSelect={(r) => {
+              setAddForm(f => ({
+                ...f,
+                houseStreet: r.display_name || f.houseStreet,
+                city: (r.address && (r.address.city || r.address.town || r.address.village)) || f.city,
+                state: (r.address && (r.address.state || r.address.region)) || f.state,
+                postalCode: (r.address && (r.address.postcode || r.address.postal_code)) || f.postalCode,
+              }));
+            }} />
+            {[["recipientName","Recipient Name"],["houseStreet","House / Street"],["city","City"],["state","State"],["postalCode","PIN Code"]].map(([k, label]) => (
+              <div key={k} style={{ marginBottom: 12 }}>
+                <label style={cs.label}>{label}</label>
+                <input style={cs.inputField} placeholder={label} value={addForm[k]}
+                  onChange={e => setAddForm(f => ({ ...f, [k]: e.target.value }))} />
+              </div>
+            ))}
+            <button style={cs.saveBtn} onClick={handleAddAddress} disabled={saving}>
+              {saving ? "Saving…" : "Save & Use This Address"}
+            </button>
+          </div>
+        )}
+
+        {/* Continue button */}
+        <button
+          style={{
+            ...cs.addCartBtn, width: "100%", padding: "15px", fontSize: 16,
+            opacity: selectedAddr ? 1 : 0.45,
+          }}
+          onClick={handleContinue}
+        >
+          Continue to Payment →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, showToast }) {
   const [payMode, setPayMode] = useState("COD");
   const [deliveryTime, setDeliveryTime] = useState("STANDARD");
-  const [selectedAddr, setSelectedAddr] = useState(null);
   const [placing, setPlacing] = useState(false);
   const addrs = profile?.addresses || [];
+  // selectedAddr comes pre-chosen from the Address step; fall back to first saved address
+  const selectedAddr = selectedAddressId || (addrs.length > 0 ? addrs[0].id : null);
 
   const expressSurcharge = deliveryTime === "EXPRESS" ? 50 : 0;
   const subtotal = cart.subtotal || cart.total || 0;
@@ -1047,36 +1349,69 @@ function PaymentPage({ cart, profile, onPlaceOrder, onBack }) {
   const grandTotal = Math.max(0, subtotal - couponDiscount) + expressSurcharge;
 
   const handlePlace = async () => {
-    if (!selectedAddr && addrs.length > 0) { alert("Please select a delivery address"); return; }
+    if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
     setPlacing(true);
     await onPlaceOrder(selectedAddr, payMode, deliveryTime);
     setPlacing(false);
   };
 
+  const chosenAddr = addrs.find(a => a.id === selectedAddr);
+
+  const steps = [
+    { label: "Cart", icon: "🛒", done: true },
+    { label: "Address", icon: "📍", done: true },
+    { label: "Payment", icon: "💳", active: true },
+  ];
+
   return (
     <div>
-      <button style={cs.backBtn} onClick={onBack}>← Back to Cart</button>
+      {/* Stepper */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
+        {steps.map((s, i) => (
+          <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18,
+                background: s.active ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : s.done ? "#22c55e" : "rgba(255,255,255,0.08)",
+                border: s.active ? "none" : s.done ? "none" : "2px solid rgba(255,255,255,0.15)",
+                boxShadow: s.active ? "0 4px 14px rgba(99,102,241,0.4)" : "none",
+              }}>
+                {s.done && !s.active ? "✓" : s.icon}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: s.active ? "#a5b4fc" : s.done ? "#4ade80" : "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {s.label}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ width: 64, height: 2, background: "#22c55e", margin: "0 8px", marginBottom: 22 }} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button style={cs.backBtn} onClick={onBack}>← Back to Address</button>
       <h2 style={cs.pageTitle}>Complete Your Payment 💳</h2>
       <div style={cs.paymentLayout}>
         <div>
-          {/* Address */}
+          {/* Chosen address — read-only summary */}
           <div style={cs.paySection}>
-            <h3 style={cs.paySectionTitle}>📍 Delivery Address</h3>
-            {addrs.length === 0 ? (
-              <p style={{ color: "#f59e0b", fontSize: 14 }}>⚠️ No addresses saved. Add one in your Profile.</p>
-            ) : (
-              addrs.map(a => (
-                <div key={a.id} style={{ ...cs.addrCard, borderColor: selectedAddr === a.id ? "#6366f1" : "rgba(255,255,255,0.1)" }}
-                  onClick={() => setSelectedAddr(a.id)}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid", borderColor: selectedAddr === a.id ? "#6366f1" : "#6b7280", background: selectedAddr === a.id ? "#6366f1" : "transparent" }} />
-                    <div>
-                      <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.recipientName}</div>
-                      <div style={{ color: "#9ca3af", fontSize: 13 }}>{a.houseStreet}, {a.city}, {a.state} {a.postalCode}</div>
-                    </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <h3 style={cs.paySectionTitle}>📍 Delivering To</h3>
+              <button style={{ ...cs.outlineBtn, fontSize: 12, padding: "4px 12px" }} onClick={onBack}>Change</button>
+            </div>
+            {chosenAddr ? (
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0" }}>
+                <div style={{ fontSize: 28, flexShrink: 0 }}>🏠</div>
+                <div>
+                  <div style={{ color: "#e5e7eb", fontWeight: 700, marginBottom: 4 }}>{chosenAddr.recipientName}</div>
+                  <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.6 }}>
+                    {chosenAddr.houseStreet}<br />{chosenAddr.city}, {chosenAddr.state} — {chosenAddr.postalCode}
                   </div>
                 </div>
-              ))
+              </div>
+            ) : (
+              <p style={{ color: "#f59e0b", fontSize: 14 }}>⚠️ No address selected. Go back to choose one.</p>
             )}
           </div>
 
@@ -1308,12 +1643,28 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack }) {
 
 /* ── Track Orders Page ── */
 function TrackOrdersPage({ orders, onSelectOrder }) {
-  const active = orders.filter(o => !["DELIVERED", "CANCELLED"].includes(o.trackingStatus));
-  const history = orders.filter(o => ["DELIVERED", "CANCELLED"].includes(o.trackingStatus));
+  // Terminal statuses — not shown in active pipeline
+  const TERMINAL = new Set(["DELIVERED", "CANCELLED", "REFUNDED"]);
+  const active  = orders.filter(o => !TERMINAL.has(o.trackingStatus));
+  const history = orders.filter(o =>  TERMINAL.has(o.trackingStatus));
+
+  // Pipeline matching the actual TrackingStatus enum order
+  const PIPELINE = [
+    { key: "PROCESSING",       label: "Processing" },
+    { key: "PACKED",           label: "Packed" },
+    { key: "SHIPPED",          label: "Shipped" },
+    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
+    { key: "DELIVERED",        label: "Delivered" },
+  ];
+
+  // progressPercent values mirrored from the TrackingStatus enum
+  const PROGRESS = { PROCESSING: 0, PACKED: 15, SHIPPED: 33, OUT_FOR_DELIVERY: 66, DELIVERED: 100, REFUNDED: 100, CANCELLED: 0 };
 
   const TrackCard = ({ o }) => {
-    const steps = ["PLACED", "CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
-    const currentStep = steps.indexOf(o.trackingStatus);
+    const pct     = PROGRESS[o.trackingStatus] ?? 0;
+    const pipeIdx = PIPELINE.findIndex(s => s.key === o.trackingStatus);
+    const terminal = TERMINAL.has(o.trackingStatus);
+
     return (
       <div style={cs.orderCard}>
         <div style={cs.orderHeader}>
@@ -1328,29 +1679,43 @@ function TrackOrdersPage({ orders, onSelectOrder }) {
           </span>
         </div>
 
-        {/* Progress bar */}
-        <div style={{ marginTop: 16, marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", position: "relative" }}>
-            <div style={{ position: "absolute", top: 12, left: "10%", right: "10%", height: 2, background: "rgba(255,255,255,0.1)", zIndex: 0 }} />
-            <div style={{ position: "absolute", top: 12, left: "10%", width: `${Math.max(0, currentStep / (steps.length - 1) * 80)}%`, height: 2, background: "linear-gradient(90deg,#6366f1,#22c55e)", zIndex: 1 }} />
-            {steps.map((step, i) => (
-              <div key={step} style={{ textAlign: "center", flex: 1, position: "relative", zIndex: 2 }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", margin: "0 auto 6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: i <= currentStep ? "#22c55e" : "rgba(255,255,255,0.1)", color: i <= currentStep ? "#fff" : "#6b7280" }}>
-                  {i <= currentStep ? "✓" : i + 1}
-                </div>
-                <div style={{ fontSize: 10, color: i <= currentStep ? "#22c55e" : "#6b7280", fontWeight: 600 }}>
-                  {step.replace(/_/g, " ")}
-                </div>
-              </div>
-            ))}
+        {/* Continuous progress bar + step dots (skipped for terminal orders) */}
+        {!terminal && (
+          <div style={{ marginTop: 16, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+              <span style={{ color: "#9ca3af", fontSize: 11 }}>Order progress</span>
+              <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700 }}>{pct}%</span>
+            </div>
+            <div style={{ height: 5, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+              <div style={{ height: "100%", background: "linear-gradient(90deg,#6366f1,#22c55e)", borderRadius: 3, width: `${pct}%`, transition: "width .4s" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", position: "relative" }}>
+              <div style={{ position: "absolute", top: 10, left: "5%", right: "5%", height: 1, background: "rgba(255,255,255,0.08)", zIndex: 0 }} />
+              {PIPELINE.map((step, i) => {
+                const done    = i <= pipeIdx;
+                const current = i === pipeIdx;
+                return (
+                  <div key={step.key} style={{ textAlign: "center", flex: 1, position: "relative", zIndex: 1 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", margin: "0 auto 5px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, background: done ? (current ? "#6366f1" : "#22c55e") : "rgba(255,255,255,0.1)", color: done ? "#fff" : "#6b7280", border: current ? "2px solid #6366f1" : "none" }}>
+                      {done && !current ? "✓" : i + 1}
+                    </div>
+                    <div style={{ fontSize: 9, color: done ? (current ? "#a5b4fc" : "#22c55e") : "#6b7280", fontWeight: 600, lineHeight: 1.2 }}>
+                      {step.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {o.currentCity && <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 8 }}>📍 Currently in: <strong style={{ color: "#e5e7eb" }}>{o.currentCity}</strong></div>}
-        {o.deliveryTime && <div style={{ color: "#9ca3af", fontSize: 13 }}>🕐 Est. Delivery: <strong style={{ color: "#e5e7eb" }}>{o.deliveryTime}</strong></div>}
+        {o.deliveryTime && !terminal && <div style={{ color: "#9ca3af", fontSize: 13 }}>🕐 Est. Delivery: <strong style={{ color: "#e5e7eb" }}>{o.deliveryTime}</strong></div>}
 
         <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <button style={{ ...cs.addCartBtn, padding: "8px 20px", fontSize: 13 }} onClick={() => onSelectOrder(o)}>Live Track →</button>
+          <button style={{ ...cs.addCartBtn, padding: "8px 20px", fontSize: 13 }} onClick={() => onSelectOrder(o)}>
+            {terminal ? "View Details →" : "Live Track →"}
+          </button>
         </div>
       </div>
     );
@@ -1378,15 +1743,54 @@ function TrackOrdersPage({ orders, onSelectOrder }) {
 
 /* ── Track Single Order ── */
 function TrackSingleOrderPage({ order: o, onBack }) {
-  const steps = [
-    { key: "PLACED", label: "Order Placed", icon: "📋", sub: "Your order has been confirmed" },
-    { key: "CONFIRMED", label: "Processing", icon: "⚙️", sub: "Vendor is packing your order" },
-    { key: "SHIPPED", label: "Shipped", icon: "📦", sub: "Your order is on the way" },
-    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", icon: "🛵", sub: "Delivery partner is nearby" },
-    { key: "DELIVERED", label: "Delivered", icon: "✅", sub: "Order delivered successfully" },
+  const { auth } = useAuth();
+  const [tracking, setTracking] = useState(null);   // server response
+  const [loadErr, setLoadErr] = useState(false);
+
+  // All statuses in pipeline order — includes PACKED which the old hardcoded list missed
+  const PIPELINE = [
+    { key: "PROCESSING",       label: "Order Placed",      icon: "📋", sub: "Your order has been confirmed" },
+    { key: "PACKED",           label: "Packed",            icon: "📦", sub: "Vendor has packed your order" },
+    { key: "SHIPPED",          label: "Shipped",           icon: "🚚", sub: "Your order is on the way" },
+    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery",  icon: "🛵", sub: "Delivery partner is nearby" },
+    { key: "DELIVERED",        label: "Delivered",         icon: "✅", sub: "Order delivered successfully" },
   ];
-  const statusOrder = steps.map(s => s.key);
-  const currentIdx = statusOrder.indexOf(o.trackingStatus);
+  const TERMINAL = { CANCELLED: "❌", REFUNDED: "♻️" };
+
+  useEffect(() => {
+    if (!o?.id) return;
+    const headers = { "Content-Type": "application/json" };
+    if (auth?.token)    headers["Authorization"]  = `Bearer ${auth.token}`;
+    if (auth?.id)       headers["X-Customer-Id"]  = auth.id;
+
+    fetch(`/api/flutter/orders/${o.id}/track`, { headers })
+      .then(r => r.json())
+      .then(d => { if (d.success) setTracking(d); else setLoadErr(true); })
+      .catch(() => setLoadErr(true));
+  }, [o?.id]);
+
+  // Prefer server status; fall back to order object while loading
+  const currentStatus = tracking?.currentStatus || o.trackingStatus;
+  const currentCity   = tracking?.currentCity   || o.currentCity;
+  const progress      = tracking?.progressPercent ?? null;
+  const estDelivery   = tracking?.estimatedDelivery;
+  const history       = tracking?.history || [];   // real timestamped events from DB
+
+  const isTerminal   = !!TERMINAL[currentStatus];
+  const pipelineIdx  = PIPELINE.findIndex(s => s.key === currentStatus);
+  // For cancelled/refunded use last pipeline step reached (from history) or -1
+  const effectiveIdx = isTerminal
+    ? PIPELINE.findIndex(s => history.some(e => e.status === s.key))
+    : pipelineIdx;
+
+  // Sidebar info rows — always from the order object (ground truth for amounts etc.)
+  const infoRows = [
+    ["Amount",    fmt(o.amount || o.totalPrice)],
+    ["Payment",   o.paymentMode || "COD"],
+    ...(estDelivery ? [["Est. Delivery", new Date(estDelivery).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })]] : (o.deliveryTime ? [["Delivery By", o.deliveryTime]] : [])),
+    ...(currentCity ? [["Current Location", currentCity]] : []),
+    ...(o.deliveryAddress ? [["Delivery Address", o.deliveryAddress]] : []),
+  ];
 
   return (
     <div>
@@ -1394,49 +1798,132 @@ function TrackSingleOrderPage({ order: o, onBack }) {
       <h2 style={cs.pageTitle}>Track Your Order 🗺️</h2>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+
+        {/* Left: progress + timeline */}
         <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
+
+          {/* Header row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
             <div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>Order ID</div>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>#{o.id}</div>
             </div>
-            <span style={{ ...cs.statusBadge, background: statusColor[o.trackingStatus] || "#6b7280", height: "fit-content" }}>
-              {o.trackingStatus?.replace(/_/g, " ")}
+            <span style={{ ...cs.statusBadge, background: statusColor[currentStatus] || "#6b7280", height: "fit-content" }}>
+              {isTerminal ? TERMINAL[currentStatus] + " " : ""}{currentStatus?.replace(/_/g, " ")}
             </span>
           </div>
 
-          {/* Timeline */}
-          <div style={{ position: "relative" }}>
+          {/* Progress bar (server progressPercent or derived) */}
+          {!isTerminal && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ color: "#9ca3af", fontSize: 12 }}>Progress</span>
+                <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 700 }}>
+                  {progress != null ? progress : Math.round((Math.max(0, pipelineIdx) / (PIPELINE.length - 1)) * 100)}%
+                </span>
+              </div>
+              <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", borderRadius: 3, transition: "width .6s ease",
+                  background: "linear-gradient(90deg,#6366f1,#22c55e)",
+                  width: `${progress != null ? progress : Math.round((Math.max(0, pipelineIdx) / (PIPELINE.length - 1)) * 100)}%`,
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Pipeline steps */}
+          <div style={{ position: "relative", marginBottom: history.length > 0 ? 32 : 0 }}>
             <div style={{ position: "absolute", left: 19, top: 24, bottom: 24, width: 2, background: "rgba(255,255,255,0.1)" }} />
-            {steps.map((step, i) => {
-              const done = i <= currentIdx;
-              const current = i === currentIdx;
+            {PIPELINE.map((step, i) => {
+              const done    = !isTerminal && i <= pipelineIdx;
+              const current = !isTerminal && i === pipelineIdx;
+              // For terminal orders shade steps that actually happened
+              const reached = isTerminal && i <= effectiveIdx;
+              const active  = done || reached;
               return (
-                <div key={step.key} style={{ display: "flex", gap: 16, marginBottom: 24, position: "relative" }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: done ? (current ? "#6366f1" : "#22c55e") : "rgba(255,255,255,0.08)", border: `2px solid ${done ? (current ? "#6366f1" : "#22c55e") : "rgba(255,255,255,0.15)"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, zIndex: 1 }}>
-                    {done && !current ? "✓" : step.icon}
+                <div key={step.key} style={{ display: "flex", gap: 16, marginBottom: 20, position: "relative" }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: "50%", flexShrink: 0, zIndex: 1,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                    background: active ? (current ? "#6366f1" : "#22c55e20") : "rgba(255,255,255,0.06)",
+                    border: `2px solid ${active ? (current ? "#6366f1" : "#22c55e") : "rgba(255,255,255,0.12)"}`,
+                    color: active ? (current ? "#fff" : "#22c55e") : "#4b5563",
+                  }}>
+                    {active && !current ? "✓" : step.icon}
                   </div>
                   <div style={{ paddingTop: 8 }}>
-                    <div style={{ color: done ? "#e5e7eb" : "#6b7280", fontWeight: current ? 700 : 500, fontSize: 15 }}>{step.label}</div>
-                    <div style={{ color: done ? "#9ca3af" : "#4b5563", fontSize: 13 }}>{step.sub}</div>
-                    {current && o.orderDate && <div style={{ color: "#6366f1", fontSize: 12, marginTop: 4 }}>{new Date(o.orderDate).toLocaleString("en-IN")}</div>}
+                    <div style={{ color: active ? "#e5e7eb" : "#6b7280", fontWeight: current ? 700 : 500, fontSize: 15 }}>
+                      {step.label}
+                    </div>
+                    <div style={{ color: active ? "#9ca3af" : "#374151", fontSize: 13 }}>{step.sub}</div>
                   </div>
                 </div>
               );
             })}
+            {isTerminal && (
+              <div style={{ display: "flex", gap: 16, position: "relative" }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, background: "rgba(239,68,68,0.15)", border: "2px solid #ef4444" }}>
+                  {TERMINAL[currentStatus]}
+                </div>
+                <div style={{ paddingTop: 8 }}>
+                  <div style={{ color: "#f87171", fontWeight: 700, fontSize: 15 }}>{currentStatus}</div>
+                  <div style={{ color: "#9ca3af", fontSize: 13 }}>
+                    {currentStatus === "CANCELLED" ? "This order was cancelled" : "Refund has been processed"}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Real event log from DB — the key addition */}
+          {history.length > 0 && (
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 20 }}>
+              <h3 style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>
+                📍 Tracking History
+              </h3>
+              <div style={{ position: "relative" }}>
+                <div style={{ position: "absolute", left: 7, top: 8, bottom: 8, width: 1, background: "rgba(255,255,255,0.1)" }} />
+                {history.map((ev, i) => (
+                  <div key={i} style={{ display: "flex", gap: 14, marginBottom: 16, position: "relative" }}>
+                    <div style={{ width: 15, height: 15, borderRadius: "50%", background: i === history.length - 1 ? "#6366f1" : "#22c55e", flexShrink: 0, marginTop: 3, zIndex: 1 }} />
+                    <div>
+                      <div style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 600 }}>
+                        {ev.description || ev.status?.replace(/_/g, " ")}
+                      </div>
+                      {ev.location && (
+                        <div style={{ color: "#9ca3af", fontSize: 12 }}>📍 {ev.location}</div>
+                      )}
+                      {ev.timestamp && (
+                        <div style={{ color: "#6b7280", fontSize: 11, marginTop: 2 }}>
+                          {new Date(ev.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading / error state */}
+          {!tracking && !loadErr && (
+            <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center", paddingTop: 8 }}>
+              Loading live tracking data…
+            </div>
+          )}
+          {loadErr && (
+            <div style={{ color: "#f87171", fontSize: 13, textAlign: "center", paddingTop: 8 }}>
+              Could not load live tracking. Showing last known status.
+            </div>
+          )}
         </div>
 
+        {/* Right: shipment info + items */}
         <div>
           <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 }}>
             <h3 style={{ color: "#e5e7eb", fontWeight: 700, marginBottom: 14, fontSize: 15 }}>Shipment Info</h3>
-            {[
-              ["Amount", fmt(o.amount || o.totalPrice)],
-              ["Payment", o.paymentMode || "COD"],
-              ["Delivery By", o.deliveryTime || "Standard (3-5 days)"],
-              ...(o.currentCity ? [["Current Location", o.currentCity]] : []),
-              ...(o.deliveryAddress ? [["Delivery Address", o.deliveryAddress]] : []),
-            ].map(([k, v]) => (
+            {infoRows.map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13 }}>
                 <span style={{ color: "#9ca3af" }}>{k}</span>
                 <span style={{ color: "#e5e7eb", fontWeight: 600, textAlign: "right", maxWidth: 160 }}>{v}</span>
@@ -1510,7 +1997,14 @@ function SpendingPage({ data, orders, onLoadOrders }) {
   // ── Monthly: prefer server data, fall back to client-computed from orders ──
   const months = (() => {
     if (data?.monthlySpending && Object.keys(data.monthlySpending).length > 0) {
-      return Object.entries(data.monthlySpending).slice(-6);
+      return Object.entries(data.monthlySpending).slice(-6).map(([k, v]) => {
+        // Server returns "2026-03" — convert to "Mar '26" for display
+        const [yr, mo] = k.split("-");
+        const label = mo && yr
+          ? new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short", year: "2-digit" })
+          : k;
+        return [label, v];
+      });
     }
     const acc = {};
     (orders || []).forEach(o => {

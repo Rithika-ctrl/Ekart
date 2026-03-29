@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
 
@@ -12,7 +13,12 @@ function Toast({ msg, onHide }) {
 
 export default function VendorApp() {
   const { auth, logout } = useAuth();
-  const [page, setPage] = useState("dashboard");
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive current page from URL: /vendor/:page → page, default "dashboard"
+  const page = location.pathname.replace(/^\/vendor\/?/, "").split("/")[0] || "dashboard";
+  const setPage = (p) => navigate(`/vendor/${p}`);
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -72,7 +78,7 @@ export default function VendorApp() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ color: "#9ca3af", fontSize: 13 }}>{auth.email}</span>
-          <button style={vs.logoutBtn} onClick={logout}>Logout</button>
+          <button style={vs.logoutBtn} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
         </div>
       </nav>
 
@@ -275,10 +281,10 @@ function SalesReport({ salesData, onPeriodChange }) {
 
 function StoreFront({ profile, products, api, onRefresh, showToast }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "" });
+  const [form, setForm] = useState({ name: "", mobile: "", description: "" });
 
   useEffect(() => {
-    if (profile) setForm({ name: profile.name || "", description: profile.description || "" });
+    if (profile) setForm({ name: profile.name || "", mobile: profile.mobile ? String(profile.mobile) : "", description: profile.description || "" });
   }, [profile]);
 
   const save = async () => {
@@ -327,6 +333,8 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
             <div style={{ marginTop: 16 }}>
               <label style={vs.label}>Store Name</label>
               <input style={vs.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <label style={{ ...vs.label, marginTop: 10 }}>Mobile Number</label>
+              <input style={vs.input} type="tel" placeholder="e.g. 9876543210" value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} />
               <label style={{ ...vs.label, marginTop: 10 }}>Store Description</label>
               <textarea style={{ ...vs.input, minHeight: 80, resize: "vertical" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               <button style={{ ...vs.primaryBtn, marginTop: 12, width: "100%" }} onClick={save}>Save Changes</button>

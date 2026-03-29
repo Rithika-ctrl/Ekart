@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { API_BASE } from "../api";
+
+// Role → default URL (mirrors ROLE_HOME in App.jsx)
+const ROLE_HOME = {
+  CUSTOMER: "/shop/home",
+  GUEST:    "/shop/home",
+  VENDOR:   "/vendor/dashboard",
+  ADMIN:    "/admin/overview",
+  DELIVERY: "/delivery/dashboard",
+};
 
 const S = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
@@ -34,6 +44,8 @@ const S = `
   .otp-inp{width:46px;height:54px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid #e8e4dc;background:#fafaf8;font-family:'Syne',sans-serif;outline:none;transition:border-color 200ms}
   .otp-inp:focus{border-color:#0d0d0d}
   .back-link{background:none;border:none;cursor:pointer;font-size:13px;color:rgba(13,13,13,0.5);font-family:'DM Sans',sans-serif;padding:12px 0 0;display:block;text-align:center;width:100%}
+  .btn-guest{width:100%;padding:12px;border-radius:10px;border:2px dashed #d1cdc4;background:transparent;color:rgba(13,13,13,0.55);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 200ms;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-guest:hover{border-color:#0d0d0d;color:#0d0d0d;background:#fafaf8}
   .remember-row{display:flex;align-items:center;gap:8px;margin:12px 0 4px}
   .remember-row input[type=checkbox]{width:16px;height:16px;accent-color:#e84c3c;cursor:pointer;flex-shrink:0}
   .remember-row label{font-size:13px;color:rgba(13,13,13,0.65);cursor:pointer;user-select:none}
@@ -44,6 +56,10 @@ const S = `
 
 export default function AuthPage() {
   const { login } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  // After login, go to where the user was trying to reach, or their role's home.
+  const from = location.state?.from?.pathname ?? null;
   const [screen, setScreen] = useState("login");
   const [role, setRole] = useState("customer");
   const [form, setForm] = useState({ name: "", email: "", password: "", mobile: "", confirmPassword: "" });
@@ -101,8 +117,10 @@ export default function AuthPage() {
                : role === "delivery" ? data.deliveryBoyId
                : null;
       const token = data.token || null;
-      login({ role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token }, rememberMe);
-    } catch { setError("Network error — is the backend running on port 8080?"); }
+      const user = { role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token };
+      login(user, rememberMe);
+      navigate(from ?? ROLE_HOME[user.role] ?? "/", { replace: true });
+    } catch { setError("Network error — could not reach the server. Please try again."); }
     setLoading(false);
   }
 
@@ -251,7 +269,24 @@ export default function AuthPage() {
                   </button>
                 </>
               )}
-              
+              {role === "customer" && (
+                <>
+                  <div className="divider">or</div>
+                  <button
+                    type="button"
+                    className="btn-guest"
+                    onClick={() => {
+                      login({ role: "GUEST", id: null, name: "Guest", email: null, token: null }, false);
+                      navigate("/shop/home", { replace: true });
+                    }}
+                  >
+                    &#x1F441; Browse as Guest
+                  </button>
+                  <p style={{ textAlign: "center", fontSize: 11, color: "rgba(13,13,13,0.4)", marginTop: 8, marginBottom: 0 }}>
+                    Browse products freely. Sign in to shop, track &amp; save.
+                  </p>
+                </>
+              )}
             </form>
           )}
 

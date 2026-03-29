@@ -27,6 +27,7 @@ import java.util.Set;
  *
  * ADMIN-ONLY paths (Bearer JWT with role=ADMIN required):
  *   /api/flutter/admin/**              — any non-ADMIN token is rejected with 403
+ *                                        no token at all is rejected with 401
  *
  * Token contract (issued by login endpoints):
  *   JWT signed with HS256, claims: sub=<id>, email=<email>, role=<CUSTOMER|VENDOR|ADMIN|DELIVERY>
@@ -38,6 +39,14 @@ import java.util.Set;
  * Controllers that currently read X-Customer-Id / X-Vendor-Id headers keep working —
  * but the filter ALSO verifies that the header value matches the token subject,
  * preventing one user from spoofing another by changing the header.
+ *
+ * SECURITY FIX (Admin APIs Unprotected):
+ *   Admin path detection is now done with isAdminPath() which correctly matches:
+ *     - /admin/<anything>   (sub.startsWith("/admin/"))
+ *     - /admin              (exact match — unlikely but safe)
+ *   A request with NO token to any /admin/** path is rejected 401 before role check.
+ *   A request with a valid non-ADMIN token to any /admin/** path is rejected 403.
+ *   This is defence-in-depth: FlutterApiController.requireAdmin() is a second layer.
  */
 @Component
 public class FlutterAuthFilter extends OncePerRequestFilter {
@@ -57,6 +66,13 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
             "/assistant/chat"  // AI chat — works for guests
     );
 
+    // ── Helper: is this path an admin path? ──────────────────────────────────
+    private boolean isAdminPath(String sub) {
+        // sub is the URI with /api/flutter stripped, e.g. "/admin/users"
+        // Match /admin/<anything> or bare /admin (no trailing slash)
+        return sub.startsWith("/admin/") || sub.equals("/admin");
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // This filter only applies to /api/flutter/**
@@ -72,14 +88,19 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
         String sub = request.getRequestURI().substring("/api/flutter".length()); // e.g. /cart
 
         // ── Public endpoints — pass through without a token ───────────────────
-        for (String prefix : PUBLIC_PREFIXES) {
-            if (sub.startsWith(prefix)) {
-                chain.doFilter(request, response);
-                return;
+        // Admin paths are explicitly EXCLUDED from the public list even if
+        // something in PUBLIC_PREFIXES accidentally matched — the isAdminPath()
+        // check below runs first for admin paths.
+        if (!isAdminPath(sub)) {
+            for (String prefix : PUBLIC_PREFIXES) {
+                if (sub.startsWith(prefix)) {
+                    chain.doFilter(request, response);
+                    return;
+                }
             }
         }
 
-        // ── All other endpoints require a valid Bearer JWT ────────────────────
+        // ── All other endpoints (including ALL admin/**) require a valid Bearer JWT ──
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             reject(response, 401, "Authentication required — send Authorization: Bearer <token>");
@@ -99,7 +120,7 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
         // Any request to /api/flutter/admin/** MUST carry an ADMIN token.
         // A valid CUSTOMER, VENDOR, or DELIVERY token is explicitly rejected here
         // so that non-admin roles can never reach admin data even with a valid JWT.
-        if (sub.startsWith("/admin/") || sub.equals("/admin")) {
+        if (isAdminPath(sub)) {
             if (!"ADMIN".equals(role)) {
                 reject(response, 403,
                     "Admin access required — your token role is '" + role + "'");

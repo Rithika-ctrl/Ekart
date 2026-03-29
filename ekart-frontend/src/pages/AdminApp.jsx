@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
 
@@ -12,7 +13,12 @@ function Toast({ msg, onHide }) {
 
 export default function AdminApp() {
   const { auth, logout } = useAuth();
-  const [page, setPage] = useState("overview");
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive current page from URL: /admin/:page → page, default "overview"
+  const page = location.pathname.replace(/^\/admin\/?/, "").split("/")[0] || "overview";
+  const setPage = (p) => navigate(`/admin/${p}`);
   const [users, setUsers] = useState({ customers: [], vendors: [] });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -23,6 +29,7 @@ export default function AdminApp() {
   const [warehouses, setWarehouses] = useState([]);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [spending, setSpending] = useState(null);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +56,9 @@ export default function AdminApp() {
       if (v.success) setVendors(v.vendors || []);
     } catch { show("Failed to load"); }
     setLoading(false);
+    // Fetch analytics in the background after core data loads — needed by Overview's revenue card.
+    // Not awaited so it doesn't block the initial render.
+    api("/admin/analytics").then(d => { if (d.success) setAnalytics(d); }).catch(() => {});
   }, [api]);
 
   useEffect(() => { loadAll(); }, []);
@@ -56,6 +66,7 @@ export default function AdminApp() {
   useEffect(() => { if (page === "refunds")   api("/admin/refunds").then(d => d.success && setRefunds(d.refunds || [])); }, [page]);
   useEffect(() => { if (page === "reviews")   api("/admin/reviews").then(d => d.success && setReviews(d.reviews || [])); }, [page]);
   useEffect(() => { if (page === "analytics") api("/admin/analytics").then(d => d.success && setAnalytics(d)); }, [page]);
+  useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
   useEffect(() => { if (page === "warehouse") api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
   useEffect(() => { if (page === "delivery")  api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || [])); }, [page]);
   
@@ -114,7 +125,9 @@ export default function AdminApp() {
 
   const pendingProducts = products.filter(p => !p.approved);
   const pendingRefunds  = refunds.filter(r => r.status === "PENDING");
-  const totalRevenue    = orders.filter(o => o.trackingStatus === "DELIVERED").reduce((s, o) => s + (o.amount || 0), 0);
+  // Use totalPrice (matches Order entity) across all orders to align with backend analytics endpoint.
+  // The backend sums Order::getTotalPrice for all orders regardless of status.
+  const totalRevenue    = orders.reduce((s, o) => s + (o.totalPrice || o.amount || 0), 0);
 
   const tabs = [
     { key: "overview",   label: "📊 Overview" },
@@ -148,23 +161,23 @@ export default function AdminApp() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>Admin</span>
-          <button style={as.logoutBtn} onClick={logout}>Logout</button>
+          <button style={as.logoutBtn} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
         </div>
       </nav>
 
       <main style={as.main}>
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
-          {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} />}
+          {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
           {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} />}
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
-          {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} />}
+          {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} onApprove={approveDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} />}
-          {page === "analytics"  && <AnalyticsAdmin data={analytics} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
+          {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
           {page === "security"   && <SecurityAdmin />}
@@ -177,14 +190,17 @@ export default function AdminApp() {
 }
 
 /* ── Overview ── */
-function Overview({ users, products, orders, totalRevenue, pendingProducts }) {
+function Overview({ users, products, orders, totalRevenue, pendingProducts, analyticsRevenue }) {
+  // Prefer the server-side figure from /admin/analytics when available (uses all orders + totalPrice).
+  // Falls back to the client-computed value while the analytics tab hasn't been visited yet.
+  const displayRevenue = analyticsRevenue != null ? analyticsRevenue : totalRevenue;
   const stats = [
     { label: "Customers",       value: users.customers.length, icon: "👥", color: "#2563eb" },
     { label: "Vendors",         value: users.vendors.length,   icon: "🏪", color: "#d4a017" },
     { label: "Products",        value: products.length,        icon: "🏷️", color: "#7c3aed" },
     { label: "Pending Approval",value: pendingProducts.length, icon: "⏳", color: "#e84c3c" },
     { label: "Total Orders",    value: orders.length,          icon: "📦", color: "#0284c7" },
-    { label: "Total Revenue",   value: fmt(totalRevenue),      icon: "💰", color: "#1db882" },
+    { label: "Total Revenue",   value: fmt(displayRevenue),    icon: "💰", color: "#1db882" },
   ];
   const statusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   return (
@@ -289,23 +305,150 @@ function OrdersAdmin({ orders, onUpdateStatus }) {
 }
 
 /* ── Customers ── */
-function CustomersAdmin({ customers, onToggle }) {
+function CustomersAdmin({ customers, onToggle, api, showToast }) {
   const [q, setQ] = useState("");
-  const filtered = q ? customers.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.email?.toLowerCase().includes(q.toLowerCase())) : customers;
+  const [localCustomers, setLocalCustomers] = useState(customers);
+  const [roleModal, setRoleModal] = useState(null); // { customer, newRole }
+  const [roleChanging, setRoleChanging] = useState(false);
+
+  // Keep local copy in sync if parent reloads
+  useEffect(() => { setLocalCustomers(customers); }, [customers]);
+
+  const filtered = q
+    ? localCustomers.filter(c =>
+        c.name?.toLowerCase().includes(q.toLowerCase()) ||
+        c.email?.toLowerCase().includes(q.toLowerCase()))
+    : localCustomers;
+
+  const roleColor = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
+  const roleBg    = { ADMIN: "#f5f3ff", ORDER_MANAGER: "#eff6ff", CUSTOMER: "#f0fdf4" };
+  const ROLES     = ["CUSTOMER", "ORDER_MANAGER", "ADMIN"];
+
+  const confirmRoleChange = async () => {
+    if (!roleModal) return;
+    setRoleChanging(true);
+    try {
+      const d = await api(`/admin/users/${roleModal.customer.id}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: roleModal.newRole }),
+      });
+      if (d.success) {
+        setLocalCustomers(prev =>
+          prev.map(c => c.id === roleModal.customer.id ? { ...c, role: roleModal.newRole } : c)
+        );
+        showToast(`✓ ${roleModal.customer.name || "User"}'s role set to ${roleModal.newRole}`);
+      } else {
+        showToast(d.message || d.error || "Role update failed");
+      }
+    } catch { showToast("Role update failed"); }
+    setRoleChanging(false);
+    setRoleModal(null);
+  };
+
   return (
     <div>
       <h2 style={as.pageTitle}>Customer Management</h2>
-      <input style={{ ...as.searchInput, marginBottom: 20 }} placeholder="Search customers…" value={q} onChange={e => setQ(e.target.value)} />
-      <AdminTable
-        cols={["ID","Name","Email","Mobile","Verified","Active","Action"]}
-        rows={filtered.map(c => [
-          `#${c.id}`, c.name, c.email, c.mobile,
-          <span style={{ color: c.verified ? "#1db882" : "#e84c3c" }}>{c.verified ? "✓" : "✗"}</span>,
-          <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#fef2f2", color: c.active ? "#1db882" : "#e84c3c" }}>{c.active ? "Active" : "Inactive"}</span>,
-          <button style={c.active ? as.rejectBtn : as.approveBtn} onClick={() => onToggle(c.id)}>{c.active ? "Deactivate" : "Activate"}</button>
-        ])}
-        empty="No customers"
+      <input
+        style={{ ...as.searchInput, marginBottom: 20 }}
+        placeholder="Search customers…"
+        value={q}
+        onChange={e => setQ(e.target.value)}
       />
+
+      <div style={as.tableWrap}>
+        <table style={as.table}>
+          <thead style={as.thead}>
+            <tr>
+              {["ID","Name","Email","Mobile","Role","Verified","Active","Actions"].map(h => (
+                <th key={h} style={as.th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} style={{ ...as.td, textAlign: "center", color: "rgba(13,13,13,0.4)" }}>No customers</td></tr>
+            )}
+            {filtered.map(c => (
+              <tr key={c.id} style={as.tr}>
+                <td style={as.td}>#{c.id}</td>
+                <td style={{ ...as.td, fontWeight: 600 }}>{c.name}</td>
+                <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{c.email}</td>
+                <td style={as.td}>{c.mobile || "—"}</td>
+                <td style={as.td}>
+                  <select
+                    style={{ ...as.statusSelect, minWidth: 130,
+                      background: roleBg[c.role || "CUSTOMER"] || "#f2f0eb",
+                      color: roleColor[c.role || "CUSTOMER"] || "#0d0d0d",
+                      fontWeight: 700, border: "1px solid #e8e4dc" }}
+                    value={c.role || "CUSTOMER"}
+                    onChange={e => {
+                      if (e.target.value !== (c.role || "CUSTOMER"))
+                        setRoleModal({ customer: c, newRole: e.target.value });
+                    }}
+                  >
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </td>
+                <td style={as.td}>
+                  <span style={{ color: c.verified ? "#1db882" : "#e84c3c" }}>
+                    {c.verified ? "✓" : "✗"}
+                  </span>
+                </td>
+                <td style={as.td}>
+                  <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#fef2f2", color: c.active ? "#1db882" : "#e84c3c" }}>
+                    {c.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td style={as.td}>
+                  <button
+                    style={c.active ? as.rejectBtn : as.approveBtn}
+                    onClick={() => onToggle(c.id)}
+                  >
+                    {c.active ? "Deactivate" : "Activate"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Role change confirmation modal */}
+      {roleModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: roleBg[roleModal.newRole] || "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 16px" }}>
+              {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
+            </div>
+            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
+              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" :
+               (roleModal.customer.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?")}
+            </h3>
+            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
+              Set <strong>{roleModal.customer.name || roleModal.customer.email}</strong>'s role from{" "}
+              <strong style={{ color: roleColor[roleModal.customer.role || "CUSTOMER"] }}>{roleModal.customer.role || "CUSTOMER"}</strong>{" "}
+              to <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
+              {roleModal.newRole === "ADMIN" && " This grants full platform access."}
+              {roleModal.customer.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose admin access."}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>
+                Cancel
+              </button>
+              <button
+                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.customer.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
+                  color: "#fff" }}
+                onClick={confirmRoleChange}
+                disabled={roleChanging}
+              >
+                {roleChanging ? "Updating…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -627,7 +770,9 @@ function ReviewsAdmin({ reviews, onDelete }) {
 }
 
 /* ── Analytics ── */
-function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
+function AnalyticsAdmin({ data, spending, orders, products, users, totalRevenue }) {
+  const [subTab, setSubTab] = useState("platform");
+
   // Fallback values computed client-side when server data is unavailable
   const fallbackStatusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   const fallbackCatCounts    = products.reduce((a, p) => { a[p.category] = (a[p.category] || 0) + 1; return a; }, {});
@@ -653,7 +798,18 @@ function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
 
   return (
     <div>
-      <h2 style={as.pageTitle}>Analytics & Reports 📈</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h2 style={as.pageTitle}>Analytics & Reports 📈</h2>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["platform", "📊 Platform"], ["spending", "💸 User Spending"]].map(([k, l]) => (
+            <button key={k} style={{ ...as.filterBtn, ...(subTab === k ? as.filterBtnActive : {}) }}
+              onClick={() => setSubTab(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {subTab === "spending" && <UserSpending spending={spending} />}
+      {subTab === "platform" && <div>
 
       {/* KPI cards */}
       <div style={as.statsGrid}>
@@ -697,15 +853,21 @@ function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
           <h3 style={as.cardTitle}>Monthly Revenue (Last 6 Months)</h3>
           {Object.keys(monthlyRevenue).length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {Object.entries(monthlyRevenue).map(([month, rev]) => (
-                <div key={month} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 12, minWidth: 72, color: "rgba(13,13,13,0.55)" }}>{month}</span>
-                  <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 5, width: `${Math.round((rev / maxMonthRev) * 100)}%`, transition: "width .4s" }} />
+              {Object.entries(monthlyRevenue).map(([month, rev]) => {
+                const [yr, mo] = month.split("-");
+                const label = mo && yr
+                  ? new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short", year: "2-digit" })
+                  : month;
+                return (
+                  <div key={month} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 12, minWidth: 72, color: "rgba(13,13,13,0.55)" }}>{label}</span>
+                    <div style={{ flex: 1, height: 10, background: "#f2f0eb", borderRadius: 5, overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 5, width: `${Math.round((rev / maxMonthRev) * 100)}%`, transition: "width .4s" }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 72, textAlign: "right" }}>{fmt(rev)}</span>
                   </div>
-                  <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 72, textAlign: "right" }}>{fmt(rev)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p style={{ color: "rgba(13,13,13,0.4)", fontSize: 13 }}>No order data yet</p>
@@ -787,6 +949,180 @@ function AnalyticsAdmin({ data, orders, products, users, totalRevenue }) {
           </div>
         </div>
       )}
+      </div>}
+    </div>
+  );
+}
+
+/* ── User Spending ── */
+function UserSpending({ spending }) {
+  const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState(null);
+
+  if (!spending) return (
+    <div style={{ ...as.card, textAlign: "center", padding: 48 }}>
+      <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+      <div style={{ color: "rgba(13,13,13,0.4)", fontSize: 15 }}>Loading spending data…</div>
+    </div>
+  );
+
+  const withOrders = spending.filter(c => c.totalOrders > 0);
+  const totalPlatformSpend = withOrders.reduce((s, c) => s + c.totalSpent, 0);
+  const avgSpendPerCustomer = withOrders.length ? totalPlatformSpend / withOrders.length : 0;
+  const topSpender = withOrders[0] || null;
+
+  const filtered = q
+    ? spending.filter(c =>
+        c.name?.toLowerCase().includes(q.toLowerCase()) ||
+        c.email?.toLowerCase().includes(q.toLowerCase()))
+    : spending;
+
+  const maxSpend = Math.max(...spending.map(c => c.totalSpent), 1);
+
+  return (
+    <div>
+      {/* KPI cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
+        {[
+          { icon: "👥", label: "Total Customers",      value: spending.length,            color: "#2563eb" },
+          { icon: "💰", label: "Platform Spend",        value: fmt(totalPlatformSpend),    color: "#1db882" },
+          { icon: "📊", label: "Avg Spend / Customer",  value: fmt(avgSpendPerCustomer),   color: "#7c3aed" },
+          { icon: "🏆", label: "Top Spender",           value: topSpender?.name || "—",    color: "#d4a017" },
+        ].map(s => (
+          <div key={s.label} style={as.statCard}>
+            <div style={as.statIcon(s.color)}>{s.icon}</div>
+            <div style={{ fontSize: s.label === "Top Spender" ? 14 : 20, fontWeight: 800, color: "#0d0d0d", marginBottom: 2, wordBreak: "break-word" }}>{s.value}</div>
+            <div style={as.statLabel}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input
+        style={{ ...as.searchInput, marginBottom: 16 }}
+        placeholder="Search customers by name or email…"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+      />
+
+      {/* Table */}
+      <div style={as.tableWrap}>
+        <table style={as.table}>
+          <thead>
+            <tr style={as.thead}>
+              {["Rank", "Customer", "Email", "Total Spent", "Orders", "Avg Order", "Top Category", "Spend Share"].map(c => (
+                <th key={c} style={as.th}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c, i) => (
+              <>
+                <tr
+                  key={c.id}
+                  style={{ ...as.tr, cursor: "pointer", background: expanded === c.id ? "#f8f7f4" : undefined }}
+                  onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                >
+                  <td style={as.td}>
+                    <span style={{ fontWeight: 800, color: i === 0 ? "#d4a017" : i === 1 ? "#6b7280" : i === 2 ? "#c97b38" : "rgba(13,13,13,0.4)", fontSize: i < 3 ? 16 : 13 }}>
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                    </span>
+                  </td>
+                  <td style={{ ...as.td, fontWeight: 600 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#0d0d0d18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                        {(c.name || "?")[0].toUpperCase()}
+                      </div>
+                      {c.name}
+                    </div>
+                  </td>
+                  <td style={{ ...as.td, color: "rgba(13,13,13,0.5)" }}>{c.email}</td>
+                  <td style={{ ...as.td, fontWeight: 700, color: c.totalSpent > 0 ? "#1db882" : "rgba(13,13,13,0.3)" }}>{fmt(c.totalSpent)}</td>
+                  <td style={as.td}>{c.totalOrders}</td>
+                  <td style={as.td}>{c.totalOrders > 0 ? fmt(c.avgOrderValue) : "—"}</td>
+                  <td style={as.td}>
+                    {c.topCategory !== "—" && c.topCategory
+                      ? <span style={{ ...as.badge, background: "#eff6ff", color: "#2563eb" }}>{c.topCategory}</span>
+                      : <span style={{ color: "rgba(13,13,13,0.3)" }}>—</span>}
+                  </td>
+                  <td style={{ ...as.td, minWidth: 120 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 6, background: "#f2f0eb", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ height: "100%", background: "linear-gradient(90deg,#1db882,#0284c7)", borderRadius: 3, width: `${Math.round((c.totalSpent / maxSpend) * 100)}%`, transition: "width .4s" }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", minWidth: 34, textAlign: "right" }}>
+                        {totalPlatformSpend > 0 ? `${((c.totalSpent / totalPlatformSpend) * 100).toFixed(1)}%` : "0%"}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+
+                {/* Expanded detail row */}
+                {expanded === c.id && (
+                  <tr key={`${c.id}-detail`} style={{ background: "#f8f7f4" }}>
+                    <td colSpan={8} style={{ padding: "16px 20px", borderBottom: "2px solid #e8e4dc" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                        {/* Category breakdown */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
+                            Spend by Category
+                          </div>
+                          {Object.keys(c.categorySpending || {}).length === 0
+                            ? <div style={{ fontSize: 13, color: "rgba(13,13,13,0.35)" }}>No category data</div>
+                            : (() => {
+                                const maxCat = Math.max(...Object.values(c.categorySpending), 1);
+                                return Object.entries(c.categorySpending)
+                                  .sort(([, a], [, b]) => b - a)
+                                  .map(([cat, amt]) => (
+                                    <div key={cat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
+                                      <span style={{ fontSize: 12, minWidth: 110, color: "#0d0d0d" }}>{cat}</span>
+                                      <div style={{ flex: 1, height: 7, background: "#e8e4dc", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{ height: "100%", background: "linear-gradient(90deg,#d4a017,#e84c3c)", borderRadius: 4, width: `${Math.round((amt / maxCat) * 100)}%` }} />
+                                      </div>
+                                      <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 64, textAlign: "right" }}>{fmt(amt)}</span>
+                                    </div>
+                                  ));
+                              })()
+                          }
+                        </div>
+
+                        {/* Monthly spend */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
+                            Monthly Spend (This Year)
+                          </div>
+                          {Object.keys(c.monthlySpending || {}).length === 0
+                            ? <div style={{ fontSize: 13, color: "rgba(13,13,13,0.35)" }}>No orders this year</div>
+                            : (() => {
+                                const maxMo = Math.max(...Object.values(c.monthlySpending), 1);
+                                return Object.entries(c.monthlySpending)
+                                  .filter(([, amt]) => amt > 0)
+                                  .map(([ym, amt]) => {
+                                    const [yr, mo] = ym.split("-");
+                                    const label = new Date(Number(yr), Number(mo) - 1).toLocaleString("en-IN", { month: "short" });
+                                    return (
+                                      <div key={ym} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
+                                        <span style={{ fontSize: 12, minWidth: 36, color: "#0d0d0d" }}>{label}</span>
+                                        <div style={{ flex: 1, height: 7, background: "#e8e4dc", borderRadius: 4, overflow: "hidden" }}>
+                                          <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round((amt / maxMo) * 100)}%` }} />
+                                        </div>
+                                        <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", minWidth: 64, textAlign: "right" }}>{fmt(amt)}</span>
+                                      </div>
+                                    );
+                                  });
+                              })()
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            ))}
+          </tbody>
+        </table>
+        {filtered.length === 0 && <div style={as.empty}>No customers match "{q}"</div>}
+      </div>
     </div>
   );
 }
@@ -797,6 +1133,12 @@ function UserSearch({ api, showToast }) {
   const [filter, setFilter] = useState("all");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [roleModal, setRoleModal] = useState(null); // { user, newRole }
+  const [roleChanging, setRoleChanging] = useState(false);
+
+  const roleColor = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
+  const roleBg    = { ADMIN: "#f5f3ff", ORDER_MANAGER: "#eff6ff", CUSTOMER: "#f0fdf4" };
+  const ROLES     = ["CUSTOMER", "ORDER_MANAGER", "ADMIN"];
 
   const search = async () => {
     if (!q.trim()) return;
@@ -807,34 +1149,162 @@ function UserSearch({ api, showToast }) {
     setLoading(false);
   };
 
+  const confirmRoleChange = async () => {
+    if (!roleModal) return;
+    setRoleChanging(true);
+    try {
+      const d = await api(`/admin/users/${roleModal.user.id}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: roleModal.newRole }),
+      });
+      if (d.success) {
+        setResults(prev =>
+          prev.map(u => u.id === roleModal.user.id && u.type === "customer"
+            ? { ...u, role: roleModal.newRole }
+            : u)
+        );
+        showToast(`✓ ${roleModal.user.name || "User"}'s role set to ${roleModal.newRole}`);
+      } else {
+        showToast(d.message || d.error || "Role update failed");
+      }
+    } catch { showToast("Role update failed"); }
+    setRoleChanging(false);
+    setRoleModal(null);
+  };
+
   return (
     <div>
       <h2 style={as.pageTitle}>Search Users 👥</h2>
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <input style={{ ...as.searchInput, flex: 1 }} placeholder="Search by name, email, or mobile…" value={q}
-          onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} />
+        <input
+          style={{ ...as.searchInput, flex: 1 }}
+          placeholder="Search by name or email…"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && search()}
+        />
         <select style={as.statusSelect} value={filter} onChange={e => setFilter(e.target.value)}>
           <option value="all">All Users</option>
           <option value="customer">Customers</option>
           <option value="vendor">Vendors</option>
           <option value="delivery">Delivery</option>
         </select>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={search} disabled={loading}>{loading ? "Searching…" : "Search"}</button>
+        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={search} disabled={loading}>
+          {loading ? "Searching…" : "Search"}
+        </button>
       </div>
+
       {results.length > 0 && (
-        <AdminTable
-          cols={["ID","Name","Email","Mobile","Type","Verified","Active"]}
-          rows={results.map(u => [
-            `#${u.id}`, u.name, u.email, u.mobile,
-            <span style={{ ...as.badge, background: "#f2f0eb", color: "rgba(13,13,13,0.7)" }}>{u.type || u.role || "—"}</span>,
-            <span style={{ color: u.verified ? "#1db882" : "#e84c3c" }}>{u.verified ? "✓" : "✗"}</span>,
-            <span style={{ ...as.badge, background: u.active !== false ? "#e8f9f2" : "#fef2f2", color: u.active !== false ? "#1db882" : "#e84c3c" }}>{u.active !== false ? "Active" : "Inactive"}</span>
-          ])}
-          empty="No users found"
-        />
+        <div style={as.tableWrap}>
+          <table style={as.table}>
+            <thead style={as.thead}>
+              <tr>
+                {["ID","Name","Email","Type","Role / Details","Verified","Active"].map(h => (
+                  <th key={h} style={as.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((u, i) => {
+                const isCustomer = u.type === "customer";
+                const currentRole = u.role || "CUSTOMER";
+                return (
+                  <tr key={i} style={as.tr}>
+                    <td style={as.td}>#{u.id}</td>
+                    <td style={{ ...as.td, fontWeight: 600 }}>{u.name}</td>
+                    <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{u.email}</td>
+                    <td style={as.td}>
+                      <span style={{ ...as.badge, background: "#f2f0eb", color: "rgba(13,13,13,0.7)", textTransform: "capitalize" }}>
+                        {(u.type || "—").replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td style={as.td}>
+                      {isCustomer ? (
+                        /* Customers carry the Role enum — show editable select */
+                        <select
+                          style={{ ...as.statusSelect, minWidth: 130,
+                            background: roleBg[currentRole] || "#f2f0eb",
+                            color: roleColor[currentRole] || "#0d0d0d",
+                            fontWeight: 700, border: "1px solid #e8e4dc" }}
+                          value={currentRole}
+                          onChange={e => {
+                            if (e.target.value !== currentRole)
+                              setRoleModal({ user: { ...u, role: currentRole }, newRole: e.target.value });
+                          }}
+                        >
+                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      ) : (
+                        /* Vendors / delivery boys — show descriptive info instead */
+                        <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 12 }}>
+                          {u.vendorCode ? `Code: ${u.vendorCode}` :
+                           u.deliveryBoyCode ? `Code: ${u.deliveryBoyCode}` : "—"}
+                        </span>
+                      )}
+                    </td>
+                    <td style={as.td}>
+                      <span style={{ color: u.verified ? "#1db882" : "#e84c3c" }}>
+                        {u.verified ? "✓" : "✗"}
+                      </span>
+                    </td>
+                    <td style={as.td}>
+                      {u.active !== undefined ? (
+                        <span style={{ ...as.badge, background: u.active ? "#e8f9f2" : "#fef2f2", color: u.active ? "#1db882" : "#e84c3c" }}>
+                          {u.active ? "Active" : "Inactive"}
+                        </span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
-      {results.length === 0 && q && !loading && <div style={as.empty}>No results for "{q}"</div>}
-      {!q && <div style={as.empty}>Enter a name, email, or mobile to search</div>}
+
+      {results.length === 0 && q && !loading && (
+        <div style={as.empty}>No results for "{q}"</div>
+      )}
+      {!q && (
+        <div style={as.empty}>Enter a name or email to search</div>
+      )}
+
+      {/* Role change confirmation modal */}
+      {roleModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: roleBg[roleModal.newRole] || "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 16px" }}>
+              {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
+            </div>
+            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
+              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" :
+               roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?"}
+            </h3>
+            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
+              Set <strong>{roleModal.user.name || roleModal.user.email}</strong>'s role from{" "}
+              <strong style={{ color: roleColor[roleModal.user.role] }}>{roleModal.user.role}</strong>{" "}
+              to <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
+              {roleModal.newRole === "ADMIN" && " This grants full platform access."}
+              {roleModal.user.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose admin access."}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>
+                Cancel
+              </button>
+              <button
+                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.user.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
+                  color: "#fff" }}
+                onClick={confirmRoleChange}
+                disabled={roleChanging}
+              >
+                {roleChanging ? "Updating…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1524,22 +1994,50 @@ function PoliciesAdmin({ policies = [], onCreate, onUpdate, onDelete }) {
 
 /* ── Security Admin ── */
 function SecurityAdmin() {
+  // ── Password change state ──
   const [current, setCurrent] = useState("");
   const [npass, setNpass] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
-  const submit = async () => {
+  // ── User / role management state ──
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [searchQ, setSearchQ] = useState("");
+  const [roleModal, setRoleModal] = useState(null); // { user, newRole }
+  const [roleChanging, setRoleChanging] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = m => { setToast(m); setTimeout(() => setToast(""), 3200); };
+
+  // ── Fetch all users on mount — uses /api/flutter/admin/users (JWT, returns role field) ──
+  useEffect(() => {
+    (async () => {
+      setUsersLoading(true);
+      try {
+        const res = await fetch("/api/flutter/admin/users", {
+          headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
+        });
+        const d = await res.json();
+        // /api/flutter/admin/users returns { success, customers: [...], vendors: [...] }
+        if (d.success) setUsers(d.customers || []);
+        else if (Array.isArray(d)) setUsers(d);
+      } catch { showToast("Could not load user list"); }
+      setUsersLoading(false);
+    })();
+  }, []);
+
+  // ── Derived counts from user list ──
+  const roleCount = role => users.filter(u => u.role === role).length;
+
+  // ── Password submit ──
+  const submitPassword = async () => {
     if (!current || !npass || !confirm) { setMsg("Please fill all fields"); return; }
-    setLoading(true);
+    if (npass !== confirm) { setMsg("New passwords do not match"); return; }
+    if (npass.length < 6) { setMsg("Password must be at least 6 characters"); return; }
+    setPwLoading(true);
     try {
-      // Fix: /update-admin-password is a Thymeleaf form endpoint that checks
-      // HttpSession("admin") — always null in a stateless JWT admin session —
-      // so it redirects to /admin/login instead of changing the password.
-      // The new /api/flutter/admin/change-password endpoint is session-free,
-      // validates against the live in-memory adminPassword, persists to .env,
-      // and updates the in-memory field immediately without a restart.
       const res = await fetch("/api/flutter/admin/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}` },
@@ -1552,43 +2050,261 @@ function SecurityAdmin() {
       } else {
         setMsg(d.message || "Failed to change password");
       }
-    } catch (e) { setMsg("Request failed"); }
-    setLoading(false);
+    } catch { setMsg("Request failed"); }
+    setPwLoading(false);
   };
 
-  const logoutNow = () => {
-    // navigate to backend logout which invalidates the session
-    window.location.href = "/admin/logout";
+  // ── Role change (confirmed) — uses /api/flutter/admin/users/{id}/role (JWT) ──
+  const confirmRoleChange = async () => {
+    if (!roleModal) return;
+    setRoleChanging(true);
+    try {
+      const res = await fetch(`/api/flutter/admin/users/${roleModal.user.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
+        body: JSON.stringify({ role: roleModal.newRole }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setUsers(prev => prev.map(u => u.id === roleModal.user.id ? { ...u, role: roleModal.newRole } : u));
+        showToast(`✓ ${roleModal.user.name || "User"}'s role updated to ${roleModal.newRole}`);
+      } else {
+        showToast(d.message || d.error || "Role update failed");
+      }
+    } catch { showToast("Role update failed"); }
+    setRoleChanging(false);
+    setRoleModal(null);
   };
+
+  // ── Filtered user list ──
+  const filteredUsers = users.filter(u => {
+    const q = searchQ.toLowerCase();
+    return !q || (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
+  });
+
+  const roleColor  = { ADMIN: "#7c3aed", ORDER_MANAGER: "#2563eb", CUSTOMER: "#16a34a" };
+  const roleBg     = { ADMIN: "#f5f3ff", ORDER_MANAGER: "#eff6ff", CUSTOMER: "#f0fdf4" };
+  const providerIcon = p => p === "google" ? "🔵" : p === "github" ? "⚫" : "✉️";
+
+  const secStat = (icon, label, value, color) => (
+    <div key={label} style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 20, textAlign: "center" }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 10px" }}>{icon}</div>
+      <div style={{ fontSize: 26, fontWeight: 900, color: "#0d0d0d" }}>{value}</div>
+      <div style={{ color: "rgba(13,13,13,0.45)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 3 }}>{label}</div>
+    </div>
+  );
+
+  const permCard = (icon, title, subtitle, color, perms, routes) => (
+    <div key={title} style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{icon}</div>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14, color: "#0d0d0d" }}>{title}</div>
+          <div style={{ fontSize: 12, color: "rgba(13,13,13,0.45)" }}>{subtitle}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+        {perms.map(([allowed, text]) => (
+          <div key={text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: allowed ? "#0d0d0d" : "rgba(13,13,13,0.35)" }}>
+            <span style={{ color: allowed ? "#16a34a" : "#e84c3c", fontWeight: 700 }}>{allowed ? "✓" : "✗"}</span>
+            {text}
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "#f2f0eb", borderRadius: 8, padding: "8px 10px" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(13,13,13,0.4)", marginBottom: 6 }}>Protected Routes</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {routes.map(r => (
+            <span key={r} style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 5, padding: "2px 7px", fontSize: 11, fontFamily: "monospace", color: "#0d0d0d" }}>{r}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
+      {toast && <div style={as.toast}>{toast}</div>}
+
       <h2 style={as.pageTitle}>Security Settings 🔐</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16 }}>
-        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 12, padding: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Change Admin Password</h3>
+      {/* ── User role stats ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
+        {secStat("👥", "Total Users",      users.length,               "#6366f1")}
+        {secStat("👑", "Admins",           roleCount("ADMIN"),         "#7c3aed")}
+        {secStat("📋", "Order Managers",   roleCount("ORDER_MANAGER"), "#2563eb")}
+        {secStat("🛍️", "Customers",        roleCount("CUSTOMER"),      "#16a34a")}
+      </div>
+
+      {/* ── Password + Session row ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, marginBottom: 28 }}>
+        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 22 }}>
+          <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 700 }}>Change Admin Password</h3>
           <label style={as.label}>Current Password</label>
-          <input style={as.inputFull} type="password" value={current} onChange={e => setCurrent(e.target.value)} />
+          <input style={{ ...as.inputFull, marginBottom: 12 }} type="password" value={current} onChange={e => setCurrent(e.target.value)} />
           <label style={as.label}>New Password</label>
-          <input style={as.inputFull} type="password" value={npass} onChange={e => setNpass(e.target.value)} />
+          <input style={{ ...as.inputFull, marginBottom: 12 }} type="password" value={npass} onChange={e => setNpass(e.target.value)} />
           <label style={as.label}>Confirm New Password</label>
-          <input style={as.inputFull} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+          <input style={{ ...as.inputFull, marginBottom: 14 }} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button style={as.filterBtn} onClick={() => { setCurrent(""); setNpass(""); setConfirm(""); setMsg(""); }}>Clear</button>
-            <button style={as.approveBtn} onClick={submit} disabled={loading}>{loading ? "Submitting…" : "Change Password"}</button>
+            <button style={as.approveBtn} onClick={submitPassword} disabled={pwLoading}>{pwLoading ? "Submitting…" : "Change Password"}</button>
           </div>
-          {msg && <div style={{ marginTop: 12, color: "#0d0d0d" }}>{msg}</div>}
+          {msg && <div style={{ marginTop: 12, fontSize: 13, color: msg.startsWith("✓") ? "#16a34a" : "#e84c3c" }}>{msg}</div>}
         </div>
 
-        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 12, padding: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Session</h3>
-          <p style={{ color: "rgba(13,13,13,0.6)" }}>Invalidate your current admin session (logs you out).</p>
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <button style={{ ...as.rejectBtn }} onClick={logoutNow}>Logout Now</button>
-          </div>
+        <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 22 }}>
+          <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 700 }}>Session</h3>
+          <p style={{ color: "rgba(13,13,13,0.55)", fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+            Invalidate your current admin session. You will be redirected to the login page immediately.
+          </p>
+          <button style={{ ...as.rejectBtn, width: "100%", justifyContent: "center", display: "flex" }}
+            onClick={() => { window.location.href = "/admin/logout"; }}>
+            🚪 Logout Now
+          </button>
         </div>
       </div>
+
+      {/* ── Role Permissions Matrix ── */}
+      <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 22, marginBottom: 28 }}>
+        <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>Role Permissions Matrix</h3>
+        <p style={{ color: "rgba(13,13,13,0.45)", fontSize: 12, marginBottom: 20 }}>
+          Access permissions for each role. Use as a reference when assigning roles below.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          {permCard("👑", "ADMIN", "Full System Access", "#7c3aed", [
+            [true,  "Manage all users & vendors"],
+            [true,  "Approve / reject products"],
+            [true,  "Content management (banners)"],
+            [true,  "Process refunds & returns"],
+            [true,  "RBAC / Security settings"],
+            [true,  "View platform analytics"],
+          ], ["/admin/*", "/approve-products", "/admin/refunds", "/admin/security"])}
+
+          {permCard("📋", "ORDER_MANAGER", "Order Operations", "#2563eb", [
+            [true,  "View all orders"],
+            [true,  "Update order status"],
+            [true,  "Track shipments"],
+            [true,  "Handle cancellations"],
+            [false, "No admin panel access"],
+            [false, "Cannot manage users"],
+          ], ["/orders/*", "/track-order/*", "/cancel-order/*"])}
+
+          {permCard("🛍️", "CUSTOMER", "Standard User", "#16a34a", [
+            [true,  "Browse & search products"],
+            [true,  "Add to cart & checkout"],
+            [true,  "View own order history"],
+            [true,  "Manage addresses"],
+            [false, "No admin access"],
+            [false, "No order management"],
+          ], ["/customer/*", "/cart", "/checkout"])}
+        </div>
+      </div>
+
+      {/* ── User Role Management ── */}
+      <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>User Role Management</h3>
+          <span style={{ fontSize: 12, color: "rgba(13,13,13,0.4)" }}>{users.length} registered users</span>
+        </div>
+
+        <input
+          style={{ ...as.searchInput, marginBottom: 16 }}
+          placeholder="Search by name or email…"
+          value={searchQ}
+          onChange={e => setSearchQ(e.target.value)}
+        />
+
+        {usersLoading ? (
+          <div style={as.empty}>Loading users…</div>
+        ) : filteredUsers.length === 0 ? (
+          <div style={as.empty}>{searchQ ? "No users match that search." : "No users registered yet."}</div>
+        ) : (
+          <div style={as.tableWrap}>
+            <table style={as.table}>
+              <thead style={as.thead}>
+                <tr>
+                  {["User", "Email", "Sign-in", "Verified", "Current Role", "Change Role"].map(h => (
+                    <th key={h} style={as.th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map(u => (
+                  <tr key={u.id} style={as.tr}>
+                    <td style={as.td}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: (roleColor[u.role] || "#6b7280") + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: roleColor[u.role] || "#6b7280" }}>
+                          {(u.name || "?")[0].toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{u.name || "Unnamed"}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...as.td, color: "rgba(13,13,13,0.55)" }}>{u.email}</td>
+                    <td style={as.td}>
+                      <span title={u.provider || "email"}>{providerIcon(u.provider)} {u.provider ? u.provider.charAt(0).toUpperCase() + u.provider.slice(1) : "Email"}</span>
+                    </td>
+                    <td style={as.td}>
+                      {u.verified
+                        ? <span style={{ ...as.badge, background: "#f0fdf4", color: "#16a34a" }}>✓ Verified</span>
+                        : <span style={{ ...as.badge, background: "#fef9c3", color: "#a16207" }}>Unverified</span>}
+                    </td>
+                    <td style={as.td}>
+                      <span style={{ ...as.badge, background: roleBg[u.role] || "#f2f0eb", color: roleColor[u.role] || "#6b7280" }}>{u.role}</span>
+                    </td>
+                    <td style={as.td}>
+                      <select
+                        style={{ ...as.statusSelect, minWidth: 140 }}
+                        value={u.role}
+                        onChange={e => {
+                          if (e.target.value !== u.role) setRoleModal({ user: u, newRole: e.target.value });
+                          else e.target.value = u.role; // reset if same
+                        }}
+                      >
+                        {["CUSTOMER", "ORDER_MANAGER", "ADMIN"].map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Role change confirmation modal ── */}
+      {roleModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setRoleModal(null); }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: roleModal.newRole === "ADMIN" ? "#f5f3ff" : roleModal.newRole === "ORDER_MANAGER" ? "#eff6ff" : "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>
+              {roleModal.newRole === "ADMIN" ? "👑" : roleModal.newRole === "ORDER_MANAGER" ? "📋" : "🛍️"}
+            </div>
+            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 17, fontWeight: 800 }}>
+              {roleModal.newRole === "ADMIN" ? "Grant Admin Access?" : roleModal.user.role === "ADMIN" ? "Revoke Admin Access?" : "Change Role?"}
+            </h3>
+            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
+              Change <strong>{roleModal.user.name || roleModal.user.email}</strong> from{" "}
+              <strong style={{ color: roleColor[roleModal.user.role] }}>{roleModal.user.role}</strong> to{" "}
+              <strong style={{ color: roleColor[roleModal.newRole] }}>{roleModal.newRole}</strong>?
+              {roleModal.newRole === "ADMIN" && " This grants full platform access."}
+              {roleModal.user.role === "ADMIN" && roleModal.newRole !== "ADMIN" && " They will immediately lose all /admin/* access."}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setRoleModal(null)} disabled={roleChanging}>Cancel</button>
+              <button
+                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.user.role === "ADMIN" ? "#e84c3c" : "#0d0d0d", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}
+                onClick={confirmRoleChange}
+                disabled={roleChanging}
+              >
+                {roleChanging ? "Updating…" : "Confirm Change"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
