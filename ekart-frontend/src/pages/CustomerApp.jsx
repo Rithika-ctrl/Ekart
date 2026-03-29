@@ -484,7 +484,7 @@ export default function CustomerApp() {
       {page === "home" && <HomePage products={products} categories={categories} onShop={() => setPage("products")}
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading}
-        recentlyViewedProducts={recentlyViewedProducts} />}
+        recentlyViewedProducts={recentlyViewedProducts} api={api} />}
 
       {page === "search" && <SearchPage categories={categories} api={api}
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
@@ -599,95 +599,208 @@ export default function CustomerApp() {
 function BannerCarousel({ banners }) {
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState({});
+  const [dragStart, setDragStart] = useState(null);
+  const intervalRef = useRef(null);
+  const INTERVAL_MS = 4500;
 
+  // Auto-advance
   useEffect(() => {
-    if (banners.length <= 1 || paused) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % banners.length), 4000);
-    return () => clearInterval(t);
+    if (banners.length <= 1 || paused) { clearInterval(intervalRef.current); return; }
+    intervalRef.current = setInterval(() => setIdx(i => (i + 1) % banners.length), INTERVAL_MS);
+    return () => clearInterval(intervalRef.current);
   }, [banners.length, paused]);
 
   if (!banners || banners.length === 0) return null;
 
-  const prev = () => setIdx(i => (i - 1 + banners.length) % banners.length);
-  const next = () => setIdx(i => (i + 1) % banners.length);
+  const goTo = (i) => {
+    clearInterval(intervalRef.current);
+    setIdx(i);
+  };
+  const prev = () => goTo((idx - 1 + banners.length) % banners.length);
+  const next = () => goTo((idx + 1) % banners.length);
   const b = banners[idx];
+
+  // Touch / mouse drag to swipe
+  const onDragStart = (e) => setDragStart(e.touches ? e.touches[0].clientX : e.clientX);
+  const onDragEnd = (e) => {
+    if (dragStart === null) return;
+    const end = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const delta = dragStart - end;
+    if (Math.abs(delta) > 50) delta > 0 ? next() : prev();
+    setDragStart(null);
+  };
+
+  // Progress bar width
+  const progress = paused ? 0 : 100;
 
   return (
     <div
-      style={cs.carouselWrap}
+      style={{ ...cs.carouselWrap, cursor: "grab", userSelect: "none" }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onMouseDown={onDragStart}
+      onMouseUp={onDragEnd}
+      onTouchStart={onDragStart}
+      onTouchEnd={onDragEnd}
     >
-      {/* Slide */}
+      {/* Progress bar */}
+      {banners.length > 1 && !paused && (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, zIndex: 10, background: "rgba(255,255,255,0.15)" }}>
+          <div
+            key={idx}
+            style={{
+              height: "100%", background: "linear-gradient(90deg, #6366f1, #a5b4fc)",
+              animation: `ekart-progress ${INTERVAL_MS}ms linear`,
+              width: "100%", transformOrigin: "left",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Slide — crossfade transition */}
       <a
         href={b.linkUrl || undefined}
         target={b.linkUrl ? "_blank" : undefined}
         rel="noopener noreferrer"
-        style={{ display: "block", textDecoration: "none" }}
+        style={{ display: "block", textDecoration: "none", position: "relative" }}
+        onClick={e => dragStart !== null && Math.abs(dragStart) > 5 && e.preventDefault()}
       >
+        {/* Skeleton placeholder while image loads */}
+        {!imgLoaded[b.id] && (
+          <div style={{
+            ...cs.carouselImg,
+            background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
+            backgroundSize: "200% 100%",
+            animation: "ekart-shimmer 1.5s infinite",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{ fontSize: 40, opacity: 0.3 }}>🖼️</span>
+          </div>
+        )}
         <img
           key={b.id}
           src={b.imageUrl}
           alt={b.title || "Banner"}
-          style={cs.carouselImg}
-          onError={e => { e.target.style.display = "none"; }}
+          style={{
+            ...cs.carouselImg,
+            opacity: imgLoaded[b.id] ? 1 : 0,
+            transition: "opacity 0.4s ease",
+            display: imgLoaded[b.id] === false ? "none" : "block",
+          }}
+          onLoad={() => setImgLoaded(m => ({ ...m, [b.id]: true }))}
+          onError={() => setImgLoaded(m => ({ ...m, [b.id]: false }))}
+          draggable={false}
         />
-        {b.title && (
-          <div style={cs.carouselCaption}>{b.title}</div>
+        {/* Caption overlay with gradient */}
+        {b.title && imgLoaded[b.id] && (
+          <div style={cs.carouselCaption}>
+            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{b.title}</div>
+            {b.linkUrl && (
+              <div style={{ fontSize: 12, opacity: 0.8, display: "flex", alignItems: "center", gap: 4 }}>
+                Shop now →
+              </div>
+            )}
+          </div>
         )}
       </a>
 
-      {/* Prev / Next arrows — only show when >1 banner */}
+      {/* Prev / Next arrows */}
       {banners.length > 1 && (
         <>
-          <button style={{ ...cs.carouselArrow, left: 14 }} onClick={e => { e.preventDefault(); prev(); }} aria-label="Previous">‹</button>
-          <button style={{ ...cs.carouselArrow, right: 14 }} onClick={e => { e.preventDefault(); next(); }} aria-label="Next">›</button>
+          <button
+            style={{ ...cs.carouselArrow, left: 14, opacity: paused ? 1 : 0.7, transition: "opacity 0.2s" }}
+            onClick={e => { e.preventDefault(); prev(); }}
+            aria-label="Previous slide"
+          >‹</button>
+          <button
+            style={{ ...cs.carouselArrow, right: 14, opacity: paused ? 1 : 0.7, transition: "opacity 0.2s" }}
+            onClick={e => { e.preventDefault(); next(); }}
+            aria-label="Next slide"
+          >›</button>
 
-          {/* Dot indicators */}
-          <div style={cs.carouselDots}>
+          {/* Dot + counter row */}
+          <div style={{ ...cs.carouselDots, gap: 8, alignItems: "center" }}>
             {banners.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setIdx(i)}
-                style={{ ...cs.carouselDot, ...(i === idx ? cs.carouselDotActive : {}) }}
+                onClick={() => goTo(i)}
+                style={{
+                  ...cs.carouselDot,
+                  ...(i === idx ? { ...cs.carouselDotActive, width: 24, borderRadius: 4 } : {}),
+                  transition: "all 0.25s ease",
+                }}
                 aria-label={`Go to slide ${i + 1}`}
               />
             ))}
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginLeft: 4, fontVariantNumeric: "tabular-nums" }}>
+              {idx + 1}/{banners.length}
+            </span>
           </div>
         </>
       )}
+
+      {/* Keyframe CSS */}
+      <style>{`
+        @keyframes ekart-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        @keyframes ekart-shimmer  { 0%,100% { background-position: 200% 0; } 50% { background-position: -200% 0; } }
+      `}</style>
     </div>
   );
 }
 
-function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading, recentlyViewedProducts }) {
+function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading, recentlyViewedProducts, api }) {
   const { auth } = useAuth();
   const [banners, setBanners] = useState([]);
+  const [bannersLoading, setBannersLoading] = useState(true);
 
   useEffect(() => {
-    const endpoint = auth ? "/api/banners" : "/api/home-banners";
-    fetch(endpoint)
-      .then(r => r.json())
-      .then(d => { if (d.success && Array.isArray(d.banners)) setBanners(d.banners); })
-      .catch(() => {});
-  }, [auth]);
+    setBannersLoading(true);
+    // Use apiFetch so auth headers are included; path is relative to /api/flutter/
+    const path = auth ? "/banners" : "/home-banners";
+    // For guests api may be null — fall back to raw fetch against /api/flutter/
+    const fetcher = api
+      ? api(path)
+      : fetch(`/api/flutter${path}`).then(r => r.json());
+    fetcher
+      .then(d => { if (d && d.success && Array.isArray(d.banners)) setBanners(d.banners); })
+      .catch(() => {})
+      .finally(() => setBannersLoading(false));
+  }, [auth?.id]);   // re-fetch when login state changes (guest → customer)
 
   return (
     <div>
-      {/* Banner carousel — shown above the hero when banners are available */}
-      {banners.length > 0
-        ? <BannerCarousel banners={banners} />
-        : (
-          <div style={cs.hero}>
-            <div>
-              <h1 style={cs.heroTitle}>Shop Everything<br /><span style={cs.heroAccent}>You Love</span></h1>
-              <p style={cs.heroSub}>Discover thousands of products from trusted vendors across India</p>
-              <button style={cs.heroCta} onClick={onShop}>Explore Products →</button>
-            </div>
-            <div style={cs.heroIllus}>🛍️</div>
+      {/* ── Banner carousel ── */}
+      {bannersLoading && (
+        <div style={{
+          ...cs.carouselWrap,
+          height: 360,
+          background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%)",
+          backgroundSize: "200% 100%",
+          animation: "ekart-shimmer 1.5s infinite",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{ fontSize: 40, opacity: 0.2 }}>🖼️</span>
+        </div>
+      )}
+      {!bannersLoading && banners.length > 0 && <BannerCarousel banners={banners} />}
+
+      {/* ── Static hero — always shown below carousel (or alone if no banners) ── */}
+      {!bannersLoading && banners.length === 0 && (
+        <div style={cs.hero}>
+          <div>
+            <h1 style={cs.heroTitle}>Shop Everything<br /><span style={cs.heroAccent}>You Love</span></h1>
+            <p style={cs.heroSub}>Discover thousands of products from trusted vendors across India</p>
+            <button style={cs.heroCta} onClick={onShop}>Explore Products →</button>
           </div>
-        )
-      }
+          <div style={cs.heroIllus}>🛍️</div>
+        </div>
+      )}
+      {!bannersLoading && banners.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 32, marginTop: -8 }}>
+          <button style={cs.heroCta} onClick={onShop}>Explore Products →</button>
+        </div>
+      )}
       {recentlyViewedProducts && recentlyViewedProducts.length > 0 && (
         <section style={cs.section}>
           <h2 style={cs.secTitle}>Recently Viewed</h2>
@@ -728,6 +841,20 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
 }
 
 /* ── Search Page ── */
+/* ── Highlight matching text in suggestion names ── */
+function HighlightMatch({ text, query }) {
+  if (!query || !text) return <span>{text}</span>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <span>{text}</span>;
+  return (
+    <span>
+      {text.slice(0, idx)}
+      <span style={{ color: "#a5b4fc", fontWeight: 800 }}>{text.slice(idx, idx + query.length)}</span>
+      {text.slice(idx + query.length)}
+    </span>
+  );
+}
+
 function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading }) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("");
@@ -738,11 +865,24 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggLoading, setSuggLoading] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
   const [fuzzySuggestion, setFuzzySuggestion] = useState("");
+  const [fuzzyResults, setFuzzyResults] = useState([]);
+  const [fuzzyLoading, setFuzzyLoading] = useState(false);
+  const inputRef = useRef(null);
+  const wrapperRef = useRef(null);
 
-  const doSearch = async (overrideQuery) => {
+  const doSearch = async (overrideQuery, { isFuzzyRetry = false } = {}) => {
     const q = overrideQuery !== undefined ? overrideQuery : query;
-    setLoading(true); setSearched(true); setFuzzySuggestion("");
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setActiveIdx(-1);
+    setLoading(true);
+    setSearched(true);
+    if (!isFuzzyRetry) setFuzzySuggestion("");
+    setFuzzyLoading(false);
+
     const params = [];
     if (q) params.push(`search=${encodeURIComponent(q)}`);
     if (cat) params.push(`category=${encodeURIComponent(cat)}`);
@@ -752,24 +892,48 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
     const d = await api(path);
     const found = d.success ? (d.products || []) : [];
     setResults(found);
+    setLoading(false);
 
-    // If no results and there's a query, try fuzzy spelling correction
-    if (found.length === 0 && q && q.trim().length >= 2) {
+    // Zero results + has a query → call fuzzy endpoint for spelling correction
+    if (found.length === 0 && q && q.trim().length >= 2 && !isFuzzyRetry) {
+      setFuzzyLoading(true);
       try {
         const res = await fetch(`/api/search/fuzzy?q=${encodeURIComponent(q.trim())}`);
         const data = await res.json();
-        if (data && data.suggestion && data.suggestion.trim().length > 0) {
-          setFuzzySuggestion(data.suggestion.trim());
+        const suggestion = data?.suggestion?.trim();
+        if (suggestion && suggestion.length > 0) {
+          setFuzzySuggestion(suggestion);
+          // Auto-run the corrected search silently in the background
+          const correctedParams = [`search=${encodeURIComponent(suggestion)}`];
+          if (cat) correctedParams.push(`category=${encodeURIComponent(cat)}`);
+          if (minPrice) correctedParams.push(`minPrice=${minPrice}`);
+          if (maxPrice) correctedParams.push(`maxPrice=${maxPrice}`);
+          const correctedPath = "/products?" + correctedParams.join("&");
+          const cd = await api(correctedPath);
+          const correctedFound = cd.success ? (cd.products || []) : [];
+          setFuzzyResults(correctedFound);
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) { /* ignore */ } finally {
+        setFuzzyLoading(false);
+      }
     }
-
-    setLoading(false);
   };
 
-  // Fetch autocomplete suggestions (debounced)
+  // User explicitly clicks "Did you mean X?" — swap to corrected query + results
+  const applyFuzzySuggestion = () => {
+    setQuery(fuzzySuggestion);
+    setResults(fuzzyResults);
+    setFuzzySuggestion("");
+    setFuzzyResults([]);
+    setFuzzyLoading(false);
+  };
+
+  // Fetch autocomplete suggestions (debounced 220ms)
   useEffect(() => {
-    if (!query || query.trim().length === 0) { setSuggestions([]); setShowSuggestions(false); return; }
+    if (!query || query.trim().length === 0) {
+      setSuggestions([]); setShowSuggestions(false); setSuggLoading(false); setActiveIdx(-1); return;
+    }
+    setSuggLoading(true);
     let active = true;
     const t = setTimeout(async () => {
       try {
@@ -777,44 +941,141 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
         const res = await fetch(`/api/search/suggestions?q=${q}`);
         const data = await res.json();
         if (!active) return;
-        if (Array.isArray(data)) { setSuggestions(data.slice(0, 8)); setShowSuggestions(true); }
-        else { setSuggestions([]); setShowSuggestions(false); }
-      } catch (e) { setSuggestions([]); setShowSuggestions(false); }
-    }, 250);
+        if (Array.isArray(data) && data.length > 0) {
+          setSuggestions(data.slice(0, 8));
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } catch (e) {
+        setSuggestions([]); setShowSuggestions(false);
+      } finally {
+        if (active) setSuggLoading(false);
+      }
+    }, 220);
     return () => { active = false; clearTimeout(t); };
   }, [query]);
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handle = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+        setActiveIdx(-1);
+      }
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
   const chooseSuggestion = (s) => {
-    setQuery(s.productName || "");
+    const name = s.productName || "";
+    setQuery(name);
     setShowSuggestions(false);
-    setTimeout(() => doSearch(s.productName || ""), 10);
+    setActiveIdx(-1);
+    setTimeout(() => doSearch(name), 10);
   };
 
-  const applyFuzzySuggestion = () => {
-    setQuery(fuzzySuggestion);
-    setFuzzySuggestion("");
-    doSearch(fuzzySuggestion);
+  // Keyboard navigation: up/down arrows + Enter + Escape
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === "Enter") doSearch();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx(i => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx(i => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIdx >= 0 && activeIdx < suggestions.length) {
+        chooseSuggestion(suggestions[activeIdx]);
+      } else {
+        doSearch();
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+      setActiveIdx(-1);
+    }
   };
+
+
 
   return (
     <div>
       <h2 style={cs.pageTitle}>Search Products 🔍</h2>
       <div style={cs.searchBox}>
-        <div style={{ position: "relative", flex: 2 }}>
-          <input style={{ ...cs.searchInput, width: "100%" }} placeholder="Search products, brands..." value={query}
-            onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && doSearch()}
-            onFocus={() => { if (suggestions.length) setShowSuggestions(true); }} />
+        <div ref={wrapperRef} style={{ position: "relative", flex: 2 }}>
+          <input
+            ref={inputRef}
+            style={{ ...cs.searchInput, width: "100%", paddingRight: suggLoading ? 36 : undefined }}
+            placeholder="Search products, brands..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setActiveIdx(-1); }}
+            onKeyDown={handleKeyDown}
+            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+            autoComplete="off"
+          />
+          {/* Loading spinner inside input */}
+          {suggLoading && (
+            <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+              <div style={{
+                width: 16, height: 16, border: "2px solid rgba(99,102,241,0.3)",
+                borderTopColor: "#6366f1", borderRadius: "50%",
+                animation: "ekart-spin 0.7s linear infinite"
+              }} />
+            </div>
+          )}
+          {/* Suggestion dropdown */}
           {showSuggestions && suggestions.length > 0 && (
-            <div style={cs.suggestionBox}>
+            <div style={{ ...cs.suggestionBox, maxHeight: 360, overflowY: "auto" }}>
+              <div style={{ padding: "6px 12px 4px", fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Suggestions
+              </div>
               {suggestions.map((s, i) => (
-                <div key={i} style={cs.suggestionItem} onMouseDown={() => chooseSuggestion(s)}>
-                  <img src={s.imageLink || ""} alt="" style={cs.suggestionImg} onError={e => e.target.style.display = "none"} />
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{s.productName}</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>{s.category}</div>
+                <div
+                  key={i}
+                  style={{
+                    ...cs.suggestionItem,
+                    background: i === activeIdx ? "rgba(99,102,241,0.15)" : "transparent",
+                    borderLeft: i === activeIdx ? "3px solid #6366f1" : "3px solid transparent",
+                    transition: "background 0.12s",
+                  }}
+                  onMouseDown={(e) => { e.preventDefault(); chooseSuggestion(s); }}
+                  onMouseEnter={() => setActiveIdx(i)}
+                >
+                  {s.imageLink ? (
+                    <img
+                      src={s.imageLink}
+                      alt=""
+                      style={cs.suggestionImg}
+                      onError={e => { e.target.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div style={{ ...cs.suggestionImg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: "rgba(99,102,241,0.1)" }}>
+                      🛍️
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: "#e5e7eb", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <HighlightMatch text={s.productName} query={query} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, marginTop: 2, textTransform: "uppercase" }}>
+                      {s.category}
+                    </div>
                   </div>
+                  <div style={{ fontSize: 11, color: "#4b5563", flexShrink: 0 }}>🔍</div>
                 </div>
               ))}
+              <div
+                style={{ padding: "8px 14px", fontSize: 12, color: "#6366f1", cursor: "pointer", fontWeight: 600, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 6 }}
+                onMouseDown={(e) => { e.preventDefault(); setShowSuggestions(false); doSearch(); }}
+              >
+                <span>🔍</span> Search for &ldquo;{query}&rdquo;
+              </div>
             </div>
           )}
         </div>
@@ -826,6 +1087,8 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Max ₹" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
         <button style={cs.searchBtn} onClick={() => doSearch()} disabled={loading}>{loading ? "..." : "Search"}</button>
       </div>
+      {/* CSS keyframe for spinner */}
+      <style>{`@keyframes ekart-spin { to { transform: translateY(-50%) rotate(360deg); } }`}</style>
       {searched && <p style={cs.resultCount}>{results.length} result{results.length !== 1 ? "s" : ""} found</p>}
       {results.length > 0 && (
         <div style={cs.productGrid}>
@@ -836,25 +1099,90 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
           ))}
         </div>
       )}
+      {/* Zero-results state — with fuzzy "Did you mean" + preview */}
       {searched && results.length === 0 && !loading && (
-        <div style={cs.empty}>
-          No products found 😕<br />
-          <span style={{ fontSize: 14 }}>Try different keywords or filters</span>
-          {fuzzySuggestion && (
-            <div style={{ marginTop: 12 }}>
-              <span style={{ fontSize: 14, color: "#9ca3af" }}>Did you mean: </span>
-              <button
-                onClick={applyFuzzySuggestion}
-                style={{ background: "none", border: "none", color: "#6366f1", fontWeight: 700, fontSize: 14, cursor: "pointer", textDecoration: "underline" }}
-              >
-                {fuzzySuggestion}
-              </button>
-              <span style={{ fontSize: 14, color: "#9ca3af" }}>?</span>
+        <div>
+          <div style={{ ...cs.empty, paddingBottom: 8 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>😕</div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: "#e5e7eb", marginBottom: 6 }}>
+              No results for &ldquo;{query}&rdquo;
+            </div>
+            <div style={{ fontSize: 14, color: "#6b7280" }}>Try different keywords, check spelling, or browse categories</div>
+          </div>
+
+          {/* Fuzzy loading state */}
+          {fuzzyLoading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "16px 0", color: "#9ca3af", fontSize: 14 }}>
+              <div style={{ width: 16, height: 16, border: "2px solid rgba(99,102,241,0.3)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "ekart-spin 0.7s linear infinite" }} />
+              Looking for spelling corrections…
+            </div>
+          )}
+
+          {/* "Did you mean" prompt + corrected results preview */}
+          {fuzzySuggestion && !fuzzyLoading && (
+            <div style={{ marginTop: 8 }}>
+              {/* Prompt banner */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+                background: "linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))",
+                border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14,
+                padding: "14px 20px", marginBottom: fuzzyResults.length > 0 ? 20 : 0,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>💡</span>
+                  <div>
+                    <span style={{ fontSize: 14, color: "#9ca3af" }}>Did you mean: </span>
+                    <button
+                      onClick={applyFuzzySuggestion}
+                      style={{
+                        background: "none", border: "none", color: "#a5b4fc",
+                        fontWeight: 800, fontSize: 16, cursor: "pointer",
+                        textDecoration: "underline", textUnderlineOffset: 3, padding: 0,
+                      }}
+                    >
+                      {fuzzySuggestion}
+                    </button>
+                    <span style={{ fontSize: 14, color: "#9ca3af" }}>?</span>
+                  </div>
+                </div>
+                <button
+                  onClick={applyFuzzySuggestion}
+                  style={{
+                    padding: "8px 20px", borderRadius: 10, border: "none",
+                    background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                    color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  }}
+                >
+                  Search &ldquo;{fuzzySuggestion}&rdquo;
+                </button>
+              </div>
+
+              {/* Corrected-results preview grid */}
+              {fuzzyResults.length > 0 && (
+                <div>
+                  <p style={{ ...cs.resultCount, marginBottom: 14 }}>
+                    Showing {fuzzyResults.length} result{fuzzyResults.length !== 1 ? "s" : ""} for &ldquo;{fuzzySuggestion}&rdquo;
+                  </p>
+                  <div style={cs.productGrid}>
+                    {fuzzyResults.map(p => (
+                      <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
+                        onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
+                        isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
-      {!searched && <div style={cs.empty}>Start typing to search 🔍</div>}
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "48px 0", color: "#6b7280", fontSize: 15 }}>
+          <div style={{ width: 20, height: 20, border: "2px solid rgba(99,102,241,0.3)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "ekart-spin 0.7s linear infinite" }} />
+          Searching…
+        </div>
+      )}
+      {!searched && !loading && <div style={cs.empty}>Start typing to search 🔍</div>}
     </div>
   );
 }
@@ -862,11 +1190,56 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
 /* ── Products Page ── */
 function ProductsPage({ products, categories, search, selectedCat, onSearch, onCat, onSelectProduct, onAddToCart, onToggleWishlist, wishlistIds, cartLoading }) {
   const [q, setQ] = useState(search);
+  const [fuzzySuggestion, setFuzzySuggestion] = useState("");
+  const [fuzzyResults, setFuzzyResults] = useState([]);
+  const [fuzzyLoading, setFuzzyLoading] = useState(false);
+  const prevSearchRef = useRef("");
+
+  // When products array changes to empty after a search, trigger fuzzy lookup
+  useEffect(() => {
+    const activeQuery = search || q;
+    if (products.length === 0 && activeQuery && activeQuery.trim().length >= 2 && activeQuery !== prevSearchRef.current) {
+      prevSearchRef.current = activeQuery;
+      setFuzzySuggestion("");
+      setFuzzyResults([]);
+      setFuzzyLoading(true);
+      fetch(`/api/search/fuzzy?q=${encodeURIComponent(activeQuery.trim())}`)
+        .then(r => r.json())
+        .then(async data => {
+          const suggestion = data?.suggestion?.trim();
+          if (suggestion && suggestion.length > 0) {
+            setFuzzySuggestion(suggestion);
+            // Pre-fetch corrected results
+            const res = await fetch(`/api/products?search=${encodeURIComponent(suggestion)}`);
+            const d = await res.json();
+            setFuzzyResults(d.success ? (d.products || []) : []);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setFuzzyLoading(false));
+    } else if (products.length > 0) {
+      // Clear fuzzy state when real results come in
+      prevSearchRef.current = "";
+      setFuzzySuggestion("");
+      setFuzzyResults([]);
+      setFuzzyLoading(false);
+    }
+  }, [products, search]);
+
+  const applyFuzzy = () => {
+    setQ(fuzzySuggestion);
+    onSearch(fuzzySuggestion);
+    setFuzzySuggestion("");
+    setFuzzyResults([]);
+  };
+
   return (
     <div>
       <h2 style={cs.pageTitle}>All Products</h2>
       <div style={cs.filterRow}>
-        <input style={cs.searchInput} placeholder="Search products..." value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && onSearch(q)} />
+        <input style={cs.searchInput} placeholder="Search products..." value={q}
+          onChange={e => { setQ(e.target.value); setFuzzySuggestion(""); setFuzzyResults([]); }}
+          onKeyDown={e => e.key === "Enter" && onSearch(q)} />
         <button style={cs.searchBtn} onClick={() => onSearch(q)}>Search</button>
         <select style={cs.select} value={selectedCat} onChange={e => onCat(e.target.value)}>
           <option value="">All Categories</option>
@@ -874,14 +1247,69 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         </select>
       </div>
       <p style={cs.resultCount}>{products.length} products found</p>
-      <div style={cs.productGrid}>
-        {products.map(p => (
-          <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
-            onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
-            isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
-        ))}
-      </div>
-      {products.length === 0 && <div style={cs.empty}>No products found 😕</div>}
+
+      {products.length > 0 && (
+        <div style={cs.productGrid}>
+          {products.map(p => (
+            <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
+              onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
+              isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
+          ))}
+        </div>
+      )}
+
+      {products.length === 0 && !fuzzyLoading && !fuzzySuggestion && (
+        <div style={cs.empty}>No products found 😕</div>
+      )}
+
+      {/* Fuzzy loading spinner */}
+      {products.length === 0 && fuzzyLoading && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "32px 0", color: "#9ca3af", fontSize: 14 }}>
+          <div style={{ width: 16, height: 16, border: "2px solid rgba(99,102,241,0.3)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "ekart-spin 0.7s linear infinite" }} />
+          Looking for spelling corrections…
+        </div>
+      )}
+
+      {/* "Did you mean" banner + corrected preview */}
+      {products.length === 0 && fuzzySuggestion && !fuzzyLoading && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+            background: "linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))",
+            border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14,
+            padding: "14px 20px", marginBottom: fuzzyResults.length > 0 ? 20 : 0,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>💡</span>
+              <div>
+                <span style={{ fontSize: 14, color: "#9ca3af" }}>Did you mean: </span>
+                <button onClick={applyFuzzy} style={{ background: "none", border: "none", color: "#a5b4fc", fontWeight: 800, fontSize: 16, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}>
+                  {fuzzySuggestion}
+                </button>
+                <span style={{ fontSize: 14, color: "#9ca3af" }}>?</span>
+              </div>
+            </div>
+            <button onClick={applyFuzzy} style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              Search &ldquo;{fuzzySuggestion}&rdquo;
+            </button>
+          </div>
+          {fuzzyResults.length > 0 && (
+            <div>
+              <p style={{ ...cs.resultCount, marginBottom: 14 }}>
+                Showing {fuzzyResults.length} result{fuzzyResults.length !== 1 ? "s" : ""} for &ldquo;{fuzzySuggestion}&rdquo;
+              </p>
+              <div style={cs.productGrid}>
+                {fuzzyResults.map(p => (
+                  <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
+                    onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
+                    isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <style>{`@keyframes ekart-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
