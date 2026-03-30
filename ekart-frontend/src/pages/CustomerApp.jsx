@@ -117,14 +117,80 @@ function GuestGate({ auth, onShowAuth, children, pageName = "this page" }) {
 
 
 
-function Layout({ nav, children, onShowAuth }) {
-  return <div style={cs.root}><Nav nav={nav} onShowAuth={onShowAuth} /><main style={cs.main}>{children}</main></div>;
+function Layout({ nav, children, onShowAuth, drawerState, pinState, cartCount, onGoCart, categories, auth }) {
+  const { drawerOpen, setDrawerOpen } = drawerState;
+  return (
+    <div style={cs.root}>
+      <Nav nav={nav} onShowAuth={onShowAuth} onOpenDrawer={() => setDrawerOpen(true)} cartCount={cartCount} />
+      <LocationBar pinState={pinState} />
+      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} nav={nav} auth={auth} categories={categories} />
+      <CartPopupReminder cartCount={cartCount} onGoCart={onGoCart} />
+      <main style={cs.main}>{children}</main>
+    </div>
+  );
 }
-function Nav({ nav, onShowAuth }) {
+
+function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
-  const track = useActivityTracker(auth);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [acQuery, setAcQuery] = useState("");
+  const [acResults, setAcResults] = useState([]);
+  const [acOpen, setAcOpen] = useState(false);
+  const [acLoading, setAcLoading] = useState(false);
+  const acDebounce = useRef(null);
+  const acRef = useRef(null);
+  const HIST_KEY = "ekart_nav_history";
+
+  const getHist = () => { try { return JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); } catch { return []; } };
+  const saveHist = (q) => {
+    if (!q || q.trim().length < 2) return;
+    const h = getHist().filter(x => x.toLowerCase() !== q.toLowerCase());
+    h.unshift(q.trim());
+    localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 8)));
+  };
+  const removeHist = (q) => localStorage.setItem(HIST_KEY, JSON.stringify(getHist().filter(x => x !== q)));
+  const clearHist = () => { localStorage.removeItem(HIST_KEY); setAcOpen(false); };
+
+  const fetchAc = (q) => {
+    if (!q.trim()) { setAcResults([]); setAcOpen(getHist().length > 0); setAcLoading(false); return; }
+    setAcLoading(true);
+    fetch("/api/search/suggestions?q=" + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(data => { setAcResults(Array.isArray(data) ? data : []); setAcOpen(true); })
+      .catch(() => setAcResults([]))
+      .finally(() => setAcLoading(false));
+  };
+
+  const onAcInput = (e) => {
+    const v = e.target.value;
+    setAcQuery(v);
+    clearTimeout(acDebounce.current);
+    acDebounce.current = setTimeout(() => fetchAc(v), 200);
+  };
+
+  const onAcFocus = () => {
+    if (!acQuery.trim() && getHist().length > 0) setAcOpen(true);
+    else if (acQuery.trim()) setAcOpen(true);
+  };
+
+  const doNavSearch = (q) => {
+    if (!q.trim()) return;
+    saveHist(q);
+    setAcOpen(false);
+    setAcQuery(q);
+    navigate("/shop/products");
+    window.dispatchEvent(new CustomEvent("ekart-nav-search", { detail: { query: q } }));
+  };
+
+  useEffect(() => {
+    const h = (e) => { if (acRef.current && !acRef.current.contains(e.target)) setAcOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
   const handleLogout = () => { logout(); navigate("/auth", { replace: true }); };
+
   const tabs = [
     { key: "home", label: "🏠 Home" }, { key: "search", label: "🔍 Search" },
     { key: "products", label: "🛍️ Shop" }, { key: "cart", label: "🛒 Cart" },
@@ -132,28 +198,363 @@ function Nav({ nav, onShowAuth }) {
     { key: "wishlist", label: "❤️ Wishlist" }, { key: "coupons", label: "🎟️ Coupons" },
     { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },
   ];
-  // Add vendor tab dynamically for vendor role
-  if (auth && auth.role === 'VENDOR') {
-    tabs.push({ key: 'vendor', label: '🏬 Vendor' });
-  }
+  if (auth && auth.role === "VENDOR") tabs.push({ key: "vendor", label: "🏬 Vendor" });
+
+  const hist = getHist();
+  const showHistory = acOpen && !acQuery.trim() && hist.length > 0;
+
   return (
     <nav style={cs.nav}>
-      <span style={cs.brand}>🛒 EKART</span>
+      {/* Hamburger */}
+      <button style={cs.hamburgerBtn} onClick={onOpenDrawer} aria-label="Open menu">
+        <span style={cs.hamburgerLine} /><span style={cs.hamburgerLine} /><span style={cs.hamburgerLine} />
+      </button>
+
+      <span style={cs.brand} onClick={() => nav.go("home")} role="button" tabIndex={0}>🛒 EKART</span>
+
+      {/* Nav Autocomplete Search */}
+      <div style={{ position: "relative", flex: 1, maxWidth: 380 }} ref={acRef}>
+        <input
+          style={cs.navSearchInput}
+          placeholder="Search products…"
+          value={acQuery}
+          onChange={onAcInput}
+          onFocus={onAcFocus}
+          onKeyDown={e => {
+            if (e.key === "Enter" && acQuery.trim()) { saveHist(acQuery); doNavSearch(acQuery); }
+            if (e.key === "Escape") setAcOpen(false);
+          }}
+        />
+        <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"rgba(255,255,255,0.35)", fontSize:13, pointerEvents:"none" }}>🔍</span>
+        {acOpen && (
+          <div style={cs.acDropdown}>
+            {/* History view */}
+            {showHistory && (
+              <>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 12px 2px", fontSize:11, color:"rgba(255,255,255,0.35)", fontWeight:700, textTransform:"uppercase" }}>
+                  <span>Recent</span>
+                  <button style={{ background:"none", border:"none", color:"#a5b4fc", fontSize:11, cursor:"pointer", fontWeight:600 }} onClick={clearHist}>Clear all</button>
+                </div>
+                {hist.map((h, i) => (
+                  <div key={i} style={cs.acItem} onClick={() => doNavSearch(h)}>
+                    <span style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>🕐</span>
+                    <span style={{ flex:1, fontSize:13, color:"rgba(255,255,255,0.8)" }}>{h}</span>
+                    <button style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:12 }}
+                      onClick={e => { e.stopPropagation(); removeHist(h); setAcOpen(getHist().length > 0); }}>✕</button>
+                  </div>
+                ))}
+              </>
+            )}
+            {/* Live results */}
+            {acLoading && <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.4)" }}>🔄 Searching…</div>}
+            {!acLoading && acQuery.trim() && acResults.length === 0 && (
+              <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.35)" }}>No results for "{acQuery}"</div>
+            )}
+            {!acLoading && acResults.map((s, i) => (
+              <div key={i} style={cs.acItem} onClick={() => doNavSearch(s.productName)}>
+                {s.imageLink
+                  ? <img src={s.imageLink} alt="" style={{ width:36, height:36, borderRadius:6, objectFit:"cover", flexShrink:0 }} />
+                  : <span style={{ fontSize:20 }}>🛍️</span>}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, color:"#e5e7eb", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.productName}</div>
+                  {s.category && <div style={{ fontSize:11, color:"#a5b4fc", marginTop:1 }}>in {s.category}</div>}
+                </div>
+                {i < 3 && s.purchaseCount > 0 && <span style={{ fontSize:10, background:"rgba(239,68,68,0.2)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)", padding:"2px 6px", borderRadius:20, flexShrink:0 }}>🔥 Popular</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable tab links */}
       <div style={cs.navLinks}>
         {tabs.map(t => (
           <button key={t.key} style={{ ...cs.navBtn, ...(nav.active === t.key ? cs.navBtnActive : {}) }}
             onClick={() => nav.go(t.key)}>{t.label}</button>
         ))}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={cs.greeting}>Hi, {auth?.name?.split(" ")[0] || "Guest"}</span>
+
+      <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+        {/* India flag badge */}
+        <div style={cs.indiaBadge} title="Made in India">
+          <svg width="22" height="16" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg" style={{ display:"block", borderRadius:2, flexShrink:0 }}>
+            <rect width="22" height="16" fill="#fff"/>
+            <rect width="22" height="5.33" fill="#FF9933"/>
+            <rect y="10.67" width="22" height="5.33" fill="#138808"/>
+            <circle cx="11" cy="8" r="2.5" fill="none" stroke="#000080" strokeWidth="0.5"/>
+            <circle cx="11" cy="8" r="0.5" fill="#000080"/>
+            <g stroke="#000080" strokeWidth="0.35" fill="none">
+              <line x1="11" y1="5.5" x2="11" y2="10.5"/><line x1="8.5" y1="8" x2="13.5" y2="8"/>
+              <line x1="9.23" y1="5.73" x2="12.77" y2="10.27"/><line x1="12.77" y1="5.73" x2="9.23" y2="10.27"/>
+              <line x1="8.5" y1="6.27" x2="13.5" y2="9.73"/><line x1="13.5" y1="6.27" x2="8.5" y2="9.73"/>
+            </g>
+          </svg>
+          <span style={{ fontSize:11, fontWeight:600 }}>India</span>
+        </div>
+
+        {/* Cart with badge */}
+        <button style={{ ...cs.navBtn, position:"relative", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8 }} onClick={() => nav.go("cart")}>
+          🛒
+          {cartCount > 0 && <span style={cs.cartBadge}>{cartCount}</span>}
+        </button>
+
+        {/* Profile dropdown / Sign In */}
         {auth && auth.role !== "GUEST" ? (
-          <button style={cs.logoutBtn} onClick={handleLogout}>Logout</button>
+          <div style={{ position:"relative" }}>
+            <button style={cs.profileIconBtn} onClick={() => setProfileOpen(o => !o)} title="Account">👤</button>
+            {profileOpen && (
+              <div style={cs.profileDropdown} onClick={() => setProfileOpen(false)}>
+                <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", gap:6 }}>
+                  <span>👤</span><span>{auth?.name || "Account"}</span>
+                </div>
+                <div style={cs.profileItem} onClick={() => nav.go("profile")}>👤 My Profile</div>
+                <div style={cs.profileItem} onClick={() => window.location.href="/customer/security-settings"}>🛡️ Security Settings</div>
+                <div style={{ ...cs.profileItem, color:"#f87171" }} onClick={handleLogout}>🚪 Logout</div>
+              </div>
+            )}
+          </div>
         ) : (
-          <button style={{ ...cs.logoutBtn, borderColor: "rgba(99,102,241,0.5)", color: "#a5b4fc" }} onClick={onShowAuth}>Sign In</button>
+          <button style={{ ...cs.navBtn, borderColor:"rgba(99,102,241,0.5)", border:"1px solid rgba(99,102,241,0.5)", color:"#a5b4fc" }} onClick={onShowAuth}>Sign In</button>
         )}
       </div>
     </nav>
+  );
+}
+
+/* ── Side Drawer ── */
+function SideDrawer({ open, onClose, nav, auth, categories }) {
+  const [expandedCat, setExpandedCat] = useState(null);
+  useEffect(() => {
+    const h = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:998, opacity: open ? 1 : 0, pointerEvents: open ? "all" : "none", transition:"opacity 0.3s", backdropFilter:"blur(3px)" }}
+        onClick={onClose} />
+      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:300, maxWidth:"85vw", background:"#131921", zIndex:999, transform: open ? "translateX(0)" : "translateX(-100%)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", overflowX:"hidden" }}>
+        <div style={{ background:"#232f3e", padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, fontWeight:700, color:"#fff", fontSize:14 }}>
+            <span style={{ width:32, height:32, borderRadius:"50%", background:"rgba(245,168,0,0.15)", border:"1px solid rgba(245,168,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", color:"#f5a800" }}>👤</span>
+            Hello, {auth?.name?.split(" ")[0] || "Guest"}
+          </div>
+          <button style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"50%", width:30, height:30, color:"#fff", cursor:"pointer", fontSize:14 }} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto" }}>
+          <div style={cs.drawerSectionTitle}>Trending</div>
+          {[{icon:"🔥",label:"Bestsellers",key:"products"},{icon:"⭐",label:"New Arrivals",key:"products"},{icon:"📊",label:"My Spending",key:"spending"}].map(item => (
+            <button key={item.label} style={cs.drawerItem} onClick={() => { nav.go(item.key); onClose(); }}>
+              <span>{item.icon} {item.label}</span><span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>›</span>
+            </button>
+          ))}
+          <div style={cs.drawerSectionTitle}>Shop by Category</div>
+          {categories.map((cat, i) => {
+            const isStr = typeof cat === "string";
+            const name = isStr ? cat : cat.name;
+            const subs = isStr ? [] : (cat.subCategories || []);
+            const isExpanded = expandedCat === i;
+            return (
+              <div key={i}>
+                <button style={cs.drawerItem} onClick={() => setExpandedCat(isExpanded ? null : i)}>
+                  <span>🏷️ {name}</span>
+                  {subs.length > 0 && <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.25s", transform: isExpanded ? "rotate(90deg)":"rotate(0)" }}>›</span>}
+                </button>
+                {isExpanded && subs.length > 0 && (
+                  <div style={{ background:"rgba(0,0,0,0.2)" }}>
+                    {subs.map(sub => (
+                      <button key={sub.name || sub} style={{ ...cs.drawerItem, paddingLeft:36, fontSize:13 }}
+                        onClick={() => { window.dispatchEvent(new CustomEvent("ekart-nav-search", { detail: { query: sub.name || sub } })); nav.go("products"); onClose(); }}>
+                        {sub.name || sub}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div style={cs.drawerSectionTitle}>My Account</div>
+          {[{icon:"📦",label:"My Orders",key:"orders"},{icon:"🚚",label:"Track Orders",key:"track"},{icon:"❤️",label:"Wishlist",key:"wishlist"},{icon:"🛒",label:"Cart",key:"cart"},{icon:"📊",label:"Spending Analytics",key:"spending"},{icon:"👤",label:"Profile",key:"profile"}].map(item => (
+            <button key={item.key} style={cs.drawerItem} onClick={() => { nav.go(item.key); onClose(); }}>
+              <span>{item.icon} {item.label}</span><span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>›</span>
+            </button>
+          ))}
+          <div style={cs.drawerSectionTitle}>Help</div>
+          <button style={cs.drawerItem} onClick={() => { window.location.href="/policies"; onClose(); }}>📄 Policies & Terms ›</button>
+        </div>
+        <div style={{ padding:"12px 16px", borderTop:"1px solid rgba(255,255,255,0.08)", background:"rgba(0,0,0,0.2)", flexShrink:0 }}>
+          <button style={{ background:"none", border:"none", color:"rgba(255,255,255,0.55)", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}
+            onClick={() => window.location.href="/logout"}>🚪 Sign Out</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Location Bar + Modal ── */
+function LocationBar({ pinState }) {
+  const { pin, setPin } = pinState;
+  const [modalOpen, setModalOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!pin && !sessionStorage.getItem("ekart_loc_seen")) {
+      sessionStorage.setItem("ekart_loc_seen", "1");
+      setTimeout(() => setModalOpen(true), 1200);
+    }
+  }, []);
+
+  const isIndianPin = (v) => {
+    if (!/^\d{6}$/.test(v)) return false;
+    const p = v.slice(0, 2);
+    const valid = new Set(["11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","30","31","32","33","34","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51","52","53","56","57","58","59","60","61","62","63","64","65","66","67","68","69","70","71","72","73","74","75","76","77","78","79","80","81","82","83","84","85","90","91","92","93","94","95","96","97","98","99"]);
+    return valid.has(p);
+  };
+
+  const confirm = () => {
+    const v = input.replace(/\D/g,"").slice(0,6);
+    if (!isIndianPin(v)) { setError("Please enter a valid Indian pin code."); return; }
+    setPin(v);
+    localStorage.setItem("ekart_delivery_pin", v);
+    setModalOpen(false);
+  };
+
+  const clear = () => {
+    setPin("");
+    localStorage.removeItem("ekart_delivery_pin");
+    setModalOpen(false);
+  };
+
+  return (
+    <>
+      <div style={{ position:"sticky", top:60, zIndex:99, background:"rgba(8,10,24,0.97)", backdropFilter:"blur(14px)", borderBottom:"1px solid rgba(245,168,0,0.18)", display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 20px", gap:8, fontSize:13, color:"rgba(255,255,255,0.55)" }}>
+        <span style={{ color:"#f5a800" }}>📍</span>
+        <span>Delivering to</span>
+        <span style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(245,168,0,0.1)", border:"1px solid rgba(245,168,0,0.3)", borderRadius:50, padding:"3px 12px", cursor:"pointer", color: pin ? "#f5a800" : "rgba(255,255,255,0.6)", fontWeight:600, fontSize:13 }}
+          onClick={() => { setInput(pin || ""); setError(""); setModalOpen(true); }}>
+          <span style={{ width:7, height:7, borderRadius:"50%", background: pin ? "#22c55e" : "#f59e0b", boxShadow: pin ? "0 0 6px #22c55e" : "none", flexShrink:0 }} />
+          {pin ? `📍 ${pin}` : "Set your location"}
+        </span>
+        {pin && <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>· Products greyed out are not available at your pin</span>}
+      </div>
+      {modalOpen && (
+        <div style={{ position:"fixed", inset:0, zIndex:99999, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(5px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e => { if (e.target === e.currentTarget) setModalOpen(false); }}>
+          <div style={{ background:"rgba(10,12,28,0.98)", border:"1px solid rgba(245,168,0,0.25)", borderRadius:22, padding:"28px 32px", width:"90%", maxWidth:400, boxShadow:"0 30px 80px rgba(0,0,0,0.6)", position:"relative" }}>
+            <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"rgba(255,255,255,0.5)", fontSize:18, cursor:"pointer" }} onClick={() => setModalOpen(false)}>✕</button>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:4, color:"#fff" }}>📍 Set Delivery Location</div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:20 }}>We'll show only products available at your pin code.</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:10, color:"#fff", fontSize:15, padding:"10px 14px", letterSpacing:"0.1em", outline:"none" }}
+                placeholder="6-digit pin code" maxLength={6} inputMode="numeric" value={input}
+                onChange={e => { setInput(e.target.value.replace(/\D/g,"").slice(0,6)); setError(""); }}
+                onKeyDown={e => e.key === "Enter" && confirm()} />
+              <button style={{ background:"#f5a800", color:"#1a1000", border:"none", borderRadius:10, padding:"10px 18px", fontWeight:700, cursor:"pointer", fontSize:14 }} onClick={confirm}>Apply</button>
+            </div>
+            {error && <div style={{ fontSize:12, color:"#ff8060", marginTop:8 }}>{error}</div>}
+            {pin && <div style={{ textAlign:"center", marginTop:14, fontSize:12, color:"rgba(255,255,255,0.4)", cursor:"pointer" }} onClick={clear}>✕ Clear location filter</div>}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ── Cart Popup Reminder ── */
+function CartPopupReminder({ cartCount, onGoCart }) {
+  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (cartCount > 0 && !dismissed) {
+      const t = setTimeout(() => setVisible(true), 1800);
+      return () => clearTimeout(t);
+    }
+  }, [cartCount, dismissed]);
+  if (!visible || dismissed || cartCount === 0) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+      onClick={() => { setVisible(false); setDismissed(true); }}>
+      <div style={{ background:"rgba(15,18,40,0.97)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:24, padding:"36px 32px 28px", maxWidth:360, width:"100%", textAlign:"center", position:"relative" }}
+        onClick={e => e.stopPropagation()}>
+        <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontSize:18, cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>✕</button>
+        <div style={{ fontSize:48, marginBottom:14 }}>🛒</div>
+        <h4 style={{ fontSize:18, fontWeight:700, color:"#fff", marginBottom:8 }}>You left something behind!</h4>
+        <p style={{ fontSize:13, color:"rgba(255,255,255,0.5)", lineHeight:1.65, marginBottom:20 }}>
+          You have <strong style={{ color:"#f5a800" }}>{cartCount}</strong> item{cartCount > 1 ? "s" : ""} waiting in your cart.
+        </p>
+        <button style={{ background:"#f5a800", color:"#1a1000", border:"none", borderRadius:50, padding:"10px 28px", fontWeight:700, cursor:"pointer", fontSize:14, display:"inline-flex", alignItems:"center", gap:8, boxShadow:"0 6px 24px rgba(245,168,0,0.35)" }}
+          onClick={() => { onGoCart(); setVisible(false); setDismissed(true); }}>
+          🛒 View My Cart
+        </button>
+        <div style={{ marginTop:10, fontSize:12, color:"rgba(255,255,255,0.35)", cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>No thanks, I'll shop later</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Budget Bar ── */
+function BudgetBar({ products, onBudgetChange }) {
+  const maxPrice = products.length ? Math.ceil(Math.max(...products.map(p => parseFloat(p.price || 0))) * 1.1 / 50) * 50 : 10000;
+  const [val, setVal] = useState(maxPrice);
+  const [reset, setReset] = useState(true);
+
+  useEffect(() => { setVal(maxPrice); setReset(true); }, [maxPrice]);
+
+  const handleChange = (v) => { setVal(v); setReset(false); onBudgetChange(parseFloat(v)); };
+  const handleReset = () => { setVal(maxPrice); setReset(true); onBudgetChange(Infinity); };
+
+  return (
+    <div style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:"14px 20px", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap", marginBottom:16 }}>
+      <span style={{ fontSize:13, fontWeight:600, color:"#f5a800", whiteSpace:"nowrap" }}>💰 Budget</span>
+      <input type="range" min={0} max={maxPrice} step={50} value={reset ? maxPrice : val}
+        onChange={e => handleChange(e.target.value)}
+        style={{ flex:1, minWidth:120, accentColor:"#f5a800", cursor:"pointer" }} />
+      <span style={{ fontWeight:700, color:"#fff", whiteSpace:"nowrap", minWidth:80 }}>
+        {reset ? "All Products" : "₹" + Number(val).toLocaleString("en-IN")}
+      </span>
+      <button style={{ background:"none", border:"1px solid rgba(255,255,255,0.15)", borderRadius:7, padding:"4px 12px", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:12 }} onClick={handleReset}>↺ Reset</button>
+    </div>
+  );
+}
+
+/* ── Sort Bar ── */
+function SortBar({ count, sortType, onSort }) {
+  const sorts = [
+    { key:"default", label:"Default" },{ key:"price-asc", label:"Price ↑" },{ key:"price-desc", label:"Price ↓" },
+    { key:"rating", label:"⭐ Rating" },{ key:"newest", label:"Newest" },{ key:"name", label:"A–Z" },
+  ];
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 16px", marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+        <span style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em" }}>Sort:</span>
+        {sorts.map(s => (
+          <button key={s.key} onClick={() => onSort(s.key)}
+            style={{ padding:"4px 12px", borderRadius:20, border: sortType===s.key ? "1px solid #f5a800" : "1px solid rgba(255,255,255,0.12)", background: sortType===s.key ? "rgba(245,168,0,0.12)" : "rgba(255,255,255,0.05)", color: sortType===s.key ? "#f5a800" : "rgba(255,255,255,0.7)", fontSize:12, fontWeight: sortType===s.key ? 700 : 500, cursor:"pointer", whiteSpace:"nowrap" }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap" }}>
+        Showing <span style={{ color:"#f5a800", fontWeight:600 }}>{count}</span> products
+      </span>
+    </div>
+  );
+}
+
+/* ── Search Results Banner ── */
+function SearchResultsBanner({ query, count, onClear }) {
+  if (!query) return null;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", background:"rgba(245,168,0,0.08)", border:"1px solid rgba(245,168,0,0.3)", borderRadius:14, padding:"12px 20px", marginBottom:16 }}>
+      <span style={{ fontSize:14, color:"rgba(255,255,255,0.5)" }}>🔍 Showing results for</span>
+      <span style={{ fontWeight:700, color:"#f5a800" }}>"{query}"</span>
+      <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>— {count} product{count!==1?"s":""} found</span>
+      <button style={{ marginLeft:"auto", background:"none", border:"1px solid rgba(255,255,255,0.15)", borderRadius:7, padding:"4px 12px", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:12, whiteSpace:"nowrap" }} onClick={onClear}>
+        ✕ Clear search
+      </button>
+    </div>
   );
 }
 
@@ -195,6 +596,10 @@ export default function CustomerApp() {
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [reportOrder, setReportOrder] = useState(null);
   const [reorderStockCheck, setReorderStockCheck] = useState(null); // { orderId, items, hasOutOfStock }
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [deliveryPin, setDeliveryPin] = useState(() => localStorage.getItem("ekart_delivery_pin") || "");
+  const pinState = { pin: deliveryPin, setPin: setDeliveryPin };
+  const track = useActivityTracker(auth);
 
   // recently viewed products (client + server sync)
   const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
@@ -473,7 +878,7 @@ export default function CustomerApp() {
 
   return (
     <>
-      <Layout nav={nav} onShowAuth={() => setShowAuth(true)}>
+      <Layout nav={nav} onShowAuth={() => setShowAuth(true)} drawerState={{ drawerOpen, setDrawerOpen }} pinState={pinState} cartCount={cart.itemCount || 0} onGoCart={() => nav.go("cart")} categories={categories} auth={auth}>
       <Toast msg={toast} onHide={() => setToast("")} />
       {reportOrder && <ReportIssueModal order={reportOrder} onClose={() => setReportOrder(null)} onSubmit={reportIssue} api={api} />}
       {reorderStockCheck && <ReorderStockModal stockCheck={reorderStockCheck} onClose={() => setReorderStockCheck(null)} onConfirm={confirmReorder} />}
@@ -1215,7 +1620,17 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
   const [fuzzySuggestion, setFuzzySuggestion] = useState("");
   const [fuzzyResults, setFuzzyResults] = useState([]);
   const [fuzzyLoading, setFuzzyLoading] = useState(false);
+  const [budgetMax, setBudgetMax] = useState(Infinity);
+  const [sortType, setSortType] = useState("default");
+  const [navQuery, setNavQuery] = useState("");
   const prevSearchRef = useRef("");
+
+  // Listen for nav autocomplete search events
+  useEffect(() => {
+    const h = e => { const query = e.detail?.query || ""; setNavQuery(query); setQ(query); onSearch(query); };
+    window.addEventListener("ekart-nav-search", h);
+    return () => window.removeEventListener("ekart-nav-search", h);
+  }, []);
 
   // When products array changes to empty after a search, trigger fuzzy lookup
   useEffect(() => {
@@ -1231,7 +1646,6 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
           const suggestion = data?.suggestion?.trim();
           if (suggestion && suggestion.length > 0) {
             setFuzzySuggestion(suggestion);
-            // Pre-fetch corrected results
             const res = await fetch(`/api/products?search=${encodeURIComponent(suggestion)}`);
             const d = await res.json();
             setFuzzyResults(d.success ? (d.products || []) : []);
@@ -1240,7 +1654,6 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         .catch(() => {})
         .finally(() => setFuzzyLoading(false));
     } else if (products.length > 0) {
-      // Clear fuzzy state when real results come in
       prevSearchRef.current = "";
       setFuzzySuggestion("");
       setFuzzyResults([]);
@@ -1255,24 +1668,42 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
     setFuzzyResults([]);
   };
 
+  const effectiveQuery = navQuery || q || search || "";
+
+  // Client-side sort + budget filter
+  const displayProducts = (products.length > 0 ? products : fuzzyResults.length > 0 ? fuzzyResults : [])
+    .filter(p => budgetMax === Infinity || parseFloat(p.price || 0) <= budgetMax)
+    .sort((a, b) => {
+      if (sortType === "price-asc")  return parseFloat(a.price||0) - parseFloat(b.price||0);
+      if (sortType === "price-desc") return parseFloat(b.price||0) - parseFloat(a.price||0);
+      if (sortType === "rating")     return parseFloat(b.averageRating||0) - parseFloat(a.averageRating||0);
+      if (sortType === "name")       return (a.name||"").localeCompare(b.name||"");
+      if (sortType === "newest")     return (b.id||0) - (a.id||0);
+      return 0;
+    });
+
   return (
     <div>
       <h2 style={cs.pageTitle}>All Products</h2>
       <div style={cs.filterRow}>
         <input style={cs.searchInput} placeholder="Search products..." value={q}
-          onChange={e => { setQ(e.target.value); setFuzzySuggestion(""); setFuzzyResults([]); }}
+          onChange={e => { setQ(e.target.value); setNavQuery(""); setFuzzySuggestion(""); setFuzzyResults([]); }}
           onKeyDown={e => e.key === "Enter" && onSearch(q)} />
         <button style={cs.searchBtn} onClick={() => onSearch(q)}>Search</button>
         <select style={cs.select} value={selectedCat} onChange={e => onCat(e.target.value)}>
           <option value="">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          {categories.map(c => <option key={typeof c === "string" ? c : c.name} value={typeof c === "string" ? c : c.name}>{typeof c === "string" ? c : c.name}</option>)}
         </select>
       </div>
-      <p style={cs.resultCount}>{products.length} products found</p>
 
-      {products.length > 0 && (
+      <SearchResultsBanner query={effectiveQuery} count={displayProducts.length}
+        onClear={() => { setQ(""); setNavQuery(""); onSearch(""); }} />
+      <BudgetBar products={products} onBudgetChange={v => setBudgetMax(v)} />
+      <SortBar count={displayProducts.length} sortType={sortType} onSort={setSortType} />
+
+      {displayProducts.length > 0 && (
         <div style={cs.productGrid}>
-          {products.map(p => (
+          {displayProducts.map(p => (
             <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
               onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
               isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
@@ -1280,7 +1711,7 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         </div>
       )}
 
-      {products.length === 0 && !fuzzyLoading && !fuzzySuggestion && (
+      {displayProducts.length === 0 && !fuzzyLoading && !fuzzySuggestion && (
         <div style={cs.empty}>No products found 😕</div>
       )}
 
@@ -1292,49 +1723,30 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         </div>
       )}
 
-      {/* "Did you mean" banner + corrected preview */}
+      {/* "Did you mean" banner */}
       {products.length === 0 && fuzzySuggestion && !fuzzyLoading && (
         <div style={{ marginTop: 8 }}>
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
-            background: "linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))",
-            border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14,
-            padding: "14px 20px", marginBottom: fuzzyResults.length > 0 ? 20 : 0,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>💡</span>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12, background:"linear-gradient(90deg, rgba(99,102,241,0.12), rgba(139,92,246,0.12))", border:"1px solid rgba(99,102,241,0.3)", borderRadius:14, padding:"14px 20px", marginBottom: fuzzyResults.length > 0 ? 20 : 0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:20 }}>💡</span>
               <div>
-                <span style={{ fontSize: 14, color: "#9ca3af" }}>Did you mean: </span>
-                <button onClick={applyFuzzy} style={{ background: "none", border: "none", color: "#a5b4fc", fontWeight: 800, fontSize: 16, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}>
-                  {fuzzySuggestion}
-                </button>
-                <span style={{ fontSize: 14, color: "#9ca3af" }}>?</span>
+                <span style={{ fontSize:14, color:"#9ca3af" }}>Did you mean: </span>
+                <button onClick={applyFuzzy} style={{ background:"none", border:"none", color:"#a5b4fc", fontWeight:800, fontSize:16, cursor:"pointer", textDecoration:"underline", textUnderlineOffset:3, padding:0 }}>{fuzzySuggestion}</button>
+                <span style={{ fontSize:14, color:"#9ca3af" }}>?</span>
               </div>
             </div>
-            <button onClick={applyFuzzy} style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            <button onClick={applyFuzzy} style={{ padding:"8px 20px", borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
               Search &ldquo;{fuzzySuggestion}&rdquo;
             </button>
           </div>
-          {fuzzyResults.length > 0 && (
-            <div>
-              <p style={{ ...cs.resultCount, marginBottom: 14 }}>
-                Showing {fuzzyResults.length} result{fuzzyResults.length !== 1 ? "s" : ""} for &ldquo;{fuzzySuggestion}&rdquo;
-              </p>
-              <div style={cs.productGrid}>
-                {fuzzyResults.map(p => (
-                  <ProductCard key={p.id} product={p} onSelect={onSelectProduct}
-                    onAddToCart={onAddToCart} onToggleWishlist={onToggleWishlist}
-                    isWishlisted={wishlistIds.includes(p.id)} loading={cartLoading[p.id]} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
       <style>{`@keyframes ekart-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
+
 
 /* ── Product Card ── */
 function ProductCard({ product: p, onSelect, onAddToCart, onToggleWishlist, isWishlisted, loading }) {
@@ -3650,7 +4062,7 @@ function getCatIcon(cat) {
 /* ── Styles ── */
 const cs = {
   root: { minHeight: "100vh", background: "#0f0f1a", fontFamily: "'Segoe UI', sans-serif", color: "#e5e7eb" },
-  main: { maxWidth: 1200, margin: "0 auto", padding: "24px 20px" },
+  main: { maxWidth: 1200, margin: "0 auto", padding: "16px 20px 24px" },
   nav: { background: "rgba(15,15,26,0.95)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 60, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(10px)", flexWrap: "nowrap", overflowX: "auto" },
   brand: { fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: 2, marginRight: 8, whiteSpace: "nowrap" },
   navLinks: { display: "flex", gap: 2, flex: 1 },
@@ -3772,4 +4184,17 @@ const cs = {
   chatInputField: { flex: 1, padding: "8px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13 },
   chatSendBtn: { width: 36, height: 36, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 16 },
   chatFab: { width: 56, height: 56, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", cursor: "pointer", fontSize: 24, boxShadow: "0 8px 24px rgba(99,102,241,0.4)", display: "flex", alignItems: "center", justifyContent: "center" },
+  /* ── New nav / drawer / location styles ── */
+  hamburgerBtn: { display:"flex", flexDirection:"column", justifyContent:"center", gap:5, width:36, height:36, cursor:"pointer", background:"none", border:"none", padding:6, flexShrink:0, borderRadius:8 },
+  hamburgerLine: { display:"block", width:20, height:2, background:"rgba(255,255,255,0.8)", borderRadius:2 },
+  navSearchInput: { width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:50, color:"#fff", fontSize:13, padding:"7px 12px 7px 32px", outline:"none", fontFamily:"inherit" },
+  acDropdown: { position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"rgba(8,10,24,0.98)", backdropFilter:"blur(24px)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, zIndex:9999, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", overflow:"hidden" },
+  acItem: { display:"flex", alignItems:"center", gap:10, padding:"9px 14px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", transition:"background 0.1s" },
+  indiaBadge: { display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, border:"1px solid rgba(255,153,51,0.45)", background:"rgba(255,153,51,0.08)", fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.85)", flexShrink:0, userSelect:"none" },
+  cartBadge: { position:"absolute", top:-4, right:-4, background:"#f5a800", color:"#1a1000", fontSize:9, fontWeight:800, width:15, height:15, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" },
+  profileIconBtn: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:"50%", width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:16, color:"#f5a800", flexShrink:0 },
+  profileDropdown: { position:"absolute", top:"calc(100% + 10px)", right:0, background:"#1a1208", border:"1px solid rgba(245,168,0,0.25)", borderRadius:14, minWidth:180, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:999, overflow:"hidden" },
+  profileItem: { display:"flex", alignItems:"center", gap:8, padding:"10px 14px", color:"#ccc", fontSize:14, cursor:"pointer", transition:"background 0.15s" },
+  drawerSectionTitle: { padding:"12px 14px 6px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"rgba(255,255,255,0.4)", borderTop:"1px solid rgba(255,255,255,0.06)", marginTop:4 },
+  drawerItem: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", color:"rgba(255,255,255,0.85)", fontSize:14, cursor:"pointer", border:"none", background:"none", width:"100%", textAlign:"left", transition:"background 0.15s" },
 };
