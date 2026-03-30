@@ -77,7 +77,8 @@ import AuthPage from "./AuthPage";
 import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
 import VendorCsvUpload from "./VendorCsvUpload";
-import ScheduledOrderPage from "./ScheduledOrderPage";
+// At the top of CustomerApp.jsx, with the other page imports:
+import ScheduledOrdersPage from "./pages/ScheduledOrdersPage";
 
 /* ── GuestGate ────────────────────────────────────────────────────
    Wraps any page that requires login. When auth is null or GUEST,
@@ -195,9 +196,9 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
   const tabs = [
     { key: "home", label: "🏠 Home" }, { key: "search", label: "🔍 Search" },
     { key: "products", label: "🛍️ Shop" }, { key: "cart", label: "🛒 Cart" },
-    { key: "orders", label: "📦 Orders" }, { key: "scheduled", label: "📅 Scheduled" }, { key: "track", label: "🚚 Track" },
+    { key: "orders", label: "📦 Orders" }, { key: "track", label: "🚚 Track" },
     { key: "wishlist", label: "❤️ Wishlist" }, { key: "coupons", label: "🎟️ Coupons" },
-    { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },
+    { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },{ key: "scheduled", label: "📅 Scheduled" },
   ];
   if (auth && auth.role === "VENDOR") tabs.push({ key: "vendor", label: "🏬 Vendor" });
 
@@ -376,7 +377,7 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
             );
           })}
           <div style={cs.drawerSectionTitle}>My Account</div>
-          {[{icon:"📦",label:"My Orders",key:"orders"},{icon:"📅",label:"Scheduled Orders",key:"scheduled"},{icon:"🚚",label:"Track Orders",key:"track"},{icon:"❤️",label:"Wishlist",key:"wishlist"},{icon:"🛒",label:"Cart",key:"cart"},{icon:"📊",label:"Spending Analytics",key:"spending"},{icon:"👤",label:"Profile",key:"profile"}].map(item => (
+          {[{icon:"📦",label:"My Orders",key:"orders"},{icon:"🚚",label:"Track Orders",key:"track"},{icon:"❤️",label:"Wishlist",key:"wishlist"},{icon:"🛒",label:"Cart",key:"cart"},{icon:"📊",label:"Spending Analytics",key:"spending"},{icon:"👤",label:"Profile",key:"profile"}].map(item => (
             <button key={item.key} style={cs.drawerItem} onClick={() => { nav.go(item.key); onClose(); }}>
               <span>{item.icon} {item.label}</span><span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>›</span>
             </button>
@@ -965,13 +966,6 @@ export default function CustomerApp() {
           <OrdersPage orders={orders} onCancel={cancelOrder}
             onReorder={reorderItems} onReport={o => setReportOrder(o)}
             onTrack={o => { setSelectedOrder(o); setPage("track-single"); }} />
-        </GuestGate>
-      )}
-
-
-      {page === "scheduled" && (
-        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="scheduled orders">
-          <ScheduledOrderPage api={api} products={products} profile={profile} showToast={showToast} />
         </GuestGate>
       )}
 
