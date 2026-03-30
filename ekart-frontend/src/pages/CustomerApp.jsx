@@ -936,7 +936,7 @@ export default function CustomerApp() {
 
       {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
-        onView={recordRecentlyViewed} auth={auth} />}
+        onView={recordRecentlyViewed} auth={auth} allProducts={products} />}
 
       {page === "cart" && !addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
@@ -1790,7 +1790,8 @@ function ProductCard({ product: p, onSelect, onAddToCart, onToggleWishlist, isWi
 }
 
 /* ── Product Detail ── */
-function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView, auth }) {
+/* ── Product Detail ── */
+function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView, auth, allProducts }) {
   const [reviews, setReviews] = useState([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -1804,21 +1805,94 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
   const [reviewUploadedCount, setReviewUploadedCount] = useState(0);
   const reviewFileRef = useRef(null);
   const [subscribed, setSubscribed] = useState(false);
+
+  // --- NEW STATE ---
+  const [heroImg, setHeroImg]         = useState(p.imageLink);
+  const [activeThumb, setActiveThumb] = useState(0);
+  const [qty, setQty]                 = useState(1);
+  const [pinCode, setPinCode]         = useState(() => localStorage.getItem("ekart_delivery_pin") || "");
+  const [pinResult, setPinResult]     = useState(null); // null | {ok, msg}
+  const [pinChecking, setPinChecking] = useState(false);
+  const [shareOpen, setShareOpen]     = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [reviewPhotos, setReviewPhotos] = useState({}); // reviewId → [{imageUrl}]
+  const [expCountdown, setExpCountdown] = useState("");
+  const countdownRef = useRef(null);
+
   const isWishlisted = wishlistIds.includes(p.id);
   const discount = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+  const maxQty = p.stock > 10 ? 10 : p.stock;
+
+  // Similar products: same category, exclude self, max 6
+  const similar = (allProducts || [])
+    .filter(x => x.category === p.category && x.id !== p.id)
+    .slice(0, 6);
+
+  // Extra images array (handle both formats)
+  const extraImages = Array.isArray(p.extraImageList)
+    ? p.extraImageList
+    : (p.extraImages || []);
+  const allThumbs = [p.imageLink, ...extraImages].filter(Boolean);
+
+  // Delivery date helpers
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDate(d) { return DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()]; }
+  function addBizDays(from, n) {
+    let d = new Date(from), added = 0;
+    while (added < n) { d.setDate(d.getDate() + 1); const day = d.getDay(); if (day !== 0 && day !== 6) added++; }
+    return d;
+  }
+  const now = new Date();
+  const cutoff = new Date(now); cutoff.setHours(14, 0, 0, 0);
+  const stdDate = fmtDate(addBizDays(now, 5));
+  const expDate = fmtDate(addBizDays(now, now < cutoff ? 1 : 2));
+
+  // Countdown timer for express cutoff
+  useEffect(() => {
+    function tick() {
+      const n = new Date(), c = new Date(n); c.setHours(14,0,0,0);
+      if (n >= c) { setExpCountdown("tomorrow"); return; }
+      const diff = c - n;
+      const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
+      setExpCountdown(`${h}h ${m}m`);
+    }
+    tick();
+    countdownRef.current = setInterval(tick, 30000);
+    return () => clearInterval(countdownRef.current);
+  }, []);
+
+  // Auto-check saved pincode
+  useEffect(() => {
+    if (pinCode && /^\d{6}$/.test(pinCode)) checkPin(pinCode);
+  }, []);
 
   useEffect(() => {
-    api(`/products/${p.id}/reviews`).then(d => { if (d.success) setReviews(d.reviews || []); });
+    api(`/products/${p.id}/reviews`).then(d => {
+      if (d.success) {
+        const revs = d.reviews || [];
+        setReviews(revs);
+        // Lazy-load photos for each review
+        revs.forEach(r => {
+          if (!r.id) return;
+          fetch(`/customer/review/${r.id}/images`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.count > 0)
+                setReviewPhotos(prev => ({ ...prev, [r.id]: data.images }));
+            })
+            .catch(() => {});
+        });
+      }
+    });
   }, [p.id]);
 
-  useEffect(() => {
-    if (onView) onView(p.id);
-  }, [p.id]);
+  useEffect(() => { if (onView) onView(p.id); }, [p.id]);
 
   useEffect(() => {
-    // check subscription status when product is out of stock
+    if (!p || p.stock > 0) return;
     const check = async () => {
-      if (!p || p.stock > 0) return;
       try {
         const headers = {};
         if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
@@ -1831,28 +1905,34 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
     check();
   }, [p.id, p.stock]);
 
+  // Reset state when product changes
+  useEffect(() => {
+    setHeroImg(p.imageLink);
+    setActiveThumb(0);
+    setQty(1);
+    setPinResult(null);
+    setReviewId(null);
+    setReviewFiles([]); setReviewPreviews([]); setReviewUploadMsg(""); setReviewUploadedCount(0);
+  }, [p.id]);
+
   const subscribeNotify = async () => {
-    if (!p) return;
-    // require login
-    // the backend uses session; guests will get a message asking to login
     try {
       const headers = { "Content-Type": "application/json" };
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'POST', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: "POST", headers });
       const d = await res.json();
       if (d.success) setSubscribed(!!d.subscribed);
-      setToast(d.message || (d.subscribed ? "Subscribed" : "Please sign in"));
+      setToast(d.message || (d.subscribed ? "Subscribed!" : "Please sign in"));
     } catch (e) { setToast("Failed to subscribe"); }
   };
 
   const unsubscribeNotify = async () => {
-    if (!p) return;
     try {
       const headers = {};
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: "DELETE", headers });
       const d = await res.json();
       setSubscribed(!!d.subscribed);
       setToast(d.message || "Unsubscribed");
@@ -1894,7 +1974,6 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
         setReviewUploadedCount(c => c + d.uploaded);
         setReviewFiles([]); setReviewPreviews([]);
         if (reviewFileRef.current) reviewFileRef.current.value = "";
-        // Refresh reviews so photos appear in the list
         api(`/products/${p.id}/reviews`).then(r => { if (r.success) setReviews(r.reviews || []); });
       } else {
         setReviewUploadMsg(`✗ ${d.message || "Upload failed"}`);
@@ -1903,145 +1982,527 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
     setReviewUploading(false);
   };
 
+  // Pin check
+  const checkPin = async (pin) => {
+    const v = pin || pinCode;
+    if (!/^\d{6}$/.test(v)) { setPinResult({ ok: false, msg: "Enter a valid 6-digit pin code" }); return; }
+    setPinChecking(true); setPinResult(null);
+    try {
+      const r = await fetch(`/api/check-pincode?pinCode=${v}`);
+      const d = await r.json();
+      setPinResult({ ok: d.success, msg: d.success ? `✓ Delivery available to ${v}` : (d.message || "Not serviceable yet") });
+      if (d.success) localStorage.setItem("ekart_delivery_pin", v);
+    } catch {
+      setPinResult({ ok: true, msg: `✓ Delivery available` });
+    }
+    setPinChecking(false);
+  };
+
+  // Share
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareMsg = encodeURIComponent(`Check out this product on Ekart: ${p.name} ${shareUrl}`);
+
+  const copyLink = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(shareUrl).then(() => { setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); });
+    else {
+      const ta = document.createElement("textarea"); ta.value = shareUrl;
+      ta.style.cssText = "position:fixed;top:-9999px;opacity:0;"; document.body.appendChild(ta);
+      ta.focus(); ta.select(); try { document.execCommand("copy"); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); } catch(e){}
+      document.body.removeChild(ta);
+    }
+  };
+
+  // Cart add with qty
+  const handleAddToCart = () => {
+    // The existing onAddToCart only takes productId; we call the web endpoint directly for qty support
+    const productId = p.id;
+    const quantity = qty;
+    const headers = { "Content-Type": "application/json" };
+    if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+    else if (auth) headers["X-Customer-Id"] = auth.id;
+    fetch("/api/cart/add-web", { method: "POST", headers, body: JSON.stringify({ productId, quantity }) })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setToast(d.message || `Added ${quantity} to cart!`);
+        else if (d.redirect) window.location.href = d.redirect;
+        else onAddToCart(p.id); // fallback to parent handler
+      })
+      .catch(() => onAddToCart(p.id));
+  };
+
+  // ─── Styles (dark glass theme matching HTML) ────────────────────────────────
+  const Y = "#f5a800";
+  const s = {
+    page: { padding: "0 0 3rem" },
+    breadcrumb: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 50, padding: "7px 18px", marginBottom: 28, width: "fit-content", flexWrap: "wrap" },
+    bcSep: { opacity: 0.4, fontSize: 9 },
+    bcLink: { color: "rgba(255,255,255,0.5)", background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: 0, display: "flex", alignItems: "center", gap: 5 },
+    bcCurrent: { color: "rgba(255,255,255,0.85)", fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+
+    grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 48 },
+    gridMobile: { gridTemplateColumns: "1fr" },
+
+    // Media
+    mainImgWrap: { position: "relative", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", aspectRatio: "4/3" },
+    mainImg: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s", display: "block" },
+    catBadge: { position: "absolute", top: 12, left: 12, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", color: Y, fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.07em" },
+    thumbRow: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 },
+    thumb: (active) => ({ width: 68, height: 68, borderRadius: 10, cursor: "pointer", border: active ? `2px solid ${Y}` : "2px solid transparent", objectFit: "cover", transition: "all 0.2s", transform: active ? "scale(1.06)" : "scale(1)", background: "rgba(0,0,0,0.3)" }),
+    videoWrap: { borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", marginTop: 10 },
+
+    // Info col
+    infoCol: { display: "flex", flexDirection: "column", gap: 14 },
+    title: { fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.25, margin: 0 },
+    titleSpan: { color: Y },
+    vendorBadge: { display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 50, padding: "5px 14px", fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 8 },
+
+    infoRow: { display: "flex", alignItems: "flex-start", gap: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "12px 16px" },
+    infoRowIcon: { color: Y, fontSize: 14, marginTop: 2, flexShrink: 0 },
+    infoRowLabel: { fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 },
+    infoRowValue: { fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.55 },
+
+    priceBlock: { background: "linear-gradient(135deg,rgba(245,168,0,0.12),rgba(245,168,0,0.04))", border: "1px solid rgba(245,168,0,0.3)", borderRadius: 16, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" },
+    priceBig: { fontSize: 36, fontWeight: 800, color: Y, lineHeight: 1 },
+    mrpLine: { marginTop: 5, fontSize: 13, color: "rgba(255,255,255,0.45)" },
+    saveBadge: { background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)", fontSize: 13, fontWeight: 800, padding: "3px 10px", borderRadius: 8, marginRight: 8 },
+    stockIn:  { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(34,197,94,0.15)",  border: "1px solid rgba(34,197,94,0.35)",  color: "#22c55e", fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+    stockLow: { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.35)", color: Y, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+    stockOut: { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(239,68,68,0.12)",  border: "1px solid rgba(239,68,68,0.3)",   color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+
+    // Qty selector
+    qtyWrap: { display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "12px 16px" },
+    qtyLabel: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", flexShrink: 0 },
+    qtyControls: { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "hidden" },
+    qtyBtn: (disabled) => ({ width: 38, height: 38, border: "none", background: "transparent", color: disabled ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.8)", fontSize: 18, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }),
+    qtyInput: { width: 44, textAlign: "center", background: "transparent", border: "none", borderLeft: "1px solid rgba(255,255,255,0.12)", borderRight: "1px solid rgba(255,255,255,0.12)", color: "#fff", fontSize: 15, fontWeight: 700, height: 38, outline: "none" },
+    qtyInfo: { fontSize: 11, color: "rgba(255,255,255,0.4)", marginLeft: "auto" },
+
+    // Delivery box
+    deliveryBox: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 },
+    deliveryHeader: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6 },
+    deliveryOptions: { display: "flex", gap: 8, flexWrap: "wrap" },
+    deliveryOpt: (express) => ({ flex: 1, minWidth: 120, background: "rgba(255,255,255,0.04)", border: express ? "2px solid rgba(34,197,94,0.3)" : "2px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", display: "flex", flexDirection: "column", gap: 3 }),
+    deliveryOptLabel: (express) => ({ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: express ? "#22c55e" : "rgba(255,255,255,0.45)" }),
+    deliveryOptDate: { fontSize: 14, fontWeight: 700, color: "#fff" },
+    deliveryOptPrice: (express) => ({ fontSize: 11, color: express ? "#4ade80" : "rgba(255,255,255,0.4)" }),
+    pinRow: { display: "flex", alignItems: "center", gap: 8, marginTop: 2 },
+    pinInput: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#fff", fontSize: 12, padding: "6px 10px", width: 120, outline: "none", letterSpacing: "0.05em" },
+    pinBtn: { background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: Y, fontSize: 11, fontWeight: 600, padding: "6px 12px", cursor: "pointer", whiteSpace: "nowrap" },
+    pinResult: (ok) => ({ fontSize: 11, color: ok ? "#22c55e" : "#f87171", marginLeft: 4 }),
+
+    // Action row
+    actionRow: { display: "flex", gap: 10 },
+    addCartBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: Y, color: "#1a1000", border: "none", borderRadius: 14, padding: "14px 24px", fontSize: 15, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.3s", boxShadow: "0 8px 28px rgba(245,168,0,0.3)" },
+    wishBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)", color: "#ef4444", borderRadius: 14, padding: "14px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.25s", flexShrink: 0 },
+    shareBtn: { display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", borderRadius: 14, width: 52, height: 52, fontSize: 16, cursor: "pointer", transition: "all 0.25s", flexShrink: 0 },
+    notifyBtn: (subscribed) => ({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: subscribed ? "rgba(34,197,94,0.12)" : "rgba(99,102,241,0.12)", border: subscribed ? "1.5px solid rgba(34,197,94,0.45)" : "1.5px solid rgba(99,102,241,0.45)", color: subscribed ? "#4ade80" : "#a5b4fc", borderRadius: 14, padding: "14px 24px", fontSize: 15, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.25s" }),
+
+    // Section title
+    secTitle: { fontSize: 18, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.1)", marginBottom: 16 },
+    secIcon: { color: Y },
+
+    // Reviews
+    reviewsGrid: { display: "flex", flexDirection: "column", gap: 10 },
+    reviewCard: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "14px 18px", borderLeft: `3px solid ${Y}` },
+    reviewTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
+    reviewAuthor: { fontSize: 13, fontWeight: 700, color: "#fff" },
+    reviewStars: { color: Y, fontSize: 11 },
+    reviewText: { fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 },
+    photoStrip: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 },
+    photoThumb: { width: 56, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer", transition: "all 0.2s" },
+
+    // Review form
+    reviewFormWrap: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "18px", marginTop: 12 },
+    reviewFormTitle: { fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 },
+    reviewForm: { display: "flex", gap: 8, flexWrap: "wrap" },
+    reviewSelect: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 9, color: "#fff", fontSize: 12, padding: "8px 10px", width: 70, flexShrink: 0 },
+    reviewInput: { flex: 1, minWidth: 160, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 9, color: "#fff", fontSize: 12, padding: "8px 12px", outline: "none" },
+    reviewSubmitBtn: { background: Y, color: "#1a1000", border: "none", borderRadius: 9, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
+    starBtn: (active) => ({ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: active ? Y : "#374151", padding: "0 2px" }),
+
+    // Photo upload panel
+    uploadPanel: { background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "14px 16px", marginTop: 12 },
+    uploadPanelTitle: { fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 6 },
+    uploadBtn: { background: Y, color: "#1a1000", border: "none", borderRadius: 9, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 },
+
+    // Similar
+    similarGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16, marginTop: 16 },
+    simCard: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", transition: "all 0.3s", cursor: "pointer" },
+    simImgWrap: { position: "relative", height: 160, overflow: "hidden", flexShrink: 0 },
+    simImg: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s", display: "block" },
+    simCat: { position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.65)", color: Y, fontSize: 9, fontWeight: 700, padding: "3px 9px", borderRadius: 20, textTransform: "uppercase" },
+    simBody: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 4, flex: 1 },
+    simName: { fontSize: 13, fontWeight: 700, color: "#fff" },
+    simDesc: { fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.45 },
+    simPrice: { fontSize: 18, fontWeight: 800, color: Y, marginTop: "auto", paddingTop: 4 },
+    simCartBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: Y, color: "#1a1000", border: "none", borderTop: "1px solid rgba(0,0,0,0.1)", padding: "9px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.2s", flexShrink: 0 },
+
+    // Share modal
+    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" },
+    modalBox: { background: "rgba(10,13,32,0.97)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 22, padding: "36px 40px", maxWidth: 400, width: "92%", textAlign: "center", boxShadow: "0 50px 120px rgba(0,0,0,0.75)" },
+    modalTitle: { fontSize: 17, fontWeight: 700, color: "#fff", marginBottom: 6, marginTop: 8 },
+    shareLinkBox: { display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "9px 12px", marginBottom: 18, textAlign: "left" },
+    shareLinkText: { flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" },
+    shareCopyBtn: (copied) => ({ display: "inline-flex", alignItems: "center", gap: 5, background: copied ? "rgba(34,197,94,0.15)" : "rgba(245,168,0,0.15)", border: copied ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(245,168,0,0.35)", color: copied ? "#22c55e" : Y, borderRadius: 7, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }),
+    shareViaRow: { display: "flex", gap: 12, justifyContent: "center", marginBottom: 16 },
+    shareViaBtn: (bg, color) => ({ width: 46, height: 46, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, cursor: "pointer", border: "none", background: bg, color, transition: "all 0.2s", textDecoration: "none" }),
+    modalGhost: { background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: 12, cursor: "pointer", marginTop: 6, padding: "6px" },
+
+    // Lightbox
+    lightbox: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" },
+    lightboxClose: { position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", color: "#fff", borderRadius: "50%", width: 36, height: 36, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+    lightboxImg: { maxWidth: "90vw", maxHeight: "88vh", borderRadius: 12, boxShadow: "0 0 60px rgba(0,0,0,0.8)" },
+
+    backBtn: { background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 13, marginBottom: 20, padding: 0, display: "inline-flex", alignItems: "center", gap: 5 },
+    sectionWrap: { marginBottom: 48 },
+  };
+
+  // Stock pill
+  const stockPill = p.stock > 10
+    ? <span style={s.stockIn}>● {p.stock} in stock</span>
+    : p.stock > 0
+    ? <span style={s.stockLow}>⚠ Only {p.stock} left!</span>
+    : <span style={s.stockOut}>✕ Out of Stock</span>;
+
   return (
-    <div>
-      <button style={cs.backBtn} onClick={onBack}>← Back to Products</button>
+    <div style={s.page}>
+      {/* Breadcrumb */}
+      <nav style={s.breadcrumb}>
+        <button style={s.bcLink} onClick={onBack}>🏠 Home</button>
+        <span style={s.bcSep}>›</span>
+        <button style={{ ...s.bcLink, color: Y }} onClick={onBack}>🏷 {p.category}</button>
+        <span style={s.bcSep}>›</span>
+        <span style={s.bcCurrent}>{p.name}</span>
+      </nav>
+
       <Toast msg={toast} onHide={() => setToast("")} />
-      <div style={cs.detailGrid}>
+
+      {/* Main product grid */}
+      <div style={{ ...s.grid, ...(window.innerWidth < 900 ? s.gridMobile : {}) }}>
+
+        {/* ── LEFT: Media ── */}
         <div>
-          {p.imageLink ? <img src={p.imageLink} alt={p.name} style={cs.detailImg} onError={e => e.target.style.display = "none"} />
-            : <div style={{ ...cs.productImgPlaceholder, height: 300, borderRadius: 16, fontSize: 64 }}>🛍️</div>}
-        </div>
-        <div>
-          <div style={cs.detailCat}>{p.category}</div>
-          <h1 style={cs.detailTitle}>{p.name}</h1>
-          {p.averageRating > 0 && <div style={{ color: "#f59e0b", marginBottom: 12 }}>{stars(Math.round(p.averageRating))} {p.averageRating?.toFixed(1)} ({reviews.length} reviews)</div>}
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
-            <span style={cs.detailPrice}>{fmt(p.price)}</span>
-            {discount > 0 && <><span style={cs.mrp}>{fmt(p.mrp)}</span><span style={cs.discountBadge}>{discount}% OFF</span></>}
+          <div style={s.mainImgWrap}>
+            <img src={heroImg} alt={p.name} style={s.mainImg} onError={e => e.target.style.display = "none"} />
+            <span style={s.catBadge}>{p.category}</span>
           </div>
-          <p style={cs.detailDesc}>{p.description}</p>
-          {p.vendor && <p style={cs.vendorInfo}>Sold by: <strong>{p.vendor.name}</strong></p>}
-          <div style={cs.stockBadge(p.stock)}>{p.stock > 0 ? `✓ In Stock (${p.stock} units)` : "✗ Out of Stock"}</div>
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <button style={{ ...cs.addCartBtn, flex: 1, padding: "14px 24px", fontSize: 16, opacity: p.stock <= 0 || cartLoading[p.id] ? 0.5 : 1 }}
-              disabled={p.stock <= 0 || cartLoading[p.id]} onClick={() => onAddToCart(p.id)}>
-              🛒 {cartLoading[p.id] ? "Adding..." : "Add to Cart"}
-            </button>
-            <button style={{ ...cs.wishBtnLarge, color: isWishlisted ? "#ef4444" : "#6b7280" }}
-              onClick={() => onToggleWishlist(p.id)}>{isWishlisted ? "❤️ Wishlisted" : "🤍 Wishlist"}</button>
-          </div>
-          {p.stock <= 0 && (
-            <div style={{ marginTop: 12 }}>
-              {subscribed ? (
-                <button style={{ padding: "8px 12px", background: "#10b981", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
-                  onClick={unsubscribeNotify}>✅ Subscribed — cancel</button>
-              ) : (
-                <button style={{ padding: "8px 12px", background: "#6366f1", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
-                  onClick={subscribeNotify}>🔔 Notify me when back in stock</button>
-              )}
+
+          {allThumbs.length > 1 && (
+            <div style={s.thumbRow}>
+              {allThumbs.map((url, i) => (
+                <img
+                  key={i} src={url} alt="" style={s.thumb(activeThumb === i)}
+                  onClick={() => { setHeroImg(url); setActiveThumb(i); }}
+                  onError={e => e.target.style.display = "none"}
+                />
+              ))}
+            </div>
+          )}
+
+          {p.videoLink && (
+            <div style={s.videoWrap}>
+              <video controls style={{ width: "100%", maxHeight: 220, display: "block" }}>
+                <source src={p.videoLink} type="video/mp4" />
+              </video>
             </div>
           )}
         </div>
-      </div>
-      <div style={cs.reviewSection}>
-        <h3 style={cs.secTitle}>Customer Reviews</h3>
-        <div style={cs.reviewForm}>
-          {/* ── star rating + text ── */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            {[1,2,3,4,5].map(n => (
-              <button key={n} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 24, color: n <= newReview.rating ? "#f59e0b" : "#d1d5db" }}
-                onClick={() => setNewReview(r => ({ ...r, rating: n }))}>★</button>
-            ))}
+
+        {/* ── RIGHT: Info ── */}
+        <div style={s.infoCol}>
+          <div>
+            <h1 style={s.title}>{p.name}</h1>
+            {p.vendor && (
+              <span style={s.vendorBadge}>🏪 Sold by {p.vendor.name}</span>
+            )}
           </div>
-          <textarea style={cs.reviewInput} placeholder="Write your review..." value={newReview.comment}
-            onChange={e => setNewReview(r => ({ ...r, comment: e.target.value }))} />
-          <button style={cs.submitReviewBtn} onClick={submitReview} disabled={submitting || !!reviewId}>
-            {submitting ? "Submitting..." : reviewId ? "✓ Review Submitted" : "Submit Review"}
-          </button>
 
-          {/* ── inline photo upload — shown after review is submitted ── */}
-          {reviewId && (
-            <div style={{ marginTop: 16, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "14px 16px" }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 4 }}>
-                📸 Add Review Photos <span style={{ fontWeight: 400, color: "#6b7280" }}>(optional · up to 5)</span>
-              </p>
-              <p style={{ fontSize: 11, color: "#4b5563", marginBottom: 10 }}>
-                JPG, PNG or WEBP · max 5 MB each
-              </p>
+          <div style={s.infoRow}>
+            <span style={s.infoRowIcon}>≡</span>
+            <div>
+              <div style={s.infoRowLabel}>Description</div>
+              <div style={s.infoRowValue}>{p.description}</div>
+            </div>
+          </div>
 
-              {reviewUploadedCount > 0 && (
-                <div style={{ marginBottom: 8, fontSize: 12, color: "#22c55e", fontWeight: 600 }}>
-                  ✓ {reviewUploadedCount} photo{reviewUploadedCount !== 1 ? "s" : ""} added to your review
+          <div style={s.infoRow}>
+            <span style={s.infoRowIcon}>🏷</span>
+            <div>
+              <div style={s.infoRowLabel}>Category</div>
+              <div style={s.infoRowValue}>{p.category}</div>
+            </div>
+          </div>
+
+          {/* Price block */}
+          <div style={s.priceBlock}>
+            <div>
+              {discount > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <span style={s.saveBadge}>-{discount}%</span>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>You save ₹{(p.mrp - p.price).toLocaleString("en-IN")}</span>
                 </div>
               )}
+              <div style={s.priceBig}>₹{p.price?.toLocaleString("en-IN")}</div>
+              {discount > 0 && (
+                <div style={s.mrpLine}>
+                  M.R.P.: <span style={{ textDecoration: "line-through" }}>₹{p.mrp?.toLocaleString("en-IN")}</span>
+                  <span style={{ fontSize: 11, marginLeft: 6 }}>Incl. of all taxes</span>
+                </div>
+              )}
+              {!discount && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Incl. of all taxes</div>}
+            </div>
+            {stockPill}
+          </div>
 
+          {/* Quantity selector */}
+          {p.stock > 0 && (
+            <div style={s.qtyWrap}>
+              <span style={s.qtyLabel}>📦 Qty</span>
+              <div style={s.qtyControls}>
+                <button style={s.qtyBtn(qty <= 1)} onClick={() => qty > 1 && setQty(q => q - 1)}>−</button>
+                <input style={s.qtyInput} type="number" value={qty} readOnly />
+                <button style={s.qtyBtn(qty >= maxQty)} onClick={() => qty < maxQty && setQty(q => q + 1)}>+</button>
+              </div>
+              <span style={s.qtyInfo}>{p.stock > 10 ? "Max 10 per order" : `Only ${p.stock} left`}</span>
+            </div>
+          )}
+
+          {/* Delivery estimate */}
+          {p.stock > 0 && (
+            <div style={s.deliveryBox}>
+              <div style={s.deliveryHeader}>🚚 Estimated Delivery</div>
+              <div style={s.deliveryOptions}>
+                <div style={s.deliveryOpt(false)}>
+                  <div style={s.deliveryOptLabel(false)}>📦 Standard</div>
+                  <div style={s.deliveryOptDate}>{stdDate}</div>
+                  <div style={s.deliveryOptPrice(false)}>FREE delivery</div>
+                </div>
+                <div style={s.deliveryOpt(true)}>
+                  <div style={s.deliveryOptLabel(true)}>⚡ Express</div>
+                  <div style={s.deliveryOptDate}>{expDate}</div>
+                  <div style={s.deliveryOptPrice(true)}>+₹129 · Order within {expCountdown}</div>
+                </div>
+              </div>
+              <div style={s.pinRow}>
+                <span style={{ color: Y, fontSize: 11 }}>📍</span>
+                <input
+                  style={s.pinInput}
+                  placeholder="Enter pin code"
+                  value={pinCode}
+                  maxLength={6}
+                  inputMode="numeric"
+                  onChange={e => setPinCode(e.target.value.replace(/\D/g,"").slice(0,6))}
+                  onKeyDown={e => e.key === "Enter" && checkPin()}
+                />
+                <button style={s.pinBtn} onClick={() => checkPin()} disabled={pinChecking}>
+                  {pinChecking ? "…" : "Check"}
+                </button>
+                {pinResult && <span style={s.pinResult(pinResult.ok)}>{pinResult.msg}</span>}
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Select delivery type at checkout</div>
+            </div>
+          )}
+
+          {/* Action row */}
+          <div style={s.actionRow}>
+            {p.stock > 0 ? (
+              <button
+                style={{ ...s.addCartBtn, opacity: cartLoading[p.id] ? 0.6 : 1 }}
+                disabled={cartLoading[p.id]}
+                onClick={handleAddToCart}
+              >
+                🛒 {cartLoading[p.id] ? "Adding…" : "Add to Cart"}
+              </button>
+            ) : (
+              <button
+                style={s.notifyBtn(subscribed)}
+                onClick={subscribed ? unsubscribeNotify : subscribeNotify}
+              >
+                {subscribed ? "🔕 Unsubscribe" : "🔔 Notify Me When Back"}
+              </button>
+            )}
+            <button
+              style={{ ...s.wishBtn, background: isWishlisted ? "rgba(239,68,68,0.22)" : undefined }}
+              onClick={() => onToggleWishlist(p.id)}
+            >
+              {isWishlisted ? "❤️" : "🤍"}
+            </button>
+            <button style={s.shareBtn} onClick={() => setShareOpen(true)} title="Share">↗</button>
+          </div>
+
+          <button style={s.backBtn} onClick={onBack}>← Back to all products</button>
+        </div>
+      </div>
+
+      {/* ── REVIEWS ── */}
+      <div style={s.sectionWrap}>
+        <div style={s.secTitle}>
+          <span style={s.secIcon}>★</span>
+          Customer Reviews
+          <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>({reviews.length} reviews)</span>
+        </div>
+
+        {reviews.length > 0 ? (
+          <div style={s.reviewsGrid}>
+            {reviews.map((r, i) => (
+              <div key={i} style={s.reviewCard}>
+                <div style={s.reviewTop}>
+                  <span style={s.reviewAuthor}>{r.customerName || "Customer"}</span>
+                  <span style={s.reviewStars}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                </div>
+                <p style={s.reviewText}>{r.comment}</p>
+                {reviewPhotos[r.id] && reviewPhotos[r.id].length > 0 && (
+                  <div style={s.photoStrip}>
+                    {reviewPhotos[r.id].map((img, j) => (
+                      <img
+                        key={j} src={img.imageUrl} alt="review photo"
+                        style={s.photoThumb}
+                        onClick={() => setLightboxSrc(img.imageUrl)}
+                        title="Click to enlarge"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>No reviews yet — be the first to review this product!</p>
+        )}
+
+        {/* Write a review */}
+        <div style={s.reviewFormWrap}>
+          <div style={s.reviewFormTitle}>✏️ Write a Review</div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            {[1,2,3,4,5].map(n => (
+              <button key={n} style={s.starBtn(n <= newReview.rating)} onClick={() => setNewReview(r => ({ ...r, rating: n }))}>★</button>
+            ))}
+          </div>
+          <div style={s.reviewForm}>
+            <input
+              style={s.reviewInput}
+              placeholder="Share your experience with this product…"
+              value={newReview.comment}
+              onChange={e => setNewReview(r => ({ ...r, comment: e.target.value }))}
+            />
+            <button style={{ ...s.reviewSubmitBtn, opacity: submitting || !!reviewId ? 0.5 : 1 }}
+              onClick={submitReview} disabled={submitting || !!reviewId}>
+              {submitting ? "Posting…" : reviewId ? "✓ Submitted" : "✈ Post"}
+            </button>
+          </div>
+
+          {/* Photo upload after review submission */}
+          {reviewId && (
+            <div style={s.uploadPanel}>
+              <p style={s.uploadPanelTitle}>📸 Add Review Photos <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.4)", fontSize: 11 }}>(optional · up to 5)</span></p>
+              {reviewUploadedCount > 0 && (
+                <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, marginBottom: 6 }}>✓ {reviewUploadedCount} photo{reviewUploadedCount !== 1 ? "s" : ""} added</div>
+              )}
               {(5 - reviewUploadedCount) > 0 && (
                 <>
-                  <input
-                    ref={reviewFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
+                  <input ref={reviewFileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
                     onChange={onReviewFilesChange}
-                    style={{ fontSize: 12, color: "#d1d5db", display: "block", marginBottom: 10, cursor: "pointer", width: "100%" }}
-                  />
+                    style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 8, cursor: "pointer", width: "100%" }} />
                   {reviewPreviews.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                       {reviewPreviews.map((src, i) => (
-                        <img key={i} src={src} alt={`preview ${i+1}`}
-                          style={{ width: 68, height: 68, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
+                        <img key={i} src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
                       ))}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <button
-                      style={{ ...cs.submitReviewBtn, marginTop: 0, opacity: reviewFiles.length === 0 || reviewUploading ? 0.5 : 1, cursor: reviewFiles.length === 0 || reviewUploading ? "not-allowed" : "pointer" }}
-                      onClick={doReviewUpload}
-                      disabled={reviewFiles.length === 0 || reviewUploading}
-                    >
+                    <button style={{ ...s.uploadBtn, opacity: !reviewFiles.length || reviewUploading ? 0.4 : 1 }}
+                      onClick={doReviewUpload} disabled={!reviewFiles.length || reviewUploading}>
                       {reviewUploading ? "Uploading…" : reviewFiles.length > 0 ? `Upload ${reviewFiles.length} Photo${reviewFiles.length !== 1 ? "s" : ""}` : "Select Photos First"}
                     </button>
                     {reviewFiles.length > 0 && !reviewUploading && (
-                      <button
-                        style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
-                        onClick={() => { setReviewFiles([]); setReviewPreviews([]); if (reviewFileRef.current) reviewFileRef.current.value = ""; }}
-                      >Clear</button>
+                      <button style={{ fontSize: 11, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+                        onClick={() => { setReviewFiles([]); setReviewPreviews([]); if (reviewFileRef.current) reviewFileRef.current.value = ""; }}>
+                        Clear
+                      </button>
                     )}
                   </div>
                   {reviewUploadMsg && (
-                    <p style={{ marginTop: 8, fontSize: 12, color: reviewUploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>
-                      {reviewUploadMsg}
-                    </p>
+                    <p style={{ marginTop: 6, fontSize: 12, color: reviewUploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>{reviewUploadMsg}</p>
                   )}
                 </>
               )}
-              {(5 - reviewUploadedCount) === 0 && (
-                <p style={{ fontSize: 12, color: "#6b7280" }}>Maximum 5 photos added.</p>
-              )}
-              <button
-                style={{ marginTop: 12, fontSize: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
-                onClick={() => { setReviewId(null); setReviewUploadMsg(""); setReviewFiles([]); setReviewPreviews([]); setReviewUploadedCount(0); }}
-              >
+              <button style={{ marginTop: 10, fontSize: 11, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+                onClick={() => { setReviewId(null); setReviewUploadMsg(""); setReviewFiles([]); setReviewPreviews([]); setReviewUploadedCount(0); }}>
                 Done with photos
               </button>
             </div>
           )}
         </div>
-        {reviews.map((r, i) => (
-          <div key={i} style={cs.reviewCard}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <strong style={{ color: "#e5e7eb" }}>{r.customerName || "Customer"}</strong>
-              <span style={{ color: "#f59e0b" }}>{stars(r.rating)}</span>
-            </div>
-            <p style={{ color: "#9ca3af", marginTop: 4 }}>{r.comment}</p>
-          </div>
-        ))}
-        {reviews.length === 0 && <p style={{ color: "#9ca3af" }}>No reviews yet. Be the first!</p>}
       </div>
+
+      {/* ── SIMILAR PRODUCTS ── */}
+      {similar.length > 0 && (
+        <div style={s.sectionWrap}>
+          <div style={s.secTitle}>
+            <span style={s.secIcon}>◈</span>
+            Similar Products
+            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>in {p.category}</span>
+          </div>
+          <div style={s.similarGrid}>
+            {similar.map((sim, i) => (
+              <div key={i} style={s.simCard}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.borderColor = "rgba(245,168,0,0.4)"; e.currentTarget.style.boxShadow = "0 20px 45px rgba(0,0,0,0.35)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = ""; }}>
+                <div style={s.simImgWrap} onClick={() => { /* bubble to parent */ onBack && null; }}>
+                  <img src={sim.imageLink} alt={sim.name} style={s.simImg}
+                    onError={e => e.target.style.display = "none"} />
+                  <span style={s.simCat}>{sim.category}</span>
+                </div>
+                <div style={s.simBody}>
+                  <div style={s.simName}>{sim.name}</div>
+                  <div style={s.simDesc}>{sim.description}</div>
+                  <div style={s.simPrice}>₹{sim.price?.toLocaleString("en-IN")}</div>
+                </div>
+                <button style={s.simCartBtn} onClick={() => onAddToCart(sim.id)}>🛒 Add to Cart</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── SHARE MODAL ── */}
+      {shareOpen && (
+        <div style={s.overlay} onClick={e => e.target === e.currentTarget && setShareOpen(false)}>
+          <div style={s.modalBox}>
+            <div style={{ fontSize: 36 }}>🔗</div>
+            <h3 style={s.modalTitle}>Share this Product</h3>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600, marginBottom: 16 }}>{p.name}</p>
+            <div style={s.shareLinkBox}>
+              <span style={s.shareLinkText}>{shareUrl}</span>
+              <button style={s.shareCopyBtn(shareCopied)} onClick={copyLink}>
+                {shareCopied ? "✓ Copied!" : "Copy"}
+              </button>
+            </div>
+            <div style={s.shareViaRow}>
+              <a href={`https://wa.me/?text=${shareMsg}`} target="_blank" rel="noreferrer"
+                style={s.shareViaBtn("rgba(37,211,102,0.15)", "#25d366")} title="WhatsApp">💬</a>
+              <a href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out: " + p.name)}`} target="_blank" rel="noreferrer"
+                style={s.shareViaBtn("rgba(0,136,204,0.15)", "#0088cc")} title="Telegram">✈</a>
+              <a href={`mailto:?subject=${encodeURIComponent("Check this out on Ekart")}&body=${shareMsg}`}
+                style={s.shareViaBtn("rgba(255,255,255,0.07)", "rgba(255,255,255,0.65)")} title="Email">✉</a>
+            </div>
+            <button style={s.modalGhost} onClick={() => setShareOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIGHTBOX ── */}
+      {lightboxSrc && (
+        <div style={s.lightbox} onClick={() => setLightboxSrc(null)}>
+          <button style={s.lightboxClose} onClick={() => setLightboxSrc(null)}>✕</button>
+          <img src={lightboxSrc} alt="Review photo" style={s.lightboxImg} onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 /* ── Cart Page ── */
 function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, onCheckout, profile }) {
