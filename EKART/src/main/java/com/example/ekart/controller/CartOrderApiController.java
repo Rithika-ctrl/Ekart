@@ -1,6 +1,7 @@
 package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
+import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ public class CartOrderApiController {
     @Autowired private OrderRepository    orderRepository;
     @Autowired private ItemRepository     itemRepository;
     @Autowired private JwtUtil            jwtUtil;
+    @Autowired private EmailSender        emailSender;
 
     // ══════════════════════════════════════════════════════════
     //  CART
@@ -385,6 +387,17 @@ public class CartOrderApiController {
 
         order.setTrackingStatus(TrackingStatus.CANCELLED);
         orderRepository.save(order);
+
+        // Send cancellation email — async, fire-and-forget
+        try {
+            emailSender.sendOrderCancellation(
+                customer, order.getAmount(), order.getId(),
+                new java.util.ArrayList<>(order.getItems())
+            );
+        } catch (Exception e) {
+            System.err.println("[CartOrderApi] Cancellation email failed for order #"
+                + order.getId() + ": " + e.getMessage());
+        }
 
         res.put("success", true);
         res.put("message", "Order cancelled successfully");
