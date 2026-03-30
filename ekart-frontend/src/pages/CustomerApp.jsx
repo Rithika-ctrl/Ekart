@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
@@ -78,7 +79,6 @@ import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
 import VendorCsvUpload from "./VendorCsvUpload";
 // At the top of CustomerApp.jsx, with the other page imports:
-import ScheduledOrdersPage from "./pages/ScheduledOrdersPage";
 
 /* ── GuestGate ────────────────────────────────────────────────────
    Wraps any page that requires login. When auth is null or GUEST,
@@ -136,6 +136,8 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 60, right: 16 });
+  const profileBtnRef = useRef(null);
   const [acQuery, setAcQuery] = useState("");
   const [acResults, setAcResults] = useState([]);
   const [acOpen, setAcOpen] = useState(false);
@@ -198,7 +200,7 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
     { key: "products", label: "🛍️ Shop" }, { key: "cart", label: "🛒 Cart" },
     { key: "orders", label: "📦 Orders" }, { key: "track", label: "🚚 Track" },
     { key: "wishlist", label: "❤️ Wishlist" }, { key: "coupons", label: "🎟️ Coupons" },
-    { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },{ key: "scheduled", label: "📅 Scheduled" },
+    { key: "refunds", label: "🧾 Refunds" }, { key: "spending", label: "💰 Spending" }, { key: "profile", label: "👤 Profile" },
   ];
   if (auth && auth.role === "VENDOR") tabs.push({ key: "vendor", label: "🏬 Vendor" });
 
@@ -303,16 +305,23 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
         {/* Profile dropdown / Sign In */}
         {auth && auth.role !== "GUEST" ? (
           <div style={{ position:"relative" }}>
-            <button style={cs.profileIconBtn} onClick={() => setProfileOpen(o => !o)} title="Account">👤</button>
-            {profileOpen && (
-              <div style={cs.profileDropdown} onClick={() => setProfileOpen(false)}>
+            <button ref={profileBtnRef} style={cs.profileIconBtn} onClick={() => {
+              if (!profileOpen) {
+                const rect = profileBtnRef.current?.getBoundingClientRect();
+                if (rect) setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+              }
+              setProfileOpen(o => !o);
+            }} title="Account">👤</button>
+            {profileOpen && createPortal(
+              <div style={{ ...cs.profileDropdown, top: dropdownPos.top, right: dropdownPos.right }} onClick={() => setProfileOpen(false)}>
                 <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", gap:6 }}>
                   <span>👤</span><span>{auth?.name || "Account"}</span>
                 </div>
                 <div style={cs.profileItem} onClick={() => nav.go("profile")}>👤 My Profile</div>
                 <div style={cs.profileItem} onClick={() => window.location.href="/customer/security-settings"}>🛡️ Security Settings</div>
                 <div style={{ ...cs.profileItem, color:"#f87171" }} onClick={handleLogout}>🚪 Logout</div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         ) : (
@@ -3323,22 +3332,75 @@ function SpendingPage({ data, orders, onLoadOrders }) {
         )}
       </div>
 
-      {/* ── Recent Transactions ── */}
-      <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
-        <h3 style={{ ...cs.secTitle, marginBottom: 16 }}>Recent Transactions</h3>
-        {(orders || []).slice(0, 10).map(o => (
-          <div key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <div>
-              <div style={{ color: "#e5e7eb", fontWeight: 600, fontSize: 14 }}>Order #{o.id}</div>
-              <div style={{ color: "#9ca3af", fontSize: 12 }}>{o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : ""}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: "#fff", fontWeight: 700 }}>{fmt(o.amount || o.totalPrice)}</div>
-              <span style={{ ...cs.statusBadge, fontSize: 11, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus}</span>
-            </div>
+      {/* ── Last Order Date Banner ── */}
+      {(() => {
+        const lastOrder = (orders || []).filter(o => o.orderDate).sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))[0];
+        if (!lastOrder) return null;
+        const formatted = new Date(lastOrder.orderDate).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12, padding: "10px 16px", marginBottom: 4 }}>
+            <span style={{ fontSize: 16 }}>🕐</span>
+            <span style={{ color: "#9ca3af", fontSize: 13 }}>Last order placed on</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 600, fontSize: 13 }}>{formatted}</span>
           </div>
-        ))}
-        {(!orders || orders.length === 0) && <div style={cs.empty}>No transactions yet. Start shopping!</div>}
+        );
+      })()}
+
+      {/* ── Order Breakdown Table ── */}
+      <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, overflow: "hidden" }}>
+        {/* Section heading with receipt icon */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "18px 24px 0" }}>
+          <span style={{ fontSize: 16, color: "#f59e0b" }}>🧾</span>
+          <h3 style={{ ...cs.secTitle, marginBottom: 0, fontSize: 16 }}>Order Breakdown</h3>
+        </div>
+
+        {(orders || []).length > 0 ? (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+              <thead>
+                <tr style={{ background: "rgba(0,0,0,0.2)" }}>
+                  {["Order ID", "Date", "Items", "Payment", "Amount"].map(h => (
+                    <th key={h} style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid rgba(255,255,255,0.07)", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(orders || []).map((o, idx) => {
+                  const isCod = !o.paymentMode || o.paymentMode === "Cash on Delivery" || o.paymentMode === "COD";
+                  const itemNames = (o.items || []).map(i => i.name || i.productName).filter(Boolean).join(", ") || "—";
+                  const dateStr = o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+                  return (
+                    <tr key={o.id} style={{ borderBottom: idx < (orders.length - 1) ? "1px solid rgba(255,255,255,0.06)" : "none" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      {/* Order ID */}
+                      <td style={{ padding: "12px 20px", fontWeight: 700, color: "#f59e0b", fontSize: 14, whiteSpace: "nowrap" }}>#{o.id}</td>
+                      {/* Date */}
+                      <td style={{ padding: "12px 20px", color: "#9ca3af", fontSize: 13, whiteSpace: "nowrap" }}>{dateStr}</td>
+                      {/* Item names */}
+                      <td style={{ padding: "12px 20px", color: "#e5e7eb", fontSize: 13, maxWidth: 260 }}>
+                        <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{itemNames}</span>
+                      </td>
+                      {/* Payment mode */}
+                      <td style={{ padding: "12px 20px", whiteSpace: "nowrap" }}>
+                        {isCod
+                          ? <span style={{ fontSize: 13, color: "#fbbf24", fontWeight: 600 }}>💵 COD</span>
+                          : <span style={{ fontSize: 13, color: "#60a5fa", fontWeight: 600 }}>💳 Online</span>
+                        }
+                      </td>
+                      {/* Amount */}
+                      <td style={{ padding: "12px 20px", color: "#22c55e", fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>{fmt(o.amount || o.totalPrice)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ ...cs.empty, paddingTop: 40 }}>
+            🛍️ No orders yet. <span style={{ color: "#6366f1", cursor: "pointer" }}>Start shopping!</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -4195,7 +4257,7 @@ const cs = {
   indiaBadge: { display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, border:"1px solid rgba(255,153,51,0.45)", background:"rgba(255,153,51,0.08)", fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.85)", flexShrink:0, userSelect:"none" },
   cartBadge: { position:"absolute", top:-4, right:-4, background:"#f5a800", color:"#1a1000", fontSize:9, fontWeight:800, width:15, height:15, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" },
   profileIconBtn: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:"50%", width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:16, color:"#f5a800", flexShrink:0 },
-  profileDropdown: { position:"absolute", top:"calc(100% + 10px)", right:0, background:"#1a1208", border:"1px solid rgba(245,168,0,0.25)", borderRadius:14, minWidth:180, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:999, overflow:"hidden" },
+  profileDropdown: { position:"fixed", top:60, right:16, background:"#1a1208", border:"1px solid rgba(245,168,0,0.25)", borderRadius:14, minWidth:180, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:9999, overflow:"hidden" },
   profileItem: { display:"flex", alignItems:"center", gap:8, padding:"10px 14px", color:"#ccc", fontSize:14, cursor:"pointer", transition:"background 0.15s" },
   drawerSectionTitle: { padding:"12px 14px 6px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"rgba(255,255,255,0.4)", borderTop:"1px solid rgba(255,255,255,0.06)", marginTop:4 },
   drawerItem: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", color:"rgba(255,255,255,0.85)", fontSize:14, cursor:"pointer", border:"none", background:"none", width:"100%", textAlign:"left", transition:"background 0.15s" },
