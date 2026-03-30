@@ -20,7 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.example.ekart.middleware.FlutterAuthFilter;
+import com.example.ekart.middleware.ReactAuthFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import java.util.List;
 
@@ -32,7 +32,7 @@ public class SecurityConfig {
     private CustomOAuth2UserService customOAuth2UserService;
 
     @Autowired
-    private FlutterAuthFilter flutterAuthFilter;
+    private ReactAuthFilter reactAuthFilter;
 
     @Autowired
     private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -44,9 +44,9 @@ public class SecurityConfig {
      */
     @Bean
     @Order(1)
-    public SecurityFilterChain flutterApiFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain reactApiFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/flutter/**")
+            .securityMatcher("/api/react/**")
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -56,7 +56,7 @@ public class SecurityConfig {
             // JWT validation — rejects requests missing/invalid token on protected endpoints.
             // Public endpoints (auth/**, products/**, assistant/chat) are whitelisted inside
             // the filter itself, so they pass through regardless.
-            .addFilterBefore(flutterAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(reactAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

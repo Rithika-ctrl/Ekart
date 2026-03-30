@@ -49,7 +49,7 @@ import java.util.Set;
  *   This is defence-in-depth: FlutterApiController.requireAdmin() is a second layer.
  */
 @Component
-public class FlutterAuthFilter extends OncePerRequestFilter {
+public class ReactAuthFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -76,7 +76,7 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // This filter only applies to /api/flutter/**
-        return !request.getRequestURI().startsWith("/api/flutter/");
+        return !request.getRequestURI().startsWith("/api/react/");
     }
 
     @Override
@@ -85,7 +85,7 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
 
-        String sub = request.getRequestURI().substring("/api/flutter".length()); // e.g. /cart
+        String sub = request.getRequestURI().substring("/api/react".length()); // e.g. /cart
 
         // ── Public endpoints — pass through without a token ───────────────────
         // Admin paths are explicitly EXCLUDED from the public list even if
@@ -139,8 +139,8 @@ public class FlutterAuthFilter extends OncePerRequestFilter {
         }
 
         // Expose parsed claims to controllers via request attributes
-        request.setAttribute("flutter.userId", userId);
-        request.setAttribute("flutter.role",   role);
+        request.setAttribute("react.userId", userId);
+        request.setAttribute("react.role",   role);
 
         chain.doFilter(request, response);
     }
