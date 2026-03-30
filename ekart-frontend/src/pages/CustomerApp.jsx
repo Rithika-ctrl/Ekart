@@ -520,7 +520,7 @@ export default function CustomerApp() {
 
       {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
-        onView={recordRecentlyViewed} />}
+        onView={recordRecentlyViewed} auth={auth} />}
 
       {page === "cart" && !addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
@@ -1367,7 +1367,7 @@ function ProductCard({ product: p, onSelect, onAddToCart, onToggleWishlist, isWi
 }
 
 /* ── Product Detail ── */
-function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView }) {
+function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView, auth }) {
   const [reviews, setReviews] = useState([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [submitting, setSubmitting] = useState(false);
