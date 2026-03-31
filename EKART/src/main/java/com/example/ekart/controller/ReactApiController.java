@@ -104,25 +104,122 @@ public class ReactApiController {
     }
 
     /** POST /api/flutter/auth/customer/register */
+        // ═══════════════════════════════════════════════════════
+    // AUTH — CUSTOMER REGISTRATION (OTP-verified)
+    //   Step 1 — POST /auth/customer/send-register-otp  body: { email, name }
+    //            → validates email uniqueness, generates OTP, emails it
+    //   Step 2 — POST /auth/customer/verify-register-otp body: { email, otp }
+    //            → validates OTP, marks email as register-verified in map
+    //   Step 3 — POST /auth/customer/register           body: { name, email, mobile, password, … }
+    //            → checks register-verified map, creates account with verified=true
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * Pending registrations: email → partially-built Customer awaiting OTP.
+     * Key: email (lower-cased). Cleared after successful register or on re-send.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> registerOtpVerified =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** POST /api/react/auth/customer/send-register-otp */
+    @PostMapping("/auth/customer/send-register-otp")
+    public ResponseEntity<Map<String, Object>> customerSendRegisterOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (email.isEmpty()) {
+                res.put("success", false); res.put("message", "Email is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (customerRepository.existsByEmail(email)) {
+                res.put("success", false); res.put("message", "Email already registered");
+                return ResponseEntity.badRequest().body(res);
+            }
+            // Build a temporary Customer just to reuse the emailSender template
+            com.example.ekart.model.Customer temp = new com.example.ekart.model.Customer();
+            temp.setName((String) body.getOrDefault("name", "Customer"));
+            temp.setEmail(email);
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            temp.setOtp(otp);
+            // Save temporarily so the email template can reference the OTP
+            temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
+            temp.setVerified(false);
+            temp.setActive(false);
+            temp.setRole(com.example.ekart.model.Role.CUSTOMER);
+            customerRepository.save(temp);
+            try { emailSender.send(temp); } catch (Exception e) {
+                System.err.println("Customer register OTP email failed: " + e.getMessage());
+            }
+            registerOtpVerified.remove(email);
+            res.put("success", true);
+            res.put("message", "OTP sent to " + email);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Failed to send OTP: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/react/auth/customer/verify-register-otp */
+    @PostMapping("/auth/customer/verify-register-otp")
+    public ResponseEntity<Map<String, Object>> customerVerifyRegisterOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            com.example.ekart.model.Customer temp = customerRepository.findByEmail(email);
+            if (temp == null) {
+                res.put("success", false); res.put("message", "No pending registration for this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            int otp;
+            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
+                res.put("success", false); res.put("message", "Invalid OTP format");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (temp.getOtp() != otp) {
+                res.put("success", false); res.put("message", "Invalid or expired OTP");
+                return ResponseEntity.badRequest().body(res);
+            }
+            // Mark email as register-verified so the final register step can proceed
+            registerOtpVerified.put(email, Boolean.TRUE);
+            // Delete the temp placeholder — final register step will create the real record
+            customerRepository.delete(temp);
+            res.put("success", true); res.put("message", "OTP verified");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/react/auth/customer/register — requires prior OTP verification */
     @PostMapping("/auth/customer/register")
     public ResponseEntity<Map<String, Object>> customerRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = (String) body.get("email");
-            if (customerRepository.existsByEmail(email)) {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (!Boolean.TRUE.equals(registerOtpVerified.get(email))) {
                 res.put("success", false);
-                res.put("message", "Email already registered");
+                res.put("message", "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
-            Customer c = new Customer();
+            if (customerRepository.existsByEmail(email)) {
+                res.put("success", false); res.put("message", "Email already registered");
+                return ResponseEntity.badRequest().body(res);
+            }
+            com.example.ekart.model.Customer c = new com.example.ekart.model.Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get("mobile").toString()));
-            c.setPassword(AES.encrypt((String) body.get("password")));
+            c.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
             c.setVerified(true);
-            c.setRole(Role.CUSTOMER);
+            c.setRole(com.example.ekart.model.Role.CUSTOMER);
             c.setActive(true);
             customerRepository.save(c);
+            registerOtpVerified.remove(email); // consume — one-time use
             res.put("success", true);
             res.put("message", "Registered successfully");
             res.put("customerId", c.getId());
@@ -133,6 +230,8 @@ public class ReactApiController {
             return ResponseEntity.internalServerError().body(res);
         }
     }
+
+
 
     /** POST /api/flutter/auth/customer/login */
     @PostMapping("/auth/customer/login")
@@ -168,25 +267,111 @@ public class ReactApiController {
     // AUTH — VENDOR
     // ═══════════════════════════════════════════════════════
 
-    /** POST /api/flutter/auth/vendor/register */
-    @PostMapping("/auth/vendor/register")
-    public ResponseEntity<Map<String, Object>> vendorRegister(@RequestBody Map<String, Object> body) {
+    // ═══════════════════════════════════════════════════════
+    // AUTH — VENDOR REGISTRATION (OTP-verified)
+    //   Step 1 — POST /auth/vendor/send-register-otp  body: { email, name }
+    //   Step 2 — POST /auth/vendor/verify-register-otp body: { email, otp }
+    //   Step 3 — POST /auth/vendor/register            body: { name, email, mobile, password }
+    // ═══════════════════════════════════════════════════════
+
+    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> vendorRegisterOtpVerified =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** POST /api/react/auth/vendor/send-register-otp */
+    @PostMapping("/auth/vendor/send-register-otp")
+    public ResponseEntity<Map<String, Object>> vendorSendRegisterOtp(
+            @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = (String) body.get("email");
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (email.isEmpty()) {
+                res.put("success", false); res.put("message", "Email is required");
+                return ResponseEntity.badRequest().body(res);
+            }
             if (vendorRepository.existsByEmail(email)) {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            Vendor v = new Vendor();
+            com.example.ekart.model.Vendor temp = new com.example.ekart.model.Vendor();
+            temp.setName((String) body.getOrDefault("name", "Vendor"));
+            temp.setEmail(email);
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            temp.setOtp(otp);
+            temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
+            temp.setVerified(false);
+            vendorRepository.save(temp);
+            try { emailSender.send(temp); } catch (Exception e) {
+                System.err.println("Vendor register OTP email failed: " + e.getMessage());
+            }
+            vendorRegisterOtpVerified.remove(email);
+            res.put("success", true); res.put("message", "OTP sent to " + email);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Failed to send OTP: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/react/auth/vendor/verify-register-otp */
+    @PostMapping("/auth/vendor/verify-register-otp")
+    public ResponseEntity<Map<String, Object>> vendorVerifyRegisterOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            com.example.ekart.model.Vendor temp = vendorRepository.findByEmail(email);
+            if (temp == null) {
+                res.put("success", false); res.put("message", "No pending registration for this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            int otp;
+            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
+                res.put("success", false); res.put("message", "Invalid OTP format");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (temp.getOtp() != otp) {
+                res.put("success", false); res.put("message", "Invalid or expired OTP");
+                return ResponseEntity.badRequest().body(res);
+            }
+            vendorRegisterOtpVerified.put(email, Boolean.TRUE);
+            vendorRepository.delete(temp);
+            res.put("success", true); res.put("message", "OTP verified");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /** POST /api/react/auth/vendor/register — requires prior OTP verification */
+    @PostMapping("/auth/vendor/register")
+    public ResponseEntity<Map<String, Object>> vendorRegister(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (!Boolean.TRUE.equals(vendorRegisterOtpVerified.get(email))) {
+                res.put("success", false);
+                res.put("message", "Email not verified. Please complete OTP verification first.");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (vendorRepository.existsByEmail(email)) {
+                res.put("success", false); res.put("message", "Email already registered");
+                return ResponseEntity.badRequest().body(res);
+            }
+            com.example.ekart.model.Vendor v = new com.example.ekart.model.Vendor();
             v.setName((String) body.get("name"));
             v.setEmail(email);
             v.setMobile(Long.parseLong(body.get("mobile").toString()));
-            v.setPassword(AES.encrypt((String) body.get("password")));
+            v.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
             v.setVerified(true);
             vendorRepository.save(v);
+            String vendorCode = generateVendorCode(v.getId());
+            v.setVendorCode(vendorCode);
+            vendorRepository.save(v);
+            vendorRegisterOtpVerified.remove(email);
             res.put("success", true);
-            res.put("message", "Registered successfully. Wait for admin approval.");
+            res.put("message", "Registered successfully. Your store is under admin review.");
             res.put("vendorId", v.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -194,6 +379,8 @@ public class ReactApiController {
             return ResponseEntity.internalServerError().body(res);
         }
     }
+
+
 
     /** POST /api/flutter/auth/vendor/login */
     @PostMapping("/auth/vendor/login")

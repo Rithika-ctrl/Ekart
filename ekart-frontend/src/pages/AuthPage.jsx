@@ -95,7 +95,7 @@ export default function AuthPage() {
   }, [role, screen]);
 
   useEffect(() => {
-    if (screen === "otp") {
+    if (screen === "otp" || screen === "register-otp") {
       setTimer(120);
       timerRef.current = setInterval(() => setTimer(t => { if (t <= 1) { clearInterval(timerRef.current); return 0; } return t - 1; }), 1000);
     }
@@ -131,16 +131,57 @@ export default function AuthPage() {
     try {
       const body = { name: form.name, email: form.email, password: form.password, confirmPassword: form.confirmPassword, mobile: form.mobile };
       if (role === "delivery") body.warehouseId = parseInt(warehouseId) || 0;
+
+      // Customer & Vendor: stage data locally, send OTP first, then show verify screen
+      if (role === "customer" || role === "vendor") {
+        const data = await post(`/auth/${role}/send-register-otp`, { email: form.email, name: form.name });
+        if (!data.success) { setError(data.message || "Could not send OTP"); setLoading(false); return; }
+        setInfo("A 6-digit verification code was sent to " + form.email);
+        setScreen("register-otp");
+        setLoading(false);
+        return;
+      }
+
+      // Delivery: no OTP — submit directly as before
       const data = await post(`/auth/${role}/register`, body);
       if (!data.success) { setError(data.message || "Registration failed"); setLoading(false); return; }
-      if (role === "delivery") {
-        setInfo(data.message || "Account created! Awaiting email verification and admin approval.");
-        setScreen("login");
-      } else {
-        setInfo("Registered! Please sign in."); setScreen("login");
-      }
+      setInfo(data.message || "Account created! Awaiting email verification and admin approval.");
+      setScreen("login");
     } catch { setError("Network error."); }
     setLoading(false);
+  }
+
+  async function handleRegisterOtp(e) {
+    e.preventDefault(); clear();
+    const code = otp.join("");
+    if (code.length < 6) { setError("Enter all 6 digits"); return; }
+    setLoading(true);
+    try {
+      // Step 1: verify the OTP
+      const verifyData = await post(`/auth/${role}/verify-register-otp`, { email: form.email, otp: code });
+      if (!verifyData.success) { setError(verifyData.message || "Invalid OTP"); setLoading(false); return; }
+
+      // Step 2: complete registration now that email is confirmed
+      const body = { name: form.name, email: form.email, password: form.password, confirmPassword: form.confirmPassword, mobile: form.mobile };
+      const regData = await post(`/auth/${role}/register`, body);
+      if (!regData.success) { setError(regData.message || "Registration failed"); setLoading(false); return; }
+
+      setOtp(["","","","","",""]);
+      if (role === "vendor") {
+        setInfo("Email verified! Your store has been registered. Await admin approval before signing in.");
+      } else {
+        setInfo("Email verified! Your account is ready. Please sign in.");
+      }
+      setScreen("login");
+    } catch { setError("Network error."); }
+    setLoading(false);
+  }
+
+  async function resendRegisterOtp() {
+    try {
+      await post(`/auth/${role}/send-register-otp`, { email: form.email, name: form.name });
+      setInfo("OTP resent!"); setTimer(120);
+    } catch {}
   }
 
   async function handleForgot(e) {
@@ -330,6 +371,30 @@ export default function AuthPage() {
                   </button>
                 </>
               )}
+            </form>
+          )}
+
+          {/* ── REGISTER OTP (customer & vendor email verify) ── */}
+          {screen === "register-otp" && (
+            <form onSubmit={handleRegisterOtp}>
+              <div className="screen-title">📧 Verify Your Email</div>
+              <div className="screen-sub">
+                We sent a 6-digit code to <strong>{form.email}</strong>.<br />
+                Enter it below to activate your {role} account.
+              </div>
+              <div className="otp-row">
+                {otp.map((d, i) => (
+                  <input key={i} ref={el => otpRefs.current[i] = el} className="otp-inp" maxLength={1} value={d}
+                    onChange={e => handleOtpKey(i, e)} onKeyDown={e => handleOtpBackspace(i, e)}
+                    inputMode="numeric" autoFocus={i === 0} />
+                ))}
+              </div>
+              <div className="timer-row">
+                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>Expires in {fmtTimer(timer)}</span>
+                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendRegisterOtp}>Resend OTP</button>
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Verifying…" : "Verify & Create Account"}</button>
+              <button type="button" className="back-link" onClick={() => { setScreen("register"); setOtp(["","","","","",""]); clear(); }}>← Back to Registration</button>
             </form>
           )}
 
