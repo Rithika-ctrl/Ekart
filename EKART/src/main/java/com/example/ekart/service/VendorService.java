@@ -18,7 +18,7 @@ import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
+// import org.springframework.http.HttpStatus; // unused
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -43,10 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
 import com.example.ekart.reporting.ReportingService;
-import java.time.LocalDate;
+// import java.time.LocalDate; // unused
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
-import java.util.stream.Collectors;
+// import java.util.stream.Collectors; // unused
 
 import com.example.ekart.dto.Item;
 
@@ -683,6 +683,8 @@ public class VendorService {
         return "vendor-sales-report.html";
     }
 
+    // Unused helper method - kept for potential future use
+    /*
     private java.util.Map<String, Object> buildSummary(
             List<com.example.ekart.dto.Order> orders,
             java.util.Set<Integer> vendorProductIds) {
@@ -712,6 +714,7 @@ public class VendorService {
         summary.put("avgOrderValue",  Math.round(avg * 100.0) / 100.0);
         return summary;
     }
+    */
 
     private void saveSalesReport(Vendor vendor, String type,
             java.time.LocalDate date, java.util.Map<String, Object> summary) {

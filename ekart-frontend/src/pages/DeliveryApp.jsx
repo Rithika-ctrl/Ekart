@@ -267,56 +267,78 @@ export default function DeliveryApp() {
           )}
 
           {/* Pick Up */}
-          {page === "pickup" && profile?.approved && (
-            <div>
-              <div className="d-title">Pick Up from Warehouse 📦</div>
-              {toPickUp.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>📦</div><div>No orders to pick up</div></div>
-                : toPickUp.map(o => <OrderCard key={o.id} order={o} mode="pickup" />)}
-            </div>
+          {page === "pickup" && (
+            loading || !profile ? (
+              <div className="d-empty">Loading...</div>
+            ) : !profile.approved ? (
+              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
+            ) : (
+              <div>
+                <div className="d-title">Pick Up from Warehouse 📦</div>
+                {toPickUp.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>📦</div><div>No orders to pick up</div></div>
+                  : toPickUp.map(o => <OrderCard key={o.id} order={o} mode="pickup" />)}
+              </div>
+            )
           )}
 
           {/* Delivery */}
-          {page === "delivery" && profile?.approved && (
-            <div>
-              <div className="d-title">Out for Delivery 🛵</div>
-              {outNow.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>🛵</div><div>No active deliveries</div></div>
-                : outNow.map(o => <OrderCard key={o.id} order={o} mode="delivery" />)}
-            </div>
+          {page === "delivery" && (
+            loading || !profile ? (
+              <div className="d-empty">Loading...</div>
+            ) : !profile.approved ? (
+              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
+            ) : (
+              <div>
+                <div className="d-title">Out for Delivery 🛵</div>
+                {outNow.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>🛵</div><div>No active deliveries</div></div>
+                  : outNow.map(o => <OrderCard key={o.id} order={o} mode="delivery" />)}
+              </div>
+            )
           )}
 
           {/* History */}
-          {page === "history" && profile?.approved && (
-            <div>
-              <div className="d-title">Delivery History ✅</div>
-              {delivered.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>✅</div><div>No deliveries yet</div></div>
-                : delivered.map(o => <OrderCard key={o.id} order={o} mode="done" />)}
-            </div>
+          {page === "history" && (
+            loading || !profile ? (
+              <div className="d-empty">Loading...</div>
+            ) : !profile.approved ? (
+              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
+            ) : (
+              <div>
+                <div className="d-title">Delivery History ✅</div>
+                {delivered.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>✅</div><div>No deliveries yet</div></div>
+                  : delivered.map(o => <OrderCard key={o.id} order={o} mode="done" />)}
+              </div>
+            )
           )}
 
           {/* Profile */}
-          {page === "profile" && profile && (
-            <div>
-              <div className="d-title">My Profile 👤</div>
-              <div className="d-card">
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#0d0d0d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 20 }}>
-                  {(profile.name || "D")[0].toUpperCase()}
-                </div>
-                {[
-                  ["Name", profile.name],
-                  ["Email", profile.email],
-                  ["Code", profile.deliveryBoyCode],
-                  ["Mobile", profile.mobile],
-                  ["Warehouse", profile.warehouse ? `${profile.warehouse.name} · ${profile.warehouse.city}` : "—"],
-                  ["Assigned PINs", profile.assignedPinCodes || "All"],
-                  ["Status", profile.approved ? "✅ Approved" : "⏳ Pending Approval"],
-                ].map(([k, v]) => (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f2f0eb", fontSize: 14 }}>
-                    <span style={{ color: "rgba(13,13,13,0.55)", fontWeight: 600 }}>{k}</span>
-                    <span style={{ fontWeight: 600 }}>{v || "—"}</span>
+          {page === "profile" && (
+            loading || !profile ? (
+              <div className="d-empty">Loading...</div>
+            ) : (
+              <div>
+                <div className="d-title">My Profile 👤</div>
+                <div className="d-card">
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#0d0d0d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 20 }}>
+                    {(profile.name || "D")[0].toUpperCase()}
                   </div>
-                ))}
+                  {[
+                    ["Name", profile.name],
+                    ["Email", profile.email],
+                    ["Code", profile.deliveryBoyCode],
+                    ["Mobile", profile.mobile],
+                    ["Warehouse", profile.warehouse ? `${profile.warehouse.name} · ${profile.warehouse.city}` : "—"],
+                    ["Assigned PINs", profile.assignedPinCodes || "All"],
+                    ["Status", profile.approved ? "✅ Approved" : "⏳ Pending Approval"],
+                  ].map(([k, v]) => (
+                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f2f0eb", fontSize: 14 }}>
+                      <span style={{ color: "rgba(13,13,13,0.55)", fontWeight: 600 }}>{k}</span>
+                      <span style={{ fontWeight: 600 }}>{v || "—"}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           )}
         </main>
 

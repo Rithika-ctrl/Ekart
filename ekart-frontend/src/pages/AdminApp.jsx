@@ -3158,7 +3158,7 @@ function CategoryAdmin({ categories, api, showToast, onRefresh }) {
         </div>
       ) : (
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "rgba(13,13,13,0.6)", textTransform: "uppercase", letterSpacing: 0.5, fontSize: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 14, color: "rgba(13,13,13,0.6)", textTransform: "uppercase", letterSpacing: 0.5 }}>
             {categories.length} Parent {categories.length === 1 ? "Category" : "Categories"} · {categories.reduce((n, c) => n + (c.subCategories?.length || 0), 0)} Sub-Categories
           </div>
           {categories.map(parent => (

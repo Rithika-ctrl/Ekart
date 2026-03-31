@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
@@ -688,6 +688,7 @@ export default function CustomerApp() {
   // Falls back to "home" so /shop/ and /shop still work.
   const page = location.pathname.replace(/^\/shop\/?/, "").split("/")[0] || "home";
   const setPage = (p) => navigate(`/shop/${p}`, { replace: false });
+  const checkoutStep = new URLSearchParams(location.search).get("step");
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -703,6 +704,7 @@ export default function CustomerApp() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cartLoading, setCartLoading] = useState({});
+  const [initialCartLoaded, setInitialCartLoaded] = useState(false);
   const [paymentPage, setPaymentPage] = useState(false);
   const [addressPage, setAddressPage] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -780,6 +782,12 @@ export default function CustomerApp() {
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
   const showToast = m => setToast(m);
 
+  const setCheckoutStep = (step) => {
+    const base = "/shop/cart";
+    if (!step) navigate(base, { replace: false });
+    else navigate(`${base}?step=${encodeURIComponent(step)}`, { replace: false });
+  };
+
   const loadProducts = useCallback(async (q = "", cat = "") => {
     let path = "/products";
     const params = [];
@@ -797,7 +805,10 @@ export default function CustomerApp() {
 
   const loadCart = useCallback(async () => {
     const d = await api("/cart");
-    if (d.success) setCart(d);
+    if (d.success) {
+      setCart(d);
+      setInitialCartLoaded(true);
+    }
   }, [api]);
 
   const loadOrders = useCallback(async () => {
@@ -811,8 +822,16 @@ export default function CustomerApp() {
   }, [api]);
 
   const loadProfile = useCallback(async () => {
-    const d = await api("/profile");
-    if (d.success) setProfile(d.profile);
+    try {
+      const d = await api("/profile");
+      if (d && d.success) {
+        setProfile(d.profile || { addresses: [] });
+      } else {
+        setProfile({ addresses: [] });
+      }
+    } catch {
+      setProfile({ addresses: [] });
+    }
   }, [api]);
 
   const loadCoupons = useCallback(async () => {
@@ -836,6 +855,24 @@ export default function CustomerApp() {
   useEffect(() => { if (page === "orders" || page === "track") loadOrders(); }, [page]);
   useEffect(() => { if (page === "coupons") loadCoupons(); }, [page]);
   useEffect(() => { if (page === "spending") loadSpending(); }, [page]);
+  useEffect(() => {
+    if (page !== "cart") {
+      if (addressPage) setAddressPage(false);
+      if (paymentPage) setPaymentPage(false);
+      return;
+    }
+
+    if (checkoutStep === "address") {
+      if (!addressPage) setAddressPage(true);
+      if (paymentPage) setPaymentPage(false);
+    } else if (checkoutStep === "payment") {
+      if (!paymentPage) setPaymentPage(true);
+      if (addressPage) setAddressPage(false);
+    } else {
+      if (addressPage) setAddressPage(false);
+      if (paymentPage) setPaymentPage(false);
+    }
+  }, [page, checkoutStep, addressPage, paymentPage]);
 
   const addToCart = async (productId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to add items to cart"); return; }
@@ -1006,7 +1043,7 @@ export default function CustomerApp() {
     return refundId;
   };
 
-  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
+  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); window.scrollTo(0, 0); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
 
   return (
     <>
@@ -1055,36 +1092,66 @@ export default function CustomerApp() {
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
 
-      {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
-        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
-        onView={recordRecentlyViewed} auth={auth} allProducts={products} />}
+      {page === "product" && (
+        selectedProduct ? (
+          <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
+            onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
+            onView={recordRecentlyViewed} auth={auth} allProducts={products} />
+        ) : (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ color: "#6b7280" }}>Loading product details...</div>
+          </div>
+        )
+      )}
 
       {page === "cart" && !addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
-          <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
-            onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
-            onCheckout={() => setAddressPage(true)} profile={profile} />
+          {!initialCartLoaded ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading your cart...</div>
+            </div>
+          ) : (
+            <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
+              onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
+              onCheckout={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} profile={profile} />
+          )}
         </GuestGate>
       )}
 
       {page === "cart" && addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
-          <AddressStepPage
-            profile={profile}
-            api={api}
-            onRefreshProfile={() => loadProfile()}
-            onBack={() => setAddressPage(false)}
-            onContinue={(addrId) => { setSelectedAddressId(addrId); setAddressPage(false); setPaymentPage(true); }}
-            showToast={showToast}
-            cart={cart}
-          />
+          {!profile ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading your profile...</div>
+            </div>
+          ) : (
+            <AddressStepPage
+              profile={profile}
+              api={api}
+              onRefreshProfile={() => loadProfile()}
+              onBack={() => { setCheckoutStep(""); window.scrollTo(0, 0); }}
+              onContinue={(addrId) => { setSelectedAddressId(addrId); setCheckoutStep("payment"); window.scrollTo(0, 0); }}
+              showToast={showToast}
+              cart={cart}
+            />
+          )}
         </GuestGate>
       )}
 
       {page === "cart" && paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
-          <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
-            onPlaceOrder={placeOrder} onBack={() => { setPaymentPage(false); setAddressPage(true); }} />
+          {!profile || !selectedAddressId ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading payment details...</div>
+            </div>
+          ) : (
+            <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
+              onPlaceOrder={placeOrder} onBack={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} />
+          )}
         </GuestGate>
       )}
 
@@ -1106,10 +1173,19 @@ export default function CustomerApp() {
         </GuestGate>
       )}
 
-      {page === "track-single" && selectedOrder && (
-        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
-          <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />
-        </GuestGate>
+      {page === "track-single" && (
+        selectedOrder ? (
+          <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+            <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />
+          </GuestGate>
+        ) : (
+          <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading order details...</div>
+            </div>
+          </GuestGate>
+        )
       )}
 
       {page === "wishlist" && (
@@ -3000,7 +3076,7 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
   );
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto" }}>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 20px" }}>
 
       {/* ── Progress stepper ── */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
@@ -3304,7 +3380,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   ];
 
   return (
-    <div>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 20px" }}>
       {/* Stepper */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
         {steps.map((s, i) => (

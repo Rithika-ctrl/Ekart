@@ -58,11 +58,11 @@ public class CustomerImageUploadController {
     @Autowired
     private RefundImageRepository refundImageRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+    // @Autowired
+    // private ProductRepository productRepository; // unused
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // @Autowired
+    // private CustomerRepository customerRepository; // unused
 
     // ══════════════════════════════════════════════════════════
     //  1. REVIEW IMAGE UPLOADS

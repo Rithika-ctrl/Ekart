@@ -43,7 +43,7 @@ public class FlutterApiController {
     @Autowired private OrderRepository             orderRepository;
     @Autowired private ItemRepository              itemRepository;
     @Autowired private WishlistRepository          wishlistRepository;
-    @Autowired private AddressRepository           addressRepository;
+    //@Autowired private AddressRepository           addressRepository; // unused
     @Autowired private ReviewRepository            reviewRepository;
     @Autowired private RefundRepository            refundRepository;
     @Autowired private StockAlertRepository        stockAlertRepository;

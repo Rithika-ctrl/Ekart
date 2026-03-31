@@ -5,7 +5,6 @@ import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
 import com.example.ekart.helper.CloudinaryHelper;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +41,7 @@ public class ProfileWishlistApiController {
     @Autowired private CustomerRepository customerRepository;
     @Autowired private ProductRepository  productRepository;
     @Autowired private WishlistRepository wishlistRepository;
-    @Autowired private AddressRepository  addressRepository;
+    // @Autowired private AddressRepository  addressRepository; // unused
     @Autowired private ReviewRepository   reviewRepository;
     @Autowired private JwtUtil            jwtUtil;
     @Autowired private CloudinaryHelper   cloudinaryHelper;

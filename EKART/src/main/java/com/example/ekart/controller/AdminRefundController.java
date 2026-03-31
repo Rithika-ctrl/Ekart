@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.example.ekart.dto.Refund;
-import com.example.ekart.dto.RefundStatus;
+// import com.example.ekart.dto.RefundStatus; // unused
 import com.example.ekart.service.RefundService;
 
 import jakarta.servlet.http.HttpSession;
