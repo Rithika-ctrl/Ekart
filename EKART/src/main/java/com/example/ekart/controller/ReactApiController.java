@@ -2352,53 +2352,85 @@ public class ReactApiController {
     // VENDOR — PRODUCT CRUD  (X-Vendor-Id)
     // ═══════════════════════════════════════════════════════
 
-    /** POST /api/flutter/vendor/products/add */
-    @PostMapping("/vendor/products/add")
+    /** POST /api/react/vendor/products/add — Accepts multipart/form-data */
+    @PostMapping(value = "/vendor/products/add", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorAddProduct(
-            @RequestHeader("X-Vendor-Id") int vendorId, @RequestBody Map<String, Object> body) {
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @RequestParam("name") String name,
+            @RequestParam("description") String description,
+            @RequestParam("price") String price,
+            @RequestParam("category") String category,
+            @RequestParam("stock") String stock,
+            @RequestParam(value = "imageLink", required = false) String imageLink,
+            @RequestParam(value = "mrp", required = false) String mrp,
+            @RequestParam(value = "gstRate", required = false) String gstRate,
+            @RequestParam(value = "allowedPinCodes", required = false) String allowedPinCodes,
+            @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         try {
             Product p = new Product();
-            p.setName((String) body.get("name")); p.setDescription((String) body.get("description"));
-            p.setPrice(Double.parseDouble(body.get("price").toString()));
-            p.setCategory((String) body.get("category"));
-            p.setStock(Integer.parseInt(body.get("stock").toString()));
-            p.setImageLink((String) body.getOrDefault("imageLink", ""));
-            p.setApproved(false); p.setVendor(vendor);
-            Object mrpVal = body.get("mrp");
-            if (mrpVal != null && !mrpVal.toString().isBlank()) {
-                double mrp = Double.parseDouble(mrpVal.toString());
-                if (mrp > 0) p.setMrp(mrp);
+            p.setName(name);
+            p.setDescription(description);
+            p.setPrice(Double.parseDouble(price));
+            p.setCategory(category);
+            p.setStock(Integer.parseInt(stock));
+            p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+            p.setApproved(false);
+            p.setVendor(vendor);
+            
+            if (mrp != null && !mrp.isBlank()) {
+                double mrpVal = Double.parseDouble(mrp);
+                if (mrpVal > 0) p.setMrp(mrpVal);
             }
-            Object pins = body.get("allowedPinCodes");
-            if (pins != null && !pins.toString().isBlank()) p.setAllowedPinCodes(pins.toString().trim());
-            Object thresh = body.get("stockAlertThreshold");
-            if (thresh != null) p.setStockAlertThreshold(Integer.parseInt(thresh.toString()));
+            if (gstRate != null && !gstRate.isBlank()) {
+                double gstVal = Double.parseDouble(gstRate);
+                if (gstVal > 0) p.setGstRate(gstVal);
+            }
+            if (allowedPinCodes != null && !allowedPinCodes.isBlank()) {
+                p.setAllowedPinCodes(allowedPinCodes.trim());
+            }
+            if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) {
+                p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
+            }
+            
             productRepository.save(p);
             res.put("success", true); res.put("message", "Product added. Pending admin approval."); res.put("productId", p.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
-    /** PUT /api/flutter/vendor/products/{id}/update */
-    @PutMapping("/vendor/products/{id}/update")
+    /** PUT /api/react/vendor/products/{id}/update — Accepts multipart/form-data */
+    @PutMapping(value = "/vendor/products/{id}/update", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorUpdateProduct(
-            @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id, @RequestBody Map<String, Object> body) {
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @PathVariable int id,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "price", required = false) String price,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "stock", required = false) String stock,
+            @RequestParam(value = "imageLink", required = false) String imageLink,
+            @RequestParam(value = "mrp", required = false) String mrp,
+            @RequestParam(value = "gstRate", required = false) String gstRate,
+            @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
-            if (body.containsKey("name"))        p.setName((String) body.get("name"));
-            if (body.containsKey("description")) p.setDescription((String) body.get("description"));
-            if (body.containsKey("price"))       p.setPrice(Double.parseDouble(body.get("price").toString()));
-            if (body.containsKey("category"))    p.setCategory((String) body.get("category"));
-            if (body.containsKey("stock"))       p.setStock(Integer.parseInt(body.get("stock").toString()));
-            if (body.containsKey("imageLink"))   p.setImageLink((String) body.get("imageLink"));
-            if (body.containsKey("stockAlertThreshold")) p.setStockAlertThreshold(Integer.parseInt(body.get("stockAlertThreshold").toString()));
+            if (name != null && !name.isBlank()) p.setName(name);
+            if (description != null && !description.isBlank()) p.setDescription(description);
+            if (price != null && !price.isBlank()) p.setPrice(Double.parseDouble(price));
+            if (category != null && !category.isBlank()) p.setCategory(category);
+            if (stock != null && !stock.isBlank()) p.setStock(Integer.parseInt(stock));
+            if (imageLink != null && !imageLink.isBlank()) p.setImageLink(imageLink);
+            if (mrp != null && !mrp.isBlank()) p.setMrp(Double.parseDouble(mrp));
+            if (gstRate != null && !gstRate.isBlank()) p.setGstRate(Double.parseDouble(gstRate));
+            if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
+            
             productRepository.save(p);
             res.put("success", true); res.put("message", "Product updated successfully.");
             return ResponseEntity.ok(res);
@@ -2419,10 +2451,29 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /** GET /api/react/vendor/categories — Returns all available product categories for vendor to select from */
+    @GetMapping("/vendor/categories")
+    public ResponseEntity<Map<String, Object>> getVendorCategories(@RequestHeader("X-Vendor-Id") int vendorId) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        // Return all unique categories from approved products (for reference), or a predefined list
+        List<String> categories = productRepository.findByApprovedTrue()
+                .stream().map(Product::getCategory).filter(Objects::nonNull)
+                .distinct().sorted().collect(Collectors.toList());
+        // Fallback categories if no products exist
+        if (categories.isEmpty()) {
+            categories = java.util.Arrays.asList("Electronics", "Fashion", "Home & Kitchen", "Sports", "Beauty", "Books", "Toys", "Food & Groceries");
+        }
+        res.put("success", true);
+        res.put("categories", categories.stream().map(c -> java.util.Map.of("name", c)).collect(Collectors.toList()));
+        return ResponseEntity.ok(res);
+    }
+
     /**
-     * POST /api/flutter/vendor/products/upload-csv
+     * POST /api/react/vendor/products/upload-csv
      * Multipart form: file (CSV)
-     * CSV columns supported: id (optional), name, description, price, mrp (optional), category, stock, imageLink, stockAlertThreshold
+     * CSV columns supported: id (optional), name, description, price, mrp (optional), category, stock, imageLink, stockAlertThreshold, gstRate (optional)
      * If id is provided and product belongs to vendor, the product is updated; otherwise a new product is created (approved=false).
      */
     @PostMapping("/vendor/products/upload-csv")
@@ -2457,6 +2508,7 @@ public class ReactApiController {
                     String stockStr = getCell(cells, idx.get("stock"));
                     String imageLink = getCell(cells, idx.get("imagelink"));
                     String threshStr = getCell(cells, idx.get("stockalertthreshold"));
+                    String gstRateStr = getCell(cells, idx.get("gstrate"));
 
                     if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
                     if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
@@ -2465,6 +2517,7 @@ public class ReactApiController {
                     int stock = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr);
                     Integer thresh = (threshStr == null || threshStr.isBlank()) ? null : Integer.parseInt(threshStr);
                     Double mrp = (mrpStr == null || mrpStr.isBlank()) ? 0.0 : Double.parseDouble(mrpStr);
+                    Double gstRate = (gstRateStr == null || gstRateStr.isBlank()) ? null : Double.parseDouble(gstRateStr);
 
                     if (idStr != null && !idStr.isBlank()) {
                         int id = Integer.parseInt(idStr);
@@ -2474,12 +2527,14 @@ public class ReactApiController {
                         p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
                         if (imageLink != null) p.setImageLink(imageLink);
                         if (thresh != null) p.setStockAlertThreshold(thresh);
+                        if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
                         productRepository.save(p); updated++;
                     } else {
                         Product p = new Product();
                         p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
                         if (imageLink != null) p.setImageLink(imageLink);
                         if (thresh != null) p.setStockAlertThreshold(thresh);
+                        if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
                         p.setVendor(vendor); p.setApproved(false);
                         productRepository.save(p); created++;
                     }
@@ -2691,7 +2746,9 @@ public class ReactApiController {
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", p.getId()); m.put("name", p.getName()); m.put("description", p.getDescription());
-        m.put("price", p.getPrice()); m.put("category", p.getCategory()); m.put("stock", p.getStock());
+        m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("gstRate", p.getGstRate());
+        m.put("category", p.getCategory()); m.put("stock", p.getStock());
+        m.put("stockAlertThreshold", p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
         m.put("imageLink", p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
