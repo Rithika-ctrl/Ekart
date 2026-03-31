@@ -645,10 +645,13 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
           <h3 style={{ ...as.cardTitle, margin: 0 }}>Packed Orders — Assign Delivery Boy</h3>
           <span style={{ marginLeft: "auto", background: "#d4a017", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{(packedOrders || []).length}</span>
         </div>
+        <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(34,197,94,0.08)", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(34,197,94,0.2)" }}>
+          ✓ Only delivery boys with <strong>Online</strong> status (🟢) are shown. They will receive and accept the order.
+        </div>
         <AdminTable
           cols={["Order", "Customer", "Pin", "Warehouse", "Amount", "Assign To", ""]}
           rows={(packedOrders || []).map(order => {
-            const eligible = eligibleMap[order.id] || [];
+            const eligible = (eligibleMap[order.id] || []).filter(b => b.isAvailable === true);
             return [
               <div>
                 <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
@@ -664,8 +667,8 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
               <select style={{ ...inputStyle, minWidth: 180 }}
                 value={selectMap[order.id] || ""}
                 onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
-                <option value="">{eligible.length === 0 ? `No delivery boys for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
-                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse}</option>)}
+                <option value="">{eligible.length === 0 ? `No available delivery boys for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
+                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse} {b.isAvailable ? "🟢" : "🔴"}</option>)}
               </select>,
               <button style={as.approveBtn} onClick={() => {
                 if (!selectMap[order.id]) { showToast("Select a delivery boy first"); return; }
@@ -716,11 +719,15 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
           </div>
         </div>
         <AdminTable
-          cols={["ID","Name","Email","Mobile","Code","Warehouse","Status","Action"]}
+          cols={["ID","Name","Email","Mobile","Code","Warehouse","Status","Availability","Action"]}
           rows={filtered.map(d => [
             `#${d.id}`, d.name, d.email, d.mobile || "—", d.deliveryBoyCode,
             d.warehouse ? d.warehouse.name : "—",
             <span style={{ ...as.badge, background: d.approved ? "#e8f9f2" : "#fef9e7", color: d.approved ? "#1db882" : "#d4a017" }}>{d.approved ? "Active" : "Pending"}</span>,
+            <span style={{ ...as.badge, background: d.isAvailable ? "#e8f9f2" : "#ffe8e8", color: d.isAvailable ? "#1db882" : "#ff8060", fontWeight: 600 }}>
+              <i className={`fas fa-circle`} style={{ fontSize: "0.6rem", marginRight: "0.4rem" }} />
+              {d.isAvailable ? "Online" : "Offline"}
+            </span>,
             !d.approved ? (
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={as.approveBtn} onClick={() => onApprove(d.id, "", "")}>✓ Approve</button>
