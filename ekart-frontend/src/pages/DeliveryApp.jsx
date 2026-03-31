@@ -603,12 +603,10 @@ export default function DeliveryApp() {
     if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
     if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
     try {
-      const fd = new FormData();
-      fd.append("otp", otp);
-      const d = await fetch(`/delivery/order/${orderId}/deliver`, {
-        method: "POST", body: fd,
-        headers: auth?.token ? { Authorization: `Bearer ${auth.token}` } : {},
-      }).then(r => r.json());
+      const d = await api(`/delivery/order/${orderId}/deliver`, { 
+        method: "POST", 
+        body: JSON.stringify({ otp })
+      });
       showToast(d?.message || "Delivery confirmed", d?.success);
       if (d?.success) setTimeout(load, 1800);
     } catch { showToast("Request failed. Try again.", false); }
@@ -629,13 +627,10 @@ export default function DeliveryApp() {
   const submitTransfer = async () => {
     if (!selectedWh) { showToast("Please select a warehouse.", false); return; }
     try {
-      const fd = new FormData();
-      fd.append("warehouseId", selectedWh);
-      fd.append("reason", transferReason);
-      const d = await fetch("/delivery/warehouse-change/request", {
-        method: "POST", body: fd,
-        headers: auth?.token ? { Authorization: `Bearer ${auth.token}` } : {},
-      }).then(r => r.json());
+      const d = await api("/delivery/warehouse-change/request", {
+        method: "POST",
+        body: JSON.stringify({ warehouseId: parseInt(selectedWh), reason: transferReason })
+      });
       showToast(d?.message || "Request submitted", d?.success);
       if (d?.success) { setTransferModal(false); setTimeout(load, 1800); }
     } catch { showToast("Request failed. Try again.", false); }
