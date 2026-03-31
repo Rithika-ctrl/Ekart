@@ -12,7 +12,7 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Refund;
 import com.example.ekart.dto.RefundStatus;
 import com.example.ekart.dto.TrackingStatus;
-import com.example.ekart.helper.EmailSender;
+// import com.example.ekart.helper.EmailSender; // unused
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.RefundRepository;
 
@@ -30,7 +30,7 @@ public class RefundService {
     private OrderRepository orderRepository;
 
     @Autowired
-    private EmailSender emailSender;
+    // private EmailSender emailSender; // unused
 
     // ───────────────────────────────────────────────────────────────────────────
     // QUERY METHODS

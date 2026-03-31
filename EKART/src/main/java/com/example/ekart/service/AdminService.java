@@ -22,7 +22,7 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
-import com.example.ekart.repository.ItemRepository;
+// import com.example.ekart.repository.ItemRepository; // unused
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -56,7 +56,7 @@ public class AdminService {
 	private RefundRepository refundRepository;
 
 	@Autowired
-	private ItemRepository itemRepository;
+	// private ItemRepository itemRepository; // unused
 
 	// Banner text stored via @Value — set in application.properties or .env
 	// No longer uses static fields (static fields reset on restart and are shared JVM-wide)

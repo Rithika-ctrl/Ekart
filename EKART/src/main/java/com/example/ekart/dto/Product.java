@@ -33,6 +33,11 @@ public class Product {
 	/** Original MRP — if > price, shows strikethrough with discount badge. 0 = no MRP set. */
 	@Column(columnDefinition = "DOUBLE DEFAULT 0")
 	private Double mrp;
+
+	/** GST Rate (%) — applicable tax rate for this product (e.g., 5, 12, 18). Null = auto-determined. */
+	@Column(columnDefinition = "DOUBLE DEFAULT 0")
+	private Double gstRate;
+
 	private String category;
 	private int stock;
 	private Integer stockAlertThreshold = 10;
@@ -126,6 +131,9 @@ public class Product {
 
 	public double getMrp() { return mrp != null ? mrp : 0.0; }
 	public void setMrp(Double mrp) { this.mrp = (mrp != null) ? mrp : 0.0; }
+
+	public Double getGstRate() { return gstRate != null ? gstRate : 0.0; }
+	public void setGstRate(Double gstRate) { this.gstRate = (gstRate != null) ? gstRate : 0.0; }
 
 	/** Returns discount percentage rounded to nearest int. 0 if no MRP or no discount. */
 	public int getDiscountPercent() {

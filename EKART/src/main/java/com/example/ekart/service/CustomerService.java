@@ -49,10 +49,10 @@ import com.example.ekart.repository.RefundRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
 import com.example.ekart.helper.GstUtil;
-import com.example.ekart.service.SearchService;
-import com.example.ekart.service.BannerService;
-import com.example.ekart.service.CategoryService;
-import com.example.ekart.dto.Category;
+// import com.example.ekart.service.SearchService; // unused
+// import com.example.ekart.service.BannerService; // unused
+// import com.example.ekart.service.CategoryService; // unused
+// import com.example.ekart.dto.Category; // unused
 import com.example.ekart.reporting.ReportingService;
 
 import jakarta.servlet.http.HttpSession;
@@ -78,8 +78,8 @@ public class CustomerService {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private StockAlertService stockAlertService;
+    // @Autowired
+    // private StockAlertService stockAlertService; // unused
 
     @Autowired
     private EmailSender emailSender;

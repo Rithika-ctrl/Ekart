@@ -19,6 +19,7 @@ export default function VendorApp() {
   // Derive current page from URL: /vendor/:page → page, default "dashboard"
   const page = location.pathname.replace(/^\/vendor\/?/, "").split("/")[0] || "dashboard";
   const setPage = (p) => navigate(`/vendor/${p}`);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -31,6 +32,7 @@ export default function VendorApp() {
   const showToast = m => setToast(m);
 
   const loadAll = useCallback(async () => {
+    setLoading(true);
     const [s, p, o, a, pr] = await Promise.all([
       api("/vendor/stats"), api("/vendor/products"),
       api("/vendor/orders"), api("/vendor/stock-alerts"), api("/vendor/profile")
@@ -40,6 +42,7 @@ export default function VendorApp() {
     if (o.success) setOrders(o.orders || []);
     if (a.success) setStockAlerts(a.alerts || []);
     if (pr.success) setProfile(pr.vendor);
+    setLoading(false);
   }, [api]);
 
   const loadSales = useCallback(async (period = "weekly") => {
@@ -58,6 +61,7 @@ export default function VendorApp() {
     { key: "alerts", label: `⚠️ Alerts${stockAlerts.length > 0 ? ` (${stockAlerts.length})` : ""}` },
     { key: "storefront", label: "🏪 Store Front" },
     { key: "profile", label: "👤 Profile" },
+    { key: "security", label: "🔐 Security" },
   ];
 
   const markPacked = async (orderId) => {
@@ -83,13 +87,23 @@ export default function VendorApp() {
       </nav>
 
       <main style={vs.main}>
-        {page === "dashboard" && <Dashboard stats={stats} orders={orders} products={products} />}
-        {page === "products" && <ProductsManager products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} />}
-        {page === "sales" && <SalesReport salesData={salesData} onPeriodChange={loadSales} />}
-        {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "profile" && <VendorProfile profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+        {loading ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ color: "#6b7280" }}>Loading vendor data...</div>
+          </div>
+        ) : (
+          <>
+            {page === "dashboard" && <Dashboard stats={stats} orders={orders} products={products} />}
+            {page === "products" && <ProductsManager products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} />}
+            {page === "sales" && <SalesReport salesData={salesData} onPeriodChange={loadSales} />}
+            {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "profile" && <VendorProfile profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "security" && <VendorSecurity profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+          </>
+        )}
       </main>
     </div>
   );
@@ -594,7 +608,7 @@ function UploadOverlay() {
 
 function ProductsManager({ products, api, onRefresh, showToast }) {
   const EMPTY_FORM = { name: "", description: "", price: "", mrp: "", discountPct: "",
-    stock: "", category: "", stockAlertThreshold: 10, allowedPinCodes: "" };
+    stock: "", category: "", stockAlertThreshold: 10, allowedPinCodes: "", gstRate: "" };
 
   const [showForm, setShowForm]     = useState(false);
   const [editProduct, setEditProduct] = useState(null);
@@ -660,7 +674,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
     setForm({ name: p.name, description: p.description || "", price: String(price),
       mrp: String(mrp), discountPct, stock: String(p.stock),
       category: p.category || "", stockAlertThreshold: p.stockAlertThreshold || 10,
-      allowedPinCodes: p.allowedPinCodes || "" });
+      allowedPinCodes: p.allowedPinCodes || "", gstRate: p.gstRate != null ? String(p.gstRate) : "" });
     setMainImage(null); setExtraImages([]); setVideo(null);
     setEditProduct(p); setShowForm(true);
   };
@@ -677,6 +691,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
     fd.append("category", form.category);
     fd.append("stockAlertThreshold", parseInt(form.stockAlertThreshold) || 10);
     fd.append("allowedPinCodes", form.allowedPinCodes || "");
+    if (form.gstRate !== "") fd.append("gstRate", parseFloat(form.gstRate));
     if (mainImage) fd.append("image", mainImage);
     extraImages.forEach(f => fd.append("extraImages", f));
     if (video) fd.append("video", video);
@@ -743,8 +758,10 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   <option value="" disabled>— Select a category —</option>
                   {categories.length > 0
                     ? categories.map(c => (
-                        <option key={c.name} value={c.name}>
-                          {c.parentCategory ? `${c.parentCategory.emoji || ""} ${c.parentCategory.name} › ${c.name}` : c.name}
+                        <option key={c.id || c.name} value={c.name}>
+                          {c.parentCategory
+                            ? `${c.parentCategory.emoji || "📦"} ${c.parentCategory.name} › ${c.emoji ? c.emoji + " " : ""}${c.name}`
+                            : `${c.emoji ? c.emoji + " " : ""}${c.name}`}
                         </option>
                       ))
                     : <option value={form.category}>{form.category || "No categories loaded"}</option>
@@ -820,6 +837,48 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   ⚡ Get an email when stock drops below this level
                 </div>
               </div>
+
+              {/* ── GST Rate ── */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={vs.label}>
+                  GST Rate (%)
+                  <span style={{ color: "#6b7280", fontWeight: 400, textTransform: "none", marginLeft: 6 }}>
+                    — leave on "Auto" unless the govt has changed the slab for this product
+                  </span>
+                </label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    style={{ ...vs.input, cursor: "pointer", appearance: "none", flex: "0 0 260px" }}
+                    value={form.gstRate}
+                    onChange={e => setF("gstRate", e.target.value)}
+                  >
+                    <option value="">🔄 Auto-detect from category</option>
+                    <option value="0">0% — Essentials (food, books, medicines)</option>
+                    <option value="5">5% — Apparel, FMCG, footwear</option>
+                    <option value="12">12% — Furniture, toys, sports</option>
+                    <option value="18">18% — Electronics, beauty, services</option>
+                    <option value="28">28% — Luxury goods, gaming, auto parts</option>
+                  </select>
+                  {/* Live preview badge */}
+                  <div style={{
+                    background: form.gstRate !== ""
+                      ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${form.gstRate !== "" ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700,
+                    color: form.gstRate !== "" ? "#a5b4fc" : "#6b7280",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {form.gstRate !== ""
+                      ? `GST: ${form.gstRate}% (manual override)`
+                      : `GST: auto from "${form.category || "category"}"`}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 5, lineHeight: 1.5 }}>
+                  ℹ️ Prices are <strong style={{ color: "#9ca3af" }}>GST-inclusive</strong> (MRP style).
+                  The correct tax is back-calculated and shown to customers at checkout.
+                  Update this field whenever the government revises the GST slab for your product.
+                </div>
+              </div>
             </div>
 
             {/* ── Media ── */}
@@ -878,7 +937,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
       <div style={vs.tableWrap}>
         <table style={vs.table}>
           <thead><tr style={vs.thead}>
-            {["Product", "Category", "Price", "MRP", "Stock", "Status", "Actions"].map(h =>
+            {["Product", "Category", "Price", "MRP", "GST", "Stock", "Status", "Actions"].map(h =>
               <th key={h} style={vs.th}>{h}</th>)}
           </tr></thead>
           <tbody>
@@ -909,6 +968,23 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                       )}
                     </div>
                   ) : "–"}
+                </td>
+                <td style={vs.td}>
+                  {(() => {
+                    const rate = p.gstRate != null ? p.gstRate : null;
+                    return (
+                      <div style={{ textAlign: "center" }}>
+                        <span style={{
+                          background: rate != null ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.06)",
+                          color: rate != null ? "#a5b4fc" : "#6b7280",
+                          border: `1px solid ${rate != null ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700,
+                        }}>
+                          {rate != null ? `${rate}%` : "auto"}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td style={vs.td}>
                   <span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{p.stock}</span>
@@ -1013,6 +1089,88 @@ function VendorProfile({ profile, api, onRefresh, showToast }) {
           <label style={vs.label}>New Password</label>
           <input style={{ ...vs.input, marginBottom: 16 }} type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
           <button style={vs.primaryBtn} onClick={changePw}>Change Password</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VendorSecurity({ profile, api, onRefresh, showToast }) {
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "" });
+
+  const changePw = async () => {
+    const d = await api("/vendor/profile/change-password", { method: "PUT", body: JSON.stringify(pwForm) });
+    showToast(d.message || (d.success ? "Password changed!" : "Failed"));
+    if (d.success) setPwForm({ currentPassword: "", newPassword: "" });
+  };
+
+  if (!profile) return <div style={vs.empty}>Loading...</div>;
+
+  return (
+    <div>
+      <h2 style={vs.pageTitle}>Security Settings</h2>
+      <div style={vs.twoCol}>
+        {/* Change Password Card */}
+        <div style={vs.card}>
+          <h3 style={vs.cardTitle}>🔑 Change Password</h3>
+          <label style={vs.label}>Current Password</label>
+          <input style={{ ...vs.input, marginBottom: 12 }} type="password" value={pwForm.currentPassword} onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))} />
+          <label style={vs.label}>New Password</label>
+          <input style={{ ...vs.input, marginBottom: 16 }} type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
+          <button style={vs.primaryBtn} onClick={changePw}>Change Password</button>
+        </div>
+
+        {/* Connected Accounts Card */}
+        <div style={vs.card}>
+          <h3 style={vs.cardTitle}>🔗 Connected Accounts</h3>
+          {(() => {
+            const PROVIDERS = [
+              { id: "google",    label: "Google",    icon: "G", color: "#EA4335" },
+              { id: "github",    label: "GitHub",    icon: "⌥", color: "#24292f" },
+              { id: "facebook",  label: "Facebook",  icon: "f", color: "#1877F2" },
+              { id: "instagram", label: "Instagram", icon: "📷", color: "#c13584" },
+            ];
+            const linkedProvider = profile?.provider && profile.provider !== "local" ? profile.provider : null;
+
+            return (
+              <>
+                {PROVIDERS.map(p => {
+                  const isLinked = linkedProvider === p.id;
+                  return (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: 14, background: p.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{p.icon}</span>
+                        <span style={{ color: "#e5e7eb", fontSize: 13 }}>{p.label}</span>
+                      </div>
+                      {isLinked ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700 }}>✓ Linked</span>
+                          {profile.password && (
+                            <button style={{ ...vs.deleteBtn }} onClick={async () => {
+                              const d = await api("/vendor/profile/unlink-oauth", { method: "DELETE" });
+                              showToast(d.message || (d.success ? "Unlinked!" : "Failed"));
+                              if (d.success) onRefresh();
+                            }}>Unlink</button>
+                          )}
+                        </div>
+                      ) : (
+                        <button style={{ ...vs.editBtn, color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" }} disabled={!!linkedProvider} onClick={async () => {
+                          const d = await api("/vendor/profile/link-oauth", { method: "POST", body: JSON.stringify({ provider: p.id }) });
+                          if (d.success && d.redirectUrl) window.location.href = d.redirectUrl;
+                          else showToast(d.message || "Failed");
+                        }}>Link</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {linkedProvider && !profile.password && (
+                  <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b" }}>
+                    ⚠️ To unlink your social account, first set a password in the Change Password section.
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>

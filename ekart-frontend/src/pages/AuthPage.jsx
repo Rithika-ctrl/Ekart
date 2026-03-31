@@ -35,6 +35,12 @@ const S = `
   .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
   .btn-google{width:100%;padding:12px;border-radius:10px;border:2px solid #e8e4dc;background:#fff;color:#0d0d0d;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
   .btn-google:hover{border-color:#0d0d0d;background:#fafaf8;transform:translateY(-1px)}
+  .social-row{display:flex;gap:8px;margin-top:8px}
+  .btn-social{flex:1;padding:11px 8px;border-radius:10px;border:2px solid #e8e4dc;background:#fff;color:#0d0d0d;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 200ms;display:flex;align-items:center;justify-content:center;gap:7px}
+  .btn-social:hover{border-color:#0d0d0d;background:#fafaf8;transform:translateY(-1px)}
+  .btn-social.github:hover{border-color:#24292f;background:#f6f8fa}
+  .btn-social.facebook:hover{border-color:#1877f2;background:#f0f5ff}
+  .btn-social.instagram:hover{border-color:#c13584;background:#fff0f8}
   .divider{display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(13,13,13,0.35);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
   .divider::before,.divider::after{content:'';flex:1;height:1px;background:#e8e4dc}
   .err-box{background:#fef2f2;color:#e84c3c;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px}
@@ -60,6 +66,7 @@ export default function AuthPage() {
   const location  = useLocation();
   // After login, go to where the user was trying to reach, or their role's home.
   const from = location.state?.from?.pathname ?? null;
+
   const [screen, setScreen] = useState("login");
   const [role, setRole] = useState("customer");
   const [form, setForm] = useState({ name: "", email: "", password: "", mobile: "", confirmPassword: "" });
@@ -72,13 +79,13 @@ export default function AuthPage() {
    * rememberMe – controls which storage backend is used by App.login().
    *   true  → localStorage  (default; session survives browser restart)
    *   false → sessionStorage (session cleared when tab/browser is closed)
-   * Checked by default so most users get the improved experience without
-   * extra clicks.  Unchecking gives the old session-only behaviour.
    */
   const [rememberMe, setRememberMe] = useState(true);
   const [timer, setTimer] = useState(120);
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseId, setWarehouseId] = useState("");
+  // Delivery OTP flow — stores the email after registration so the verify step can use it
+  const [deliveryOtpEmail, setDeliveryOtpEmail] = useState("");
   const otpRefs = useRef([]);
   const timerRef = useRef(null);
 
@@ -95,15 +102,22 @@ export default function AuthPage() {
   }, [role, screen]);
 
   useEffect(() => {
-    if (screen === "otp") {
+    if (screen === "otp" || screen === "register-otp" || screen === "delivery-otp") {
       setTimer(120);
-      timerRef.current = setInterval(() => setTimer(t => { if (t <= 1) { clearInterval(timerRef.current); return 0; } return t - 1; }), 1000);
+      timerRef.current = setInterval(() => setTimer(t => {
+        if (t <= 1) { clearInterval(timerRef.current); return 0; }
+        return t - 1;
+      }), 1000);
     }
     return () => clearInterval(timerRef.current);
   }, [screen]);
 
   async function post(endpoint, body) {
-    const res = await fetch(`${API_BASE}${endpoint}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     return res.json();
   }
 
@@ -129,18 +143,65 @@ export default function AuthPage() {
     if (form.password !== form.confirmPassword) { setError("Passwords don't match"); return; }
     setLoading(true);
     try {
-      const body = { name: form.name, email: form.email, password: form.password, confirmPassword: form.confirmPassword, mobile: form.mobile };
+      const body = {
+        name: form.name, email: form.email, password: form.password,
+        confirmPassword: form.confirmPassword, mobile: form.mobile,
+      };
       if (role === "delivery") body.warehouseId = parseInt(warehouseId) || 0;
+
+      // Customer & Vendor: send OTP first, then show verify screen
+      if (role === "customer" || role === "vendor") {
+        const data = await post(`/auth/${role}/send-register-otp`, { email: form.email, name: form.name });
+        if (!data.success) { setError(data.message || "Could not send OTP"); setLoading(false); return; }
+        setInfo("A 6-digit verification code was sent to " + form.email);
+        setScreen("register-otp");
+        setLoading(false);
+        return;
+      }
+
+      // Delivery: submit, then show OTP verification step
       const data = await post(`/auth/${role}/register`, body);
       if (!data.success) { setError(data.message || "Registration failed"); setLoading(false); return; }
-      if (role === "delivery") {
-        setInfo(data.message || "Account created! Awaiting email verification and admin approval.");
-        setScreen("login");
-      } else {
-        setInfo("Registered! Please sign in."); setScreen("login");
-      }
+      setDeliveryOtpEmail(form.email);
+      setOtp(["", "", "", "", "", ""]);
+      setInfo("OTP sent to " + form.email + ". Please verify your email to continue.");
+      setScreen("delivery-otp");
     } catch { setError("Network error."); }
     setLoading(false);
+  }
+
+  async function handleRegisterOtp(e) {
+    e.preventDefault(); clear();
+    const code = otp.join("");
+    if (code.length < 6) { setError("Enter all 6 digits"); return; }
+    setLoading(true);
+    try {
+      // Step 1: verify the OTP
+      const verifyData = await post(`/auth/${role}/verify-register-otp`, { email: form.email, otp: code });
+      if (!verifyData.success) { setError(verifyData.message || "Invalid OTP"); setLoading(false); return; }
+
+      // Step 2: complete registration
+      const body = {
+        name: form.name, email: form.email, password: form.password,
+        confirmPassword: form.confirmPassword, mobile: form.mobile,
+      };
+      const regData = await post(`/auth/${role}/register`, body);
+      if (!regData.success) { setError(regData.message || "Registration failed"); setLoading(false); return; }
+
+      setOtp(["", "", "", "", "", ""]);
+      setInfo(role === "vendor"
+        ? "Email verified! Your store has been registered. Await admin approval before signing in."
+        : "Email verified! Your account is ready. Please sign in.");
+      setScreen("login");
+    } catch { setError("Network error."); }
+    setLoading(false);
+  }
+
+  async function resendRegisterOtp() {
+    try {
+      await post(`/auth/${role}/send-register-otp`, { email: form.email, name: form.name });
+      setInfo("OTP resent!"); setTimer(120);
+    } catch {}
   }
 
   async function handleForgot(e) {
@@ -173,26 +234,52 @@ export default function AuthPage() {
     try {
       const data = await post(`/auth/${role}/reset-password`, { email: form.email, newPassword: resetForm.newPassword });
       if (!data.success) { setError(data.message || "Reset failed"); setLoading(false); return; }
-      setInfo("Password reset! Please sign in."); setScreen("login"); setResetForm({ newPassword: "", confirmPassword: "" });
+      setInfo("Password reset! Please sign in.");
+      setScreen("login");
+      setResetForm({ newPassword: "", confirmPassword: "" });
     } catch { setError("Network error."); }
     setLoading(false);
   }
 
   /**
-   * Redirects to backend OAuth2 flow with type=flutter-{role}.
-   * The backend sets session["oauth_login_type"] = "flutter-customer" (or vendor),
-   * then Google authenticates, then the success handler redirects back to
-   * /oauth2/callback?role=...&id=...&name=...&email=...&token=...
-   * which is handled by OAuthCallback in App.jsx.
-   * Only available for customer and vendor roles (not admin/delivery).
+   * Initiates a social OAuth2 login/register flow for the given provider.
+   * Supported: google, github, facebook, instagram (customer + vendor only).
+   * The backend /oauth2/authorize/{provider}?type=flutter-{role} validates the
+   * provider+role combination before starting the OAuth dance.
+   * On success the backend redirects to /oauth2/callback which OAuthCallback in App.jsx handles.
    */
-  function handleGoogleLogin() {
+  function handleSocialLogin(provider) {
     if (role !== "customer" && role !== "vendor") return;
-    window.location.href = `/oauth2/authorize/google?type=flutter-${role}`;
+    window.location.href = `/oauth2/authorize/${provider}?type=flutter-${role}`;
   }
 
   async function resendOtp() {
-    try { await post(`/auth/${role}/forgot-password`, { email: form.email }); setInfo("OTP resent!"); setTimer(120); } catch {}
+    try {
+      await post(`/auth/${role}/forgot-password`, { email: form.email });
+      setInfo("OTP resent!"); setTimer(120);
+    } catch {}
+  }
+
+  async function handleDeliveryOtp(e) {
+    e.preventDefault(); clear();
+    const code = otp.join("");
+    if (code.length < 6) { setError("Enter all 6 digits"); return; }
+    setLoading(true);
+    try {
+      const data = await post("/auth/delivery/verify-otp", { email: deliveryOtpEmail, otp: code });
+      if (!data.success) { setError(data.message || "Invalid OTP"); setLoading(false); return; }
+      setOtp(["", "", "", "", "", ""]);
+      setScreen("delivery-pending");
+    } catch { setError("Network error."); }
+    setLoading(false);
+  }
+
+  async function resendDeliveryOtp() {
+    try {
+      const data = await post("/auth/delivery/resend-otp", { email: deliveryOtpEmail });
+      if (data.success) { setInfo("New OTP sent!"); setTimer(120); }
+      else setError(data.message || "Could not resend OTP");
+    } catch { setError("Network error."); }
   }
 
   const handleOtpKey = (i, e) => {
@@ -200,7 +287,9 @@ export default function AuthPage() {
     const n = [...otp]; n[i] = e.target.value.slice(-1); setOtp(n);
     if (e.target.value && i < 5) otpRefs.current[i + 1]?.focus();
   };
-  const handleOtpBackspace = (i, e) => { if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus(); };
+  const handleOtpBackspace = (i, e) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  };
 
   const roles = [
     { id: "customer", label: "🛍️ Customer" },
@@ -208,6 +297,65 @@ export default function AuthPage() {
     { id: "admin",    label: "⚙️ Admin" },
     { id: "delivery", label: "🛵 Delivery" },
   ];
+
+  // ── Social login SVGs ──────────────────────────────────────────────────────
+  const GOOGLE_SVG = (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+    </svg>
+  );
+  const GITHUB_SVG = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+    </svg>
+  );
+  const FACEBOOK_SVG = (
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.932-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+    </svg>
+  );
+  const INSTAGRAM_SVG = (
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <defs>
+        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#f09433"/>
+          <stop offset="25%" stopColor="#e6683c"/>
+          <stop offset="50%" stopColor="#dc2743"/>
+          <stop offset="75%" stopColor="#cc2366"/>
+          <stop offset="100%" stopColor="#bc1888"/>
+        </linearGradient>
+      </defs>
+      <path fill="url(#ig-grad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
+    </svg>
+  );
+
+  /**
+   * Renders the social login button group for customer/vendor screens.
+   * Google is shown full-width first, then GitHub / Facebook / Instagram
+   * in a compact 3-across row beneath it.
+   */
+  const SocialButtons = () => (
+    <>
+      <div className="divider">or continue with</div>
+      <button type="button" className="btn-google" onClick={() => handleSocialLogin("google")}>
+        {GOOGLE_SVG} Continue with Google
+      </button>
+      <div className="social-row">
+        <button type="button" className="btn-social github" onClick={() => handleSocialLogin("github")} title="Continue with GitHub">
+          {GITHUB_SVG} GitHub
+        </button>
+        <button type="button" className="btn-social facebook" onClick={() => handleSocialLogin("facebook")} title="Continue with Facebook">
+          {FACEBOOK_SVG} Facebook
+        </button>
+        <button type="button" className="btn-social instagram" onClick={() => handleSocialLogin("instagram")} title="Continue with Instagram">
+          {INSTAGRAM_SVG} Instagram
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -220,7 +368,9 @@ export default function AuthPage() {
           {["login", "register", "forgot"].includes(screen) && (
             <div className="role-tabs">
               {roles.map(r => (
-                <button key={r.id} className={`role-tab${role === r.id ? " active" : ""}`} onClick={() => setRole(r.id)}>{r.label}</button>
+                <button key={r.id} className={`role-tab${role === r.id ? " active" : ""}`} onClick={() => setRole(r.id)}>
+                  {r.label}
+                </button>
               ))}
             </div>
           )}
@@ -241,8 +391,14 @@ export default function AuthPage() {
             <form onSubmit={handleLogin}>
               <div className="auth-title">Welcome back</div>
               <div className="auth-sub">Sign in to your {role} account</div>
-              <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required /></div>
-              <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required /></div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required />
+              </div>
               {role !== "admin" && role !== "delivery" && (
                 <div style={{ textAlign: "right", marginBottom: 12 }}>
                   <button type="button" className="link-btn" onClick={() => { setScreen("forgot"); clear(); }}>Forgot password?</button>
@@ -255,20 +411,16 @@ export default function AuthPage() {
                   checked={rememberMe}
                   onChange={e => setRememberMe(e.target.checked)}
                 />
-                {/* rememberMe=true  → localStorage (survives browser close) */}
-                {/* rememberMe=false → sessionStorage (cleared on tab close) */}
                 <label htmlFor="rememberMe">Remember me</label>
               </div>
-              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Signing in…" : `Sign in as ${role}`}</button>
-              {(role === "customer" || role === "vendor") && (
-                <>
-                  <div className="divider">or</div>
-                  <button type="button" className="btn-google" onClick={handleGoogleLogin}>
-                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-                    Continue with Google
-                  </button>
-                </>
-              )}
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Signing in…" : `Sign in as ${role}`}
+              </button>
+
+              {/* Social login — customer & vendor only */}
+              {(role === "customer" || role === "vendor") && <SocialButtons />}
+
+              {/* Guest browse — customer only */}
               {role === "customer" && (
                 <>
                   <div className="divider">or</div>
@@ -301,11 +453,26 @@ export default function AuthPage() {
                   ? "Register your store and start selling on ekart."
                   : "Join thousands of happy shoppers"}
               </div>
-              <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Rahul Sharma" value={form.name} onChange={e => set("name", e.target.value)} required /></div>
-              <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required /></div>
-              <div className="form-group"><label className="form-label">Mobile</label><input className="form-input" placeholder="9876543210" value={form.mobile} onChange={e => set("mobile", e.target.value)} required /></div>
-              <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required /></div>
-              <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required /></div>
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input className="form-input" placeholder="Rahul Sharma" value={form.name} onChange={e => set("name", e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mobile</label>
+                <input className="form-input" placeholder="9876543210" value={form.mobile} onChange={e => set("mobile", e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Confirm Password</label>
+                <input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required />
+              </div>
               {role === "delivery" && (
                 <>
                   <div className="form-group">
@@ -320,16 +487,52 @@ export default function AuthPage() {
                   </div>
                 </>
               )}
-              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Creating account…" : `Register as ${role}`}</button>
-              {(role === "customer" || role === "vendor") && (
-                <>
-                  <div className="divider">or</div>
-                  <button type="button" className="btn-google" onClick={handleGoogleLogin}>
-                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-                    Continue with Google
-                  </button>
-                </>
-              )}
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Creating account…" : `Register as ${role}`}
+              </button>
+
+              {/* Social register — customer & vendor only */}
+              {(role === "customer" || role === "vendor") && <SocialButtons />}
+            </form>
+          )}
+
+          {/* ── REGISTER OTP (customer & vendor email verify) ── */}
+          {screen === "register-otp" && (
+            <form onSubmit={handleRegisterOtp}>
+              <div className="screen-title">📧 Verify Your Email</div>
+              <div className="screen-sub">
+                We sent a 6-digit code to <strong>{form.email}</strong>.<br />
+                Enter it below to activate your {role} account.
+              </div>
+              <div className="otp-row">
+                {otp.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={el => otpRefs.current[i] = el}
+                    className="otp-inp"
+                    maxLength={1}
+                    value={d}
+                    onChange={e => handleOtpKey(i, e)}
+                    onKeyDown={e => handleOtpBackspace(i, e)}
+                    inputMode="numeric"
+                    autoFocus={i === 0}
+                  />
+                ))}
+              </div>
+              <div className="timer-row">
+                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>
+                  Expires in {fmtTimer(timer)}
+                </span>
+                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendRegisterOtp}>
+                  Resend OTP
+                </button>
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Verifying…" : "Verify & Create Account"}
+              </button>
+              <button type="button" className="back-link" onClick={() => { setScreen("register"); setOtp(["", "", "", "", "", ""]); clear(); }}>
+                ← Back to Registration
+              </button>
             </form>
           )}
 
@@ -341,46 +544,144 @@ export default function AuthPage() {
               {["customer", "vendor"].includes(role) || (
                 <div className="role-tabs" style={{ marginBottom: 16 }}>
                   {[{ id: "customer", label: "🛍️ Customer" }, { id: "vendor", label: "🏪 Vendor" }].map(r => (
-                    <button key={r.id} type="button" className={`role-tab${role === r.id ? " active" : ""}`} onClick={() => setRole(r.id)}>{r.label}</button>
+                    <button key={r.id} type="button" className={`role-tab${role === r.id ? " active" : ""}`} onClick={() => setRole(r.id)}>
+                      {r.label}
+                    </button>
                   ))}
                 </div>
               )}
-              <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required /></div>
-              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Sending…" : "Send OTP"}</button>
-              <button type="button" className="back-link" onClick={() => { setScreen("login"); clear(); }}>← Back to Sign In</button>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required />
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Sending…" : "Send OTP"}
+              </button>
+              <button type="button" className="back-link" onClick={() => { setScreen("login"); clear(); }}>
+                ← Back to Sign In
+              </button>
             </form>
           )}
 
-          {/* ── OTP ── */}
+          {/* ── OTP (forgot-password flow) ── */}
           {screen === "otp" && (
             <form onSubmit={handleOtp}>
               <div className="screen-title">📧 Verify OTP</div>
               <div className="screen-sub">We sent a 6-digit code to <strong>{form.email}</strong></div>
               <div className="otp-row">
                 {otp.map((d, i) => (
-                  <input key={i} ref={el => otpRefs.current[i] = el} className="otp-inp" maxLength={1} value={d}
-                    onChange={e => handleOtpKey(i, e)} onKeyDown={e => handleOtpBackspace(i, e)}
-                    inputMode="numeric" autoFocus={i === 0} />
+                  <input
+                    key={i}
+                    ref={el => otpRefs.current[i] = el}
+                    className="otp-inp"
+                    maxLength={1}
+                    value={d}
+                    onChange={e => handleOtpKey(i, e)}
+                    onKeyDown={e => handleOtpBackspace(i, e)}
+                    inputMode="numeric"
+                    autoFocus={i === 0}
+                  />
                 ))}
               </div>
               <div className="timer-row">
-                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>Expires in {fmtTimer(timer)}</span>
-                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendOtp}>Resend OTP</button>
+                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>
+                  Expires in {fmtTimer(timer)}
+                </span>
+                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendOtp}>
+                  Resend OTP
+                </button>
               </div>
-              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Verifying…" : "Verify OTP"}</button>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Verifying…" : "Verify OTP"}
+              </button>
             </form>
           )}
 
-          {/* ── RESET ── */}
+          {/* ── DELIVERY OTP (email verify after registration) ── */}
+          {screen === "delivery-otp" && (
+            <form onSubmit={handleDeliveryOtp}>
+              <div className="screen-title">📧 Verify Your Email</div>
+              <div className="screen-sub">
+                We sent a 6-digit code to <strong>{deliveryOtpEmail}</strong>.<br />
+                Verify your email to complete your delivery partner application.
+              </div>
+              <div className="otp-row">
+                {otp.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={el => otpRefs.current[i] = el}
+                    className="otp-inp"
+                    maxLength={1}
+                    value={d}
+                    onChange={e => handleOtpKey(i, e)}
+                    onKeyDown={e => handleOtpBackspace(i, e)}
+                    inputMode="numeric"
+                    autoFocus={i === 0}
+                  />
+                ))}
+              </div>
+              <div className="timer-row">
+                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>
+                  Expires in {fmtTimer(timer)}
+                </span>
+                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendDeliveryOtp}>
+                  Resend OTP
+                </button>
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Verifying…" : "Verify Email"}
+              </button>
+              <button type="button" className="back-link" onClick={() => { setScreen("register"); setOtp(["", "", "", "", "", ""]); clear(); }}>
+                ← Back to Registration
+              </button>
+            </form>
+          )}
+
+          {/* ── DELIVERY PENDING APPROVAL ── */}
+          {screen === "delivery-pending" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 52, marginBottom: 16 }}>⏳</div>
+              <div className="screen-title">Application Submitted!</div>
+              <div className="screen-sub" style={{ marginBottom: 20 }}>
+                Your email has been verified. Your account is now <strong>pending admin approval</strong>.
+                You&apos;ll receive an email at <strong>{deliveryOtpEmail}</strong> once your
+                account is approved and you can start accepting deliveries.
+              </div>
+              <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "#92610a", marginBottom: 24, lineHeight: 1.6, textAlign: "left" }}>
+                <strong>What happens next?</strong><br />
+                1. Admin reviews your application 🔍<br />
+                2. Admin assigns your warehouse &amp; pin codes 📦<br />
+                3. You receive an approval email ✉️<br />
+                4. You can then log in and start delivering 🛵
+              </div>
+              <button
+                className="btn-primary"
+                onClick={() => { setScreen("login"); setRole("delivery"); clear(); setDeliveryOtpEmail(""); }}
+              >
+                Back to Login
+              </button>
+            </div>
+          )}
+
+          {/* ── RESET PASSWORD ── */}
           {screen === "reset" && (
             <form onSubmit={handleReset}>
               <div className="screen-title">🔒 New Password</div>
               <div className="screen-sub">Choose a strong password for your account.</div>
-              <div className="form-group"><label className="form-label">New Password</label><input className="form-input" type="password" placeholder="••••••••" value={resetForm.newPassword} onChange={e => setResetForm(f => ({ ...f, newPassword: e.target.value }))} required /></div>
-              <div className="form-group"><label className="form-label">Confirm New Password</label><input className="form-input" type="password" placeholder="••••••••" value={resetForm.confirmPassword} onChange={e => setResetForm(f => ({ ...f, confirmPassword: e.target.value }))} required /></div>
-              <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Resetting…" : "Reset Password"}</button>
+              <div className="form-group">
+                <label className="form-label">New Password</label>
+                <input className="form-input" type="password" placeholder="••••••••" value={resetForm.newPassword} onChange={e => setResetForm(f => ({ ...f, newPassword: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Confirm New Password</label>
+                <input className="form-input" type="password" placeholder="••••••••" value={resetForm.confirmPassword} onChange={e => setResetForm(f => ({ ...f, confirmPassword: e.target.value }))} required />
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Resetting…" : "Reset Password"}
+              </button>
             </form>
           )}
+
         </div>
       </div>
     </>

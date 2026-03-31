@@ -25,10 +25,16 @@ import jakarta.servlet.http.HttpSession;
  * Handles successful OAuth2 authentication.
  *
  * login_type values stored in session by OAuth2Controller:
- *   "customer"        → Thymeleaf web flow, redirect to /customer/home
- *   "vendor"          → Thymeleaf web flow, redirect to /vendor/home
- *   "flutter-customer"→ React app flow, redirect to React /oauth2/callback with data in query params
- *   "flutter-vendor"  → React app flow, redirect to React /oauth2/callback with data in query params
+ *   "customer"         → Thymeleaf web flow, redirect to /customer/home
+ *   "vendor"           → Thymeleaf web flow, redirect to /vendor/home
+ *   "flutter-customer" → React app flow, redirect to React /oauth2/callback with data in query params
+ *   "flutter-vendor"   → React app flow, redirect to React /oauth2/callback with data in query params
+ *
+ * React callback query params:
+ *   ?role=CUSTOMER&id=1&name=…&email=…&token=…&provider=Google
+ *
+ * The `provider` param is consumed by OAuthCallback in App.jsx to display
+ * "Signing you in with Google…" / "…GitHub…" etc. on the loading screen.
  */
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
@@ -63,23 +69,48 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String loginType     = (String) session.getAttribute("oauth_login_type");
         if (loginType == null) loginType = "customer";
 
-        String name = extractName(oAuth2User, provider);
-        String pid  = extractProviderId(oAuth2User, provider);
+        String name          = extractName(oAuth2User, provider);
+        String pid           = extractProviderId(oAuth2User, provider);
+        String providerDisplay = getProviderDisplayName(provider);
 
         // ── React / Flutter flows ─────────────────────────────────────────────
         if (loginType.startsWith("flutter-")) {
+            // Handle linking flows first (before removing attribute)
+            if ("flutter-link-customer".equals(loginType)) {
+                Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
+                session.removeAttribute("oauth_login_type");
+                session.removeAttribute("oauth_link_customer_id");
+                if (linkId != null) {
+                    socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
+                }
+                response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+                return;
+            }
+            if ("flutter-link-vendor".equals(loginType)) {
+                Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
+                session.removeAttribute("oauth_login_type");
+                session.removeAttribute("oauth_link_vendor_id");
+                if (linkId != null) {
+                    socialAuthService.linkOAuthToVendor(linkId, provider, pid);
+                }
+                response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+                return;
+            }
+
             session.removeAttribute("oauth_login_type");
 
             if ("flutter-vendor".equals(loginType)) {
-                Vendor v    = socialAuthService.processVendorOAuth(email, name, provider, pid);
+                Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
                 String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
                 response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
                         + "?role=VENDOR"
-                        + "&id="    + v.getId()
-                        + "&name="  + enc(v.getName())
-                        + "&email=" + enc(v.getEmail())
-                        + "&token=" + token);
+                        + "&id="       + v.getId()
+                        + "&name="     + enc(v.getName())
+                        + "&email="    + enc(v.getEmail())
+                        + "&token="    + token
+                        + "&provider=" + enc(providerDisplay));
             } else {
+                // flutter-customer (default)
                 Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
                 if (!c.isActive()) {
                     response.sendRedirect(REACT_ORIGIN + "/oauth2/callback?error=suspended");
@@ -90,17 +121,16 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
                 response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
                         + "?role=CUSTOMER"
-                        + "&id="    + c.getId()
-                        + "&name="  + enc(c.getName())
-                        + "&email=" + enc(c.getEmail())
-                        + "&token=" + token);
+                        + "&id="       + c.getId()
+                        + "&name="     + enc(c.getName())
+                        + "&email="    + enc(c.getEmail())
+                        + "&token="    + token
+                        + "&provider=" + enc(providerDisplay));
             }
             return;
         }
 
         // ── Thymeleaf / web flows (unchanged) ────────────────────────────────
-        String providerDisplay = getProviderDisplayName(provider);
-
         if ("vendor".equals(loginType)) {
             Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
             session.setAttribute("vendor", v);
@@ -133,28 +163,39 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String getProviderDisplayName(String provider) {
         return switch (provider.toLowerCase()) {
-            case "google" -> "Google";
-            case "github" -> "GitHub";
-            default       -> "Social Login";
+            case "google"    -> "Google";
+            case "github"    -> "GitHub";
+            case "facebook"  -> "Facebook";
+            case "instagram" -> "Instagram";
+            default          -> "Social Login";
         };
     }
 
     private String extractProviderId(OAuth2User u, String provider) {
-        if ("google".equals(provider)) return u.getAttribute("sub");
-        if ("github".equals(provider)) {
-            Object id = u.getAttribute("id");
-            return id != null ? id.toString() : null;
-        }
-        return null;
+        return switch (provider.toLowerCase()) {
+            case "google" -> u.getAttribute("sub");
+            case "github" -> {
+                Object id = u.getAttribute("id");
+                yield id != null ? id.toString() : null;
+            }
+            case "facebook" -> {
+                Object id = u.getAttribute("id");
+                yield id != null ? id.toString() : null;
+            }
+            default -> null;
+        };
     }
 
     private String extractName(OAuth2User u, String provider) {
-        if ("google".equals(provider)) return u.getAttribute("name");
-        if ("github".equals(provider)) {
-            String n = u.getAttribute("name");
-            if (n == null || n.isEmpty()) n = u.getAttribute("login");
-            return n;
-        }
-        return null;
+        return switch (provider.toLowerCase()) {
+            case "google"   -> u.getAttribute("name");
+            case "github"   -> {
+                String n = u.getAttribute("name");
+                if (n == null || n.isEmpty()) n = u.getAttribute("login");
+                yield n;
+            }
+            case "facebook" -> u.getAttribute("name");
+            default         -> u.getAttribute("name");
+        };
     }
 }
