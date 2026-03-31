@@ -4905,6 +4905,7 @@ public class ReactApiController {
         profile.put("active",           db.isActive());
         profile.put("adminApproved",    db.isAdminApproved());
         profile.put("approved",         db.isAdminApproved()); // alias read by DeliveryApp.jsx
+        profile.put("isAvailable",      db.isAvailable());    // availability status
 
         if (db.getWarehouse() != null) {
             Warehouse wh = db.getWarehouse();
@@ -4952,10 +4953,10 @@ public class ReactApiController {
             else if (s == TrackingStatus.DELIVERED)        delivered.add(m);
         }
 
-        res.put("success",   true);
-        res.put("toPickUp",  toPickUp);
-        res.put("outNow",    outNow);
-        res.put("delivered", delivered);
+        res.put("success",         true);
+        res.put("toPickUp",        toPickUp);
+        res.put("outForDelivery",  outNow);
+        res.put("delivered",       delivered);
         return ResponseEntity.ok(res);
     }
 
@@ -5086,13 +5087,13 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/flutter/delivery/transfer-request
-     * Body: { warehouseId }
+     * POST /api/react/delivery/warehouse-change/request
+     * Body: { warehouseId, reason? }
      * Submits a warehouse transfer request for admin approval.
      * Only one pending request allowed at a time.
      */
-    @PostMapping("/delivery/transfer-request")
-    public ResponseEntity<Map<String, Object>> deliveryTransferRequest(
+    @PostMapping("/delivery/warehouse-change/request")
+    public ResponseEntity<Map<String, Object>> deliveryWarehouseChangeRequest(
             @RequestHeader("X-Delivery-Id") int deliveryId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -5132,6 +5133,74 @@ public class ReactApiController {
 
         res.put("success", true);
         res.put("message", "Transfer request submitted. Admin will review it shortly.");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/delivery/availability/toggle
+     * Body: { isAvailable: boolean }
+     * Toggles the availability status of a delivery boy.
+     */
+    @PostMapping("/delivery/availability/toggle")
+    public ResponseEntity<Map<String, Object>> deliveryAvailabilityToggle(
+            @RequestHeader("X-Delivery-Id") int deliveryId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        Boolean isAvailable = body.containsKey("isAvailable") 
+                ? (Boolean) body.get("isAvailable") 
+                : null;
+        if (isAvailable == null) { 
+            res.put("success", false); 
+            res.put("message", "isAvailable is required"); 
+            return ResponseEntity.badRequest().body(res); 
+        }
+
+        db.setAvailable(isAvailable);
+        deliveryBoyRepository.save(db);
+
+        res.put("success", true);
+        res.put("isAvailable", db.isAvailable());
+        res.put("message", isAvailable ? "You are now Online - Available for deliveries" : "You are now Offline - Not available for deliveries");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/delivery/warehouse-change/pending
+     * Returns the pending warehouse change request for this delivery boy (if any).
+     */
+    @GetMapping("/delivery/warehouse-change/pending")
+    public ResponseEntity<Map<String, Object>> deliveryPendingTransfer(
+            @RequestHeader("X-Delivery-Id") int deliveryId) {
+        Map<String, Object> res = new HashMap<>();
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+
+        java.util.Optional<WarehouseChangeRequest> pending =
+                warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
+
+        res.put("success", true);
+        if (pending.isPresent()) {
+            WarehouseChangeRequest req = pending.get();
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("id", req.getId());
+            requestData.put("requestedAt", req.getRequestedAt() != null ? req.getRequestedAt().toString() : null);
+            requestData.put("reason", req.getReason());
+            if (req.getRequestedWarehouse() != null) {
+                Map<String, Object> whData = new HashMap<>();
+                whData.put("id", req.getRequestedWarehouse().getId());
+                whData.put("name", req.getRequestedWarehouse().getName());
+                whData.put("city", req.getRequestedWarehouse().getCity());
+                whData.put("state", req.getRequestedWarehouse().getState());
+                whData.put("warehouseCode", req.getRequestedWarehouse().getWarehouseCode());
+                requestData.put("requestedWarehouse", whData);
+            }
+            res.put("request", requestData);
+        } else {
+            res.put("request", null);
+        }
         return ResponseEntity.ok(res);
     }
 
