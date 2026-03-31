@@ -15,7 +15,7 @@ import jakarta.transaction.Transactional;
 
 /**
  * Service for handling OAuth2/Social Authentication logic.
- * Separated from core authentication to minimize changes to existing auth files.
+ * Separated from core authentication to minimize changes to existing auth files
  * 
  * Responsibilities:
  * - Check if user exists by email or provider credentials
@@ -45,7 +45,6 @@ public class SocialAuthService {
      * @return The Customer entity (existing or newly created)
      */
     public Customer processCustomerOAuth(String email, String name, String provider, String providerId) {
-        
         // 1. Check if already linked by provider credentials
         Customer existingByProvider = customerRepository.findByProviderAndProviderId(provider, providerId);
         if (existingByProvider != null) {
@@ -71,7 +70,6 @@ public class SocialAuthService {
      * Same logic as customer but for vendor accounts.
      */
     public Vendor processVendorOAuth(String email, String name, String provider, String providerId) {
-        
         // 1. Check if already linked by provider credentials
         Vendor existingByProvider = vendorRepository.findByProviderAndProviderId(provider, providerId);
         if (existingByProvider != null) {
@@ -146,6 +144,21 @@ public class SocialAuthService {
             customer.setProvider(null);
             customer.setProviderId(null);
             customerRepository.save(customer);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Unlink OAuth provider from a vendor account.
+     * Only allowed if vendor has a password set (can still log in).
+     */
+    public boolean unlinkOAuthFromVendor(int vendorId) {
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor != null && vendor.getPassword() != null) {
+            vendor.setProvider(null);
+            vendor.setProviderId(null);
+            vendorRepository.save(vendor);
             return true;
         }
         return false;

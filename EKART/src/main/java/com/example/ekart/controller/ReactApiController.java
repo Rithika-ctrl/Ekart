@@ -7,10 +7,13 @@ import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
 import com.example.ekart.service.RefundService;
+import com.example.ekart.service.SocialAuthService;
+import com.example.ekart.config.OAuthProviderValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -49,6 +52,8 @@ public class ReactApiController {
     @Autowired private CouponRepository    couponRepository;
     @Autowired private AiAssistantService  aiAssistantService;
     @Autowired private RefundService        refundService;
+    @Autowired private SocialAuthService    socialAuthService;
+    @Autowired private OAuthProviderValidator oAuthProviderValidator;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -1665,6 +1670,7 @@ public class ReactApiController {
         profile.put("profileImage", customer.getProfileImage());
         profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
         profile.put("provider",  customer.getProvider()  != null ? customer.getProvider() : "local");
+        profile.put("password",  customer.getPassword() != null); // boolean: true if password is set
         profile.put("addresses", customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
             am.put("id",            a.getId());
@@ -4359,6 +4365,8 @@ public class ReactApiController {
         v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
         v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
         v.put("description", vendor.getDescription());
+        v.put("provider",    vendor.getProvider()   != null ? vendor.getProvider() : "local");
+        v.put("password",    vendor.getPassword()   != null); // boolean: true if password is set
         res.put("success", true); res.put("vendor", v);
         return ResponseEntity.ok(res);
     }
@@ -4467,6 +4475,116 @@ public class ReactApiController {
     }
 
     /**
+    // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+    // OAUTH LINKING/UNLINKING FOR REACT APP
+    // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/react/profile/link-oauth
+     * Header: X-Customer-Id
+     * Body: { provider }
+     *
+     * Initiates OAuth linking flow for a customer. Stores link mode in session
+     * so OAuth2LoginSuccessHandler can link instead of login.
+     */
+    @PostMapping("/profile/link-oauth")
+    public ResponseEntity<Map<String, Object>> customerLinkOAuth(
+            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestBody Map<String, Object> body,
+            HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        String provider = (String) body.get("provider");
+        if (provider == null || provider.isBlank()) {
+            res.put("success", false);
+            res.put("message", "provider required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (!oAuthProviderValidator.isProviderAllowed(provider, "customer")) {
+            res.put("success", false);
+            res.put("message", oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
+            return ResponseEntity.badRequest().body(res);
+        }
+        // Store link mode so OAuth2LoginSuccessHandler knows to link, not login
+        session.setAttribute("oauth_login_type",       "flutter-link-customer");
+        session.setAttribute("oauth_link_customer_id", customerId);
+        res.put("success", true);
+        res.put("redirectUrl", "/oauth2/authorization/" + provider);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * DELETE /api/react/profile/unlink-oauth
+     * Header: X-Customer-Id
+     *
+     * Unlinks a customer's OAuth provider (only if password is set).
+     */
+    @DeleteMapping("/profile/unlink-oauth")
+    public ResponseEntity<Map<String, Object>> customerUnlinkOAuth(
+            @RequestHeader("X-Customer-Id") int customerId) {
+        Map<String, Object> res = new HashMap<>();
+        boolean ok = socialAuthService.unlinkOAuthFromCustomer(customerId);
+        if (ok) {
+            res.put("success", true);
+            res.put("message", "Social account unlinked successfully");
+        } else {
+            res.put("success", false);
+            res.put("message", "Cannot unlink — set a password first, or account not found");
+        }
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/vendor/profile/link-oauth
+     * Header: X-Vendor-Id
+     * Body: { provider }
+     *
+     * Initiates OAuth linking flow for a vendor.
+     */
+    @PostMapping("/vendor/profile/link-oauth")
+    public ResponseEntity<Map<String, Object>> vendorLinkOAuth(
+            @RequestHeader("X-Vendor-Id") int vendorId,
+            @RequestBody Map<String, Object> body,
+            HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        String provider = (String) body.get("provider");
+        if (provider == null || provider.isBlank()) {
+            res.put("success", false);
+            res.put("message", "provider required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (!oAuthProviderValidator.isProviderAllowed(provider, "vendor")) {
+            res.put("success", false);
+            res.put("message", oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
+            return ResponseEntity.badRequest().body(res);
+        }
+        session.setAttribute("oauth_login_type",    "flutter-link-vendor");
+        session.setAttribute("oauth_link_vendor_id", vendorId);
+        res.put("success", true);
+        res.put("redirectUrl", "/oauth2/authorization/" + provider);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * DELETE /api/react/vendor/profile/unlink-oauth
+     * Header: X-Vendor-Id
+     *
+     * Unlinks a vendor's OAuth provider (only if password is set).
+     */
+    @DeleteMapping("/vendor/profile/unlink-oauth")
+    public ResponseEntity<Map<String, Object>> vendorUnlinkOAuth(
+            @RequestHeader("X-Vendor-Id") int vendorId) {
+        Map<String, Object> res = new HashMap<>();
+        boolean ok = socialAuthService.unlinkOAuthFromVendor(vendorId);
+        if (ok) {
+            res.put("success", true);
+            res.put("message", "Social account unlinked successfully");
+        } else {
+            res.put("success", false);
+            res.put("message", "Cannot unlink — set a password first, or account not found");
+        }
+        return ResponseEntity.ok(res);
+    }
+
      * GET /api/flutter/vendor/stock-alerts
      * Header: X-Vendor-Id
      */
