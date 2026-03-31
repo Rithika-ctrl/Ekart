@@ -1,4 +1,4 @@
-export const API_BASE = "/api/react";
+export const API_BASE = "/api/flutter";
 
 /**
  * Central fetch wrapper for all /api/flutter/** calls.

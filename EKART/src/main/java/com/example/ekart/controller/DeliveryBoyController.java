@@ -75,6 +75,35 @@ public class DeliveryBoyController {
     @GetMapping("/delivery/logout")
     public String logout(HttpSession session) { return deliveryBoyService.logout(session); }
 
+    // ── API Endpoints for React Dashboard ─────────────────────────
+
+    /**
+     * Get delivery boy profile (JSON API)
+     */
+    @GetMapping("/delivery/profile")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getProfile(HttpSession session) {
+        return deliveryBoyService.getDeliveryBoyProfile(session);
+    }
+
+    /**
+     * Get delivery boy orders (JSON API)
+     */
+    @GetMapping("/delivery/orders")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getOrders(HttpSession session) {
+        return deliveryBoyService.getDeliveryBoyOrders(session);
+    }
+
+    /**
+     * Get pending warehouse change request (JSON API)
+     */
+    @GetMapping("/delivery/warehouse-change/pending")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getPendingWarehouseChange(HttpSession session) {
+        return deliveryBoyService.getPendingWarehouseChangeRequest(session);
+    }
+
     // ── Dashboard ─────────────────────────────────────────────────
 
     @GetMapping("/delivery/home")
@@ -111,5 +140,19 @@ public class DeliveryBoyController {
             @RequestParam(required = false, defaultValue = "") String reason,
             HttpSession session) {
         return deliveryBoyService.submitWarehouseChangeRequest(warehouseId, reason, session);
+    }
+
+    // ── Availability Toggle ───────────────────────────────────────
+
+    /**
+     * Toggle delivery boy availability status (online/offline).
+     * Body: { "isAvailable": boolean }
+     */
+    @PostMapping("/delivery/availability/toggle")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> toggleAvailability(
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+        return deliveryBoyService.toggleAvailability(payload, session);
     }
 }

@@ -449,7 +449,30 @@ public class DeliveryBoyService {
         return warehouseChangeRequestRepository
                 .findByStatusOrderByRequestedAtDesc(WarehouseChangeRequest.Status.PENDING);
     }
+    // ── AVAILABILITY ──────────────────────────────────────────────
 
+    /**
+     * Toggle delivery boy availability status (online/offline).
+     */
+    public ResponseEntity<Map<String, Object>> toggleAvailability(
+            Map<String, Object> payload, HttpSession session) {
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = getSessionDeliveryBoy(session);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Not logged in");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        boolean isAvailable = (Boolean) payload.getOrDefault("isAvailable", false);
+        db.setAvailable(isAvailable);
+        deliveryBoyRepository.save(db);
+
+        res.put("success", true);
+        res.put("message", isAvailable ? "You are now online" : "You are now offline");
+        res.put("isAvailable", isAvailable);
+        return ResponseEntity.ok(res);
+    }
     // ── PICKUP ────────────────────────────────────────────────────
 
     public ResponseEntity<Map<String, Object>> markPickedUp(int orderId, HttpSession session) {
@@ -564,6 +587,136 @@ public class DeliveryBoyService {
                            String city, String description, String actor) {
         trackingEventLogRepository.save(
             new TrackingEventLog(order, status, city, description, actor));
+    }
+
+    // ── API ENDPOINTS FOR REACT DASHBOARD ────────────────────────
+
+    /**
+     * Get delivery boy profile with warehouse and stats
+     */
+    public ResponseEntity<Map<String, Object>> getDeliveryBoyProfile(HttpSession session) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = getSessionDeliveryBoy(session);
+        if (db == null) {
+            res.put("success", false);
+            res.put("message", "Not logged in");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        Map<String, Object> dbMap = new LinkedHashMap<>();
+        dbMap.put("id", db.getId());
+        dbMap.put("name", db.getName());
+        dbMap.put("email", db.getEmail());
+        dbMap.put("mobile", db.getMobile());
+        dbMap.put("deliveryBoyCode", db.getDeliveryBoyCode());
+        dbMap.put("assignedPinCodes", db.getAssignedPinCodes());
+        dbMap.put("isAvailable", db.isAvailable());
+
+        // Warehouse details
+        if (db.getWarehouse() != null) {
+            Map<String, Object> whMap = new LinkedHashMap<>();
+            whMap.put("id", db.getWarehouse().getId());
+            whMap.put("name", db.getWarehouse().getName());
+            whMap.put("city", db.getWarehouse().getCity());
+            whMap.put("state", db.getWarehouse().getState());
+            whMap.put("warehouseCode", db.getWarehouse().getWarehouseCode());
+            dbMap.put("warehouse", whMap);
+        }
+
+        res.put("success", true);
+        res.put("deliveryBoy", dbMap);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Get all orders for delivery boy (toPickUp, outForDelivery, delivered)
+     */
+    public ResponseEntity<Map<String, Object>> getDeliveryBoyOrders(HttpSession session) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = getSessionDeliveryBoy(session);
+        if (db == null) {
+            res.put("success", false);
+            res.put("message", "Not logged in");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        List<Order> allOrders = orderRepository.findAll();
+        List<Map<String, Object>> toPickUp = new ArrayList<>();
+        List<Map<String, Object>> outForDelivery = new ArrayList<>();
+        List<Map<String, Object>> delivered = new ArrayList<>();
+
+        for (Order order : allOrders) {
+            if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+                continue; // Only orders assigned to this delivery boy
+            }
+
+            Map<String, Object> orderMap = new LinkedHashMap<>();
+            orderMap.put("id", order.getId());
+            orderMap.put("customerName", order.getCustomer() != null ? order.getCustomer().getName() : "");
+            orderMap.put("customer", order.getCustomer() != null ? 
+                Map.of("name", order.getCustomer().getName(), 
+                       "phone", (Object) order.getCustomer().getMobile()) : null);
+            orderMap.put("amount", order.getTotalPrice());
+            orderMap.put("totalPrice", order.getTotalPrice());
+            orderMap.put("status", order.getTrackingStatus().name());
+            orderMap.put("items", order.getItems() != null ? 
+                order.getItems().stream()
+                    .map(item -> Map.of(
+                        "name", (Object) item.getName(),
+                        "quantity", (Object) item.getQuantity()
+                    ))
+                    .toList() : new ArrayList<>());
+
+            if (order.getTrackingStatus() == TrackingStatus.SHIPPED) {
+                toPickUp.add(orderMap);
+            } else if (order.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY) {
+                outForDelivery.add(orderMap);
+            } else if (order.getTrackingStatus() == TrackingStatus.DELIVERED) {
+                delivered.add(orderMap);
+            }
+        }
+
+        res.put("success", true);
+        res.put("toPickUp", toPickUp);
+        res.put("outForDelivery", outForDelivery);
+        res.put("delivered", delivered);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Get pending warehouse change request
+     */
+    public ResponseEntity<Map<String, Object>> getPendingWarehouseChangeRequest(HttpSession session) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = getSessionDeliveryBoy(session);
+        if (db == null) {
+            res.put("success", false);
+            res.put("message", "Not logged in");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        WarehouseChangeRequest pendingRequest = warehouseChangeRequestRepository
+            .findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING)
+            .orElse(null);
+
+        if (pendingRequest != null) {
+            Map<String, Object> reqMap = new LinkedHashMap<>();
+            reqMap.put("id", pendingRequest.getId());
+            reqMap.put("reason", pendingRequest.getReason());
+            if (pendingRequest.getRequestedWarehouse() != null) {
+                reqMap.put("requestedWarehouse", Map.of(
+                    "id", pendingRequest.getRequestedWarehouse().getId(),
+                    "name", pendingRequest.getRequestedWarehouse().getName()
+                ));
+            }
+            res.put("success", true);
+            res.put("request", reqMap);
+        } else {
+            res.put("success", true);
+            res.put("request", null);
+        }
+
+        return ResponseEntity.ok(res);
     }
 
     private DeliveryBoy getSessionDeliveryBoy(HttpSession session) {
