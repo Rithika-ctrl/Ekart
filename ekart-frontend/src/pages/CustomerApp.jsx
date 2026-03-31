@@ -8,6 +8,87 @@ const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractio
 const stars = r => "★".repeat(r) + "☆".repeat(5 - r);
 const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", CANCELLED: "#ef4444" };
 
+// ─── GST helpers ──────────────────────────────────────────────────────────────
+// Indian GST slabs by product category.  Vendors can override per-product.
+// Prices in Ekart are GST-inclusive (MRP style), so we back-calculate GST
+// from the selling price:  gstAmount = price × rate / (100 + rate)
+const GST_CATEGORY_RATES = {
+  // 0 %
+  "Groceries": 0, "Fresh Produce": 0, "Dairy & Eggs": 0, "Meat & Seafood": 0,
+  "Baby Products": 0, "Books": 0, "Educational": 0,
+  // 5 %
+  "Snacks": 5, "Beverages": 5, "Health & Wellness": 5, "Medicines": 5,
+  "Apparel": 5, "Footwear": 5, "Textiles": 5,
+  // 12 %
+  "Home & Kitchen": 12, "Furniture": 12, "Sports": 12, "Stationery": 12,
+  "Toys & Games": 12,
+  // 18 %
+  "Electronics": 18, "Computers": 18, "Mobile & Tablets": 18,
+  "Appliances": 18, "Beauty": 18, "Personal Care": 18,
+  "Software": 18, "Services": 18,
+  // 28 %
+  "Gaming": 28, "Luxury": 28, "Automobile Accessories": 28,
+};
+const DEFAULT_GST_RATE = 18;
+
+/** Look up the default GST rate for a category string (case-insensitive partial match). */
+function gstRateForCategory(category) {
+  if (!category) return DEFAULT_GST_RATE;
+  const key = Object.keys(GST_CATEGORY_RATES).find(
+    k => category.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(category.toLowerCase())
+  );
+  return key !== undefined ? GST_CATEGORY_RATES[key] : DEFAULT_GST_RATE;
+}
+
+/**
+ * Given cart items (each with unitPrice/price, quantity, category, gstRate?),
+ * compute per-slab GST breakdown and total GST amount.
+ * Prices are GST-inclusive: gstOnItem = lineTotal × rate / (100 + rate)
+ */
+function computeCartGst(items = []) {
+  const slabs = {};   // { "18": { rate, taxable, gst, label } }
+  let totalGst = 0;
+
+  items.forEach(item => {
+    const rate = item.gstRate != null ? Number(item.gstRate) : gstRateForCategory(item.category);
+    const lineTotal = (item.unitPrice || item.price || 0) * (item.quantity || 1);
+    const gst = rate > 0 ? Math.round((lineTotal * rate / (100 + rate)) * 100) / 100 : 0;
+    const taxable = lineTotal - gst;
+    totalGst += gst;
+    if (!slabs[rate]) slabs[rate] = { rate, taxable: 0, gst: 0 };
+    slabs[rate].taxable += taxable;
+    slabs[rate].gst += gst;
+  });
+
+  // Round slab gst to 2dp
+  Object.values(slabs).forEach(s => { s.gst = Math.round(s.gst * 100) / 100; });
+
+  return { slabs: Object.values(slabs).sort((a, b) => a.rate - b.rate), totalGst: Math.round(totalGst * 100) / 100 };
+}
+
+/** Returns a label like "GST 18%" or "GST (5% + 18%)" for mixed carts. */
+function getMixedGstLabel(slabs) {
+  if (!slabs || slabs.length === 0) return "GST (included)";
+  const nonZero = slabs.filter(s => s.rate > 0);
+  if (nonZero.length === 0) return "GST (0%)";
+  if (nonZero.length === 1) return `GST ${nonZero[0].rate}% (incl.)`;
+  return `GST ${nonZero.map(s => s.rate + "%").join(" + ")} (incl.)`;
+}
+
+/** Returns true if deliveryPin is allowed for this cart item. */
+function isPinAllowed(item, deliveryPin) {
+  if (!item?.allowedPinCodes) return true; // no restriction
+  const allowed = String(item.allowedPinCodes).split(",").map(p => p.trim()).filter(Boolean);
+  if (allowed.length === 0) return true;
+  return allowed.includes((deliveryPin || "").replace(/\D/g, "").slice(0, 6));
+}
+
+/** Returns array of cart items that can NOT be delivered to deliveryPin. */
+function getPinRestrictedItems(items = [], deliveryPin) {
+  if (!deliveryPin || deliveryPin.length !== 6) return [];
+  return items.filter(item => !isPinAllowed(item, deliveryPin));
+}
+
 // ─── Activity tracker ──────────────────────────────────────────────────────
 //
 // Buffers user events and flushes them to POST /api/user-activity/batch.
@@ -362,24 +443,45 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
           ))}
           <div style={cs.drawerSectionTitle}>Shop by Category</div>
           {categories.map((cat, i) => {
-            const isStr = typeof cat === "string";
-            const name = isStr ? cat : cat.name;
-            const subs = isStr ? [] : (cat.subCategories || []);
+            const isStr   = typeof cat === "string";
+            const name    = isStr ? cat : cat.name;
+            const emoji   = getCatEmoji(cat);
+            const subs    = isStr ? [] : (cat.subCategories || []);
             const isExpanded = expandedCat === i;
             return (
               <div key={i}>
-                <button style={cs.drawerItem} onClick={() => setExpandedCat(isExpanded ? null : i)}>
-                  <span>🏷️ {name}</span>
-                  {subs.length > 0 && <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.25s", transform: isExpanded ? "rotate(90deg)":"rotate(0)" }}>›</span>}
+                <button style={cs.drawerItem} onClick={() => {
+                  if (subs.length > 0) {
+                    setExpandedCat(isExpanded ? null : i);
+                  } else {
+                    // Leaf parent (no subs) — filter directly
+                    window.dispatchEvent(new CustomEvent("ekart-nav-cat", { detail: { cat: name } }));
+                    nav.go("products");
+                    onClose();
+                  }
+                }}>
+                  <span>{emoji} {name}</span>
+                  {subs.length > 0 && (
+                    <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.2s", transform: isExpanded ? "rotate(90deg)":"rotate(0)", display:"inline-block" }}>›</span>
+                  )}
                 </button>
                 {isExpanded && subs.length > 0 && (
-                  <div style={{ background:"rgba(0,0,0,0.2)" }}>
-                    {subs.map(sub => (
-                      <button key={sub.name || sub} style={{ ...cs.drawerItem, paddingLeft:36, fontSize:13 }}
-                        onClick={() => { window.dispatchEvent(new CustomEvent("ekart-nav-search", { detail: { query: sub.name || sub } })); nav.go("products"); onClose(); }}>
-                        {sub.name || sub}
-                      </button>
-                    ))}
+                  <div style={{ background:"rgba(0,0,0,0.15)", borderLeft:"2px solid rgba(245,168,0,0.25)", marginLeft:16 }}>
+                    {subs.map(sub => {
+                      const subName  = typeof sub === "string" ? sub : sub.name;
+                      const subEmoji = typeof sub === "string" ? "" : (sub.emoji || "");
+                      return (
+                        <button key={subName} style={{ ...cs.drawerItem, paddingLeft:20, fontSize:13, color:"rgba(255,255,255,0.75)" }}
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent("ekart-nav-cat", { detail: { cat: subName } }));
+                            nav.go("products");
+                            onClose();
+                          }}>
+                          {subEmoji && <span style={{ marginRight:6 }}>{subEmoji}</span>}
+                          {subName}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -805,6 +907,25 @@ export default function CustomerApp() {
 
   const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD") => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to place an order"); return; }
+
+    // ── Per-product PIN restriction check ────────────────────────────
+    // Resolve delivery PIN from selected address
+    const allAddrs = profile?.addresses || [];
+    const deliveryAddr = allAddrs.find(a => a.id === addressId);
+    const deliveryPin = (deliveryAddr?.postalCode || "").replace(/\D/g, "").slice(0, 6);
+    if (deliveryPin && cart?.items?.length) {
+      const restricted = cart.items.filter(item => {
+        if (!item.allowedPinCodes) return false;
+        const allowed = String(item.allowedPinCodes).split(",").map(p => p.trim()).filter(Boolean);
+        return allowed.length > 0 && !allowed.includes(deliveryPin);
+      });
+      if (restricted.length > 0) {
+        const names = restricted.map(i => `"${i.name}"`).join(", ");
+        showToast(`🚫 ${restricted.length} item(s) can't be delivered to PIN ${deliveryPin}: ${names}. Please remove them or choose a different address.`);
+        return;
+      }
+    }
+
     // Pass coupon code (if applied) so the backend can cross-validate at order time
     const couponCode = cart?.couponCode || "";
     const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId, couponCode, deliveryTime }) });
@@ -955,6 +1076,7 @@ export default function CustomerApp() {
             onBack={() => setAddressPage(false)}
             onContinue={(addrId) => { setSelectedAddressId(addrId); setAddressPage(false); setPaymentPage(true); }}
             showToast={showToast}
+            cart={cart}
           />
         </GuestGate>
       )}
@@ -1255,12 +1377,16 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
         <section style={cs.section}>
           <h2 style={cs.secTitle}>Browse Categories</h2>
           <div style={cs.catGrid}>
-            {categories.slice(0, 8).map(c => (
-              <div key={c} style={cs.catCard} onClick={onShop}>
-                <span style={cs.catIcon}>{getCatIcon(c)}</span>
-                <span style={cs.catLabel}>{c}</span>
-              </div>
-            ))}
+            {categories.slice(0, 8).map((c, i) => {
+              const name  = typeof c === "string" ? c : c.name;
+              const emoji = getCatEmoji(c);
+              return (
+                <div key={i} style={cs.catCard} onClick={onShop}>
+                  <span style={cs.catIcon}>{emoji}</span>
+                  <span style={cs.catLabel}>{name}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -1519,7 +1645,9 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
         </div>
         <select style={cs.select} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          {flattenCatsForSelect(categories).map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Min ₹" type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Max ₹" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
@@ -1643,6 +1771,18 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
     return () => window.removeEventListener("ekart-nav-search", h);
   }, []);
 
+  // Listen for sidebar category drill-down clicks
+  useEffect(() => {
+    const h = e => {
+      const cat = e.detail?.cat || "";
+      setSelectedCat(cat);
+      onCat(cat);
+      setQ(""); setNavQuery("");
+    };
+    window.addEventListener("ekart-nav-cat", h);
+    return () => window.removeEventListener("ekart-nav-cat", h);
+  }, [onCat]);
+
   // When products array changes to empty after a search, trigger fuzzy lookup
   useEffect(() => {
     const activeQuery = search || q;
@@ -1703,7 +1843,9 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         <button style={cs.searchBtn} onClick={() => onSearch(q)}>Search</button>
         <select style={cs.select} value={selectedCat} onChange={e => onCat(e.target.value)}>
           <option value="">All Categories</option>
-          {categories.map(c => <option key={typeof c === "string" ? c : c.name} value={typeof c === "string" ? c : c.name}>{typeof c === "string" ? c : c.name}</option>)}
+          {flattenCatsForSelect(categories).map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
       </div>
 
@@ -2509,22 +2651,56 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
   const [couponCode, setCouponCode] = useState("");
   const [removeConfirm, setRemoveConfirm] = useState(null);
 
+  // Read home PIN for restriction previews
+  const homePin = (localStorage.getItem("ekart_delivery_pin") || "").replace(/\D/g, "").slice(0, 6);
+  const pinRestrictedItems = getPinRestrictedItems(cart.items, homePin);
+
   return (
     <div>
       <h2 style={cs.pageTitle}>Your Cart 🛒</h2>
+
+      {/* ── PIN restriction banner ── */}
+      {pinRestrictedItems.length > 0 && (
+        <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🚫</span>
+          <div>
+            <div style={{ color: "#f87171", fontWeight: 700, marginBottom: 4 }}>
+              {pinRestrictedItems.length} item{pinRestrictedItems.length > 1 ? "s" : ""} can't be delivered to PIN {homePin}
+            </div>
+            <div style={{ color: "#9ca3af", fontSize: 13 }}>
+              {pinRestrictedItems.map(i => i.name).join(", ")} — vendor doesn't deliver to your location.
+              Remove these items or update your delivery PIN to proceed.
+            </div>
+          </div>
+        </div>
+      )}
+
       {(!cart.items || cart.items.length === 0) ? (
         <div style={cs.empty}>🛒 Your cart is empty</div>
       ) : (
         <div style={cs.cartLayout}>
           <div>
-            {cart.items.map((item, i) => (
-              <div key={i} style={cs.cartItem}>
+            {cart.items.map((item, i) => {
+              const pinBlocked = homePin && !isPinAllowed(item, homePin);
+              return (
+              <div key={i} style={{ ...cs.cartItem, ...(pinBlocked ? { borderColor: "rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.04)" } : {}) }}>
                 <div style={cs.cartItemImg}>
                   {item.imageLink ? <img src={item.imageLink} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} onError={e => e.target.style.display = "none"} /> : "🛍️"}
                 </div>
                 <div style={cs.cartItemInfo}>
                   <div style={cs.cartItemName}>{item.name}</div>
                   <div style={{ color: "#6366f1", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{item.category}</div>
+                  {/* PIN restriction badge */}
+                  {pinBlocked && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#f87171", fontWeight: 700, marginBottom: 4 }}>
+                      🚫 Not deliverable to PIN {homePin}
+                    </div>
+                  )}
+                  {item.allowedPinCodes && !pinBlocked && homePin && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 4 }}>
+                      ✓ Delivers to PIN {homePin}
+                    </div>
+                  )}
                   <div style={cs.cartItemPrice}>{fmt(item.unitPrice || item.price)} each</div>
                   <div style={cs.qtyRow}>
                     <button style={cs.qtyBtn} onClick={() => item.quantity > 1 ? onUpdateQty(item.productId, item.quantity - 1) : setRemoveConfirm(item.productId)}>−</button>
@@ -2537,7 +2713,8 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
                   <button style={cs.removeBtn} onClick={() => setRemoveConfirm(item.productId)}>🗑️ Remove</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Coupon */}
             <div style={cs.couponBox}>
@@ -2564,9 +2741,41 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
             <div style={cs.sumRow}><span>Delivery</span><span style={{ color: !cart.deliveryCharge ? "#22c55e" : "#e5e7eb" }}>{!cart.deliveryCharge ? "FREE" : fmt(cart.deliveryCharge)}</span></div>
             {cart.subtotal < 500 && <p style={{ color: "#f59e0b", fontSize: 12, margin: "4px 0" }}>Add {fmt(500 - cart.subtotal)} more for free delivery!</p>}
             <div style={cs.totalRow}><span>Total</span><span>{fmt(cart.total)}</span></div>
-            {cart.gstAmount > 0 && <div style={{ ...cs.sumRow, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8 }}><span style={{ fontSize: 12 }}>GST Included</span><span style={{ fontSize: 12 }}>{fmt(cart.gstAmount)}</span></div>}
-            <button style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16 }} onClick={onCheckout}>
-              Proceed to Checkout →
+            {/* ── GST breakdown (computed client-side from cart items) ── */}
+            {(() => {
+              const { slabs, totalGst } = computeCartGst(cart.items);
+              if (totalGst <= 0) return null;
+              return (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    🧾 Tax Breakdown (GST Inclusive)
+                  </div>
+                  {slabs.filter(s => s.rate > 0).map(s => (
+                    <div key={s.rate} style={{ ...cs.sumRow, fontSize: 12 }}>
+                      <span style={{ color: "#9ca3af" }}>GST @ {s.rate}%</span>
+                      <span style={{ color: "#9ca3af" }}>{fmt(s.gst)}</span>
+                    </div>
+                  ))}
+                  <div style={{ ...cs.sumRow, fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginTop: 2 }}>
+                    <span>{getMixedGstLabel(slabs)}</span>
+                    <span>{fmt(totalGst)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <button
+              style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16,
+                ...(pinRestrictedItems.length > 0 ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+              onClick={() => {
+                if (pinRestrictedItems.length > 0) {
+                  return; // blocked — banner above explains why
+                }
+                onCheckout();
+              }}
+            >
+              {pinRestrictedItems.length > 0
+                ? `🚫 Remove ${pinRestrictedItems.length} restricted item${pinRestrictedItems.length > 1 ? "s" : ""} to checkout`
+                : "Proceed to Checkout →"}
             </button>
           </div>
         </div>
@@ -2639,7 +2848,7 @@ function isIndianPinAddr(val) {
    • Real-time PIN mismatch warning on the new-address form
    • Delete saved address
 ──────────────────────────────────────────────────────────────────── */
-function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast }) {
+function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast, cart }) {
   const EMPTY = { recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" };
 
   const [selectedAddr, setSelectedAddr] = useState(() => {
@@ -2845,10 +3054,14 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
             const chosen  = selectedAddr === a.id;
             const warning = cardWarnings[a.id];
             const isMismatch = warning?.includes("mismatch");
+            // Per-product PIN restriction check for this address
+            const addrPin = (a.postalCode || "").replace(/\D/g, "").slice(0, 6);
+            const addrPinRestricted = getPinRestrictedItems(cart?.items || [], addrPin);
+            const addrPinBlocked = addrPinRestricted.length > 0;
             return (
               <div key={a.id} style={{
                 background: chosen ? "rgba(245,168,0,0.05)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${chosen ? "rgba(245,168,0,0.4)" : "rgba(255,255,255,0.1)"}`,
+                border: `1px solid ${addrPinBlocked ? "rgba(239,68,68,0.4)" : chosen ? "rgba(245,168,0,0.4)" : "rgba(255,255,255,0.1)"}`,
                 borderRadius: 14, padding: "16px 18px", marginBottom: 12,
                 transition: "all 0.25s", cursor: "pointer",
               }} onClick={() => setSelectedAddr(a.id)}>
@@ -2866,16 +3079,30 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
                   </div>
                 )}
 
+                {/* Per-product PIN restriction warning for this address */}
+                {addrPinBlocked && (
+                  <div style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
+                    borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#f87171", lineHeight: 1.5 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 3 }}>
+                      🚫 {addrPinRestricted.length} cart item{addrPinRestricted.length > 1 ? "s" : ""} can't ship to PIN {addrPin}
+                    </div>
+                    <div style={{ color: "#9ca3af" }}>
+                      {addrPinRestricted.map(i => i.name).join(", ")}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
                   <button
                     style={{ display: "inline-flex", alignItems: "center", gap: 5,
-                      background: "#f5a800", color: "#1a1000", border: "none",
+                      background: addrPinBlocked ? "rgba(239,68,68,0.25)" : "#f5a800",
+                      color: addrPinBlocked ? "#f87171" : "#1a1000", border: "none",
                       padding: "6px 16px", borderRadius: 50, fontSize: 11, fontWeight: 700,
-                      letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer",
-                      boxShadow: "0 4px 14px rgba(245,168,0,0.25)", transition: "all 0.2s" }}
-                    onClick={e => { e.stopPropagation(); handleUseAddress(a); }}
+                      letterSpacing: "0.06em", textTransform: "uppercase", cursor: addrPinBlocked ? "not-allowed" : "pointer",
+                      boxShadow: addrPinBlocked ? "none" : "0 4px 14px rgba(245,168,0,0.25)", transition: "all 0.2s" }}
+                    onClick={e => { e.stopPropagation(); if (!addrPinBlocked) handleUseAddress(a); }}
                   >
-                    ✓ Use This Address
+                    {addrPinBlocked ? "🚫 PIN Restricted" : "✓ Use This Address"}
                   </button>
                   <button
                     style={{ background: "none", border: "none", cursor: "pointer",
@@ -3057,14 +3284,18 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const couponDiscount = cart.couponDiscount || 0;
   const grandTotal = Math.max(0, subtotal - couponDiscount) + expressSurcharge;
 
+  // ── PIN restriction check for chosen delivery address ─────────────
+  const chosenAddr = addrs.find(a => a.id === selectedAddr);
+  const deliveryPin = (chosenAddr?.postalCode || "").replace(/\D/g, "").slice(0, 6);
+  const pinRestrictedItems = getPinRestrictedItems(cart.items, deliveryPin);
+  const pinBlocked = pinRestrictedItems.length > 0;
+
   const handlePlace = async () => {
     if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
     setPlacing(true);
     await onPlaceOrder(selectedAddr, payMode, deliveryTime);
     setPlacing(false);
   };
-
-  const chosenAddr = addrs.find(a => a.id === selectedAddr);
 
   const steps = [
     { label: "Cart", icon: "🛒", done: true },
@@ -3189,9 +3420,28 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
               {expressSurcharge === 0 ? "FREE" : fmt(expressSurcharge)}
             </span>
           </div>
-          {cart.gstAmount > 0 && (
-            <div style={cs.sumRow}><span>GST (included)</span><span>{fmt(cart.gstAmount)}</span></div>
-          )}
+          {/* ── Per-slab GST breakdown ── */}
+          {(() => {
+            const { slabs, totalGst } = computeCartGst(cart.items);
+            if (totalGst <= 0) return null;
+            return (
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4, marginBottom: 4 }}>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  🧾 Tax Breakdown (GST Inclusive)
+                </div>
+                {slabs.filter(s => s.rate > 0).map(s => (
+                  <div key={s.rate} style={{ ...cs.sumRow, fontSize: 12 }}>
+                    <span style={{ color: "#9ca3af" }}>GST @ {s.rate}%</span>
+                    <span style={{ color: "#9ca3af" }}>{fmt(s.gst)}</span>
+                  </div>
+                ))}
+                <div style={{ ...cs.sumRow, fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginTop: 2 }}>
+                  <span>{getMixedGstLabel(slabs)}</span>
+                  <span>{fmt(totalGst)}</span>
+                </div>
+              </div>
+            );
+          })()}
           <div style={cs.totalRow}><span>Total</span><span>{fmt(grandTotal)}</span></div>
 
           {/* Selected delivery speed pill */}
@@ -3206,9 +3456,27 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
             <span style={{ fontSize: 18 }}>{payMode === "COD" ? "💵" : "💳"}</span>
             <span style={{ color: "#a5b4fc", fontSize: 13, fontWeight: 600 }}>{payMode === "COD" ? "Cash on Delivery" : "Online Payment"}</span>
           </div>
-          <button style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16, opacity: placing ? 0.6 : 1 }}
-            disabled={placing} onClick={handlePlace}>
-            {placing ? "Placing..." : payMode === "COD" ? "Place Order (COD) 🚀" : "Pay & Place Order 💳"}
+          {/* ── PIN restriction blocking banner ── */}
+          {pinBlocked && (
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)",
+              borderRadius: 10, padding: "14px 16px", marginTop: 14 }}>
+              <div style={{ color: "#f87171", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                🚫 {pinRestrictedItems.length} item{pinRestrictedItems.length > 1 ? "s" : ""} can't be delivered to PIN {deliveryPin}
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+                {pinRestrictedItems.map(i => i.name).join(", ")} — the vendor doesn't ship to this PIN code.
+              </div>
+              <button style={{ ...cs.outlineBtn, fontSize: 12, padding: "5px 14px" }} onClick={onBack}>
+                ← Change Address
+              </button>
+            </div>
+          )}
+          <button
+            style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16,
+              opacity: placing || pinBlocked ? 0.5 : 1, cursor: pinBlocked ? "not-allowed" : "pointer" }}
+            disabled={placing || pinBlocked}
+            onClick={handlePlace}>
+            {placing ? "Placing..." : pinBlocked ? "🚫 Cannot place — PIN restricted" : payMode === "COD" ? "Place Order (COD) 🚀" : "Pay & Place Order 💳"}
           </button>
         </div>
       </div>
@@ -4466,7 +4734,6 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
               </div>
             );
           })()}
-          </div>
 
           {/* ── Change password card — hidden for OAuth users ── */}
           {(!profile.provider || profile.provider === "local") && (
@@ -4628,10 +4895,36 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
 }
 
 /* ── Helpers ── */
-function getCatIcon(cat) {
-  const icons = { Electronics: "💻", Mobiles: "📱", Fashion: "👗", "Home & Kitchen": "🏠", Books: "📚", Toys: "🧸", Sports: "⚽", Beauty: "💄", Food: "🍕", Grocery: "🛒" };
-  return icons[cat] || "🏷️";
+/** Returns the emoji for a category item — works with both string and Category objects */
+function getCatEmoji(cat) {
+  if (!cat) return "📦";
+  if (typeof cat === "object" && cat.emoji) return cat.emoji;
+  // Legacy fallback for plain strings
+  const icons = { Electronics:"💻", Mobiles:"📱", Fashion:"👗", "Home & Kitchen":"🏠", Books:"📚", Toys:"🧸", Sports:"⚽", Beauty:"💄", Food:"🍕", Grocery:"🛒" };
+  return icons[typeof cat === "string" ? cat : cat.name] || "📦";
 }
+
+/** Flatten hierarchical categories into [{value, label}] for filter dropdowns */
+function flattenCatsForSelect(categories) {
+  const opts = [];
+  for (const cat of categories) {
+    const isStr = typeof cat === "string";
+    const name  = isStr ? cat : cat.name;
+    const emoji = isStr ? getCatEmoji(cat) : (cat.emoji || "📦");
+    const subs  = isStr ? [] : (cat.subCategories || []);
+    if (subs.length > 0) {
+      for (const sub of subs) {
+        opts.push({ value: sub.name, label: `${emoji} ${name} › ${sub.emoji ? sub.emoji + " " : ""}${sub.name}` });
+      }
+    } else {
+      opts.push({ value: name, label: `${emoji} ${name}` });
+    }
+  }
+  return opts;
+}
+
+// Keep old name as alias for any remaining references
+const getCatIcon = getCatEmoji;
 
 /* ── Styles ── */
 const cs = {

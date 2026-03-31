@@ -186,8 +186,32 @@ export default function DeliveryApp() {
         <main className="d-main">
           {loading && page === "dashboard" && <div className="d-empty">Loading...</div>}
 
+          {/* Pending Approval Guard */}
+          {profile && !profile.approved && (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
+                Pending Admin Approval
+              </div>
+              <div style={{ fontSize: 14, color: "rgba(13,13,13,0.55)", maxWidth: 400, margin: "0 auto 24px", lineHeight: 1.6 }}>
+                Your account has been verified but is awaiting admin review.
+                You'll receive an email at <strong>{profile.email}</strong> once approved.
+              </div>
+              <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "#92610a", maxWidth: 360, margin: "0 auto 24px", lineHeight: 1.6, textAlign: "left" }}>
+                <strong>What happens next?</strong><br />
+                1. Admin reviews your application 🔍<br />
+                2. Admin assigns your warehouse &amp; pin codes 📦<br />
+                3. You receive an approval email ✉️<br />
+                4. You can then start accepting deliveries 🛵
+              </div>
+              <button className="d-logout" style={{ margin: "0 auto" }} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+                Logout
+              </button>
+            </div>
+          )}
+
           {/* Dashboard */}
-          {page === "dashboard" && !loading && (
+          {page === "dashboard" && !loading && profile?.approved && (
             <div>
               <div className="d-title">Hello, {profile?.name || "Delivery Partner"} 👋</div>
 
@@ -243,7 +267,7 @@ export default function DeliveryApp() {
           )}
 
           {/* Pick Up */}
-          {page === "pickup" && (
+          {page === "pickup" && profile?.approved && (
             <div>
               <div className="d-title">Pick Up from Warehouse 📦</div>
               {toPickUp.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>📦</div><div>No orders to pick up</div></div>
@@ -252,7 +276,7 @@ export default function DeliveryApp() {
           )}
 
           {/* Delivery */}
-          {page === "delivery" && (
+          {page === "delivery" && profile?.approved && (
             <div>
               <div className="d-title">Out for Delivery 🛵</div>
               {outNow.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>🛵</div><div>No active deliveries</div></div>
@@ -261,7 +285,7 @@ export default function DeliveryApp() {
           )}
 
           {/* History */}
-          {page === "history" && (
+          {page === "history" && profile?.approved && (
             <div>
               <div className="d-title">Delivery History ✅</div>
               {delivered.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>✅</div><div>No deliveries yet</div></div>
