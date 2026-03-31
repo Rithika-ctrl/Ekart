@@ -4581,7 +4581,6 @@ public class ReactApiController {
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
-    /**
     // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
     // OAUTH LINKING/UNLINKING FOR REACT APP
     // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -4692,7 +4691,7 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-     * GET /api/flutter/vendor/stock-alerts
+     *// GET /api/flutter/vendor/stock-alerts
      * Header: X-Vendor-Id
      */
     @GetMapping("/vendor/stock-alerts")
