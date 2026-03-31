@@ -1,82 +1,541 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../App";
-import { apiFetch, API_BASE } from "../api";
+import { apiFetch } from "../api";
 
-const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
+const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const S = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
-  .d-root{min-height:100vh;background:#fafaf8;font-family:'DM Sans',sans-serif;color:#0d0d0d}
-  .d-nav{background:#fff;border-bottom:1px solid #e8e4dc;padding:0 24px;display:flex;align-items:center;gap:16px;height:64px;position:sticky;top:0;z-index:100}
-  .d-logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#0d0d0d;letter-spacing:-0.5px}
-  .d-logo span{color:#e84c3c}
-  .d-navlinks{display:flex;gap:2px;flex:1}
-  .d-navbtn{padding:7px 14px;border-radius:8px;border:none;background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:rgba(13,13,13,0.5);transition:all 200ms;white-space:nowrap}
-  .d-navbtn.active{background:#0d0d0d;color:#fff}
-  .d-logout{padding:7px 16px;border-radius:8px;border:1px solid #e8e4dc;background:transparent;color:#e84c3c;cursor:pointer;font-size:13px;font-weight:600}
-  .d-main{max-width:900px;margin:0 auto;padding:32px 24px}
-  .d-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:24px}
-  .d-card{background:#fff;border:1px solid #e8e4dc;border-radius:14px;padding:20px;margin-bottom:14px}
-  .d-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
-  .badge-yellow{background:#fef9e7;color:#d4a017}
-  .badge-blue{background:#eff6ff;color:#2563eb}
-  .badge-green{background:#e8f9f2;color:#1db882}
-  .badge-red{background:#fef2f2;color:#e84c3c}
-  .btn-primary{padding:10px 20px;border-radius:10px;border:none;background:#e84c3c;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 200ms}
-  .btn-primary:hover{background:#c73e2e}
-  .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
-  .btn-success{padding:10px 20px;border-radius:10px;border:none;background:#1db882;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
-  .btn-ghost{padding:8px 16px;border-radius:8px;border:1px solid #e8e4dc;background:transparent;color:#0d0d0d;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
-  .d-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
-  .d-stat{background:#fff;border:1px solid #e8e4dc;border-radius:14px;padding:20px}
-  .d-stat-val{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;margin-bottom:4px}
-  .d-stat-label{font-size:13px;color:rgba(13,13,13,0.55)}
-  .d-otp-row{display:flex;gap:10px;justify-content:center;margin:16px 0}
-  .d-otp-inp{width:46px;height:54px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid #e8e4dc;background:#fafaf8;font-family:'Syne',sans-serif;outline:none}
-  .d-otp-inp:focus{border-color:#0d0d0d}
-  .d-form-input{width:100%;padding:11px 14px;border:2px solid #e8e4dc;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;outline:none;background:#fafaf8;box-sizing:border-box}
-  .d-form-input:focus{border-color:#0d0d0d}
-  .d-empty{text-align:center;padding:60px 20px;color:rgba(13,13,13,0.4)}
-  .d-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:999;animation:toastIn .3s ease}
-  @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-`;
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
-function Toast({ msg, onHide }) {
-  useEffect(() => { if (msg) { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); } }, [msg]);
-  if (!msg) return null;
-  return <div className="d-toast">{msg}</div>;
-}
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --yellow: #f5a800;
+    --yellow-d: #d48f00;
+    --glass-border: rgba(255,255,255,0.22);
+    --glass-card: rgba(255,255,255,0.13);
+    --glass-nav: rgba(0,0,0,0.25);
+    --text-white: #ffffff;
+    --text-light: rgba(255,255,255,0.80);
+    --text-dim: rgba(255,255,255,0.50);
+  }
+
+  .dk-root {
+    font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+    color: var(--text-white);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .dk-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .dk-bg::before {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+    filter: blur(6px);
+    transform: scale(1.08);
+  }
+  .dk-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+  }
+
+  /* NAV */
+  .dk-nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--glass-nav);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--glass-border);
+    gap: 1rem;
+  }
+  .dk-brand {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-white);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .dk-brand span { color: var(--yellow); }
+  .dk-nav-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.3rem 0.8rem;
+    border-radius: 50px;
+    background: rgba(245,168,0,0.15);
+    border: 1px solid rgba(245,168,0,0.3);
+    color: var(--yellow);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .dk-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .dk-nav-info { font-size: 0.78rem; color: var(--text-dim); }
+  .dk-btn-logout {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255,100,80,0.3);
+    background: none;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.2s;
+  }
+  .dk-btn-logout:hover { color: #ff8060; border-color: rgba(255,100,80,0.6); background: rgba(255,100,80,0.08); }
+
+  /* ALERTS */
+  .dk-alert-stack {
+    position: fixed;
+    top: 5rem;
+    right: 1.5rem;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .dk-alert {
+    padding: 0.875rem 1.25rem;
+    background: rgba(10,12,30,0.88);
+    backdrop-filter: blur(16px);
+    border: 1px solid;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.825rem;
+    min-width: 260px;
+    animation: dkSlideIn 0.3s ease both;
+  }
+  .dk-alert-success { border-color: rgba(34,197,94,0.45); color: #22c55e; }
+  .dk-alert-danger  { border-color: rgba(255,100,80,0.45); color: #ff8060; }
+  .dk-alert-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 1rem;
+  }
+
+  /* PAGE */
+  .dk-page {
+    flex: 1;
+    padding: 7rem 2rem 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* WELCOME BANNER */
+  .dk-welcome {
+    background: var(--glass-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 1.75rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .dk-welcome-text h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .dk-welcome-text h1 span { color: var(--yellow); }
+  .dk-welcome-text p { font-size: 0.8rem; color: var(--text-dim); }
+  .dk-welcome-icon {
+    width: 56px; height: 56px;
+    background: rgba(245,168,0,0.15);
+    border: 2px solid rgba(245,168,0,0.3);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  /* WAREHOUSE CARD */
+  .dk-wh-card {
+    background: var(--glass-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 1.4rem 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .dk-wh-info { display: flex; align-items: center; gap: 1rem; }
+  .dk-wh-icon {
+    width: 48px; height: 48px;
+    background: rgba(99,179,237,0.15);
+    border: 2px solid rgba(99,179,237,0.3);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; color: #63b3ed;
+    flex-shrink: 0;
+  }
+  .dk-wh-name { font-size: 1rem; font-weight: 600; margin-bottom: 0.15rem; }
+  .dk-wh-location { font-size: 0.78rem; color: var(--text-dim); }
+  .dk-wh-code { font-size: 0.7rem; color: var(--yellow); font-weight: 600; margin-top: 0.1rem; }
+  .dk-wh-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .dk-badge-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    border-radius: 50px;
+    background: rgba(245,168,0,0.15);
+    border: 1px solid rgba(245,168,0,0.4);
+    color: var(--yellow);
+  }
+  .dk-btn-transfer {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(99,179,237,0.12);
+    border: 1px solid rgba(99,179,237,0.35);
+    color: #63b3ed;
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dk-btn-transfer:hover { background: rgba(99,179,237,0.22); border-color: rgba(99,179,237,0.6); }
+
+  /* STATS */
+  .dk-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+  .dk-stat {
+    background: var(--glass-card);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+  }
+  .dk-stat-val { font-size: 2rem; font-weight: 700; color: var(--yellow); }
+  .dk-stat-lbl { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+  /* 3-COLUMN GRID */
+  .dk-col-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  /* SECTION PANEL */
+  .dk-panel {
+    background: var(--glass-card);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .dk-panel-head {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .dk-panel-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .dk-count-badge {
+    background: var(--yellow);
+    color: #1a1000;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+  }
+  .dk-panel-body { padding: 1rem; }
+
+  /* ORDER CARD */
+  .dk-order {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.75rem;
+    transition: border-color 0.2s;
+  }
+  .dk-order:last-child { margin-bottom: 0; }
+  .dk-order:hover { border-color: rgba(245,168,0,0.3); }
+  .dk-order.delivered { opacity: 0.6; }
+  .dk-order-id { font-weight: 700; color: var(--yellow); font-size: 0.9rem; }
+  .dk-order-customer { font-size: 0.8rem; color: var(--text-light); margin-top: 0.15rem; }
+  .dk-order-pin { font-size: 0.75rem; color: var(--text-dim); }
+  .dk-order-pin.highlight { color: var(--yellow); }
+  .dk-order-items {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .dk-order-amount { font-weight: 700; color: #22c55e; font-size: 0.88rem; margin-top: 0.5rem; }
+  .dk-order-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center; }
+
+  /* BUTTONS */
+  .dk-btn-pickup {
+    background: var(--yellow);
+    color: #1a1000;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .dk-btn-pickup:hover { background: var(--yellow-d); }
+  .dk-btn-deliver {
+    background: rgba(34,197,94,0.2);
+    color: #22c55e;
+    border: 1px solid rgba(34,197,94,0.4);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .dk-btn-deliver:hover { background: rgba(34,197,94,0.3); border-color: rgba(34,197,94,0.6); }
+
+  /* OTP SECTION */
+  .dk-otp-section {
+    background: rgba(34,197,94,0.06);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 10px;
+    padding: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  .dk-otp-label {
+    font-size: 0.72rem;
+    color: #22c55e;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 0.35rem;
+  }
+  .dk-otp-row { display: flex; gap: 0.5rem; }
+  .dk-otp-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+  .dk-otp-input:focus { border-color: #22c55e; background: rgba(255,255,255,0.09); }
+  .dk-otp-input::-webkit-outer-spin-button,
+  .dk-otp-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* EMPTY STATE */
+  .dk-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-dim); }
+  .dk-empty i { font-size: 2rem; margin-bottom: 0.75rem; display: block; opacity: 0.4; }
+  .dk-empty p { font-size: 0.82rem; }
+
+  /* TOAST */
+  .dk-toast-wrap { position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; }
+  .dk-toast {
+    background: rgba(10,12,30,0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    min-width: 240px;
+    display: flex; align-items: center; gap: 0.6rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    animation: dkSlideIn 0.3s ease;
+  }
+  .dk-toast.success { border-color: rgba(34,197,94,0.5); color: #22c55e; }
+  .dk-toast.error   { border-color: rgba(255,100,80,0.5); color: #ff8060; }
+
+  /* MODAL */
+  .dk-modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .dk-modal-box {
+    background: rgba(12,16,36,0.97);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 100%; max-width: 480px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+  .dk-modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem; }
+  .dk-modal-title i { color: #63b3ed; }
+  .dk-modal-subtitle { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+  .dk-form-group { margin-bottom: 1rem; }
+  .dk-form-label { font-size: 0.78rem; font-weight: 600; color: var(--text-light); margin-bottom: 0.4rem; display: block; }
+  .dk-form-select, .dk-form-textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .dk-form-select option { background: #0e1230; color: white; }
+  .dk-form-select:focus, .dk-form-textarea:focus { border-color: #63b3ed; background: rgba(255,255,255,0.09); }
+  .dk-form-textarea { resize: vertical; min-height: 80px; }
+  .dk-modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+  .dk-btn-submit {
+    flex: 1; background: #63b3ed; color: #0a0e20;
+    border: none; border-radius: 10px; padding: 0.7rem 1rem;
+    font-size: 0.85rem; font-weight: 700;
+    font-family: 'Poppins', sans-serif; cursor: pointer; transition: all 0.2s;
+  }
+  .dk-btn-submit:hover { background: #4299d9; }
+  .dk-btn-cancel {
+    flex: 1; background: rgba(255,255,255,0.06); color: var(--text-light);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+    padding: 0.7rem 1rem; font-size: 0.85rem; font-weight: 600;
+    font-family: 'Poppins', sans-serif; cursor: pointer; transition: all 0.2s;
+  }
+  .dk-btn-cancel:hover { background: rgba(255,255,255,0.1); }
+
+  /* FOOTER */
+  .dk-footer {
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--glass-border);
+    padding: 1.25rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dk-footer-brand { font-size: 1.1rem; font-weight: 700; color: white; }
+  .dk-footer-brand span { color: var(--yellow); }
+  .dk-footer-copy { font-size: 0.72rem; color: var(--text-dim); }
+
+  /* PENDING PAGE */
+  .dk-pending-wrap { text-align: center; padding: 60px 20px; }
+  .dk-pending-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+  .dk-pending-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .dk-pending-sub { font-size: 0.85rem; color: var(--text-dim); max-width: 400px; margin: 0 auto 1.5rem; line-height: 1.7; }
+  .dk-pending-steps {
+    background: rgba(245,168,0,0.08);
+    border: 1px solid rgba(245,168,0,0.25);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    font-size: 0.82rem;
+    color: var(--text-light);
+    max-width: 360px;
+    margin: 0 auto 1.5rem;
+    text-align: left;
+    line-height: 1.9;
+  }
+
+  @keyframes dkSlideIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
+
+  @media (max-width: 900px) { .dk-col-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 500px) { .dk-stats { grid-template-columns: 1fr; } .dk-page { padding: 6rem 1rem 2rem; } }
+`;
 
 export default function DeliveryApp() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Derive current page from URL: /delivery/:page → page, default "dashboard"
-  const page = location.pathname.replace(/^\/delivery\/?/, "").split("/")[0] || "dashboard";
-  const setPage = (p) => navigate(`/delivery/${p}`);
   const [profile, setProfile] = useState(null);
   const [toPickUp, setToPickUp] = useState([]);
   const [outNow, setOutNow] = useState([]);
   const [delivered, setDelivered] = useState([]);
-  const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
-  const [otpModal, setOtpModal] = useState(null);
-  const [otpDigits, setOtpDigits] = useState(["","","","","",""]);
+  const [pendingTransfer, setPendingTransfer] = useState(null);
+
+  // Toast
+  const [toast, setToast] = useState(null); // { msg, success }
+  const toastTimer = useRef(null);
+  const showToast = (msg, success = true) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, success });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  // Alerts (flash messages)
+  const [alerts, setAlerts] = useState([]);
+
+  // Transfer modal
   const [transferModal, setTransferModal] = useState(false);
   const [warehouseList, setWarehouseList] = useState([]);
   const [selectedWh, setSelectedWh] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+
+  // Per-order OTP state map: { [orderId]: string }
+  const [otpMap, setOtpMap] = useState({});
+  const setOtp = (id, val) => setOtpMap(prev => ({ ...prev, [id]: val }));
 
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
-  const show = m => setToast(m);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, o] = await Promise.all([
+      const [p, o, t] = await Promise.all([
         api("/delivery/profile"),
         api("/delivery/orders"),
+        api("/delivery/warehouse-change/pending").catch(() => null),
       ]);
       if (p?.success) setProfile(p.deliveryBoy);
       if (o?.success) {
@@ -84,305 +543,396 @@ export default function DeliveryApp() {
         setOutNow(o.outForDelivery || []);
         setDelivered(o.delivered || []);
       }
-    } catch { show("Failed to load data"); }
+      if (t?.success) setPendingTransfer(t.request || null);
+      else setPendingTransfer(null);
+    } catch {
+      showToast("Failed to load data", false);
+    }
     setLoading(false);
   }, [api]);
 
   useEffect(() => { load(); }, [load]);
 
   const markPickedUp = async (orderId) => {
-    const d = await api(`/delivery/orders/${orderId}/pickup`, { method: "POST" });
-    if (d?.success) { show("Marked as picked up ✓"); load(); } else show(d?.message || "Error");
+    try {
+      const d = await api(`/delivery/order/${orderId}/pickup`, { method: "POST" });
+      showToast(d?.message || "Marked as picked up", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
   };
 
-  const openDeliverModal = async (order) => {
-    setOtpModal(order);
-    setOtpDigits(["","","","","",""]);
-  };
-
-  const submitDeliveryOtp = async () => {
-    const code = otpDigits.join("");
-    if (code.length < 4) { show("Enter the OTP"); return; }
-    const d = await api(`/delivery/orders/${otpModal.id}/deliver`, { method: "POST", body: JSON.stringify({ otp: code }) });
-    if (d?.success) { show("Delivery confirmed! 🎉"); setOtpModal(null); load(); } else show(d?.message || "Invalid OTP");
+  const confirmDelivery = async (orderId) => {
+    const otp = (otpMap[orderId] || "").trim();
+    if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
+    if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
+    try {
+      const fd = new FormData();
+      fd.append("otp", otp);
+      const d = await fetch(`/delivery/order/${orderId}/deliver`, {
+        method: "POST", body: fd,
+        headers: auth?.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      }).then(r => r.json());
+      showToast(d?.message || "Delivery confirmed", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
   };
 
   const loadWarehouses = async () => {
-    const d = await api("/delivery/warehouses");
+    const d = await api("/delivery/warehouses").catch(() => null);
     if (d?.success) setWarehouseList(d.warehouses || []);
   };
 
-  const requestTransfer = async () => {
-    if (!selectedWh) { show("Select a warehouse"); return; }
-    const d = await api("/delivery/transfer-request", { method: "POST", body: JSON.stringify({ warehouseId: selectedWh }) });
-    if (d?.success) { show("Transfer request submitted!"); setTransferModal(false); load(); } else show(d?.message || "Error");
+  const openTransferModal = async () => {
+    setTransferModal(true);
+    setSelectedWh("");
+    setTransferReason("");
+    await loadWarehouses();
   };
 
-  const tabs = [
-    { key: "dashboard", label: "📊 Dashboard" },
-    { key: "pickup",    label: `📦 Pick Up${toPickUp.length > 0 ? ` (${toPickUp.length})` : ""}` },
-    { key: "delivery",  label: `🛵 Out for Delivery${outNow.length > 0 ? ` (${outNow.length})` : ""}` },
-    { key: "history",   label: "✅ History" },
-    { key: "profile",   label: "👤 Profile" },
-  ];
+  const submitTransfer = async () => {
+    if (!selectedWh) { showToast("Please select a warehouse.", false); return; }
+    try {
+      const fd = new FormData();
+      fd.append("warehouseId", selectedWh);
+      fd.append("reason", transferReason);
+      const d = await fetch("/delivery/warehouse-change/request", {
+        method: "POST", body: fd,
+        headers: auth?.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      }).then(r => r.json());
+      showToast(d?.message || "Request submitted", d?.success);
+      if (d?.success) { setTransferModal(false); setTimeout(load, 1800); }
+    } catch { showToast("Request failed. Try again.", false); }
+  };
 
-  const OrderCard = ({ order, mode }) => (
-    <div className="d-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-        <div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16 }}>Order #{order.id}</div>
-          <div style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", marginTop: 2 }}>
-            {order.customer?.name || order.customerName} · {order.customer?.mobile || order.mobile}
-          </div>
+  const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
+
+  // ── Pending approval guard
+  if (!loading && profile && !profile.approved) {
+    return (
+      <>
+        <style>{S}</style>
+        <div className="dk-root">
+          <div className="dk-bg" />
+          <nav className="dk-nav">
+            <div className="dk-brand"><i className="fas fa-shopping-cart" style={{ fontSize: "1.1rem" }} /><span>Ekart</span></div>
+            <div className="dk-nav-right">
+              <span className="dk-nav-badge"><i className="fas fa-motorcycle" />&nbsp; Delivery</span>
+              <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+                <i className="fas fa-sign-out-alt" /> Logout
+              </button>
+            </div>
+          </nav>
+          <main className="dk-page">
+            <div className="dk-pending-wrap">
+              <div className="dk-pending-icon">⏳</div>
+              <div className="dk-pending-title">Pending Admin Approval</div>
+              <p className="dk-pending-sub">
+                Your account has been verified but is awaiting admin review.
+                You'll receive an email at <strong>{profile.email}</strong> once approved.
+              </p>
+              <div className="dk-pending-steps">
+                <strong>What happens next?</strong><br />
+                1. Admin reviews your application 🔍<br />
+                2. Admin assigns your warehouse & pin codes 📦<br />
+                3. You receive an approval email ✉️<br />
+                4. You can then start accepting deliveries 🛵
+              </div>
+              <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+                <i className="fas fa-sign-out-alt" /> Logout
+              </button>
+            </div>
+          </main>
+          <footer className="dk-footer">
+            <div className="dk-footer-brand"><span>Ekart</span></div>
+            <div className="dk-footer-copy">© 2026 Ekart. All rights reserved.</div>
+          </footer>
         </div>
-        <span className={`d-badge ${mode === "pickup" ? "badge-yellow" : mode === "delivery" ? "badge-blue" : "badge-green"}`}>
-          {mode === "pickup" ? "To Pick Up" : mode === "delivery" ? "Out for Delivery" : "Delivered"}
-        </span>
-      </div>
-      {order.deliveryAddress && (
-        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.6)", marginBottom: 12, display: "flex", gap: 6 }}>
-          <span>📍</span><span>{order.deliveryAddress}</span>
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {(order.items || []).map((item, i) => (
-          <span key={i} style={{ background: "#f2f0eb", padding: "4px 10px", borderRadius: 6, fontSize: 12 }}>
-            {item.name} × {item.quantity}
-          </span>
-        ))}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-        <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18 }}>{fmt(order.amount || order.totalPrice)}</span>
-        <div style={{ display: "flex", gap: 8 }}>
-          {mode === "pickup" && (
-            <button className="btn-primary" onClick={() => markPickedUp(order.id)}>✓ Picked Up</button>
-          )}
-          {mode === "delivery" && (
-            <button className="btn-success" onClick={() => openDeliverModal(order)}>🎯 Deliver (OTP)</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+      </>
+    );
+  }
 
   return (
     <>
       <style>{S}</style>
-      <div className="d-root">
-        <Toast msg={toast} onHide={() => setToast("")} />
-        <nav className="d-nav">
-          <div className="d-logo">e<span>kart</span> Delivery</div>
-          <div className="d-navlinks">
-            {tabs.map(t => (
-              <button key={t.key} className={`d-navbtn${page === t.key ? " active" : ""}`} onClick={() => setPage(t.key)}>{t.label}</button>
-            ))}
+      <div className="dk-root">
+        <div className="dk-bg" />
+
+        {/* Alerts */}
+        <div className="dk-alert-stack">
+          {alerts.map((a, i) => (
+            <div key={i} className={`dk-alert dk-alert-${a.type}`}>
+              <i className={`fas ${a.type === "success" ? "fa-check-circle" : "fa-exclamation-circle"}`} />
+              <span>{a.msg}</span>
+              <button className="dk-alert-close" onClick={() => dismissAlert(i)}>×</button>
+            </div>
+          ))}
+        </div>
+
+        {/* Nav */}
+        <nav className="dk-nav">
+          <div className="dk-brand">
+            <i className="fas fa-shopping-cart" style={{ fontSize: "1.1rem" }} />
+            <span>Ekart</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)" }}>{auth.email}</span>
-            <button className="d-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
+          <div className="dk-nav-right">
+            <span className="dk-nav-badge"><i className="fas fa-motorcycle" />&nbsp; Delivery</span>
+            <span className="dk-nav-info">{profile?.name || auth?.email}</span>
+            <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+              <i className="fas fa-sign-out-alt" /> Logout
+            </button>
           </div>
         </nav>
 
-        <main className="d-main">
-          {loading && page === "dashboard" && <div className="d-empty">Loading...</div>}
-
-          {/* Pending Approval Guard */}
-          {profile && !profile.approved && (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 56, marginBottom: 16 }}>⏳</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
-                Pending Admin Approval
-              </div>
-              <div style={{ fontSize: 14, color: "rgba(13,13,13,0.55)", maxWidth: 400, margin: "0 auto 24px", lineHeight: 1.6 }}>
-                Your account has been verified but is awaiting admin review.
-                You'll receive an email at <strong>{profile.email}</strong> once approved.
-              </div>
-              <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "#92610a", maxWidth: 360, margin: "0 auto 24px", lineHeight: 1.6, textAlign: "left" }}>
-                <strong>What happens next?</strong><br />
-                1. Admin reviews your application 🔍<br />
-                2. Admin assigns your warehouse &amp; pin codes 📦<br />
-                3. You receive an approval email ✉️<br />
-                4. You can then start accepting deliveries 🛵
-              </div>
-              <button className="d-logout" style={{ margin: "0 auto" }} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
-                Logout
-              </button>
-            </div>
-          )}
-
-          {/* Dashboard */}
-          {page === "dashboard" && !loading && profile?.approved && (
-            <div>
-              <div className="d-title">Hello, {profile?.name || "Delivery Partner"} 👋</div>
-
-              {profile?.warehouse && (
-                <div className="d-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Your Warehouse</div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18 }}>{profile.warehouse.name}</div>
-                    <div style={{ fontSize: 14, color: "rgba(13,13,13,0.55)" }}>{profile.warehouse.city}, {profile.warehouse.state}</div>
-                    <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)", marginTop: 4 }}>Code: {profile.warehouse.warehouseCode} · Pins: {profile.assignedPinCodes || "All"}</div>
-                  </div>
-                  <button className="btn-ghost" onClick={async () => { setTransferModal(true); await loadWarehouses(); }}>Request Transfer</button>
+        <main className="dk-page">
+          {loading ? (
+            <div className="dk-empty"><i className="fas fa-spinner fa-spin" /><p>Loading…</p></div>
+          ) : (
+            <>
+              {/* Welcome Banner */}
+              <div className="dk-welcome">
+                <div className="dk-welcome-text">
+                  <h1>Hello, <span>{profile?.name || "Delivery Boy"}</span>!</h1>
+                  <p>
+                    {profile?.deliveryBoyCode}
+                    {profile?.assignedPinCodes ? `  ·  Pins: ${profile.assignedPinCodes}` : "  ·  Pins: All"}
+                  </p>
                 </div>
-              )}
-
-              <div className="d-stat-grid">
-                {[
-                  { label: "To Pick Up",        value: toPickUp.length,  color: "#d4a017" },
-                  { label: "Out for Delivery",   value: outNow.length,    color: "#2563eb" },
-                  { label: "Delivered Today",    value: delivered.length, color: "#1db882" },
-                ].map(s => (
-                  <div key={s.label} className="d-stat">
-                    <div className="d-stat-val" style={{ color: s.color }}>{s.value}</div>
-                    <div className="d-stat-label">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {toPickUp.length > 0 && (
-                <div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 14, color: "#d4a017" }}>
-                    📦 Ready to Pick Up ({toPickUp.length})
-                  </div>
-                  {toPickUp.slice(0, 3).map(o => <OrderCard key={o.id} order={o} mode="pickup" />)}
+                <div className="dk-welcome-icon">
+                  <i className="fas fa-motorcycle" style={{ color: "var(--yellow)" }} />
                 </div>
-              )}
-              {outNow.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 14, color: "#2563eb" }}>
-                    🛵 Out for Delivery ({outNow.length})
-                  </div>
-                  {outNow.slice(0, 3).map(o => <OrderCard key={o.id} order={o} mode="delivery" />)}
-                </div>
-              )}
-              {toPickUp.length === 0 && outNow.length === 0 && (
-                <div className="d-empty">
-                  <div style={{ fontSize: 56, marginBottom: 12 }}>🎉</div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>All clear!</div>
-                  <div style={{ fontSize: 14, marginTop: 4 }}>No pending orders right now.</div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Pick Up */}
-          {page === "pickup" && (
-            loading || !profile ? (
-              <div className="d-empty">Loading...</div>
-            ) : !profile.approved ? (
-              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
-            ) : (
-              <div>
-                <div className="d-title">Pick Up from Warehouse 📦</div>
-                {toPickUp.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>📦</div><div>No orders to pick up</div></div>
-                  : toPickUp.map(o => <OrderCard key={o.id} order={o} mode="pickup" />)}
               </div>
-            )
-          )}
 
-          {/* Delivery */}
-          {page === "delivery" && (
-            loading || !profile ? (
-              <div className="d-empty">Loading...</div>
-            ) : !profile.approved ? (
-              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
-            ) : (
-              <div>
-                <div className="d-title">Out for Delivery 🛵</div>
-                {outNow.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>🛵</div><div>No active deliveries</div></div>
-                  : outNow.map(o => <OrderCard key={o.id} order={o} mode="delivery" />)}
-              </div>
-            )
-          )}
-
-          {/* History */}
-          {page === "history" && (
-            loading || !profile ? (
-              <div className="d-empty">Loading...</div>
-            ) : !profile.approved ? (
-              <div className="d-empty"><div style={{ fontSize: 48 }}>⏳</div><div>Waiting for admin approval</div></div>
-            ) : (
-              <div>
-                <div className="d-title">Delivery History ✅</div>
-                {delivered.length === 0 ? <div className="d-empty"><div style={{ fontSize: 48 }}>✅</div><div>No deliveries yet</div></div>
-                  : delivered.map(o => <OrderCard key={o.id} order={o} mode="done" />)}
-              </div>
-            )
-          )}
-
-          {/* Profile */}
-          {page === "profile" && (
-            loading || !profile ? (
-              <div className="d-empty">Loading...</div>
-            ) : (
-              <div>
-                <div className="d-title">My Profile 👤</div>
-                <div className="d-card">
-                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#0d0d0d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 20 }}>
-                    {(profile.name || "D")[0].toUpperCase()}
-                  </div>
-                  {[
-                    ["Name", profile.name],
-                    ["Email", profile.email],
-                    ["Code", profile.deliveryBoyCode],
-                    ["Mobile", profile.mobile],
-                    ["Warehouse", profile.warehouse ? `${profile.warehouse.name} · ${profile.warehouse.city}` : "—"],
-                    ["Assigned PINs", profile.assignedPinCodes || "All"],
-                    ["Status", profile.approved ? "✅ Approved" : "⏳ Pending Approval"],
-                  ].map(([k, v]) => (
-                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f2f0eb", fontSize: 14 }}>
-                      <span style={{ color: "rgba(13,13,13,0.55)", fontWeight: 600 }}>{k}</span>
-                      <span style={{ fontWeight: 600 }}>{v || "—"}</span>
+              {/* Warehouse Card */}
+              <div className="dk-wh-card">
+                <div className="dk-wh-info">
+                  <div className="dk-wh-icon"><i className="fas fa-warehouse" /></div>
+                  {profile?.warehouse ? (
+                    <div>
+                      <div className="dk-wh-name">{profile.warehouse.name}</div>
+                      <div className="dk-wh-location">
+                        <i className="fas fa-map-marker-alt" style={{ color: "var(--yellow)", marginRight: "0.3rem", fontSize: "0.7rem" }} />
+                        {profile.warehouse.city}, {profile.warehouse.state}
+                      </div>
+                      <div className="dk-wh-code">{profile.warehouse.warehouseCode}</div>
                     </div>
-                  ))}
+                  ) : (
+                    <div>
+                      <div className="dk-wh-name" style={{ color: "var(--text-dim)" }}>No Warehouse Assigned</div>
+                      <div className="dk-wh-location">Contact admin to get a warehouse assigned.</div>
+                    </div>
+                  )}
+                </div>
+                <div className="dk-wh-right">
+                  {pendingTransfer ? (
+                    <span className="dk-badge-pending">
+                      <i className="fas fa-clock" />
+                      Transfer to <strong style={{ marginLeft: "0.25rem" }}>{pendingTransfer.requestedWarehouse?.name}</strong> — Pending
+                    </span>
+                  ) : (
+                    <button className="dk-btn-transfer" onClick={openTransferModal}>
+                      <i className="fas fa-exchange-alt" /> Request Transfer
+                    </button>
+                  )}
                 </div>
               </div>
-            )
+
+              {/* Stats */}
+              <div className="dk-stats">
+                <div className="dk-stat">
+                  <div className="dk-stat-val">{toPickUp.length}</div>
+                  <div className="dk-stat-lbl">To Pick Up</div>
+                </div>
+                <div className="dk-stat">
+                  <div className="dk-stat-val">{outNow.length}</div>
+                  <div className="dk-stat-lbl">Out for Delivery</div>
+                </div>
+                <div className="dk-stat">
+                  <div className="dk-stat-val">{delivered.length}</div>
+                  <div className="dk-stat-lbl">Delivered</div>
+                </div>
+              </div>
+
+              {/* 3-Column Grid */}
+              <div className="dk-col-grid">
+
+                {/* TO PICK UP */}
+                <div className="dk-panel">
+                  <div className="dk-panel-head">
+                    <div className="dk-panel-title">
+                      <i className="fas fa-box" style={{ color: "var(--yellow)" }} /> Pick Up from Warehouse
+                    </div>
+                    <span className="dk-count-badge">{toPickUp.length}</span>
+                  </div>
+                  <div className="dk-panel-body">
+                    {toPickUp.length === 0 ? (
+                      <div className="dk-empty">
+                        <i className="fas fa-box-open" />
+                        <p>No orders waiting for pickup</p>
+                      </div>
+                    ) : toPickUp.map(order => (
+                      <div key={order.id} className="dk-order">
+                        <div className="dk-order-id">Order #{order.id}</div>
+                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
+                        <div className="dk-order-pin">{order.customer?.mobile || order.mobile}</div>
+                        {order.deliveryPinCode && (
+                          <div className="dk-order-pin">PIN: {order.deliveryPinCode}</div>
+                        )}
+                        <div className="dk-order-items">
+                          {(order.items || []).map((item, i) => (
+                            <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
+                          ))}
+                        </div>
+                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
+                        <div className="dk-order-actions">
+                          <button className="dk-btn-pickup" onClick={() => markPickedUp(order.id)}>
+                            <i className="fas fa-truck-loading" /> Picked Up
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* OUT FOR DELIVERY */}
+                <div className="dk-panel">
+                  <div className="dk-panel-head">
+                    <div className="dk-panel-title">
+                      <i className="fas fa-motorcycle" style={{ color: "#22c55e" }} /> Out for Delivery
+                    </div>
+                    <span className="dk-count-badge">{outNow.length}</span>
+                  </div>
+                  <div className="dk-panel-body">
+                    {outNow.length === 0 ? (
+                      <div className="dk-empty">
+                        <i className="fas fa-road" />
+                        <p>No active deliveries</p>
+                      </div>
+                    ) : outNow.map(order => (
+                      <div key={order.id} className="dk-order">
+                        <div className="dk-order-id">Order #{order.id}</div>
+                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
+                        <div className="dk-order-pin">{order.customer?.mobile || order.mobile}</div>
+                        {order.deliveryPinCode && (
+                          <div className="dk-order-pin highlight">PIN: {order.deliveryPinCode}</div>
+                        )}
+                        <div className="dk-order-items">
+                          {(order.items || []).map((item, i) => (
+                            <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
+                          ))}
+                        </div>
+                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
+                        <div className="dk-otp-section">
+                          <div className="dk-otp-label">
+                            <i className="fas fa-key" /> Enter OTP from customer
+                          </div>
+                          <div className="dk-otp-row">
+                            <input
+                              type="number"
+                              className="dk-otp-input"
+                              placeholder="000000"
+                              maxLength={6}
+                              min={100000}
+                              max={999999}
+                              value={otpMap[order.id] || ""}
+                              onChange={e => setOtp(order.id, e.target.value)}
+                            />
+                            <button className="dk-btn-deliver" onClick={() => confirmDelivery(order.id)}>
+                              <i className="fas fa-check" /> Deliver
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* DELIVERED */}
+                <div className="dk-panel">
+                  <div className="dk-panel-head">
+                    <div className="dk-panel-title">
+                      <i className="fas fa-check-circle" style={{ color: "#22c55e" }} /> Delivered
+                    </div>
+                    <span className="dk-count-badge">{delivered.length}</span>
+                  </div>
+                  <div className="dk-panel-body">
+                    {delivered.length === 0 ? (
+                      <div className="dk-empty">
+                        <i className="fas fa-clipboard-check" />
+                        <p>No completed deliveries yet</p>
+                      </div>
+                    ) : delivered.map(order => (
+                      <div key={order.id} className="dk-order delivered">
+                        <div className="dk-order-id">Order #{order.id}</div>
+                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
+                        <div className="dk-order-items">
+                          {(order.items || []).map((item, i) => (
+                            <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
+                          ))}
+                        </div>
+                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </>
           )}
         </main>
 
-        {/* OTP delivery confirmation modal */}
-        {otpModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div style={{ background: "#fff", borderRadius: 20, padding: 32, maxWidth: 380, width: "100%" }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Confirm Delivery 🎯</div>
-              <div style={{ fontSize: 14, color: "rgba(13,13,13,0.55)", marginBottom: 20 }}>
-                Ask the customer for their OTP to confirm delivery of Order #{otpModal.id}
+        <footer className="dk-footer">
+          <div className="dk-footer-brand"><span>Ekart</span></div>
+          <div className="dk-footer-copy">© 2026 Ekart. All rights reserved.</div>
+        </footer>
+
+        {/* Warehouse Transfer Modal */}
+        {transferModal && (
+          <div className="dk-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setTransferModal(false); }}>
+            <div className="dk-modal-box">
+              <div className="dk-modal-title">
+                <i className="fas fa-exchange-alt" /> Request Warehouse Transfer
               </div>
-              <div className="d-otp-row">
-                {otpDigits.map((d, i) => (
-                  <input key={i} className="d-otp-inp" maxLength={1} value={d}
-                    onChange={e => {
-                      if (!/^\d*$/.test(e.target.value)) return;
-                      const n = [...otpDigits]; n[i] = e.target.value.slice(-1); setOtpDigits(n);
-                    }} inputMode="numeric" />
-                ))}
+              <div className="dk-modal-subtitle">
+                Your request will be reviewed by admin. You will be notified by email once approved or rejected.
               </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                <button className="btn-success" style={{ flex: 1 }} onClick={submitDeliveryOtp}>Confirm Delivery</button>
-                <button className="btn-ghost" onClick={() => setOtpModal(null)}>Cancel</button>
+              <div className="dk-form-group">
+                <label className="dk-form-label">Transfer to Warehouse</label>
+                <select className="dk-form-select" value={selectedWh} onChange={e => setSelectedWh(e.target.value)}>
+                  <option value="">— Select warehouse —</option>
+                  {warehouseList
+                    .filter(w => !profile?.warehouse || w.id !== profile.warehouse.id)
+                    .map(w => (
+                      <option key={w.id} value={w.id}>{w.name} — {w.city}, {w.state}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="dk-form-group">
+                <label className="dk-form-label">
+                  Reason <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>(optional)</span>
+                </label>
+                <textarea
+                  className="dk-form-textarea"
+                  placeholder="e.g. Relocating to another city, closer to new address..."
+                  value={transferReason}
+                  onChange={e => setTransferReason(e.target.value)}
+                />
+              </div>
+              <div className="dk-modal-actions">
+                <button className="dk-btn-cancel" onClick={() => setTransferModal(false)}>Cancel</button>
+                <button className="dk-btn-submit" onClick={submitTransfer}>
+                  <i className="fas fa-paper-plane" /> Submit Request
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Transfer warehouse modal */}
-        {transferModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div style={{ background: "#fff", borderRadius: 20, padding: 32, maxWidth: 400, width: "100%" }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Request Warehouse Transfer</div>
-              <div style={{ fontSize: 14, color: "rgba(13,13,13,0.55)", marginBottom: 20 }}>Select your preferred new warehouse. Admin approval is required.</div>
-              <select className="d-form-input" style={{ marginBottom: 20 }} value={selectedWh} onChange={e => setSelectedWh(e.target.value)}>
-                <option value="">Select warehouse…</option>
-                {warehouseList.map(w => (
-                  <option key={w.id} value={w.id}>{w.name} · {w.city}, {w.state}</option>
-                ))}
-              </select>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn-primary" style={{ flex: 1 }} onClick={requestTransfer}>Submit Request</button>
-                <button className="btn-ghost" onClick={() => setTransferModal(false)}>Cancel</button>
-              </div>
+        {/* Toast */}
+        {toast && (
+          <div className="dk-toast-wrap">
+            <div className={`dk-toast ${toast.success ? "success" : "error"}`}>
+              <i className={`fas ${toast.success ? "fa-check-circle" : "fa-exclamation-circle"}`} />
+              {toast.msg}
             </div>
           </div>
         )}

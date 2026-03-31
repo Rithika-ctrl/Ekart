@@ -43,7 +43,7 @@ export default function AdminApp() {
       headers["Authorization"] = `Bearer ${auth.token}`;
       headers["X-Admin-Email"] = auth.email || "";
     }
-    const res = await fetch("/api/flutter" + path, { ...opts, headers });
+    const res = await fetch("/api/react" + path, { ...opts, headers });
     return res.json();
   }, [auth]);
   const show = m => setToast(m);
@@ -518,7 +518,7 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
   // Load eligible delivery boys for each packed order
   useEffect(() => {
     (packedOrders || []).forEach(order => {
-      fetch(`/api/flutter/admin/delivery/boys/for-order/${order.id}`, {
+      fetch(`/api/react/admin/delivery/boys/for-order/${order.id}`, {
         headers: { "Authorization": `Bearer ${localStorage.getItem("token") || ""}` }
       })
         .then(r => r.json())
@@ -2163,7 +2163,7 @@ function AccountsAdmin() {
 
   const deleteAccount = async (id) => {
     try {
-      const res = await fetch(`/api/flutter/admin/accounts/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" } });
+      const res = await fetch(`/api/react/admin/accounts/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" } });
       const d = await res.json();
       if (d.success) { show("Account deleted"); setModal(null); load(q); }
       else show(d.message || "Error");
@@ -2479,7 +2479,7 @@ function ContentAdmin() {
   const loadBanners = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/flutter/admin/banners", {
+      const res = await fetch("/api/react/admin/banners", {
         headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
       });
       if (res.ok) {
@@ -2500,7 +2500,7 @@ function ContentAdmin() {
         headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "", "Content-Type": "application/json" },
       };
       if (body !== undefined) opts.body = JSON.stringify(body);
-      const res = await fetch(`/api/flutter${path}`, opts);
+      const res = await fetch(`/api/react${path}`, opts);
       if (!res.ok) return false;
       const d = await res.json();
       return d.success !== false;
@@ -2561,7 +2561,7 @@ function ContentAdmin() {
       if (form.linkUrl.trim()) fd.append("linkUrl", form.linkUrl.trim());
       setUploading(true);
       try {
-        const res = await fetch("/api/flutter/admin/banners/add-upload", {
+        const res = await fetch("/api/react/admin/banners/add-upload", {
           method: "POST",
           headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
           body: fd,
@@ -2620,7 +2620,7 @@ function ContentAdmin() {
       setBulkUploading(true);
       const fd = new FormData(); fd.append("file", bulkFile);
       try {
-        const res = await fetch("/api/flutter/vendor/products/upload-csv", {
+        const res = await fetch("/api/react/vendor/products/upload-csv", {
           method: "POST",
           headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
           body: fd,
@@ -3240,16 +3240,16 @@ function SecurityAdmin() {
 
   const showToast = m => { setToast(m); setTimeout(() => setToast(""), 3200); };
 
-  // ── Fetch all users on mount — uses /api/flutter/admin/users (JWT, returns role field) ──
+  // ── Fetch all users on mount — uses /api/react/admin/users (JWT, returns role field) ──
   useEffect(() => {
     (async () => {
       setUsersLoading(true);
       try {
-        const res = await fetch("/api/flutter/admin/users", {
+        const res = await fetch("/api/react/admin/users", {
           headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
         });
         const d = await res.json();
-        // /api/flutter/admin/users returns { success, customers: [...], vendors: [...] }
+        // /api/react/admin/users returns { success, customers: [...], vendors: [...] }
         // Merge both arrays so vendors appear in the role-management table too.
         if (d.success) setUsers([...(d.customers || []), ...(d.vendors || [])]);
         else if (Array.isArray(d)) setUsers(d);
@@ -3268,7 +3268,7 @@ function SecurityAdmin() {
     if (npass.length < 6) { setMsg("Password must be at least 6 characters"); return; }
     setPwLoading(true);
     try {
-      const res = await fetch("/api/flutter/admin/change-password", {
+      const res = await fetch("/api/react/admin/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}` },
         body: JSON.stringify({ currentPassword: current, newPassword: npass, confirmPassword: confirm }),
@@ -3284,12 +3284,12 @@ function SecurityAdmin() {
     setPwLoading(false);
   };
 
-  // ── Role change (confirmed) — uses /api/flutter/admin/users/{id}/role (JWT) ──
+  // ── Role change (confirmed) — uses /api/react/admin/users/{id}/role (JWT) ──
   const confirmRoleChange = async () => {
     if (!roleModal) return;
     setRoleChanging(true);
     try {
-      const res = await fetch(`/api/flutter/admin/users/${roleModal.user.id}/role`, {
+      const res = await fetch(`/api/react/admin/users/${roleModal.user.id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
         body: JSON.stringify({ role: roleModal.newRole }),

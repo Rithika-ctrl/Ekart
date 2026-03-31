@@ -511,18 +511,16 @@ public class ReactApiController {
                 res.put("message", "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
-            if (!db.isAdminApproved()) {
-                res.put("success", false);
-                res.put("message", "Your account is pending admin approval. You will receive an email once approved.");
-                return ResponseEntity.status(403).body(res);
-            }
-            // All checks passed — issue a simple token (same pattern as customer/vendor)
+            // Issue JWT for both approved and pending-approval delivery boys.
+            // Pending boys can log in but DeliveryApp will show the pending screen
+            // based on the approved=false field returned here and from /delivery/profile.
             String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
             res.put("success",       true);
             res.put("deliveryBoyId", db.getId());
             res.put("name",          db.getName());
             res.put("email",         db.getEmail());
             res.put("token",         token);
+            res.put("approved",      db.isAdminApproved());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false);
@@ -3608,6 +3606,7 @@ public class ReactApiController {
                 m.put("adminApproved",    db.isAdminApproved());
                 m.put("active",           db.isActive());
                 m.put("assignedPinCodes", db.getAssignedPinCodes());
+                m.put("approved",         db.isAdminApproved()); // alias read by AdminApp.jsx filter
 
                 // Derive a single human-readable status string
                 String status;
@@ -3676,6 +3675,11 @@ public class ReactApiController {
             String assignedPinCodes = (body != null)
                     ? body.getOrDefault("assignedPinCodes", "").toString().trim()
                     : "";
+            // AdminApp.jsx sends warehouseId to override/assign warehouse at approval time
+            Integer warehouseId = null;
+            if (body != null && body.get("warehouseId") != null) {
+                try { warehouseId = Integer.parseInt(body.get("warehouseId").toString()); } catch (Exception ignored) {}
+            }
 
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
@@ -3683,6 +3687,13 @@ public class ReactApiController {
                 res.put("message", "Delivery boy not found");
                 return ResponseEntity.badRequest().body(res);
             }
+
+            // If admin selected a warehouse at approval time, apply it
+            if (warehouseId != null && warehouseId > 0) {
+                Warehouse wh = warehouseRepository.findById(warehouseId).orElse(null);
+                if (wh != null) db.setWarehouse(wh);
+            }
+
             if (db.getWarehouse() == null) {
                 res.put("success", false);
                 res.put("message", "No warehouse selected by this delivery boy");
@@ -4836,6 +4847,7 @@ public class ReactApiController {
         profile.put("assignedPinCodes", db.getAssignedPinCodes());
         profile.put("active",           db.isActive());
         profile.put("adminApproved",    db.isAdminApproved());
+        profile.put("approved",         db.isAdminApproved()); // alias read by DeliveryApp.jsx
 
         if (db.getWarehouse() != null) {
             Warehouse wh = db.getWarehouse();
