@@ -11,23 +11,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-import java.util.Optional;
+// import java.util.Optional; // unused
 
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class GenericReadOnlyController {
 
-    private final Map<String, JpaRepository> repositories;
+    private final Map<String, JpaRepository<?, ?>> repositories;
 
     @Autowired
-    public GenericReadOnlyController(Map<String, JpaRepository> repositories) {
+    public GenericReadOnlyController(Map<String, JpaRepository<?, ?>> repositories) {
         this.repositories = repositories;
     }
 
-    private JpaRepository findRepo(String name) {
+    private JpaRepository<?, ?> findRepo(String name) {
         String lower = name.toLowerCase();
-        for (Map.Entry<String, JpaRepository> e : repositories.entrySet()) {
+        for (Map.Entry<String, JpaRepository<?, ?>> e : repositories.entrySet()) {
             String key = e.getKey().toLowerCase();
             if (key.equals(lower) || key.equals(lower + "repository") || key.equals(lower + "repo")) {
                 return e.getValue();
@@ -47,25 +47,33 @@ public class GenericReadOnlyController {
 
     @GetMapping("/{entity}")
     public ResponseEntity<?> list(@PathVariable String entity) {
-        JpaRepository repo = findRepo(entity);
+        JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         return ResponseEntity.ok(repo.findAll());
     }
 
     @GetMapping("/{entity}/{id}")
+    @SuppressWarnings("ALL")
     public ResponseEntity<?> getOne(@PathVariable String entity, @PathVariable String id) {
-        JpaRepository repo = findRepo(entity);
+        JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         Object key = parseId(id);
         try {
-            Optional<?> opt = repo.findById(key);
-            if (opt.isPresent()) return ResponseEntity.ok(opt.get());
+            // Use raw type to avoid generic type mismatch warnings
+            @SuppressWarnings({"rawtypes", "unchecked"})  
+            JpaRepository rawRepo = repo;
+            //noinspection unchecked
+            Object result = rawRepo.findById(key).orElse(null);
+            if (result != null) return ResponseEntity.ok(result);
         } catch (ClassCastException ignored) {
             // try fallback by attempting other numeric types
             try {
                 Object altKey = tryOtherIdTypes(id);
-                Optional<?> opt = repo.findById(altKey);
-                if (opt.isPresent()) return ResponseEntity.ok(opt.get());
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                JpaRepository rawRepo = repo;
+                //noinspection unchecked
+                Object result = rawRepo.findById(altKey).orElse(null);
+                if (result != null) return ResponseEntity.ok(result);
             } catch (Exception ignored2) {
             }
         }

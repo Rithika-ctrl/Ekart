@@ -9,6 +9,9 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     /** Get all top-level parent categories ordered by displayOrder */
     List<Category> findByParentTrueOrderByDisplayOrderAsc();
 
+    /** Get all sub-categories ordered by displayOrder */
+    List<Category> findByParentFalseOrderByDisplayOrderAsc();
+
     /** Get all sub-categories for a given parent */
     List<Category> findByParentCategoryOrderByDisplayOrderAsc(Category parent);
 

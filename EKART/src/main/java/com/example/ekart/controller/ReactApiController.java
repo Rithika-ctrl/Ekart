@@ -11,7 +11,7 @@ import com.example.ekart.service.SocialAuthService;
 import com.example.ekart.config.OAuthProviderValidator;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
-import com.example.ekart.dto.Role;
+// import com.example.ekart.dto.Role; // unused
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -46,7 +46,7 @@ public class ReactApiController {
     @Autowired private OrderRepository     orderRepository;
     @Autowired private ItemRepository      itemRepository;
     @Autowired private WishlistRepository  wishlistRepository;
-    @Autowired private AddressRepository   addressRepository;
+    // @Autowired private AddressRepository   addressRepository; // unused
     @Autowired private ReviewRepository      reviewRepository;
     @Autowired private ReviewImageRepository reviewImageRepository;
     @Autowired private RefundRepository      refundRepository;
@@ -2579,9 +2579,9 @@ public class ReactApiController {
 
         // All-time orders for totals
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
-        List<Order> activeOrders = allOrders.stream()
-                .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-                .collect(Collectors.toList());
+        // List<Order> activeOrders = allOrders.stream() // unused
+        //         .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
+        //         .collect(Collectors.toList());
 
         // ── Revenue and order count for the window ───────────────────────────
         double totalRevenue = windowOrders.stream()

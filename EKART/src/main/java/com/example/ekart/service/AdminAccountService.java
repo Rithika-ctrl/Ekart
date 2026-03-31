@@ -1,7 +1,7 @@
 package com.example.ekart.service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+// import java.time.LocalDateTime; // unused
+// import java.util.ArrayList; // unused
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,13 +16,13 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.dto.Wishlist;
 import com.example.ekart.dto.Refund;
-import com.example.ekart.helper.AES;
+// import com.example.ekart.helper.AES; // unused
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
-import com.example.ekart.repository.ItemRepository;
+// import com.example.ekart.repository.ItemRepository; // unused
 
 import jakarta.transaction.Transactional;
 
@@ -46,8 +46,8 @@ public class AdminAccountService {
     @Autowired
     private RefundRepository refundRepository;
 
-    @Autowired
-    private ItemRepository itemRepository;
+    // @Autowired
+    // private ItemRepository itemRepository; // unused
 
     @Autowired
     private EmailSender emailSender;

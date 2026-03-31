@@ -19,6 +19,7 @@ export default function VendorApp() {
   // Derive current page from URL: /vendor/:page → page, default "dashboard"
   const page = location.pathname.replace(/^\/vendor\/?/, "").split("/")[0] || "dashboard";
   const setPage = (p) => navigate(`/vendor/${p}`);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -31,6 +32,7 @@ export default function VendorApp() {
   const showToast = m => setToast(m);
 
   const loadAll = useCallback(async () => {
+    setLoading(true);
     const [s, p, o, a, pr] = await Promise.all([
       api("/vendor/stats"), api("/vendor/products"),
       api("/vendor/orders"), api("/vendor/stock-alerts"), api("/vendor/profile")
@@ -40,6 +42,7 @@ export default function VendorApp() {
     if (o.success) setOrders(o.orders || []);
     if (a.success) setStockAlerts(a.alerts || []);
     if (pr.success) setProfile(pr.vendor);
+    setLoading(false);
   }, [api]);
 
   const loadSales = useCallback(async (period = "weekly") => {
@@ -84,14 +87,23 @@ export default function VendorApp() {
       </nav>
 
       <main style={vs.main}>
-        {page === "dashboard" && <Dashboard stats={stats} orders={orders} products={products} />}
-        {page === "products" && <ProductsManager products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} />}
-        {page === "sales" && <SalesReport salesData={salesData} onPeriodChange={loadSales} />}
-        {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "profile" && <VendorProfile profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
-        {page === "security" && <VendorSecurity profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+        {loading ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ color: "#6b7280" }}>Loading vendor data...</div>
+          </div>
+        ) : (
+          <>
+            {page === "dashboard" && <Dashboard stats={stats} orders={orders} products={products} />}
+            {page === "products" && <ProductsManager products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} />}
+            {page === "sales" && <SalesReport salesData={salesData} onPeriodChange={loadSales} />}
+            {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "profile" && <VendorProfile profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+            {page === "security" && <VendorSecurity profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+          </>
+        )}
       </main>
     </div>
   );
