@@ -598,12 +598,119 @@ public class ReactApiController {
             try { emailSender.sendDeliveryBoyOtp(db); }
             catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
 
-            res.put("success", true);
-            res.put("message", "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
+            res.put("success",       true);
+            res.put("message",       "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
+            res.put("deliveryBoyId", db.getId());
+            res.put("email",         email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Registration failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/auth/delivery/verify-otp
+     * Body: { email, otp }  — otp is the 6-digit string from the UI boxes
+     * Marks the delivery boy email as verified.
+     * After this, account is pending admin approval before login is allowed.
+     * Returns: { success, message }
+     */
+    @PostMapping("/auth/delivery/verify-otp")
+    public ResponseEntity<Map<String, Object>> deliveryVerifyOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            if (email.isEmpty() || otpStr.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email and OTP are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            int otpInt;
+            try { otpInt = Integer.parseInt(otpStr); }
+            catch (NumberFormatException e) {
+                res.put("success", false);
+                res.put("message", "OTP must be a 6-digit number");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "No account found with this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (db.isVerified()) {
+                res.put("success", true);
+                res.put("message", "Email already verified. Awaiting admin approval.");
+                return ResponseEntity.ok(res);
+            }
+            if (db.getOtp() != otpInt) {
+                res.put("success", false);
+                res.put("message", "Incorrect OTP. Please try again.");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            db.setVerified(true);
+            deliveryBoyRepository.save(db);
+
+            // Notify admin via email that a new delivery boy needs approval
+            try { emailSender.sendDeliveryBoyPendingAlert(db); }
+            catch (Exception e) { System.err.println("Admin pending-alert email failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", "Email verified! Your account is pending admin approval. You will be notified by email once approved.");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "OTP verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/auth/delivery/resend-otp
+     * Body: { email }
+     * Resends the verification OTP to the delivery boy (if not yet verified).
+     * Returns: { success, message }
+     */
+    @PostMapping("/auth/delivery/resend-otp")
+    public ResponseEntity<Map<String, Object>> deliveryResendOtp(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            if (email.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Email is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "No account found with this email");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (db.isVerified()) {
+                res.put("success", false);
+                res.put("message", "Email is already verified");
+                return ResponseEntity.ok(res);
+            }
+            int otp = new java.util.Random().nextInt(100000, 1000000);
+            db.setOtp(otp);
+            deliveryBoyRepository.save(db);
+            try { emailSender.sendDeliveryBoyOtp(db); }
+            catch (Exception e) { System.err.println("OTP resend failed: " + e.getMessage()); }
+
+            res.put("success", true);
+            res.put("message", "A new OTP has been sent to " + email);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Resend failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }

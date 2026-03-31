@@ -27,6 +27,7 @@ export default function AdminApp() {
   const [refunds, setRefunds] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [adminCategories, setAdminCategories] = useState([]);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [packedOrders, setPackedOrders] = useState([]);
   const [shippedOrders, setShippedOrders] = useState([]);
@@ -70,7 +71,8 @@ export default function AdminApp() {
   useEffect(() => { if (page === "reviews")   api("/admin/reviews").then(d => d.success && setReviews(d.reviews || [])); }, [page]);
   useEffect(() => { if (page === "analytics") api("/admin/analytics").then(d => d.success && setAnalytics(d)); }, [page]);
   useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
-  useEffect(() => { if (page === "warehouse") api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
+  useEffect(() => { if (page === "warehouse")  api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
+  useEffect(() => { if (page === "categories") api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || [])); }, [page]);
   useEffect(() => {
     if (page === "delivery") {
       api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || []));
@@ -165,6 +167,7 @@ export default function AdminApp() {
     { key: "vendors",    label: "🏪 Vendors" },
     { key: "delivery",   label: "🛵 Delivery" },
     { key: "warehouse",  label: "🏭 Warehouses" },
+    { key: "categories", label: "🗂️ Categories" },
     { key: "coupons",    label: "🎟️ Coupons" },
     { key: "refunds",    label: `💸 Refunds${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ""}` },
     { key: "reviews",    label: "⭐ Reviews" },
@@ -210,6 +213,7 @@ export default function AdminApp() {
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
           {page === "security"   && <SecurityAdmin />}
           {page === "accounts"   && <AccountsAdmin />}
+          {page === "categories" && <CategoryAdmin categories={adminCategories} api={api} showToast={show} onRefresh={() => api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || []))} />}
           {page === "content"    && <ContentAdmin />}
         </>}
       </main>
@@ -2984,6 +2988,234 @@ function PoliciesAdmin({ policies = [], onCreate, onUpdate, onDelete }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Category Admin ── */
+function CategoryAdmin({ categories, api, showToast, onRefresh }) {
+  const EMOJI_SUGGESTIONS = ["📦","🍕","👗","💻","📱","🏠","📚","🧸","⚽","💄","🛒","🎮","🌿","💊","🐾","🚗","✈️","🎵","🖼️","🔧","🍔","🥦","👟","💍","🎁"];
+
+  const [addParentForm, setAddParentForm] = useState({ name: "", emoji: "📦", displayOrder: "0" });
+  const [addSubForm,    setAddSubForm]    = useState({ parentId: "", name: "", emoji: "", displayOrder: "0" });
+  const [editItem,      setEditItem]      = useState(null); // { id, name, emoji, displayOrder }
+  const [expandedId,    setExpandedId]    = useState(null);
+  const [loading,       setLoading]       = useState(false);
+
+  const call = async (path, body) => {
+    setLoading(true);
+    const d = await api(path, { method: "POST", body: JSON.stringify(body) });
+    setLoading(false);
+    if (d.success) { showToast(d.message || "Saved ✓"); onRefresh(); }
+    else showToast("❌ " + (d.message || "Error"));
+    return d;
+  };
+
+  const handleAddParent = async () => {
+    if (!addParentForm.name.trim()) { showToast("Name is required"); return; }
+    const d = await call("/admin/categories/parent", { name: addParentForm.name.trim(), emoji: addParentForm.emoji, displayOrder: parseInt(addParentForm.displayOrder) || 0 });
+    if (d.success) setAddParentForm({ name: "", emoji: "📦", displayOrder: "0" });
+  };
+
+  const handleAddSub = async () => {
+    if (!addSubForm.parentId) { showToast("Select a parent category"); return; }
+    if (!addSubForm.name.trim()) { showToast("Name is required"); return; }
+    const d = await call("/admin/categories/sub", { parentId: parseInt(addSubForm.parentId), name: addSubForm.name.trim(), emoji: addSubForm.emoji, displayOrder: parseInt(addSubForm.displayOrder) || 0 });
+    if (d.success) setAddSubForm({ parentId: addSubForm.parentId, name: "", emoji: "", displayOrder: "0" });
+  };
+
+  const handleUpdate = async () => {
+    if (!editItem || !editItem.name.trim()) { showToast("Name is required"); return; }
+    await call(`/admin/categories/${editItem.id}/update`, { name: editItem.name.trim(), emoji: editItem.emoji, displayOrder: parseInt(editItem.displayOrder) || 0 });
+    setEditItem(null);
+  };
+
+  const handleDelete = async (id, name, hasChildren) => {
+    const msg = hasChildren ? `Delete "${name}" and ALL its sub-categories? This cannot be undone.` : `Delete "${name}"?`;
+    if (!window.confirm(msg)) return;
+    await call(`/admin/categories/${id}/delete`, {});
+  };
+
+  const inp  = { background: "rgba(13,13,13,0.05)", border: "1px solid rgba(13,13,13,0.15)", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", fontFamily: "inherit" };
+  const btn  = { padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" };
+  const card = { background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 20, marginBottom: 16 };
+
+  return (
+    <div>
+      <h2 style={as.pageTitle}>Category Management 🗂️</h2>
+
+      {/* ── Add Parent Category ── */}
+      <div style={{ ...card, background: "#fffbeb", border: "1px solid rgba(245,168,0,0.3)", marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>➕ New Parent Category</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Emoji</div>
+            <input style={{ ...inp, width: 54, textAlign: "center", fontSize: 22 }} value={addParentForm.emoji}
+              onChange={e => setAddParentForm(f => ({ ...f, emoji: e.target.value }))} maxLength={4} />
+          </div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Category Name</div>
+            <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} placeholder="e.g. Food & Beverages"
+              value={addParentForm.name} onChange={e => setAddParentForm(f => ({ ...f, name: e.target.value }))}
+              onKeyDown={e => e.key === "Enter" && handleAddParent()} />
+          </div>
+          <div style={{ width: 70 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Order</div>
+            <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} type="number" value={addParentForm.displayOrder}
+              onChange={e => setAddParentForm(f => ({ ...f, displayOrder: e.target.value }))} />
+          </div>
+          <button style={{ ...btn, background: "#0d0d0d", color: "#fff" }} onClick={handleAddParent} disabled={loading}>
+            {loading ? "…" : "Add Category"}
+          </button>
+        </div>
+        <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {EMOJI_SUGGESTIONS.map(e => (
+            <button key={e} style={{ background: addParentForm.emoji === e ? "#0d0d0d" : "rgba(13,13,13,0.06)", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 18 }}
+              onClick={() => setAddParentForm(f => ({ ...f, emoji: e }))}>{e}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Add Sub-Category ── */}
+      {categories.length > 0 && (
+        <div style={{ ...card, background: "#f0fdf4", border: "1px solid rgba(29,184,130,0.3)", marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>➕ New Sub-Category</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div style={{ flex: "0 0 200px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Parent Category</div>
+              <select style={{ ...inp, width: "100%", boxSizing: "border-box" }} value={addSubForm.parentId}
+                onChange={e => setAddSubForm(f => ({ ...f, parentId: e.target.value }))}>
+                <option value="">Select parent…</option>
+                {categories.map(p => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Emoji</div>
+              <input style={{ ...inp, width: 54, textAlign: "center", fontSize: 22 }} value={addSubForm.emoji}
+                onChange={e => setAddSubForm(f => ({ ...f, emoji: e.target.value }))} maxLength={4} />
+            </div>
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Sub-Category Name</div>
+              <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} placeholder="e.g. Chips"
+                value={addSubForm.name} onChange={e => setAddSubForm(f => ({ ...f, name: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && handleAddSub()} />
+            </div>
+            <div style={{ width: 70 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, color: "rgba(13,13,13,0.5)" }}>Order</div>
+              <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} type="number" value={addSubForm.displayOrder}
+                onChange={e => setAddSubForm(f => ({ ...f, displayOrder: e.target.value }))} />
+            </div>
+            <button style={{ ...btn, background: "#1db882", color: "#fff" }} onClick={handleAddSub} disabled={loading}>
+              {loading ? "…" : "Add Sub"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editItem && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 420, width: "100%" }}>
+            <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 18 }}>✏️ Edit Category</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "rgba(13,13,13,0.5)" }}>Emoji</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <input style={{ ...inp, width: 64, textAlign: "center", fontSize: 24 }} value={editItem.emoji}
+                  onChange={e => setEditItem(i => ({ ...i, emoji: e.target.value }))} maxLength={4} />
+                <span style={{ fontSize: 13, color: "rgba(13,13,13,0.45)" }}>← type or pick below</span>
+              </div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {EMOJI_SUGGESTIONS.map(e => (
+                  <button key={e} style={{ background: editItem.emoji === e ? "#0d0d0d" : "rgba(13,13,13,0.06)", border: "none", borderRadius: 6, padding: "3px 7px", cursor: "pointer", fontSize: 16 }}
+                    onClick={() => setEditItem(i => ({ ...i, emoji: e }))}>{e}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "rgba(13,13,13,0.5)" }}>Name</div>
+              <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} value={editItem.name}
+                onChange={e => setEditItem(i => ({ ...i, name: e.target.value }))} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "rgba(13,13,13,0.5)" }}>Display Order</div>
+              <input style={{ ...inp, width: 100 }} type="number" value={editItem.displayOrder}
+                onChange={e => setEditItem(i => ({ ...i, displayOrder: e.target.value }))} />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...btn, background: "#e84c3c", color: "#fff", flex: 1 }} onClick={handleUpdate}>Save Changes</button>
+              <button style={{ ...btn, background: "rgba(13,13,13,0.08)", color: "#0d0d0d" }} onClick={() => setEditItem(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Category Tree ── */}
+      {categories.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(13,13,13,0.4)" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🗂️</div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>No categories yet</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>Add a parent category above to get started.</div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "rgba(13,13,13,0.6)", textTransform: "uppercase", letterSpacing: 0.5, fontSize: 12 }}>
+            {categories.length} Parent {categories.length === 1 ? "Category" : "Categories"} · {categories.reduce((n, c) => n + (c.subCategories?.length || 0), 0)} Sub-Categories
+          </div>
+          {categories.map(parent => (
+            <div key={parent.id} style={{ ...card, padding: 0, overflow: "hidden" }}>
+              {/* Parent row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", cursor: "pointer", background: expandedId === parent.id ? "#fafaf8" : "#fff" }}
+                onClick={() => setExpandedId(expandedId === parent.id ? null : parent.id)}>
+                <span style={{ fontSize: 26 }}>{parent.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{parent.name}</div>
+                  <div style={{ fontSize: 12, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>
+                    {parent.subCategories?.length || 0} sub-categories · order {parent.displayOrder}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button style={{ ...btn, background: "rgba(13,13,13,0.08)", color: "#0d0d0d", padding: "5px 12px" }}
+                    onClick={e => { e.stopPropagation(); setEditItem({ id: parent.id, name: parent.name, emoji: parent.emoji || "📦", displayOrder: parent.displayOrder }); }}>
+                    ✏️ Edit
+                  </button>
+                  <button style={{ ...btn, background: "rgba(232,76,60,0.1)", color: "#e84c3c", padding: "5px 12px" }}
+                    onClick={e => { e.stopPropagation(); handleDelete(parent.id, parent.name, (parent.subCategories?.length || 0) > 0); }}>
+                    🗑️
+                  </button>
+                  <span style={{ color: "rgba(13,13,13,0.3)", fontSize: 14, transition: "transform 0.2s", display: "inline-block", transform: expandedId === parent.id ? "rotate(90deg)" : "rotate(0)" }}>›</span>
+                </div>
+              </div>
+
+              {/* Sub-categories */}
+              {expandedId === parent.id && (
+                <div style={{ borderTop: "1px solid #f0ede8", background: "#fafaf8" }}>
+                  {(parent.subCategories || []).length === 0 ? (
+                    <div style={{ padding: "12px 20px 12px 60px", fontSize: 13, color: "rgba(13,13,13,0.4)", fontStyle: "italic" }}>No sub-categories yet.</div>
+                  ) : (
+                    (parent.subCategories || []).map(sub => (
+                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px 10px 56px", borderBottom: "1px solid rgba(13,13,13,0.05)" }}>
+                        <span style={{ fontSize: 18, minWidth: 24 }}>{sub.emoji || "—"}</span>
+                        <div style={{ flex: 1, fontSize: 14 }}>{sub.name}</div>
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>order {sub.displayOrder}</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button style={{ ...btn, background: "rgba(13,13,13,0.06)", color: "#0d0d0d", padding: "4px 10px", fontSize: 12 }}
+                            onClick={() => setEditItem({ id: sub.id, name: sub.name, emoji: sub.emoji || "", displayOrder: sub.displayOrder })}>
+                            ✏️
+                          </button>
+                          <button style={{ ...btn, background: "rgba(232,76,60,0.08)", color: "#e84c3c", padding: "4px 10px", fontSize: 12 }}
+                            onClick={() => handleDelete(sub.id, sub.name, false)}>
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

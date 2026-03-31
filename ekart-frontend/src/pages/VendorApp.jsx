@@ -596,7 +596,7 @@ function UploadOverlay() {
 
 function ProductsManager({ products, api, onRefresh, showToast }) {
   const EMPTY_FORM = { name: "", description: "", price: "", mrp: "", discountPct: "",
-    stock: "", category: "", stockAlertThreshold: 10, allowedPinCodes: "" };
+    stock: "", category: "", stockAlertThreshold: 10, allowedPinCodes: "", gstRate: "" };
 
   const [showForm, setShowForm]     = useState(false);
   const [editProduct, setEditProduct] = useState(null);
@@ -662,7 +662,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
     setForm({ name: p.name, description: p.description || "", price: String(price),
       mrp: String(mrp), discountPct, stock: String(p.stock),
       category: p.category || "", stockAlertThreshold: p.stockAlertThreshold || 10,
-      allowedPinCodes: p.allowedPinCodes || "" });
+      allowedPinCodes: p.allowedPinCodes || "", gstRate: p.gstRate != null ? String(p.gstRate) : "" });
     setMainImage(null); setExtraImages([]); setVideo(null);
     setEditProduct(p); setShowForm(true);
   };
@@ -679,6 +679,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
     fd.append("category", form.category);
     fd.append("stockAlertThreshold", parseInt(form.stockAlertThreshold) || 10);
     fd.append("allowedPinCodes", form.allowedPinCodes || "");
+    if (form.gstRate !== "") fd.append("gstRate", parseFloat(form.gstRate));
     if (mainImage) fd.append("image", mainImage);
     extraImages.forEach(f => fd.append("extraImages", f));
     if (video) fd.append("video", video);
@@ -745,8 +746,10 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   <option value="" disabled>— Select a category —</option>
                   {categories.length > 0
                     ? categories.map(c => (
-                        <option key={c.name} value={c.name}>
-                          {c.parentCategory ? `${c.parentCategory.emoji || ""} ${c.parentCategory.name} › ${c.name}` : c.name}
+                        <option key={c.id || c.name} value={c.name}>
+                          {c.parentCategory
+                            ? `${c.parentCategory.emoji || "📦"} ${c.parentCategory.name} › ${c.emoji ? c.emoji + " " : ""}${c.name}`
+                            : `${c.emoji ? c.emoji + " " : ""}${c.name}`}
                         </option>
                       ))
                     : <option value={form.category}>{form.category || "No categories loaded"}</option>
@@ -822,6 +825,48 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   ⚡ Get an email when stock drops below this level
                 </div>
               </div>
+
+              {/* ── GST Rate ── */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={vs.label}>
+                  GST Rate (%)
+                  <span style={{ color: "#6b7280", fontWeight: 400, textTransform: "none", marginLeft: 6 }}>
+                    — leave on "Auto" unless the govt has changed the slab for this product
+                  </span>
+                </label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    style={{ ...vs.input, cursor: "pointer", appearance: "none", flex: "0 0 260px" }}
+                    value={form.gstRate}
+                    onChange={e => setF("gstRate", e.target.value)}
+                  >
+                    <option value="">🔄 Auto-detect from category</option>
+                    <option value="0">0% — Essentials (food, books, medicines)</option>
+                    <option value="5">5% — Apparel, FMCG, footwear</option>
+                    <option value="12">12% — Furniture, toys, sports</option>
+                    <option value="18">18% — Electronics, beauty, services</option>
+                    <option value="28">28% — Luxury goods, gaming, auto parts</option>
+                  </select>
+                  {/* Live preview badge */}
+                  <div style={{
+                    background: form.gstRate !== ""
+                      ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${form.gstRate !== "" ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700,
+                    color: form.gstRate !== "" ? "#a5b4fc" : "#6b7280",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {form.gstRate !== ""
+                      ? `GST: ${form.gstRate}% (manual override)`
+                      : `GST: auto from "${form.category || "category"}"`}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 5, lineHeight: 1.5 }}>
+                  ℹ️ Prices are <strong style={{ color: "#9ca3af" }}>GST-inclusive</strong> (MRP style).
+                  The correct tax is back-calculated and shown to customers at checkout.
+                  Update this field whenever the government revises the GST slab for your product.
+                </div>
+              </div>
             </div>
 
             {/* ── Media ── */}
@@ -880,7 +925,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
       <div style={vs.tableWrap}>
         <table style={vs.table}>
           <thead><tr style={vs.thead}>
-            {["Product", "Category", "Price", "MRP", "Stock", "Status", "Actions"].map(h =>
+            {["Product", "Category", "Price", "MRP", "GST", "Stock", "Status", "Actions"].map(h =>
               <th key={h} style={vs.th}>{h}</th>)}
           </tr></thead>
           <tbody>
@@ -911,6 +956,23 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                       )}
                     </div>
                   ) : "–"}
+                </td>
+                <td style={vs.td}>
+                  {(() => {
+                    const rate = p.gstRate != null ? p.gstRate : null;
+                    return (
+                      <div style={{ textAlign: "center" }}>
+                        <span style={{
+                          background: rate != null ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.06)",
+                          color: rate != null ? "#a5b4fc" : "#6b7280",
+                          border: `1px solid ${rate != null ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700,
+                        }}>
+                          {rate != null ? `${rate}%` : "auto"}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td style={vs.td}>
                   <span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{p.stock}</span>

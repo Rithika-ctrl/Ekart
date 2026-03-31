@@ -84,6 +84,8 @@ export default function AuthPage() {
   const [timer, setTimer] = useState(120);
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseId, setWarehouseId] = useState("");
+  // Delivery OTP flow — stores the email after registration so the verify step can use it
+  const [deliveryOtpEmail, setDeliveryOtpEmail] = useState("");
   const otpRefs = useRef([]);
   const timerRef = useRef(null);
 
@@ -100,7 +102,7 @@ export default function AuthPage() {
   }, [role, screen]);
 
   useEffect(() => {
-    if (screen === "otp" || screen === "register-otp") {
+    if (screen === "otp" || screen === "register-otp" || screen === "delivery-otp") {
       setTimer(120);
       timerRef.current = setInterval(() => setTimer(t => {
         if (t <= 1) { clearInterval(timerRef.current); return 0; }
@@ -157,11 +159,13 @@ export default function AuthPage() {
         return;
       }
 
-      // Delivery: no OTP — submit directly
+      // Delivery: submit, then show OTP verification step
       const data = await post(`/auth/${role}/register`, body);
       if (!data.success) { setError(data.message || "Registration failed"); setLoading(false); return; }
-      setInfo(data.message || "Account created! Awaiting email verification and admin approval.");
-      setScreen("login");
+      setDeliveryOtpEmail(form.email);
+      setOtp(["", "", "", "", "", ""]);
+      setInfo("OTP sent to " + form.email + ". Please verify your email to continue.");
+      setScreen("delivery-otp");
     } catch { setError("Network error."); }
     setLoading(false);
   }
@@ -254,6 +258,28 @@ export default function AuthPage() {
       await post(`/auth/${role}/forgot-password`, { email: form.email });
       setInfo("OTP resent!"); setTimer(120);
     } catch {}
+  }
+
+  async function handleDeliveryOtp(e) {
+    e.preventDefault(); clear();
+    const code = otp.join("");
+    if (code.length < 6) { setError("Enter all 6 digits"); return; }
+    setLoading(true);
+    try {
+      const data = await post("/auth/delivery/verify-otp", { email: deliveryOtpEmail, otp: code });
+      if (!data.success) { setError(data.message || "Invalid OTP"); setLoading(false); return; }
+      setOtp(["", "", "", "", "", ""]);
+      setScreen("delivery-pending");
+    } catch { setError("Network error."); }
+    setLoading(false);
+  }
+
+  async function resendDeliveryOtp() {
+    try {
+      const data = await post("/auth/delivery/resend-otp", { email: deliveryOtpEmail });
+      if (data.success) { setInfo("New OTP sent!"); setTimer(120); }
+      else setError(data.message || "Could not resend OTP");
+    } catch { setError("Network error."); }
   }
 
   const handleOtpKey = (i, e) => {
@@ -569,6 +595,72 @@ export default function AuthPage() {
                 {loading ? "Verifying…" : "Verify OTP"}
               </button>
             </form>
+          )}
+
+          {/* ── DELIVERY OTP (email verify after registration) ── */}
+          {screen === "delivery-otp" && (
+            <form onSubmit={handleDeliveryOtp}>
+              <div className="screen-title">📧 Verify Your Email</div>
+              <div className="screen-sub">
+                We sent a 6-digit code to <strong>{deliveryOtpEmail}</strong>.<br />
+                Verify your email to complete your delivery partner application.
+              </div>
+              <div className="otp-row">
+                {otp.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={el => otpRefs.current[i] = el}
+                    className="otp-inp"
+                    maxLength={1}
+                    value={d}
+                    onChange={e => handleOtpKey(i, e)}
+                    onKeyDown={e => handleOtpBackspace(i, e)}
+                    inputMode="numeric"
+                    autoFocus={i === 0}
+                  />
+                ))}
+              </div>
+              <div className="timer-row">
+                <span style={{ fontSize: 13, color: timer < 30 ? "#e84c3c" : "rgba(13,13,13,0.5)" }}>
+                  Expires in {fmtTimer(timer)}
+                </span>
+                <button type="button" className="link-btn" style={{ opacity: timer > 0 ? 0.4 : 1 }} disabled={timer > 0} onClick={resendDeliveryOtp}>
+                  Resend OTP
+                </button>
+              </div>
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Verifying…" : "Verify Email"}
+              </button>
+              <button type="button" className="back-link" onClick={() => { setScreen("register"); setOtp(["", "", "", "", "", ""]); clear(); }}>
+                ← Back to Registration
+              </button>
+            </form>
+          )}
+
+          {/* ── DELIVERY PENDING APPROVAL ── */}
+          {screen === "delivery-pending" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 52, marginBottom: 16 }}>⏳</div>
+              <div className="screen-title">Application Submitted!</div>
+              <div className="screen-sub" style={{ marginBottom: 20 }}>
+                Your email has been verified. Your account is now <strong>pending admin approval</strong>.
+                You&apos;ll receive an email at <strong>{deliveryOtpEmail}</strong> once your
+                account is approved and you can start accepting deliveries.
+              </div>
+              <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 10, padding: "14px 18px", fontSize: 13, color: "#92610a", marginBottom: 24, lineHeight: 1.6, textAlign: "left" }}>
+                <strong>What happens next?</strong><br />
+                1. Admin reviews your application 🔍<br />
+                2. Admin assigns your warehouse &amp; pin codes 📦<br />
+                3. You receive an approval email ✉️<br />
+                4. You can then log in and start delivering 🛵
+              </div>
+              <button
+                className="btn-primary"
+                onClick={() => { setScreen("login"); setRole("delivery"); clear(); setDeliveryOtpEmail(""); }}
+              >
+                Back to Login
+              </button>
+            </div>
           )}
 
           {/* ── RESET PASSWORD ── */}
