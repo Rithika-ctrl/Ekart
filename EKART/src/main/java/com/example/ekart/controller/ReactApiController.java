@@ -9,6 +9,9 @@ import com.example.ekart.service.AiAssistantService;
 import com.example.ekart.service.RefundService;
 import com.example.ekart.service.SocialAuthService;
 import com.example.ekart.config.OAuthProviderValidator;
+import com.example.ekart.dto.Customer;
+import com.example.ekart.dto.Vendor;
+import com.example.ekart.dto.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -142,7 +145,7 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             // Build a temporary Customer just to reuse the emailSender template
-            com.example.ekart.model.Customer temp = new com.example.ekart.model.Customer();
+            com.example.ekart.dto.Customer temp = new com.example.ekart.dto.Customer();
             temp.setName((String) body.getOrDefault("name", "Customer"));
             temp.setEmail(email);
             int otp = new java.util.Random().nextInt(100000, 1000000);
@@ -151,7 +154,7 @@ public class ReactApiController {
             temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
             temp.setVerified(false);
             temp.setActive(false);
-            temp.setRole(com.example.ekart.model.Role.CUSTOMER);
+            temp.setRole(com.example.ekart.dto.Role.CUSTOMER);
             customerRepository.save(temp);
             try { emailSender.send(temp); } catch (Exception e) {
                 System.err.println("Customer register OTP email failed: " + e.getMessage());
@@ -174,7 +177,7 @@ public class ReactApiController {
         try {
             String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String otpStr = body.getOrDefault("otp", "").toString().trim();
-            com.example.ekart.model.Customer temp = customerRepository.findByEmail(email);
+            com.example.ekart.dto.Customer temp = customerRepository.findByEmail(email);
             if (temp == null) {
                 res.put("success", false); res.put("message", "No pending registration for this email");
                 return ResponseEntity.badRequest().body(res);
@@ -215,13 +218,13 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.model.Customer c = new com.example.ekart.model.Customer();
+            com.example.ekart.dto.Customer c = new com.example.ekart.dto.Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get("mobile").toString()));
             c.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
             c.setVerified(true);
-            c.setRole(com.example.ekart.model.Role.CUSTOMER);
+            c.setRole(com.example.ekart.dto.Role.CUSTOMER);
             c.setActive(true);
             customerRepository.save(c);
             registerOtpVerified.remove(email); // consume — one-time use
@@ -297,7 +300,7 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.model.Vendor temp = new com.example.ekart.model.Vendor();
+            com.example.ekart.dto.Vendor temp = new com.example.ekart.dto.Vendor();
             temp.setName((String) body.getOrDefault("name", "Vendor"));
             temp.setEmail(email);
             int otp = new java.util.Random().nextInt(100000, 1000000);
@@ -325,7 +328,7 @@ public class ReactApiController {
         try {
             String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String otpStr = body.getOrDefault("otp", "").toString().trim();
-            com.example.ekart.model.Vendor temp = vendorRepository.findByEmail(email);
+            com.example.ekart.dto.Vendor temp = vendorRepository.findByEmail(email);
             if (temp == null) {
                 res.put("success", false); res.put("message", "No pending registration for this email");
                 return ResponseEntity.badRequest().body(res);
@@ -364,7 +367,7 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.model.Vendor v = new com.example.ekart.model.Vendor();
+            com.example.ekart.dto.Vendor v = new com.example.ekart.dto.Vendor();
             v.setName((String) body.get("name"));
             v.setEmail(email);
             v.setMobile(Long.parseLong(body.get("mobile").toString()));
@@ -385,7 +388,13 @@ public class ReactApiController {
         }
     }
 
-
+    /**
+     * Generate vendor code from vendor ID.
+     * Format: VND-00001, VND-00002, etc.
+     */
+    private String generateVendorCode(int vendorId) {
+        return String.format("VND-%05d", vendorId);
+    }
 
     /** POST /api/flutter/auth/vendor/login */
     @PostMapping("/auth/vendor/login")
@@ -4691,7 +4700,8 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-     *// GET /api/flutter/vendor/stock-alerts
+    /**
+     * GET /api/flutter/vendor/stock-alerts
      * Header: X-Vendor-Id
      */
     @GetMapping("/vendor/stock-alerts")
