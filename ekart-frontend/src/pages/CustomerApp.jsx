@@ -1392,12 +1392,12 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
 
   useEffect(() => {
     setBannersLoading(true);
-    // Use apiFetch so auth headers are included; path is relative to /api/flutter/
+    // Use apiFetch so auth headers are included; path is relative to /api/react/
     const path = auth ? "/banners" : "/home-banners";
-    // For guests api may be null — fall back to raw fetch against /api/flutter/
+    // For guests api may be null — fall back to raw fetch against /api/react/
     const fetcher = api
       ? api(path)
-      : fetch(`/api/flutter${path}`).then(r => r.json());
+      : fetch(`/api/react${path}`).then(r => r.json());
     fetcher
       .then(d => { if (d && d.success && Array.isArray(d.banners)) setBanners(d.banners); })
       .catch(() => {})
@@ -3816,7 +3816,7 @@ function TrackSingleOrderPage({ order: o, onBack }) {
     if (auth?.token)    headers["Authorization"]  = `Bearer ${auth.token}`;
     if (auth?.id)       headers["X-Customer-Id"]  = auth.id;
 
-    fetch(`/api/flutter/orders/${o.id}/track`, { headers })
+    fetch(`/api/react/orders/${o.id}/track`, { headers })
       .then(r => r.json())
       .then(d => { if (d.success) setTracking(d); else setLoadErr(true); })
       .catch(() => setLoadErr(true));
