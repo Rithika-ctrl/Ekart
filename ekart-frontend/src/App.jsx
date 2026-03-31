@@ -82,22 +82,52 @@ const ROLE_HOME = {
 
 /**
  * OAuthCallback — rendered at /oauth2/callback after a successful
- * Google/GitHub login initiated from the React app.
+ * social login (Google, GitHub, Facebook, Instagram, …) initiated from
+ * the React app.
  *
- * The backend encodes: ?role=CUSTOMER&id=1&name=...&email=...&token=...
- * or on failure:       ?error=suspended
+ * The backend encodes:
+ *   ?role=CUSTOMER&id=1&name=…&email=…&token=…&provider=Google
+ * or on failure:
+ *   ?error=suspended
  *
  * OAuth logins always use localStorage (persistent) because the user
  * deliberately initiated a full redirect flow; the UX expectation is that
  * they stay logged in.
  */
+// ─── OAuthLinkCallback ────────────────────────────────────────────────────────
+/**
+ * Displays status after OAuth provider linking/unlinking.
+ * Called at /oauth2/link-callback?status=linked&provider=Google
+ * Auto-redirects to profile security tab after 1.5 seconds.
+ */
+function OAuthLinkCallback() {
+  const navigate = useNavigate();
+  const params = new URLSearchParams(window.location.search);
+  const status   = params.get("status");
+  const provider = params.get("provider") ?? "Social";
+
+  useEffect(() => {
+    setTimeout(() => navigate("/shop/home?tab=profile", { replace: true }), 1500);
+  }, [navigate]);
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center",
+                  justifyContent: "center", fontFamily: "DM Sans, sans-serif", background: "#f2f0eb", gap: 12 }}>
+      <div style={{ fontSize: 32 }}>{status === "linked" ? "✅" : "❌"}</div>
+      <div style={{ fontSize: 16, color: "#555" }}>
+        {status === "linked" ? `${provider} account linked!` : "Linking failed. Please try again."}
+      </div>
+    </div>
+  );
+}
+
 function OAuthCallback({ login }) {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Processing…");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const error  = params.get("error");
+    const params   = new URLSearchParams(window.location.search);
+    const error    = params.get("error");
 
     if (error) {
       setStatus(error === "suspended"
@@ -107,17 +137,21 @@ function OAuthCallback({ login }) {
       return;
     }
 
-    const role  = params.get("role");
-    const id    = parseInt(params.get("id"), 10);
-    const name  = params.get("name");
-    const email = params.get("email");
-    const token = params.get("token");
+    const role     = params.get("role");
+    const id       = parseInt(params.get("id"), 10);
+    const name     = params.get("name");
+    const email    = params.get("email");
+    const token    = params.get("token");
+    // provider param is appended by OAuth2LoginSuccessHandler — e.g. "Google", "GitHub"
+    const provider = params.get("provider") ?? "Social";
 
     if (!role || !id || !email) {
       setStatus("Invalid callback. Redirecting…");
       setTimeout(() => navigate("/auth", { replace: true }), 2000);
       return;
     }
+
+    setStatus(`Signing you in with ${provider}…`);
 
     // OAuth always persists — user started a full redirect flow intentionally.
     const user = { role, id, name, email, token };
@@ -129,7 +163,7 @@ function OAuthCallback({ login }) {
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: "DM Sans, sans-serif",
-      background: "#f2f0eb", flexDirection: "column", gap: 12
+      background: "#f2f0eb", flexDirection: "column", gap: 12,
     }}>
       <div style={{ fontSize: 32 }}>⏳</div>
       <div style={{ fontSize: 16, color: "#555" }}>{status}</div>
@@ -191,7 +225,8 @@ export default function App() {
         <Routes>
           {/* ── Public ────────────────────────────────────────────── */}
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/oauth2/callback" element={<OAuthCallback login={login} />} />
+          <Route path="/oauth2/callback" element={<OAuthCallback login={login} />} /><Route path="/oauth2/link-callback" element={<OAuthLinkCallback />} />
+
 
           {/* ── Customer / Guest (all sub-pages handled inside CustomerApp) ── */}
           <Route

@@ -4392,15 +4392,6 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
                 note: null,
               },
               {
-                icon: "🔗", label: "Sign-in Method",
-                value: profile.provider && profile.provider !== "local"
-                  ? profile.provider.charAt(0).toUpperCase() + profile.provider.slice(1) + " (OAuth)"
-                  : "Email & Password",
-                note: profile.provider && profile.provider !== "local"
-                  ? "Password change not available for OAuth accounts"
-                  : null,
-              },
-              {
                 icon: "✅", label: "Account Status",
                 value: "Active",
                 valueColor: "#22c55e",
@@ -4417,6 +4408,64 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
                 <span style={{ color: row.valueColor || "#e5e7eb", fontWeight: 600, fontSize: 13, textAlign: "right", maxWidth: 220 }}>{row.value}</span>
               </div>
             ))}
+          </div>
+
+          {/* ── Connected Accounts card ── */}
+          {(() => {
+            const PROVIDERS = [
+              { id: "google",    label: "Google",    icon: "G", color: "#EA4335" },
+              { id: "github",    label: "GitHub",    icon: "⌥", color: "#24292f" },
+              { id: "facebook",  label: "Facebook",  icon: "f", color: "#1877F2" },
+              { id: "instagram", label: "Instagram", icon: "📷", color: "#c13584" },
+            ];
+            const linkedProvider = profile?.provider && profile.provider !== "local" ? profile.provider : null;
+
+            return (
+              <div style={cs.profileCard}>
+                <h3 style={{ ...cs.secTitle, marginBottom: 18 }}>🔗 Connected Accounts</h3>
+                {PROVIDERS.map(p => {
+                  const isLinked = linkedProvider === p.id;
+                  return (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                                              padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: 14, background: p.color,
+                                       display: "flex", alignItems: "center", justifyContent: "center",
+                                       color: "#fff", fontWeight: 700, fontSize: 12 }}>{p.icon}</span>
+                        <span style={{ color: "#e5e7eb", fontSize: 14 }}>{p.label}</span>
+                      </div>
+                      {isLinked ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 700 }}>✓ Linked</span>
+                          {profile.password && (
+                            <button style={{ ...cs.removeBtn }} onClick={async () => {
+                              const d = await api("/profile/unlink-oauth", { method: "DELETE" });
+                              showToast(d.message || (d.success ? "Unlinked!" : "Failed"));
+                              if (d.success) onUpdate();
+                            }}>Unlink</button>
+                          )}
+                        </div>
+                      ) : (
+                        <button style={{ ...cs.saveBtn, padding: "6px 14px", fontSize: 12 }}
+                          disabled={!!linkedProvider}
+                          onClick={async () => {
+                            const d = await api("/profile/link-oauth", { method: "POST",
+                              body: JSON.stringify({ provider: p.id }) });
+                            if (d.success && d.redirectUrl) window.location.href = d.redirectUrl;
+                            else showToast(d.message || "Failed");
+                          }}>Link</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {linkedProvider && !profile.password && (
+                  <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b" }}>
+                    ⚠️ To unlink your social account, first set a password in the Change Password section.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           </div>
 
           {/* ── Change password card — hidden for OAuth users ── */}

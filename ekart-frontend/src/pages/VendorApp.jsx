@@ -58,6 +58,7 @@ export default function VendorApp() {
     { key: "alerts", label: `⚠️ Alerts${stockAlerts.length > 0 ? ` (${stockAlerts.length})` : ""}` },
     { key: "storefront", label: "🏪 Store Front" },
     { key: "profile", label: "👤 Profile" },
+    { key: "security", label: "🔐 Security" },
   ];
 
   const markPacked = async (orderId) => {
@@ -90,6 +91,7 @@ export default function VendorApp() {
         {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
         {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
         {page === "profile" && <VendorProfile profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
+        {page === "security" && <VendorSecurity profile={profile} api={api} onRefresh={loadAll} showToast={showToast} />}
       </main>
     </div>
   );
@@ -1013,6 +1015,88 @@ function VendorProfile({ profile, api, onRefresh, showToast }) {
           <label style={vs.label}>New Password</label>
           <input style={{ ...vs.input, marginBottom: 16 }} type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
           <button style={vs.primaryBtn} onClick={changePw}>Change Password</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VendorSecurity({ profile, api, onRefresh, showToast }) {
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "" });
+
+  const changePw = async () => {
+    const d = await api("/vendor/profile/change-password", { method: "PUT", body: JSON.stringify(pwForm) });
+    showToast(d.message || (d.success ? "Password changed!" : "Failed"));
+    if (d.success) setPwForm({ currentPassword: "", newPassword: "" });
+  };
+
+  if (!profile) return <div style={vs.empty}>Loading...</div>;
+
+  return (
+    <div>
+      <h2 style={vs.pageTitle}>Security Settings</h2>
+      <div style={vs.twoCol}>
+        {/* Change Password Card */}
+        <div style={vs.card}>
+          <h3 style={vs.cardTitle}>🔑 Change Password</h3>
+          <label style={vs.label}>Current Password</label>
+          <input style={{ ...vs.input, marginBottom: 12 }} type="password" value={pwForm.currentPassword} onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))} />
+          <label style={vs.label}>New Password</label>
+          <input style={{ ...vs.input, marginBottom: 16 }} type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
+          <button style={vs.primaryBtn} onClick={changePw}>Change Password</button>
+        </div>
+
+        {/* Connected Accounts Card */}
+        <div style={vs.card}>
+          <h3 style={vs.cardTitle}>🔗 Connected Accounts</h3>
+          {(() => {
+            const PROVIDERS = [
+              { id: "google",    label: "Google",    icon: "G", color: "#EA4335" },
+              { id: "github",    label: "GitHub",    icon: "⌥", color: "#24292f" },
+              { id: "facebook",  label: "Facebook",  icon: "f", color: "#1877F2" },
+              { id: "instagram", label: "Instagram", icon: "📷", color: "#c13584" },
+            ];
+            const linkedProvider = profile?.provider && profile.provider !== "local" ? profile.provider : null;
+
+            return (
+              <>
+                {PROVIDERS.map(p => {
+                  const isLinked = linkedProvider === p.id;
+                  return (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: 14, background: p.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{p.icon}</span>
+                        <span style={{ color: "#e5e7eb", fontSize: 13 }}>{p.label}</span>
+                      </div>
+                      {isLinked ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700 }}>✓ Linked</span>
+                          {profile.password && (
+                            <button style={{ ...vs.deleteBtn }} onClick={async () => {
+                              const d = await api("/vendor/profile/unlink-oauth", { method: "DELETE" });
+                              showToast(d.message || (d.success ? "Unlinked!" : "Failed"));
+                              if (d.success) onRefresh();
+                            }}>Unlink</button>
+                          )}
+                        </div>
+                      ) : (
+                        <button style={{ ...vs.editBtn, color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" }} disabled={!!linkedProvider} onClick={async () => {
+                          const d = await api("/vendor/profile/link-oauth", { method: "POST", body: JSON.stringify({ provider: p.id }) });
+                          if (d.success && d.redirectUrl) window.location.href = d.redirectUrl;
+                          else showToast(d.message || "Failed");
+                        }}>Link</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {linkedProvider && !profile.password && (
+                  <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b" }}>
+                    ⚠️ To unlink your social account, first set a password in the Change Password section.
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>
