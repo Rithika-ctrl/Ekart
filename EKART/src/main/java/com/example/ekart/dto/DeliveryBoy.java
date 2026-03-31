@@ -76,6 +76,10 @@ public class DeliveryBoy {
     @Column(unique = true, nullable = true, length = 20)
     private String deliveryBoyCode;
 
+    /** True when delivery boy is online/available for orders */
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isAvailable = false;
+
     // ── Getters & Setters ─────────────────────────────────────────
 
     public int getId() { return id; }
@@ -116,6 +120,9 @@ public class DeliveryBoy {
 
     public String getDeliveryBoyCode() { return deliveryBoyCode; }
     public void setDeliveryBoyCode(String deliveryBoyCode) { this.deliveryBoyCode = deliveryBoyCode; }
+
+    public boolean isAvailable() { return isAvailable; }
+    public void setAvailable(boolean available) { isAvailable = available; }
 
     public boolean covers(String pinCode) {
         if (pinCode == null || pinCode.isBlank() || assignedPinCodes == null) return false;

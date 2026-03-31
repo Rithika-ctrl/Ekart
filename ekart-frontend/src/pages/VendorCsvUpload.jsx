@@ -55,7 +55,7 @@ export default function VendorCsvUpload({ api, auth }) {
       const headers = {};
       if (auth?.token)              headers['Authorization'] = `Bearer ${auth.token}`;
       if (auth?.role === 'VENDOR')  headers['X-Vendor-Id']   = auth.id;
-      const res = await fetch('/api/flutter/vendor/products/upload-csv', { method: 'POST', body: fd, headers });
+      const res = await fetch('/api/react/vendor/products/upload-csv', { method: 'POST', body: fd, headers });
       const d = await res.json();
       setResult(d);
     } catch (e) { setError('Upload failed'); }

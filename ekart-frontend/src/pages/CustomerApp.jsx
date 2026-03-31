@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
@@ -7,6 +7,87 @@ import { apiFetch } from "../api";
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
 const stars = r => "★".repeat(r) + "☆".repeat(5 - r);
 const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", CANCELLED: "#ef4444" };
+
+// ─── GST helpers ──────────────────────────────────────────────────────────────
+// Indian GST slabs by product category.  Vendors can override per-product.
+// Prices in Ekart are GST-inclusive (MRP style), so we back-calculate GST
+// from the selling price:  gstAmount = price × rate / (100 + rate)
+const GST_CATEGORY_RATES = {
+  // 0 %
+  "Groceries": 0, "Fresh Produce": 0, "Dairy & Eggs": 0, "Meat & Seafood": 0,
+  "Baby Products": 0, "Books": 0, "Educational": 0,
+  // 5 %
+  "Snacks": 5, "Beverages": 5, "Health & Wellness": 5, "Medicines": 5,
+  "Apparel": 5, "Footwear": 5, "Textiles": 5,
+  // 12 %
+  "Home & Kitchen": 12, "Furniture": 12, "Sports": 12, "Stationery": 12,
+  "Toys & Games": 12,
+  // 18 %
+  "Electronics": 18, "Computers": 18, "Mobile & Tablets": 18,
+  "Appliances": 18, "Beauty": 18, "Personal Care": 18,
+  "Software": 18, "Services": 18,
+  // 28 %
+  "Gaming": 28, "Luxury": 28, "Automobile Accessories": 28,
+};
+const DEFAULT_GST_RATE = 18;
+
+/** Look up the default GST rate for a category string (case-insensitive partial match). */
+function gstRateForCategory(category) {
+  if (!category) return DEFAULT_GST_RATE;
+  const key = Object.keys(GST_CATEGORY_RATES).find(
+    k => category.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(category.toLowerCase())
+  );
+  return key !== undefined ? GST_CATEGORY_RATES[key] : DEFAULT_GST_RATE;
+}
+
+/**
+ * Given cart items (each with unitPrice/price, quantity, category, gstRate?),
+ * compute per-slab GST breakdown and total GST amount.
+ * Prices are GST-inclusive: gstOnItem = lineTotal × rate / (100 + rate)
+ */
+function computeCartGst(items = []) {
+  const slabs = {};   // { "18": { rate, taxable, gst, label } }
+  let totalGst = 0;
+
+  items.forEach(item => {
+    const rate = item.gstRate != null ? Number(item.gstRate) : gstRateForCategory(item.category);
+    const lineTotal = (item.unitPrice || item.price || 0) * (item.quantity || 1);
+    const gst = rate > 0 ? Math.round((lineTotal * rate / (100 + rate)) * 100) / 100 : 0;
+    const taxable = lineTotal - gst;
+    totalGst += gst;
+    if (!slabs[rate]) slabs[rate] = { rate, taxable: 0, gst: 0 };
+    slabs[rate].taxable += taxable;
+    slabs[rate].gst += gst;
+  });
+
+  // Round slab gst to 2dp
+  Object.values(slabs).forEach(s => { s.gst = Math.round(s.gst * 100) / 100; });
+
+  return { slabs: Object.values(slabs).sort((a, b) => a.rate - b.rate), totalGst: Math.round(totalGst * 100) / 100 };
+}
+
+/** Returns a label like "GST 18%" or "GST (5% + 18%)" for mixed carts. */
+function getMixedGstLabel(slabs) {
+  if (!slabs || slabs.length === 0) return "GST (included)";
+  const nonZero = slabs.filter(s => s.rate > 0);
+  if (nonZero.length === 0) return "GST (0%)";
+  if (nonZero.length === 1) return `GST ${nonZero[0].rate}% (incl.)`;
+  return `GST ${nonZero.map(s => s.rate + "%").join(" + ")} (incl.)`;
+}
+
+/** Returns true if deliveryPin is allowed for this cart item. */
+function isPinAllowed(item, deliveryPin) {
+  if (!item?.allowedPinCodes) return true; // no restriction
+  const allowed = String(item.allowedPinCodes).split(",").map(p => p.trim()).filter(Boolean);
+  if (allowed.length === 0) return true;
+  return allowed.includes((deliveryPin || "").replace(/\D/g, "").slice(0, 6));
+}
+
+/** Returns array of cart items that can NOT be delivered to deliveryPin. */
+function getPinRestrictedItems(items = [], deliveryPin) {
+  if (!deliveryPin || deliveryPin.length !== 6) return [];
+  return items.filter(item => !isPinAllowed(item, deliveryPin));
+}
 
 // ─── Activity tracker ──────────────────────────────────────────────────────
 //
@@ -362,24 +443,45 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
           ))}
           <div style={cs.drawerSectionTitle}>Shop by Category</div>
           {categories.map((cat, i) => {
-            const isStr = typeof cat === "string";
-            const name = isStr ? cat : cat.name;
-            const subs = isStr ? [] : (cat.subCategories || []);
+            const isStr   = typeof cat === "string";
+            const name    = isStr ? cat : cat.name;
+            const emoji   = getCatEmoji(cat);
+            const subs    = isStr ? [] : (cat.subCategories || []);
             const isExpanded = expandedCat === i;
             return (
               <div key={i}>
-                <button style={cs.drawerItem} onClick={() => setExpandedCat(isExpanded ? null : i)}>
-                  <span>🏷️ {name}</span>
-                  {subs.length > 0 && <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.25s", transform: isExpanded ? "rotate(90deg)":"rotate(0)" }}>›</span>}
+                <button style={cs.drawerItem} onClick={() => {
+                  if (subs.length > 0) {
+                    setExpandedCat(isExpanded ? null : i);
+                  } else {
+                    // Leaf parent (no subs) — filter directly
+                    window.dispatchEvent(new CustomEvent("ekart-nav-cat", { detail: { cat: name } }));
+                    nav.go("products");
+                    onClose();
+                  }
+                }}>
+                  <span>{emoji} {name}</span>
+                  {subs.length > 0 && (
+                    <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.2s", transform: isExpanded ? "rotate(90deg)":"rotate(0)", display:"inline-block" }}>›</span>
+                  )}
                 </button>
                 {isExpanded && subs.length > 0 && (
-                  <div style={{ background:"rgba(0,0,0,0.2)" }}>
-                    {subs.map(sub => (
-                      <button key={sub.name || sub} style={{ ...cs.drawerItem, paddingLeft:36, fontSize:13 }}
-                        onClick={() => { window.dispatchEvent(new CustomEvent("ekart-nav-search", { detail: { query: sub.name || sub } })); nav.go("products"); onClose(); }}>
-                        {sub.name || sub}
-                      </button>
-                    ))}
+                  <div style={{ background:"rgba(0,0,0,0.15)", borderLeft:"2px solid rgba(245,168,0,0.25)", marginLeft:16 }}>
+                    {subs.map(sub => {
+                      const subName  = typeof sub === "string" ? sub : sub.name;
+                      const subEmoji = typeof sub === "string" ? "" : (sub.emoji || "");
+                      return (
+                        <button key={subName} style={{ ...cs.drawerItem, paddingLeft:20, fontSize:13, color:"rgba(255,255,255,0.75)" }}
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent("ekart-nav-cat", { detail: { cat: subName } }));
+                            nav.go("products");
+                            onClose();
+                          }}>
+                          {subEmoji && <span style={{ marginRight:6 }}>{subEmoji}</span>}
+                          {subName}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -586,6 +688,7 @@ export default function CustomerApp() {
   // Falls back to "home" so /shop/ and /shop still work.
   const page = location.pathname.replace(/^\/shop\/?/, "").split("/")[0] || "home";
   const setPage = (p) => navigate(`/shop/${p}`, { replace: false });
+  const checkoutStep = new URLSearchParams(location.search).get("step");
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -601,6 +704,7 @@ export default function CustomerApp() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cartLoading, setCartLoading] = useState({});
+  const [initialCartLoaded, setInitialCartLoaded] = useState(false);
   const [paymentPage, setPaymentPage] = useState(false);
   const [addressPage, setAddressPage] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -678,6 +782,12 @@ export default function CustomerApp() {
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
   const showToast = m => setToast(m);
 
+  const setCheckoutStep = (step) => {
+    const base = "/shop/cart";
+    if (!step) navigate(base, { replace: false });
+    else navigate(`${base}?step=${encodeURIComponent(step)}`, { replace: false });
+  };
+
   const loadProducts = useCallback(async (q = "", cat = "") => {
     let path = "/products";
     const params = [];
@@ -695,7 +805,10 @@ export default function CustomerApp() {
 
   const loadCart = useCallback(async () => {
     const d = await api("/cart");
-    if (d.success) setCart(d);
+    if (d.success) {
+      setCart(d);
+      setInitialCartLoaded(true);
+    }
   }, [api]);
 
   const loadOrders = useCallback(async () => {
@@ -709,8 +822,16 @@ export default function CustomerApp() {
   }, [api]);
 
   const loadProfile = useCallback(async () => {
-    const d = await api("/profile");
-    if (d.success) setProfile(d.profile);
+    try {
+      const d = await api("/profile");
+      if (d && d.success) {
+        setProfile(d.profile || { addresses: [] });
+      } else {
+        setProfile({ addresses: [] });
+      }
+    } catch {
+      setProfile({ addresses: [] });
+    }
   }, [api]);
 
   const loadCoupons = useCallback(async () => {
@@ -734,6 +855,24 @@ export default function CustomerApp() {
   useEffect(() => { if (page === "orders" || page === "track") loadOrders(); }, [page]);
   useEffect(() => { if (page === "coupons") loadCoupons(); }, [page]);
   useEffect(() => { if (page === "spending") loadSpending(); }, [page]);
+  useEffect(() => {
+    if (page !== "cart") {
+      if (addressPage) setAddressPage(false);
+      if (paymentPage) setPaymentPage(false);
+      return;
+    }
+
+    if (checkoutStep === "address") {
+      if (!addressPage) setAddressPage(true);
+      if (paymentPage) setPaymentPage(false);
+    } else if (checkoutStep === "payment") {
+      if (!paymentPage) setPaymentPage(true);
+      if (addressPage) setAddressPage(false);
+    } else {
+      if (addressPage) setAddressPage(false);
+      if (paymentPage) setPaymentPage(false);
+    }
+  }, [page, checkoutStep, addressPage, paymentPage]);
 
   const addToCart = async (productId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to add items to cart"); return; }
@@ -803,11 +942,38 @@ export default function CustomerApp() {
     }
   };
 
-  const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD") => {
+  const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD", paymentDetails = null) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to place an order"); return; }
+
+    // ── Per-product PIN restriction check ────────────────────────────
+    // Resolve delivery PIN from selected address
+    const allAddrs = profile?.addresses || [];
+    const deliveryAddr = allAddrs.find(a => a.id === addressId);
+    const deliveryPin = (deliveryAddr?.postalCode || "").replace(/\D/g, "").slice(0, 6);
+    if (deliveryPin && cart?.items?.length) {
+      const restricted = cart.items.filter(item => {
+        if (!item.allowedPinCodes) return false;
+        const allowed = String(item.allowedPinCodes).split(",").map(p => p.trim()).filter(Boolean);
+        return allowed.length > 0 && !allowed.includes(deliveryPin);
+      });
+      if (restricted.length > 0) {
+        const names = restricted.map(i => `"${i.name}"`).join(", ");
+        showToast(`🚫 ${restricted.length} item(s) can't be delivered to PIN ${deliveryPin}: ${names}. Please remove them or choose a different address.`);
+        return;
+      }
+    }
+
     // Pass coupon code (if applied) so the backend can cross-validate at order time
     const couponCode = cart?.couponCode || "";
-    const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId, couponCode, deliveryTime }) });
+    const orderPayload = { paymentMode, addressId, couponCode, deliveryTime };
+    
+    // Include payment details for online payments
+    if (paymentMode === "ONLINE" && paymentDetails) {
+      orderPayload.razorpayPaymentId = paymentDetails.razorpayPaymentId;
+      orderPayload.razorpayOrderId = paymentDetails.razorpayOrderId;
+    }
+
+    const d = await api("/orders/place", { method: "POST", body: JSON.stringify(orderPayload) });
     if (d.success) {
       const savedMsg = d.couponDiscount > 0 ? ` You saved ₹${Math.round(d.couponDiscount)}!` : "";
       showToast("Order placed! 🎉" + savedMsg);
@@ -885,7 +1051,7 @@ export default function CustomerApp() {
     return refundId;
   };
 
-  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
+  const nav = { active: page, go: (p) => { setSelectedProduct(null); setSelectedOrder(null); setPaymentPage(false); setAddressPage(false); window.scrollTo(0, 0); try { track("PAGE_VIEW", { page: p }); } catch(e) {} setTimeout(() => navigate(`/shop/${p}`), 0); } };
 
   return (
     <>
@@ -934,35 +1100,66 @@ export default function CustomerApp() {
         onSelectProduct={p => { setSelectedProduct(p); setPage("product"); track("VIEW_PRODUCT", { productId: p.id, productName: p.name, category: p.category }); }}
         onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} cartLoading={cartLoading} />}
 
-      {page === "product" && selectedProduct && <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
-        onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
-        onView={recordRecentlyViewed} auth={auth} />}
+      {page === "product" && (
+        selectedProduct ? (
+          <ProductDetailPage product={selectedProduct} onBack={() => setPage("products")}
+            onAddToCart={addToCart} onToggleWishlist={toggleWishlist} wishlistIds={wishlistIds} api={api} cartLoading={cartLoading}
+            onView={recordRecentlyViewed} auth={auth} allProducts={products} />
+        ) : (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ color: "#6b7280" }}>Loading product details...</div>
+          </div>
+        )
+      )}
 
       {page === "cart" && !addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your cart">
-          <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
-            onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
-            onCheckout={() => setAddressPage(true)} profile={profile} />
+          {!initialCartLoaded ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading your cart...</div>
+            </div>
+          ) : (
+            <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
+              onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
+              onCheckout={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} profile={profile} />
+          )}
         </GuestGate>
       )}
 
       {page === "cart" && addressPage && !paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
-          <AddressStepPage
-            profile={profile}
-            api={api}
-            onRefreshProfile={() => loadProfile()}
-            onBack={() => setAddressPage(false)}
-            onContinue={(addrId) => { setSelectedAddressId(addrId); setAddressPage(false); setPaymentPage(true); }}
-            showToast={showToast}
-          />
+          {!profile ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading your profile...</div>
+            </div>
+          ) : (
+            <AddressStepPage
+              profile={profile}
+              api={api}
+              onRefreshProfile={() => loadProfile()}
+              onBack={() => { setCheckoutStep(""); window.scrollTo(0, 0); }}
+              onContinue={(addrId) => { setSelectedAddressId(addrId); setCheckoutStep("payment"); window.scrollTo(0, 0); }}
+              showToast={showToast}
+              cart={cart}
+            />
+          )}
         </GuestGate>
       )}
 
       {page === "cart" && paymentPage && (
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="checkout">
-          <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
-            onPlaceOrder={placeOrder} onBack={() => { setPaymentPage(false); setAddressPage(true); }} />
+          {!profile || !selectedAddressId ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading payment details...</div>
+            </div>
+          ) : (
+            <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
+              onPlaceOrder={placeOrder} onBack={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} />
+          )}
         </GuestGate>
       )}
 
@@ -984,10 +1181,19 @@ export default function CustomerApp() {
         </GuestGate>
       )}
 
-      {page === "track-single" && selectedOrder && (
-        <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
-          <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />
-        </GuestGate>
+      {page === "track-single" && (
+        selectedOrder ? (
+          <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+            <TrackSingleOrderPage order={selectedOrder} onBack={() => { setPage("track"); setSelectedOrder(null); }} />
+          </GuestGate>
+        ) : (
+          <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="order tracking">
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ color: "#6b7280" }}>Loading order details...</div>
+            </div>
+          </GuestGate>
+        )
       )}
 
       {page === "wishlist" && (
@@ -1194,12 +1400,12 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
 
   useEffect(() => {
     setBannersLoading(true);
-    // Use apiFetch so auth headers are included; path is relative to /api/flutter/
+    // Use apiFetch so auth headers are included; path is relative to /api/react/
     const path = auth ? "/banners" : "/home-banners";
-    // For guests api may be null — fall back to raw fetch against /api/flutter/
+    // For guests api may be null — fall back to raw fetch against /api/react/
     const fetcher = api
       ? api(path)
-      : fetch(`/api/flutter${path}`).then(r => r.json());
+      : fetch(`/api/react${path}`).then(r => r.json());
     fetcher
       .then(d => { if (d && d.success && Array.isArray(d.banners)) setBanners(d.banners); })
       .catch(() => {})
@@ -1255,12 +1461,16 @@ function HomePage({ products, categories, onShop, onSelectProduct, onAddToCart, 
         <section style={cs.section}>
           <h2 style={cs.secTitle}>Browse Categories</h2>
           <div style={cs.catGrid}>
-            {categories.slice(0, 8).map(c => (
-              <div key={c} style={cs.catCard} onClick={onShop}>
-                <span style={cs.catIcon}>{getCatIcon(c)}</span>
-                <span style={cs.catLabel}>{c}</span>
-              </div>
-            ))}
+            {categories.slice(0, 8).map((c, i) => {
+              const name  = typeof c === "string" ? c : c.name;
+              const emoji = getCatEmoji(c);
+              return (
+                <div key={i} style={cs.catCard} onClick={onShop}>
+                  <span style={cs.catIcon}>{emoji}</span>
+                  <span style={cs.catLabel}>{name}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -1519,7 +1729,9 @@ function SearchPage({ categories, api, onSelectProduct, onAddToCart, onToggleWis
         </div>
         <select style={cs.select} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          {flattenCatsForSelect(categories).map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Min ₹" type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
         <input style={{ ...cs.searchInput, width: 100 }} placeholder="Max ₹" type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
@@ -1643,6 +1855,18 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
     return () => window.removeEventListener("ekart-nav-search", h);
   }, []);
 
+  // Listen for sidebar category drill-down clicks
+  useEffect(() => {
+    const h = e => {
+      const cat = e.detail?.cat || "";
+      setSelectedCat(cat);
+      onCat(cat);
+      setQ(""); setNavQuery("");
+    };
+    window.addEventListener("ekart-nav-cat", h);
+    return () => window.removeEventListener("ekart-nav-cat", h);
+  }, [onCat]);
+
   // When products array changes to empty after a search, trigger fuzzy lookup
   useEffect(() => {
     const activeQuery = search || q;
@@ -1703,7 +1927,9 @@ function ProductsPage({ products, categories, search, selectedCat, onSearch, onC
         <button style={cs.searchBtn} onClick={() => onSearch(q)}>Search</button>
         <select style={cs.select} value={selectedCat} onChange={e => onCat(e.target.value)}>
           <option value="">All Categories</option>
-          {categories.map(c => <option key={typeof c === "string" ? c : c.name} value={typeof c === "string" ? c : c.name}>{typeof c === "string" ? c : c.name}</option>)}
+          {flattenCatsForSelect(categories).map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
       </div>
 
@@ -1790,7 +2016,8 @@ function ProductCard({ product: p, onSelect, onAddToCart, onToggleWishlist, isWi
 }
 
 /* ── Product Detail ── */
-function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView, auth }) {
+/* ── Product Detail ── */
+function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, wishlistIds, api, cartLoading, onView, auth, allProducts }) {
   const [reviews, setReviews] = useState([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -1804,21 +2031,94 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
   const [reviewUploadedCount, setReviewUploadedCount] = useState(0);
   const reviewFileRef = useRef(null);
   const [subscribed, setSubscribed] = useState(false);
+
+  // --- NEW STATE ---
+  const [heroImg, setHeroImg]         = useState(p.imageLink);
+  const [activeThumb, setActiveThumb] = useState(0);
+  const [qty, setQty]                 = useState(1);
+  const [pinCode, setPinCode]         = useState(() => localStorage.getItem("ekart_delivery_pin") || "");
+  const [pinResult, setPinResult]     = useState(null); // null | {ok, msg}
+  const [pinChecking, setPinChecking] = useState(false);
+  const [shareOpen, setShareOpen]     = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [reviewPhotos, setReviewPhotos] = useState({}); // reviewId → [{imageUrl}]
+  const [expCountdown, setExpCountdown] = useState("");
+  const countdownRef = useRef(null);
+
   const isWishlisted = wishlistIds.includes(p.id);
   const discount = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+  const maxQty = p.stock > 10 ? 10 : p.stock;
+
+  // Similar products: same category, exclude self, max 6
+  const similar = (allProducts || [])
+    .filter(x => x.category === p.category && x.id !== p.id)
+    .slice(0, 6);
+
+  // Extra images array (handle both formats)
+  const extraImages = Array.isArray(p.extraImageList)
+    ? p.extraImageList
+    : (p.extraImages || []);
+  const allThumbs = [p.imageLink, ...extraImages].filter(Boolean);
+
+  // Delivery date helpers
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDate(d) { return DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()]; }
+  function addBizDays(from, n) {
+    let d = new Date(from), added = 0;
+    while (added < n) { d.setDate(d.getDate() + 1); const day = d.getDay(); if (day !== 0 && day !== 6) added++; }
+    return d;
+  }
+  const now = new Date();
+  const cutoff = new Date(now); cutoff.setHours(14, 0, 0, 0);
+  const stdDate = fmtDate(addBizDays(now, 5));
+  const expDate = fmtDate(addBizDays(now, now < cutoff ? 1 : 2));
+
+  // Countdown timer for express cutoff
+  useEffect(() => {
+    function tick() {
+      const n = new Date(), c = new Date(n); c.setHours(14,0,0,0);
+      if (n >= c) { setExpCountdown("tomorrow"); return; }
+      const diff = c - n;
+      const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
+      setExpCountdown(`${h}h ${m}m`);
+    }
+    tick();
+    countdownRef.current = setInterval(tick, 30000);
+    return () => clearInterval(countdownRef.current);
+  }, []);
+
+  // Auto-check saved pincode
+  useEffect(() => {
+    if (pinCode && /^\d{6}$/.test(pinCode)) checkPin(pinCode);
+  }, []);
 
   useEffect(() => {
-    api(`/products/${p.id}/reviews`).then(d => { if (d.success) setReviews(d.reviews || []); });
+    api(`/products/${p.id}/reviews`).then(d => {
+      if (d.success) {
+        const revs = d.reviews || [];
+        setReviews(revs);
+        // Lazy-load photos for each review
+        revs.forEach(r => {
+          if (!r.id) return;
+          fetch(`/customer/review/${r.id}/images`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.count > 0)
+                setReviewPhotos(prev => ({ ...prev, [r.id]: data.images }));
+            })
+            .catch(() => {});
+        });
+      }
+    });
   }, [p.id]);
 
-  useEffect(() => {
-    if (onView) onView(p.id);
-  }, [p.id]);
+  useEffect(() => { if (onView) onView(p.id); }, [p.id]);
 
   useEffect(() => {
-    // check subscription status when product is out of stock
+    if (!p || p.stock > 0) return;
     const check = async () => {
-      if (!p || p.stock > 0) return;
       try {
         const headers = {};
         if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
@@ -1831,28 +2131,34 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
     check();
   }, [p.id, p.stock]);
 
+  // Reset state when product changes
+  useEffect(() => {
+    setHeroImg(p.imageLink);
+    setActiveThumb(0);
+    setQty(1);
+    setPinResult(null);
+    setReviewId(null);
+    setReviewFiles([]); setReviewPreviews([]); setReviewUploadMsg(""); setReviewUploadedCount(0);
+  }, [p.id]);
+
   const subscribeNotify = async () => {
-    if (!p) return;
-    // require login
-    // the backend uses session; guests will get a message asking to login
     try {
       const headers = { "Content-Type": "application/json" };
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'POST', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: "POST", headers });
       const d = await res.json();
       if (d.success) setSubscribed(!!d.subscribed);
-      setToast(d.message || (d.subscribed ? "Subscribed" : "Please sign in"));
+      setToast(d.message || (d.subscribed ? "Subscribed!" : "Please sign in"));
     } catch (e) { setToast("Failed to subscribe"); }
   };
 
   const unsubscribeNotify = async () => {
-    if (!p) return;
     try {
       const headers = {};
       if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
       else if (auth) headers["X-Customer-Id"] = auth.id;
-      const res = await fetch(`/api/notify-me/${p.id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/notify-me/${p.id}`, { method: "DELETE", headers });
       const d = await res.json();
       setSubscribed(!!d.subscribed);
       setToast(d.message || "Unsubscribed");
@@ -1894,7 +2200,6 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
         setReviewUploadedCount(c => c + d.uploaded);
         setReviewFiles([]); setReviewPreviews([]);
         if (reviewFileRef.current) reviewFileRef.current.value = "";
-        // Refresh reviews so photos appear in the list
         api(`/products/${p.id}/reviews`).then(r => { if (r.success) setReviews(r.reviews || []); });
       } else {
         setReviewUploadMsg(`✗ ${d.message || "Upload failed"}`);
@@ -1903,167 +2208,583 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
     setReviewUploading(false);
   };
 
+  // Pin check
+  const checkPin = async (pin) => {
+    const v = pin || pinCode;
+    if (!/^\d{6}$/.test(v)) { setPinResult({ ok: false, msg: "Enter a valid 6-digit pin code" }); return; }
+    setPinChecking(true); setPinResult(null);
+    try {
+      const r = await fetch(`/api/check-pincode?pinCode=${v}`);
+      const d = await r.json();
+      setPinResult({ ok: d.success, msg: d.success ? `✓ Delivery available to ${v}` : (d.message || "Not serviceable yet") });
+      if (d.success) localStorage.setItem("ekart_delivery_pin", v);
+    } catch {
+      setPinResult({ ok: true, msg: `✓ Delivery available` });
+    }
+    setPinChecking(false);
+  };
+
+  // Share
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareMsg = encodeURIComponent(`Check out this product on Ekart: ${p.name} ${shareUrl}`);
+
+  const copyLink = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(shareUrl).then(() => { setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); });
+    else {
+      const ta = document.createElement("textarea"); ta.value = shareUrl;
+      ta.style.cssText = "position:fixed;top:-9999px;opacity:0;"; document.body.appendChild(ta);
+      ta.focus(); ta.select(); try { document.execCommand("copy"); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); } catch(e){}
+      document.body.removeChild(ta);
+    }
+  };
+
+  // Cart add with qty
+  const handleAddToCart = () => {
+    // The existing onAddToCart only takes productId; we call the web endpoint directly for qty support
+    const productId = p.id;
+    const quantity = qty;
+    const headers = { "Content-Type": "application/json" };
+    if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+    else if (auth) headers["X-Customer-Id"] = auth.id;
+    fetch("/api/cart/add-web", { method: "POST", headers, body: JSON.stringify({ productId, quantity }) })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setToast(d.message || `Added ${quantity} to cart!`);
+        else if (d.redirect) window.location.href = d.redirect;
+        else onAddToCart(p.id); // fallback to parent handler
+      })
+      .catch(() => onAddToCart(p.id));
+  };
+
+  // ─── Styles (dark glass theme matching HTML) ────────────────────────────────
+  const Y = "#f5a800";
+  const s = {
+    page: { padding: "0 0 3rem" },
+    breadcrumb: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 50, padding: "7px 18px", marginBottom: 28, width: "fit-content", flexWrap: "wrap" },
+    bcSep: { opacity: 0.4, fontSize: 9 },
+    bcLink: { color: "rgba(255,255,255,0.5)", background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: 0, display: "flex", alignItems: "center", gap: 5 },
+    bcCurrent: { color: "rgba(255,255,255,0.85)", fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+
+    grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 48 },
+    gridMobile: { gridTemplateColumns: "1fr" },
+
+    // Media
+    mainImgWrap: { position: "relative", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", aspectRatio: "4/3" },
+    mainImg: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s", display: "block" },
+    catBadge: { position: "absolute", top: 12, left: 12, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", color: Y, fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.07em" },
+    thumbRow: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 },
+    thumb: (active) => ({ width: 68, height: 68, borderRadius: 10, cursor: "pointer", border: active ? `2px solid ${Y}` : "2px solid transparent", objectFit: "cover", transition: "all 0.2s", transform: active ? "scale(1.06)" : "scale(1)", background: "rgba(0,0,0,0.3)" }),
+    videoWrap: { borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.4)", marginTop: 10 },
+
+    // Info col
+    infoCol: { display: "flex", flexDirection: "column", gap: 14 },
+    title: { fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.25, margin: 0 },
+    titleSpan: { color: Y },
+    vendorBadge: { display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 50, padding: "5px 14px", fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 8 },
+
+    infoRow: { display: "flex", alignItems: "flex-start", gap: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "12px 16px" },
+    infoRowIcon: { color: Y, fontSize: 14, marginTop: 2, flexShrink: 0 },
+    infoRowLabel: { fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 },
+    infoRowValue: { fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.55 },
+
+    priceBlock: { background: "linear-gradient(135deg,rgba(245,168,0,0.12),rgba(245,168,0,0.04))", border: "1px solid rgba(245,168,0,0.3)", borderRadius: 16, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" },
+    priceBig: { fontSize: 36, fontWeight: 800, color: Y, lineHeight: 1 },
+    mrpLine: { marginTop: 5, fontSize: 13, color: "rgba(255,255,255,0.45)" },
+    saveBadge: { background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)", fontSize: 13, fontWeight: 800, padding: "3px 10px", borderRadius: 8, marginRight: 8 },
+    stockIn:  { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(34,197,94,0.15)",  border: "1px solid rgba(34,197,94,0.35)",  color: "#22c55e", fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+    stockLow: { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.35)", color: Y, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+    stockOut: { display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(239,68,68,0.12)",  border: "1px solid rgba(239,68,68,0.3)",   color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 50 },
+
+    // Qty selector
+    qtyWrap: { display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "12px 16px" },
+    qtyLabel: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)", flexShrink: 0 },
+    qtyControls: { display: "flex", alignItems: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "hidden" },
+    qtyBtn: (disabled) => ({ width: 38, height: 38, border: "none", background: "transparent", color: disabled ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.8)", fontSize: 18, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }),
+    qtyInput: { width: 44, textAlign: "center", background: "transparent", border: "none", borderLeft: "1px solid rgba(255,255,255,0.12)", borderRight: "1px solid rgba(255,255,255,0.12)", color: "#fff", fontSize: 15, fontWeight: 700, height: 38, outline: "none" },
+    qtyInfo: { fontSize: 11, color: "rgba(255,255,255,0.4)", marginLeft: "auto" },
+
+    // Delivery box
+    deliveryBox: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 },
+    deliveryHeader: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6 },
+    deliveryOptions: { display: "flex", gap: 8, flexWrap: "wrap" },
+    deliveryOpt: (express) => ({ flex: 1, minWidth: 120, background: "rgba(255,255,255,0.04)", border: express ? "2px solid rgba(34,197,94,0.3)" : "2px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", display: "flex", flexDirection: "column", gap: 3 }),
+    deliveryOptLabel: (express) => ({ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: express ? "#22c55e" : "rgba(255,255,255,0.45)" }),
+    deliveryOptDate: { fontSize: 14, fontWeight: 700, color: "#fff" },
+    deliveryOptPrice: (express) => ({ fontSize: 11, color: express ? "#4ade80" : "rgba(255,255,255,0.4)" }),
+    pinRow: { display: "flex", alignItems: "center", gap: 8, marginTop: 2 },
+    pinInput: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#fff", fontSize: 12, padding: "6px 10px", width: 120, outline: "none", letterSpacing: "0.05em" },
+    pinBtn: { background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: Y, fontSize: 11, fontWeight: 600, padding: "6px 12px", cursor: "pointer", whiteSpace: "nowrap" },
+    pinResult: (ok) => ({ fontSize: 11, color: ok ? "#22c55e" : "#f87171", marginLeft: 4 }),
+
+    // Action row
+    actionRow: { display: "flex", gap: 10 },
+    addCartBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: Y, color: "#1a1000", border: "none", borderRadius: 14, padding: "14px 24px", fontSize: 15, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.3s", boxShadow: "0 8px 28px rgba(245,168,0,0.3)" },
+    wishBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)", color: "#ef4444", borderRadius: 14, padding: "14px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.25s", flexShrink: 0 },
+    shareBtn: { display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", borderRadius: 14, width: 52, height: 52, fontSize: 16, cursor: "pointer", transition: "all 0.25s", flexShrink: 0 },
+    notifyBtn: (subscribed) => ({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: subscribed ? "rgba(34,197,94,0.12)" : "rgba(99,102,241,0.12)", border: subscribed ? "1.5px solid rgba(34,197,94,0.45)" : "1.5px solid rgba(99,102,241,0.45)", color: subscribed ? "#4ade80" : "#a5b4fc", borderRadius: 14, padding: "14px 24px", fontSize: 15, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.25s" }),
+
+    // Section title
+    secTitle: { fontSize: 18, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8, paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.1)", marginBottom: 16 },
+    secIcon: { color: Y },
+
+    // Reviews
+    reviewsGrid: { display: "flex", flexDirection: "column", gap: 10 },
+    reviewCard: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "14px 18px", borderLeft: `3px solid ${Y}` },
+    reviewTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
+    reviewAuthor: { fontSize: 13, fontWeight: 700, color: "#fff" },
+    reviewStars: { color: Y, fontSize: 11 },
+    reviewText: { fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 },
+    photoStrip: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 },
+    photoThumb: { width: 56, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer", transition: "all 0.2s" },
+
+    // Review form
+    reviewFormWrap: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "18px", marginTop: 12 },
+    reviewFormTitle: { fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 },
+    reviewForm: { display: "flex", gap: 8, flexWrap: "wrap" },
+    reviewSelect: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 9, color: "#fff", fontSize: 12, padding: "8px 10px", width: 70, flexShrink: 0 },
+    reviewInput: { flex: 1, minWidth: 160, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 9, color: "#fff", fontSize: 12, padding: "8px 12px", outline: "none" },
+    reviewSubmitBtn: { background: Y, color: "#1a1000", border: "none", borderRadius: 9, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
+    starBtn: (active) => ({ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: active ? Y : "#374151", padding: "0 2px" }),
+
+    // Photo upload panel
+    uploadPanel: { background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "14px 16px", marginTop: 12 },
+    uploadPanelTitle: { fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 6 },
+    uploadBtn: { background: Y, color: "#1a1000", border: "none", borderRadius: 9, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 },
+
+    // Similar
+    similarGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16, marginTop: 16 },
+    simCard: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", transition: "all 0.3s", cursor: "pointer" },
+    simImgWrap: { position: "relative", height: 160, overflow: "hidden", flexShrink: 0 },
+    simImg: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s", display: "block" },
+    simCat: { position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.65)", color: Y, fontSize: 9, fontWeight: 700, padding: "3px 9px", borderRadius: 20, textTransform: "uppercase" },
+    simBody: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 4, flex: 1 },
+    simName: { fontSize: 13, fontWeight: 700, color: "#fff" },
+    simDesc: { fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.45 },
+    simPrice: { fontSize: 18, fontWeight: 800, color: Y, marginTop: "auto", paddingTop: 4 },
+    simCartBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 5, background: Y, color: "#1a1000", border: "none", borderTop: "1px solid rgba(0,0,0,0.1)", padding: "9px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.2s", flexShrink: 0 },
+
+    // Share modal
+    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" },
+    modalBox: { background: "rgba(10,13,32,0.97)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 22, padding: "36px 40px", maxWidth: 400, width: "92%", textAlign: "center", boxShadow: "0 50px 120px rgba(0,0,0,0.75)" },
+    modalTitle: { fontSize: 17, fontWeight: 700, color: "#fff", marginBottom: 6, marginTop: 8 },
+    shareLinkBox: { display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "9px 12px", marginBottom: 18, textAlign: "left" },
+    shareLinkText: { flex: 1, fontSize: 11, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" },
+    shareCopyBtn: (copied) => ({ display: "inline-flex", alignItems: "center", gap: 5, background: copied ? "rgba(34,197,94,0.15)" : "rgba(245,168,0,0.15)", border: copied ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(245,168,0,0.35)", color: copied ? "#22c55e" : Y, borderRadius: 7, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }),
+    shareViaRow: { display: "flex", gap: 12, justifyContent: "center", marginBottom: 16 },
+    shareViaBtn: (bg, color) => ({ width: 46, height: 46, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, cursor: "pointer", border: "none", background: bg, color, transition: "all 0.2s", textDecoration: "none" }),
+    modalGhost: { background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: 12, cursor: "pointer", marginTop: 6, padding: "6px" },
+
+    // Lightbox
+    lightbox: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" },
+    lightboxClose: { position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", color: "#fff", borderRadius: "50%", width: 36, height: 36, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+    lightboxImg: { maxWidth: "90vw", maxHeight: "88vh", borderRadius: 12, boxShadow: "0 0 60px rgba(0,0,0,0.8)" },
+
+    backBtn: { background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 13, marginBottom: 20, padding: 0, display: "inline-flex", alignItems: "center", gap: 5 },
+    sectionWrap: { marginBottom: 48 },
+  };
+
+  // Stock pill
+  const stockPill = p.stock > 10
+    ? <span style={s.stockIn}>● {p.stock} in stock</span>
+    : p.stock > 0
+    ? <span style={s.stockLow}>⚠ Only {p.stock} left!</span>
+    : <span style={s.stockOut}>✕ Out of Stock</span>;
+
   return (
-    <div>
-      <button style={cs.backBtn} onClick={onBack}>← Back to Products</button>
+    <div style={s.page}>
+      {/* Breadcrumb */}
+      <nav style={s.breadcrumb}>
+        <button style={s.bcLink} onClick={onBack}>🏠 Home</button>
+        <span style={s.bcSep}>›</span>
+        <button style={{ ...s.bcLink, color: Y }} onClick={onBack}>🏷 {p.category}</button>
+        <span style={s.bcSep}>›</span>
+        <span style={s.bcCurrent}>{p.name}</span>
+      </nav>
+
       <Toast msg={toast} onHide={() => setToast("")} />
-      <div style={cs.detailGrid}>
+
+      {/* Main product grid */}
+      <div style={{ ...s.grid, ...(window.innerWidth < 900 ? s.gridMobile : {}) }}>
+
+        {/* ── LEFT: Media ── */}
         <div>
-          {p.imageLink ? <img src={p.imageLink} alt={p.name} style={cs.detailImg} onError={e => e.target.style.display = "none"} />
-            : <div style={{ ...cs.productImgPlaceholder, height: 300, borderRadius: 16, fontSize: 64 }}>🛍️</div>}
-        </div>
-        <div>
-          <div style={cs.detailCat}>{p.category}</div>
-          <h1 style={cs.detailTitle}>{p.name}</h1>
-          {p.averageRating > 0 && <div style={{ color: "#f59e0b", marginBottom: 12 }}>{stars(Math.round(p.averageRating))} {p.averageRating?.toFixed(1)} ({reviews.length} reviews)</div>}
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
-            <span style={cs.detailPrice}>{fmt(p.price)}</span>
-            {discount > 0 && <><span style={cs.mrp}>{fmt(p.mrp)}</span><span style={cs.discountBadge}>{discount}% OFF</span></>}
+          <div style={s.mainImgWrap}>
+            <img src={heroImg} alt={p.name} style={s.mainImg} onError={e => e.target.style.display = "none"} />
+            <span style={s.catBadge}>{p.category}</span>
           </div>
-          <p style={cs.detailDesc}>{p.description}</p>
-          {p.vendor && <p style={cs.vendorInfo}>Sold by: <strong>{p.vendor.name}</strong></p>}
-          <div style={cs.stockBadge(p.stock)}>{p.stock > 0 ? `✓ In Stock (${p.stock} units)` : "✗ Out of Stock"}</div>
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <button style={{ ...cs.addCartBtn, flex: 1, padding: "14px 24px", fontSize: 16, opacity: p.stock <= 0 || cartLoading[p.id] ? 0.5 : 1 }}
-              disabled={p.stock <= 0 || cartLoading[p.id]} onClick={() => onAddToCart(p.id)}>
-              🛒 {cartLoading[p.id] ? "Adding..." : "Add to Cart"}
-            </button>
-            <button style={{ ...cs.wishBtnLarge, color: isWishlisted ? "#ef4444" : "#6b7280" }}
-              onClick={() => onToggleWishlist(p.id)}>{isWishlisted ? "❤️ Wishlisted" : "🤍 Wishlist"}</button>
-          </div>
-          {p.stock <= 0 && (
-            <div style={{ marginTop: 12 }}>
-              {subscribed ? (
-                <button style={{ padding: "8px 12px", background: "#10b981", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
-                  onClick={unsubscribeNotify}>✅ Subscribed — cancel</button>
-              ) : (
-                <button style={{ padding: "8px 12px", background: "#6366f1", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
-                  onClick={subscribeNotify}>🔔 Notify me when back in stock</button>
-              )}
+
+          {allThumbs.length > 1 && (
+            <div style={s.thumbRow}>
+              {allThumbs.map((url, i) => (
+                <img
+                  key={i} src={url} alt="" style={s.thumb(activeThumb === i)}
+                  onClick={() => { setHeroImg(url); setActiveThumb(i); }}
+                  onError={e => e.target.style.display = "none"}
+                />
+              ))}
+            </div>
+          )}
+
+          {p.videoLink && (
+            <div style={s.videoWrap}>
+              <video controls style={{ width: "100%", maxHeight: 220, display: "block" }}>
+                <source src={p.videoLink} type="video/mp4" />
+              </video>
             </div>
           )}
         </div>
-      </div>
-      <div style={cs.reviewSection}>
-        <h3 style={cs.secTitle}>Customer Reviews</h3>
-        <div style={cs.reviewForm}>
-          {/* ── star rating + text ── */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            {[1,2,3,4,5].map(n => (
-              <button key={n} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 24, color: n <= newReview.rating ? "#f59e0b" : "#d1d5db" }}
-                onClick={() => setNewReview(r => ({ ...r, rating: n }))}>★</button>
-            ))}
+
+        {/* ── RIGHT: Info ── */}
+        <div style={s.infoCol}>
+          <div>
+            <h1 style={s.title}>{p.name}</h1>
+            {p.vendor && (
+              <span style={s.vendorBadge}>🏪 Sold by {p.vendor.name}</span>
+            )}
           </div>
-          <textarea style={cs.reviewInput} placeholder="Write your review..." value={newReview.comment}
-            onChange={e => setNewReview(r => ({ ...r, comment: e.target.value }))} />
-          <button style={cs.submitReviewBtn} onClick={submitReview} disabled={submitting || !!reviewId}>
-            {submitting ? "Submitting..." : reviewId ? "✓ Review Submitted" : "Submit Review"}
-          </button>
 
-          {/* ── inline photo upload — shown after review is submitted ── */}
-          {reviewId && (
-            <div style={{ marginTop: 16, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "14px 16px" }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 4 }}>
-                📸 Add Review Photos <span style={{ fontWeight: 400, color: "#6b7280" }}>(optional · up to 5)</span>
-              </p>
-              <p style={{ fontSize: 11, color: "#4b5563", marginBottom: 10 }}>
-                JPG, PNG or WEBP · max 5 MB each
-              </p>
+          <div style={s.infoRow}>
+            <span style={s.infoRowIcon}>≡</span>
+            <div>
+              <div style={s.infoRowLabel}>Description</div>
+              <div style={s.infoRowValue}>{p.description}</div>
+            </div>
+          </div>
 
-              {reviewUploadedCount > 0 && (
-                <div style={{ marginBottom: 8, fontSize: 12, color: "#22c55e", fontWeight: 600 }}>
-                  ✓ {reviewUploadedCount} photo{reviewUploadedCount !== 1 ? "s" : ""} added to your review
+          <div style={s.infoRow}>
+            <span style={s.infoRowIcon}>🏷</span>
+            <div>
+              <div style={s.infoRowLabel}>Category</div>
+              <div style={s.infoRowValue}>{p.category}</div>
+            </div>
+          </div>
+
+          {/* Price block */}
+          <div style={s.priceBlock}>
+            <div>
+              {discount > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <span style={s.saveBadge}>-{discount}%</span>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>You save ₹{(p.mrp - p.price).toLocaleString("en-IN")}</span>
                 </div>
               )}
+              <div style={s.priceBig}>₹{p.price?.toLocaleString("en-IN")}</div>
+              {discount > 0 && (
+                <div style={s.mrpLine}>
+                  M.R.P.: <span style={{ textDecoration: "line-through" }}>₹{p.mrp?.toLocaleString("en-IN")}</span>
+                  <span style={{ fontSize: 11, marginLeft: 6 }}>Incl. of all taxes</span>
+                </div>
+              )}
+              {!discount && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Incl. of all taxes</div>}
+            </div>
+            {stockPill}
+          </div>
 
+          {/* Quantity selector */}
+          {p.stock > 0 && (
+            <div style={s.qtyWrap}>
+              <span style={s.qtyLabel}>📦 Qty</span>
+              <div style={s.qtyControls}>
+                <button style={s.qtyBtn(qty <= 1)} onClick={() => qty > 1 && setQty(q => q - 1)}>−</button>
+                <input style={s.qtyInput} type="number" value={qty} readOnly />
+                <button style={s.qtyBtn(qty >= maxQty)} onClick={() => qty < maxQty && setQty(q => q + 1)}>+</button>
+              </div>
+              <span style={s.qtyInfo}>{p.stock > 10 ? "Max 10 per order" : `Only ${p.stock} left`}</span>
+            </div>
+          )}
+
+          {/* Delivery estimate */}
+          {p.stock > 0 && (
+            <div style={s.deliveryBox}>
+              <div style={s.deliveryHeader}>🚚 Estimated Delivery</div>
+              <div style={s.deliveryOptions}>
+                <div style={s.deliveryOpt(false)}>
+                  <div style={s.deliveryOptLabel(false)}>📦 Standard</div>
+                  <div style={s.deliveryOptDate}>{stdDate}</div>
+                  <div style={s.deliveryOptPrice(false)}>FREE delivery</div>
+                </div>
+                <div style={s.deliveryOpt(true)}>
+                  <div style={s.deliveryOptLabel(true)}>⚡ Express</div>
+                  <div style={s.deliveryOptDate}>{expDate}</div>
+                  <div style={s.deliveryOptPrice(true)}>+₹129 · Order within {expCountdown}</div>
+                </div>
+              </div>
+              <div style={s.pinRow}>
+                <span style={{ color: Y, fontSize: 11 }}>📍</span>
+                <input
+                  style={s.pinInput}
+                  placeholder="Enter pin code"
+                  value={pinCode}
+                  maxLength={6}
+                  inputMode="numeric"
+                  onChange={e => setPinCode(e.target.value.replace(/\D/g,"").slice(0,6))}
+                  onKeyDown={e => e.key === "Enter" && checkPin()}
+                />
+                <button style={s.pinBtn} onClick={() => checkPin()} disabled={pinChecking}>
+                  {pinChecking ? "…" : "Check"}
+                </button>
+                {pinResult && <span style={s.pinResult(pinResult.ok)}>{pinResult.msg}</span>}
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Select delivery type at checkout</div>
+            </div>
+          )}
+
+          {/* Action row */}
+          <div style={s.actionRow}>
+            {p.stock > 0 ? (
+              <button
+                style={{ ...s.addCartBtn, opacity: cartLoading[p.id] ? 0.6 : 1 }}
+                disabled={cartLoading[p.id]}
+                onClick={handleAddToCart}
+              >
+                🛒 {cartLoading[p.id] ? "Adding…" : "Add to Cart"}
+              </button>
+            ) : (
+              <button
+                style={s.notifyBtn(subscribed)}
+                onClick={subscribed ? unsubscribeNotify : subscribeNotify}
+              >
+                {subscribed ? "🔕 Unsubscribe" : "🔔 Notify Me When Back"}
+              </button>
+            )}
+            <button
+              style={{ ...s.wishBtn, background: isWishlisted ? "rgba(239,68,68,0.22)" : undefined }}
+              onClick={() => onToggleWishlist(p.id)}
+            >
+              {isWishlisted ? "❤️" : "🤍"}
+            </button>
+            <button style={s.shareBtn} onClick={() => setShareOpen(true)} title="Share">↗</button>
+          </div>
+
+          <button style={s.backBtn} onClick={onBack}>← Back to all products</button>
+        </div>
+      </div>
+
+      {/* ── REVIEWS ── */}
+      <div style={s.sectionWrap}>
+        <div style={s.secTitle}>
+          <span style={s.secIcon}>★</span>
+          Customer Reviews
+          <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>({reviews.length} reviews)</span>
+        </div>
+
+        {reviews.length > 0 ? (
+          <div style={s.reviewsGrid}>
+            {reviews.map((r, i) => (
+              <div key={i} style={s.reviewCard}>
+                <div style={s.reviewTop}>
+                  <span style={s.reviewAuthor}>{r.customerName || "Customer"}</span>
+                  <span style={s.reviewStars}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                </div>
+                <p style={s.reviewText}>{r.comment}</p>
+                {reviewPhotos[r.id] && reviewPhotos[r.id].length > 0 && (
+                  <div style={s.photoStrip}>
+                    {reviewPhotos[r.id].map((img, j) => (
+                      <img
+                        key={j} src={img.imageUrl} alt="review photo"
+                        style={s.photoThumb}
+                        onClick={() => setLightboxSrc(img.imageUrl)}
+                        title="Click to enlarge"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>No reviews yet — be the first to review this product!</p>
+        )}
+
+        {/* Write a review */}
+        <div style={s.reviewFormWrap}>
+          <div style={s.reviewFormTitle}>✏️ Write a Review</div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            {[1,2,3,4,5].map(n => (
+              <button key={n} style={s.starBtn(n <= newReview.rating)} onClick={() => setNewReview(r => ({ ...r, rating: n }))}>★</button>
+            ))}
+          </div>
+          <div style={s.reviewForm}>
+            <input
+              style={s.reviewInput}
+              placeholder="Share your experience with this product…"
+              value={newReview.comment}
+              onChange={e => setNewReview(r => ({ ...r, comment: e.target.value }))}
+            />
+            <button style={{ ...s.reviewSubmitBtn, opacity: submitting || !!reviewId ? 0.5 : 1 }}
+              onClick={submitReview} disabled={submitting || !!reviewId}>
+              {submitting ? "Posting…" : reviewId ? "✓ Submitted" : "✈ Post"}
+            </button>
+          </div>
+
+          {/* Photo upload after review submission */}
+          {reviewId && (
+            <div style={s.uploadPanel}>
+              <p style={s.uploadPanelTitle}>📸 Add Review Photos <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.4)", fontSize: 11 }}>(optional · up to 5)</span></p>
+              {reviewUploadedCount > 0 && (
+                <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, marginBottom: 6 }}>✓ {reviewUploadedCount} photo{reviewUploadedCount !== 1 ? "s" : ""} added</div>
+              )}
               {(5 - reviewUploadedCount) > 0 && (
                 <>
-                  <input
-                    ref={reviewFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
+                  <input ref={reviewFileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
                     onChange={onReviewFilesChange}
-                    style={{ fontSize: 12, color: "#d1d5db", display: "block", marginBottom: 10, cursor: "pointer", width: "100%" }}
-                  />
+                    style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 8, cursor: "pointer", width: "100%" }} />
                   {reviewPreviews.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                       {reviewPreviews.map((src, i) => (
-                        <img key={i} src={src} alt={`preview ${i+1}`}
-                          style={{ width: 68, height: 68, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
+                        <img key={i} src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "2px solid rgba(99,102,241,0.5)" }} />
                       ))}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <button
-                      style={{ ...cs.submitReviewBtn, marginTop: 0, opacity: reviewFiles.length === 0 || reviewUploading ? 0.5 : 1, cursor: reviewFiles.length === 0 || reviewUploading ? "not-allowed" : "pointer" }}
-                      onClick={doReviewUpload}
-                      disabled={reviewFiles.length === 0 || reviewUploading}
-                    >
+                    <button style={{ ...s.uploadBtn, opacity: !reviewFiles.length || reviewUploading ? 0.4 : 1 }}
+                      onClick={doReviewUpload} disabled={!reviewFiles.length || reviewUploading}>
                       {reviewUploading ? "Uploading…" : reviewFiles.length > 0 ? `Upload ${reviewFiles.length} Photo${reviewFiles.length !== 1 ? "s" : ""}` : "Select Photos First"}
                     </button>
                     {reviewFiles.length > 0 && !reviewUploading && (
-                      <button
-                        style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
-                        onClick={() => { setReviewFiles([]); setReviewPreviews([]); if (reviewFileRef.current) reviewFileRef.current.value = ""; }}
-                      >Clear</button>
+                      <button style={{ fontSize: 11, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+                        onClick={() => { setReviewFiles([]); setReviewPreviews([]); if (reviewFileRef.current) reviewFileRef.current.value = ""; }}>
+                        Clear
+                      </button>
                     )}
                   </div>
                   {reviewUploadMsg && (
-                    <p style={{ marginTop: 8, fontSize: 12, color: reviewUploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>
-                      {reviewUploadMsg}
-                    </p>
+                    <p style={{ marginTop: 6, fontSize: 12, color: reviewUploadMsg.startsWith("✓") ? "#22c55e" : "#ef4444" }}>{reviewUploadMsg}</p>
                   )}
                 </>
               )}
-              {(5 - reviewUploadedCount) === 0 && (
-                <p style={{ fontSize: 12, color: "#6b7280" }}>Maximum 5 photos added.</p>
-              )}
-              <button
-                style={{ marginTop: 12, fontSize: 12, padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#6b7280", cursor: "pointer" }}
-                onClick={() => { setReviewId(null); setReviewUploadMsg(""); setReviewFiles([]); setReviewPreviews([]); setReviewUploadedCount(0); }}
-              >
+              <button style={{ marginTop: 10, fontSize: 11, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+                onClick={() => { setReviewId(null); setReviewUploadMsg(""); setReviewFiles([]); setReviewPreviews([]); setReviewUploadedCount(0); }}>
                 Done with photos
               </button>
             </div>
           )}
         </div>
-        {reviews.map((r, i) => (
-          <div key={i} style={cs.reviewCard}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <strong style={{ color: "#e5e7eb" }}>{r.customerName || "Customer"}</strong>
-              <span style={{ color: "#f59e0b" }}>{stars(r.rating)}</span>
-            </div>
-            <p style={{ color: "#9ca3af", marginTop: 4 }}>{r.comment}</p>
-          </div>
-        ))}
-        {reviews.length === 0 && <p style={{ color: "#9ca3af" }}>No reviews yet. Be the first!</p>}
       </div>
+
+      {/* ── SIMILAR PRODUCTS ── */}
+      {similar.length > 0 && (
+        <div style={s.sectionWrap}>
+          <div style={s.secTitle}>
+            <span style={s.secIcon}>◈</span>
+            Similar Products
+            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>in {p.category}</span>
+          </div>
+          <div style={s.similarGrid}>
+            {similar.map((sim, i) => (
+              <div key={i} style={s.simCard}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.borderColor = "rgba(245,168,0,0.4)"; e.currentTarget.style.boxShadow = "0 20px 45px rgba(0,0,0,0.35)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = ""; }}>
+                <div style={s.simImgWrap} onClick={() => { /* bubble to parent */ onBack && null; }}>
+                  <img src={sim.imageLink} alt={sim.name} style={s.simImg}
+                    onError={e => e.target.style.display = "none"} />
+                  <span style={s.simCat}>{sim.category}</span>
+                </div>
+                <div style={s.simBody}>
+                  <div style={s.simName}>{sim.name}</div>
+                  <div style={s.simDesc}>{sim.description}</div>
+                  <div style={s.simPrice}>₹{sim.price?.toLocaleString("en-IN")}</div>
+                </div>
+                <button style={s.simCartBtn} onClick={() => onAddToCart(sim.id)}>🛒 Add to Cart</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── SHARE MODAL ── */}
+      {shareOpen && (
+        <div style={s.overlay} onClick={e => e.target === e.currentTarget && setShareOpen(false)}>
+          <div style={s.modalBox}>
+            <div style={{ fontSize: 36 }}>🔗</div>
+            <h3 style={s.modalTitle}>Share this Product</h3>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 600, marginBottom: 16 }}>{p.name}</p>
+            <div style={s.shareLinkBox}>
+              <span style={s.shareLinkText}>{shareUrl}</span>
+              <button style={s.shareCopyBtn(shareCopied)} onClick={copyLink}>
+                {shareCopied ? "✓ Copied!" : "Copy"}
+              </button>
+            </div>
+            <div style={s.shareViaRow}>
+              <a href={`https://wa.me/?text=${shareMsg}`} target="_blank" rel="noreferrer"
+                style={s.shareViaBtn("rgba(37,211,102,0.15)", "#25d366")} title="WhatsApp">💬</a>
+              <a href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out: " + p.name)}`} target="_blank" rel="noreferrer"
+                style={s.shareViaBtn("rgba(0,136,204,0.15)", "#0088cc")} title="Telegram">✈</a>
+              <a href={`mailto:?subject=${encodeURIComponent("Check this out on Ekart")}&body=${shareMsg}`}
+                style={s.shareViaBtn("rgba(255,255,255,0.07)", "rgba(255,255,255,0.65)")} title="Email">✉</a>
+            </div>
+            <button style={s.modalGhost} onClick={() => setShareOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIGHTBOX ── */}
+      {lightboxSrc && (
+        <div style={s.lightbox} onClick={() => setLightboxSrc(null)}>
+          <button style={s.lightboxClose} onClick={() => setLightboxSrc(null)}>✕</button>
+          <img src={lightboxSrc} alt="Review photo" style={s.lightboxImg} onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 /* ── Cart Page ── */
 function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, onCheckout, profile }) {
   const [couponCode, setCouponCode] = useState("");
   const [removeConfirm, setRemoveConfirm] = useState(null);
 
+  // Read home PIN for restriction previews
+  const homePin = (localStorage.getItem("ekart_delivery_pin") || "").replace(/\D/g, "").slice(0, 6);
+  const pinRestrictedItems = getPinRestrictedItems(cart.items, homePin);
+
   return (
     <div>
       <h2 style={cs.pageTitle}>Your Cart 🛒</h2>
+
+      {/* ── PIN restriction banner ── */}
+      {pinRestrictedItems.length > 0 && (
+        <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🚫</span>
+          <div>
+            <div style={{ color: "#f87171", fontWeight: 700, marginBottom: 4 }}>
+              {pinRestrictedItems.length} item{pinRestrictedItems.length > 1 ? "s" : ""} can't be delivered to PIN {homePin}
+            </div>
+            <div style={{ color: "#9ca3af", fontSize: 13 }}>
+              {pinRestrictedItems.map(i => i.name).join(", ")} — vendor doesn't deliver to your location.
+              Remove these items or update your delivery PIN to proceed.
+            </div>
+          </div>
+        </div>
+      )}
+
       {(!cart.items || cart.items.length === 0) ? (
         <div style={cs.empty}>🛒 Your cart is empty</div>
       ) : (
-        <div style={cs.cartLayout}>
+        <div style={{ ...cs.cartLayout, ...(window.innerWidth < 768 ? cs.cartLayoutMobile : {}) }}>
           <div>
-            {cart.items.map((item, i) => (
-              <div key={i} style={cs.cartItem}>
+            {cart.items.map((item, i) => {
+              const pinBlocked = homePin && !isPinAllowed(item, homePin);
+              return (
+              <div key={i} style={{ ...cs.cartItem, ...(pinBlocked ? { borderColor: "rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.04)" } : {}) }}>
                 <div style={cs.cartItemImg}>
                   {item.imageLink ? <img src={item.imageLink} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} onError={e => e.target.style.display = "none"} /> : "🛍️"}
                 </div>
                 <div style={cs.cartItemInfo}>
                   <div style={cs.cartItemName}>{item.name}</div>
                   <div style={{ color: "#6366f1", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{item.category}</div>
+                  {/* PIN restriction badge */}
+                  {pinBlocked && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#f87171", fontWeight: 700, marginBottom: 4 }}>
+                      🚫 Not deliverable to PIN {homePin}
+                    </div>
+                  )}
+                  {item.allowedPinCodes && !pinBlocked && homePin && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 4 }}>
+                      ✓ Delivers to PIN {homePin}
+                    </div>
+                  )}
                   <div style={cs.cartItemPrice}>{fmt(item.unitPrice || item.price)} each</div>
                   <div style={cs.qtyRow}>
                     <button style={cs.qtyBtn} onClick={() => item.quantity > 1 ? onUpdateQty(item.productId, item.quantity - 1) : setRemoveConfirm(item.productId)}>−</button>
@@ -2076,7 +2797,8 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
                   <button style={cs.removeBtn} onClick={() => setRemoveConfirm(item.productId)}>🗑️ Remove</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Coupon */}
             <div style={cs.couponBox}>
@@ -2096,16 +2818,48 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
             </div>
           </div>
 
-          <div style={cs.cartSummary}>
+          <div style={{ ...cs.cartSummary, ...(window.innerWidth < 768 ? cs.cartSummaryMobile : {}) }}>
             <h3 style={{ color: "#e5e7eb", marginBottom: 16 }}>Order Summary</h3>
             <div style={cs.sumRow}><span>Items ({cart.itemCount || cart.items?.length})</span><span>{fmt(cart.subtotal)}</span></div>
             {cart.couponDiscount > 0 && <div style={{ ...cs.sumRow, color: "#22c55e" }}><span>Coupon Discount</span><span>-{fmt(cart.couponDiscount)}</span></div>}
             <div style={cs.sumRow}><span>Delivery</span><span style={{ color: !cart.deliveryCharge ? "#22c55e" : "#e5e7eb" }}>{!cart.deliveryCharge ? "FREE" : fmt(cart.deliveryCharge)}</span></div>
             {cart.subtotal < 500 && <p style={{ color: "#f59e0b", fontSize: 12, margin: "4px 0" }}>Add {fmt(500 - cart.subtotal)} more for free delivery!</p>}
             <div style={cs.totalRow}><span>Total</span><span>{fmt(cart.total)}</span></div>
-            {cart.gstAmount > 0 && <div style={{ ...cs.sumRow, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8 }}><span style={{ fontSize: 12 }}>GST Included</span><span style={{ fontSize: 12 }}>{fmt(cart.gstAmount)}</span></div>}
-            <button style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16 }} onClick={onCheckout}>
-              Proceed to Checkout →
+            {/* ── GST breakdown (computed client-side from cart items) ── */}
+            {(() => {
+              const { slabs, totalGst } = computeCartGst(cart.items);
+              if (totalGst <= 0) return null;
+              return (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    🧾 Tax Breakdown (GST Inclusive)
+                  </div>
+                  {slabs.filter(s => s.rate > 0).map(s => (
+                    <div key={s.rate} style={{ ...cs.sumRow, fontSize: 12 }}>
+                      <span style={{ color: "#9ca3af" }}>GST @ {s.rate}%</span>
+                      <span style={{ color: "#9ca3af" }}>{fmt(s.gst)}</span>
+                    </div>
+                  ))}
+                  <div style={{ ...cs.sumRow, fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginTop: 2 }}>
+                    <span>{getMixedGstLabel(slabs)}</span>
+                    <span>{fmt(totalGst)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <button
+              style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16,
+                ...(pinRestrictedItems.length > 0 ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+              onClick={() => {
+                if (pinRestrictedItems.length > 0) {
+                  return; // blocked — banner above explains why
+                }
+                onCheckout();
+              }}
+            >
+              {pinRestrictedItems.length > 0
+                ? `🚫 Remove ${pinRestrictedItems.length} restricted item${pinRestrictedItems.length > 1 ? "s" : ""} to checkout`
+                : "Proceed to Checkout →"}
             </button>
           </div>
         </div>
@@ -2178,7 +2932,7 @@ function isIndianPinAddr(val) {
    • Real-time PIN mismatch warning on the new-address form
    • Delete saved address
 ──────────────────────────────────────────────────────────────────── */
-function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast }) {
+function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, showToast, cart }) {
   const EMPTY = { recipientName: "", houseStreet: "", city: "", state: "", postalCode: "" };
 
   const [selectedAddr, setSelectedAddr] = useState(() => {
@@ -2330,7 +3084,7 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
   );
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto" }}>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 20px" }}>
 
       {/* ── Progress stepper ── */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
@@ -2384,10 +3138,14 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
             const chosen  = selectedAddr === a.id;
             const warning = cardWarnings[a.id];
             const isMismatch = warning?.includes("mismatch");
+            // Per-product PIN restriction check for this address
+            const addrPin = (a.postalCode || "").replace(/\D/g, "").slice(0, 6);
+            const addrPinRestricted = getPinRestrictedItems(cart?.items || [], addrPin);
+            const addrPinBlocked = addrPinRestricted.length > 0;
             return (
               <div key={a.id} style={{
                 background: chosen ? "rgba(245,168,0,0.05)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${chosen ? "rgba(245,168,0,0.4)" : "rgba(255,255,255,0.1)"}`,
+                border: `1px solid ${addrPinBlocked ? "rgba(239,68,68,0.4)" : chosen ? "rgba(245,168,0,0.4)" : "rgba(255,255,255,0.1)"}`,
                 borderRadius: 14, padding: "16px 18px", marginBottom: 12,
                 transition: "all 0.25s", cursor: "pointer",
               }} onClick={() => setSelectedAddr(a.id)}>
@@ -2405,16 +3163,30 @@ function AddressStepPage({ profile, api, onRefreshProfile, onBack, onContinue, s
                   </div>
                 )}
 
+                {/* Per-product PIN restriction warning for this address */}
+                {addrPinBlocked && (
+                  <div style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
+                    borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#f87171", lineHeight: 1.5 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 3 }}>
+                      🚫 {addrPinRestricted.length} cart item{addrPinRestricted.length > 1 ? "s" : ""} can't ship to PIN {addrPin}
+                    </div>
+                    <div style={{ color: "#9ca3af" }}>
+                      {addrPinRestricted.map(i => i.name).join(", ")}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
                   <button
                     style={{ display: "inline-flex", alignItems: "center", gap: 5,
-                      background: "#f5a800", color: "#1a1000", border: "none",
+                      background: addrPinBlocked ? "rgba(239,68,68,0.25)" : "#f5a800",
+                      color: addrPinBlocked ? "#f87171" : "#1a1000", border: "none",
                       padding: "6px 16px", borderRadius: 50, fontSize: 11, fontWeight: 700,
-                      letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer",
-                      boxShadow: "0 4px 14px rgba(245,168,0,0.25)", transition: "all 0.2s" }}
-                    onClick={e => { e.stopPropagation(); handleUseAddress(a); }}
+                      letterSpacing: "0.06em", textTransform: "uppercase", cursor: addrPinBlocked ? "not-allowed" : "pointer",
+                      boxShadow: addrPinBlocked ? "none" : "0 4px 14px rgba(245,168,0,0.25)", transition: "all 0.2s" }}
+                    onClick={e => { e.stopPropagation(); if (!addrPinBlocked) handleUseAddress(a); }}
                   >
-                    ✓ Use This Address
+                    {addrPinBlocked ? "🚫 PIN Restricted" : "✓ Use This Address"}
                   </button>
                   <button
                     style={{ background: "none", border: "none", cursor: "pointer",
@@ -2587,6 +3359,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const [payMode, setPayMode] = useState("COD");
   const [deliveryTime, setDeliveryTime] = useState("STANDARD");
   const [placing, setPlacing] = useState(false);
+  const [razorpayKey, setRazorpayKey] = useState("");
   const addrs = profile?.addresses || [];
   // selectedAddr comes pre-chosen from the Address step; fall back to first saved address
   const selectedAddr = selectedAddressId || (addrs.length > 0 ? addrs[0].id : null);
@@ -2596,14 +3369,97 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const couponDiscount = cart.couponDiscount || 0;
   const grandTotal = Math.max(0, subtotal - couponDiscount) + expressSurcharge;
 
+  // ── PIN restriction check for chosen delivery address ─────────────
+  const chosenAddr = addrs.find(a => a.id === selectedAddr);
+  const deliveryPin = (chosenAddr?.postalCode || "").replace(/\D/g, "").slice(0, 6);
+  const pinRestrictedItems = getPinRestrictedItems(cart.items, deliveryPin);
+  const pinBlocked = pinRestrictedItems.length > 0;
+
+  // ── Load Razorpay script and key on component mount ──
+  useEffect(() => {
+    // Load Razorpay script
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Fetch Razorpay key from backend
+    const fetchKey = async () => {
+      try {
+        const res = await fetch("/api/razorpay-key");
+        const data = await res.json();
+        if (data.razorpayKeyId) setRazorpayKey(data.razorpayKeyId);
+      } catch (e) {
+        console.error("Failed to fetch Razorpay key:", e);
+      }
+    };
+    fetchKey();
+
+    return () => {
+      if (script.parentNode) document.body.removeChild(script);
+    };
+  }, []);
+
+  // ── Handle Online Payment (Razorpay) ──
+  const handleOnlinePay = (e) => {
+    e.preventDefault();
+    if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
+    if (!window.Razorpay) { showToast?.("Payment gateway not loaded. Please try again."); return; }
+    if (!razorpayKey) { showToast?.("Payment system error. Please refresh and try again."); return; }
+
+    const payAmount = Math.round(grandTotal * 100); // Convert to paise
+    const options = {
+      key: razorpayKey,
+      amount: payAmount,
+      currency: "INR",
+      name: "Ekart Shop",
+      description: "Order Payment",
+      prefill: {
+        name: profile?.name || "Customer",
+        email: profile?.email || "email@example.com",
+        contact: profile?.phone || "",
+      },
+      theme: { color: "#f5a800" },
+      handler: async (response) => {
+        setPlacing(true);
+        try {
+          // Complete the order with payment details
+          await onPlaceOrder(selectedAddr, "ONLINE", deliveryTime, {
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpayOrderId: response.razorpay_order_id,
+          });
+        } catch (err) {
+          showToast?.("Payment processing error. Please try again.");
+          console.error(err);
+        }
+        setPlacing(false);
+      },
+      modal: {
+        ondismiss: () => {
+          showToast?.("Payment cancelled. You can try again.");
+        }
+      }
+    };
+
+    try {
+      new window.Razorpay(options).open();
+    } catch (err) {
+      showToast?.("Failed to open payment gateway. Please try again.");
+      console.error(err);
+    }
+  };
+
   const handlePlace = async () => {
     if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
+    if (payMode === "ONLINE") {
+      handleOnlinePay({ preventDefault: () => {} });
+      return;
+    }
+    // For COD
     setPlacing(true);
     await onPlaceOrder(selectedAddr, payMode, deliveryTime);
     setPlacing(false);
   };
-
-  const chosenAddr = addrs.find(a => a.id === selectedAddr);
 
   const steps = [
     { label: "Cart", icon: "🛒", done: true },
@@ -2612,7 +3468,17 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   ];
 
   return (
-    <div>
+    <div style={{ padding: "32px 20px" }}>
+      {/* Page Header */}
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <h1 style={{ fontSize: 40, fontWeight: 900, color: "#fff", margin: "0 0 8px" }}>
+          Complete Your <span style={{ color: "#a5b4fc" }}>Payment</span> 💳
+        </h1>
+        <p style={{ fontSize: 15, color: "#9ca3af", maxWidth: 600, margin: "0 auto" }}>
+          Choose your delivery speed and preferred payment method below. Your order is secure and backed by our satisfaction guarantee.
+        </p>
+      </div>
+
       {/* Stepper */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
         {steps.map((s, i) => (
@@ -2639,8 +3505,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
       </div>
 
       <button style={cs.backBtn} onClick={onBack}>← Back to Address</button>
-      <h2 style={cs.pageTitle}>Complete Your Payment 💳</h2>
-      <div style={cs.paymentLayout}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth > 1024 ? "1.5fr 1fr" : "1fr", gap: 32, maxWidth: 1600, margin: "0 auto", ...(window.innerWidth < 768 && cs.paymentLayoutMobile) }}>
         <div>
           {/* Chosen address — read-only summary */}
           <div style={cs.paySection}>
@@ -2714,9 +3579,48 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
               </div>
             ))}
           </div>
+
+          {/* Detailed Price Breakdown */}
+          <div style={cs.paySection}>
+            <h3 style={cs.paySectionTitle}>🧾 Price Breakdown</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#e5e7eb" }}>
+              <span style={{ color: "#9ca3af" }}>Cart Subtotal</span>
+              <span>{fmt(subtotal)}</span>
+            </div>
+            {couponDiscount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#22c55e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span>💚 Coupon Discount</span>
+                <span>-{fmt(couponDiscount)}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#e5e7eb", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ color: "#9ca3af" }}>Delivery Charge</span>
+              <span style={{ color: expressSurcharge === 0 ? "#22c55e" : "#f5a800" }}>
+                {expressSurcharge === 0 ? "FREE" : fmt(expressSurcharge)}
+              </span>
+            </div>
+            {/* GST Breakdown */}
+            {(() => {
+              const { slabs, totalGst } = computeCartGst(cart.items);
+              if (totalGst <= 0) return null;
+              return (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,0.12)" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    🧾 GST (Included)
+                  </div>
+                  {slabs.filter(s => s.rate > 0).map(s => (
+                    <div key={s.rate} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#9ca3af" }}>
+                      <span>GST @ {s.rate}%</span>
+                      <span>{fmt(s.gst)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
         </div>
 
-        <div style={cs.cartSummary}>
+        <div style={{ ...cs.cartSummary, ...(window.innerWidth < 768 ? cs.cartSummaryMobile : {}) }}>
           <h3 style={{ color: "#e5e7eb", marginBottom: 16 }}>Bill Summary</h3>
           <div style={cs.sumRow}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
           {couponDiscount > 0 && (
@@ -2728,9 +3632,28 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
               {expressSurcharge === 0 ? "FREE" : fmt(expressSurcharge)}
             </span>
           </div>
-          {cart.gstAmount > 0 && (
-            <div style={cs.sumRow}><span>GST (included)</span><span>{fmt(cart.gstAmount)}</span></div>
-          )}
+          {/* ── Per-slab GST breakdown ── */}
+          {(() => {
+            const { slabs, totalGst } = computeCartGst(cart.items);
+            if (totalGst <= 0) return null;
+            return (
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4, marginBottom: 4 }}>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  🧾 Tax Breakdown (GST Inclusive)
+                </div>
+                {slabs.filter(s => s.rate > 0).map(s => (
+                  <div key={s.rate} style={{ ...cs.sumRow, fontSize: 12 }}>
+                    <span style={{ color: "#9ca3af" }}>GST @ {s.rate}%</span>
+                    <span style={{ color: "#9ca3af" }}>{fmt(s.gst)}</span>
+                  </div>
+                ))}
+                <div style={{ ...cs.sumRow, fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginTop: 2 }}>
+                  <span>{getMixedGstLabel(slabs)}</span>
+                  <span>{fmt(totalGst)}</span>
+                </div>
+              </div>
+            );
+          })()}
           <div style={cs.totalRow}><span>Total</span><span>{fmt(grandTotal)}</span></div>
 
           {/* Selected delivery speed pill */}
@@ -2745,10 +3668,44 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
             <span style={{ fontSize: 18 }}>{payMode === "COD" ? "💵" : "💳"}</span>
             <span style={{ color: "#a5b4fc", fontSize: 13, fontWeight: 600 }}>{payMode === "COD" ? "Cash on Delivery" : "Online Payment"}</span>
           </div>
-          <button style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16, opacity: placing ? 0.6 : 1 }}
-            disabled={placing} onClick={handlePlace}>
-            {placing ? "Placing..." : payMode === "COD" ? "Place Order (COD) 🚀" : "Pay & Place Order 💳"}
+          {/* ── PIN restriction blocking banner ── */}
+          {pinBlocked && (
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.35)",
+              borderRadius: 10, padding: "14px 16px", marginTop: 14 }}>
+              <div style={{ color: "#f87171", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                🚫 {pinRestrictedItems.length} item{pinRestrictedItems.length > 1 ? "s" : ""} can't be delivered to PIN {deliveryPin}
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+                {pinRestrictedItems.map(i => i.name).join(", ")} — the vendor doesn't ship to this PIN code.
+              </div>
+              <button style={{ ...cs.outlineBtn, fontSize: 12, padding: "5px 14px" }} onClick={onBack}>
+                ← Change Address
+              </button>
+            </div>
+          )}
+          <button
+            style={{ 
+              ...cs.addCartBtn, 
+              width: "100%", 
+              padding: "14px", 
+              marginTop: 16, 
+              fontSize: 16,
+              opacity: placing || pinBlocked ? 0.5 : 1, 
+              cursor: placing || pinBlocked ? "not-allowed" : "pointer",
+              background: payMode === "ONLINE" ? "#f5a800" : "#22c55e",
+              boxShadow: payMode === "ONLINE" ? "0 8px 24px rgba(245,168,0,0.3)" : "0 8px 24px rgba(34,197,94,0.2)",
+              transition: "all 0.3s cubic-bezier(0.23,1,0.32,1)",
+            }}
+            disabled={placing || pinBlocked}
+            onClick={handlePlace}>
+            {placing ? "Processing..." : pinBlocked ? "🚫 Cannot place — PIN restricted" : payMode === "COD" ? "✓ Place Order (COD) 🚀" : "💳 Pay & Place Order"}
           </button>
+
+          {/* ── Security Badge ── */}
+          <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#9ca3af" }}>
+            <span style={{ fontSize: 18 }}>🔒</span>
+            <span>Secured by 256-bit SSL encryption</span>
+          </div>
         </div>
       </div>
     </div>
@@ -3011,7 +3968,7 @@ function TrackSingleOrderPage({ order: o, onBack }) {
     if (auth?.token)    headers["Authorization"]  = `Bearer ${auth.token}`;
     if (auth?.id)       headers["X-Customer-Id"]  = auth.id;
 
-    fetch(`/api/flutter/orders/${o.id}/track`, { headers })
+    fetch(`/api/react/orders/${o.id}/track`, { headers })
       .then(r => r.json())
       .then(d => { if (d.success) setTracking(d); else setLoadErr(true); })
       .catch(() => setLoadErr(true));
@@ -3931,15 +4888,6 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
                 note: null,
               },
               {
-                icon: "🔗", label: "Sign-in Method",
-                value: profile.provider && profile.provider !== "local"
-                  ? profile.provider.charAt(0).toUpperCase() + profile.provider.slice(1) + " (OAuth)"
-                  : "Email & Password",
-                note: profile.provider && profile.provider !== "local"
-                  ? "Password change not available for OAuth accounts"
-                  : null,
-              },
-              {
                 icon: "✅", label: "Account Status",
                 value: "Active",
                 valueColor: "#22c55e",
@@ -3957,6 +4905,63 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
               </div>
             ))}
           </div>
+
+          {/* ── Connected Accounts card ── */}
+          {(() => {
+            const PROVIDERS = [
+              { id: "google",    label: "Google",    icon: "G", color: "#EA4335" },
+              { id: "github",    label: "GitHub",    icon: "⌥", color: "#24292f" },
+              { id: "facebook",  label: "Facebook",  icon: "f", color: "#1877F2" },
+              { id: "instagram", label: "Instagram", icon: "📷", color: "#c13584" },
+            ];
+            const linkedProvider = profile?.provider && profile.provider !== "local" ? profile.provider : null;
+
+            return (
+              <div style={cs.profileCard}>
+                <h3 style={{ ...cs.secTitle, marginBottom: 18 }}>🔗 Connected Accounts</h3>
+                {PROVIDERS.map(p => {
+                  const isLinked = linkedProvider === p.id;
+                  return (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                                              padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: 14, background: p.color,
+                                       display: "flex", alignItems: "center", justifyContent: "center",
+                                       color: "#fff", fontWeight: 700, fontSize: 12 }}>{p.icon}</span>
+                        <span style={{ color: "#e5e7eb", fontSize: 14 }}>{p.label}</span>
+                      </div>
+                      {isLinked ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#22c55e", fontSize: 12, fontWeight: 700 }}>✓ Linked</span>
+                          {profile.password && (
+                            <button style={{ ...cs.removeBtn }} onClick={async () => {
+                              const d = await api("/profile/unlink-oauth", { method: "DELETE" });
+                              showToast(d.message || (d.success ? "Unlinked!" : "Failed"));
+                              if (d.success) onUpdate();
+                            }}>Unlink</button>
+                          )}
+                        </div>
+                      ) : (
+                        <button style={{ ...cs.saveBtn, padding: "6px 14px", fontSize: 12 }}
+                          disabled={!!linkedProvider}
+                          onClick={async () => {
+                            const d = await api("/profile/link-oauth", { method: "POST",
+                              body: JSON.stringify({ provider: p.id }) });
+                            if (d.success && d.redirectUrl) window.location.href = d.redirectUrl;
+                            else showToast(d.message || "Failed");
+                          }}>Link</button>
+                      )}
+                    </div>
+                  );
+                })}
+                {linkedProvider && !profile.password && (
+                  <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b" }}>
+                    ⚠️ To unlink your social account, first set a password in the Change Password section.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Change password card — hidden for OAuth users ── */}
           {(!profile.provider || profile.provider === "local") && (
@@ -4118,10 +5123,36 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
 }
 
 /* ── Helpers ── */
-function getCatIcon(cat) {
-  const icons = { Electronics: "💻", Mobiles: "📱", Fashion: "👗", "Home & Kitchen": "🏠", Books: "📚", Toys: "🧸", Sports: "⚽", Beauty: "💄", Food: "🍕", Grocery: "🛒" };
-  return icons[cat] || "🏷️";
+/** Returns the emoji for a category item — works with both string and Category objects */
+function getCatEmoji(cat) {
+  if (!cat) return "📦";
+  if (typeof cat === "object" && cat.emoji) return cat.emoji;
+  // Legacy fallback for plain strings
+  const icons = { Electronics:"💻", Mobiles:"📱", Fashion:"👗", "Home & Kitchen":"🏠", Books:"📚", Toys:"🧸", Sports:"⚽", Beauty:"💄", Food:"🍕", Grocery:"🛒" };
+  return icons[typeof cat === "string" ? cat : cat.name] || "📦";
 }
+
+/** Flatten hierarchical categories into [{value, label}] for filter dropdowns */
+function flattenCatsForSelect(categories) {
+  const opts = [];
+  for (const cat of categories) {
+    const isStr = typeof cat === "string";
+    const name  = isStr ? cat : cat.name;
+    const emoji = isStr ? getCatEmoji(cat) : (cat.emoji || "📦");
+    const subs  = isStr ? [] : (cat.subCategories || []);
+    if (subs.length > 0) {
+      for (const sub of subs) {
+        opts.push({ value: sub.name, label: `${emoji} ${name} › ${sub.emoji ? sub.emoji + " " : ""}${sub.name}` });
+      }
+    } else {
+      opts.push({ value: name, label: `${emoji} ${name}` });
+    }
+  }
+  return opts;
+}
+
+// Keep old name as alias for any remaining references
+const getCatIcon = getCatEmoji;
 
 /* ── Styles ── */
 const cs = {
@@ -4200,6 +5231,7 @@ const cs = {
   submitReviewBtn: { marginTop: 8, padding: "9px 20px", borderRadius: 9, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 },
   reviewCard: { borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12, marginTop: 12 },
   cartLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
+  cartLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
   cartItem: { display: "flex", gap: 14, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: 14, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" },
   cartItemImg: { width: 72, height: 72, background: "rgba(255,255,255,0.08)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, overflow: "hidden" },
   cartItemInfo: { flex: 1 },
@@ -4213,9 +5245,11 @@ const cs = {
   removeBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444" },
   couponBox: { background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.15)", borderRadius: 14, padding: 16, marginTop: 8, display: "flex", flexDirection: "column", gap: 10 },
   cartSummary: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24, position: "sticky", top: 80 },
+  cartSummaryMobile: { position: "static", top: "auto" },
   sumRow: { display: "flex", justifyContent: "space-between", color: "#9ca3af", marginBottom: 10, fontSize: 14 },
   totalRow: { display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: 18, borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginTop: 8 },
   paymentLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
+  paymentLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
   paySection: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 },
   paySectionTitle: { color: "#e5e7eb", fontWeight: 700, marginBottom: 14, fontSize: 15 },
   addrCard: { border: "2px solid", borderRadius: 12, padding: 14, marginBottom: 10, cursor: "pointer" },

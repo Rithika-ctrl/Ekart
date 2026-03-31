@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpSession;
+// import jakarta.servlet.http.HttpSession; // unused
 import java.util.*;
 import java.util.stream.Collectors;
 

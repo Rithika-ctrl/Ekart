@@ -1,7 +1,7 @@
 package com.example.ekart.dto;
 
 import jakarta.persistence.*;
-import lombok.Data;
+// import lombok.Data; // unused
 
 /**
  * Stores Cloudinary image URLs uploaded by a customer when writing a review.

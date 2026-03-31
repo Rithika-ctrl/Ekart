@@ -1,20 +1,16 @@
 package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
+import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.helper.AES;
-import com.example.ekart.helper.JwtUtil;
+import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
-import com.example.ekart.service.AiAssistantService;
-import com.example.ekart.service.RefundService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,51 +24,37 @@ import java.util.stream.Collectors;
  *
  * All endpoints are under /api/flutter/** which is already
  * permitted in SecurityConfig (Chain 1 = permitAll, stateless).
+ *
+ * NEW ENDPOINTS added for mobile features:
+ *   GET  /api/flutter/banners                       — banner carousel
+ *   POST /api/flutter/orders/place                  — now accepts structured address fields
+ *   POST /api/flutter/notify-me/{productId}         — subscribe back-in-stock
+ *   DELETE /api/flutter/notify-me/{productId}       — unsubscribe
+ *   GET  /api/flutter/notify-me/{productId}         — check subscription status
  */
 @RestController
 @RequestMapping("/api/flutter")
 @CrossOrigin(origins = "*")
 public class FlutterApiController {
 
-    @Autowired private CustomerRepository  customerRepository;
-    @Autowired private VendorRepository    vendorRepository;
-    @Autowired private ProductRepository   productRepository;
-    @Autowired private OrderRepository     orderRepository;
-    @Autowired private ItemRepository      itemRepository;
-    @Autowired private WishlistRepository  wishlistRepository;
-    @Autowired private AddressRepository   addressRepository;
-    @Autowired private ReviewRepository      reviewRepository;
-    @Autowired private ReviewImageRepository reviewImageRepository;
-    @Autowired private RefundRepository      refundRepository;
-    @Autowired private RefundImageRepository  refundImageRepository;
-    @Autowired private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
-    @Autowired private CouponRepository    couponRepository;
-    @Autowired private AiAssistantService  aiAssistantService;
-    @Autowired private RefundService        refundService;
-
-    private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
-
-    /**
-     * In-memory coupon store: customerId → applied Coupon.
-     * Cleared on coupon removal or successful order placement.
-     * ConcurrentHashMap keeps concurrent requests safe without a DB column.
-     */
-    private final java.util.concurrent.ConcurrentHashMap<Integer, Coupon> appliedCoupons =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    /**
-     * In-memory store of emails whose OTP has been successfully verified.
-     * Key: email (lower-cased).  Value: role tag ("customer" | "vendor").
-     * Entry is cleared once reset-password consumes it, preventing replay.
-     */
-    private final java.util.concurrent.ConcurrentHashMap<String, String> otpVerified =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    @Autowired
-    private com.example.ekart.helper.EmailSender emailSender;
-
-    @Autowired
-    private JwtUtil jwtUtil;
+    @Autowired private CustomerRepository          customerRepository;
+    @Autowired private VendorRepository            vendorRepository;
+    @Autowired private ProductRepository           productRepository;
+    @Autowired private OrderRepository             orderRepository;
+    @Autowired private ItemRepository              itemRepository;
+    @Autowired private WishlistRepository          wishlistRepository;
+    //@Autowired private AddressRepository           addressRepository; // unused
+    @Autowired private ReviewRepository            reviewRepository;
+    @Autowired private RefundRepository            refundRepository;
+    @Autowired private StockAlertRepository        stockAlertRepository;
+    @Autowired private BannerRepository            bannerRepository;
+    @Autowired private BackInStockRepository       backInStockRepository;
+    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
+    @Autowired private WarehouseRepository                warehouseRepository;
+    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
+    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
+    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
+    @Autowired private EmailSender                        emailSender;
 
     // Admin credentials come from application.properties (admin.email / admin.password)
     @org.springframework.beans.factory.annotation.Value("${admin.email}")
@@ -84,24 +66,6 @@ public class FlutterApiController {
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
     // ═══════════════════════════════════════════════════════
-
-    
-    // ── Admin role guard ─────────────────────────────────────────────────────
-    /**
-     * Defence-in-depth check: rejects non-ADMIN callers at the controller level.
-     * Primary enforcement is in FlutterAuthFilter (role check on /admin/**).
-     * Returns a 403 ResponseEntity when the caller is not ADMIN, null otherwise.
-     */
-    private ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest request) {
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            Map<String, Object> err = new java.util.HashMap<>();
-            err.put("success", false);
-            err.put("message", "Admin access required");
-            return ResponseEntity.status(403).body(err);
-        }
-        return null;
-    }
 
     /** POST /api/flutter/auth/customer/register */
     @PostMapping("/auth/customer/register")
@@ -150,7 +114,7 @@ public class FlutterApiController {
                 res.put("success", false); res.put("message", "Account suspended. Contact support.");
                 return ResponseEntity.badRequest().body(res);
             }
-            String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
+            String token = Base64.getEncoder().encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
             res.put("success", true);
             res.put("customerId", c.getId());
             res.put("name", c.getName());
@@ -207,7 +171,7 @@ public class FlutterApiController {
                 res.put("success", false); res.put("message", "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
-            String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
+            String token = Base64.getEncoder().encodeToString((v.getId() + ":" + v.getEmail()).getBytes());
             res.put("success", true);
             res.put("vendorId", v.getId());
             res.put("name", v.getName());
@@ -225,7 +189,6 @@ public class FlutterApiController {
      * POST /api/flutter/auth/admin/login
      * Body: { email, password }
      * Validates against admin.email / admin.password from application.properties.
-     * Returns: { success, name, email, token, role:"ADMIN" }
      */
     @PostMapping("/auth/admin/login")
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
@@ -240,8 +203,7 @@ public class FlutterApiController {
             res.put("success", false); res.put("message", "Invalid admin credentials");
             return ResponseEntity.status(401).body(res);
         }
-        // Token is a simple signed marker — not sensitive since admin screen is read-only
-        String token = jwtUtil.generateToken(0, adminEmail, "ADMIN");
+        String token = Base64.getEncoder().encodeToString(("admin:" + adminEmail).getBytes());
         res.put("success", true);
         res.put("adminId", 0);
         res.put("name", "Admin");
@@ -251,423 +213,449 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 
-    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
-    @Autowired private WarehouseRepository                warehouseRepository;
-    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
-    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
-    @Autowired private BannerRepository                   bannerRepository;
+    // ═══════════════════════════════════════════════════════
+    // AUTH — DELIVERY BOY
+    // ═══════════════════════════════════════════════════════
 
     /**
      * POST /api/flutter/auth/delivery/login
      * Body: { email, password }
-     * Mirrors the same checks as DeliveryBoyService.login() but returns JSON.
-     * Returns: { success, deliveryBoyId, name, email, token }
+     * Returns JSON instead of the web session redirect, so the Flutter
+     * app can parse the response without hitting HTTP 302.
      *
-     * Failure cases (matching the session-based flow):
-     *   - Unknown email           → 400 + message
-     *   - Wrong password          → 400 + message
-     *   - Email not verified      → 403 + message (OTP resent)
-     *   - Account deactivated     → 403 + message
-     *   - Pending admin approval  → 403 + message
+     * Possible status values in response:
+     *   active      → login success
+     *   unverified  → email OTP not yet confirmed
+     *   pending     → awaiting admin approval
+     *   inactive    → account deactivated by admin
      */
     @PostMapping("/auth/delivery/login")
-    public ResponseEntity<Map<String, Object>> deliveryLogin(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> deliveryBoyLogin(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
         try {
-            String email    = ((String) body.getOrDefault("email",    "")).trim().toLowerCase();
-            String password = ((String) body.getOrDefault("password", "")).trim();
-            if (email.isEmpty() || password.isEmpty()) {
+            String email    = (String) body.get("email");
+            String password = (String) body.get("password");
+
+            if (email == null || password == null) {
                 res.put("success", false);
                 res.put("message", "Email and password are required");
                 return ResponseEntity.badRequest().body(res);
             }
+
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put("success", false);
                 res.put("message", "No account found with this email");
-                return ResponseEntity.badRequest().body(res);
+                return ResponseEntity.status(401).body(res);
             }
+
             String decrypted = AES.decrypt(db.getPassword());
             if (decrypted == null || !decrypted.equals(password)) {
                 res.put("success", false);
                 res.put("message", "Wrong password");
-                return ResponseEntity.badRequest().body(res);
+                return ResponseEntity.status(401).body(res);
             }
+
             if (!db.isVerified()) {
-                // Resend OTP exactly like the web flow does
-                int otp = new java.util.Random().nextInt(100000, 1000000);
-                db.setOtp(otp);
-                deliveryBoyRepository.save(db);
-                try { emailSender.sendDeliveryBoyOtp(db); } catch (Exception ignored) {}
                 res.put("success", false);
-                res.put("message", "Please verify your email first — OTP resent to " + email);
+                res.put("status", "unverified");
+                res.put("deliveryBoyId", db.getId());
+                res.put("message", "Email not verified. Please check your inbox for the OTP.");
                 return ResponseEntity.status(403).body(res);
             }
+
             if (!db.isActive()) {
                 res.put("success", false);
+                res.put("status", "inactive");
                 res.put("message", "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
+
             if (!db.isAdminApproved()) {
                 res.put("success", false);
-                res.put("message", "Your account is pending admin approval. You will receive an email once approved.");
+                res.put("status", "pending");
+                res.put("message", "Your account is pending admin approval. You will be notified by email once approved.");
                 return ResponseEntity.status(403).body(res);
             }
-            // All checks passed — issue a simple token (same pattern as customer/vendor)
-            String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
-            res.put("success",       true);
-            res.put("deliveryBoyId", db.getId());
-            res.put("name",          db.getName());
-            res.put("email",         db.getEmail());
-            res.put("token",         token);
+
+            res.put("success", true);
+            res.put("status", "active");
+            res.put("deliveryBoyId",   db.getId());
+            res.put("name",            db.getName());
+            res.put("email",           db.getEmail());
+            res.put("deliveryBoyCode", db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
             return ResponseEntity.ok(res);
+
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Login failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // DELIVERY BOY — DASHBOARD & ACTIONS (stateless, header-auth)
+    // All endpoints identify the delivery boy via X-Delivery-Boy-Id header.
+    // ═══════════════════════════════════════════════════════
+
+    /** Resolve delivery boy from X-Delivery-Boy-Id header. Returns null if invalid. */
+    private DeliveryBoy resolveDeliveryBoy(jakarta.servlet.http.HttpServletRequest request) {
+        String hdr = request.getHeader("X-Delivery-Boy-Id");
+        if (hdr == null || hdr.isBlank()) return null;
+        try {
+            int id = Integer.parseInt(hdr.trim());
+            return deliveryBoyRepository.findById(id).orElse(null);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
     /**
-     * GET /api/flutter/auth/delivery/warehouses  (public — no auth required)
-     * Returns active warehouses for the delivery registration warehouse dropdown.
+     * GET /api/flutter/delivery/home
+     * Returns profile + orders split into toPickUp(SHIPPED), outNow(OUT_FOR_DELIVERY), delivered(DELIVERED).
+     * Matches the website's delivery-home.html data model exactly.
      */
-    @GetMapping("/auth/delivery/warehouses")
-    public ResponseEntity<Map<String, Object>> deliveryRegisterWarehouses() {
-        Map<String, Object> res = new HashMap<>();
-        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
-        List<Map<String, Object>> list = new ArrayList<>();
-        for (Warehouse wh : warehouses) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id",   wh.getId());
-            m.put("name", wh.getName());
-            m.put("city", wh.getCity());
-            list.add(m);
+    @GetMapping("/delivery/home")
+    public ResponseEntity<Map<String, Object>> deliveryHome(
+            jakarta.servlet.http.HttpServletRequest request) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = resolveDeliveryBoy(request);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Not authenticated");
+            return ResponseEntity.status(401).body(res);
         }
-        res.put("success",    true);
-        res.put("warehouses", list);
+        // Refresh from DB
+        db = deliveryBoyRepository.findById(db.getId()).orElseThrow();
+
+        // Profile block
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("id",               db.getId());
+        profile.put("name",             db.getName());
+        profile.put("email",            db.getEmail());
+        profile.put("mobile",           db.getMobile());
+        profile.put("deliveryBoyCode",  db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
+        profile.put("assignedPinCodes", db.getAssignedPinCodes() != null ? db.getAssignedPinCodes() : "");
+        if (db.getWarehouse() != null) {
+            Map<String, Object> wh = new LinkedHashMap<>();
+            wh.put("id",   db.getWarehouse().getId());
+            wh.put("name", db.getWarehouse().getName());
+            wh.put("city", db.getWarehouse().getCity());
+            wh.put("code", db.getWarehouse().getWarehouseCode());
+            profile.put("warehouse", wh);
+        } else {
+            profile.put("warehouse", null);
+        }
+        // Check pending warehouse change request
+        Optional<WarehouseChangeRequest> pendingReq = warehouseChangeRequestRepository
+                .findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
+        profile.put("hasPendingWarehouseRequest", pendingReq.isPresent());
+
+        // Orders split by tracking status (matches website: toPickUp, outNow, delivered)
+        List<Order> allAssigned = orderRepository.findByDeliveryBoy(db);
+        List<Map<String, Object>> toPickUp  = new ArrayList<>();
+        List<Map<String, Object>> outNow    = new ArrayList<>();
+        List<Map<String, Object>> delivered = new ArrayList<>();
+
+        for (Order o : allAssigned) {
+            Map<String, Object> om = orderToMap(o);
+            TrackingStatus s = o.getTrackingStatus();
+            if (s == TrackingStatus.SHIPPED)               toPickUp.add(om);
+            else if (s == TrackingStatus.OUT_FOR_DELIVERY) outNow.add(om);
+            else if (s == TrackingStatus.DELIVERED)        delivered.add(om);
+        }
+
+        res.put("success",   true);
+        res.put("profile",   profile);
+        res.put("toPickUp",  toPickUp);   // SHIPPED   → Mark Picked Up
+        res.put("outNow",    outNow);     // OUT_FOR_DELIVERY → Confirm Delivery (OTP)
+        res.put("delivered", delivered);  // DELIVERED → history
+        return ResponseEntity.ok(res);
+    }
+
+    /** Helper: convert Order to map for delivery responses */
+    private Map<String, Object> orderToMap(Order o) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id",              o.getId());
+        m.put("trackingStatus",  o.getTrackingStatus().name());
+        m.put("statusDisplay",   o.getTrackingStatus().getDisplayName());
+        m.put("amount",          o.getAmount());
+        m.put("totalPrice",      o.getTotalPrice());
+        m.put("paymentMode",     o.getPaymentMode());
+        m.put("deliveryTime",    o.getDeliveryTime());
+        m.put("currentCity",     o.getCurrentCity() != null ? o.getCurrentCity() : "");
+        m.put("deliveryAddress", o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");
+        if (o.getCustomer() != null) {
+            Map<String, Object> cust = new LinkedHashMap<>();
+            cust.put("id",     o.getCustomer().getId());
+            cust.put("name",   o.getCustomer().getName());
+            cust.put("mobile", o.getCustomer().getMobile());
+            m.put("customer", cust);
+        }
+        // Include items
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (o.getItems() != null) {
+            for (Item item : o.getItems()) {
+                Map<String, Object> im = new LinkedHashMap<>();
+                im.put("productName", item.getName() != null ? item.getName() : "");
+                im.put("quantity",    item.getQuantity());
+                im.put("price",       item.getPrice());
+                items.add(im);
+            }
+        }
+        m.put("items", items);
+        return m;
+    }
+
+    /**
+     * POST /api/flutter/delivery/order/{id}/pickup
+     * Marks order as OUT_FOR_DELIVERY, sends OTP email to customer.
+     * Header: X-Delivery-Boy-Id
+     */
+    @PostMapping("/delivery/order/{id}/pickup")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> flutterMarkPickedUp(
+            @PathVariable int id,
+            jakarta.servlet.http.HttpServletRequest request) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = resolveDeliveryBoy(request);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Not authenticated");
+            return ResponseEntity.status(401).body(res);
+        }
+        db = deliveryBoyRepository.findById(db.getId()).orElseThrow();
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false); res.put("message", "Order not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false); res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+        if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
+            res.put("success", false);
+            res.put("message", "Order status is " + order.getTrackingStatus().getDisplayName() + " — cannot mark pickup");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        String city = db.getWarehouse() != null ? db.getWarehouse().getCity() : "Warehouse";
+        order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
+        order.setCurrentCity("On the way — " + city);
+        orderRepository.save(order);
+
+        trackingEventLogRepository.save(new TrackingEventLog(
+            order, TrackingStatus.OUT_FOR_DELIVERY,
+            "On the way — " + city,
+            "Parcel picked up by delivery boy " + db.getName(), "delivery_boy"));
+
+        // Generate and send OTP to customer
+        int otp = new Random().nextInt(100000, 1000000);
+        deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
+        deliveryOtpRepository.save(new DeliveryOtp(order, otp));
+
+        try {
+            emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId());
+        } catch (Exception e) {
+            System.err.println("Delivery OTP email failed: " + e.getMessage());
+        }
+
+        res.put("success", true);
+        res.put("message", "Marked as Out for Delivery. OTP sent to customer's email.");
         return ResponseEntity.ok(res);
     }
 
     /**
-     * POST /api/flutter/auth/delivery/register
-     * Body: { name, email, mobile, password, confirmPassword, warehouseId }
-     * Mirrors DeliveryBoyService.selfRegister() but returns JSON.
-     * On success: account created, OTP emailed, pending admin approval.
-     * Returns: { success, message }
+     * POST /api/flutter/delivery/order/{id}/deliver
+     * Confirms delivery using customer OTP.
+     * Body: { otp: 123456 }
+     * Header: X-Delivery-Boy-Id
      */
-    @PostMapping("/auth/delivery/register")
-    public ResponseEntity<Map<String, Object>> deliveryRegister(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String name            = ((String) body.getOrDefault("name",            "")).trim();
-            String email           = ((String) body.getOrDefault("email",           "")).trim().toLowerCase();
-            String password        = ((String) body.getOrDefault("password",        "")).trim();
-            String confirmPassword = ((String) body.getOrDefault("confirmPassword", "")).trim();
-            String mobileStr       = body.getOrDefault("mobile", "").toString().trim();
-            int warehouseId;
-            try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
-            catch (NumberFormatException e) { warehouseId = 0; }
-
-            if (name.length() < 3)                    { res.put("success", false); res.put("message", "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
-            if (!email.contains("@"))                  { res.put("success", false); res.put("message", "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
-            if (deliveryBoyRepository.existsByEmail(email)) { res.put("success", false); res.put("message", "This email is already registered"); return ResponseEntity.badRequest().body(res); }
-            if (!password.equals(confirmPassword))     { res.put("success", false); res.put("message", "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
-            if (password.length() < 6)                 { res.put("success", false); res.put("message", "Password must be at least 6 characters"); return ResponseEntity.badRequest().body(res); }
-            if (warehouseId <= 0)                      { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
-
-            long mobile;
-            try { mobile = Long.parseLong(mobileStr); }
-            catch (NumberFormatException e) { res.put("success", false); res.put("message", "Enter a valid 10-digit mobile number"); return ResponseEntity.badRequest().body(res); }
-
-            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
-            if (warehouse == null) { res.put("success", false); res.put("message", "Selected warehouse not found"); return ResponseEntity.badRequest().body(res); }
-
-            DeliveryBoy db = new DeliveryBoy();
-            db.setName(name);
-            db.setEmail(email);
-            db.setMobile(mobile);
-            db.setPassword(AES.encrypt(password));
-            db.setVerified(false);
-            db.setAdminApproved(false);
-            db.setActive(true);
-            db.setWarehouse(warehouse);
-            db.setAssignedPinCodes("");
-
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            db.setOtp(otp);
-            deliveryBoyRepository.save(db);
-            db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
-            deliveryBoyRepository.save(db);
-
-            try { emailSender.sendDeliveryBoyOtp(db); }
-            catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
-
-            res.put("success", true);
-            res.put("message", "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Registration failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
+    @PostMapping("/delivery/order/{id}/deliver")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> flutterConfirmDelivery(
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = resolveDeliveryBoy(request);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Not authenticated");
+            return ResponseEntity.status(401).body(res);
         }
+
+        int submittedOtp;
+        try {
+            submittedOtp = Integer.parseInt(body.getOrDefault("otp", "0").toString());
+        } catch (NumberFormatException e) {
+            res.put("success", false); res.put("message", "Invalid OTP format");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false); res.put("message", "Order not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false); res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+        if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
+            res.put("success", false); res.put("message", "Order is not out for delivery");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
+        if (deliveryOtp == null) {
+            res.put("success", false); res.put("message", "No OTP found for this order");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (deliveryOtp.isUsed()) {
+            res.put("success", false); res.put("message", "OTP already used");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (deliveryOtp.getOtp() != submittedOtp) {
+            res.put("success", false); res.put("message", "Wrong OTP. Ask the customer for the correct OTP.");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        deliveryOtp.setUsed(true);
+        deliveryOtp.setUsedAt(LocalDateTime.now());
+        deliveryOtpRepository.save(deliveryOtp);
+
+        order.setTrackingStatus(TrackingStatus.DELIVERED);
+        order.setCurrentCity("Delivered");
+        orderRepository.save(order);
+
+        trackingEventLogRepository.save(new TrackingEventLog(
+            order, TrackingStatus.DELIVERED,
+            "Delivered to customer",
+            "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy"));
+
+        try {
+            emailSender.sendDeliveryConfirmation(order.getCustomer(), order);
+        } catch (Exception e) {
+            System.err.println("Delivery confirmation email failed: " + e.getMessage());
+        }
+
+        res.put("success", true);
+        res.put("message", "Order #" + id + " marked as Delivered!");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/delivery/warehouse-change/request
+     * Body: { warehouseId: int, reason: string }
+     * Header: X-Delivery-Boy-Id
+     */
+    @PostMapping("/delivery/warehouse-change/request")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> flutterRequestWarehouseChange(
+            @RequestBody Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        DeliveryBoy db = resolveDeliveryBoy(request);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Not authenticated");
+            return ResponseEntity.status(401).body(res);
+        }
+        db = deliveryBoyRepository.findById(db.getId()).orElseThrow();
+
+        int warehouseId;
+        try {
+            warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString());
+        } catch (NumberFormatException e) {
+            res.put("success", false); res.put("message", "Invalid warehouse ID");
+            return ResponseEntity.badRequest().body(res);
+        }
+        String reason = (String) body.getOrDefault("reason", "");
+
+        Optional<WarehouseChangeRequest> existing = warehouseChangeRequestRepository
+                .findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
+        if (existing.isPresent()) {
+            res.put("success", false);
+            res.put("message", "You already have a pending warehouse change request. Please wait for admin to review it.");
+            return ResponseEntity.ok(res);
+        }
+
+        Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
+        if (requested == null) {
+            res.put("success", false); res.put("message", "Warehouse not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
+            res.put("success", false); res.put("message", "You are already assigned to this warehouse");
+            return ResponseEntity.ok(res);
+        }
+
+        WarehouseChangeRequest req = new WarehouseChangeRequest();
+        req.setDeliveryBoy(db);
+        req.setRequestedWarehouse(requested);
+        req.setReason(reason.trim());
+        req.setStatus(WarehouseChangeRequest.Status.PENDING);
+        req.setRequestedAt(LocalDateTime.now());
+        warehouseChangeRequestRepository.save(req);
+
+        res.put("success", true);
+        res.put("message", "Warehouse change request submitted. Admin will review it shortly.");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/flutter/delivery/warehouses
+     * Returns all active warehouses (for change-warehouse dropdown).
+     */
+    @GetMapping("/delivery/warehouses")
+    public ResponseEntity<Map<String, Object>> flutterGetWarehouses() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
+        List<Map<String, Object>> data = warehouses.stream().map(wh -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",   wh.getId());
+            m.put("name", wh.getName());
+            m.put("city", wh.getCity());
+            m.put("code", wh.getWarehouseCode());
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true);
+        res.put("warehouses", data);
+        return ResponseEntity.ok(res);
     }
 
     // ═══════════════════════════════════════════════════════
-    // AUTH — FORGOT PASSWORD  (Customer + Vendor)
-    //
-    // Flow driven by AuthPage.jsx:
-    //   Step 1 — POST /auth/{role}/forgot-password   body: { email }
-    //            → generates OTP, emails it, returns { success }
-    //   Step 2 — POST /auth/{role}/verify-otp        body: { email, otp }  (otp is a STRING "123456")
-    //            → validates OTP, marks email as verified in otpVerified map
-    //   Step 3 — POST /auth/{role}/reset-password    body: { email, newPassword }
-    //            → checks otpVerified map, sets new password, clears flag
-    //
-    // The frontend never sends customerId/vendorId — email is the key throughout.
-    // OTP is transmitted as a string from the 6-box input widget.
+    // BANNERS  (new — mobile home carousel)
     // ═══════════════════════════════════════════════════════
 
-    /** POST /api/flutter/auth/customer/forgot-password */
-    @PostMapping("/auth/customer/forgot-password")
-    public ResponseEntity<Map<String, Object>> customerForgotPassword(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            if (email.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Email is required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Customer customer = customerRepository.findByEmail(email);
-            if (customer == null) {
-                // Generic response — avoids leaking which emails are registered
-                res.put("success", true);
-                res.put("message", "If that email is registered, an OTP has been sent");
-                return ResponseEntity.ok(res);
-            }
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            customer.setOtp(otp);
-            customerRepository.save(customer);
-            emailSender.send(customer);   // reuses existing OTP email template
-            // Clear any previously-verified flag for this email so a fresh verify is required
-            otpVerified.remove(email);
-            res.put("success", true);
-            res.put("message", "OTP sent to your registered email");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to send OTP: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
-    }
+    /**
+     * GET /api/flutter/banners
+     *
+     * Returns banners where active=true AND showOnCustomerHome=true,
+     * ordered by displayOrder ASC — the same banners shown on the
+     * post-login website customer-home.html carousel.
+     *
+     * Response: { success, banners: [ { id, title, imageUrl, linkUrl, displayOrder } ] }
+     */
+    @GetMapping("/banners")
+    public ResponseEntity<Map<String, Object>> getCustomerHomeBanners() {
+        List<Banner> banners = bannerRepository
+                .findByActiveTrueAndShowOnCustomerHomeTrueOrderByDisplayOrderAsc();
 
-    /** POST /api/flutter/auth/customer/verify-otp */
-    @PostMapping("/auth/customer/verify-otp")
-    public ResponseEntity<Map<String, Object>> customerVerifyOtp(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
-            if (email.isEmpty() || otpStr.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Email and OTP are required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Customer customer = customerRepository.findByEmail(email);
-            if (customer == null) {
-                res.put("success", false);
-                res.put("message", "No account found with this email");
-                return ResponseEntity.badRequest().body(res);
-            }
-            int otp;
-            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
-                res.put("success", false);
-                res.put("message", "Invalid OTP format");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (customer.getOtp() != otp) {
-                res.put("success", false);
-                res.put("message", "Invalid or expired OTP");
-                return ResponseEntity.badRequest().body(res);
-            }
-            // Mark this email as OTP-verified so reset-password can proceed
-            otpVerified.put(email, "customer");
-            res.put("success", true);
-            res.put("message", "OTP verified");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Verification failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
-    }
+        List<Map<String, Object>> bannerList = banners.stream().map(b -> {
+            Map<String, Object> bm = new LinkedHashMap<>();
+            bm.put("id",           b.getId());
+            bm.put("title",        b.getTitle()    != null ? b.getTitle()    : "");
+            bm.put("imageUrl",     b.getImageUrl() != null ? b.getImageUrl() : "");
+            bm.put("linkUrl",      b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
+            bm.put("displayOrder", b.getDisplayOrder());
+            return bm;
+        }).collect(Collectors.toList());
 
-    /** POST /api/flutter/auth/customer/reset-password */
-    @PostMapping("/auth/customer/reset-password")
-    public ResponseEntity<Map<String, Object>> customerResetPassword(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String newPassword = (String) body.get("newPassword");
-            if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
-                res.put("success", false);
-                res.put("message", "Email and new password are required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (!otpVerified.containsKey(email)) {
-                res.put("success", false);
-                res.put("message", "OTP not verified — please complete the OTP step first");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Customer customer = customerRepository.findByEmail(email);
-            if (customer == null) {
-                res.put("success", false);
-                res.put("message", "Account not found");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPassword.length() < 8) {
-                res.put("success", false);
-                res.put("message", "Password must be at least 8 characters");
-                return ResponseEntity.badRequest().body(res);
-            }
-            customer.setPassword(AES.encrypt(newPassword));
-            customer.setOtp(0);   // invalidate OTP so it cannot be reused
-            customerRepository.save(customer);
-            otpVerified.remove(email);   // consume the verified flag — one use only
-            res.put("success", true);
-            res.put("message", "Password reset successfully. Please log in.");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Reset failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
-    }
-
-    // ── Vendor mirror ─────────────────────────────────────────────────────────
-
-    /** POST /api/flutter/auth/vendor/forgot-password */
-    @PostMapping("/auth/vendor/forgot-password")
-    public ResponseEntity<Map<String, Object>> vendorForgotPassword(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            if (email.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Email is required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Vendor vendor = vendorRepository.findByEmail(email);
-            if (vendor == null) {
-                res.put("success", true);
-                res.put("message", "If that email is registered, an OTP has been sent");
-                return ResponseEntity.ok(res);
-            }
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            vendor.setOtp(otp);
-            vendorRepository.save(vendor);
-            emailSender.send(vendor);
-            otpVerified.remove(email);
-            res.put("success", true);
-            res.put("message", "OTP sent to your registered email");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to send OTP: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
-    }
-
-    /** POST /api/flutter/auth/vendor/verify-otp */
-    @PostMapping("/auth/vendor/verify-otp")
-    public ResponseEntity<Map<String, Object>> vendorVerifyOtp(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
-            if (email.isEmpty() || otpStr.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Email and OTP are required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Vendor vendor = vendorRepository.findByEmail(email);
-            if (vendor == null) {
-                res.put("success", false);
-                res.put("message", "No account found with this email");
-                return ResponseEntity.badRequest().body(res);
-            }
-            int otp;
-            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
-                res.put("success", false);
-                res.put("message", "Invalid OTP format");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (vendor.getOtp() != otp) {
-                res.put("success", false);
-                res.put("message", "Invalid or expired OTP");
-                return ResponseEntity.badRequest().body(res);
-            }
-            otpVerified.put(email, "vendor");
-            res.put("success", true);
-            res.put("message", "OTP verified");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Verification failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
-    }
-
-    /** POST /api/flutter/auth/vendor/reset-password */
-    @PostMapping("/auth/vendor/reset-password")
-    public ResponseEntity<Map<String, Object>> vendorResetPassword(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        try {
-            String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String newPassword = (String) body.get("newPassword");
-            if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
-                res.put("success", false);
-                res.put("message", "Email and new password are required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (!otpVerified.containsKey(email)) {
-                res.put("success", false);
-                res.put("message", "OTP not verified — please complete the OTP step first");
-                return ResponseEntity.badRequest().body(res);
-            }
-            Vendor vendor = vendorRepository.findByEmail(email);
-            if (vendor == null) {
-                res.put("success", false);
-                res.put("message", "Account not found");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPassword.length() < 8) {
-                res.put("success", false);
-                res.put("message", "Password must be at least 8 characters");
-                return ResponseEntity.badRequest().body(res);
-            }
-            vendor.setPassword(AES.encrypt(newPassword));
-            vendor.setOtp(0);
-            vendorRepository.save(vendor);
-            otpVerified.remove(email);
-            res.put("success", true);
-            res.put("message", "Password reset successfully. Please log in.");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Reset failed: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(res);
-        }
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("count",   bannerList.size());
+        res.put("banners", bannerList);
+        return ResponseEntity.ok(res);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -678,59 +666,20 @@ public class FlutterApiController {
     @GetMapping("/products")
     public ResponseEntity<Map<String, Object>> getProducts(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false, defaultValue = "default") String sortBy) {
+            @RequestParam(required = false) String category) {
         Map<String, Object> res = new HashMap<>();
         List<Product> products;
-
-        // 1. Build the candidate set using search / category / all
         if (search != null && !search.isBlank()) {
-            java.util.Set<Product> found = new java.util.LinkedHashSet<>();
-            found.addAll(productRepository.findByNameContainingIgnoreCase(search));
-            found.addAll(productRepository.findByDescriptionContainingIgnoreCase(search));
-            found.addAll(productRepository.findByCategoryContainingIgnoreCase(search));
-            products = found.stream()
-                    .filter(Product::isApproved)
-                    .collect(Collectors.toList());
+            products = productRepository.findByNameContainingIgnoreCase(search)
+                    .stream().filter(Product::isApproved).collect(Collectors.toList());
         } else if (category != null && !category.isBlank()) {
             products = productRepository.findByCategoryAndApprovedTrue(category);
         } else {
             products = productRepository.findByApprovedTrue();
         }
-
-        // 2. Apply price range filters (in-memory — avoids extra repo methods)
-        if (minPrice != null) {
-            products = products.stream()
-                    .filter(p -> p.getPrice() >= minPrice)
-                    .collect(Collectors.toList());
-        }
-        if (maxPrice != null) {
-            products = products.stream()
-                    .filter(p -> p.getPrice() <= maxPrice)
-                    .collect(Collectors.toList());
-        }
-
-        // 3. Sort
-        switch (sortBy == null ? "default" : sortBy.toLowerCase()) {
-            case "price_asc":
-                products.sort(Comparator.comparingDouble(Product::getPrice));
-                break;
-            case "price_desc":
-                products.sort(Comparator.comparingDouble(Product::getPrice).reversed());
-                break;
-            case "name":
-                products.sort(Comparator.comparing(p -> p.getName() == null ? "" : p.getName().toLowerCase()));
-                break;
-            default:
-                // default order: approved products as returned by the DB
-                break;
-        }
-
-        res.put("success",  true);
-        res.put("count",    products.size());
+        res.put("success", true);
         res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
+        res.put("count", products.size());
         return ResponseEntity.ok(res);
     }
 
@@ -744,8 +693,9 @@ public class FlutterApiController {
             return ResponseEntity.badRequest().body(res);
         }
         Map<String, Object> pm = mapProduct(p);
-        // Include reviews — use targeted query, not findAll()
-        List<Review> reviews = reviewRepository.findByProductId(id);
+        List<Review> reviews = reviewRepository.findAll().stream()
+                .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
+                .collect(Collectors.toList());
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         pm.put("reviews", reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
@@ -766,7 +716,9 @@ public class FlutterApiController {
     @GetMapping("/products/{id}/reviews")
     public ResponseEntity<Map<String, Object>> getProductReviews(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        List<Review> reviews = reviewRepository.findByProductId(id);
+        List<Review> reviews = reviewRepository.findAll().stream()
+                .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
+                .collect(Collectors.toList());
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         res.put("success", true);
         res.put("reviews", reviews.stream().map(r -> {
@@ -800,168 +752,25 @@ public class FlutterApiController {
 
     /** GET /api/flutter/cart */
     @GetMapping("/cart")
-    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
-        if (cart == null) { res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put("count", 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
+        if (cart == null) { res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("count", 0); return ResponseEntity.ok(res); }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
-        double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-
-        // Attach any currently-applied coupon so the frontend can restore UI state
-        Coupon applied = appliedCoupons.get(customerId);
-        double couponDiscount = 0;
-        if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
-            couponDiscount = applied.calculateDiscount(subtotal);
-            res.put("couponApplied",  true);
-            res.put("couponCode",     applied.getCode());
-            res.put("couponDiscount", couponDiscount);
-        } else {
-            if (applied != null) appliedCoupons.remove(customerId); // expired/invalid since applied
-            res.put("couponApplied",  false);
-            res.put("couponCode",     "");
-            res.put("couponDiscount", 0.0);
-        }
-
-        double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-        double deliveryCharge     = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
-        double total              = discountedSubtotal + deliveryCharge;
-
-        res.put("success",       true);
-        res.put("items",         items);
-        res.put("itemCount",     items.size());
-        res.put("subtotal",      subtotal);           // pre-discount subtotal (for "add ₹X for free delivery" hint)
-        res.put("couponDiscount",couponDiscount);      // already set above, re-affirm here for clarity
-        res.put("deliveryCharge",deliveryCharge);      // 0 when free, 40 otherwise
-        res.put("total",         total);               // discounted subtotal + delivery
-        res.put("count",         items.size());
+        double total = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
+        res.put("success", true); res.put("items", items); res.put("total", total); res.put("count", items.size());
         return ResponseEntity.ok(res);
     }
 
-    // ── COUPON ENDPOINTS ──────────────────────────────────────────────────────
-
-    /**
-     * GET /api/flutter/coupons
-     * Returns all currently valid (active, not expired, within usage limit) coupons
-     * for display on the customer Coupons page.
-     * Wraps the result in { success, coupons: [...] } to match the apiFetch convention.
-     */
-    @GetMapping("/coupons")
-    public ResponseEntity<Map<String, Object>> getActiveCoupons() {
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> list = couponRepository.findByActiveTrue().stream()
-                .filter(Coupon::isValid)
-                .map(c -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("code",           c.getCode());
-                    m.put("description",    c.getDescription());
-                    m.put("type",           c.getType().name());
-                    m.put("value",          c.getValue());
-                    m.put("typeLabel",      c.getTypeLabel());
-                    m.put("minOrderAmount", c.getMinOrderAmount());
-                    m.put("maxDiscount",    c.getMaxDiscount());
-                    m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
-                    return m;
-                })
-                .collect(Collectors.toList());
-        res.put("success", true);
-        res.put("coupons", list);
-        return ResponseEntity.ok(res);
-    }
-
-    
-
-    /**
-     * POST /api/flutter/cart/coupon
-     * Body: { "code": "SAVE10" }
-     * Validates the coupon against the customer's current cart total and
-     * stores it in the in-memory appliedCoupons map for this session.
-     * Returns discount amount so the frontend can update the summary immediately.
-     */
-    @PostMapping("/cart/coupon")
-    public ResponseEntity<Map<String, Object>> applyCoupon(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
-        }
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        String code = body.get("code") instanceof String s ? s.toUpperCase().trim() : "";
-        if (code.isEmpty()) {
-            res.put("success", false); res.put("message", "Coupon code is required");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // Look up the coupon
-        Coupon coupon = couponRepository.findByCode(code).orElse(null);
-        if (coupon == null) {
-            res.put("success", false); res.put("message", "Invalid coupon code");
-            return ResponseEntity.ok(res);
-        }
-        if (!coupon.isValid()) {
-            res.put("success", false); res.put("message", "This coupon has expired or reached its usage limit");
-            return ResponseEntity.ok(res);
-        }
-
-        // Calculate current cart subtotal
-        Cart cart = customer.getCart();
-        double subtotal = (cart == null) ? 0 :
-                cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-
-        if (subtotal < coupon.getMinOrderAmount()) {
-            res.put("success", false);
-            res.put("message", "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
-            return ResponseEntity.ok(res);
-        }
-
-        double discount = coupon.calculateDiscount(subtotal);
-
-        // Store for this customer (overwrites any previously applied coupon)
-        appliedCoupons.put(customerId, coupon);
-
-        res.put("success",      true);
-        res.put("code",         coupon.getCode());
-        res.put("description",  coupon.getDescription());
-        res.put("discount",     discount);
-        res.put("typeLabel",    coupon.getTypeLabel());
-        res.put("message",      coupon.getDescription() + " — saving ₹" + (int) discount);
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * DELETE /api/flutter/cart/coupon
-     * Removes any currently-applied coupon for this customer.
-     */
-    @DeleteMapping("/cart/coupon")
-    public ResponseEntity<Map<String, Object>> removeCoupon(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
-        }
-        appliedCoupons.remove(customerId);
-        res.put("success", true); res.put("message", "Coupon removed");
-        return ResponseEntity.ok(res);
-    }
-
-        /** POST /api/flutter/cart/add */
+    /** POST /api/flutter/cart/add */
     @PostMapping("/cart/add")
-        public ResponseEntity<Map<String, Object>> addToCart(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+    public ResponseEntity<Map<String, Object>> addToCart(
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-                if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int productId = Integer.parseInt(body.get("productId").toString());
@@ -992,49 +801,44 @@ public class FlutterApiController {
 
     /** DELETE /api/flutter/cart/remove/{productId} */
     @DeleteMapping("/cart/remove/{productId}")
-        public ResponseEntity<Map<String, Object>> removeFromCart(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int productId) {
+    @Transactional
+    public ResponseEntity<Map<String, Object>> removeFromCart(
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
-            Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
-        List<Item> toRemove = customer.getCart().getItems().stream()
-            .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-            .collect(java.util.stream.Collectors.toList());
-        if (toRemove.isEmpty()) {
-            res.put("success", false); res.put("message", "Item not found in cart");
-            return ResponseEntity.status(404).body(res);
-        }
-        customer.getCart().getItems().removeAll(toRemove);
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+        List<Item> toDelete = customer.getCart().getItems().stream()
+                .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+                .collect(Collectors.toList());
+        customer.getCart().getItems().removeAll(toDelete);
         customerRepository.save(customer);
-        itemRepository.deleteAll(toRemove);  // explicit delete — ensures DB row is gone even without orphanRemoval
+        itemRepository.deleteAll(toDelete);
         res.put("success", true); res.put("message", "Removed from cart");
         return ResponseEntity.ok(res);
     }
 
     /** PUT /api/flutter/cart/update */
     @PutMapping("/cart/update")
-        public ResponseEntity<Map<String, Object>> updateCart(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+    public ResponseEntity<Map<String, Object>> updateCart(
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
-            Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
         int quantity  = Integer.parseInt(body.get("quantity").toString());
         Cart cart = customer.getCart();
         if (quantity <= 0) {
-            List<Item> toRemove = cart.getItems().stream()
-                .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-                .collect(java.util.stream.Collectors.toList());
-            cart.getItems().removeAll(toRemove);
+            List<Item> toDelete = cart.getItems().stream()
+                    .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+                    .collect(Collectors.toList());
+            cart.getItems().removeAll(toDelete);
             customerRepository.save(customer);
-            itemRepository.deleteAll(toRemove);
+            itemRepository.deleteAll(toDelete);
         } else {
             cart.getItems().stream()
-                .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-                .findFirst().ifPresent(i -> i.setQuantity(quantity));
+                    .filter(i -> i.getProductId() != null && i.getProductId() == productId)
+                    .findFirst().ifPresent(i -> i.setQuantity(quantity));
             customerRepository.save(customer);
         }
         res.put("success", true); res.put("message", "Cart updated");
@@ -1045,34 +849,31 @@ public class FlutterApiController {
     // ORDERS — CUSTOMER
     // ═══════════════════════════════════════════════════════
 
-
-    /** POST /api/flutter/orders/place — splits cart by vendor into sub-orders */
+    /**
+     * POST /api/flutter/orders/place
+     *
+     * Accepts both legacy (flat city) and structured address formats.
+     * Body: {
+     *   paymentMode, deliveryTime,
+     *   // Structured address (preferred):
+     *   recipientName, houseStreet, city, state, postalCode
+     *   // OR legacy fallback:
+     *   city
+     * }
+     */
     @PostMapping("/orders/place")
     public ResponseEntity<Map<String, Object>> placeOrder(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) {
-                res.put("success", false); res.put("message", "Customer not found");
-                return ResponseEntity.badRequest().body(res);
-            }
+            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             Cart cart = customer.getCart();
-            if (cart == null || cart.getItems().isEmpty()) {
-                res.put("success", false); res.put("message", "Cart is empty");
-                return ResponseEntity.badRequest().body(res);
-            }
+            if (cart == null || cart.getItems().isEmpty()) { res.put("success", false); res.put("message", "Cart is empty"); return ResponseEntity.badRequest().body(res); }
 
-            String paymentMode    = (String) body.getOrDefault("paymentMode", "COD");
-            String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
-            double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
-
-            // ── Coupon — resolve discount from in-memory store ───────────────
-            Coupon appliedCoupon = appliedCoupons.get(customerId);
-
-            // ── Validate stock for all items first ──────────────
+            List<Item> orderItems = new ArrayList<>();
+            double total = 0;
             for (Item cartItem : cart.getItems()) {
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
                 if (product == null || product.getStock() < cartItem.getQuantity()) {
@@ -1080,136 +881,80 @@ public class FlutterApiController {
                     res.put("message", "Insufficient stock for: " + cartItem.getName());
                     return ResponseEntity.badRequest().body(res);
                 }
+                product.setStock(product.getStock() - cartItem.getQuantity());
+                productRepository.save(product);
+                Item oi = new Item();
+                oi.setName(cartItem.getName()); oi.setDescription(cartItem.getDescription());
+                oi.setPrice(cartItem.getPrice()); oi.setCategory(cartItem.getCategory());
+                oi.setQuantity(cartItem.getQuantity()); oi.setImageLink(cartItem.getImageLink());
+                oi.setProductId(cartItem.getProductId());
+                orderItems.add(oi);
+                total += cartItem.getPrice() * cartItem.getQuantity();
             }
 
-            // ── Group cart items by vendor ───────────────────────
-            Map<Integer, List<Item>>   vendorItems = new LinkedHashMap<>();
-            Map<Integer, Vendor>       vendorMap   = new LinkedHashMap<>();
+            String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
+            double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
-            double grandTotal = 0;
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                int vKey = (product != null && product.getVendor() != null)
-                           ? product.getVendor().getId() : 0;
-                if (product != null && product.getVendor() != null)
-                    vendorMap.put(vKey, product.getVendor());
-                vendorItems.computeIfAbsent(vKey, k -> new ArrayList<>()).add(cartItem);
-                grandTotal += cartItem.getPrice() * cartItem.getQuantity();
-            }
+            // ── Structured address support ──────────────────────────────────
+            // If recipientName is provided use the structured address fields;
+            // otherwise fall back to legacy flat "city" string.
+            String deliveryAddress;
+            String recipientName = (String) body.get("recipientName");
+            if (recipientName != null && !recipientName.isBlank()) {
+                String houseStreet = (String) body.getOrDefault("houseStreet", "");
+                String city        = (String) body.getOrDefault("city",        "");
+                String state       = (String) body.getOrDefault("state",       "");
+                String postalCode  = (String) body.getOrDefault("postalCode",  "");
 
-            // Apply coupon discount to grandTotal (validate again in case cart changed)
-            double couponDiscount = 0;
-            String appliedCouponCode = "";
-            if (appliedCoupon != null && appliedCoupon.isValid()
-                    && grandTotal >= appliedCoupon.getMinOrderAmount()) {
-                couponDiscount   = appliedCoupon.calculateDiscount(grandTotal);
-                appliedCouponCode = appliedCoupon.getCode();
-            }
-            double discountedTotal = Math.max(0, grandTotal - couponDiscount);
-
-            // ── Deduct stock ────────────────────────────────────
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null) {
-                    product.setStock(product.getStock() - cartItem.getQuantity());
-                    productRepository.save(product);
-                }
-            }
-
-            boolean multiVendor = vendorItems.size() > 1;
-            Integer parentId    = null;
-            Order   firstOrder  = null;
-            List<Integer> subOrderIds = new ArrayList<>();
-
-            for (Map.Entry<Integer, List<Item>> entry : vendorItems.entrySet()) {
-                int vKey              = entry.getKey();
-                List<Item> group      = entry.getValue();
-                Vendor vendor         = vendorMap.get(vKey);
-
-                double subTotal = 0;
-                for (Item ci : group) subTotal += ci.getPrice() * ci.getQuantity();
-                // Pro-rate the coupon discount across vendor sub-orders by their share of grandTotal
-                double subDiscount = (grandTotal > 0) ? couponDiscount * (subTotal / grandTotal) : 0;
-                double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
-
-                List<Item> orderItems = new ArrayList<>();
-                for (Item cartItem : group) {
-                    Item oi = new Item();
-                    oi.setName(cartItem.getName());
-                    oi.setDescription(cartItem.getDescription());
-                    oi.setPrice(cartItem.getPrice());
-                    oi.setCategory(cartItem.getCategory());
-                    oi.setQuantity(cartItem.getQuantity());
-                    oi.setImageLink(cartItem.getImageLink());
-                    oi.setProductId(cartItem.getProductId());
-                    orderItems.add(oi);
+                // Validate PIN if provided
+                if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
+                    res.put("success", false);
+                    res.put("message", PinCodeValidator.ERROR_MESSAGE);
+                    return ResponseEntity.badRequest().body(res);
                 }
 
-                Order subOrder = new Order();
-                subOrder.setCustomer(customer);
-                subOrder.setItems(orderItems);
-                subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
-                subOrder.setDeliveryCharge(subDelivery);
-                subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
-                subOrder.setPaymentMode(paymentMode);
-                subOrder.setDeliveryTime(deliveryTime);
-                subOrder.setDateTime(LocalDateTime.now());
-                subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-                subOrder.setCurrentCity((String) body.getOrDefault("city", ""));
-                if (vendor != null) {
-                    subOrder.setVendorId(vendor.getId());
-                    subOrder.setVendorName(vendor.getName());
-                }
-
-                orderRepository.save(subOrder);
-
-                if (firstOrder == null) {
-                    firstOrder = subOrder;
-                    if (multiVendor) {
-                        parentId = subOrder.getId();
-                        subOrder.setParentOrderId(parentId);
-                        orderRepository.save(subOrder);
-                    }
-                } else {
-                    subOrder.setParentOrderId(parentId);
-                    orderRepository.save(subOrder);
-                }
-
-                subOrderIds.add(subOrder.getId());
+                // Build a formatted address string for the Order record
+                deliveryAddress = recipientName.trim()
+                        + (houseStreet.isBlank() ? "" : ", " + houseStreet.trim())
+                        + (city.isBlank()        ? "" : ", " + city.trim())
+                        + (state.isBlank()       ? "" : ", " + state.trim())
+                        + (postalCode.isBlank()  ? "" : " - " + postalCode.trim());
+            } else {
+                // Legacy: just a city string
+                deliveryAddress = (String) body.getOrDefault("city", "");
             }
 
-            // Clear cart
+            Order order = new Order();
+            order.setCustomer(customer);
+            order.setItems(orderItems);
+            order.setAmount(total);
+            order.setDeliveryCharge(deliveryCharge);
+            order.setTotalPrice(total + deliveryCharge);
+            order.setPaymentMode((String) body.getOrDefault("paymentMode", "COD"));
+            order.setDeliveryTime(deliveryTime);
+            order.setDateTime(LocalDateTime.now());
+            order.setTrackingStatus(TrackingStatus.PROCESSING);
+            order.setCurrentCity(deliveryAddress);
+            orderRepository.save(order);
+
             cart.getItems().clear();
             customerRepository.save(customer);
 
-            // Increment coupon usedCount and clear from in-memory store
-            if (appliedCoupon != null && !appliedCouponCode.isEmpty()) {
-                appliedCoupon.setUsedCount(appliedCoupon.getUsedCount() + 1);
-                couponRepository.save(appliedCoupon);
-                appliedCoupons.remove(customerId);
-            }
-
-            res.put("success",        true);
-            res.put("message",        "Order placed successfully");
-            res.put("orderId",        firstOrder.getId());
-            res.put("subOrderIds",    subOrderIds);
-            res.put("totalPrice",     discountedTotal + deliveryCharge);
-            res.put("couponDiscount", couponDiscount);
-            res.put("couponCode",     appliedCouponCode);
+            res.put("success", true);
+            res.put("message", "Order placed successfully");
+            res.put("orderId", order.getId());
+            res.put("totalPrice", order.getTotalPrice());
             return ResponseEntity.ok(res);
-
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", e.getMessage());
+            res.put("success", false); res.put("message", e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
 
     /** GET /api/flutter/orders */
     @GetMapping("/orders")
-    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
@@ -1221,94 +966,30 @@ public class FlutterApiController {
     /** GET /api/flutter/orders/{id} */
     @GetMapping("/orders/{id}")
     public ResponseEntity<Map<String, Object>> getOrder(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         res.put("success", true); res.put("order", mapOrder(order));
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * GET /api/flutter/orders/{id}/track
-     *
-     * JWT-authenticated equivalent of OrderTrackingController (which uses HttpSession).
-     * Returns the full tracking timeline from TrackingEventLog for the React/Flutter client.
-     *
-     * Response shape:
-     * {
-     *   success         : true,
-     *   orderId         : int,
-     *   currentStatus   : "SHIPPED",
-     *   currentCity     : "Chennai",
-     *   progressPercent : 33,
-     *   estimatedDelivery: "2026-03-31T14:00:00"   // omitted when delivered/cancelled
-     *   history: [
-     *     { status: "PROCESSING", location: "Mumbai", description: "Order confirmed",
-     *       timestamp: "2026-03-29T10:00:00" },
-     *     ...
-     *   ]
-     * }
-     */
-    @GetMapping("/orders/{id}/track")
-    public ResponseEntity<Map<String, Object>> trackOrder(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
-            @PathVariable int id) {
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
-        }
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer() == null || order.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", "Order not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        TrackingStatus status = order.getTrackingStatus();
-
-        // Real event log — rows inserted by actual workflow actions (vendor packed, delivery boy picked up, etc.)
-        List<TrackingEventLog> events = trackingEventLogRepository.findByOrderOrderByEventTimeAsc(order);
-        List<Map<String, Object>> history = events.stream().map(e -> {
-            Map<String, Object> ev = new HashMap<>();
-            ev.put("status",      e.getStatus() != null ? e.getStatus().name() : null);
-            ev.put("location",    e.getCity());
-            ev.put("description", e.getDescription());
-            ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
-            return ev;
-        }).collect(Collectors.toList());
-
-        res.put("success",          true);
-        res.put("orderId",          order.getId());
-        res.put("currentStatus",    status != null ? status.name() : null);
-        res.put("currentCity",      order.getCurrentCity());
-        res.put("progressPercent",  status != null ? status.getProgressPercent() : 0);
-
-        // Estimated delivery: only meaningful when order is still in transit
-        if (order.getOrderDate() != null && status != null
-                && status != TrackingStatus.DELIVERED
-                && status != TrackingStatus.CANCELLED
-                && status != TrackingStatus.REFUNDED) {
-            res.put("estimatedDelivery", order.getOrderDate().plusHours(48).toString());
-        }
-
-        res.put("history", history);
-        return ResponseEntity.ok(res);
-    }
-
     /** POST /api/flutter/orders/{id}/cancel */
     @PostMapping("/orders/{id}/cancel")
     public ResponseEntity<Map<String, Object>> cancelOrder(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
-        if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put("success", false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
+        if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) {
+            res.put("success", false); res.put("message", "Cannot cancel this order");
+            return ResponseEntity.badRequest().body(res);
+        }
         for (Item item : order.getItems()) {
             if (item.getProductId() != null) {
-                productRepository.findById(item.getProductId()).ifPresent(p -> { p.setStock(p.getStock() + item.getQuantity()); productRepository.save(p); });
+                productRepository.findById(item.getProductId()).ifPresent(p -> {
+                    p.setStock(p.getStock() + item.getQuantity()); productRepository.save(p);
+                });
             }
         }
         order.setTrackingStatus(TrackingStatus.CANCELLED); orderRepository.save(order);
@@ -1317,96 +998,13 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
-    // REPORT ISSUE / RAISE DISPUTE  (X-Customer-Id)
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * POST /api/flutter/orders/{id}/report-issue
-     *
-     * Request body (JSON):
-     *   { "reason": "Wrong item delivered", "description": "Optional extra details..." }
-     *
-     * - Validates the order exists and belongs to the authenticated customer.
-     * - Sends an HTML admin notification email via EmailSender (async, fire-and-forget).
-     * - Writes a structured audit line to stdout for log aggregation / search.
-     * - Returns { success: true } to the Flutter app regardless of email outcome,
-     *   so the UI never shows a false failure.
-     *
-     * TODO (future): create an OrderDispute entity + repository and persist here
-     *   instead of (or in addition to) the email/log approach.
-     */
-    @PostMapping("/orders/{id}/report-issue")
-    public ResponseEntity<Map<String, Object>> reportIssue(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
-            @PathVariable int id,
-            @RequestBody Map<String, String> body,
-            HttpServletRequest req) {
-
-        Map<String, Object> res = new HashMap<>();
-
-        // ── 1. Auth check ──────────────────────────────────────────────────
-        if (customerId == null) {
-            res.put("success", false);
-            res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // ── 2. Validate order ownership ────────────────────────────────────
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) {
-            res.put("success", false);
-            res.put("message", "Order not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        // ── 3. Extract and validate body ───────────────────────────────────
-        String reason      = body != null ? body.get("reason")      : null;
-        String description = body != null ? body.get("description") : null;
-
-        if (reason == null || reason.isBlank()) {
-            res.put("success", false);
-            res.put("message", "reason is required");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // ── 4. Structured audit log (searchable without a DB table) ────────
-        String customerEmail = order.getCustomer().getEmail();
-        System.out.printf(
-            "[DISPUTE] orderId=%d customerId=%d customerEmail=%s reason=\"%s\" description=\"%s\" ip=%s at=%s%n",
-            id, customerId, customerEmail, reason,
-            description != null ? description : "",
-            req.getRemoteAddr(),
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        );
-
-        // ── 5. Admin notification email (async — failure won't break API) ──
-        try {
-            emailSender.sendDisputeNotification(
-                adminEmail,    // to
-                adminEmail,    // from (reuse admin email as sender identity)
-                id, customerId, customerEmail, reason, description
-            );
-        } catch (Exception e) {
-            System.err.println("[DISPUTE] Admin email dispatch failed: " + e.getMessage());
-        }
-
-        // ── 6. Respond ─────────────────────────────────────────────────────
-        res.put("success", true);
-        res.put("message", "Your issue has been reported. Our team will review it shortly.");
-        res.put("orderId", id);
-        res.put("reason", reason);
-        return ResponseEntity.ok(res);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // WISHLIST  (X-Customer-Id)
+    // WISHLIST
     // ═══════════════════════════════════════════════════════
 
     /** GET /api/flutter/wishlist */
     @GetMapping("/wishlist")
-    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
@@ -1424,9 +1022,8 @@ public class FlutterApiController {
 
     /** GET /api/flutter/wishlist/ids */
     @GetMapping("/wishlist/ids")
-    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
@@ -1438,10 +1035,9 @@ public class FlutterApiController {
     /** POST /api/flutter/wishlist/toggle */
     @PostMapping("/wishlist/toggle")
     public ResponseEntity<Map<String, Object>> toggleWishlist(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Integer productId = body.get("productId");
@@ -1462,33 +1058,29 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
-    // PROFILE  (X-Customer-Id)
+    // PROFILE
     // ═══════════════════════════════════════════════════════
 
     /** GET /api/flutter/profile */
     @GetMapping("/profile")
-    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", customer.getId()); profile.put("name", customer.getName());
         profile.put("email", customer.getEmail()); profile.put("mobile", customer.getMobile());
         profile.put("profileImage", customer.getProfileImage());
-        profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
-        profile.put("provider",  customer.getProvider()  != null ? customer.getProvider() : "local");
         profile.put("addresses", customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
-            am.put("id",            a.getId());
+            am.put("id",              a.getId());
             am.put("formattedAddress", a.getFormattedAddress());
-            am.put("recipientName", a.getRecipientName() != null ? a.getRecipientName() : "");
-            am.put("houseStreet",   a.getHouseStreet()   != null ? a.getHouseStreet()   : "");
-            am.put("city",          a.getCity()          != null ? a.getCity()          : "");
-            am.put("state",         a.getState()         != null ? a.getState()         : "");
-            am.put("postalCode",    a.getPostalCode()    != null ? a.getPostalCode()    : "");
-            // legacy fallback
-            am.put("details",       a.getDetails()       != null ? a.getDetails()       : "");
+            am.put("recipientName",   a.getRecipientName() != null ? a.getRecipientName() : "");
+            am.put("houseStreet",     a.getHouseStreet()   != null ? a.getHouseStreet()   : "");
+            am.put("city",            a.getCity()          != null ? a.getCity()          : "");
+            am.put("state",           a.getState()         != null ? a.getState()         : "");
+            am.put("postalCode",      a.getPostalCode()    != null ? a.getPostalCode()    : "");
+            am.put("details",         a.getDetails()       != null ? a.getDetails()       : "");
             return am;
         }).collect(Collectors.toList()));
         res.put("success", true); res.put("profile", profile);
@@ -1498,10 +1090,9 @@ public class FlutterApiController {
     /** PUT /api/flutter/profile/update */
     @PutMapping("/profile/update")
     public ResponseEntity<Map<String, Object>> updateProfile(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
@@ -1518,10 +1109,9 @@ public class FlutterApiController {
      */
     @PostMapping("/profile/address/add")
     public ResponseEntity<Map<String, Object>> addAddress(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
@@ -1530,7 +1120,6 @@ public class FlutterApiController {
 
         String recipientName = body.get("recipientName");
         if (recipientName != null && !recipientName.isBlank()) {
-            // Structured form submission
             address.setRecipientName(recipientName.trim());
             address.setHouseStreet(body.getOrDefault("houseStreet", "").trim());
             address.setCity(body.getOrDefault("city", "").trim());
@@ -1543,7 +1132,6 @@ public class FlutterApiController {
             }
             address.setPostalCode(postalCode);
         } else {
-            // Legacy flat-text fallback
             String details = body.get("address");
             if (details == null || details.isBlank()) {
                 res.put("success", false); res.put("message", "Address cannot be empty");
@@ -1562,9 +1150,8 @@ public class FlutterApiController {
     /** DELETE /api/flutter/profile/address/{id}/delete */
     @DeleteMapping("/profile/address/{id}/delete")
     public ResponseEntity<Map<String, Object>> deleteAddress(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
@@ -1574,20 +1161,25 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
-    // REVIEWS  (X-Customer-Id)
+    // REVIEWS
     // ═══════════════════════════════════════════════════════
 
-    /** POST /api/flutter/reviews/add */
+    /**
+     * POST /api/flutter/reviews/add
+     *
+     * The Flutter app enforces the delivery gate client-side (only shows
+     * the review button after a DELIVERED order), but we do NOT re-validate
+     * server-side to keep the endpoint simple and allow admin overrides.
+     */
     @PostMapping("/reviews/add")
     public ResponseEntity<Map<String, Object>> addReview(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        int productId = Integer.parseInt(body.get("productId").toString());
-        int rating    = Integer.parseInt(body.get("rating").toString());
+        int productId  = Integer.parseInt(body.get("productId").toString());
+        int rating     = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
@@ -1596,110 +1188,130 @@ public class FlutterApiController {
         review.setCustomerName(customer.getName());
         reviewRepository.save(review);
         res.put("success", true); res.put("message", "Review added successfully");
-        res.put("reviewId", review.getId());
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // NOTIFY ME — Back-in-Stock  (X-Customer-Id)
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * POST /api/flutter/notify-me/{productId}
+     * Subscribe the logged-in customer to a back-in-stock notification.
+     */
+    @PostMapping("/notify-me/{productId}")
+    public ResponseEntity<Map<String, Object>> notifyMeSubscribe(
+            @RequestHeader("X-Customer-Id") int customerId,
+            @PathVariable int productId) {
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) {
+            res.put("success", false); res.put("message", "Customer not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+        Product product = productRepository.findById(productId).orElse(null);
+        if (product == null) {
+            res.put("success", false); res.put("message", "Product not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        if (product.getStock() > 0) {
+            res.put("success", false);
+            res.put("message", "Product is already in stock — add it to your cart!");
+            res.put("subscribed", false);
+            return ResponseEntity.badRequest().body(res);
+        }
+        // Prevent duplicate subscriptions
+        if (backInStockRepository.existsByCustomerAndProductAndNotifiedFalse(customer, product)) {
+            res.put("success", true);
+            res.put("subscribed", true);
+            res.put("message", "You are already subscribed. We'll email you when it's back!");
+            return ResponseEntity.ok(res);
+        }
+        BackInStockSubscription sub = new BackInStockSubscription(customer, product);
+        backInStockRepository.save(sub);
+        res.put("success", true);
+        res.put("subscribed", true);
+        res.put("message", "You'll be notified when " + product.getName() + " is back in stock!");
         return ResponseEntity.ok(res);
     }
 
     /**
-     * POST /api/flutter/reviews/{reviewId}/upload-image
-     * Multipart upload of up to 5 evidence photos for a review.
-     * Field name: "images" (multiple files).
-     * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per review.
-     * Header: X-Customer-Id — ownership enforced via customerName match.
+     * DELETE /api/flutter/notify-me/{productId}
+     * Unsubscribe the logged-in customer from a back-in-stock notification.
      */
-    @PostMapping(value = "/reviews/{reviewId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadReviewImageFlutter(
-            @PathVariable int reviewId,
-            @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
-
+    @DeleteMapping("/notify-me/{productId}")
+    public ResponseEntity<Map<String, Object>> notifyMeUnsubscribe(
+            @RequestHeader("X-Customer-Id") int customerId,
+            @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.status(401).body(res);
-        }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
             res.put("success", false); res.put("message", "Customer not found");
-            return ResponseEntity.status(404).body(res);
-        }
-        Review review = reviewRepository.findById(reviewId).orElse(null);
-        if (review == null) {
-            res.put("success", false); res.put("message", "Review not found");
-            return ResponseEntity.status(404).body(res);
-        }
-        // Ownership: Review stores customerName (no FK), match against logged-in customer
-        if (!review.getCustomerName().equals(customer.getName())) {
-            res.put("success", false); res.put("message", "You can only add photos to your own reviews");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        long existing = reviewImageRepository.countByReviewId(reviewId);
-        int slots = (int) (5 - existing);
-        if (slots <= 0) {
-            res.put("success", false); res.put("message", "Maximum 5 photos already uploaded for this review");
             return ResponseEntity.badRequest().body(res);
         }
-
-        int uploaded = 0;
-        List<String> errors  = new java.util.ArrayList<>();
-        List<String> urls    = new java.util.ArrayList<>();
-
-        for (int i = 0; i < Math.min(files.size(), slots); i++) {
-            org.springframework.web.multipart.MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) continue;
-            String ct = file.getContentType();
-            boolean validType = ct != null && (ct.equals("image/jpeg") || ct.equals("image/png") || ct.equals("image/webp"));
-            boolean validSize = file.getSize() <= 5 * 1024 * 1024;
-            if (!validType || !validSize) {
-                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : "file")
-                    + ": must be JPG/PNG/WEBP, max 5 MB");
-                continue;
-            }
-            try {
-                String url = cloudinaryHelper.saveToCloudinary(file);
-                ReviewImage img = new ReviewImage();
-                img.setReview(review);
-                img.setImageUrl(url);
-                reviewImageRepository.save(img);
-                urls.add(url);
-                uploaded++;
-            } catch (Exception e) {
-                errors.add("Upload failed: " + e.getMessage());
-            }
+        Product product = productRepository.findById(productId).orElse(null);
+        if (product == null) {
+            res.put("success", false); res.put("message", "Product not found");
+            return ResponseEntity.status(404).body(res);
         }
+        Optional<BackInStockSubscription> existing =
+                backInStockRepository.findByCustomerAndProduct(customer, product);
+        if (existing.isPresent()) {
+            backInStockRepository.delete(existing.get());
+            res.put("success", true);
+            res.put("subscribed", false);
+            res.put("message", "Notification removed");
+        } else {
+            res.put("success", true);
+            res.put("subscribed", false);
+            res.put("message", "No active subscription found");
+        }
+        return ResponseEntity.ok(res);
+    }
 
-        if (uploaded == 0 && !errors.isEmpty()) {
-            res.put("success", false);
-            res.put("message", String.join("; ", errors));
+    /**
+     * GET /api/flutter/notify-me/{productId}
+     * Check whether the logged-in customer is subscribed to a back-in-stock notification.
+     * Response: { success, subscribed }
+     */
+    @GetMapping("/notify-me/{productId}")
+    public ResponseEntity<Map<String, Object>> notifyMeStatus(
+            @RequestHeader("X-Customer-Id") int customerId,
+            @PathVariable int productId) {
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) {
+            res.put("success", false); res.put("message", "Customer not found");
             return ResponseEntity.badRequest().body(res);
         }
-
+        Product product = productRepository.findById(productId).orElse(null);
+        if (product == null) {
+            res.put("success", true); res.put("subscribed", false);
+            return ResponseEntity.ok(res);
+        }
+        boolean subscribed = backInStockRepository
+                .existsByCustomerAndProductAndNotifiedFalse(customer, product);
         res.put("success", true);
-        res.put("uploaded", uploaded);
-        res.put("urls", urls);
-        if (!errors.isEmpty()) res.put("warnings", errors);
-        res.put("message", uploaded + " photo(s) added to your review");
+        res.put("subscribed", subscribed);
         return ResponseEntity.ok(res);
     }
 
     // ═══════════════════════════════════════════════════════
-    // SPENDING SUMMARY  (X-Customer-Id)
+    // SPENDING SUMMARY
     // ═══════════════════════════════════════════════════════
 
     /** GET /api/flutter/spending-summary */
     @GetMapping("/spending-summary")
-    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).collect(Collectors.toList());
         if (delivered.isEmpty()) { res.put("success", true); res.put("hasData", false); return ResponseEntity.ok(res); }
         double totalSpent = delivered.stream().mapToDouble(Order::getAmount).sum();
-        int totalOrders   = delivered.size();
-        double avgOrder   = totalOrders > 0 ? totalSpent / totalOrders : 0;
+        int    totalOrders = delivered.size();
+        double avgOrder    = totalOrders > 0 ? totalSpent / totalOrders : 0;
         Map<String, Double> catSpend = new LinkedHashMap<>();
         for (Order o : delivered) {
             for (Item item : o.getItems()) {
@@ -1724,20 +1336,19 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
-    // REFUNDS  (X-Customer-Id)
+    // REFUNDS
     // ═══════════════════════════════════════════════════════
 
     /** POST /api/flutter/refund/request  —  body: { orderId, reason, type } */
     @PostMapping("/refund/request")
     public ResponseEntity<Map<String, Object>> requestRefund(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-            int orderId  = Integer.parseInt(body.get("orderId").toString());
+            int orderId   = Integer.parseInt(body.get("orderId").toString());
             String reason = (String) body.getOrDefault("reason", "");
             String type   = (String) body.getOrDefault("type", "REFUND");
             Order order = orderRepository.findById(orderId).orElse(null);
@@ -1745,7 +1356,6 @@ public class FlutterApiController {
             if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put("success", false); res.put("message", "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
             Refund refund = new Refund();
             refund.setOrder(order); refund.setCustomer(customer);
-            // Prepend type (REFUND/REPLACEMENT) to reason so it's stored without a separate column
             refund.setReason("[" + type + "] " + reason);
             refund.setStatus(RefundStatus.PENDING);
             refund.setAmount(order.getTotalPrice());
@@ -1759,163 +1369,27 @@ public class FlutterApiController {
     /** GET /api/flutter/refund/status/{orderId} */
     @GetMapping("/refund/status/{orderId}")
     public ResponseEntity<Map<String, Object>> getRefundStatus(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int orderId) {
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
         if (refunds.isEmpty()) { res.put("success", true); res.put("hasRefund", false); return ResponseEntity.ok(res); }
         Refund latest = refunds.get(refunds.size() - 1);
         res.put("success", true); res.put("hasRefund", true);
-        res.put("refundId", latest.getId());
         res.put("status", latest.getStatus().name());
-        // reason is stored as "[TYPE] actual reason" — parse them back out
-        String storedReason = latest.getReason() != null ? latest.getReason() : "";
-        String refundType = "REFUND";
+        String storedReason  = latest.getReason() != null ? latest.getReason() : "";
+        String refundType    = "REFUND";
         String displayReason = storedReason;
-        if (storedReason.startsWith("[REFUND] ")) {
-            refundType = "REFUND";
-            displayReason = storedReason.substring(9);
-        } else if (storedReason.startsWith("[REPLACEMENT] ")) {
-            refundType = "REPLACEMENT";
-            displayReason = storedReason.substring(14);
-        }
+        if (storedReason.startsWith("[REFUND] "))       { refundType = "REFUND";       displayReason = storedReason.substring(9);  }
+        else if (storedReason.startsWith("[REPLACEMENT] ")) { refundType = "REPLACEMENT"; displayReason = storedReason.substring(14); }
         res.put("reason", displayReason);
         res.put("type", refundType);
         return ResponseEntity.ok(res);
     }
 
-
     // ═══════════════════════════════════════════════════════
-    // REFUND IMAGE UPLOAD  (X-Customer-Id + JWT)
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * POST /api/flutter/refund/{refundId}/upload-image
-     * Multipart upload of up to 5 evidence images for a refund request.
-     * Accepts: multipart/form-data, field name "images" (multiple files).
-     * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per refund.
-     * Header: X-Customer-Id (ownership enforced)
-     */
-    @PostMapping(value = "/refund/{refundId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadRefundImageFlutter(
-            @PathVariable int refundId,
-            @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
-
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.status(401).body(res);
-        }
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
-            return ResponseEntity.status(404).body(res);
-        }
-        Refund refund = refundRepository.findById(refundId).orElse(null);
-        if (refund == null) {
-            res.put("success", false); res.put("message", "Refund not found");
-            return ResponseEntity.status(404).body(res);
-        }
-        if (refund.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", "Access denied");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        long existing = refundImageRepository.countByRefundId(refundId);
-        int slots = (int) (5 - existing);
-        if (slots <= 0) {
-            res.put("success", false); res.put("message", "Maximum 5 evidence images already uploaded");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        int uploaded = 0;
-        List<String> errors = new java.util.ArrayList<>();
-        List<String> uploadedUrls = new java.util.ArrayList<>();
-
-        for (int i = 0; i < Math.min(files.size(), slots); i++) {
-            org.springframework.web.multipart.MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) continue;
-
-            String ct = file.getContentType();
-            boolean validType = ct != null && (ct.equals("image/jpeg") || ct.equals("image/png") || ct.equals("image/webp"));
-            boolean validSize = file.getSize() <= 5 * 1024 * 1024;
-            if (!validType || !validSize) {
-                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : "file")
-                    + ": must be JPG/PNG/WEBP, max 5 MB");
-                continue;
-            }
-
-            try {
-                String url = cloudinaryHelper.saveToCloudinary(file);
-                RefundImage img = new RefundImage();
-                img.setRefund(refund);
-                img.setImageUrl(url);
-                refundImageRepository.save(img);
-                uploadedUrls.add(url);
-                uploaded++;
-            } catch (Exception e) {
-                errors.add("Upload failed: " + e.getMessage());
-            }
-        }
-
-        if (uploaded == 0 && !errors.isEmpty()) {
-            res.put("success", false);
-            res.put("message", String.join("; ", errors));
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        res.put("success", true);
-        res.put("uploaded", uploaded);
-        res.put("urls", uploadedUrls);
-        if (!errors.isEmpty()) res.put("warnings", errors);
-        res.put("message", uploaded + " image(s) uploaded successfully");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * GET /api/flutter/refund/{refundId}/images
-     * Returns all evidence images for a refund.
-     * Header: X-Customer-Id (ownership enforced)
-     */
-    @GetMapping("/refund/{refundId}/images")
-    public ResponseEntity<Map<String, Object>> getRefundImagesFlutter(
-            @PathVariable int refundId,
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
-
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) {
-            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.status(401).body(res);
-        }
-        Refund refund = refundRepository.findById(refundId).orElse(null);
-        if (refund == null) {
-            res.put("success", false); res.put("message", "Refund not found");
-            return ResponseEntity.status(404).body(res);
-        }
-        if (refund.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", "Access denied");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        List<RefundImage> images = refundImageRepository.findByRefundId(refundId);
-        List<Map<String, Object>> data = new java.util.ArrayList<>();
-        for (RefundImage img : images) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", img.getId());
-            m.put("imageUrl", img.getImageUrl());
-            data.add(m);
-        }
-        res.put("success", true);
-        res.put("images", data);
-        res.put("count", data.size());
-        return ResponseEntity.ok(res);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // VENDOR — VIEW  (X-Vendor-Id)
+    // VENDOR — VIEW
     // ═══════════════════════════════════════════════════════
 
     /** GET /api/flutter/vendor/products */
@@ -1953,73 +1427,6 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/vendor/orders/{orderId}/mark-packed
-     *
-     * Marks an order as PACKED (vendor has physically packed the items,
-     * ready for courier pickup). Only succeeds when the order contains at
-     * least one product belonging to this vendor.
-     *
-     * Request headers: X-Vendor-Id  (set automatically by apiFetch for VENDOR role)
-     * Path variable  : orderId
-     * Response body  : { success, message, orderId, newStatus }
-     */
-    @PostMapping("/vendor/orders/{orderId}/mark-packed")
-    public ResponseEntity<Map<String, Object>> vendorMarkOrderPacked(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @PathVariable int orderId) {
-        Map<String, Object> res = new HashMap<>();
-
-        // 1. Validate vendor
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) {
-            res.put("success", false);
-            res.put("message", "Vendor not found");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // 2. Validate order
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            res.put("success", false);
-            res.put("message", "Order not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        // 3. Confirm the order contains at least one product owned by this vendor
-        List<Integer> vendorProductIds = productRepository.findByVendor(vendor)
-                .stream()
-                .map(Product::getId)
-                .collect(Collectors.toList());
-
-        boolean hasVendorItem = order.getItems().stream()
-                .anyMatch(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()));
-
-        if (!hasVendorItem) {
-            res.put("success", false);
-            res.put("message", "This order does not contain any of your products");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        // 4. Reject if already past PACKED (can't go backwards)
-        TrackingStatus current = order.getTrackingStatus();
-        if (current != null && current.getStepIndex() > TrackingStatus.PACKED.getStepIndex()) {
-            res.put("success", false);
-            res.put("message", "Order is already " + current.getDisplayName() + " — cannot revert to Packed");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // 5. Update status and persist
-        order.setTrackingStatus(TrackingStatus.PACKED);
-        orderRepository.save(order);
-
-        res.put("success", true);
-        res.put("message", "Order marked as packed");
-        res.put("orderId", orderId);
-        res.put("newStatus", TrackingStatus.PACKED.name());
-        return ResponseEntity.ok(res);
-    }
-
     /** GET /api/flutter/vendor/stats */
     @GetMapping("/vendor/stats")
     public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader("X-Vendor-Id") int vendorId) {
@@ -2042,7 +1449,7 @@ public class FlutterApiController {
     }
 
     // ═══════════════════════════════════════════════════════
-    // VENDOR — PRODUCT CRUD  (X-Vendor-Id)
+    // VENDOR — PRODUCT CRUD
     // ═══════════════════════════════════════════════════════
 
     /** POST /api/flutter/vendor/products/add */
@@ -2059,14 +1466,8 @@ public class FlutterApiController {
             p.setCategory((String) body.get("category"));
             p.setStock(Integer.parseInt(body.get("stock").toString()));
             p.setImageLink((String) body.getOrDefault("imageLink", ""));
+            Object mrpVal = body.get("mrp"); if (mrpVal != null) p.setMrp(Double.parseDouble(mrpVal.toString()));
             p.setApproved(false); p.setVendor(vendor);
-            Object mrpVal = body.get("mrp");
-            if (mrpVal != null && !mrpVal.toString().isBlank()) {
-                double mrp = Double.parseDouble(mrpVal.toString());
-                if (mrp > 0) p.setMrp(mrp);
-            }
-            Object pins = body.get("allowedPinCodes");
-            if (pins != null && !pins.toString().isBlank()) p.setAllowedPinCodes(pins.toString().trim());
             Object thresh = body.get("stockAlertThreshold");
             if (thresh != null) p.setStockAlertThreshold(Integer.parseInt(thresh.toString()));
             productRepository.save(p);
@@ -2091,6 +1492,7 @@ public class FlutterApiController {
             if (body.containsKey("category"))    p.setCategory((String) body.get("category"));
             if (body.containsKey("stock"))       p.setStock(Integer.parseInt(body.get("stock").toString()));
             if (body.containsKey("imageLink"))   p.setImageLink((String) body.get("imageLink"));
+            if (body.containsKey("mrp"))         p.setMrp(Double.parseDouble(body.get("mrp").toString()));
             if (body.containsKey("stockAlertThreshold")) p.setStockAlertThreshold(Integer.parseInt(body.get("stockAlertThreshold").toString()));
             productRepository.save(p);
             res.put("success", true); res.put("message", "Product updated successfully.");
@@ -2112,269 +1514,311 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/vendor/products/upload-csv
-     * Multipart form: file (CSV)
-     * CSV columns supported: id (optional), name, description, price, mrp (optional), category, stock, imageLink, stockAlertThreshold
-     * If id is provided and product belongs to vendor, the product is updated; otherwise a new product is created (approved=false).
-     */
-    @PostMapping("/vendor/products/upload-csv")
-    public ResponseEntity<Map<String, Object>> vendorUploadCsv(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestParam("file") MultipartFile file) {
+    /** GET /api/flutter/vendor/sales-report */
+    @GetMapping("/vendor/sales-report")
+    public ResponseEntity<Map<String, Object>> vendorSalesReport(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        if (file == null || file.isEmpty()) { res.put("success", false); res.put("message", "No file uploaded"); return ResponseEntity.badRequest().body(res); }
-
-        int created = 0, updated = 0; List<String> errors = new ArrayList<>();
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
-            String header = reader.readLine();
-            if (header == null) { res.put("success", false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
-            String[] cols = parseCsvLine(header);
-            Map<String, Integer> idx = new HashMap<>();
-            for (int i = 0; i < cols.length; i++) idx.put(cols[i].trim().toLowerCase(), i);
-
-            String line; int row = 1;
-            while ((line = reader.readLine()) != null) {
-                row++;
-                if (line.isBlank()) continue;
-                String[] cells = parseCsvLine(line);
-                try {
-                    String idStr = getCell(cells, idx.get("id"));
-                    String name = getCell(cells, idx.get("name"));
-                    String desc = getCell(cells, idx.get("description"));
-                    String priceStr = getCell(cells, idx.get("price"));
-                    String mrpStr = getCell(cells, idx.get("mrp"));
-                    String category = getCell(cells, idx.get("category"));
-                    String stockStr = getCell(cells, idx.get("stock"));
-                    String imageLink = getCell(cells, idx.get("imagelink"));
-                    String threshStr = getCell(cells, idx.get("stockalertthreshold"));
-
-                    if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
-                    if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
-
-                    double price = Double.parseDouble(priceStr);
-                    int stock = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr);
-                    Integer thresh = (threshStr == null || threshStr.isBlank()) ? null : Integer.parseInt(threshStr);
-                    Double mrp = (mrpStr == null || mrpStr.isBlank()) ? 0.0 : Double.parseDouble(mrpStr);
-
-                    if (idStr != null && !idStr.isBlank()) {
-                        int id = Integer.parseInt(idStr);
-                        Product p = productRepository.findById(id).orElse(null);
-                        if (p == null) throw new IllegalArgumentException("Product id " + id + " not found");
-                        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException("Product id " + id + " does not belong to you");
-                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
-                        if (imageLink != null) p.setImageLink(imageLink);
-                        if (thresh != null) p.setStockAlertThreshold(thresh);
-                        productRepository.save(p); updated++;
-                    } else {
-                        Product p = new Product();
-                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
-                        if (imageLink != null) p.setImageLink(imageLink);
-                        if (thresh != null) p.setStockAlertThreshold(thresh);
-                        p.setVendor(vendor); p.setApproved(false);
-                        productRepository.save(p); created++;
-                    }
-                } catch (Exception e) {
-                    errors.add("Row " + row + ": " + e.getMessage());
-                    if (errors.size() > 50) break;
-                }
-            }
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed to process file: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
-
-        res.put("success", true); res.put("created", created); res.put("updated", updated); res.put("errors", errors);
-        return ResponseEntity.ok(res);
-    }
-
-    // Simple CSV parsing for one line: handles quoted commas and trims quotes
-    private String[] parseCsvLine(String line) {
-        List<String> out = new ArrayList<>();
-        StringBuilder cur = new StringBuilder(); boolean inQuotes = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '"') {
-                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') { cur.append('"'); i++; }
-                else inQuotes = !inQuotes;
-            } else if (c == ',' && !inQuotes) {
-                out.add(cur.toString().trim()); cur.setLength(0);
-            } else cur.append(c);
-        }
-        out.add(cur.toString().trim());
-        // strip surrounding quotes if any
-        for (int i = 0; i < out.size(); i++) {
-            String s = out.get(i);
-            if (s.startsWith("\"") && s.endsWith("\"") && s.length() >= 2) s = s.substring(1, s.length() - 1);
-            out.set(i, s);
-        }
-        return out.toArray(new String[0]);
-    }
-
-    private String getCell(String[] cells, Integer idx) {
-        if (idx == null) return null;
-        if (idx < 0 || idx >= cells.length) return null;
-        String s = cells[idx];
-        return (s == null || s.isBlank()) ? null : s.trim();
-    }
-
-    /** GET /api/flutter/vendor/sales-report?period=weekly|monthly|daily */
-    @GetMapping("/vendor/sales-report")
-    public ResponseEntity<Map<String, Object>> vendorSalesReport(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestParam(value = "period", defaultValue = "weekly") String period) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) {
-            res.put("success", false); res.put("message", "Vendor not found");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        List<Product> products = productRepository.findByVendor(vendor);
+        List<Product> products  = productRepository.findByVendor(vendor);
         List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
-
-        // ── Determine date window based on period ────────────────────────────
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        java.time.LocalDateTime windowStart;
-        int buckets;
-        String bucketUnit; // "day", "week", "month"
-
-        switch (period.toLowerCase()) {
-            case "daily":
-                windowStart = now.minusDays(6).toLocalDate().atStartOfDay();
-                buckets     = 7;
-                bucketUnit  = "day";
-                break;
-            case "monthly":
-                windowStart = now.minusMonths(6).withDayOfMonth(1).toLocalDate().atStartOfDay();
-                buckets     = 6;
-                bucketUnit  = "month";
-                break;
-            case "yearly":
-                windowStart = now.minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
-                buckets     = 12;
-                bucketUnit  = "year_month";
-                break;
-            case "weekly":
-            default:
-                windowStart = now.minusWeeks(6).toLocalDate().atStartOfDay();
-                buckets     = 6;
-                bucketUnit  = "week";
-                break;
-        }
-
-        // Fetch orders in the window (non-cancelled only for revenue)
-        List<Order> windowOrders = orderRepository.findOrdersByVendorAndDateRange(vendor, windowStart, now)
-                .stream()
-                .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-                .collect(Collectors.toList());
-
-        // All-time orders for totals
-        List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
-        List<Order> activeOrders = allOrders.stream()
-                .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-                .collect(Collectors.toList());
-
-        // ── Revenue and order count for the window ───────────────────────────
-        double totalRevenue = windowOrders.stream()
-                .flatMap(o -> o.getItems().stream())
+        List<Order>   allOrders = orderRepository.findOrdersByVendor(vendor);
+        List<Order>   activeOrders = allOrders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED).collect(Collectors.toList());
+        double totalRevenue = activeOrders.stream().flatMap(o -> o.getItems().stream())
                 .filter(i -> i.getProductId() != null && productIds.contains(i.getProductId()))
                 .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-
-        int totalOrders = windowOrders.size();
-        double avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-        // ── Build period bucket data for the bar chart ───────────────────────
-        List<Map<String, Object>> data = new java.util.ArrayList<>();
-        for (int i = buckets - 1; i >= 0; i--) {
-            java.time.LocalDateTime bucketStart, bucketEnd;
-            String label;
-
-            if ("day".equals(bucketUnit)) {
-                java.time.LocalDate d = now.toLocalDate().minusDays(i);
-                bucketStart = d.atStartOfDay();
-                bucketEnd   = d.plusDays(1).atStartOfDay();
-                label       = d.getDayOfMonth() + " " + d.getMonth().name().substring(0, 3);
-            } else if ("month".equals(bucketUnit)) {
-                java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(i);
-                bucketStart = ym.atDay(1).atStartOfDay();
-                bucketEnd   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
-                label       = ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
-            } else if ("year_month".equals(bucketUnit)) {
-                // yearly view: 12 monthly buckets, labeled "Jan '25" style
-                java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - i);
-                bucketStart = ym.atDay(1).atStartOfDay();
-                bucketEnd   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
-                label       = ym.getMonth().name().substring(0, 3)
-                              + " '" + String.valueOf(ym.getYear()).substring(2);
-            } else { // week
-                java.time.LocalDate weekStart = now.toLocalDate().minusWeeks(i).with(java.time.DayOfWeek.MONDAY);
-                bucketStart = weekStart.atStartOfDay();
-                bucketEnd   = weekStart.plusWeeks(1).atStartOfDay();
-                label       = "W" + weekStart.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear())
-                              + " " + weekStart.getMonth().name().substring(0, 3);
-            }
-
-            final java.time.LocalDateTime fs = bucketStart, fe = bucketEnd;
-            double bucketRevenue = windowOrders.stream()
-                    .filter(o -> o.getOrderDate() != null
-                            && !o.getOrderDate().isBefore(fs)
-                            &&  o.getOrderDate().isBefore(fe))
-                    .flatMap(o -> o.getItems().stream())
-                    .filter(it -> it.getProductId() != null && productIds.contains(it.getProductId()))
-                    .mapToDouble(it -> it.getPrice() * it.getQuantity()).sum();
-
-            Map<String, Object> bucket = new HashMap<>();
-            bucket.put("label",   label);
-            bucket.put("revenue", Math.round(bucketRevenue * 100.0) / 100.0);
-            data.add(bucket);
-        }
-
-        // ── Top products by units sold (in the window) ───────────────────────
+        long pendingOrders = allOrders.stream().filter(o -> o.getTrackingStatus() == TrackingStatus.PROCESSING || o.getTrackingStatus() == TrackingStatus.SHIPPED).count();
         Map<Integer, Integer> unitsSoldMap = new HashMap<>();
-        for (Order o : windowOrders) {
+        for (Order o : activeOrders) {
             for (Item item : o.getItems()) {
-                if (item.getProductId() != null && productIds.contains(item.getProductId())) {
+                if (item.getProductId() != null && productIds.contains(item.getProductId()))
                     unitsSoldMap.merge(item.getProductId(), item.getQuantity(), Integer::sum);
-                }
             }
         }
-
         List<Map<String, Object>> topProducts = products.stream()
                 .filter(p -> unitsSoldMap.containsKey(p.getId()))
-                .sorted((a, b) -> Integer.compare(
-                        unitsSoldMap.getOrDefault(b.getId(), 0),
-                        unitsSoldMap.getOrDefault(a.getId(), 0)))
-                .limit(10)
-                .map(p -> {
+                .sorted((a, b) -> Integer.compare(unitsSoldMap.getOrDefault(b.getId(), 0), unitsSoldMap.getOrDefault(a.getId(), 0)))
+                .limit(10).map(p -> {
                     Map<String, Object> m = new HashMap<>();
                     int units = unitsSoldMap.getOrDefault(p.getId(), 0);
-                    m.put("id", p.getId()); m.put("name", p.getName());
-                    m.put("unitsSold", units);
-                    m.put("revenue",   Math.round(units * p.getPrice() * 100.0) / 100.0);
+                    m.put("id", p.getId()); m.put("name", p.getName()); m.put("unitsSold", units); m.put("revenue", units * p.getPrice());
                     return m;
                 }).collect(Collectors.toList());
-
-        String topProduct = topProducts.isEmpty() ? "—" : (String) topProducts.get(0).get("name");
-
-        // All-time pending count (useful status signal regardless of period)
-        // All-time pending count (useful status signal regardless of period)
-        long pendingOrders = allOrders.stream()
-                .filter(o -> o.getTrackingStatus() == TrackingStatus.PROCESSING
-                        || o.getTrackingStatus() == TrackingStatus.PACKED
-                        || o.getTrackingStatus() == TrackingStatus.SHIPPED)
-                .count();
-
-        res.put("success",        true);
-        res.put("period",         period);
-        res.put("data",           data);
-        res.put("totalRevenue",   Math.round(totalRevenue * 100.0) / 100.0);
-        res.put("totalOrders",    totalOrders);
-        res.put("totalProducts",  products.size());
-        res.put("avgOrderValue",  Math.round(avgOrderValue * 100.0) / 100.0);
-        res.put("topProduct",     topProduct);
-        res.put("topProducts",    topProducts);
-        res.put("pendingOrders",  pendingOrders);
+        List<Map<String, Object>> recentOrders = allOrders.stream()
+                .sorted(Comparator.comparingInt(Order::getId).reversed()).limit(10).map(o -> {
+                    List<Item> vi = o.getItems().stream().filter(i -> i.getProductId() != null && productIds.contains(i.getProductId())).collect(Collectors.toList());
+                    double vTotal = vi.stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", o.getId()); m.put("trackingStatus", o.getTrackingStatus().name()); m.put("vendorTotal", vTotal);
+                    return m;
+                }).collect(Collectors.toList());
+        res.put("success", true); res.put("totalRevenue", totalRevenue);
+        res.put("totalOrders", allOrders.size()); res.put("totalProducts", products.size());
+        res.put("pendingOrders", pendingOrders); res.put("topProducts", topProducts); res.put("recentOrders", recentOrders);
         return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // VENDOR — PROFILE & STOCK ALERTS
+    // ═══════════════════════════════════════════════════════
+
+    /** GET /api/flutter/vendor/profile */
+    @GetMapping("/vendor/profile")
+    public ResponseEntity<Map<String, Object>> getVendorProfile(@RequestHeader("X-Vendor-Id") int vendorId) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        Map<String, Object> v = new HashMap<>();
+        v.put("id", vendor.getId()); v.put("name", vendor.getName());
+        v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
+        v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
+        res.put("success", true); res.put("vendor", v);
+        return ResponseEntity.ok(res);
+    }
+
+    /** PUT /api/flutter/vendor/profile/update */
+    @PutMapping("/vendor/profile/update")
+    public ResponseEntity<Map<String, Object>> updateVendorProfile(
+            @RequestHeader("X-Vendor-Id") int vendorId, @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (body.containsKey("name") && !((String) body.get("name")).isBlank())
+            vendor.setName((String) body.get("name"));
+        if (body.containsKey("mobile"))
+            try { vendor.setMobile(Long.parseLong(body.get("mobile").toString())); } catch (Exception ignored) {}
+        vendorRepository.save(vendor);
+        res.put("success", true); res.put("message", "Profile updated successfully");
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/flutter/vendor/stock-alerts */
+    @GetMapping("/vendor/stock-alerts")
+    public ResponseEntity<Map<String, Object>> getStockAlerts(@RequestHeader("X-Vendor-Id") int vendorId) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        List<StockAlert> alerts = stockAlertRepository.findByVendor(vendor);
+        alerts.sort((a, b) -> {
+            if (a.isAcknowledged() != b.isAcknowledged()) return a.isAcknowledged() ? 1 : -1;
+            return Integer.compare(b.getId(), a.getId());
+        });
+        int unacknowledged = (int) alerts.stream().filter(a -> !a.isAcknowledged()).count();
+        List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", a.getId());
+            m.put("productName",  a.getProduct() != null ? a.getProduct().getName()  : "Unknown");
+            m.put("productId",    a.getProduct() != null ? a.getProduct().getId()    : 0);
+            m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
+            m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null ? a.getProduct().getStockAlertThreshold() : 10);
+            m.put("message",      a.getMessage());
+            m.put("acknowledged", a.isAcknowledged());
+            m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true); res.put("alerts", alertMaps); res.put("unacknowledgedCount", unacknowledged);
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/vendor/stock-alerts/{id}/acknowledge */
+    @PostMapping("/vendor/stock-alerts/{id}/acknowledge")
+    public ResponseEntity<Map<String, Object>> acknowledgeAlert(
+            @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        StockAlert alert = stockAlertRepository.findById(id).orElse(null);
+        if (alert == null || alert.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Alert not found"); return ResponseEntity.badRequest().body(res); }
+        alert.setAcknowledged(true);
+        stockAlertRepository.save(alert);
+        res.put("success", true); res.put("message", "Alert acknowledged");
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ADMIN
+    // ═══════════════════════════════════════════════════════
+
+    /** GET /api/flutter/admin/users */
+    @GetMapping("/admin/users")
+    public ResponseEntity<Map<String, Object>> adminGetUsers() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", c.getId()); m.put("name", c.getName()); m.put("email", c.getEmail());
+            m.put("mobile", c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
+            return m;
+        }).collect(Collectors.toList());
+        List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
+            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
+            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true); res.put("customers", customers); res.put("vendors", vendors);
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/customers/{id}/toggle-active */
+    @PostMapping("/admin/customers/{id}/toggle-active")
+    public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Customer c = customerRepository.findById(id).orElse(null);
+        if (c == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        c.setActive(!c.isActive()); customerRepository.save(c);
+        res.put("success", true); res.put("message", c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/vendors/{id}/toggle-active */
+    @PostMapping("/admin/vendors/{id}/toggle-active")
+    public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Vendor v = vendorRepository.findById(id).orElse(null);
+        if (v == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        v.setVerified(!v.isVerified()); vendorRepository.save(v);
+        res.put("success", true); res.put("message", v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/flutter/admin/products */
+    @GetMapping("/admin/products")
+    public ResponseEntity<Map<String, Object>> adminGetProducts() {
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("products", productRepository.findAll().stream().map(this::mapProduct).collect(Collectors.toList()));
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/products/{id}/approve */
+    @PostMapping("/admin/products/{id}/approve")
+    public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Product p = productRepository.findById(id).orElse(null);
+        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
+        p.setApproved(true); productRepository.save(p);
+        res.put("success", true); res.put("message", "Product approved and is now visible to customers");
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/products/{id}/reject */
+    @PostMapping("/admin/products/{id}/reject")
+    public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Product p = productRepository.findById(id).orElse(null);
+        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
+        p.setApproved(false); productRepository.save(p);
+        res.put("success", true); res.put("message", "Product rejected / hidden from customers");
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/flutter/admin/orders */
+    @GetMapping("/admin/orders")
+    public ResponseEntity<Map<String, Object>> adminGetOrders() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> orders = orderRepository.findAll().stream()
+                .sorted(Comparator.comparingInt(Order::getId).reversed())
+                .map(this::mapOrder).collect(Collectors.toList());
+        res.put("success", true); res.put("orders", orders);
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/flutter/admin/orders/{id}/status  body: { status } */
+    @PostMapping("/admin/orders/{id}/status")
+    public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
+            @PathVariable int id, @RequestBody Map<String, String> body) {
+        Map<String, Object> res = new HashMap<>();
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        try {
+            TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
+            order.setTrackingStatus(newStatus); orderRepository.save(order);
+            res.put("success", true); res.put("message", "Order status updated to " + newStatus.getDisplayName());
+        } catch (IllegalArgumentException e) {
+            res.put("success", false); res.put("message", "Invalid status: " + body.get("status"));
+            return ResponseEntity.badRequest().body(res);
+        }
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/flutter/admin/vendors */
+    @GetMapping("/admin/vendors")
+    public ResponseEntity<Map<String, Object>> adminGetVendors() {
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
+            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
+            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true); res.put("vendors", vendors);
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // REORDER, PASSWORD CHANGE
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * POST /api/flutter/orders/{id}/reorder
+     * Clears cart and re-adds all in-stock items from the given past order.
+     */
+    @PostMapping("/orders/{id}/reorder")
+    public ResponseEntity<Map<String, Object>> reorder(
+            @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        Cart cart = customer.getCart();
+        if (cart == null) { cart = new Cart(); customer.setCart(cart); }
+        cart.getItems().clear();
+        int addedCount = 0;
+        List<String> outOfStock = new ArrayList<>();
+        for (Item orderItem : order.getItems()) {
+            Product p = productRepository.findById(orderItem.getProductId()).orElse(null);
+            if (p == null || p.getStock() <= 0) { outOfStock.add(orderItem.getName()); continue; }
+            Item newItem = new Item();
+            newItem.setName(p.getName()); newItem.setDescription(p.getDescription());
+            newItem.setPrice(p.getPrice()); newItem.setCategory(p.getCategory());
+            newItem.setQuantity(Math.min(orderItem.getQuantity(), p.getStock()));
+            newItem.setImageLink(p.getImageLink()); newItem.setProductId(p.getId());
+            newItem.setCart(cart);
+            cart.getItems().add(newItem);
+            addedCount++;
+        }
+        customerRepository.save(customer);
+        res.put("success", true);
+        res.put("addedCount", addedCount);
+        res.put("outOfStockItems", outOfStock);
+        res.put("message", addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
+        return ResponseEntity.ok(res);
+    }
+
+    /** PUT /api/flutter/profile/change-password */
+    @PutMapping("/profile/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @RequestHeader("X-Customer-Id") int customerId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Customer customer = customerRepository.findById(customerId).orElse(null);
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        String current = (String) body.get("currentPassword");
+        String newPwd  = (String) body.get("newPassword");
+        if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        try {
+            if (!AES.decrypt(customer.getPassword()).equals(current)) {
+                res.put("success", false); res.put("message", "Current password is incorrect");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
+            customer.setPassword(AES.encrypt(newPwd)); customerRepository.save(customer);
+            res.put("success", true); res.put("message", "Password changed successfully");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -2384,8 +1828,9 @@ public class FlutterApiController {
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", p.getId()); m.put("name", p.getName()); m.put("description", p.getDescription());
-        m.put("price", p.getPrice()); m.put("category", p.getCategory()); m.put("stock", p.getStock());
-        m.put("imageLink", p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
+        m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("category", p.getCategory());
+        m.put("stock", p.getStock()); m.put("imageLink", p.getImageLink());
+        m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
         return m;
@@ -2409,2425 +1854,452 @@ public class FlutterApiController {
         m.put("orderDate", o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested", o.isReplacementRequested());
         m.put("items", o.getItems().stream().map(this::mapItem).collect(Collectors.toList()));
-        // Include customer name for admin views
         if (o.getCustomer() != null) m.put("customerName", o.getCustomer().getName());
         return m;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // ADMIN ENDPOINTS  (no special auth — secured by admin login on web side)
-    // Flutter admin screens call these after admin logs in on web
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — ACCOUNTS (search, stats, profile, toggle, delete, reset-pwd)
+    // ═══════════════════════════════════════════════════════════════════════
 
-    /** GET /api/flutter/admin/users — returns all customers + vendors */
-    @GetMapping("/admin/users")
-    public ResponseEntity<Map<String, Object>> adminGetUsers(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", c.getId()); m.put("name", c.getName()); m.put("email", c.getEmail());
-            m.put("mobile", c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
-            m.put("role", c.getRole() != null ? c.getRole().name() : "CUSTOMER");
-            return m;
-        }).collect(Collectors.toList());
-        List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
-            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
-            return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("customers", customers); res.put("vendors", vendors);
-        return ResponseEntity.ok(res);
-    }
+    @Autowired private com.example.ekart.service.AdminAccountService adminAccountService;
 
-    /** POST /api/flutter/admin/customers/{id}/toggle-active */
-    @PostMapping("/admin/customers/{id}/toggle-active")
-    public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Customer c = customerRepository.findById(id).orElse(null);
-        if (c == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        c.setActive(!c.isActive());
-        customerRepository.save(c);
-        res.put("success", true); res.put("message", c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * PATCH /api/flutter/admin/users/{id}/role
-     *
-     * Changes the Role of a Customer account.
-     * Only Customer entities carry the Role enum (CUSTOMER / ORDER_MANAGER / ADMIN).
-     * Vendors and delivery boys are separate entities with their own auth — not affected here.
-     *
-     * Body: { "role": "ORDER_MANAGER" }
-     * Response: { success, message, userId, oldRole, newRole, userName }
-     */
-    @PatchMapping("/admin/users/{id}/role")
-    public ResponseEntity<Map<String, Object>> adminChangeUserRole(
-            @PathVariable int id,
-            @RequestBody Map<String, String> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-
-        String newRoleStr = body.get("role");
-        if (newRoleStr == null || newRoleStr.isBlank()) {
-            res.put("success", false); res.put("message", "role is required");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        com.example.ekart.dto.Role newRole;
-        try {
-            newRole = com.example.ekart.dto.Role.valueOf(newRoleStr.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            res.put("success", false); res.put("message", "Invalid role: " + newRoleStr);
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        Customer customer = customerRepository.findById(id).orElse(null);
-        if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        com.example.ekart.dto.Role oldRole = customer.getRole();
-        customer.setRole(newRole);
-        customerRepository.save(customer);
-
-        res.put("success",  true);
-        res.put("message",  "Role updated successfully");
-        res.put("userId",   id);
-        res.put("oldRole",  oldRole != null ? oldRole.name() : null);
-        res.put("newRole",  newRole.name());
-        res.put("userName", customer.getName());
-        return ResponseEntity.ok(res);
-    }
-
-    /** POST /api/flutter/admin/vendors/{id}/toggle-active */
-    @PostMapping("/admin/vendors/{id}/toggle-active")
-    public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Vendor v = vendorRepository.findById(id).orElse(null);
-        if (v == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        v.setVerified(!v.isVerified());
-        vendorRepository.save(v);
-        res.put("success", true); res.put("message", v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
-        return ResponseEntity.ok(res);
-    }
-
-    /** GET /api/flutter/admin/products — returns all products with approval status */
-    @GetMapping("/admin/products")
-    public ResponseEntity<Map<String, Object>> adminGetProducts(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> products = productRepository.findAll().stream()
-                .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
-                .map(this::mapProduct).collect(Collectors.toList());
-        res.put("success", true); res.put("products", products);
-        return ResponseEntity.ok(res);
-    }
-
-    /** POST /api/flutter/admin/products/{id}/approve */
-    @PostMapping("/admin/products/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
-        p.setApproved(true);
-        productRepository.save(p);
-        res.put("success", true); res.put("message", "Product approved and is now visible to customers");
-        return ResponseEntity.ok(res);
-    }
-
-    /** POST /api/flutter/admin/products/{id}/reject */
-    @PostMapping("/admin/products/{id}/reject")
-    public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
-        p.setApproved(false);
-        productRepository.save(p);
-        res.put("success", true); res.put("message", "Product rejected / hidden from customers");
-        return ResponseEntity.ok(res);
-    }
-
-    /** GET /api/flutter/admin/orders — all orders with customer info */
-    @GetMapping("/admin/orders")
-    public ResponseEntity<Map<String, Object>> adminGetOrders(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> orders = orderRepository.findAll().stream()
-                .sorted(Comparator.comparingInt(Order::getId).reversed())
-                .limit(200) // cap at 200 most recent orders for admin view
-                .map(this::mapOrder).collect(Collectors.toList());
-        res.put("success", true); res.put("orders", orders);
-        return ResponseEntity.ok(res);
-    }
-
-    /** POST /api/flutter/admin/orders/{id}/status  body: { status } */
-    @PostMapping("/admin/orders/{id}/status")
-    public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
-            @PathVariable int id, @RequestBody Map<String, String> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
-        try {
-            TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
-            order.setTrackingStatus(newStatus);
-            orderRepository.save(order);
-            res.put("success", true); res.put("message", "Order status updated to " + newStatus.getDisplayName());
-        } catch (IllegalArgumentException e) {
-            res.put("success", false); res.put("message", "Invalid status: " + body.get("status"));
-            return ResponseEntity.badRequest().body(res);
-        }
-        return ResponseEntity.ok(res);
-    }
-
-    /** GET /api/flutter/admin/vendors — vendor list (alias of user list vendor section) */
-    @GetMapping("/admin/vendors")
-    public ResponseEntity<Map<String, Object>> adminGetVendors(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
-            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
-            return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("vendors", vendors);
-        return ResponseEntity.ok(res);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // ADMIN — COUPON MANAGEMENT
-    // ═══════════════════════════════════════════════════════
-
-    /** GET /api/flutter/admin/coupons — all coupons with stats */
-    @GetMapping("/admin/coupons")
-    public ResponseEntity<Map<String, Object>> adminGetCoupons(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc().stream().map(c -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id",             c.getId());
-            m.put("code",           c.getCode());
-            m.put("description",    c.getDescription());
-            m.put("type",           c.getType() != null ? c.getType().name() : null);
-            m.put("typeLabel",      c.getTypeLabel());
-            m.put("value",          c.getValue());
-            m.put("minOrderAmount", c.getMinOrderAmount());
-            m.put("maxDiscount",    c.getMaxDiscount());
-            m.put("usageLimit",     c.getUsageLimit());
-            m.put("usedCount",      c.getUsedCount());
-            m.put("active",         c.isActive());
-            m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
-            return m;
-        }).collect(Collectors.toList());
+    /** GET /api/flutter/admin/accounts?search=... */
+    @GetMapping("/admin/accounts")
+    public ResponseEntity<Map<String, Object>> adminGetAccounts(
+            @RequestParam(required = false) String search) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        List<Map<String, Object>> accounts = (search != null && !search.isBlank())
+                ? adminAccountService.searchAccounts(search)
+                : adminAccountService.getAllAccountsWithMetadata();
         res.put("success", true);
-        res.put("coupons", list);
+        res.put("accounts", accounts);
+        res.put("count", accounts.size());
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/admin/coupons/create
-     * Body: { code, description, type, value, minOrderAmount, maxDiscount, usageLimit, expiryDate }
-     * type defaults to "PERCENT" if omitted.
-     */
-    @PostMapping("/admin/coupons/create")
-    public ResponseEntity<Map<String, Object>> adminCreateCoupon(
-            @RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        String code = body.getOrDefault("code", "").toString().toUpperCase().trim();
-        if (code.isEmpty()) { res.put("success", false); res.put("message", "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
-        if (couponRepository.findByCode(code).isPresent()) {
-            res.put("success", false); res.put("message", "Coupon code '" + code + "' already exists");
-            return ResponseEntity.badRequest().body(res);
-        }
-        double value;
-        try { value = Double.parseDouble(body.getOrDefault("value", "0").toString()); }
-        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid discount value"); return ResponseEntity.badRequest().body(res); }
-
-        Coupon coupon = new Coupon();
-        coupon.setCode(code);
-        coupon.setDescription(body.getOrDefault("description", "").toString());
-        coupon.setValue(value);
-        coupon.setActive(true);
-        try { coupon.setMinOrderAmount(Double.parseDouble(body.getOrDefault("minOrderAmount", "0").toString())); } catch (Exception ignored) {}
-        try { coupon.setMaxDiscount(Double.parseDouble(body.getOrDefault("maxDiscount", "0").toString())); } catch (Exception ignored) {}
-        try { coupon.setUsageLimit(Integer.parseInt(body.getOrDefault("usageLimit", "0").toString())); } catch (Exception ignored) {}
-        try {
-            String typeStr = body.getOrDefault("type", "PERCENT").toString().toUpperCase();
-            coupon.setType(Coupon.CouponType.valueOf(typeStr));
-        } catch (Exception e) { coupon.setType(Coupon.CouponType.PERCENT); }
-        try {
-            String expiry = body.getOrDefault("expiryDate", "").toString();
-            if (!expiry.isBlank()) coupon.setExpiryDate(java.time.LocalDate.parse(expiry));
-        } catch (Exception ignored) {}
-
-        couponRepository.save(coupon);
-        res.put("success", true);
-        res.put("message", "Coupon '" + coupon.getCode() + "' created successfully");
-        res.put("id", coupon.getId());
-        return ResponseEntity.ok(res);
+    /** GET /api/flutter/admin/accounts/stats */
+    @GetMapping("/admin/accounts/stats")
+    public ResponseEntity<Map<String, Object>> adminGetAccountStats() {
+        Map<String, Object> stats = adminAccountService.getAccountStats();
+        stats.put("success", true);
+        return ResponseEntity.ok(stats);
     }
 
-    /** POST /api/flutter/admin/coupons/{id}/toggle — flip active flag */
-    @PostMapping("/admin/coupons/{id}/toggle")
-    public ResponseEntity<Map<String, Object>> adminToggleCoupon(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        Coupon coupon = couponRepository.findById(id).orElse(null);
-        if (coupon == null) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
-        coupon.setActive(!coupon.isActive());
-        couponRepository.save(coupon);
-        res.put("success", true);
-        res.put("message", coupon.isActive() ? "Coupon enabled" : "Coupon disabled");
-        res.put("active", coupon.isActive());
-        return ResponseEntity.ok(res);
+    /** GET /api/flutter/admin/accounts/{id}/profile */
+    @GetMapping("/admin/accounts/{id}/profile")
+    public ResponseEntity<Map<String, Object>> adminGetAccountProfile(@PathVariable int id) {
+        Map<String, Object> profile = adminAccountService.getUserProfile(id);
+        if (profile.containsKey("error")) return ResponseEntity.badRequest().body(profile);
+        return ResponseEntity.ok(profile);
     }
 
-    /** DELETE /api/flutter/admin/coupons/{id}/delete */
-    @DeleteMapping("/admin/coupons/{id}/delete")
-    public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new HashMap<>();
-        if (!couponRepository.existsById(id)) { res.put("success", false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
-        couponRepository.deleteById(id);
-        res.put("success", true);
-        res.put("message", "Coupon deleted");
-        return ResponseEntity.ok(res);
+    /** POST /api/flutter/admin/accounts/{id}/toggle — toggle active/ban */
+    @PostMapping("/admin/accounts/{id}/toggle")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminToggleAccount(
+            @PathVariable int id, @RequestBody Map<String, Object> body) {
+        boolean activate = Boolean.TRUE.equals(body.get("isActive"));
+        Map<String, Object> result = adminAccountService.toggleAccountStatus(id, activate);
+        return Boolean.TRUE.equals(result.get("success"))
+                ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // ADMIN — ANALYTICS
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * GET /api/flutter/admin/analytics
-     *
-     * Returns server-side analytics so AdminApp's AnalyticsAdmin component
-     * gets richer data than it can compute from the already-loaded lists.
-     *
-     * Response shape (all fields also used as fallback by AnalyticsAdmin):
-     * {
-     *   success          : true,
-     *   totalCustomers   : long,
-     *   totalVendors     : long,
-     *   totalProducts    : long,
-     *   approvedProducts : long,
-     *   pendingProducts  : long,
-     *   totalOrders      : long,
-     *   totalRevenue     : double,
-     *   deliveredOrders  : long,
-     *   processingOrders : long,
-     *   shippedOrders    : long,
-     *   cancelledOrders  : long,
-     *   avgOrderValue    : double,
-     *   totalReviews     : long,
-     *   avgRating        : double,
-     *
-     *   // Last-7-days order counts  { "2025-03-22": 4, ... }
-     *   dailyOrders      : Map<String,Long>,
-     *
-     *   // Last-6-months revenue     { "2025-10": 48200.0, ... }
-     *   monthlyRevenue   : Map<String,Double>,
-     *
-     *   // Top 5 products by revenue { id, name, category, revenue, unitsSold }
-     *   topProducts      : List<Map>,
-     *
-     *   // Products per category     { "Electronics": 12, ... }
-     *   categoryStats    : Map<String,Long>,
-     *
-     *   // Status breakdown          { "DELIVERED": 40, "PROCESSING": 5, ... }
-     *   statusBreakdown  : Map<String,Long>
-     * }
-     */
-    @GetMapping("/admin/analytics")
-    public ResponseEntity<Map<String, Object>> adminGetAnalytics(
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
-        }
-
-        // ── Core counts ──────────────────────────────────────────────────────
-        long totalCustomers    = customerRepository.count();
-        long totalVendors      = vendorRepository.count();
-        long totalProducts     = productRepository.count();
-        long approvedProducts  = productRepository.findAll().stream()
-                .filter(com.example.ekart.dto.Product::isApproved).count();
-        long pendingProducts   = totalProducts - approvedProducts;
-        long totalReviews      = reviewRepository.count();
-
-        double avgRating = totalReviews > 0 ? reviewRepository.getOverallAverageRating() : 0.0;
-
-        // ── Order aggregates ─────────────────────────────────────────────────
-        List<Order> allOrders = orderRepository.findAll();
-        long totalOrders = allOrders.size();
-
-        double totalRevenue = allOrders.stream()
-                .mapToDouble(Order::getTotalPrice).sum();
-
-        double avgOrderValue = totalOrders > 0
-                ? Math.round((totalRevenue / totalOrders) * 100.0) / 100.0
-                : 0.0;
-
-        // Status counts
-        Map<String, Long> statusBreakdown = new java.util.LinkedHashMap<>();
-        for (Order o : allOrders) {
-            String status = o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "UNKNOWN";
-            statusBreakdown.merge(status, 1L, Long::sum);
-        }
-        long deliveredOrders  = statusBreakdown.getOrDefault("DELIVERED",    0L);
-        long processingOrders = statusBreakdown.getOrDefault("PROCESSING",   0L);
-        long shippedOrders    = statusBreakdown.getOrDefault("SHIPPED",      0L);
-        long cancelledOrders  = statusBreakdown.getOrDefault("CANCELLED",    0L);
-
-        // ── Daily orders — last 7 days ───────────────────────────────────────
-        java.time.LocalDate today = java.time.LocalDate.now();
-        Map<String, Long> dailyOrders = new java.util.LinkedHashMap<>();
-        for (int i = 6; i >= 0; i--) {
-            java.time.LocalDate date = today.minusDays(i);
-            java.time.LocalDateTime start = date.atStartOfDay();
-            java.time.LocalDateTime end   = date.plusDays(1).atStartOfDay();
-            long count = allOrders.stream()
-                    .filter(o -> o.getOrderDate() != null
-                            && !o.getOrderDate().isBefore(start)
-                            &&  o.getOrderDate().isBefore(end))
-                    .count();
-            dailyOrders.put(date.toString(), count);
-        }
-
-        // ── Monthly revenue — last 6 months ─────────────────────────────────
-        Map<String, Double> monthlyRevenue = new java.util.LinkedHashMap<>();
-        java.time.YearMonth currentMonth = java.time.YearMonth.now();
-        for (int i = 5; i >= 0; i--) {
-            java.time.YearMonth ym = currentMonth.minusMonths(i);
-            java.time.LocalDateTime start = ym.atDay(1).atStartOfDay();
-            java.time.LocalDateTime end   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
-            double rev = allOrders.stream()
-                    .filter(o -> o.getOrderDate() != null
-                            && !o.getOrderDate().isBefore(start)
-                            &&  o.getOrderDate().isBefore(end))
-                    .mapToDouble(Order::getTotalPrice).sum();
-            monthlyRevenue.put(ym.toString(), Math.round(rev * 100.0) / 100.0);
-        }
-
-        // ── Top 5 products by revenue ────────────────────────────────────────
-        // Aggregate revenue from order line-items (Item.getLineTotal())
-        Map<Integer, double[]> productRevMap = new HashMap<>(); // productId → [revenue, unitsSold]
-        for (Order o : allOrders) {
-            if (o.getItems() == null) continue;
-            for (com.example.ekart.dto.Item item : o.getItems()) {
-                if (item.getProductId() == null) continue;
-                productRevMap.computeIfAbsent(item.getProductId(), k -> new double[]{0, 0});
-                productRevMap.get(item.getProductId())[0] += item.getLineTotal();
-                productRevMap.get(item.getProductId())[1] += item.getQuantity();
-            }
-        }
-        List<Map<String, Object>> topProducts = productRevMap.entrySet().stream()
-                .sorted((a, b) -> Double.compare(b.getValue()[0], a.getValue()[0]))
-                .limit(5)
-                .map(e -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id",        e.getKey());
-                    m.put("revenue",   Math.round(e.getValue()[0] * 100.0) / 100.0);
-                    m.put("unitsSold", (long) e.getValue()[1]);
-                    // Enrich with product name / category if available
-                    productRepository.findById(e.getKey()).ifPresent(p -> {
-                        m.put("name",     p.getName());
-                        m.put("category", p.getCategory());
-                        m.put("price",    p.getPrice());
-                    });
-                    return m;
-                }).collect(Collectors.toList());
-
-        // ── Category distribution ────────────────────────────────────────────
-        Map<String, Long> categoryStats = productRepository.findAll().stream()
-                .filter(p -> p.getCategory() != null)
-                .collect(Collectors.groupingBy(
-                        com.example.ekart.dto.Product::getCategory,
-                        Collectors.counting()));
-
-        // ── Assemble response ────────────────────────────────────────────────
-        Map<String, Object> res = new HashMap<>();
-        res.put("success",          true);
-        res.put("totalCustomers",   totalCustomers);
-        res.put("totalVendors",     totalVendors);
-        res.put("totalProducts",    totalProducts);
-        res.put("approvedProducts", approvedProducts);
-        res.put("pendingProducts",  pendingProducts);
-        res.put("totalOrders",      totalOrders);
-        res.put("totalRevenue",     Math.round(totalRevenue * 100.0) / 100.0);
-        res.put("avgOrderValue",    avgOrderValue);
-        res.put("deliveredOrders",  deliveredOrders);
-        res.put("processingOrders", processingOrders);
-        res.put("shippedOrders",    shippedOrders);
-        res.put("cancelledOrders",  cancelledOrders);
-        res.put("totalReviews",     totalReviews);
-        res.put("avgRating",        Math.round(avgRating * 10.0) / 10.0);
-        res.put("dailyOrders",      dailyOrders);
-        res.put("monthlyRevenue",   monthlyRevenue);
-        res.put("topProducts",      topProducts);
-        res.put("categoryStats",    categoryStats);
-        res.put("statusBreakdown",  statusBreakdown);
-        return ResponseEntity.ok(res);
+    /** POST /api/flutter/admin/accounts/{id}/reset-password */
+    @PostMapping("/admin/accounts/{id}/reset-password")
+    public ResponseEntity<Map<String, Object>> adminResetPassword(@PathVariable int id) {
+        Map<String, Object> result = adminAccountService.generatePasswordResetLink(id);
+        return Boolean.TRUE.equals(result.get("success"))
+                ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
-
-    // ═══════════════════════════════════════════════════════
-    // ADMIN — USER SPENDING ANALYTICS
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * GET /api/flutter/admin/spending
-     * Returns per-customer spending summaries for admin analytics.
-     * Only includes DELIVERED orders. Sorted by totalSpent desc.
-     * Response: { success, customers: [{ id, name, email, totalSpent,
-     *             totalOrders, avgOrderValue, topCategory,
-     *             categorySpending: {cat: amount}, monthlySpending: {YYYY-MM: amount} }] }
-     */
-    @GetMapping("/admin/spending")
-    public ResponseEntity<Map<String, Object>> adminGetUserSpending(
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        List<Customer> allCustomers = customerRepository.findAll();
-        List<Map<String, Object>> spendingList = new java.util.ArrayList<>();
-        int currentYear = java.time.Year.now().getValue();
-
-        for (Customer customer : allCustomers) {
-            List<Order> delivered = orderRepository.findByCustomer(customer).stream()
-                    .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
-                    .collect(Collectors.toList());
-
-            Map<String, Object> entry = new HashMap<>();
-            entry.put("id",    customer.getId());
-            entry.put("name",  customer.getName());
-            entry.put("email", customer.getEmail());
-
-            if (delivered.isEmpty()) {
-                entry.put("totalSpent",       0.0);
-                entry.put("totalOrders",      0);
-                entry.put("avgOrderValue",    0.0);
-                entry.put("topCategory",      "—");
-                entry.put("categorySpending", new HashMap<>());
-                entry.put("monthlySpending",  new LinkedHashMap<>());
-                spendingList.add(entry);
-                continue;
-            }
-
-            double totalSpent  = delivered.stream().mapToDouble(Order::getAmount).sum();
-            int    totalOrders = delivered.size();
-
-            // Category breakdown
-            Map<String, Double> catSpend = new HashMap<>();
-            for (Order o : delivered) {
-                for (Item item : o.getItems()) {
-                    String cat = item.getCategory() != null && !item.getCategory().isBlank()
-                            ? item.getCategory() : "Uncategorized";
-                    catSpend.merge(cat, item.getPrice() * item.getQuantity(), Double::sum);
-                }
-            }
-            String topCategory = catSpend.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey).orElse("—");
-
-            // Monthly spending for current year
-            Map<String, Double> monthly = new LinkedHashMap<>();
-            for (Order o : delivered) {
-                if (o.getOrderDate() != null && o.getOrderDate().getYear() == currentYear) {
-                    String key = currentYear + "-" + String.format("%02d", o.getOrderDate().getMonthValue());
-                    monthly.merge(key, o.getAmount(), Double::sum);
-                }
-            }
-
-            entry.put("totalSpent",       Math.round(totalSpent * 100.0) / 100.0);
-            entry.put("totalOrders",      totalOrders);
-            entry.put("avgOrderValue",    Math.round((totalSpent / totalOrders) * 100.0) / 100.0);
-            entry.put("topCategory",      topCategory);
-            entry.put("categorySpending", catSpend);
-            entry.put("monthlySpending",  monthly);
-            spendingList.add(entry);
-        }
-
-        // Sort by totalSpent descending — top spenders first
-        spendingList.sort((a, b) -> Double.compare(
-                ((Number) b.get("totalSpent")).doubleValue(),
-                ((Number) a.get("totalSpent")).doubleValue()));
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("success",   true);
-        res.put("customers", spendingList);
-        return ResponseEntity.ok(res);
+    /** DELETE /api/flutter/admin/accounts/{id} */
+    @DeleteMapping("/admin/accounts/{id}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminDeleteAccount(@PathVariable int id) {
+        Map<String, Object> result = adminAccountService.deleteAccount(id);
+        return Boolean.TRUE.equals(result.get("success"))
+                ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
-        // ═══════════════════════════════════════════════════════
-    // ADMIN — REVIEW MANAGEMENT
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — REVIEWS (list, filter, delete, bulk-delete)
+    // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET /api/flutter/admin/reviews
-     * Returns all reviews sorted newest-first.
-     * Response: { success, reviews: [{id, rating, comment, customerName,
-     *             productName, productId, createdAt}], count }
-     */
+    /** GET /api/flutter/admin/reviews?filter=5&search=... */
     @GetMapping("/admin/reviews")
     public ResponseEntity<Map<String, Object>> adminGetReviews(
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+            @RequestParam(required = false, defaultValue = "all") String filter,
+            @RequestParam(required = false, defaultValue = "") String search) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        List<com.example.ekart.dto.Review> all = reviewRepository.findAll();
 
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
+        // Star distribution
+        long five  = all.stream().filter(r -> r.getRating() == 5).count();
+        long four  = all.stream().filter(r -> r.getRating() == 4).count();
+        long three = all.stream().filter(r -> r.getRating() == 3).count();
+        long two   = all.stream().filter(r -> r.getRating() == 2).count();
+        long one   = all.stream().filter(r -> r.getRating() == 1).count();
+        double avg = all.stream().mapToInt(com.example.ekart.dto.Review::getRating).average().orElse(0.0);
+
+        List<com.example.ekart.dto.Review> filtered = new ArrayList<>(all);
+        if (!filter.equals("all")) {
+            try {
+                int star = Integer.parseInt(filter);
+                filtered = filtered.stream().filter(r -> r.getRating() == star).collect(Collectors.toList());
+            } catch (NumberFormatException ignored) {}
         }
-        List<Review> all = reviewRepository.findAll();
-        // Sort newest first (nulls last)
-        all.sort((a, b) -> {
-            if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+        if (!search.isBlank()) {
+            String q = search.toLowerCase();
+            filtered = filtered.stream().filter(r ->
+                (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q)) ||
+                (r.getComment()      != null && r.getComment().toLowerCase().contains(q)) ||
+                (r.getProduct()      != null && r.getProduct().getName().toLowerCase().contains(q))
+            ).collect(Collectors.toList());
+        }
+        filtered.sort((a, b) -> {
             if (a.getCreatedAt() == null) return 1;
             if (b.getCreatedAt() == null) return -1;
             return b.getCreatedAt().compareTo(a.getCreatedAt());
         });
-        List<Map<String, Object>> list = all.stream().map(r -> {
-            Map<String, Object> m = new HashMap<>();
+
+        List<Map<String, Object>> reviewMaps = filtered.stream().map(r -> {
+            Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",           r.getId());
             m.put("rating",       r.getRating());
-            m.put("comment",      r.getComment());
-            m.put("customerName", r.getCustomerName());
-            m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
-            m.put("productId",    r.getProduct() != null ? r.getProduct().getId()   : null);
-            m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
+            m.put("comment",      r.getComment() != null ? r.getComment() : "");
+            m.put("customerName", r.getCustomerName() != null ? r.getCustomerName() : "");
+            m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : "");
+            m.put("productId",    r.getProduct() != null ? r.getProduct().getId() : 0);
+            m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : "");
             return m;
         }).collect(Collectors.toList());
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        res.put("reviews", list);
-        res.put("count",   list.size());
+
+        res.put("success",      true);
+        res.put("reviews",      reviewMaps);
+        res.put("total",        all.size());
+        res.put("filtered",     filtered.size());
+        res.put("avgRating",    Math.round(avg * 10.0) / 10.0);
+        res.put("fiveStars",    five);
+        res.put("fourStars",    four);
+        res.put("threeStars",   three);
+        res.put("twoStars",     two);
+        res.put("oneStar",      one);
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * DELETE /api/flutter/admin/reviews/{id}
-     * Deletes the review with the given id.
-     * AdminApp calls: DELETE /api/flutter/admin/reviews/{id}/delete
-     * (the trailing /delete segment is tolerated via the path variable below,
-     *  but AdminApp actually sends DELETE to .../reviews/{id}/delete — so we
-     *  register both paths to be safe.)
-     * Response: { success, message }
-     */
-    @DeleteMapping({"/admin/reviews/{id}", "/admin/reviews/{id}/delete"})
-    public ResponseEntity<Map<String, Object>> adminDeleteReview(
-            @PathVariable int id,
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
-        }
-        if (!reviewRepository.existsById(id)) {
-            return ResponseEntity.status(404)
-                    .body(Map.of("success", false, "message", "Review not found"));
-        }
-        reviewRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Review deleted"));
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // ADMIN — REFUND MANAGEMENT
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * GET /api/flutter/admin/refunds
-     * Returns ALL refunds (pending + processed) so AdminApp can filter client-side.
-     * AdminApp filters by r.status === "PENDING" for the pending badge count.
-     */
-    @GetMapping("/admin/refunds")
-    public ResponseEntity<Map<String, Object>> adminGetRefunds(
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
-        }
-        Map<String, Object> res = new HashMap<>();
-        List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
-                .map(r -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id",              r.getId());
-                    m.put("orderId",         r.getOrder() != null ? r.getOrder().getId() : null);
-                    m.put("customerName",    r.getCustomer() != null ? r.getCustomer().getName() : null);
-                    m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
-                    m.put("amount",          r.getAmount());
-                    m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
-                    m.put("reason",          r.getReason());
-                    m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
-                    m.put("statusDisplay",   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
-                    m.put("requestedAt",     r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
-                    m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
-                    m.put("processedBy",     r.getProcessedBy());
-                    m.put("rejectionReason", r.getRejectionReason());
-                    return m;
-                }).collect(Collectors.toList());
-        res.put("success", true);
-        res.put("refunds", list);
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * POST /api/flutter/admin/refunds/{id}/approve
-     * Approves a pending refund and marks the order as REFUNDED.
-     * Delegates to RefundService which handles status update, order flag clearing,
-     * and customer notification in one place.
-     */
-    @PostMapping("/admin/refunds/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveRefund(
-            @PathVariable int id,
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
-        }
-        Map<String, Object> result = refundService.approveRefund(id, adminEmail);
-        boolean success = Boolean.TRUE.equals(result.get("success"));
-        return success
-                ? ResponseEntity.ok(result)
-                : ResponseEntity.badRequest().body(result);
-    }
-
-    /**
-     * POST /api/flutter/admin/refunds/{id}/reject
-     * Body: { reason }
-     * Rejects a pending refund with a mandatory reason.
-     * Delegates to RefundService which handles status update, reason persistence,
-     * order flag clearing, and customer notification in one place.
-     */
-    @PostMapping("/admin/refunds/{id}/reject")
-    public ResponseEntity<Map<String, Object>> adminRejectRefund(
-            @PathVariable int id,
-            @RequestBody Map<String, Object> body,
-            jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("flutter.role");
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", "Admin access required"));
-        }
-        String reason = body.getOrDefault("reason", "").toString().trim();
-        Map<String, Object> result = refundService.rejectRefund(id, reason, adminEmail);
-        boolean success = Boolean.TRUE.equals(result.get("success"));
-        return success
-                ? ResponseEntity.ok(result)
-                : ResponseEntity.badRequest().body(result);
-    }
-
-    // ── ADMIN — WAREHOUSE MANAGEMENT ─────────────────────────────────────────
-    //
-    // Fix: DeliveryAdminController.GET /admin/warehouses returns a Thymeleaf
-    // view (HTML), not JSON.  The Flutter AdminApp calls
-    //   api('/admin/warehouses') → GET /api/flutter/admin/warehouses
-    // so we add the correct JSON endpoint here in FlutterApiController.
-
-    /**
-     * GET /api/flutter/admin/warehouses
-     * Returns a JSON list of all warehouses (active and inactive).
-     * No extra auth check needed — the FlutterAuthFilter already validates
-     * the JWT and role before this method is reached.
-     */
-    @GetMapping("/admin/warehouses")
-    public ResponseEntity<Map<String, Object>> adminGetWarehouses(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    /** DELETE /api/flutter/admin/reviews/{id} */
+    @DeleteMapping("/admin/reviews/{id}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminDeleteReview(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            List<Warehouse> warehouses = warehouseRepository.findAll();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (Warehouse w : warehouses) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",             w.getId());
-                m.put("name",           w.getName());
-                m.put("city",           w.getCity());
-                m.put("state",          w.getState());
-                m.put("warehouseCode",  w.getWarehouseCode());
-                m.put("servedPinCodes", w.getServedPinCodes());
-                m.put("active",         w.isActive());
-                list.add(m);
-            }
+            reviewRepository.deleteById(id);
+            res.put("success", true); res.put("message", "Review deleted");
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Delete failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body(res);
+        }
+    }
+
+    /** POST /api/flutter/admin/reviews/bulk-delete  body: {productName} */
+    @PostMapping("/admin/reviews/bulk-delete")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminBulkDeleteReviews(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        String productName = (String) body.getOrDefault("productName", "");
+        try {
+            List<com.example.ekart.dto.Review> toDelete = reviewRepository.findAll().stream()
+                    .filter(r -> r.getProduct() != null &&
+                                 r.getProduct().getName().equalsIgnoreCase(productName))
+                    .collect(Collectors.toList());
+            reviewRepository.deleteAll(toDelete);
             res.put("success", true);
-            res.put("warehouses", list);
+            res.put("message", "Deleted " + toDelete.size() + " reviews for \"" + productName + "\"");
+            res.put("deleted", toDelete.size());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load warehouses: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
+            res.put("success", false); res.put("message", "Bulk delete failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body(res);
         }
     }
 
-    /**
-     * POST /api/flutter/admin/warehouses/add
-     * Creates a new warehouse.
-     *
-     * Fix: DeliveryAdminController handles POST /admin/delivery/warehouse
-     * (Thymeleaf path, no /api/flutter prefix). The Flutter AdminApp posts to
-     * /api/flutter/admin/warehouses/add — that endpoint did not exist.
-     *
-     * Request body (JSON):
-     *   { "name": "...", "city": "...", "state": "...", "servedPinCodes": "..." }
-     *
-     * Response:
-     *   { "success": true, "message": "...", "warehouseId": 3, "warehouseCode": "WH-003" }
-     */
-    @PostMapping("/admin/warehouses/add")
-    public ResponseEntity<Map<String, Object>> adminAddWarehouse(
-            @RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String name           = body.getOrDefault("name",           "").toString().trim();
-            String city           = body.getOrDefault("city",           "").toString().trim();
-            String state          = body.getOrDefault("state",          "").toString().trim();
-            String servedPinCodes = body.getOrDefault("servedPinCodes", "").toString().trim();
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — BANNERS (list, add, toggle, delete, toggle-customer-home)
+    // ═══════════════════════════════════════════════════════════════════════
 
-            if (name.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Warehouse name is required");
-                return ResponseEntity.badRequest().body(res);
-            }
-
-            Warehouse wh = new Warehouse();
-            wh.setName(name);
-            wh.setCity(city);
-            wh.setState(state);
-            wh.setServedPinCodes(servedPinCodes);
-            wh.setActive(true);
-            warehouseRepository.save(wh);
-            // Generate code after save so we have the auto-generated id
-            wh.setWarehouseCode(String.format("WH-%03d", wh.getId()));
-            warehouseRepository.save(wh);
-
-            res.put("success",       true);
-            res.put("message",       "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
-            res.put("warehouseId",   wh.getId());
-            res.put("warehouseCode", wh.getWarehouseCode());
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to add warehouse: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * GET /api/flutter/admin/delivery-boys
-     * Returns ALL delivery boys with their approval/active status, warehouse,
-     * and assigned pin codes — so the Flutter admin screen can show the full list
-     * and filter/sort client-side.
-     *
-     * Fix: DeliveryAdminController only exposes /admin/delivery/boys/{warehouseId}
-     * (session-based, filtered by warehouse, different path structure). The Flutter
-     * AdminApp needs a flat unfiltered list at /api/flutter/admin/delivery-boys.
-     *
-     * Approval status field logic (mirrors login flow in FlutterApiController):
-     *   "PENDING"   — verified=true  but adminApproved=false
-     *   "APPROVED"  — adminApproved=true  and active=true
-     *   "REJECTED"  — adminApproved=false and active=false  (admin blocked them)
-     *   "UNVERIFIED"— verified=false (email OTP not yet confirmed)
-     */
-    @GetMapping("/admin/delivery-boys")
-    public ResponseEntity<Map<String, Object>> adminGetDeliveryBoys(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            List<DeliveryBoy> boys = deliveryBoyRepository.findAll();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (DeliveryBoy db : boys) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",               db.getId());
-                m.put("name",             db.getName());
-                m.put("email",            db.getEmail());
-                m.put("mobile",           db.getMobile());
-                m.put("deliveryBoyCode",  db.getDeliveryBoyCode());
-                m.put("verified",         db.isVerified());
-                m.put("adminApproved",    db.isAdminApproved());
-                m.put("active",           db.isActive());
-                m.put("assignedPinCodes", db.getAssignedPinCodes());
-
-                // Derive a single human-readable status string
-                String status;
-                if (!db.isVerified()) {
-                    status = "UNVERIFIED";
-                } else if (!db.isAdminApproved() && !db.isActive()) {
-                    status = "REJECTED";
-                } else if (!db.isAdminApproved()) {
-                    status = "PENDING";
-                } else {
-                    status = "APPROVED";
-                }
-                m.put("approvalStatus", status);
-
-                // Warehouse — may be null for pending/unverified boys
-                if (db.getWarehouse() != null) {
-                    Map<String, Object> wh = new LinkedHashMap<>();
-                    wh.put("id",            db.getWarehouse().getId());
-                    wh.put("name",          db.getWarehouse().getName());
-                    wh.put("city",          db.getWarehouse().getCity());
-                    wh.put("warehouseCode", db.getWarehouse().getWarehouseCode());
-                    m.put("warehouse", wh);
-                } else {
-                    m.put("warehouse", null);
-                }
-
-                list.add(m);
-            }
-            res.put("success",      true);
-            res.put("deliveryBoys", list);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load delivery boys: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * POST /api/flutter/admin/delivery-boys/{id}/approve
-     * Approves a delivery boy account and optionally assigns pin codes.
-     *
-     * Fix: DeliveryAdminController exposes POST /admin/delivery/boy/approve
-     * which takes @RequestParam (form fields) and uses HttpSession for auth —
-     * neither works from Flutter. This endpoint uses a JSON body and JWT auth
-     * (already validated upstream by FlutterAuthFilter).
-     *
-     * Request body (JSON, all optional):
-     *   { "assignedPinCodes": "600001,600002" }
-     *
-     * Business rules (mirrors DeliveryBoyService.approveDeliveryBoy):
-     *   - Delivery boy must exist
-     *   - Must have a warehouse already set (self-registered boys pick one on signup)
-     *   - Sets adminApproved=true, active=true, saves assignedPinCodes
-     *   - Sends approval email (failure is non-fatal — logged, not thrown)
-     */
-    @PostMapping("/admin/delivery-boys/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveDeliveryBoy(
-            @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String assignedPinCodes = (body != null)
-                    ? body.getOrDefault("assignedPinCodes", "").toString().trim()
-                    : "";
-
-            DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
-            if (db == null) {
-                res.put("success", false);
-                res.put("message", "Delivery boy not found");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (db.getWarehouse() == null) {
-                res.put("success", false);
-                res.put("message", "No warehouse selected by this delivery boy");
-                return ResponseEntity.badRequest().body(res);
-            }
-
-            db.setAdminApproved(true);
-            db.setActive(true);
-            db.setAssignedPinCodes(assignedPinCodes);
-            deliveryBoyRepository.save(db);
-
-            try { emailSender.sendDeliveryBoyApproved(db); }
-            catch (Exception e) { System.err.println("Approval email failed: " + e.getMessage()); }
-
-            res.put("success", true);
-            res.put("message", db.getName() + " approved for " + db.getWarehouse().getName());
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to approve delivery boy: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    // ── ADMIN — WAREHOUSE TRANSFER REQUESTS ──────────────────────────────────
-    //
-    // Fix: No /api/flutter endpoint existed for warehouse transfer management.
-    // DeliveryAdminController only has POST /admin/delivery/warehouse-change/approve|reject
-    // (session-based, @RequestParam, no /api/flutter prefix).
-    // The Flutter AdminApp calls:
-    //   GET  /api/flutter/admin/warehouse-transfers
-    //   POST /api/flutter/admin/warehouse-transfers/{id}/approve
-    //   POST /api/flutter/admin/warehouse-transfers/{id}/reject
-
-    /**
-     * GET /api/flutter/admin/warehouse-transfers
-     * Returns ALL warehouse transfer requests ordered by most recent first,
-     * enriched with delivery boy and warehouse details so the Flutter screen
-     * can render the list without extra round-trips.
-     *
-     * Query param (optional): ?status=PENDING|APPROVED|REJECTED
-     * Omitting the param returns all requests across all statuses.
-     */
-    @GetMapping("/admin/warehouse-transfers")
-    public ResponseEntity<Map<String, Object>> adminGetWarehouseTransfers(
-            @RequestParam(required = false) String status,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            List<WarehouseChangeRequest> requests;
-            if (status != null && !status.isBlank()) {
-                try {
-                    WarehouseChangeRequest.Status s = WarehouseChangeRequest.Status.valueOf(status.toUpperCase());
-                    requests = warehouseChangeRequestRepository.findByStatusOrderByRequestedAtDesc(s);
-                } catch (IllegalArgumentException ex) {
-                    res.put("success", false);
-                    res.put("message", "Invalid status value. Use PENDING, APPROVED, or REJECTED");
-                    return ResponseEntity.badRequest().body(res);
-                }
-            } else {
-                // No filter — return everything, newest first
-                requests = warehouseChangeRequestRepository.findAll(
-                        org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC, "requestedAt"));
-            }
-
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (WarehouseChangeRequest r : requests) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",          r.getId());
-                m.put("status",      r.getStatus().name());
-                m.put("reason",      r.getReason());
-                m.put("adminNote",   r.getAdminNote());
-                m.put("requestedAt", r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
-                m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
-
-                // Delivery boy summary
-                DeliveryBoy db = r.getDeliveryBoy();
-                Map<String, Object> dbMap = new LinkedHashMap<>();
-                dbMap.put("id",              db.getId());
-                dbMap.put("name",            db.getName());
-                dbMap.put("email",           db.getEmail());
-                dbMap.put("deliveryBoyCode", db.getDeliveryBoyCode());
-                // Current warehouse (where they are now)
-                if (db.getWarehouse() != null) {
-                    Map<String, Object> cw = new LinkedHashMap<>();
-                    cw.put("id",            db.getWarehouse().getId());
-                    cw.put("name",          db.getWarehouse().getName());
-                    cw.put("city",          db.getWarehouse().getCity());
-                    cw.put("warehouseCode", db.getWarehouse().getWarehouseCode());
-                    dbMap.put("currentWarehouse", cw);
-                } else {
-                    dbMap.put("currentWarehouse", null);
-                }
-                m.put("deliveryBoy", dbMap);
-
-                // Requested warehouse (where they want to move TO)
-                Warehouse rw = r.getRequestedWarehouse();
-                Map<String, Object> rwMap = new LinkedHashMap<>();
-                rwMap.put("id",            rw.getId());
-                rwMap.put("name",          rw.getName());
-                rwMap.put("city",          rw.getCity());
-                rwMap.put("warehouseCode", rw.getWarehouseCode());
-                m.put("requestedWarehouse", rwMap);
-
-                list.add(m);
-            }
-
-            res.put("success",   true);
-            res.put("transfers", list);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load warehouse transfers: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * POST /api/flutter/admin/warehouse-transfers/{id}/approve
-     * Approves a pending warehouse transfer request.
-     *
-     * Business rules (mirrors DeliveryBoyService.approveWarehouseChange):
-     *   - Request must exist and be PENDING (already-resolved requests return a clear error)
-     *   - Delivery boy's warehouse is updated to the requested warehouse
-     *   - assignedPinCodes is cleared (admin re-assigns from the main panel)
-     *   - Approval email sent (failure is non-fatal)
-     *
-     * Request body (JSON, optional):
-     *   { "adminNote": "Approved — good coverage needed in north zone" }
-     */
-    @PostMapping("/admin/warehouse-transfers/{id}/approve")
-    public ResponseEntity<Map<String, Object>> adminApproveWarehouseTransfer(
-            @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String adminNote = (body != null)
-                    ? body.getOrDefault("adminNote", "").toString().trim()
-                    : "";
-
-            WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
-            if (req == null) {
-                res.put("success", false);
-                res.put("message", "Transfer request not found");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
-                res.put("success", false);
-                res.put("message", "Request already resolved");
-                return ResponseEntity.ok(res);
-            }
-
-            DeliveryBoy db = req.getDeliveryBoy();
-            Warehouse newWarehouse = req.getRequestedWarehouse();
-
-            // Apply the warehouse change
-            db.setWarehouse(newWarehouse);
-            db.setAssignedPinCodes(""); // Admin re-assigns pin codes from the main panel
-            deliveryBoyRepository.save(db);
-
-            req.setStatus(WarehouseChangeRequest.Status.APPROVED);
-            req.setAdminNote(adminNote);
-            req.setResolvedAt(java.time.LocalDateTime.now());
-            warehouseChangeRequestRepository.save(req);
-
-            try { emailSender.sendWarehouseChangeApproved(db, newWarehouse, adminNote); }
-            catch (Exception e) { System.err.println("Warehouse change approval email failed: " + e.getMessage()); }
-
-            res.put("success", true);
-            res.put("message", db.getName() + " has been transferred to " + newWarehouse.getName());
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to approve warehouse transfer: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * POST /api/flutter/admin/warehouse-transfers/{id}/reject
-     * Rejects a pending warehouse transfer request.
-     *
-     * Business rules (mirrors DeliveryBoyService.rejectWarehouseChange):
-     *   - Request must exist and be PENDING
-     *   - Delivery boy's warehouse is NOT changed
-     *   - Rejection email sent (failure is non-fatal)
-     *
-     * Request body (JSON, optional):
-     *   { "adminNote": "Not enough capacity at requested warehouse" }
-     */
-    @PostMapping("/admin/warehouse-transfers/{id}/reject")
-    public ResponseEntity<Map<String, Object>> adminRejectWarehouseTransfer(
-            @PathVariable int id,
-            @RequestBody(required = false) Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String adminNote = (body != null)
-                    ? body.getOrDefault("adminNote", "").toString().trim()
-                    : "";
-
-            WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
-            if (req == null) {
-                res.put("success", false);
-                res.put("message", "Transfer request not found");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
-                res.put("success", false);
-                res.put("message", "Request already resolved");
-                return ResponseEntity.ok(res);
-            }
-
-            req.setStatus(WarehouseChangeRequest.Status.REJECTED);
-            req.setAdminNote(adminNote);
-            req.setResolvedAt(java.time.LocalDateTime.now());
-            warehouseChangeRequestRepository.save(req);
-
-            DeliveryBoy db = req.getDeliveryBoy();
-            try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
-            catch (Exception e) { System.err.println("Warehouse change rejection email failed: " + e.getMessage()); }
-
-            res.put("success", true);
-            res.put("message", "Warehouse transfer request rejected");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to reject warehouse transfer: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * GET /api/flutter/admin/users/search?q=&type=
-     * Searches users by name or email across customers, vendors, and delivery boys.
-     *
-     * Fix — two mismatches between AdminApp and the existing UserAdminApiController:
-     *   1. Path:  AdminApp calls /api/flutter/admin/users/search
-     *             Existing endpoint is   /api/admin/users/search  (wrong prefix)
-     *   2. Param: AdminApp sends          ?q=
-     *             Existing endpoint reads @RequestParam String query  (wrong name)
-     *
-     * This endpoint lives in FlutterApiController (/api/flutter) and accepts ?q=,
-     * matching the AdminApp exactly. The existing UserAdminApiController is left
-     * untouched — it serves the web admin UI.
-     *
-     * Params:
-     *   q    — search string (name or email, case-insensitive substring match)
-     *   type — optional filter: "customer" | "vendor" | "delivery_boy"
-     *           omit (or any other value) to search all three types
-     *
-     * Response:
-     *   { "success": true, "users": [ { id, name, email, type, ... }, ... ] }
-     */
-    @GetMapping("/admin/users/search")
-    public ResponseEntity<Map<String, Object>> adminSearchUsers(
-            @RequestParam(name = "q", defaultValue = "") String q,
-            @RequestParam(name = "type", defaultValue = "") String type,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String term = q.toLowerCase().trim();
-            String typeFilter = type.toLowerCase().trim();
-
-            List<Map<String, Object>> results = new ArrayList<>();
-
-            // ── Customers ──────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals("customer")) {
-                for (Customer c : customerRepository.findAll()) {
-                    if (matchesQuery(term, c.getName(), c.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",       c.getId());
-                        m.put("name",     c.getName());
-                        m.put("email",    c.getEmail());
-                        m.put("type",     "customer");
-                        m.put("verified", c.isVerified());
-                        m.put("active",   c.isActive());
-                        results.add(m);
-                    }
-                }
-            }
-
-            // ── Vendors ────────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals("vendor")) {
-                for (Vendor v : vendorRepository.findAll()) {
-                    if (matchesQuery(term, v.getName(), v.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",         v.getId());
-                        m.put("name",       v.getName());
-                        m.put("email",      v.getEmail());
-                        m.put("type",       "vendor");
-                        m.put("vendorCode", v.getVendorCode());
-                        m.put("verified",   v.isVerified());
-                        results.add(m);
-                    }
-                }
-            }
-
-            // ── Delivery Boys ──────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals("delivery_boy")) {
-                for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                    if (matchesQuery(term, db.getName(), db.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",              db.getId());
-                        m.put("name",            db.getName());
-                        m.put("email",           db.getEmail());
-                        m.put("type",            "delivery_boy");
-                        m.put("deliveryBoyCode", db.getDeliveryBoyCode());
-                        m.put("verified",        db.isVerified());
-                        m.put("adminApproved",   db.isAdminApproved());
-                        m.put("active",          db.isActive());
-                        results.add(m);
-                    }
-                }
-            }
-
-            res.put("success", true);
-            res.put("query",   q);
-            res.put("type",    type);
-            res.put("count",   results.size());
-            res.put("users",   results);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Search failed: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /** True if the search term matches either field (case-insensitive substring). Empty term matches all. */
-    private boolean matchesQuery(String term, String name, String email) {
-        if (term.isEmpty()) return true;
-        return (name  != null && name.toLowerCase().contains(term))
-            || (email != null && email.toLowerCase().contains(term));
-    }
-
-    // ── ADMIN — BANNER MANAGEMENT ─────────────────────────────────────────────
-    //
-    // Fix: The Flutter ContentAdmin component tries GET /api/flutter/admin/banners
-    // first, then falls back to GET /api/read/Banner.
-    //
-    // The /api/read/Banner fallback (GenericReadOnlyController) returns raw
-    // findAll() — unordered, no consistent shape, and @CrossOrigin(*) is a
-    // security concern. The primary path /api/flutter/admin/banners didn't exist
-    // at all, so every load hit the fragile fallback.
-    //
-    // This endpoint fixes the primary path. The existing Thymeleaf form actions
-    // (POST /admin/content/*) are untouched — they serve the web admin UI.
-
-    /**
-     * GET /api/flutter/admin/banners
-     * Returns all banners ordered by displayOrder ascending — same ordering
-     * used by the admin panel (findAllByOrderByDisplayOrderAsc).
-     *
-     * All banners are returned regardless of active/showOnHome/showOnCustomerHome
-     * so the admin screen can show and toggle every banner, not just active ones.
-     *
-     * Response:
-     *   { "success": true, "banners": [ { id, title, imageUrl, linkUrl,
-     *     active, showOnHome, showOnCustomerHome, displayOrder }, ... ] }
-     */
+    /** GET /api/flutter/admin/banners */
     @GetMapping("/admin/banners")
-    public ResponseEntity<Map<String, Object>> adminGetBanners(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    public ResponseEntity<Map<String, Object>> adminGetBanners() {
         Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            List<Banner> banners = bannerRepository.findAllByOrderByDisplayOrderAsc();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (Banner b : banners) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",                 b.getId());
-                m.put("title",              b.getTitle());
-                m.put("imageUrl",           b.getImageUrl());
-                m.put("linkUrl",            b.getLinkUrl());
-                m.put("active",             b.isActive());
-                m.put("showOnHome",         b.isShowOnHome());
-                m.put("showOnCustomerHome", b.isShowOnCustomerHome());
-                m.put("displayOrder",       b.getDisplayOrder());
-                list.add(m);
-            }
-            res.put("success", true);
-            res.put("banners", list);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
+        List<Map<String, Object>> banners = bannerRepository.findAll().stream().map(b -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",                 b.getId());
+            m.put("title",              b.getTitle()    != null ? b.getTitle()    : "");
+            m.put("imageUrl",           b.getImageUrl() != null ? b.getImageUrl() : "");
+            m.put("linkUrl",            b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
+            m.put("active",             b.isActive());
+            m.put("showOnCustomerHome", b.isShowOnCustomerHome());
+            m.put("displayOrder",       b.getDisplayOrder());
+            return m;
+        }).collect(Collectors.toList());
+        res.put("success", true); res.put("banners", banners);
+        return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/admin/banners/add
-     * Body: { title, imageUrl, linkUrl? }
-     * Creates a new banner. Mirrors POST /admin/content/add but JWT-auth.
-     */
+    /** POST /api/flutter/admin/banners/add  body:{title,imageUrl,linkUrl} */
     @PostMapping("/admin/banners/add")
+    @Transactional
     public ResponseEntity<Map<String, Object>> adminAddBanner(
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+            @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
-        String title    = body.getOrDefault("title",    "").toString().trim();
-        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
-        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
-        if (title.isEmpty())    { res.put("success", false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
-        if (imageUrl.isEmpty()) { res.put("success", false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
         Banner b = new Banner();
-        b.setTitle(title);
-        b.setImageUrl(imageUrl);
-        b.setLinkUrl(linkUrl.isEmpty() ? null : linkUrl);
+        b.setTitle((String) body.getOrDefault("title", ""));
+        b.setImageUrl((String) body.getOrDefault("imageUrl", ""));
+        b.setLinkUrl((String) body.getOrDefault("linkUrl", ""));
         b.setActive(true);
-        b.setShowOnHome(true);
         b.setShowOnCustomerHome(true);
         b.setDisplayOrder(0);
         bannerRepository.save(b);
-        res.put("success", true);
-        res.put("message", "Banner added");
+        res.put("success", true); res.put("message", "Banner added"); res.put("id", b.getId());
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/admin/banners/{id}/update
-     * Body: { title, imageUrl, linkUrl? }
-     * Updates title/imageUrl/linkUrl of an existing banner.
-     */
-    @PostMapping("/admin/banners/{id}/update")
-    public ResponseEntity<Map<String, Object>> adminUpdateBanner(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
-        String title    = body.getOrDefault("title",    "").toString().trim();
-        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
-        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
-        if (title.isEmpty())    { res.put("success", false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
-        if (imageUrl.isEmpty()) { res.put("success", false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
-        b.setTitle(title);
-        b.setImageUrl(imageUrl);
-        b.setLinkUrl(linkUrl.isEmpty() ? null : linkUrl);
-        bannerRepository.save(b);
-        res.put("success", true);
-        res.put("message", "Banner updated");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * POST /api/flutter/admin/banners/{id}/toggle
-     * Toggles the master active flag on a banner.
-     */
+    /** POST /api/flutter/admin/banners/{id}/toggle */
     @PostMapping("/admin/banners/{id}/toggle")
-    public ResponseEntity<Map<String, Object>> adminToggleBanner(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminToggleBanner(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
         b.setActive(!b.isActive());
         bannerRepository.save(b);
-        res.put("success", true);
-        res.put("active", b.isActive());
+        res.put("success", true); res.put("active", b.isActive());
+        res.put("message", b.isActive() ? "Banner activated" : "Banner deactivated");
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/admin/banners/{id}/toggle-home
-     * Toggles showOnHome (pre-login landing page).
-     */
-    @PostMapping("/admin/banners/{id}/toggle-home")
-    public ResponseEntity<Map<String, Object>> adminToggleBannerHome(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
-        b.setShowOnHome(!b.isShowOnHome());
-        bannerRepository.save(b);
-        res.put("success", true);
-        res.put("showOnHome", b.isShowOnHome());
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * POST /api/flutter/admin/banners/{id}/toggle-customer-home
-     * Toggles showOnCustomerHome (post-login customer page).
-     */
+    /** POST /api/flutter/admin/banners/{id}/toggle-customer-home */
     @PostMapping("/admin/banners/{id}/toggle-customer-home")
-    public ResponseEntity<Map<String, Object>> adminToggleBannerCustomerHome(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminToggleBannerCustomerHome(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
         b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
         bannerRepository.save(b);
-        res.put("success", true);
-        res.put("showOnCustomerHome", b.isShowOnCustomerHome());
+        res.put("success", true); res.put("showOnCustomerHome", b.isShowOnCustomerHome());
+        res.put("message", b.isShowOnCustomerHome() ? "Shown on customer home" : "Hidden from customer home");
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/admin/banners/{id}/delete
-     * Permanently deletes a banner.
-     */
-    @PostMapping("/admin/banners/{id}/delete")
-    public ResponseEntity<Map<String, Object>> adminDeleteBanner(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    /** DELETE /api/flutter/admin/banners/{id} */
+    @DeleteMapping("/admin/banners/{id}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminDeleteBanner(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
-        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
+        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
         bannerRepository.deleteById(id);
-        res.put("success", true);
-        res.put("message", "Banner deleted");
+        res.put("success", true); res.put("message", "Banner deleted");
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * DELETE /api/flutter/admin/accounts/{id}
-     * Permanently deletes a customer account.
-     * Mirrors DELETE /api/admin/accounts/{id} but uses JWT auth (requireAdmin)
-     * instead of session.getAttribute("admin"), so React admin JWT sessions can
-     * call it — the old session-guarded endpoint always rejected them.
-     */
-    @DeleteMapping("/admin/accounts/{id}")
-    public ResponseEntity<Map<String, Object>> adminDeleteAccount(
-            @org.springframework.web.bind.annotation.PathVariable int id,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — WAREHOUSES (list, add, toggle-active, delivery boys)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** GET /api/flutter/admin/warehouses */
+    @GetMapping("/admin/warehouses")
+    public ResponseEntity<Map<String, Object>> adminGetWarehouses() {
         Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            if (!customerRepository.existsById(id)) {
-                res.put("success", false);
-                res.put("message", "Account not found");
-                return ResponseEntity.status(404).body(res);
-            }
-            customerRepository.deleteById(id);
-            res.put("success", true);
-            res.put("message", "Account deleted");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Delete failed: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * POST /api/flutter/admin/change-password
-     * Changes the admin password for the stateless Flutter admin session.
-     *
-     * Fix: The existing POST /update-admin-password is a Thymeleaf form endpoint
-     * that checks session.getAttribute("admin") — always null in a stateless
-     * JWT-based Flutter session — so it immediately redirects to /admin/login
-     * instead of changing the password.
-     *
-     * AdminService.updateAdminPassword() doesn't persist either: it reads
-     * adminPassword from @Value("${admin.password}") at startup and never writes
-     * it back, so the comment "contact system admin to update credentials" is the
-     * real behaviour of that method.
-     *
-     * This endpoint:
-     *   1. Validates currentPassword against the live in-memory adminPassword field
-     *   2. Persists the new password to the .env file (ADMIN_PASSWORD=REDACTED
-     *      the change survives a server restart
-     *   3. Updates the in-memory adminPassword field on this controller so
-     *      subsequent JWT logins and API calls use the new password immediately,
-     *      without needing a restart
-     *
-     * Request body (JSON):
-     *   { "currentPassword": "...", "newPassword": "...", "confirmPassword": "..." }
-     *
-     * The .env file is located relative to the JVM working directory (project root),
-     * which is where Spring Boot / DotenvConfig loads it from at startup.
-     */
-    @PostMapping("/admin/change-password")
-    public ResponseEntity<Map<String, Object>> adminChangePassword(
-            @RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-        Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            String currentPassword  = body.getOrDefault("currentPassword",  "").toString().trim();
-            String newPassword      = body.getOrDefault("newPassword",      "").toString().trim();
-            String confirmPassword  = body.getOrDefault("confirmPassword",  "").toString().trim();
-
-            // ── Validate inputs ────────────────────────────────────────────
-            if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "All password fields are required");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (!currentPassword.equals(adminPassword)) {
-                res.put("success", false);
-                res.put("message", "Current password is incorrect");
-                return ResponseEntity.status(403).body(res);
-            }
-            if (!newPassword.equals(confirmPassword)) {
-                res.put("success", false);
-                res.put("message", "New passwords do not match");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPassword.length() < 6) {
-                res.put("success", false);
-                res.put("message", "Password must be at least 6 characters");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPassword.equals(currentPassword)) {
-                res.put("success", false);
-                res.put("message", "New password must be different from the current password");
-                return ResponseEntity.badRequest().body(res);
-            }
-
-            // ── Persist to .env so the change survives a restart ───────────
-            persistPasswordToEnv(newPassword);
-
-            // ── Update in-memory field so the change takes effect immediately
-            // without a restart (subsequent logins and API calls use this field)
-            this.adminPassword = newPassword;
-
-            res.put("success", true);
-            res.put("message", "Admin password updated successfully");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to change password: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * Rewrites ADMIN_PASSWORD in the .env file in the JVM working directory.
-     * Reads the file line-by-line, replaces the ADMIN_PASSWORD=REDACTED
-     * writes the result back atomically via a temp file + rename.
-     *
-     * If the .env file does not exist or the key is not present, the method
-     * appends the key so the next startup picks it up.
-     */
-    private void persistPasswordToEnv(String newPassword) throws java.io.IOException {
-        java.io.File envFile = new java.io.File(".env");
-        String newLine = "ADMIN_PASSWORD=REDACTED
-
-        if (!envFile.exists()) {
-            // .env doesn't exist at runtime working dir — create it with just the key
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(envFile)) {
-                pw.println(newLine);
-            }
-            return;
-        }
-
-        java.util.List<String> lines = new java.util.ArrayList<>();
-        boolean found = false;
-        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(envFile))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.startsWith("ADMIN_PASSWORD=REDACTED
-                    lines.add(newLine);
-                    found = true;
-                } else {
-                    lines.add(line);
-                }
-            }
-        }
-        if (!found) {
-            lines.add(newLine);
-        }
-
-        // Write atomically: temp file → rename
-        java.io.File tmp = new java.io.File(".env.tmp");
-        try (java.io.PrintWriter pw = new java.io.PrintWriter(tmp)) {
-            for (String l : lines) pw.println(l);
-        }
-        if (!tmp.renameTo(envFile)) {
-            // renameTo can fail across filesystems — fall back to copy + delete
-            java.nio.file.Files.copy(tmp.toPath(), envFile.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            tmp.delete();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // NEW ENDPOINTS — Reorder, Password Change, Vendor Profile,
-    // Stock Alerts
-    // ═══════════════════════════════════════════════════════
-
-    @Autowired private StockAlertRepository stockAlertRepository;
-
-    /**
-     * POST /api/flutter/orders/{id}/reorder
-     * Clears cart and re-adds all in-stock items from the given past order.
-     * Header: X-Customer-Id
-     */
-    @PostMapping("/orders/{id}/reorder")
-    public ResponseEntity<Map<String, Object>> reorder(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
-            @PathVariable int id) {
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
-
-        Cart cart = customer.getCart();
-        if (cart == null) { cart = new Cart(); customer.setCart(cart); }
-        cart.getItems().clear(); // clear existing cart
-
-        int addedCount = 0;
-        List<String> outOfStock = new ArrayList<>();
-        for (Item orderItem : order.getItems()) {
-            Product p = productRepository.findById(orderItem.getProductId()).orElse(null);
-            if (p == null || p.getStock() <= 0) { outOfStock.add(orderItem.getName()); continue; }
-            Item newItem = new Item();
-            newItem.setName(p.getName()); newItem.setDescription(p.getDescription());
-            newItem.setPrice(p.getPrice()); newItem.setCategory(p.getCategory());
-            newItem.setQuantity(Math.min(orderItem.getQuantity(), p.getStock()));
-            newItem.setImageLink(p.getImageLink()); newItem.setProductId(p.getId());
-            newItem.setCart(cart);
-            cart.getItems().add(newItem);
-            addedCount++;
-        }
-        customerRepository.save(customer);
-
-        res.put("success", true);
-        res.put("addedCount", addedCount);
-        res.put("outOfStockItems", outOfStock);
-        res.put("message", addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * PUT /api/flutter/profile/change-password
-     * Header: X-Customer-Id
-     * Body: { currentPassword, newPassword }
-     */
-    @PutMapping("/profile/change-password")
-    public ResponseEntity<Map<String, Object>> changePassword(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        String current = (String) body.get("currentPassword");
-        String newPwd  = (String) body.get("newPassword");
-        if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
-        try {
-            if (!AES.decrypt(customer.getPassword()).equals(current)) {
-                res.put("success", false); res.put("message", "Current password is incorrect");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
-            customer.setPassword(AES.encrypt(newPwd));
-            customerRepository.save(customer);
-            res.put("success", true); res.put("message", "Password changed successfully");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
-    }
-
-    /**
-     * GET /api/flutter/vendor/profile
-     * Header: X-Vendor-Id
-     */
-    @GetMapping("/vendor/profile")
-    public ResponseEntity<Map<String, Object>> getVendorProfile(
-            @RequestHeader("X-Vendor-Id") int vendorId) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        Map<String, Object> v = new HashMap<>();
-        v.put("id", vendor.getId()); v.put("name", vendor.getName());
-        v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
-        v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
-        v.put("description", vendor.getDescription());
-        res.put("success", true); res.put("vendor", v);
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * PUT /api/flutter/vendor/profile/update
-     * Header: X-Vendor-Id
-     * Body: { name, mobile }
-     */
-    @PutMapping("/vendor/profile/update")
-    public ResponseEntity<Map<String, Object>> updateVendorProfile(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        if (body.containsKey("name") && !((String) body.get("name")).isBlank())
-            vendor.setName((String) body.get("name"));
-        if (body.containsKey("mobile"))
-            try { vendor.setMobile(Long.parseLong(body.get("mobile").toString())); } catch (Exception ignored) {}
-        vendorRepository.save(vendor);
-        res.put("success", true); res.put("message", "Profile updated successfully");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * PUT /api/flutter/vendor/storefront/update
-     * Header: X-Vendor-Id
-     * Body: { name?, mobile?, description? }
-     *
-     * Updates the vendor's public storefront details. All fields optional;
-     * only provided keys are applied. Mobile is validated and uniqueness-checked.
-     */
-    @PutMapping("/vendor/storefront/update")
-    public ResponseEntity<Map<String, Object>> updateVendorStorefront(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) {
-            res.put("success", false);
-            res.put("message", "Vendor not found");
-            return ResponseEntity.badRequest().body(res);
-        }
-        if (body.containsKey("name")) {
-            String name = ((String) body.get("name")).trim();
-            if (!name.isBlank()) vendor.setName(name);
-        }
-        if (body.containsKey("mobile")) {
-            try {
-                long mobile = Long.parseLong(body.get("mobile").toString().trim());
-                if (mobile < 6000000000L || mobile > 9999999999L) {
-                    res.put("success", false);
-                    res.put("message", "Enter a valid 10-digit mobile number");
-                    return ResponseEntity.badRequest().body(res);
-                }
-                Vendor existing = vendorRepository.findByMobile(mobile);
-                if (existing != null && existing.getId() != vendorId) {
-                    res.put("success", false);
-                    res.put("message", "Mobile number already in use by another vendor");
-                    return ResponseEntity.badRequest().body(res);
-                }
-                vendor.setMobile(mobile);
-            } catch (NumberFormatException e) {
-                res.put("success", false);
-                res.put("message", "Invalid mobile number format");
-                return ResponseEntity.badRequest().body(res);
-            }
-        }
-        if (body.containsKey("description")) {
-            // Allow empty string to clear the description
-            vendor.setDescription((String) body.get("description"));
-        }
-        vendorRepository.save(vendor);
-        res.put("success", true);
-        res.put("message", "Storefront updated successfully");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * PUT /api/flutter/vendor/profile/change-password
-     * Header: X-Vendor-Id
-     * Body: { currentPassword, newPassword }
-     */
-    @PutMapping("/vendor/profile/change-password")
-    public ResponseEntity<Map<String, Object>> vendorChangePassword(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        String current = (String) body.get("currentPassword");
-        String newPwd  = (String) body.get("newPassword");
-        if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
-        try {
-            if (!AES.decrypt(vendor.getPassword()).equals(current)) {
-                res.put("success", false); res.put("message", "Current password is incorrect");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
-            vendor.setPassword(AES.encrypt(newPwd));
-            vendorRepository.save(vendor);
-            res.put("success", true); res.put("message", "Password changed successfully");
-            return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
-    }
-
-    /**
-     * GET /api/flutter/vendor/stock-alerts
-     * Header: X-Vendor-Id
-     */
-    @GetMapping("/vendor/stock-alerts")
-    public ResponseEntity<Map<String, Object>> getStockAlerts(
-            @RequestHeader("X-Vendor-Id") int vendorId) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        List<StockAlert> alerts = stockAlertRepository.findByVendor(vendor);
-        // Sort: unacknowledged first, then by id desc
-        alerts.sort((a, b) -> {
-            if (a.isAcknowledged() != b.isAcknowledged()) return a.isAcknowledged() ? 1 : -1;
-            return Integer.compare(b.getId(), a.getId());
-        });
-        int unacknowledged = (int) alerts.stream().filter(a -> !a.isAcknowledged()).count();
-        List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", a.getId());
-            m.put("productName", a.getProduct() != null ? a.getProduct().getName() : "Unknown");
-            m.put("productId",   a.getProduct() != null ? a.getProduct().getId()   : 0);
-            m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
-            m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
-                    ? a.getProduct().getStockAlertThreshold() : 10);
-            m.put("message",      a.getMessage());
-            m.put("acknowledged", a.isAcknowledged());
-            m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
+        List<Map<String, Object>> warehouses = warehouseRepository.findAll().stream().map(wh -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",             wh.getId());
+            m.put("name",           wh.getName());
+            m.put("city",           wh.getCity());
+            m.put("state",          wh.getState() != null ? wh.getState() : "");
+            m.put("warehouseCode",  wh.getWarehouseCode() != null ? wh.getWarehouseCode() : "");
+            m.put("active",         wh.isActive());
+            m.put("servedPinCodes", wh.getServedPinCodes() != null ? wh.getServedPinCodes() : "");
+            long boyCount = deliveryBoyRepository.findAll().stream()
+                    .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == wh.getId()).count();
+            m.put("deliveryBoyCount", boyCount);
             return m;
         }).collect(Collectors.toList());
-        res.put("success", true);
-        res.put("alerts", alertMaps);
-        res.put("unacknowledgedCount", unacknowledged);
+        res.put("success", true); res.put("warehouses", warehouses);
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/vendor/stock-alerts/{id}/acknowledge
-     * Header: X-Vendor-Id
-     */
-    @PostMapping("/vendor/stock-alerts/{id}/acknowledge")
-    public ResponseEntity<Map<String, Object>> acknowledgeAlert(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @PathVariable int id) {
-        Map<String, Object> res = new HashMap<>();
-        Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        StockAlert alert = stockAlertRepository.findById(id).orElse(null);
-        if (alert == null || alert.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Alert not found"); return ResponseEntity.badRequest().body(res); }
-        alert.setAcknowledged(true);
-        stockAlertRepository.save(alert);
-        res.put("success", true); res.put("message", "Alert acknowledged");
-        return ResponseEntity.ok(res);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // AI ASSISTANT CHAT  (X-Customer-Id)
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * POST /api/flutter/assistant/chat
-     *
-     * Stateless equivalent of POST /chat (ChatController) for the React SPA.
-     * Identifies the customer via X-Customer-Id header (no session required),
-     * builds the same personalised context block, then delegates to AiAssistantService.
-     *
-     * Body: { message: String, history?: [{role, text}] }
-     * Returns: { reply: String, role: String, name: String }
-     */
-    @PostMapping("/assistant/chat")
-    public ResponseEntity<Map<String, Object>> assistantChat(
-            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+    /** POST /api/flutter/admin/warehouses/add  body:{name,city,state,servedPinCodes} */
+    @PostMapping("/admin/warehouses/add")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminAddWarehouse(
             @RequestBody Map<String, Object> body) {
-
-        Map<String, Object> res = new HashMap<>();
-
-        String userMessage = ((String) body.getOrDefault("message", "")).trim();
-        if (userMessage.isEmpty()) {
-            res.put("reply", "Please type a message.");
+        Map<String, Object> res = new LinkedHashMap<>();
+        String name = (String) body.getOrDefault("name", "");
+        String city = (String) body.getOrDefault("city", "");
+        if (name.isBlank() || city.isBlank()) {
+            res.put("success", false); res.put("message", "Name and city are required");
             return ResponseEntity.badRequest().body(res);
         }
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, String>> history =
-                (List<Map<String, String>>) body.getOrDefault("history", new ArrayList<>());
-
-        // ── Resolve customer (guest fallback if no header) ──
-        String role     = "guest";
-        String userName = "there";
-        String contextBlock = "=== GUEST USER ===\nNot logged in. Browsing as guest.\n";
-
-        if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer != null) {
-                role        = "customer";
-                userName    = customer.getName();
-                contextBlock = buildCustomerContext(customer);
-            }
-        }
-
-        String reply = aiAssistantService.getReply(userMessage, role, userName, contextBlock, history);
-
-        res.put("reply", reply);
-        res.put("role",  role);
-        res.put("name",  userName);
+        Warehouse wh = new Warehouse();
+        wh.setName(name.trim());
+        wh.setCity(city.trim());
+        wh.setState((String) body.getOrDefault("state", ""));
+        wh.setServedPinCodes((String) body.getOrDefault("servedPinCodes", ""));
+        wh.setActive(true);
+        warehouseRepository.save(wh);
+        wh.setWarehouseCode(String.format("WH-%04d", wh.getId()));
+        warehouseRepository.save(wh);
+        res.put("success", true); res.put("message", "Warehouse added"); res.put("id", wh.getId());
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * Builds the personalised context block for a customer —
-     * mirrors the "customer" case in ChatController.buildContext().
-     */
-    // ═══════════════════════════════════════════════════════════════════
-    // DELIVERY BOY — Flutter API  (X-Delivery-Id header)
-    // ═══════════════════════════════════════════════════════════════════
-
-    /**
-     * GET /api/flutter/delivery/profile
-     * Returns the delivery boy's profile including warehouse and assigned pin codes.
-     */
-    @GetMapping("/delivery/profile")
-    public ResponseEntity<Map<String, Object>> deliveryProfile(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
-
-        Map<String, Object> profile = new HashMap<>();
-        profile.put("id",               db.getId());
-        profile.put("name",             db.getName());
-        profile.put("email",            db.getEmail());
-        profile.put("mobile",           db.getMobile());
-        profile.put("deliveryBoyCode",  db.getDeliveryBoyCode());
-        profile.put("assignedPinCodes", db.getAssignedPinCodes());
-        profile.put("active",           db.isActive());
-        profile.put("adminApproved",    db.isAdminApproved());
-
-        if (db.getWarehouse() != null) {
-            Warehouse wh = db.getWarehouse();
-            Map<String, Object> w = new HashMap<>();
-            w.put("id",            wh.getId());
-            w.put("name",          wh.getName());
-            w.put("city",          wh.getCity());
-            w.put("state",         wh.getState());
-            w.put("warehouseCode", wh.getWarehouseCode());
-            profile.put("warehouse", w);
-        } else {
-            profile.put("warehouse", null);
-        }
-
-        res.put("success", true);
-        res.put("deliveryBoy", profile);
+    /** POST /api/flutter/admin/warehouses/{id}/toggle */
+    @PostMapping("/admin/warehouses/{id}/toggle")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminToggleWarehouse(@PathVariable int id) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        Warehouse wh = warehouseRepository.findById(id).orElse(null);
+        if (wh == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
+        wh.setActive(!wh.isActive());
+        warehouseRepository.save(wh);
+        res.put("success", true); res.put("active", wh.isActive());
+        res.put("message", wh.isActive() ? "Warehouse activated" : "Warehouse deactivated");
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * GET /api/flutter/delivery/orders
-     * Returns orders assigned to this delivery boy split into three lists:
-     *   toPickUp  — status SHIPPED  (needs to be picked up from warehouse)
-     *   outNow    — status OUT_FOR_DELIVERY (currently en route)
-     *   delivered — status DELIVERED (completed today/recently)
-     */
-    @GetMapping("/delivery/orders")
-    public ResponseEntity<Map<String, Object>> deliveryOrders(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
-
-        List<Order> allAssigned = orderRepository.findByDeliveryBoy(db);
-
-        List<Map<String, Object>> toPickUp  = new ArrayList<>();
-        List<Map<String, Object>> outNow    = new ArrayList<>();
-        List<Map<String, Object>> delivered = new ArrayList<>();
-
-        for (Order o : allAssigned) {
-            TrackingStatus s = o.getTrackingStatus();
-            Map<String, Object> m = mapDeliveryOrder(o);
-            if (s == TrackingStatus.SHIPPED)               toPickUp.add(m);
-            else if (s == TrackingStatus.OUT_FOR_DELIVERY) outNow.add(m);
-            else if (s == TrackingStatus.DELIVERED)        delivered.add(m);
-        }
-
-        res.put("success",   true);
-        res.put("toPickUp",  toPickUp);
-        res.put("outNow",    outNow);
-        res.put("delivered", delivered);
+    /** GET /api/flutter/admin/warehouses/{id}/boys */
+    @GetMapping("/admin/warehouses/{id}/boys")
+    public ResponseEntity<Map<String, Object>> adminGetDeliveryBoysByWarehouse(@PathVariable int id) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        Warehouse wh = warehouseRepository.findById(id).orElse(null);
+        if (wh == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
+        List<Map<String, Object>> boys = deliveryBoyRepository.findAll().stream()
+                .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == id)
+                .map(db -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",              db.getId());
+                    m.put("name",            db.getName());
+                    m.put("email",           db.getEmail());
+                    m.put("deliveryBoyCode", db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
+                    m.put("active",          db.isActive());
+                    m.put("adminApproved",   db.isAdminApproved());
+                    m.put("assignedPinCodes",db.getAssignedPinCodes() != null ? db.getAssignedPinCodes() : "");
+                    return m;
+                }).collect(Collectors.toList());
+        res.put("success", true); res.put("boys", boys);
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/delivery/orders/{id}/pickup
-     * Marks the order as OUT_FOR_DELIVERY and emails the customer a delivery OTP.
-     */
-    @PostMapping("/delivery/orders/{id}/pickup")
-    public ResponseEntity<Map<String, Object>> deliveryPickup(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
-            @PathVariable int id) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — WAREHOUSE CHANGE REQUESTS (list pending, approve, reject)
+    // ═══════════════════════════════════════════════════════════════════════
 
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
-        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", "This order is not assigned to you");
-            return ResponseEntity.status(403).body(res);
-        }
-        if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
-            res.put("success", false);
-            res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        String city = db.getWarehouse() != null ? db.getWarehouse().getCity() : "Warehouse";
-        order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
-        order.setCurrentCity("On the way — " + city);
-        orderRepository.save(order);
-
-        trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.OUT_FOR_DELIVERY,
-                "On the way — " + city,
-                "Parcel picked up by delivery boy " + db.getName(), "delivery_boy"));
-
-        int otp = new java.util.Random().nextInt(100000, 1000000);
-        deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
-        deliveryOtpRepository.save(new DeliveryOtp(order, otp));
-
-        try { emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId()); }
-        catch (Exception e) { System.err.println("Delivery OTP email failed: " + e.getMessage()); }
-
-        res.put("success", true);
-        res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
+    /** GET /api/flutter/admin/warehouse-change-requests */
+    @GetMapping("/admin/warehouse-change-requests")
+    public ResponseEntity<Map<String, Object>> adminGetWarehouseChangeRequests() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        List<Map<String, Object>> requests = warehouseChangeRequestRepository
+                .findByStatusOrderByRequestedAtDesc(WarehouseChangeRequest.Status.PENDING)
+                .stream().map(req -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",                 req.getId());
+                    m.put("deliveryBoyId",       req.getDeliveryBoy().getId());
+                    m.put("deliveryBoyName",     req.getDeliveryBoy().getName());
+                    m.put("deliveryBoyCode",     req.getDeliveryBoy().getDeliveryBoyCode() != null ? req.getDeliveryBoy().getDeliveryBoyCode() : "");
+                    m.put("currentWarehouse",    req.getDeliveryBoy().getWarehouse() != null ? req.getDeliveryBoy().getWarehouse().getName() : "None");
+                    m.put("requestedWarehouse",  req.getRequestedWarehouse().getName());
+                    m.put("requestedWarehouseId",req.getRequestedWarehouse().getId());
+                    m.put("reason",              req.getReason() != null ? req.getReason() : "");
+                    m.put("requestedAt",         req.getRequestedAt() != null ? req.getRequestedAt().toString() : "");
+                    return m;
+                }).collect(Collectors.toList());
+        res.put("success", true); res.put("requests", requests);
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * POST /api/flutter/delivery/orders/{id}/deliver
-     * Body: { otp }
-     * Verifies customer OTP and marks the order as DELIVERED.
-     */
-    @PostMapping("/delivery/orders/{id}/deliver")
-    public ResponseEntity<Map<String, Object>> deliveryConfirm(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
-            @PathVariable int id,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
-
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
-        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", "This order is not assigned to you");
-            return ResponseEntity.status(403).body(res);
-        }
-        if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
-            res.put("success", false); res.put("message", "Order is not out for delivery");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        int submittedOtp;
-        try { submittedOtp = Integer.parseInt(body.getOrDefault("otp", "").toString().trim()); }
-        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid OTP format"); return ResponseEntity.badRequest().body(res); }
-
-        DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
-        if (deliveryOtp == null)   { res.put("success", false); res.put("message", "No OTP found for this order"); return ResponseEntity.badRequest().body(res); }
-        if (deliveryOtp.isUsed())  { res.put("success", false); res.put("message", "OTP already used"); return ResponseEntity.badRequest().body(res); }
-        if (deliveryOtp.getOtp() != submittedOtp) { res.put("success", false); res.put("message", "Wrong OTP. Ask customer for the correct OTP."); return ResponseEntity.badRequest().body(res); }
-
-        deliveryOtp.setUsed(true);
-        deliveryOtp.setUsedAt(java.time.LocalDateTime.now());
-        deliveryOtpRepository.save(deliveryOtp);
-
-        order.setTrackingStatus(TrackingStatus.DELIVERED);
-        order.setCurrentCity("Delivered");
-        orderRepository.save(order);
-
-        trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.DELIVERED,
-                "Delivered to customer",
-                "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy"));
-
-        try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
-        catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
-
-        res.put("success", true);
-        res.put("message", "Order #" + id + " marked as Delivered!");
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * GET /api/flutter/delivery/warehouses
-     * Returns all active warehouses for the transfer-request dropdown.
-     */
-    @GetMapping("/delivery/warehouses")
-    public ResponseEntity<Map<String, Object>> deliveryWarehouses(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
-
-        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
-        List<Map<String, Object>> list = new ArrayList<>();
-        for (Warehouse wh : warehouses) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id",            wh.getId());
-            m.put("name",          wh.getName());
-            m.put("city",          wh.getCity());
-            m.put("state",         wh.getState());
-            m.put("warehouseCode", wh.getWarehouseCode());
-            list.add(m);
-        }
-        res.put("success",    true);
-        res.put("warehouses", list);
-        return ResponseEntity.ok(res);
-    }
-
-    /**
-     * POST /api/flutter/delivery/transfer-request
-     * Body: { warehouseId }
-     * Submits a warehouse transfer request for admin approval.
-     * Only one pending request allowed at a time.
-     */
-    @PostMapping("/delivery/transfer-request")
-    public ResponseEntity<Map<String, Object>> deliveryTransferRequest(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
-
-        int warehouseId;
-        try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
-        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
-
-        if (warehouseId <= 0) { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
-
-        // One pending request at a time
-        java.util.Optional<WarehouseChangeRequest> existing =
-                warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
-        if (existing.isPresent()) {
-            res.put("success", false);
-            res.put("message", "You already have a pending transfer request. Please wait for admin to review it.");
-            return ResponseEntity.ok(res);
-        }
-
-        Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
-        if (requested == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
-
-        if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
-            res.put("success", false); res.put("message", "You are already assigned to this warehouse");
-            return ResponseEntity.ok(res);
-        }
-
-        WarehouseChangeRequest req = new WarehouseChangeRequest();
-        req.setDeliveryBoy(db);
-        req.setRequestedWarehouse(requested);
-        req.setReason(body.containsKey("reason") ? (String) body.get("reason") : "");
-        req.setStatus(WarehouseChangeRequest.Status.PENDING);
-        req.setRequestedAt(java.time.LocalDateTime.now());
+    /** POST /api/flutter/admin/warehouse-change-requests/{id}/approve  body:{adminNote} */
+    @PostMapping("/admin/warehouse-change-requests/{id}/approve")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminApproveWarehouseChange(
+            @PathVariable int id, @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        String adminNote = body != null ? (String) body.getOrDefault("adminNote", "") : "";
+        WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
+        if (req == null) { res.put("success", false); res.put("message", "Request not found"); return ResponseEntity.badRequest().body(res); }
+        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put("success", false); res.put("message", "Request already resolved"); return ResponseEntity.ok(res); }
+        DeliveryBoy db = req.getDeliveryBoy();
+        db.setWarehouse(req.getRequestedWarehouse());
+        db.setAssignedPinCodes("");
+        deliveryBoyRepository.save(db);
+        req.setStatus(WarehouseChangeRequest.Status.APPROVED);
+        req.setAdminNote(adminNote.trim());
+        req.setResolvedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
-
-        res.put("success", true);
-        res.put("message", "Transfer request submitted. Admin will review it shortly.");
+        try { emailSender.sendWarehouseChangeApproved(db, req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
+        res.put("success", true); res.put("message", db.getName() + " transferred to " + req.getRequestedWarehouse().getName());
         return ResponseEntity.ok(res);
     }
 
-    /** Helper — maps an Order to a flat map for delivery-boy API responses */
-    private Map<String, Object> mapDeliveryOrder(Order o) {
-        Map<String, Object> m = new HashMap<>();
-        m.put("id",              o.getId());
-        m.put("status",          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
-        m.put("statusDisplay",   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
-        m.put("currentCity",     o.getCurrentCity());
-        m.put("deliveryAddress", o.getDeliveryAddress());
-        m.put("totalAmount",     o.getAmount());
-        m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
-        // Customer name for the delivery boy to know who they're delivering to
-        m.put("customerName",    o.getCustomer() != null ? o.getCustomer().getName() : null);
-        // Item count summary
-        m.put("itemCount",       o.getItems() != null ? o.getItems().size() : 0);
-        return m;
-    }
-
-
-    private String buildCustomerContext(Customer c) {
-        StringBuilder ctx = new StringBuilder();
-        ctx.append("=== CUSTOMER DATA ===\n");
-        ctx.append("Name: ").append(c.getName()).append("\n");
-        ctx.append("Email: ").append(c.getEmail()).append("\n");
-        ctx.append("Customer ID: ").append(c.getId()).append("\n");
-
-        // Cart
-        if (c.getCart() != null && c.getCart().getItems() != null
-                && !c.getCart().getItems().isEmpty()) {
-            List<Item> cartItems = c.getCart().getItems();
-            double cartTotal = cartItems.stream()
-                    .mapToDouble(i -> i.getUnitPrice() > 0
-                            ? i.getUnitPrice() * i.getQuantity()
-                            : i.getPrice())
-                    .sum();
-            ctx.append("\nCART (").append(cartItems.size()).append(" items, ₹")
-               .append(String.format("%.0f", cartTotal)).append(" total):\n");
-            for (Item item : cartItems) {
-                double unitP = item.getUnitPrice() > 0
-                        ? item.getUnitPrice()
-                        : item.getPrice() / Math.max(item.getQuantity(), 1);
-                ctx.append("  - ").append(item.getName())
-                   .append(" × ").append(item.getQuantity())
-                   .append(" @ ₹").append(String.format("%.0f", unitP))
-                   .append(" [category: ").append(item.getCategory()).append("]\n");
-            }
-            ctx.append("  Delivery: ").append(cartTotal >= 500 ? "FREE" : "₹40").append("\n");
-        } else {
-            ctx.append("\nCART: Empty\n");
-        }
-
-        // Orders (last 10, newest first)
-        List<Order> orders = orderRepository.findByCustomer(c);
-        if (orders.isEmpty()) {
-            ctx.append("\nORDERS: No orders placed yet.\n");
-        } else {
-            orders.sort((a, b) -> {
-                if (a.getOrderDate() == null) return 1;
-                if (b.getOrderDate() == null) return -1;
-                return b.getOrderDate().compareTo(a.getOrderDate());
-            });
-            List<Order> recent = orders.stream().limit(10).collect(Collectors.toList());
-            ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
-               .append(recent.size()).append("):\n");
-            for (Order o : recent) {
-                ctx.append("  Order #").append(o.getId())
-                   .append(" | ₹").append(String.format("%.0f", o.getAmount()))
-                   .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
-                   .append(" | Items: ");
-                if (o.getItems() != null && !o.getItems().isEmpty()) {
-                    ctx.append(o.getItems().stream()
-                            .map(i -> i.getName() + " ×" + i.getQuantity())
-                            .collect(Collectors.joining(", ")));
-                }
-                if (o.getOrderDate() != null)
-                    ctx.append(" | Placed: ").append(o.getOrderDate().format(CHAT_DATE_FMT));
-                if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank())
-                    ctx.append(" | ETA: ").append(o.getDeliveryTime());
-                if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
-                        && o.getTrackingStatus() != TrackingStatus.DELIVERED)
-                    ctx.append(" | Currently at: ").append(o.getCurrentCity());
-                ctx.append("\n");
-            }
-        }
-
-        // Pending refunds
-        List<Refund> pendingRefunds = refundRepository.findByCustomer(c).stream()
-                .filter(r -> r.getStatus() == RefundStatus.PENDING)
-                .collect(Collectors.toList());
-        if (!pendingRefunds.isEmpty()) {
-            ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
-            for (Refund r : pendingRefunds) {
-                ctx.append("  - Refund #").append(r.getId())
-                   .append(" | Order #").append(r.getOrder() != null ? r.getOrder().getId() : "?")
-                   .append(" | ₹").append(String.format("%.0f", r.getAmount()))
-                   .append(" | Reason: ").append(r.getReason())
-                   .append("\n");
-            }
-        }
-
-        // Saved addresses
-        if (c.getAddresses() != null && !c.getAddresses().isEmpty()) {
-            ctx.append("\nSAVED ADDRESSES: ").append(c.getAddresses().size()).append("\n");
-            for (Address a : c.getAddresses()) {
-                ctx.append("  - ")
-                   .append(a.getRecipientName() != null ? a.getRecipientName() : "")
-                   .append(", ").append(a.getCity() != null ? a.getCity() : "")
-                   .append(" ").append(a.getPostalCode() != null ? a.getPostalCode() : "")
-                   .append("\n");
-            }
-        }
-
-        return ctx.toString();
-    }
-
-    // ── PUBLIC BANNER ENDPOINTS ───────────────────────────────────────────────
-    //
-    // GET /api/flutter/banners       — active banners for logged-in customers
-    //                                  (showOnCustomerHome = true)
-    // GET /api/flutter/home-banners  — active banners for the pre-login page
-    //                                  (showOnHome = true)
-    //
-    // Both are unauthenticated (no requireCustomer guard) so the React
-    // CustomerApp can call them before and after login without token overhead.
-    // Response shape matches /api/flutter/admin/banners for consistency.
-
-    /**
-     * GET /api/flutter/banners
-     * Active banners shown on the customer home page (after login).
-     * Filtered by active=true AND showOnCustomerHome=true, ordered by displayOrder.
-     */
-    @GetMapping("/banners")
-    public ResponseEntity<Map<String, Object>> getCustomerBanners() {
+    /** POST /api/flutter/admin/warehouse-change-requests/{id}/reject  body:{adminNote} */
+    @PostMapping("/admin/warehouse-change-requests/{id}/reject")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> adminRejectWarehouseChange(
+            @PathVariable int id, @RequestBody(required = false) Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            List<Banner> banners = bannerRepository.findByActiveTrueAndShowOnCustomerHomeTrueOrderByDisplayOrderAsc();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (Banner b : banners) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",           b.getId());
-                m.put("title",        b.getTitle());
-                m.put("imageUrl",     b.getImageUrl());
-                m.put("linkUrl",      b.getLinkUrl());
-                m.put("displayOrder", b.getDisplayOrder());
-                list.add(m);
-            }
-            res.put("success", true);
-            res.put("banners", list);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
+        String adminNote = body != null ? (String) body.getOrDefault("adminNote", "") : "";
+        WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
+        if (req == null) { res.put("success", false); res.put("message", "Request not found"); return ResponseEntity.badRequest().body(res); }
+        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put("success", false); res.put("message", "Request already resolved"); return ResponseEntity.ok(res); }
+        req.setStatus(WarehouseChangeRequest.Status.REJECTED);
+        req.setAdminNote(adminNote.trim());
+        req.setResolvedAt(LocalDateTime.now());
+        warehouseChangeRequestRepository.save(req);
+        try { emailSender.sendWarehouseChangeRejected(req.getDeliveryBoy(), req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
+        res.put("success", true); res.put("message", "Request rejected");
+        return ResponseEntity.ok(res);
     }
 
-    /**
-     * GET /api/flutter/home-banners
-     * Active banners shown on the pre-login landing page.
-     * Filtered by active=true AND showOnHome=true, ordered by displayOrder.
-     */
-    @GetMapping("/home-banners")
-    public ResponseEntity<Map<String, Object>> getHomeBanners() {
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — PLATFORM STATS DASHBOARD
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** GET /api/flutter/admin/stats */
+    @GetMapping("/admin/stats")
+    public ResponseEntity<Map<String, Object>> adminGetStats() {
         Map<String, Object> res = new LinkedHashMap<>();
-        try {
-            List<Banner> banners = bannerRepository.findByActiveTrueAndShowOnHomeTrueOrderByDisplayOrderAsc();
-            List<Map<String, Object>> list = new ArrayList<>();
-            for (Banner b : banners) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",           b.getId());
-                m.put("title",        b.getTitle());
-                m.put("imageUrl",     b.getImageUrl());
-                m.put("linkUrl",      b.getLinkUrl());
-                m.put("displayOrder", b.getDisplayOrder());
-                list.add(m);
-            }
-            res.put("success", true);
-            res.put("banners", list);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
+        long totalCustomers    = customerRepository.count();
+        long totalVendors      = vendorRepository.count();
+        long totalProducts     = productRepository.count();
+        long pendingProducts   = productRepository.findAll().stream().filter(p -> !p.isApproved()).count();
+        long totalOrders       = orderRepository.count();
+        long pendingOrders     = orderRepository.findAll().stream()
+                .filter(o -> o.getTrackingStatus() == TrackingStatus.PROCESSING || o.getTrackingStatus() == TrackingStatus.PACKED).count();
+        double totalRevenue    = orderRepository.findAll().stream()
+                .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
+                .mapToDouble(Order::getTotalPrice).sum();
+        long totalDeliveryBoys = deliveryBoyRepository.count();
+        long pendingApprovals  = deliveryBoyRepository.findByAdminApprovedFalseAndVerifiedTrue().size();
+        long pendingWHChanges  = warehouseChangeRequestRepository
+                .findByStatusOrderByRequestedAtDesc(WarehouseChangeRequest.Status.PENDING).size();
+        long totalReviews      = reviewRepository.count();
+        long totalBanners      = bannerRepository.count();
+        res.put("success",           true);
+        res.put("totalCustomers",    totalCustomers);
+        res.put("totalVendors",      totalVendors);
+        res.put("totalProducts",     totalProducts);
+        res.put("pendingProducts",   pendingProducts);
+        res.put("totalOrders",       totalOrders);
+        res.put("pendingOrders",     pendingOrders);
+        res.put("totalRevenue",      Math.round(totalRevenue * 100.0) / 100.0);
+        res.put("totalDeliveryBoys", totalDeliveryBoys);
+        res.put("pendingApprovals",  pendingApprovals);
+        res.put("pendingWHChanges",  pendingWHChanges);
+        res.put("totalReviews",      totalReviews);
+        res.put("totalBanners",      totalBanners);
+        return ResponseEntity.ok(res);
     }
-
 }
