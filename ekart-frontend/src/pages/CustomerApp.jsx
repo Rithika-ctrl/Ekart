@@ -942,7 +942,7 @@ export default function CustomerApp() {
     }
   };
 
-  const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD") => {
+  const placeOrder = async (addressId, paymentMode = "COD", deliveryTime = "STANDARD", paymentDetails = null) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to place an order"); return; }
 
     // ── Per-product PIN restriction check ────────────────────────────
@@ -965,7 +965,15 @@ export default function CustomerApp() {
 
     // Pass coupon code (if applied) so the backend can cross-validate at order time
     const couponCode = cart?.couponCode || "";
-    const d = await api("/orders/place", { method: "POST", body: JSON.stringify({ paymentMode, addressId, couponCode, deliveryTime }) });
+    const orderPayload = { paymentMode, addressId, couponCode, deliveryTime };
+    
+    // Include payment details for online payments
+    if (paymentMode === "ONLINE" && paymentDetails) {
+      orderPayload.razorpayPaymentId = paymentDetails.razorpayPaymentId;
+      orderPayload.razorpayOrderId = paymentDetails.razorpayOrderId;
+    }
+
+    const d = await api("/orders/place", { method: "POST", body: JSON.stringify(orderPayload) });
     if (d.success) {
       const savedMsg = d.couponDiscount > 0 ? ` You saved ₹${Math.round(d.couponDiscount)}!` : "";
       showToast("Order placed! 🎉" + savedMsg);
@@ -2754,7 +2762,7 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
       {(!cart.items || cart.items.length === 0) ? (
         <div style={cs.empty}>🛒 Your cart is empty</div>
       ) : (
-        <div style={cs.cartLayout}>
+        <div style={{ ...cs.cartLayout, ...(window.innerWidth < 768 ? cs.cartLayoutMobile : {}) }}>
           <div>
             {cart.items.map((item, i) => {
               const pinBlocked = homePin && !isPinAllowed(item, homePin);
@@ -2810,7 +2818,7 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
             </div>
           </div>
 
-          <div style={cs.cartSummary}>
+          <div style={{ ...cs.cartSummary, ...(window.innerWidth < 768 ? cs.cartSummaryMobile : {}) }}>
             <h3 style={{ color: "#e5e7eb", marginBottom: 16 }}>Order Summary</h3>
             <div style={cs.sumRow}><span>Items ({cart.itemCount || cart.items?.length})</span><span>{fmt(cart.subtotal)}</span></div>
             {cart.couponDiscount > 0 && <div style={{ ...cs.sumRow, color: "#22c55e" }}><span>Coupon Discount</span><span>-{fmt(cart.couponDiscount)}</span></div>}
@@ -3351,6 +3359,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const [payMode, setPayMode] = useState("COD");
   const [deliveryTime, setDeliveryTime] = useState("STANDARD");
   const [placing, setPlacing] = useState(false);
+  const [razorpayKey, setRazorpayKey] = useState("");
   const addrs = profile?.addresses || [];
   // selectedAddr comes pre-chosen from the Address step; fall back to first saved address
   const selectedAddr = selectedAddressId || (addrs.length > 0 ? addrs[0].id : null);
@@ -3366,8 +3375,87 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const pinRestrictedItems = getPinRestrictedItems(cart.items, deliveryPin);
   const pinBlocked = pinRestrictedItems.length > 0;
 
+  // ── Load Razorpay script and key on component mount ──
+  useEffect(() => {
+    // Load Razorpay script
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Fetch Razorpay key from backend
+    const fetchKey = async () => {
+      try {
+        const res = await fetch("/api/razorpay-key");
+        const data = await res.json();
+        if (data.razorpayKeyId) setRazorpayKey(data.razorpayKeyId);
+      } catch (e) {
+        console.error("Failed to fetch Razorpay key:", e);
+      }
+    };
+    fetchKey();
+
+    return () => {
+      if (script.parentNode) document.body.removeChild(script);
+    };
+  }, []);
+
+  // ── Handle Online Payment (Razorpay) ──
+  const handleOnlinePay = (e) => {
+    e.preventDefault();
+    if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
+    if (!window.Razorpay) { showToast?.("Payment gateway not loaded. Please try again."); return; }
+    if (!razorpayKey) { showToast?.("Payment system error. Please refresh and try again."); return; }
+
+    const payAmount = Math.round(grandTotal * 100); // Convert to paise
+    const options = {
+      key: razorpayKey,
+      amount: payAmount,
+      currency: "INR",
+      name: "Ekart Shop",
+      description: "Order Payment",
+      prefill: {
+        name: profile?.name || "Customer",
+        email: profile?.email || "email@example.com",
+        contact: profile?.phone || "",
+      },
+      theme: { color: "#f5a800" },
+      handler: async (response) => {
+        setPlacing(true);
+        try {
+          // Complete the order with payment details
+          await onPlaceOrder(selectedAddr, "ONLINE", deliveryTime, {
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpayOrderId: response.razorpay_order_id,
+          });
+        } catch (err) {
+          showToast?.("Payment processing error. Please try again.");
+          console.error(err);
+        }
+        setPlacing(false);
+      },
+      modal: {
+        ondismiss: () => {
+          showToast?.("Payment cancelled. You can try again.");
+        }
+      }
+    };
+
+    try {
+      new window.Razorpay(options).open();
+    } catch (err) {
+      showToast?.("Failed to open payment gateway. Please try again.");
+      console.error(err);
+    }
+  };
+
   const handlePlace = async () => {
     if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
+    if (payMode === "ONLINE") {
+      handleOnlinePay({ preventDefault: () => {} });
+      return;
+    }
+    // For COD
     setPlacing(true);
     await onPlaceOrder(selectedAddr, payMode, deliveryTime);
     setPlacing(false);
@@ -3380,7 +3468,17 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   ];
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "32px 20px" }}>
+    <div style={{ padding: "32px 20px" }}>
+      {/* Page Header */}
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <h1 style={{ fontSize: 40, fontWeight: 900, color: "#fff", margin: "0 0 8px" }}>
+          Complete Your <span style={{ color: "#a5b4fc" }}>Payment</span> 💳
+        </h1>
+        <p style={{ fontSize: 15, color: "#9ca3af", maxWidth: 600, margin: "0 auto" }}>
+          Choose your delivery speed and preferred payment method below. Your order is secure and backed by our satisfaction guarantee.
+        </p>
+      </div>
+
       {/* Stepper */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32 }}>
         {steps.map((s, i) => (
@@ -3407,8 +3505,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
       </div>
 
       <button style={cs.backBtn} onClick={onBack}>← Back to Address</button>
-      <h2 style={cs.pageTitle}>Complete Your Payment 💳</h2>
-      <div style={cs.paymentLayout}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth > 1024 ? "1.5fr 1fr" : "1fr", gap: 32, maxWidth: 1600, margin: "0 auto", ...(window.innerWidth < 768 && cs.paymentLayoutMobile) }}>
         <div>
           {/* Chosen address — read-only summary */}
           <div style={cs.paySection}>
@@ -3482,9 +3579,48 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
               </div>
             ))}
           </div>
+
+          {/* Detailed Price Breakdown */}
+          <div style={cs.paySection}>
+            <h3 style={cs.paySectionTitle}>🧾 Price Breakdown</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#e5e7eb" }}>
+              <span style={{ color: "#9ca3af" }}>Cart Subtotal</span>
+              <span>{fmt(subtotal)}</span>
+            </div>
+            {couponDiscount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#22c55e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span>💚 Coupon Discount</span>
+                <span>-{fmt(couponDiscount)}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#e5e7eb", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ color: "#9ca3af" }}>Delivery Charge</span>
+              <span style={{ color: expressSurcharge === 0 ? "#22c55e" : "#f5a800" }}>
+                {expressSurcharge === 0 ? "FREE" : fmt(expressSurcharge)}
+              </span>
+            </div>
+            {/* GST Breakdown */}
+            {(() => {
+              const { slabs, totalGst } = computeCartGst(cart.items);
+              if (totalGst <= 0) return null;
+              return (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,0.12)" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    🧾 GST (Included)
+                  </div>
+                  {slabs.filter(s => s.rate > 0).map(s => (
+                    <div key={s.rate} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#9ca3af" }}>
+                      <span>GST @ {s.rate}%</span>
+                      <span>{fmt(s.gst)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
         </div>
 
-        <div style={cs.cartSummary}>
+        <div style={{ ...cs.cartSummary, ...(window.innerWidth < 768 ? cs.cartSummaryMobile : {}) }}>
           <h3 style={{ color: "#e5e7eb", marginBottom: 16 }}>Bill Summary</h3>
           <div style={cs.sumRow}><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
           {couponDiscount > 0 && (
@@ -3548,12 +3684,28 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
             </div>
           )}
           <button
-            style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16,
-              opacity: placing || pinBlocked ? 0.5 : 1, cursor: pinBlocked ? "not-allowed" : "pointer" }}
+            style={{ 
+              ...cs.addCartBtn, 
+              width: "100%", 
+              padding: "14px", 
+              marginTop: 16, 
+              fontSize: 16,
+              opacity: placing || pinBlocked ? 0.5 : 1, 
+              cursor: placing || pinBlocked ? "not-allowed" : "pointer",
+              background: payMode === "ONLINE" ? "#f5a800" : "#22c55e",
+              boxShadow: payMode === "ONLINE" ? "0 8px 24px rgba(245,168,0,0.3)" : "0 8px 24px rgba(34,197,94,0.2)",
+              transition: "all 0.3s cubic-bezier(0.23,1,0.32,1)",
+            }}
             disabled={placing || pinBlocked}
             onClick={handlePlace}>
-            {placing ? "Placing..." : pinBlocked ? "🚫 Cannot place — PIN restricted" : payMode === "COD" ? "Place Order (COD) 🚀" : "Pay & Place Order 💳"}
+            {placing ? "Processing..." : pinBlocked ? "🚫 Cannot place — PIN restricted" : payMode === "COD" ? "✓ Place Order (COD) 🚀" : "💳 Pay & Place Order"}
           </button>
+
+          {/* ── Security Badge ── */}
+          <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#9ca3af" }}>
+            <span style={{ fontSize: 18 }}>🔒</span>
+            <span>Secured by 256-bit SSL encryption</span>
+          </div>
         </div>
       </div>
     </div>
@@ -5079,6 +5231,7 @@ const cs = {
   submitReviewBtn: { marginTop: 8, padding: "9px 20px", borderRadius: 9, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 },
   reviewCard: { borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12, marginTop: 12 },
   cartLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
+  cartLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
   cartItem: { display: "flex", gap: 14, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: 14, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" },
   cartItemImg: { width: 72, height: 72, background: "rgba(255,255,255,0.08)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, overflow: "hidden" },
   cartItemInfo: { flex: 1 },
@@ -5092,9 +5245,11 @@ const cs = {
   removeBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444" },
   couponBox: { background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.15)", borderRadius: 14, padding: 16, marginTop: 8, display: "flex", flexDirection: "column", gap: 10 },
   cartSummary: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24, position: "sticky", top: 80 },
+  cartSummaryMobile: { position: "static", top: "auto" },
   sumRow: { display: "flex", justifyContent: "space-between", color: "#9ca3af", marginBottom: 10, fontSize: 14 },
   totalRow: { display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: 18, borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginTop: 8 },
   paymentLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
+  paymentLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
   paySection: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 },
   paySectionTitle: { color: "#e5e7eb", fontWeight: 700, marginBottom: 14, fontSize: 15 },
   addrCard: { border: "2px solid", borderRadius: 12, padding: 14, marginBottom: 10, cursor: "pointer" },
