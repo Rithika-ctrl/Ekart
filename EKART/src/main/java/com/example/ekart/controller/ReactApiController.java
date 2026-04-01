@@ -2612,10 +2612,10 @@ public class ReactApiController {
                     if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
                     if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
 
-                    double price    = Double.parseDouble(priceStr.replaceAll("[^\d.]", ""));
+                    double price    = Double.parseDouble(priceStr.replaceAll("[^\\d.]", ""));
                     int    stock    = (stockStr    == null || stockStr.isBlank())    ? 0     : Integer.parseInt(stockStr.trim());
                     Integer thresh  = (threshStr   == null || threshStr.isBlank())   ? null  : Integer.parseInt(threshStr.trim());
-                    Double mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0   : Double.parseDouble(mrpStr.replaceAll("[^\d.]", ""));
+                    Double mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0   : Double.parseDouble(mrpStr.replaceAll("[^\\d.]", ""));
                     Double gstRate  = (gstRateStr  == null || gstRateStr.isBlank())  ? null  : Double.parseDouble(gstRateStr.trim());
                     boolean approved = approvedStr != null
                         ? approvedStr.equalsIgnoreCase("true") || approvedStr.equals("1") || approvedStr.equalsIgnoreCase("yes")
@@ -2887,9 +2887,35 @@ public class ReactApiController {
         m.put("currentCity", o.getCurrentCity());
         m.put("orderDate", o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested", o.isReplacementRequested());
+        m.put("deliveryPinCode", o.getDeliveryPinCode());
+        m.put("deliveryAddress", o.getDeliveryAddress());
         m.put("items", o.getItems().stream().map(this::mapItem).collect(Collectors.toList()));
-        // Include customer name for admin views
-        if (o.getCustomer() != null) m.put("customerName", o.getCustomer().getName());
+        // Customer — name + mobile for admin/delivery views
+        if (o.getCustomer() != null) {
+            m.put("customerName", o.getCustomer().getName());
+            Map<String, Object> cust = new HashMap<>();
+            cust.put("id",     o.getCustomer().getId());
+            cust.put("name",   o.getCustomer().getName());
+            cust.put("email",  o.getCustomer().getEmail());
+            cust.put("mobile", o.getCustomer().getMobile());
+            m.put("customer", cust);
+        }
+        // Warehouse — needed by delivery assignment tab
+        if (o.getWarehouse() != null) {
+            Map<String, Object> wh = new HashMap<>();
+            wh.put("id",   o.getWarehouse().getId());
+            wh.put("name", o.getWarehouse().getName());
+            wh.put("city", o.getWarehouse().getCity());
+            m.put("warehouse", wh);
+        }
+        // Assigned delivery boy — needed by In-Progress tab
+        if (o.getDeliveryBoy() != null) {
+            Map<String, Object> db = new HashMap<>();
+            db.put("id",   o.getDeliveryBoy().getId());
+            db.put("name", o.getDeliveryBoy().getName());
+            db.put("code", o.getDeliveryBoy().getDeliveryBoyCode());
+            m.put("deliveryBoy", db);
+        }
         return m;
     }
 
@@ -3084,6 +3110,108 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /** GET /api/react/admin/orders/export — CSV download, mirrors current search/filter state
+     *  Supports: ?q=searchTerm  ?status=DELIVERED  (both optional, combinable)
+     *  Returns text/csv with UTF-8 BOM so Excel on Windows opens cleanly without an encoding dialog.
+     *  Content-Disposition filename encodes the active date + status filter.
+     */
+    @GetMapping("/admin/orders/export")
+    public ResponseEntity<byte[]> adminExportOrders(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return ResponseEntity.status(401).build();
+
+        List<Order> orders = orderRepository.findAll().stream()
+            .sorted(Comparator.comparingInt(Order::getId).reversed())
+            .collect(Collectors.toList());
+
+        // Apply same filters as the admin orders list
+        if (q != null && !q.isBlank()) {
+            String lq = q.toLowerCase();
+            orders = orders.stream().filter(o ->
+                (o.getCustomer() != null && o.getCustomer().getName() != null
+                    && o.getCustomer().getName().toLowerCase().contains(lq)) ||
+                (o.getCustomer() != null && o.getCustomer().getEmail() != null
+                    && o.getCustomer().getEmail().toLowerCase().contains(lq)) ||
+                String.valueOf(o.getId()).contains(lq)
+            ).collect(Collectors.toList());
+        }
+        if (status != null && !status.isBlank()) {
+            try {
+                TrackingStatus ts = TrackingStatus.valueOf(status.toUpperCase());
+                orders = orders.stream()
+                    .filter(o -> o.getTrackingStatus() == ts)
+                    .collect(Collectors.toList());
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        // Build CSV — UTF-8 BOM prefix ensures Excel auto-detects encoding
+        StringBuilder csv = new StringBuilder("\uFEFF");
+        csv.append("Order ID,Customer Name,Customer Email,Order Date,Status,Payment Mode," +
+                   "Item Count,Item Names,Subtotal,Delivery Charge,Total,City,Delivery Time\n");
+        for (Order o : orders) {
+            String custName  = (o.getCustomer() != null && o.getCustomer().getName()  != null) ? o.getCustomer().getName()  : "";
+            String custEmail = (o.getCustomer() != null && o.getCustomer().getEmail() != null) ? o.getCustomer().getEmail() : "";
+            String itemNames = o.getItems().stream()
+                .map(i -> (i.getName() != null ? i.getName() : ""))
+                .collect(Collectors.joining("; "));
+            // Item.price is the line total (unitPrice × qty); use it directly for subtotal
+            double subtotal = o.getItems().stream()
+                .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getUnitPrice() * i.getQuantity() : i.getPrice())
+                .sum();
+            csv.append(csvCell(String.valueOf(o.getId()))).append(",")
+               .append(csvCell(custName)).append(",")
+               .append(csvCell(custEmail)).append(",")
+               .append(csvCell(o.getOrderDate() != null ? o.getOrderDate().toString() : "")).append(",")
+               .append(csvCell(o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "")).append(",")
+               .append(csvCell(o.getPaymentMode() != null ? o.getPaymentMode() : "")).append(",")
+               .append(o.getItems().size()).append(",")
+               .append(csvCell(itemNames)).append(",")
+               .append(subtotal).append(",")
+               .append(o.getDeliveryCharge()).append(",")
+               .append(o.getTotalPrice()).append(",")
+               .append(csvCell(o.getCurrentCity() != null ? o.getCurrentCity() : "")).append(",")
+               .append(csvCell(o.getDeliveryTime() != null ? o.getDeliveryTime() : "")).append("\n");
+        }
+
+        byte[] bytes = csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String date     = java.time.LocalDate.now().toString();
+        String filePart = (status != null && !status.isBlank()) ? "-" + status.toLowerCase() : "";
+        String filename = "ekart-orders-" + date + filePart + ".csv";
+
+        return ResponseEntity.ok()
+            .header("Content-Type", "text/csv; charset=UTF-8")
+            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+            .header("Access-Control-Expose-Headers", "Content-Disposition")
+            .body(bytes);
+    }
+
+    /** RFC 4180 CSV cell helper: wraps in double-quotes, escapes internal quotes as "" */
+    private String csvCell(String val) {
+        if (val == null) return "\"\"";
+        return "\"" + val.replace("\"", "\"\"") + "\"";
+    }
+
+    /** GET /api/react/admin/orders/{id} — single order detail with full line items */
+    @GetMapping("/admin/orders/{id}")
+    public ResponseEntity<Map<String, Object>> adminGetOrderById(
+            @PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        res.put("success", true);
+        res.put("order", mapOrder(order));
+        return ResponseEntity.ok(res);
+    }
+
     /** POST /api/flutter/admin/orders/{id}/status  body: { status } */
     @PostMapping("/admin/orders/{id}/status")
     public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
@@ -3103,6 +3231,122 @@ public class ReactApiController {
             res.put("success", false); res.put("message", "Invalid status: " + body.get("status"));
             return ResponseEntity.badRequest().body(res);
         }
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/admin/customers/{id}/addresses
+     *
+     * Returns all saved delivery addresses for a customer.
+     * Supports both structured (recipientName/houseStreet/city/state/postalCode)
+     * and legacy flat-text (details) addresses.
+     */
+    @GetMapping("/admin/customers/{id}/addresses")
+    public ResponseEntity<Map<String, Object>> getCustomerAddresses(
+            @PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+
+        com.example.ekart.dto.Customer customer = customerRepository.findById(id).orElse(null);
+        if (customer == null) {
+            res.put("success", false);
+            res.put("message", "Customer not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        List<Map<String, Object>> addresses = customer.getAddresses() == null
+            ? java.util.Collections.emptyList()
+            : customer.getAddresses().stream().map(a -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id",            a.getId());
+                m.put("recipientName", a.getRecipientName());
+                m.put("houseStreet",   a.getHouseStreet());
+                m.put("city",          a.getCity());
+                m.put("state",         a.getState());
+                m.put("postalCode",    a.getPostalCode());
+                m.put("details",       a.getDetails());
+                m.put("formatted",     a.getFormattedAddress());
+                return m;
+              }).collect(java.util.stream.Collectors.toList());
+
+        res.put("success",   true);
+        res.put("addresses", addresses);
+        res.put("count",     addresses.size());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/admin/orders/{id}/cancel
+     * Body (optional): { "reason": "Fraud suspected" }
+     *
+     * Admin-initiated cancel. Differences from customer cancel:
+     *  - Uses admin JWT auth (requireAdmin), not X-Customer-Id
+     *  - No ownership check — admin can cancel any order
+     *  - Accepts an optional "reason" string logged to stdout for audit trail
+     *  - Restores product stock (same logic as customer cancel)
+     *  - Sends the standard cancellation email to the customer (fire-and-forget)
+     *  - Blocks cancelling an already-DELIVERED or already-CANCELLED order
+     */
+    @PostMapping("/admin/orders/{id}/cancel")
+    public ResponseEntity<Map<String, Object>> adminCancelOrder(
+            @PathVariable int id,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        if (order.getTrackingStatus() == TrackingStatus.DELIVERED) {
+            res.put("success", false);
+            res.put("message", "Cannot cancel an already-delivered order");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (order.getTrackingStatus() == TrackingStatus.CANCELLED) {
+            res.put("success", false);
+            res.put("message", "Order is already cancelled");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        String reason = (body != null && body.get("reason") != null) ? body.get("reason").trim() : "Admin-initiated cancellation";
+
+        // Restore stock for every line item
+        for (Item item : order.getItems()) {
+            if (item.getProductId() != null) {
+                productRepository.findById(item.getProductId()).ifPresent(p -> {
+                    p.setStock(p.getStock() + item.getQuantity());
+                    productRepository.save(p);
+                });
+            }
+        }
+
+        order.setTrackingStatus(TrackingStatus.CANCELLED);
+        orderRepository.save(order);
+
+        // Audit log
+        System.out.printf("[ADMIN-CANCEL] orderId=%d reason=\"%s\" at=%s%n",
+    id, reason, java.time.LocalDateTime.now());
+
+        // Send cancellation email to customer (fire-and-forget — never fails the response)
+        if (order.getCustomer() != null) {
+            try {
+                emailSender.sendOrderCancellation(order.getCustomer(), order.getTotalPrice(), id, order.getItems());
+            } catch (Exception e) {
+                System.err.println("[ADMIN-CANCEL] Email failed for order #" + id + ": " + e.getMessage());
+            }
+        }
+
+        res.put("success", true);
+        res.put("message", "Order #" + id + " cancelled successfully");
+        res.put("reason", reason);
+        res.put("orderId", id);
         return ResponseEntity.ok(res);
     }
 
@@ -3913,6 +4157,160 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Failed to approve delivery boy: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    // ── ADMIN — DELIVERY ORDER LISTS ─────────────────────────────────────────
+    //
+    // Three status-filtered order endpoints consumed by the Delivery tab in AdminApp.jsx.
+    // All require admin JWT. Each returns { success, orders: [...] } using the enriched
+    // mapOrder() shape which now includes customer{}, warehouse{}, deliveryBoy{}, deliveryPinCode.
+
+    /** GET /api/react/admin/orders/packed — orders with status=PACKED, awaiting delivery assignment */
+    @GetMapping("/admin/orders/packed")
+    public ResponseEntity<Map<String, Object>> adminGetPackedOrders(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> orders = orderRepository.findAll().stream()
+            .filter(o -> o.getTrackingStatus() == TrackingStatus.PACKED)
+            .sorted(Comparator.comparingInt(Order::getId).reversed())
+            .map(this::mapOrder)
+            .collect(Collectors.toList());
+        res.put("success", true);
+        res.put("orders", orders);
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/react/admin/orders/shipped — orders with status=SHIPPED (assigned, in transit) */
+    @GetMapping("/admin/orders/shipped")
+    public ResponseEntity<Map<String, Object>> adminGetShippedOrders(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> orders = orderRepository.findAll().stream()
+            .filter(o -> o.getTrackingStatus() == TrackingStatus.SHIPPED)
+            .sorted(Comparator.comparingInt(Order::getId).reversed())
+            .map(this::mapOrder)
+            .collect(Collectors.toList());
+        res.put("success", true);
+        res.put("orders", orders);
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/react/admin/orders/out-for-delivery — orders with status=OUT_FOR_DELIVERY */
+    @GetMapping("/admin/orders/out-for-delivery")
+    public ResponseEntity<Map<String, Object>> adminGetOutForDeliveryOrders(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        List<Map<String, Object>> orders = orderRepository.findAll().stream()
+            .filter(o -> o.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY)
+            .sorted(Comparator.comparingInt(Order::getId).reversed())
+            .map(this::mapOrder)
+            .collect(Collectors.toList());
+        res.put("success", true);
+        res.put("orders", orders);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/admin/delivery/boys/for-order/{orderId}
+     * Returns delivery boys eligible for a specific packed order.
+     * Eligibility: adminApproved=true, active=true, and assignedPinCodes covers the order's deliveryPinCode.
+     * Response includes isAvailable so the frontend can show 🟢/🔴 status.
+     */
+    @GetMapping("/admin/delivery/boys/for-order/{orderId}")
+    public ResponseEntity<Map<String, Object>> adminGetEligibleDeliveryBoys(
+            @PathVariable int orderId, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        String pin = order.getDeliveryPinCode();
+        List<Map<String, Object>> boys = deliveryBoyRepository.findAll().stream()
+            .filter(db -> db.isAdminApproved() && db.isActive())
+            .filter(db -> pin == null || pin.isBlank() || db.covers(pin))
+            .map(db -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id",          db.getId());
+                m.put("name",        db.getName());
+                m.put("code",        db.getDeliveryBoyCode());
+                m.put("mobile",      db.getMobile());
+                m.put("isAvailable", db.isAvailable());
+                m.put("warehouse",   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
+                m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
+                return m;
+            })
+            .sorted(Comparator.comparing(m -> !((Boolean) m.get("isAvailable")))) // online first
+            .collect(Collectors.toList());
+        res.put("success", true);
+        res.put("deliveryBoys", boys);
+        res.put("orderPin", pin);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/admin/delivery/assign
+     * Body: { orderId: int, deliveryBoyId: int }
+     * Assigns a delivery boy to a PACKED order and advances status to SHIPPED.
+     * Validates: order must be PACKED, delivery boy must be approved + active.
+     */
+    @PostMapping("/admin/delivery/assign")
+    public ResponseEntity<Map<String, Object>> adminAssignDeliveryBoy(
+            @RequestBody Map<String, Object> body, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        try {
+            int orderId       = Integer.parseInt(body.get("orderId").toString());
+            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
+
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order == null) {
+                res.put("success", false); res.put("message", "Order not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            if (order.getTrackingStatus() != TrackingStatus.PACKED) {
+                res.put("success", false);
+                res.put("message", "Order must be in PACKED status to assign a delivery boy (current: "
+                    + order.getTrackingStatus().name() + ")");
+                return ResponseEntity.badRequest().body(res);
+            }
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
+            if (db == null) {
+                res.put("success", false); res.put("message", "Delivery boy not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            if (!db.isAdminApproved() || !db.isActive()) {
+                res.put("success", false); res.put("message", "Delivery boy is not approved or is inactive");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            order.setDeliveryBoy(db);
+            order.setTrackingStatus(TrackingStatus.SHIPPED);
+            orderRepository.save(order);
+
+            res.put("success", true);
+            res.put("message", "Order #" + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
+            res.put("orderId",         orderId);
+            res.put("deliveryBoyId",   db.getId());
+            res.put("deliveryBoyName", db.getName());
+            res.put("newStatus",       TrackingStatus.SHIPPED.name());
+            return ResponseEntity.ok(res);
+        } catch (NullPointerException | NumberFormatException e) {
+            res.put("success", false);
+            res.put("message", "Missing or invalid orderId / deliveryBoyId in request body");
+            return ResponseEntity.badRequest().body(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Assignment failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }

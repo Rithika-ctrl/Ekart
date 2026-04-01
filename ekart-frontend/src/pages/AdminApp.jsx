@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
@@ -207,7 +207,7 @@ export default function AdminApp() {
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
           {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
           {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} onApproveAll={approveAllProducts} />}
-          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
+          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} auth={auth} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
@@ -568,30 +568,340 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
 }
 
 /* ── Orders ── */
-function OrdersAdmin({ orders, onUpdateStatus }) {
+function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
   const statuses = ["PLACED","CONFIRMED","SHIPPED","OUT_FOR_DELIVERY","DELIVERED","CANCELLED"];
   const [filter, setFilter] = useState("");
-  const filtered = filter ? orders.filter(o => o.trackingStatus === filter) : orders;
+  const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null); // order object for detail modal
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false); // id being cancelled, or null
+  const [cancelConfirm, setCancelConfirm] = useState(null);     // order object awaiting confirm
   const sColor = { PLACED:"#d4a017",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#1db882",CANCELLED:"#e84c3c" };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search.trim())  params.set("q",      search.trim());
+      if (filter.trim())  params.set("status", filter.trim());
+      const url = "/api/react/admin/orders/export" + (params.toString() ? "?" + params.toString() : "");
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${auth?.token || ""}`,
+          "X-Admin-Email": auth?.email || "",
+        }
+      });
+      if (!res.ok) { alert("Export failed (status " + res.status + ")"); return; }
+      const blob = await res.blob();
+      // Prefer filename from Content-Disposition, fall back to generic name
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      const filename = match ? match[1] : "ekart-orders.csv";
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert("Export error: " + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCancelOrder = async (order, reason) => {
+    setCancellingOrder(order.id);
+    try {
+      const d = await api(`/admin/orders/${order.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason || "Admin-initiated cancellation" })
+      });
+      if (d.success) {
+        // Update row in-place so the table reflects immediately
+        setSelectedOrder(prev => prev ? { ...prev, trackingStatus: "CANCELLED" } : null);
+        setCancelConfirm(null);
+        // Bubble up to parent so the orders list reloads
+        onUpdateStatus(order.id, "CANCELLED");
+      } else {
+        alert(d.message || "Cancel failed");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setCancellingOrder(null);
+    }
+  };
+
+  const filtered = orders
+    .filter(o => !filter || o.trackingStatus === filter)
+    .filter(o => !search ||
+      String(o.id).includes(search) ||
+      (o.customerName || "").toLowerCase().includes(search.toLowerCase())
+    );
+
+  const openDetail = async (order) => {
+    // Use the already-fetched items from the list response (mapOrder embeds them)
+    // If items are missing for some reason, fall back to the dedicated endpoint
+    if (order.items && order.items.length >= 0) {
+      setSelectedOrder(order);
+      return;
+    }
+    setDetailLoading(true);
+    try {
+      const d = await api(`/admin/orders/${order.id}`);
+      setSelectedOrder(d.success ? d.order : order);
+    } catch { setSelectedOrder(order); }
+    setDetailLoading(false);
+  };
+
+  const subtotal = (items) => (items || []).reduce((s, i) => s + (i.price * i.quantity), 0);
+
   return (
     <div>
-      <h2 style={as.pageTitle}>Order Management</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <button style={{ ...as.filterBtn, ...(filter === "" ? as.filterBtnActive : {}) }} onClick={() => setFilter("")}>All ({orders.length})</button>
-        {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 ? <button key={s} style={{ ...as.filterBtn, ...(filter === s ? as.filterBtnActive : {}) }} onClick={() => setFilter(s)}>{s.replace(/_/g," ")} ({c})</button> : null; })}
+      {/* Header row: title + export button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={as.pageTitle}>Order Management</h2>
+        <button
+          onClick={handleExportCsv}
+          disabled={exporting || filtered.length === 0}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 16px", borderRadius: 10,
+            border: "1.5px solid #1db882", background: exporting ? "#f2f0eb" : "#edfaf4",
+            color: "#1db882", fontWeight: 700, fontSize: 13, cursor: (exporting || filtered.length === 0) ? "not-allowed" : "pointer",
+            opacity: filtered.length === 0 ? 0.5 : 1, transition: "background 0.15s"
+          }}
+        >
+          {exporting ? "⏳ Exporting…" : `⬇️ Export CSV (${filtered.length} row${filtered.length !== 1 ? "s" : ""})`}
+        </button>
       </div>
-      <AdminTable
-        cols={["ID","Customer","Amount","Date","Status","Update"]}
-        rows={filtered.map(o => [
-          `#${o.id}`, o.customerName || "—", fmt(o.amount || o.totalPrice),
-          o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—",
-          <span style={{ ...as.badge, background: (sColor[o.trackingStatus] || "#6b7280") + "22", color: sColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g," ")}</span>,
-          <select style={as.statusSelect} value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)}>
-            {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
-          </select>
-        ])}
-        empty="No orders"
-      />
+
+      {/* Search + filter bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          style={{ ...as.searchInput, flex: "0 0 220px" }}
+          placeholder="Search by ID or customer…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button style={{ ...as.filterBtn, ...(filter === "" ? as.filterBtnActive : {}) }} onClick={() => setFilter("")}>All ({orders.length})</button>
+          {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 ? <button key={s} style={{ ...as.filterBtn, ...(filter === s ? as.filterBtnActive : {}) }} onClick={() => setFilter(s)}>{s.replace(/_/g," ")} ({c})</button> : null; })}
+        </div>
+      </div>
+
+      <div style={as.tableWrap}>
+        <table style={as.table}>
+          <thead style={as.thead}>
+            <tr>
+              {["ID","Customer","Items","Amount","Date","Status","Update",""].map(h => (
+                <th key={h} style={as.th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} style={{ ...as.td, textAlign: "center", color: "rgba(13,13,13,0.4)" }}>No orders</td></tr>
+            )}
+            {filtered.map(o => (
+              <tr key={o.id} style={as.tr}>
+                <td style={{ ...as.td, fontWeight: 700, color: "#2563eb" }}>#{o.id}</td>
+                <td style={{ ...as.td, fontWeight: 600 }}>{o.customerName || "—"}</td>
+                <td style={{ ...as.td, textAlign: "center" }}>
+                  <span style={{ ...as.badge, background: "#f2f0eb", color: "#0d0d0d", fontWeight: 700 }}>
+                    {(o.items || []).length}
+                  </span>
+                </td>
+                <td style={{ ...as.td, fontWeight: 600 }}>{fmt(o.totalPrice || o.amount)}</td>
+                <td style={{ ...as.td, color: "rgba(13,13,13,0.55)", fontSize: 12 }}>
+                  {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—"}
+                </td>
+                <td style={as.td}>
+                  <span style={{ ...as.badge, background: (sColor[o.trackingStatus] || "#6b7280") + "22", color: sColor[o.trackingStatus] || "#6b7280" }}>
+                    {o.trackingStatus?.replace(/_/g," ")}
+                  </span>
+                </td>
+                <td style={as.td}>
+                  <select style={as.statusSelect} value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)}>
+                    {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
+                  </select>
+                </td>
+                <td style={as.td}>
+                  <button
+                    style={{ padding: "5px 14px", borderRadius: 8, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    onClick={() => openDetail(o)}
+                    disabled={detailLoading}
+                  >
+                    {detailLoading ? "…" : "View"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Order Detail Modal ── */}
+      {selectedOrder && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setSelectedOrder(null); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 680, maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.22)" }}>
+            {/* Modal header */}
+            <div style={{ padding: "22px 28px 18px", borderBottom: "1px solid #f2f0eb", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📦</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Order #{selectedOrder.id}</div>
+                <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginTop: 2 }}>
+                  {selectedOrder.customerName || "Unknown customer"}
+                  {selectedOrder.orderDate && ` · ${new Date(selectedOrder.orderDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`}
+                </div>
+              </div>
+              <span style={{ ...as.badge, background: (sColor[selectedOrder.trackingStatus] || "#6b7280") + "22", color: sColor[selectedOrder.trackingStatus] || "#6b7280", fontSize: 12, fontWeight: 700 }}>
+                {selectedOrder.trackingStatus?.replace(/_/g," ")}
+              </span>
+              <button onClick={() => setSelectedOrder(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "rgba(13,13,13,0.4)", lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ overflowY: "auto", padding: "22px 28px", flex: 1 }}>
+
+              {/* Order meta pills */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+                {[
+                  { label: "Payment", value: selectedOrder.paymentMode || "—" },
+                  { label: "Delivery", value: selectedOrder.deliveryTime || "—" },
+                  { label: "City", value: selectedOrder.currentCity || "—" },
+                  { label: "Replacement", value: selectedOrder.replacementRequested ? "Requested" : "None" },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ background: "#f8f7f4", borderRadius: 10, padding: "8px 14px", fontSize: 12 }}>
+                    <div style={{ color: "rgba(13,13,13,0.45)", fontWeight: 600, marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontWeight: 700, color: "#0d0d0d" }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Line items */}
+              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: "#0d0d0d" }}>
+                Line Items ({(selectedOrder.items || []).length})
+              </div>
+
+              {(selectedOrder.items || []).length === 0 ? (
+                <div style={{ textAlign: "center", padding: "32px 0", color: "rgba(13,13,13,0.35)", fontSize: 13 }}>No items found</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+                  {(selectedOrder.items || []).map((item, idx) => (
+                    <div key={item.id || idx} style={{ display: "flex", gap: 14, alignItems: "center", background: "#f8f7f4", borderRadius: 12, padding: "12px 16px" }}>
+                      {/* Thumbnail */}
+                      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", background: "#e8e4dc", flexShrink: 0 }}>
+                        {item.imageLink
+                          ? <img src={item.imageLink} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.display = "none"; }} />
+                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🛍️</div>
+                        }
+                      </div>
+                      {/* Details */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>
+                          {item.category && <span style={{ marginRight: 8 }}>{item.category}</span>}
+                          {item.productId && <span>SKU #{item.productId}</span>}
+                        </div>
+                        {item.description && (
+                          <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                        )}
+                      </div>
+                      {/* Qty × price */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: "#0d0d0d" }}>{fmt(item.price * item.quantity)}</div>
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>
+                          {fmt(item.price)} × {item.quantity}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Price breakdown */}
+              <div style={{ borderTop: "1px solid #f2f0eb", paddingTop: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12 }}>Price Breakdown</div>
+                {[
+                  { label: "Subtotal", value: fmt(subtotal(selectedOrder.items)) },
+                  { label: "Delivery Charge", value: fmt(selectedOrder.deliveryCharge) },
+                  { label: "Discount / Coupon", value: selectedOrder.amount != null && selectedOrder.totalPrice != null && selectedOrder.totalPrice < subtotal(selectedOrder.items) + (selectedOrder.deliveryCharge || 0)
+                      ? `−${fmt(subtotal(selectedOrder.items) + (selectedOrder.deliveryCharge || 0) - selectedOrder.totalPrice)}`
+                      : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 7, color: "rgba(13,13,13,0.6)" }}>
+                    <span>{label}</span><span style={{ fontWeight: 600 }}>{value}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, paddingTop: 10, borderTop: "1px solid #f2f0eb", color: "#0d0d0d" }}>
+                  <span>Total</span>
+                  <span style={{ color: "#1db882" }}>{fmt(selectedOrder.totalPrice || selectedOrder.amount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div style={{ padding: "14px 28px", borderTop: "1px solid #f2f0eb", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+              {/* Cancel Order — only available for non-terminal statuses */}
+              {selectedOrder.trackingStatus !== "CANCELLED" && selectedOrder.trackingStatus !== "DELIVERED" ? (
+                <button
+                  onClick={() => setCancelConfirm(selectedOrder)}
+                  disabled={cancellingOrder === selectedOrder.id}
+                  style={{
+                    padding: "8px 18px", borderRadius: 10, border: "1.5px solid #e84c3c",
+                    background: "#fff5f5", color: "#e84c3c", fontWeight: 700, fontSize: 13,
+                    cursor: cancellingOrder === selectedOrder.id ? "not-allowed" : "pointer",
+                    opacity: cancellingOrder === selectedOrder.id ? 0.6 : 1
+                  }}
+                >
+                  {cancellingOrder === selectedOrder.id ? "Cancelling…" : "✕ Cancel Order"}
+                </button>
+              ) : (
+                <div />
+              )}
+              <button style={as.filterBtn} onClick={() => setSelectedOrder(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel Confirm Modal ── */}
+      {cancelConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 420, padding: "28px 28px 22px", boxShadow: "0 20px 60px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 28, textAlign: "center", marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontWeight: 800, fontSize: 17, textAlign: "center", marginBottom: 6 }}>Cancel Order #{cancelConfirm.id}?</div>
+            <div style={{ fontSize: 13, color: "rgba(13,13,13,0.55)", textAlign: "center", marginBottom: 20 }}>
+              This will mark the order as <strong>CANCELLED</strong>, restore stock for all items, and send a cancellation email to the customer.
+              <br/>This action cannot be undone.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1.5px solid #e84c3c", background: "#e84c3c", color: "#fff", fontWeight: 700, fontSize: 14, cursor: cancellingOrder ? "not-allowed" : "pointer", opacity: cancellingOrder ? 0.6 : 1 }}
+                disabled={!!cancellingOrder}
+                onClick={() => handleCancelOrder(cancelConfirm, "Admin-initiated cancellation")}
+              >
+                {cancellingOrder ? "Cancelling…" : "Yes, Cancel Order"}
+              </button>
+              <button
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e8e4dc", background: "#f8f7f4", color: "#0d0d0d", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                disabled={!!cancellingOrder}
+                onClick={() => setCancelConfirm(null)}
+              >
+                Keep Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1906,9 +2216,8 @@ function UserSpending({ spending }) {
           </thead>
           <tbody>
             {filtered.map((c, i) => (
-              <>
+              <React.Fragment key={c.id}>
                 <tr
-                  key={c.id}
                   style={{ ...as.tr, cursor: "pointer", background: expanded === c.id ? "#f8f7f4" : undefined }}
                   onClick={() => setExpanded(expanded === c.id ? null : c.id)}
                 >
@@ -2006,7 +2315,7 @@ function UserSpending({ spending }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -2655,6 +2964,40 @@ function AccountsAdmin() {
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: "rgba(13,13,13,0.4)", padding: "8px 0" }}>No wishlist items</div>
+              )}
+            </div>
+
+            {/* Saved Addresses */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10 }}>
+                📍 Saved Addresses ({modal.data.addresses?.length || 0})
+              </div>
+              {modal.data.addresses && modal.data.addresses.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+                  {modal.data.addresses.map((addr, i) => (
+                    <div key={addr.id} style={{ background: "#f2f0eb", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(13,13,13,0.4)", marginBottom: 4 }}>
+                        Address #{i + 1}
+                      </div>
+                      {addr.recipientName && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#0d0d0d", marginBottom: 2 }}>{addr.recipientName}</div>
+                      )}
+                      {addr.houseStreet && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)" }}>{addr.houseStreet}</div>
+                      )}
+                      {(addr.city || addr.state || addr.postalCode) && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)" }}>
+                          {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ")}
+                        </div>
+                      )}
+                      {!addr.recipientName && addr.details && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)", whiteSpace: "pre-line" }}>{addr.details}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.4)", padding: "8px 0" }}>No saved addresses</div>
               )}
             </div>
 
