@@ -890,6 +890,7 @@ public class CustomerService {
             subOrder.setDeliveryCharge(subDelivery);
             subOrder.setAmount(subTotal + subDelivery);
             subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+            subOrder.setReplacementRequested(false);
             subOrder.setItems(orderItems);
 
             // ── Calculate GST from inclusive prices ───────────────

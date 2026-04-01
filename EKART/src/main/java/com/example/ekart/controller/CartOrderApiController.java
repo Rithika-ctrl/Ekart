@@ -277,6 +277,7 @@ public class CartOrderApiController {
         order.setRazorpay_payment_id("COD_NA");
         order.setRazorpay_order_id("COD_ORDER");
         order.setTrackingStatus(TrackingStatus.PROCESSING);
+        order.setReplacementRequested(false);
 
         // Clone cart items to order
         List<Item> orderItems = new ArrayList<>();
