@@ -75,13 +75,48 @@ export default function AdminApp() {
   useEffect(() => { if (page === "categories") api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || [])); }, [page]);
   useEffect(() => {
     if (page === "delivery") {
-      api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || []));
-      api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []));
-      api("/admin/orders/packed").then(d => d.success && setPackedOrders(d.orders || []));
-      api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
-      api("/admin/orders/out-for-delivery").then(d => d.success && setOutOrders(d.orders || []));
+      const token = auth?.token || localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+        "X-Admin-Email": auth?.email || ""
+      };
+      
+      const loadDeliveryData = async () => {
+        try {
+          // Use cache-busting with timestamp to force fresh data
+          const cacheBuster = `?t=${Date.now()}`;
+          const [dbRes, packedRes, shippedRes, outRes, whRes] = await Promise.all([
+            fetch(`/api/react/admin/delivery-boys${cacheBuster}`, { headers }),
+            fetch(`/api/react/admin/orders/packed${cacheBuster}`, { headers }),
+            fetch(`/api/react/admin/orders/shipped${cacheBuster}`, { headers }),
+            fetch(`/api/react/admin/orders/out-for-delivery${cacheBuster}`, { headers }),
+            fetch(`/api/react/admin/warehouses${cacheBuster}`, { headers })
+          ]);
+          
+          const [db, packed, shipped, out, wh] = await Promise.all([
+            dbRes.json(), packedRes.json(), shippedRes.json(), outRes.json(), whRes.json()
+          ]);
+          
+          if (db.success) setDeliveryBoys(db.deliveryBoys || []);
+          if (packed.success) setPackedOrders(packed.orders || []);
+          if (shipped.success) setShippedOrders(shipped.orders || []);
+          if (out.success) setOutOrders(out.orders || []);
+          if (wh.success) setWarehouses(wh.warehouses || []);
+        } catch (err) {
+          console.error("Error loading delivery data:", err);
+        }
+      };
+      
+      // Load immediately
+      loadDeliveryData();
+      
+      // Refresh every 2 seconds with cache-busting to get real-time status
+      const interval = setInterval(loadDeliveryData, 2000);
+      
+      return () => clearInterval(interval);
     }
-  }, [page]);
+  }, [page, auth]);
   
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
 
@@ -1085,18 +1120,29 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
     api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.transfers || []); });
   }, []);
 
-  // Load eligible delivery boys for each packed order
+  // Load eligible delivery boys for each packed order and refresh every 2 seconds
   useEffect(() => {
-    (packedOrders || []).forEach(order => {
-      fetch(`/api/react/admin/delivery/boys/for-order/${order.id}`, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token") || ""}` }
-      })
-        .then(r => r.json())
-        .then(d => {
+    const token = localStorage.getItem("token");
+    
+    const refreshEligible = async () => {
+      for (const order of (packedOrders || [])) {
+        try {
+          const cacheBuster = `?t=${Date.now()}`;
+          const res = await fetch(`/api/react/admin/delivery/boys/for-order/${order.id}${cacheBuster}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const d = await res.json();
           setEligibleMap(prev => ({ ...prev, [order.id]: d.success ? (d.deliveryBoys || []) : [] }));
-        })
-        .catch(() => setEligibleMap(prev => ({ ...prev, [order.id]: [] })));
-    });
+        } catch (err) {
+          console.error("Error loading eligible boys:", err);
+          setEligibleMap(prev => ({ ...prev, [order.id]: [] }));
+        }
+      }
+    };
+    
+    refreshEligible();
+    const interval = setInterval(refreshEligible, 2000);
+    return () => clearInterval(interval);
   }, [packedOrders]);
 
   const pendingApprovals = (deliveryBoys || []).filter(d => !d.approved);
@@ -1216,12 +1262,12 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
           <span style={{ marginLeft: "auto", background: "#d4a017", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{(packedOrders || []).length}</span>
         </div>
         <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(34,197,94,0.08)", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(34,197,94,0.2)" }}>
-          ✓ Only delivery boys with <strong>Online</strong> status (🟢) are shown. They will receive and accept the order.
+          ✓ You can assign orders to any delivery boy. 🟢 indicates Online, 🔴 indicates Offline. Orders will appear in their app when they come online.
         </div>
         <AdminTable
           cols={["Order", "Customer", "Pin", "Warehouse", "Amount", "Assign To", ""]}
           rows={(packedOrders || []).map(order => {
-            const eligible = (eligibleMap[order.id] || []).filter(b => b.isAvailable === true);
+            const eligible = (eligibleMap[order.id] || []);
             return [
               <div>
                 <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
@@ -1237,8 +1283,8 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
               <select style={{ ...inputStyle, minWidth: 180 }}
                 value={selectMap[order.id] || ""}
                 onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
-                <option value="">{eligible.length === 0 ? `No available delivery boys for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
-                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse} {b.isAvailable ? "🟢" : "🔴"}</option>)}
+                <option value="">{eligible.length === 0 ? `No delivery boys found for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
+                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse} {b.isAvailable ? "🟢 Online" : "🔴 Offline"}</option>)}
               </select>,
               <button style={as.approveBtn} onClick={() => {
                 if (!selectMap[order.id]) { showToast("Select a delivery boy first"); return; }
