@@ -2691,16 +2691,26 @@ function AccountsAdmin() {
   const show = m => setToast(m);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
 
+  const acctApiFetch = async (path) => {
+    const headers = { "Content-Type": "application/json" };
+    if (auth?.token) {
+      headers["Authorization"] = `Bearer ${auth.token}`;
+      headers["X-Admin-Email"] = auth.email || "";
+    }
+    const res = await fetch("/api/react" + path, { headers });
+    return res.json();
+  };
+
   const load = async (search = "") => {
     setLoading(true);
     try {
-      const url = search ? `/api/admin/accounts?search=${encodeURIComponent(search)}` : "/api/admin/accounts";
-      const res = await fetch(url);
-      const d = await res.json();
+      const path = search ? `/admin/users?search=${encodeURIComponent(search)}` : "/admin/users";
+      const d = await acctApiFetch(path);
       if (d.success) {
-        setAccounts(d.accounts || []);
-        const total = (d.accounts || []).length;
-        const active = (d.accounts || []).filter(a => a.isActive).length;
+        const accounts = d.customers || [];
+        const total = accounts.length;
+        const active = accounts.filter(a => a.active).length;
+        setAccounts(accounts);
         setStats({ total, active, suspended: total - active });
       }
     } catch { show("Failed to load accounts"); }
@@ -2819,8 +2829,8 @@ function AccountsAdmin() {
                     </span>
                   </td>
                   <td style={as.td}>
-                    <span style={{ ...as.badge, background: a.isActive ? "#e8f9f2" : "#fef2f2", color: a.isActive ? "#1db882" : "#e84c3c" }}>
-                      {a.isActive ? "Active" : "Suspended"}
+                    <span style={{ ...as.badge, background: a.active ? "#e8f9f2" : "#fef2f2", color: a.active ? "#1db882" : "#e84c3c" }}>
+                      {a.active ? "Active" : "Suspended"}
                     </span>
                   </td>
                   <td style={as.td}>{a.totalOrders ?? 0}</td>
@@ -2829,11 +2839,11 @@ function AccountsAdmin() {
                   </td>
                   <td style={{ ...as.td, whiteSpace: "nowrap" }}>
                     <button
-                      style={a.isActive ? as.rejectBtn : as.approveBtn}
-                      onClick={() => toggleStatus(a.id, !a.isActive)}
-                      title={a.isActive ? "Suspend" : "Activate"}
+                      style={a.active ? as.rejectBtn : as.approveBtn}
+                      onClick={() => toggleStatus(a.id, !a.active)}
+                      title={a.active ? "Suspend" : "Activate"}
                     >
-                      {a.isActive ? "Suspend" : "Activate"}
+                      {a.active ? "Suspend" : "Activate"}
                     </button>
                     <button
                       style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px", marginRight: 6 }}
@@ -2887,7 +2897,7 @@ function AccountsAdmin() {
                 {[
                   ["Mobile",         modal.data.mobile || "N/A"],
                   ["Role",           modal.data.role || "—"],
-                  ["Status",         modal.data.isActive ? "Active" : "Suspended"],
+                  ["Status",         modal.data.active ? "Active" : "Suspended"],
                   ["Last Login",     modal.data.lastLogin ? new Date(modal.data.lastLogin).toLocaleString("en-IN") : "Never"],
                   ["Login Provider", modal.data.provider || "Email/Password"],
                   ["Verified",       modal.data.verified ? "Yes" : "No"],
@@ -2895,7 +2905,7 @@ function AccountsAdmin() {
                   <div key={label} style={{ background: "#f2f0eb", borderRadius: 8, padding: "10px 14px" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 3 }}>{label}</div>
                     <div style={{ fontSize: 13, fontWeight: 600,
-                      color: label === "Status" ? (modal.data.isActive ? "#1db882" : "#e84c3c")
+                      color: label === "Status" ? (modal.data.active ? "#1db882" : "#e84c3c")
                            : label === "Verified" ? (modal.data.verified ? "#1db882" : "#d4a017")
                            : "inherit"
                     }}>{value}</div>
@@ -3011,12 +3021,12 @@ function AccountsAdmin() {
               </button>
               <button
                 style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: modal.data.isActive ? "#fef2f2" : "#e8f9f2",
-                  color: modal.data.isActive ? "#e84c3c" : "#1db882"
+                  background: modal.data.active ? "#fef2f2" : "#e8f9f2",
+                  color: modal.data.active ? "#e84c3c" : "#1db882"
                 }}
-                onClick={() => { toggleStatus(modal.data.id, !modal.data.isActive); setModal(null); }}
+                onClick={() => { toggleStatus(modal.data.id, !modal.data.active); setModal(null); }}
               >
-                {modal.data.isActive ? "🚫 Deactivate Account" : "✅ Activate Account"}
+                {modal.data.active ? "🚫 Deactivate Account" : "✅ Activate Account"}
               </button>
               <button
                 style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}
