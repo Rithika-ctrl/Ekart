@@ -207,7 +207,7 @@ export default function AdminApp() {
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
           {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
           {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} onApproveAll={approveAllProducts} />}
-          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
+          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
@@ -568,30 +568,217 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
 }
 
 /* ── Orders ── */
-function OrdersAdmin({ orders, onUpdateStatus }) {
+function OrdersAdmin({ orders, onUpdateStatus, api }) {
   const statuses = ["PLACED","CONFIRMED","SHIPPED","OUT_FOR_DELIVERY","DELIVERED","CANCELLED"];
   const [filter, setFilter] = useState("");
-  const filtered = filter ? orders.filter(o => o.trackingStatus === filter) : orders;
+  const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null); // order object for detail modal
+  const [detailLoading, setDetailLoading] = useState(false);
   const sColor = { PLACED:"#d4a017",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#1db882",CANCELLED:"#e84c3c" };
+
+  const filtered = orders
+    .filter(o => !filter || o.trackingStatus === filter)
+    .filter(o => !search ||
+      String(o.id).includes(search) ||
+      (o.customerName || "").toLowerCase().includes(search.toLowerCase())
+    );
+
+  const openDetail = async (order) => {
+    // Use the already-fetched items from the list response (mapOrder embeds them)
+    // If items are missing for some reason, fall back to the dedicated endpoint
+    if (order.items && order.items.length >= 0) {
+      setSelectedOrder(order);
+      return;
+    }
+    setDetailLoading(true);
+    try {
+      const d = await api(`/admin/orders/${order.id}`);
+      setSelectedOrder(d.success ? d.order : order);
+    } catch { setSelectedOrder(order); }
+    setDetailLoading(false);
+  };
+
+  const subtotal = (items) => (items || []).reduce((s, i) => s + (i.price * i.quantity), 0);
+
   return (
     <div>
       <h2 style={as.pageTitle}>Order Management</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <button style={{ ...as.filterBtn, ...(filter === "" ? as.filterBtnActive : {}) }} onClick={() => setFilter("")}>All ({orders.length})</button>
-        {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 ? <button key={s} style={{ ...as.filterBtn, ...(filter === s ? as.filterBtnActive : {}) }} onClick={() => setFilter(s)}>{s.replace(/_/g," ")} ({c})</button> : null; })}
+
+      {/* Search + filter bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          style={{ ...as.searchInput, flex: "0 0 220px" }}
+          placeholder="Search by ID or customer…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button style={{ ...as.filterBtn, ...(filter === "" ? as.filterBtnActive : {}) }} onClick={() => setFilter("")}>All ({orders.length})</button>
+          {statuses.map(s => { const c = orders.filter(o => o.trackingStatus === s).length; return c > 0 ? <button key={s} style={{ ...as.filterBtn, ...(filter === s ? as.filterBtnActive : {}) }} onClick={() => setFilter(s)}>{s.replace(/_/g," ")} ({c})</button> : null; })}
+        </div>
       </div>
-      <AdminTable
-        cols={["ID","Customer","Amount","Date","Status","Update"]}
-        rows={filtered.map(o => [
-          `#${o.id}`, o.customerName || "—", fmt(o.amount || o.totalPrice),
-          o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—",
-          <span style={{ ...as.badge, background: (sColor[o.trackingStatus] || "#6b7280") + "22", color: sColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g," ")}</span>,
-          <select style={as.statusSelect} value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)}>
-            {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
-          </select>
-        ])}
-        empty="No orders"
-      />
+
+      <div style={as.tableWrap}>
+        <table style={as.table}>
+          <thead style={as.thead}>
+            <tr>
+              {["ID","Customer","Items","Amount","Date","Status","Update",""].map(h => (
+                <th key={h} style={as.th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} style={{ ...as.td, textAlign: "center", color: "rgba(13,13,13,0.4)" }}>No orders</td></tr>
+            )}
+            {filtered.map(o => (
+              <tr key={o.id} style={as.tr}>
+                <td style={{ ...as.td, fontWeight: 700, color: "#2563eb" }}>#{o.id}</td>
+                <td style={{ ...as.td, fontWeight: 600 }}>{o.customerName || "—"}</td>
+                <td style={{ ...as.td, textAlign: "center" }}>
+                  <span style={{ ...as.badge, background: "#f2f0eb", color: "#0d0d0d", fontWeight: 700 }}>
+                    {(o.items || []).length}
+                  </span>
+                </td>
+                <td style={{ ...as.td, fontWeight: 600 }}>{fmt(o.totalPrice || o.amount)}</td>
+                <td style={{ ...as.td, color: "rgba(13,13,13,0.55)", fontSize: 12 }}>
+                  {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—"}
+                </td>
+                <td style={as.td}>
+                  <span style={{ ...as.badge, background: (sColor[o.trackingStatus] || "#6b7280") + "22", color: sColor[o.trackingStatus] || "#6b7280" }}>
+                    {o.trackingStatus?.replace(/_/g," ")}
+                  </span>
+                </td>
+                <td style={as.td}>
+                  <select style={as.statusSelect} value={o.trackingStatus} onChange={e => onUpdateStatus(o.id, e.target.value)}>
+                    {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
+                  </select>
+                </td>
+                <td style={as.td}>
+                  <button
+                    style={{ padding: "5px 14px", borderRadius: 8, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    onClick={() => openDetail(o)}
+                    disabled={detailLoading}
+                  >
+                    {detailLoading ? "…" : "View"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Order Detail Modal ── */}
+      {selectedOrder && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setSelectedOrder(null); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 680, maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.22)" }}>
+            {/* Modal header */}
+            <div style={{ padding: "22px 28px 18px", borderBottom: "1px solid #f2f0eb", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📦</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Order #{selectedOrder.id}</div>
+                <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginTop: 2 }}>
+                  {selectedOrder.customerName || "Unknown customer"}
+                  {selectedOrder.orderDate && ` · ${new Date(selectedOrder.orderDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`}
+                </div>
+              </div>
+              <span style={{ ...as.badge, background: (sColor[selectedOrder.trackingStatus] || "#6b7280") + "22", color: sColor[selectedOrder.trackingStatus] || "#6b7280", fontSize: 12, fontWeight: 700 }}>
+                {selectedOrder.trackingStatus?.replace(/_/g," ")}
+              </span>
+              <button onClick={() => setSelectedOrder(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "rgba(13,13,13,0.4)", lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ overflowY: "auto", padding: "22px 28px", flex: 1 }}>
+
+              {/* Order meta pills */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+                {[
+                  { label: "Payment", value: selectedOrder.paymentMode || "—" },
+                  { label: "Delivery", value: selectedOrder.deliveryTime || "—" },
+                  { label: "City", value: selectedOrder.currentCity || "—" },
+                  { label: "Replacement", value: selectedOrder.replacementRequested ? "Requested" : "None" },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ background: "#f8f7f4", borderRadius: 10, padding: "8px 14px", fontSize: 12 }}>
+                    <div style={{ color: "rgba(13,13,13,0.45)", fontWeight: 600, marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontWeight: 700, color: "#0d0d0d" }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Line items */}
+              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: "#0d0d0d" }}>
+                Line Items ({(selectedOrder.items || []).length})
+              </div>
+
+              {(selectedOrder.items || []).length === 0 ? (
+                <div style={{ textAlign: "center", padding: "32px 0", color: "rgba(13,13,13,0.35)", fontSize: 13 }}>No items found</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+                  {(selectedOrder.items || []).map((item, idx) => (
+                    <div key={item.id || idx} style={{ display: "flex", gap: 14, alignItems: "center", background: "#f8f7f4", borderRadius: 12, padding: "12px 16px" }}>
+                      {/* Thumbnail */}
+                      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", background: "#e8e4dc", flexShrink: 0 }}>
+                        {item.imageLink
+                          ? <img src={item.imageLink} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.display = "none"; }} />
+                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🛍️</div>
+                        }
+                      </div>
+                      {/* Details */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>
+                          {item.category && <span style={{ marginRight: 8 }}>{item.category}</span>}
+                          {item.productId && <span>SKU #{item.productId}</span>}
+                        </div>
+                        {item.description && (
+                          <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                        )}
+                      </div>
+                      {/* Qty × price */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: "#0d0d0d" }}>{fmt(item.price * item.quantity)}</div>
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>
+                          {fmt(item.price)} × {item.quantity}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Price breakdown */}
+              <div style={{ borderTop: "1px solid #f2f0eb", paddingTop: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12 }}>Price Breakdown</div>
+                {[
+                  { label: "Subtotal", value: fmt(subtotal(selectedOrder.items)) },
+                  { label: "Delivery Charge", value: fmt(selectedOrder.deliveryCharge) },
+                  { label: "Discount / Coupon", value: selectedOrder.amount != null && selectedOrder.totalPrice != null && selectedOrder.totalPrice < subtotal(selectedOrder.items) + (selectedOrder.deliveryCharge || 0)
+                      ? `−${fmt(subtotal(selectedOrder.items) + (selectedOrder.deliveryCharge || 0) - selectedOrder.totalPrice)}`
+                      : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 7, color: "rgba(13,13,13,0.6)" }}>
+                    <span>{label}</span><span style={{ fontWeight: 600 }}>{value}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, paddingTop: 10, borderTop: "1px solid #f2f0eb", color: "#0d0d0d" }}>
+                  <span>Total</span>
+                  <span style={{ color: "#1db882" }}>{fmt(selectedOrder.totalPrice || selectedOrder.amount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div style={{ padding: "14px 28px", borderTop: "1px solid #f2f0eb", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button style={as.filterBtn} onClick={() => setSelectedOrder(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3084,6 +3084,24 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /** GET /api/react/admin/orders/{id} — single order detail with full line items */
+    @GetMapping("/admin/orders/{id}")
+    public ResponseEntity<Map<String, Object>> adminGetOrderById(
+            @PathVariable int id, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        res.put("success", true);
+        res.put("order", mapOrder(order));
+        return ResponseEntity.ok(res);
+    }
+
     /** POST /api/flutter/admin/orders/{id}/status  body: { status } */
     @PostMapping("/admin/orders/{id}/status")
     public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
