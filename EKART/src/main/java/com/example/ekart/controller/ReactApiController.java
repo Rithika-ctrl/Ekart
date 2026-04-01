@@ -2473,7 +2473,10 @@ public class ReactApiController {
     /**
      * POST /api/react/vendor/products/upload-csv
      * Multipart form: file (CSV)
-     * CSV columns supported: id (optional), name, description, price, mrp (optional), category, stock, imageLink, stockAlertThreshold, gstRate (optional)
+        * CSV/PIM columns supported: id (optional), name, description, price, mrp (optional),
+        * category, stock, imageLink, stockAlertThreshold, gstRate (optional), allowedPinCodes (optional).
+        * Header aliases are accepted, e.g. Product Name, Image URL, Stock Alert Threshold,
+        * Allowed Pin Codes, Selling Price, GST Rate.
      * If id is provided and product belongs to vendor, the product is updated; otherwise a new product is created (approved=false).
      */
     @PostMapping("/vendor/products/upload-csv")
@@ -2491,7 +2494,7 @@ public class ReactApiController {
             if (header == null) { res.put("success", false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
             String[] cols = parseCsvLine(header);
             Map<String, Integer> idx = new HashMap<>();
-            for (int i = 0; i < cols.length; i++) idx.put(cols[i].trim().toLowerCase(), i);
+            for (int i = 0; i < cols.length; i++) idx.put(normalizeCsvHeader(cols[i]), i);
 
             String line; int row = 1;
             while ((line = reader.readLine()) != null) {
@@ -2499,16 +2502,17 @@ public class ReactApiController {
                 if (line.isBlank()) continue;
                 String[] cells = parseCsvLine(line);
                 try {
-                    String idStr = getCell(cells, idx.get("id"));
-                    String name = getCell(cells, idx.get("name"));
-                    String desc = getCell(cells, idx.get("description"));
-                    String priceStr = getCell(cells, idx.get("price"));
-                    String mrpStr = getCell(cells, idx.get("mrp"));
-                    String category = getCell(cells, idx.get("category"));
-                    String stockStr = getCell(cells, idx.get("stock"));
-                    String imageLink = getCell(cells, idx.get("imagelink"));
-                    String threshStr = getCell(cells, idx.get("stockalertthreshold"));
-                    String gstRateStr = getCell(cells, idx.get("gstrate"));
+                    String idStr = getCellByHeaders(cells, idx, "id", "productid");
+                    String name = getCellByHeaders(cells, idx, "name", "productname");
+                    String desc = getCellByHeaders(cells, idx, "description", "productdescription");
+                    String priceStr = getCellByHeaders(cells, idx, "price", "sellingprice", "saleprice");
+                    String mrpStr = getCellByHeaders(cells, idx, "mrp", "originalprice");
+                    String category = getCellByHeaders(cells, idx, "category", "productcategory");
+                    String stockStr = getCellByHeaders(cells, idx, "stock", "quantity");
+                    String imageLink = getCellByHeaders(cells, idx, "imagelink", "imageurl", "image");
+                    String threshStr = getCellByHeaders(cells, idx, "stockalertthreshold", "stockalert", "alertthreshold");
+                    String gstRateStr = getCellByHeaders(cells, idx, "gstrate", "gstratepercent", "gst", "gstpercent");
+                    String pinCodes = getCellByHeaders(cells, idx, "allowedpincodes", "pincodes", "deliverablepincodes");
 
                     if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
                     if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
@@ -2528,6 +2532,7 @@ public class ReactApiController {
                         if (imageLink != null) p.setImageLink(imageLink);
                         if (thresh != null) p.setStockAlertThreshold(thresh);
                         if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
+                        if (pinCodes != null) p.setAllowedPinCodes(pinCodes);
                         productRepository.save(p); updated++;
                     } else {
                         Product p = new Product();
@@ -2535,6 +2540,7 @@ public class ReactApiController {
                         if (imageLink != null) p.setImageLink(imageLink);
                         if (thresh != null) p.setStockAlertThreshold(thresh);
                         if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
+                        if (pinCodes != null) p.setAllowedPinCodes(pinCodes);
                         p.setVendor(vendor); p.setApproved(false);
                         productRepository.save(p); created++;
                     }
@@ -2692,6 +2698,19 @@ public class ReactApiController {
         if (idx < 0 || idx >= cells.length) return null;
         String s = cells[idx];
         return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    private String normalizeCsvHeader(String header) {
+        if (header == null) return "";
+        return header.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
+    }
+
+    private String getCellByHeaders(String[] cells, Map<String, Integer> idx, String... headerAliases) {
+        for (String alias : headerAliases) {
+            String v = getCell(cells, idx.get(normalizeCsvHeader(alias)));
+            if (v != null) return v;
+        }
+        return null;
     }
 
     /** GET /api/flutter/vendor/sales-report?period=weekly|monthly|daily */

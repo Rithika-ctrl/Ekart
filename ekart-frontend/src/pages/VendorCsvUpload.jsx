@@ -8,6 +8,11 @@ export default function VendorCsvUpload({ api, auth }) {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
+  const sampleCsv = [
+    'id,name,description,price,mrp,category,stock,imageLink,stockAlertThreshold,gstRate,allowedPinCodes',
+    '"","Protein Bar 6-Pack","High-protein snack bar combo",449,599,"Snacks",120,"https://example.com/protein-bar.jpg",20,12,"400001,400002,400003"',
+    '"","Steel Water Bottle 1L","Insulated reusable bottle",699,899,"Home & Kitchen",60,"https://example.com/bottle.jpg",15,18,"560001,560002"'
+  ].join('\n');
 
   const parseCsv = (text) => {
     const lines = text.split(/\r?\n/).filter(Boolean);
@@ -65,7 +70,14 @@ export default function VendorCsvUpload({ api, auth }) {
   return (
     <div style={{ maxWidth: 900 }}>
       <h2 style={{ marginBottom: 12 }}>Vendor CSV Upload — Bulk Product Import</h2>
-      <p style={{ color: '#6b7280' }}>Upload a CSV with columns: id (optional), name, description, price, mrp, category, stock, imageLink, stockAlertThreshold</p>
+      <p style={{ color: '#6b7280', marginBottom: 8 }}>
+        Upload CSV/PIM in Add Product format. Required fields: <strong>name, price, stock</strong>.
+      </p>
+      <p style={{ color: '#6b7280', marginTop: 0, marginBottom: 12, fontSize: 13 }}>
+        Supported columns: id, name, description, price, mrp, category, stock, imageLink, stockAlertThreshold, gstRate, allowedPinCodes.
+        {' '}<a href={'data:text/csv;charset=utf-8,' + encodeURIComponent(sampleCsv)} download="vendor-product-import-template.csv">Download sample template</a>
+        {' '}or <a href="/sample-product-upload.csv" target="_blank" rel="noopener noreferrer" download="sample-product-upload.csv">view legacy sample</a>
+      </p>
       <div style={{ marginBottom: 12 }}>
         <input type="file" accept=".csv,text/csv" onChange={e => { const f = e.target.files && e.target.files[0]; if (f) handleFile(f); }} />
       </div>
