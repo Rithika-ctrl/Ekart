@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
@@ -207,7 +207,7 @@ export default function AdminApp() {
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
           {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
           {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} onApproveAll={approveAllProducts} />}
-          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} />}
+          {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} auth={auth} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
@@ -568,13 +568,73 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
 }
 
 /* ── Orders ── */
-function OrdersAdmin({ orders, onUpdateStatus, api }) {
+function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
   const statuses = ["PLACED","CONFIRMED","SHIPPED","OUT_FOR_DELIVERY","DELIVERED","CANCELLED"];
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null); // order object for detail modal
   const [detailLoading, setDetailLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false); // id being cancelled, or null
+  const [cancelConfirm, setCancelConfirm] = useState(null);     // order object awaiting confirm
   const sColor = { PLACED:"#d4a017",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#1db882",CANCELLED:"#e84c3c" };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search.trim())  params.set("q",      search.trim());
+      if (filter.trim())  params.set("status", filter.trim());
+      const url = "/api/react/admin/orders/export" + (params.toString() ? "?" + params.toString() : "");
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${auth?.token || ""}`,
+          "X-Admin-Email": auth?.email || "",
+        }
+      });
+      if (!res.ok) { alert("Export failed (status " + res.status + ")"); return; }
+      const blob = await res.blob();
+      // Prefer filename from Content-Disposition, fall back to generic name
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      const filename = match ? match[1] : "ekart-orders.csv";
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      alert("Export error: " + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCancelOrder = async (order, reason) => {
+    setCancellingOrder(order.id);
+    try {
+      const d = await api(`/admin/orders/${order.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason || "Admin-initiated cancellation" })
+      });
+      if (d.success) {
+        // Update row in-place so the table reflects immediately
+        setSelectedOrder(prev => prev ? { ...prev, trackingStatus: "CANCELLED" } : null);
+        setCancelConfirm(null);
+        // Bubble up to parent so the orders list reloads
+        onUpdateStatus(order.id, "CANCELLED");
+      } else {
+        alert(d.message || "Cancel failed");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setCancellingOrder(null);
+    }
+  };
 
   const filtered = orders
     .filter(o => !filter || o.trackingStatus === filter)
@@ -602,7 +662,23 @@ function OrdersAdmin({ orders, onUpdateStatus, api }) {
 
   return (
     <div>
-      <h2 style={as.pageTitle}>Order Management</h2>
+      {/* Header row: title + export button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={as.pageTitle}>Order Management</h2>
+        <button
+          onClick={handleExportCsv}
+          disabled={exporting || filtered.length === 0}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 16px", borderRadius: 10,
+            border: "1.5px solid #1db882", background: exporting ? "#f2f0eb" : "#edfaf4",
+            color: "#1db882", fontWeight: 700, fontSize: 13, cursor: (exporting || filtered.length === 0) ? "not-allowed" : "pointer",
+            opacity: filtered.length === 0 ? 0.5 : 1, transition: "background 0.15s"
+          }}
+        >
+          {exporting ? "⏳ Exporting…" : `⬇️ Export CSV (${filtered.length} row${filtered.length !== 1 ? "s" : ""})`}
+        </button>
+      </div>
 
       {/* Search + filter bar */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -773,8 +849,55 @@ function OrdersAdmin({ orders, onUpdateStatus, api }) {
             </div>
 
             {/* Modal footer */}
-            <div style={{ padding: "14px 28px", borderTop: "1px solid #f2f0eb", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <div style={{ padding: "14px 28px", borderTop: "1px solid #f2f0eb", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+              {/* Cancel Order — only available for non-terminal statuses */}
+              {selectedOrder.trackingStatus !== "CANCELLED" && selectedOrder.trackingStatus !== "DELIVERED" ? (
+                <button
+                  onClick={() => setCancelConfirm(selectedOrder)}
+                  disabled={cancellingOrder === selectedOrder.id}
+                  style={{
+                    padding: "8px 18px", borderRadius: 10, border: "1.5px solid #e84c3c",
+                    background: "#fff5f5", color: "#e84c3c", fontWeight: 700, fontSize: 13,
+                    cursor: cancellingOrder === selectedOrder.id ? "not-allowed" : "pointer",
+                    opacity: cancellingOrder === selectedOrder.id ? 0.6 : 1
+                  }}
+                >
+                  {cancellingOrder === selectedOrder.id ? "Cancelling…" : "✕ Cancel Order"}
+                </button>
+              ) : (
+                <div />
+              )}
               <button style={as.filterBtn} onClick={() => setSelectedOrder(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel Confirm Modal ── */}
+      {cancelConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 420, padding: "28px 28px 22px", boxShadow: "0 20px 60px rgba(0,0,0,0.22)" }}>
+            <div style={{ fontSize: 28, textAlign: "center", marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontWeight: 800, fontSize: 17, textAlign: "center", marginBottom: 6 }}>Cancel Order #{cancelConfirm.id}?</div>
+            <div style={{ fontSize: 13, color: "rgba(13,13,13,0.55)", textAlign: "center", marginBottom: 20 }}>
+              This will mark the order as <strong>CANCELLED</strong>, restore stock for all items, and send a cancellation email to the customer.
+              <br/>This action cannot be undone.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1.5px solid #e84c3c", background: "#e84c3c", color: "#fff", fontWeight: 700, fontSize: 14, cursor: cancellingOrder ? "not-allowed" : "pointer", opacity: cancellingOrder ? 0.6 : 1 }}
+                disabled={!!cancellingOrder}
+                onClick={() => handleCancelOrder(cancelConfirm, "Admin-initiated cancellation")}
+              >
+                {cancellingOrder ? "Cancelling…" : "Yes, Cancel Order"}
+              </button>
+              <button
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e8e4dc", background: "#f8f7f4", color: "#0d0d0d", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                disabled={!!cancellingOrder}
+                onClick={() => setCancelConfirm(null)}
+              >
+                Keep Order
+              </button>
             </div>
           </div>
         </div>
@@ -2093,9 +2216,8 @@ function UserSpending({ spending }) {
           </thead>
           <tbody>
             {filtered.map((c, i) => (
-              <>
+              <React.Fragment key={c.id}>
                 <tr
-                  key={c.id}
                   style={{ ...as.tr, cursor: "pointer", background: expanded === c.id ? "#f8f7f4" : undefined }}
                   onClick={() => setExpanded(expanded === c.id ? null : c.id)}
                 >
@@ -2193,7 +2315,7 @@ function UserSpending({ spending }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
