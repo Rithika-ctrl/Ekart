@@ -365,6 +365,53 @@ const S = `
   }
   .dk-btn-deliver:hover { background: rgba(29, 184, 130, 0.2); border-color: rgba(29, 184, 130, 0.5); }
 
+  /* CONTACT ACTIONS */
+  .dk-order-actions .dk-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dk-btn-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    text-decoration: none;
+    color: #0d0d0d;
+    border: 1px solid #e8e4dc;
+    background: #fff;
+    cursor: pointer;
+  }
+  .dk-btn-call { color: #0d0d0d; border-color: rgba(37,99,235,0.15); background: rgba(37,99,235,0.06); }
+  .dk-btn-call:hover { background: rgba(37,99,235,0.12); }
+  .dk-btn-wa { color: #fff; background: #25D366; border-color: rgba(37,99,235,0.06); }
+  .dk-btn-wa:hover { opacity: 0.95; }
+
+  /* ADDRESS & PAYMENT */
+  .dk-order-address {
+    font-size: 12px;
+    color: #0d0d0d;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #f2f0eb;
+    line-height: 1.5;
+  }
+  .dk-order-address-icon { color: #2563eb; font-size: 0.9rem; margin-right: 0.3rem; }
+  .dk-order-landmark {
+    font-size: 11px;
+    color: rgba(13,13,13,0.5);
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .dk-order-meta { display: flex; gap: 10px; margin-top: 6px; font-size: 11px; }
+  .dk-meta-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: #f2f0eb; color: #0d0d0d; }
+  .dk-meta-tag.cod { background: rgba(212,160,23,0.12); color: #d4a017; }
+  .dk-meta-tag.prepaid { background: rgba(29,184,130,0.12); color: #1db882; }
+
   /* OTP SECTION */
   .dk-otp-section {
     background: rgba(29, 184, 130, 0.08);
@@ -545,6 +592,18 @@ export default function DeliveryApp() {
   const setOtp = (id, val) => setOtpMap(prev => ({ ...prev, [id]: val }));
 
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
+
+  const sanitizePhone = (p) => (p || "").toString().replace(/\D/g, "");
+  const telHref = (p) => {
+    const s = sanitizePhone(p);
+    return s ? `tel:${s}` : "#";
+  };
+  const waHref = (p, orderId) => {
+    const s = sanitizePhone(p);
+    if (!s) return "#";
+    const txt = `Hi, I'm the Ekart delivery partner for Order #${orderId}.`;
+    return `https://wa.me/${s}?text=${encodeURIComponent(txt)}`;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -818,6 +877,21 @@ export default function DeliveryApp() {
                         {order.deliveryPinCode && (
                           <div className="dk-order-pin">PIN: {order.deliveryPinCode}</div>
                         )}
+                        {(order.deliveryAddress || order.address) && (
+                          <div className="dk-order-address">
+                            <i className="fas fa-map-marker-alt dk-order-address-icon" />
+                            {order.deliveryAddress || order.address}
+                            {(order.landmark) && <div className="dk-order-landmark">Landmark: {order.landmark}</div>}
+                          </div>
+                        )}
+                        <div className="dk-order-meta">
+                          {order.paymentType && (
+                            <span className={`dk-meta-tag ${order.paymentType.toLowerCase() === "cod" ? "cod" : "prepaid"}`}>
+                              <i className={`fas ${order.paymentType.toLowerCase() === "cod" ? "fa-money-bill" : "fa-credit-card"}`} />
+                              {order.paymentType}
+                            </span>
+                          )}
+                        </div>
                         <div className="dk-order-items">
                           {(order.items || []).map((item, i) => (
                             <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
@@ -825,6 +899,14 @@ export default function DeliveryApp() {
                         </div>
                         <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
                         <div className="dk-order-actions">
+                          <div className="dk-contact">
+                            <a className="dk-btn-contact dk-btn-call" href={telHref(order.customer?.mobile || order.mobile)}>
+                              <i className="fas fa-phone" /> Call
+                            </a>
+                            <a className="dk-btn-contact dk-btn-wa" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-whatsapp" /> WhatsApp
+                            </a>
+                          </div>
                           <button className="dk-btn-pickup" onClick={() => markPickedUp(order.id)}>
                             <i className="fas fa-truck-loading" /> Picked Up
                           </button>
@@ -856,12 +938,38 @@ export default function DeliveryApp() {
                         {order.deliveryPinCode && (
                           <div className="dk-order-pin highlight">PIN: {order.deliveryPinCode}</div>
                         )}
+                        {(order.deliveryAddress || order.address) && (
+                          <div className="dk-order-address">
+                            <i className="fas fa-map-marker-alt dk-order-address-icon" />
+                            {order.deliveryAddress || order.address}
+                            {(order.landmark) && <div className="dk-order-landmark">Landmark: {order.landmark}</div>}
+                          </div>
+                        )}
+                        <div className="dk-order-meta">
+                          {order.paymentType && (
+                            <span className={`dk-meta-tag ${order.paymentType.toLowerCase() === "cod" ? "cod" : "prepaid"}`}>
+                              <i className={`fas ${order.paymentType.toLowerCase() === "cod" ? "fa-money-bill" : "fa-credit-card"}`} />
+                              {order.paymentType}
+                            </span>
+                          )}
+                        </div>
                         <div className="dk-order-items">
                           {(order.items || []).map((item, i) => (
                             <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
                           ))}
                         </div>
                         <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
+                        <div className="dk-order-actions">
+                          <div className="dk-contact">
+                            <a className="dk-btn-contact dk-btn-call" href={telHref(order.customer?.mobile || order.mobile)}>
+                              <i className="fas fa-phone" /> Call
+                            </a>
+                            <a className="dk-btn-contact dk-btn-wa" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-whatsapp" /> WhatsApp
+                            </a>
+                          </div>
+                        </div>
+
                         <div className="dk-otp-section">
                           <div className="dk-otp-label">
                             <i className="fas fa-key" /> Enter OTP from customer
