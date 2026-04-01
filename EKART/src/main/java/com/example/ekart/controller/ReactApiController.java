@@ -2549,6 +2549,121 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /**
+     * POST /api/react/admin/products/upload-csv
+     * Admin bulk product import — no vendor ownership check.
+     * Optional param: vendorId (integer) — if provided, links products to that vendor.
+     * If vendorId omitted, products are created with vendor=null (platform products).
+     * All imported products start as approved=true (admin-curated).
+     * Multipart form: file (CSV)
+     * Columns: id (optional), name, description, price, mrp, category, stock, imageLink, stockAlertThreshold, gstRate, approved
+     */
+    @PostMapping(value = "/admin/products/upload-csv", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> adminUploadProductCsv(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "vendorId", required = false) Integer vendorId,
+            @RequestParam(value = "autoApprove", required = false, defaultValue = "true") boolean autoApprove,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
+
+        Map<String, Object> res = new HashMap<>();
+        if (file == null || file.isEmpty()) {
+            res.put("success", false); res.put("message", "No file uploaded");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        Vendor vendor = null;
+        if (vendorId != null) {
+            vendor = vendorRepository.findById(vendorId).orElse(null);
+            if (vendor == null) {
+                res.put("success", false); res.put("message", "Vendor id " + vendorId + " not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+        }
+
+        int created = 0, updated = 0; List<String> errors = new ArrayList<>();
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
+            String headerLine = reader.readLine();
+            if (headerLine == null) { res.put("success", false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
+            String[] cols = parseCsvLine(headerLine);
+            Map<String, Integer> idx = new HashMap<>();
+            for (int i = 0; i < cols.length; i++) idx.put(cols[i].trim().toLowerCase().replace(" ", "").replace("_", ""), i);
+
+            String line; int row = 1;
+            while ((line = reader.readLine()) != null) {
+                row++;
+                if (line.isBlank()) continue;
+                String[] cells = parseCsvLine(line);
+                try {
+                    String idStr       = getCell(cells, idx.get("id"));
+                    String name        = getCell(cells, idx.get("name"));
+                    String desc        = getCell(cells, idx.get("description"));
+                    String priceStr    = getCell(cells, idx.get("price"));
+                    String mrpStr      = getCell(cells, idx.get("mrp"));
+                    String category    = getCell(cells, idx.get("category"));
+                    String stockStr    = getCell(cells, idx.get("stock"));
+                    String imageLink   = getCell(cells, idx.get("imagelink"));
+                    String threshStr   = getCell(cells, idx.get("stockalertthreshold"));
+                    String gstRateStr  = getCell(cells, idx.get("gstrate"));
+                    String approvedStr = getCell(cells, idx.get("approved"));
+
+                    if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
+                    if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
+
+                    double price    = Double.parseDouble(priceStr.replaceAll("[^\d.]", ""));
+                    int    stock    = (stockStr    == null || stockStr.isBlank())    ? 0     : Integer.parseInt(stockStr.trim());
+                    Integer thresh  = (threshStr   == null || threshStr.isBlank())   ? null  : Integer.parseInt(threshStr.trim());
+                    Double mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0   : Double.parseDouble(mrpStr.replaceAll("[^\d.]", ""));
+                    Double gstRate  = (gstRateStr  == null || gstRateStr.isBlank())  ? null  : Double.parseDouble(gstRateStr.trim());
+                    boolean approved = approvedStr != null
+                        ? approvedStr.equalsIgnoreCase("true") || approvedStr.equals("1") || approvedStr.equalsIgnoreCase("yes")
+                        : autoApprove;
+
+                    if (idStr != null && !idStr.isBlank()) {
+                        // Update existing product
+                        int id = Integer.parseInt(idStr.trim());
+                        Product p = productRepository.findById(id).orElse(null);
+                        if (p == null) throw new IllegalArgumentException("Product id " + id + " not found");
+                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
+                        p.setCategory(category); p.setStock(stock); p.setApproved(approved);
+                        if (imageLink != null) p.setImageLink(imageLink);
+                        if (thresh    != null) p.setStockAlertThreshold(thresh);
+                        if (gstRate   != null && gstRate > 0) p.setGstRate(gstRate);
+                        if (vendor    != null) p.setVendor(vendor);
+                        productRepository.save(p); updated++;
+                    } else {
+                        // Create new product
+                        Product p = new Product();
+                        p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
+                        p.setCategory(category != null ? category : "General"); p.setStock(stock);
+                        if (imageLink != null) p.setImageLink(imageLink);
+                        if (thresh    != null) p.setStockAlertThreshold(thresh);
+                        if (gstRate   != null && gstRate > 0) p.setGstRate(gstRate);
+                        p.setVendor(vendor);
+                        p.setApproved(approved);
+                        productRepository.save(p); created++;
+                    }
+                } catch (Exception e) {
+                    errors.add("Row " + row + ": " + e.getMessage());
+                    if (errors.size() > 50) { errors.add("Too many errors — import stopped."); break; }
+                }
+            }
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", "Failed to process file: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+
+        res.put("success", true);
+        res.put("created", created);
+        res.put("updated", updated);
+        res.put("errors", errors);
+        res.put("message", "Import complete: " + created + " created, " + updated + " updated" +
+            (errors.isEmpty() ? "" : ", " + errors.size() + " row error(s)"));
+        return ResponseEntity.ok(res);
+    }
+
     // Simple CSV parsing for one line: handles quoted commas and trims quotes
     private String[] parseCsvLine(String line) {
         List<String> out = new ArrayList<>();
@@ -2925,6 +3040,33 @@ public class ReactApiController {
         p.setApproved(false);
         productRepository.save(p);
         res.put("success", true); res.put("message", "Product rejected / hidden from customers");
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/react/admin/products/approve-all
+     *  Approves every pending (unapproved) product in one shot.
+     *  Returns { success, approvedCount, message }
+     */
+    @PostMapping("/admin/products/approve-all")
+    public ResponseEntity<Map<String, Object>> adminApproveAllProducts(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        List<Product> pending = productRepository.findAll()
+                .stream()
+                .filter(p -> !p.isApproved())
+                .collect(Collectors.toList());
+        if (pending.isEmpty()) {
+            res.put("success", true);
+            res.put("approvedCount", 0);
+            res.put("message", "No pending products to approve");
+            return ResponseEntity.ok(res);
+        }
+        pending.forEach(p -> p.setApproved(true));
+        productRepository.saveAll(pending);
+        res.put("success", true);
+        res.put("approvedCount", pending.size());
+        res.put("message", "Approved " + pending.size() + " product" + (pending.size() == 1 ? "" : "s"));
         return ResponseEntity.ok(res);
     }
 
