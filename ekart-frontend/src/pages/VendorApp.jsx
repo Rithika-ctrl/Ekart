@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import * as XLSX from "xlsx";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
 
@@ -490,7 +491,34 @@ function BulkCsvUpload({ api, showToast }) {
   const [progress, setProgress] = useState(null); // null | { pct, msg, error }
   const [uploading, setUploading] = useState(false);
 
-  const REQUIRED = ["Product Name", "Price", "Stock"];
+  const REQUIRED_ALIASES = {
+    name: ["name", "product name"],
+    price: ["price", "selling price", "sale price"],
+    stock: ["stock", "quantity"],
+  };
+  const SAMPLE_CSV = [
+    "id,name,description,price,mrp,category,stock,imageLink,stockAlertThreshold,gstRate,allowedPinCodes",
+    "Protein Bar 6-Pack,High-protein snack bar combo,449,599,Snacks,120,https://example.com/protein-bar.jpg,20,12,\"400001,400002,400003\"",
+    "Steel Water Bottle 1L,Insulated reusable bottle,699,899,Home & Kitchen,60,https://example.com/bottle.jpg,15,18,\"560001,560002\"",
+  ].join("\n");
+
+  const downloadExcelTemplate = () => {
+    const rows = [
+      ["id", "name", "description", "price", "mrp", "category", "stock", "imageLink", "stockAlertThreshold", "gstRate", "allowedPinCodes"],
+      ["", "Protein Bar 6-Pack", "High-protein snack bar combo", 449, 599, "Snacks", 120, "https://example.com/protein-bar.jpg", 20, 12, "400001,400002,400003"],
+      ["", "Steel Water Bottle 1L", "Insulated reusable bottle", 699, 899, "Home & Kitchen", 60, "https://example.com/bottle.jpg", 15, 18, "560001,560002"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, "vendor-product-import-template.xlsx");
+  };
+
+  const normalizeHeader = (h) => String(h || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  const hasAnyHeader = (row, aliases) => {
+    const keys = Object.keys(row || {}).map(normalizeHeader);
+    return aliases.some(a => keys.includes(normalizeHeader(a)));
+  };
 
   const parseCsv = (text) => {
     const lines = text.split(/\r?\n/).filter(Boolean);
@@ -521,10 +549,26 @@ function BulkCsvUpload({ api, showToast }) {
     reader.onload = async (e) => {
       const rows = parseCsv(e.target.result);
       const errors = [];
+      const headerProbe = rows[0] || {};
+      Object.entries(REQUIRED_ALIASES).forEach(([field, aliases]) => {
+        if (!hasAnyHeader(headerProbe, aliases)) {
+          errors.push(`Missing required header for ${field}. Use one of: ${aliases.join(" / ")}`);
+        }
+      });
+
       rows.forEach((row, idx) => {
-        REQUIRED.forEach(col => {
-          if (!row[col] || !row[col].trim()) errors.push(`Row ${idx + 2}: ${col} is required`);
-        });
+        const getVal = (aliases) => {
+          const normalizedMap = {};
+          Object.entries(row || {}).forEach(([k, v]) => { normalizedMap[normalizeHeader(k)] = v; });
+          for (const alias of aliases) {
+            const hit = normalizedMap[normalizeHeader(alias)];
+            if (hit != null && String(hit).trim()) return String(hit).trim();
+          }
+          return "";
+        };
+        if (!getVal(REQUIRED_ALIASES.name)) errors.push(`Row ${idx + 2}: Product Name (name) is required`);
+        if (!getVal(REQUIRED_ALIASES.price)) errors.push(`Row ${idx + 2}: Selling Price (price) is required`);
+        if (!getVal(REQUIRED_ALIASES.stock)) errors.push(`Row ${idx + 2}: Stock is required`);
       });
       if (errors.length) {
         setProgress({ pct: 0, msg: "Validation failed.", error: errors.slice(0, 5).join(" · ") + (errors.length > 5 ? ` … +${errors.length - 5} more` : "") });
@@ -557,9 +601,25 @@ function BulkCsvUpload({ api, showToast }) {
         <span style={{ fontSize: 14, fontWeight: 700, color: "#f5a800", textTransform: "uppercase", letterSpacing: 1 }}>📄 Bulk CSV Import</span>
       </div>
       <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 16 }}>
-        Upload a CSV to add multiple products at once. Required columns: <strong style={{ color: "#9ca3af" }}>Product Name, Price, Stock</strong>.
-        {" "}<a href="/sample-product-upload.csv" style={{ color: "#f5a800" }}>Download sample CSV</a>
+        Upload a CSV/PIM export to add multiple products at once.
+        Required: <strong style={{ color: "#9ca3af" }}>name (Product Name), price (Selling Price), stock</strong>.
+        {" "}<a href={"data:text/csv;charset=utf-8," + encodeURIComponent(SAMPLE_CSV)} download="vendor-product-import-template.csv" style={{ color: "#f5a800" }}>Download sample template</a>
+        {" "}· <button type="button" onClick={downloadExcelTemplate}
+          style={{ background: "none", border: "none", padding: 0, color: "#f5a800", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>
+          Download Excel (.xlsx) template
+        </button>
+        {" "}or <a href="/sample-product-upload.csv" target="_blank" rel="noopener noreferrer" download="sample-product-upload.csv" style={{ color: "#f5a800" }}>view legacy sample</a>
       </p>
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
+        <div style={{ color: "#e5e7eb", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Accepted Columns (aligned to Add Product)</div>
+        <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
+          id (optional for update), name, description, price, mrp, category, stock, imageLink, stockAlertThreshold, gstRate, allowedPinCodes
+        </div>
+        <div style={{ color: "#6b7280", fontSize: 11, marginTop: 6 }}>
+          PIM-friendly header aliases also work: Product Name, Selling Price, Image URL, Stock Alert Threshold, GST Rate, Allowed Pin Codes.
+          For allowedPinCodes, use a quoted comma-separated value like "400001,400002,400003".
+        </div>
+      </div>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <FileUploadArea
