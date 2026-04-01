@@ -126,6 +126,13 @@ export default function AdminApp() {
 
   const approveProduct = async (id) => { const d = await api(`/admin/products/${id}/approve`, { method: "POST" }); if (d.success) { show("Approved ✓"); loadAll(); } else show(d.message || "Error"); };
   const rejectProduct  = async (id) => { const d = await api(`/admin/products/${id}/reject`,  { method: "POST" }); if (d.success) { show("Rejected");   loadAll(); } else show(d.message || "Error"); };
+  const approveAllProducts = async () => {
+    const d = await api("/admin/products/approve-all", { method: "POST" });
+    if (d.success) {
+      show(d.approvedCount > 0 ? `✓ Approved ${d.approvedCount} product${d.approvedCount === 1 ? "" : "s"}` : "No pending products");
+      loadAll();
+    } else show(d.message || "Error");
+  };
   const toggleCustomer = async (id) => { const d = await api(`/admin/customers/${id}/toggle-active`, { method: "POST" }); if (d.success) { show("Updated"); loadAll(); } else show(d.message || "Error"); };
   const toggleVendor   = async (id) => { const d = await api(`/admin/vendors/${id}/toggle-active`,   { method: "POST" }); if (d.success) { show("Updated"); loadAll(); } else show(d.message || "Error"); };
   const updateOrder    = async (id, status) => { const d = await api(`/admin/orders/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }); if (d.success) { show("Updated"); loadAll(); } else show(d.message || "Error"); };
@@ -199,7 +206,7 @@ export default function AdminApp() {
       <main style={as.main}>
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
           {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
-          {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} />}
+          {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} onApproveAll={approveAllProducts} />}
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
@@ -277,32 +284,285 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
 }
 
 /* ── Products ── */
-function ProductsAdmin({ products, onApprove, onReject }) {
+function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
   const [filter, setFilter] = useState("pending");
-  const filtered = filter === "all" ? products : filter === "pending" ? products.filter(p => !p.approved) : products.filter(p => p.approved);
+  const [confirmModal, setConfirmModal] = useState(false);
+  const [previewProduct, setPreviewProduct] = useState(null);
+  const [imgIndex, setImgIndex] = useState(0);
+  const [q, setQ] = useState("");
+
+  const pendingCount = products.filter(p => !p.approved).length;
+  const byStatus = filter === "all" ? products : filter === "pending" ? products.filter(p => !p.approved) : products.filter(p => p.approved);
+  const filtered = q.trim()
+    ? byStatus.filter(p => {
+        const s = q.toLowerCase();
+        return (p.name || "").toLowerCase().includes(s)
+          || (p.vendorName || "").toLowerCase().includes(s)
+          || (p.category || "").toLowerCase().includes(s)
+          || String(p.id).includes(s);
+      })
+    : byStatus;
+
+  const getImages = (p) => {
+    const imgs = [];
+    if (p.imageLink) imgs.push(p.imageLink);
+    if (p.extraImageLinks) {
+      p.extraImageLinks.split(",").forEach(u => { const t = u.trim(); if (t) imgs.push(t); });
+    }
+    return imgs;
+  };
+
+  const openPreview = (p) => { setPreviewProduct(p); setImgIndex(0); };
+  const closePreview = () => setPreviewProduct(null);
+
   return (
     <div>
-      <h2 style={as.pageTitle}>Product Management</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={as.pageTitle}>Product Management</h2>
+        {pendingCount > 0 && (
+          <button
+            style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "#1db882", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
+            onClick={() => setConfirmModal(true)}
+          >
+            ✓ Approve All Pending ({pendingCount})
+          </button>
+        )}
+      </div>
+      {/* Search bar */}
+      <div style={{ position: "relative", marginBottom: 14 }}>
+        <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none", opacity: 0.4 }}>🔍</span>
+        <input
+          type="text"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search by name, vendor, category or ID…"
+          style={{ ...as.searchInput, paddingLeft: 40, paddingRight: q ? 36 : 16 }}
+        />
+        {q && (
+          <button
+            onClick={() => setQ("")}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", cursor: "pointer", fontSize: 16, color: "rgba(13,13,13,0.4)", lineHeight: 1, padding: 0 }}
+          >×</button>
+        )}
+      </div>
+
+      {/* Status filter pills + result count */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {[["all","All"],["pending","Pending"],["approved","Approved"]].map(([k,l]) => (
           <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>
             {l} ({k === "all" ? products.length : k === "pending" ? products.filter(p => !p.approved).length : products.filter(p => p.approved).length})
           </button>
         ))}
+        {q.trim() && (
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(13,13,13,0.45)", fontWeight: 600 }}>
+            {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "{q.trim()}"
+          </span>
+        )}
       </div>
       <AdminTable
-        cols={["Product","Vendor","Category","Price","Stock","Status","Actions"]}
-        rows={filtered.map(p => [
-          <div><div style={{ fontWeight: 700 }}>{p.name}</div><div style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>#{p.id}</div></div>,
-          p.vendorName || "—", p.category, fmt(p.price), p.stock,
-          <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>{p.approved ? "Approved" : "Pending"}</span>,
-          <div style={{ display: "flex", gap: 6 }}>
-            {!p.approved && <button style={as.approveBtn} onClick={() => onApprove(p.id)}>✓</button>}
-            {p.approved  && <button style={as.rejectBtn}  onClick={() => onReject(p.id)}>✗</button>}
-          </div>
-        ])}
+        cols={["Image","Product","Vendor","Category","Price","Stock","Status","Actions"]}
+        rows={filtered.map(p => {
+          const imgs = getImages(p);
+          return [
+            <div
+              onClick={() => openPreview(p)}
+              style={{ cursor: "pointer", width: 44, height: 44, borderRadius: 8, overflow: "hidden", border: "1px solid #e8e4dc", background: "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            >
+              {imgs[0]
+                ? <img src={imgs[0]} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.display = "none"; }} />
+                : <span style={{ fontSize: 18 }}>📦</span>}
+            </div>,
+            <div style={{ cursor: "pointer" }} onClick={() => openPreview(p)}>
+              <div style={{ fontWeight: 700, color: "#0d0d0d" }}>{p.name}</div>
+              <div style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>#{p.id} · {imgs.length} photo{imgs.length !== 1 ? "s" : ""}</div>
+            </div>,
+            p.vendorName || "—", p.category, fmt(p.price), p.stock,
+            <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>{p.approved ? "Approved" : "Pending"}</span>,
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px" }} onClick={() => openPreview(p)}>👁 View</button>
+              {!p.approved && <button style={as.approveBtn} onClick={() => onApprove(p.id)}>✓</button>}
+              {p.approved  && <button style={as.rejectBtn}  onClick={() => onReject(p.id)}>✗</button>}
+            </div>
+          ];
+        })}
         empty="No products to show"
       />
+
+      {/* ── Product Detail / Image Preview Modal ── */}
+      {previewProduct && (() => {
+        const p = previewProduct;
+        const imgs = getImages(p);
+        const hasDiscount = p.mrp && p.mrp > p.price;
+        const discountPct = hasDiscount ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+        return (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+            onClick={e => { if (e.target === e.currentTarget) closePreview(); }}
+          >
+            <div style={{ background: "#fff", borderRadius: 20, maxWidth: 800, width: "100%", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+
+              {/* Modal header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #f2f0eb", flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#0d0d0d" }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: "rgba(13,13,13,0.45)", marginTop: 2 }}>Product #{p.id} · {p.category}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {!p.approved && (
+                    <button style={{ ...as.approveBtn, padding: "7px 16px" }} onClick={() => { onApprove(p.id); closePreview(); }}>✓ Approve</button>
+                  )}
+                  {p.approved && (
+                    <button style={{ ...as.rejectBtn, padding: "7px 16px" }} onClick={() => { onReject(p.id); closePreview(); }}>✗ Hide</button>
+                  )}
+                  <button
+                    onClick={closePreview}
+                    style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #e8e4dc", background: "#fafaf8", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", color: "#0d0d0d", lineHeight: 1 }}
+                  >×</button>
+                </div>
+              </div>
+
+              {/* Modal body — scrollable */}
+              <div style={{ overflowY: "auto", flex: 1 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+
+                  {/* Left: image gallery */}
+                  <div style={{ padding: 24, borderRight: "1px solid #f2f0eb" }}>
+                    {/* Main image viewer */}
+                    <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 14, overflow: "hidden", background: "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, position: "relative" }}>
+                      {imgs.length > 0 ? (
+                        <>
+                          <img
+                            key={imgIndex}
+                            src={imgs[imgIndex]}
+                            alt={p.name}
+                            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                            onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.nextSibling.style.display = "flex"; }}
+                          />
+                          <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", fontSize: 48 }}>📦</div>
+                          {imgs.length > 1 && (
+                            <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.45)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6 }}>
+                              {imgIndex + 1}/{imgs.length}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 56, opacity: 0.4 }}>📦</span>
+                      )}
+                    </div>
+
+                    {/* Thumbnail strip */}
+                    {imgs.length > 1 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {imgs.map((url, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setImgIndex(i)}
+                            style={{
+                              width: 52, height: 52, borderRadius: 8, overflow: "hidden",
+                              border: `2px solid ${i === imgIndex ? "#0d0d0d" : "#e8e4dc"}`,
+                              cursor: "pointer", background: "#f2f0eb", flexShrink: 0,
+                              transition: "border-color 0.15s"
+                            }}
+                          >
+                            <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.display = "none"; }} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 10, fontSize: 11, color: "rgba(13,13,13,0.4)", textAlign: "center" }}>
+                      {imgs.length === 0 ? "No images uploaded" : `${imgs.length} image${imgs.length !== 1 ? "s" : ""} total`}
+                    </div>
+                  </div>
+
+                  {/* Right: product info */}
+                  <div style={{ padding: 24 }}>
+                    {/* Approval status */}
+                    <div style={{ marginBottom: 16 }}>
+                      <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>
+                        {p.approved ? "✓ Approved" : "⏳ Pending Approval"}
+                      </span>
+                    </div>
+
+                    {/* Price block */}
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 28, fontWeight: 900, color: "#0d0d0d", letterSpacing: "-1px" }}>{fmt(p.price)}</span>
+                        {hasDiscount && (
+                          <>
+                            <span style={{ fontSize: 14, color: "rgba(13,13,13,0.38)", textDecoration: "line-through" }}>{fmt(p.mrp)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#1db882", background: "#e8f9f2", padding: "2px 8px", borderRadius: 6 }}>{discountPct}% off</span>
+                          </>
+                        )}
+                      </div>
+                      {p.gstRate > 0 && (
+                        <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", marginTop: 4 }}>+ {p.gstRate}% GST applicable</div>
+                      )}
+                    </div>
+
+                    {/* Info grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                      {[
+                        ["Vendor", p.vendorName || "—"],
+                        ["Category", p.category || "—"],
+                        ["Stock", p.stock != null ? `${p.stock} units` : "—"],
+                        ["Alert Threshold", p.stockAlertThreshold != null ? `${p.stockAlertThreshold} units` : "—"],
+                      ].map(([label, val]) => (
+                        <div key={label} style={{ background: "#fafaf8", borderRadius: 10, padding: "10px 14px" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 4 }}>{label}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#0d0d0d" }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Description */}
+                    {p.description && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 6 }}>Description</div>
+                        <div style={{ fontSize: 13, color: "#0d0d0d", lineHeight: 1.65, background: "#fafaf8", borderRadius: 10, padding: "12px 14px", maxHeight: 130, overflowY: "auto", whiteSpace: "pre-wrap" }}>
+                          {p.description}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery pin codes */}
+                    {p.allowedPinCodes && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 6 }}>Restricted Pin Codes</div>
+                        <div style={{ fontSize: 12, color: "#0d0d0d", background: "#fafaf8", borderRadius: 10, padding: "10px 14px", wordBreak: "break-all" }}>{p.allowedPinCodes}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Approve All confirmation modal */}
+      {confirmModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setConfirmModal(false); }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#e8f9f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>✓</div>
+            <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>Approve All Pending?</h3>
+            <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
+              This will approve all <strong>{pendingCount} pending product{pendingCount === 1 ? "" : "s"}</strong> and make them immediately visible to customers.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setConfirmModal(false)}>Cancel</button>
+              <button
+                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: "#1db882", color: "#fff" }}
+                onClick={() => { onApproveAll(); setConfirmModal(false); }}
+              >
+                ✓ Approve All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2543,8 +2803,14 @@ function ContentAdmin() {
 
   // ── Bulk CSV state ─────────────────────────────────────────────────
   const [bulkFile, setBulkFile] = useState(null);
-  const [bulkProgress, setBulkProgress] = useState(null); // null | { pct, msg, error }
+  const [bulkProgress, setBulkProgress] = useState(null); // null | { pct, msg, error, created, updated, errors }
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkVendorId, setBulkVendorId] = useState("");
+  const [bulkAutoApprove, setBulkAutoApprove] = useState(true);
+  const [bulkPreviewHeaders, setBulkPreviewHeaders] = useState([]);
+  const [bulkPreviewRows, setBulkPreviewRows] = useState([]);
+  const [bulkVendors, setBulkVendors] = useState([]);
+  const [bulkRowErrors, setBulkRowErrors] = useState([]);
 
   const handleImageFile = (file) => {
     if (!file) return;
@@ -2593,56 +2859,84 @@ function ContentAdmin() {
   };
 
   // ── Bulk CSV upload ────────────────────────────────────────────────
-  const handleBulkSubmit = () => {
-    if (!bulkFile) { show("Please select a CSV file"); return; }
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      // Parse CSV manually (no PapaParse dep in React bundle)
-      const lines = e.target.result.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) { setBulkProgress({ pct: 0, msg: "CSV is empty.", error: true }); return; }
-      const parseLine = (line) => {
-        const out = []; let cur = ""; let inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const c = line[i];
-          if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
-          else if (c === ',' && !inQ) { out.push(cur); cur = ""; }
-          else cur += c;
-        }
-        out.push(cur);
-        return out.map(s => s.trim().replace(/^"|"$/g, ""));
-      };
-      const headers = parseLine(lines[0]);
-      const rows = lines.slice(1).map(l => { const vals = parseLine(l); const o = {}; headers.forEach((h,i) => o[h] = vals[i] ?? ""); return o; });
-      const errors = [];
-      rows.forEach((row, idx) => {
-        ["Product Name","Price","Stock"].forEach(col => {
-          if (!row[col] || !row[col].trim()) errors.push(`Row ${idx+2}: ${col} is required`);
-        });
-      });
-      if (errors.length) {
-        setBulkProgress({ pct: 0, msg: "Validation failed — " + errors.slice(0,3).join(" · ") + (errors.length > 3 ? ` +${errors.length-3} more` : ""), error: true });
-        return;
+  // Load vendors on mount for the vendor selector
+  useEffect(() => {
+    fetch("/api/react/admin/vendors", { headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" } })
+      .then(r => r.json()).then(d => { if (d.success) setBulkVendors(d.vendors || []); }).catch(() => {});
+  }, []);
+
+  const parseCsvFrontend = (text) => {
+    const parseLine = (line) => {
+      const out = []; let cur = ""; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+        else if (c === ',' && !inQ) { out.push(cur); cur = ""; }
+        else cur += c;
       }
-      setBulkProgress({ pct: 60, msg: `Validated ${rows.length} products. Uploading…`, error: false });
-      setBulkUploading(true);
-      const fd = new FormData(); fd.append("file", bulkFile);
-      try {
-        const res = await fetch("/api/react/vendor/products/upload-csv", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
-          body: fd,
-        });
-        const d = await res.json();
-        if (d.success) {
-          setBulkProgress({ pct: 100, msg: d.message || "Upload successful!", error: false });
-          show("Bulk import successful! ✓"); setBulkFile(null);
-        } else {
-          setBulkProgress({ pct: 0, msg: d.message || "Upload failed.", error: true });
-        }
-      } catch { setBulkProgress({ pct: 0, msg: "Network error. Please try again.", error: true }); }
-      setBulkUploading(false);
+      out.push(cur);
+      return out.map(s => s.trim().replace(/^"|"$/g, ""));
     };
-    reader.readAsText(bulkFile);
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return { headers: [], rows: [] };
+    const headers = parseLine(lines[0]);
+    const rows = lines.slice(1).map(l => {
+      const vals = parseLine(l); const o = {};
+      headers.forEach((h, i) => o[h] = vals[i] ?? "");
+      return o;
+    });
+    return { headers, rows };
+  };
+
+  const handleBulkFileChange = (file) => {
+    setBulkFile(file || null);
+    setBulkProgress(null);
+    setBulkRowErrors([]);
+    setBulkPreviewHeaders([]);
+    setBulkPreviewRows([]);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const { headers, rows } = parseCsvFrontend(e.target.result);
+      setBulkPreviewHeaders(headers);
+      setBulkPreviewRows(rows.slice(0, 10));
+      // Client-side validation
+      const REQUIRED = ["name", "price"];
+      const rowErrs = [];
+      rows.forEach((row, i) => {
+        const missing = REQUIRED.filter(col => !row[col] && !row[col.charAt(0).toUpperCase() + col.slice(1)]);
+        if (missing.length) rowErrs.push(`Row ${i+2}: missing ${missing.join(", ")}`);
+      });
+      setBulkRowErrors(rowErrs);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkSubmit = async () => {
+    if (!bulkFile) { show("Please select a CSV file"); return; }
+    if (bulkRowErrors.length > 0) { show("Fix validation errors before uploading"); return; }
+    setBulkUploading(true);
+    setBulkProgress({ pct: 30, msg: "Uploading to server…", error: false });
+    const fd = new FormData();
+    fd.append("file", bulkFile);
+    if (bulkVendorId) fd.append("vendorId", bulkVendorId);
+    fd.append("autoApprove", String(bulkAutoApprove));
+    try {
+      const res = await fetch("/api/react/admin/products/upload-csv", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${auth?.token || ""}`, "X-Admin-Email": auth?.email || "" },
+        body: fd,
+      });
+      const d = await res.json();
+      if (d.success) {
+        setBulkProgress({ pct: 100, msg: d.message || "Import complete!", error: false, created: d.created, updated: d.updated, errors: d.errors || [] });
+        show(`✓ ${d.created || 0} created, ${d.updated || 0} updated`);
+        setBulkFile(null); setBulkPreviewHeaders([]); setBulkPreviewRows([]); setBulkRowErrors([]);
+      } else {
+        setBulkProgress({ pct: 0, msg: d.message || "Upload failed.", error: true });
+      }
+    } catch { setBulkProgress({ pct: 0, msg: "Network error. Please try again.", error: true }); }
+    setBulkUploading(false);
   };
 
   const saveEdit = async () => {
@@ -2768,31 +3062,121 @@ function ContentAdmin() {
       )}
 
       {/* Bulk Product Induction */}
-      <div style={{ ...as.card, marginBottom: 24 }}>
-        <h3 style={{ ...as.cardTitle, marginBottom: 8 }}>📄 Bulk Product Induction</h3>
-        <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 14 }}>
-          Upload a CSV to add multiple products at once. Required columns: <strong style={{ color: "#e5e7eb" }}>Product Name, Price, Stock</strong>.{" "}
-          <a href="/sample-product-upload.csv" style={{ color: "#f5a800" }}>Download sample CSV</a>
+      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e8e4dc", padding: 24, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <h3 style={{ ...as.cardTitle, marginBottom: 0 }}>📄 Bulk Product Import (CSV)</h3>
+          <a
+            href={"data:text/csv;charset=utf-8," + encodeURIComponent("id,name,description,price,mrp,category,stock,imageLink,stockAlertThreshold,gstRate,approved\nAKAL001,Sample Product,A great product description,499,999,Electronics,50,https://example.com/img.jpg,10,18,true")}
+            download="product-import-template.csv"
+            style={{ fontSize: 12, color: "#0d0d0d", textDecoration: "none", background: "#f2f0eb", padding: "5px 12px", borderRadius: 7, fontWeight: 600 }}
+          >⬇ Download Template</a>
+        </div>
+        <p style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", marginBottom: 18, lineHeight: 1.5 }}>
+          Required columns: <strong style={{ color: "#0d0d0d" }}>name, price</strong>. Optional: id (update existing), description, mrp, category, stock, imageLink, stockAlertThreshold, gstRate, approved.
         </p>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
+
+        {/* Controls row */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
+          {/* File picker */}
+          <div>
             <label style={as.label}>CSV File *</label>
-            <input type="file" accept=".csv"
-              style={{ width: "100%", padding: "7px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", cursor: "pointer", fontSize: 12 }}
-              onChange={e => { setBulkFile(e.target.files[0] || null); setBulkProgress(null); }} />
+            <input type="file" accept=".csv,text/csv"
+              style={{ width: "100%", padding: "8px", borderRadius: 9, border: "1px solid #e8e4dc", background: "#fafaf8", color: "#0d0d0d", cursor: "pointer", fontSize: 12, boxSizing: "border-box" }}
+              onChange={e => handleBulkFileChange(e.target.files[0])} />
           </div>
+
+          {/* Vendor selector */}
+          <div>
+            <label style={as.label}>Assign to Vendor (optional)</label>
+            <select
+              style={{ ...as.statusSelect, width: "100%", padding: "9px 10px" }}
+              value={bulkVendorId}
+              onChange={e => setBulkVendorId(e.target.value)}
+            >
+              <option value="">— No vendor (platform) —</option>
+              {bulkVendors.map(v => (
+                <option key={v.id} value={v.id}>{v.name || v.email || `Vendor #${v.id}`}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Auto-approve toggle */}
+          <div>
+            <label style={as.label}>Auto-Approve</label>
+            <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+              {[["true","Yes — go live"],["false","No — pending"]].map(([val, label]) => (
+                <button key={val} type="button"
+                  style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1px solid ${String(bulkAutoApprove) === val ? "#0d0d0d" : "#e8e4dc"}`, background: String(bulkAutoApprove) === val ? "#0d0d0d" : "transparent", color: String(bulkAutoApprove) === val ? "#fff" : "rgba(13,13,13,0.5)", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+                  onClick={() => setBulkAutoApprove(val === "true")}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Upload button */}
           <button
-            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#f5a800", color: "#1a1000", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", opacity: (!bulkFile || bulkUploading) ? 0.5 : 1 }}
-            onClick={handleBulkSubmit} disabled={!bulkFile || bulkUploading}>
-            {bulkUploading ? "Uploading…" : "⬆ Upload & Import"}
+            style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "#1db882", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", opacity: (!bulkFile || bulkUploading || bulkRowErrors.length > 0) ? 0.45 : 1, alignSelf: "flex-end" }}
+            onClick={handleBulkSubmit} disabled={!bulkFile || bulkUploading || bulkRowErrors.length > 0}
+          >
+            {bulkUploading ? "⏳ Importing…" : "⬆ Import CSV"}
           </button>
         </div>
-        {bulkProgress && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", height: 8 }}>
-              <div style={{ height: "100%", width: `${bulkProgress.pct}%`, background: bulkProgress.error ? "#ef4444" : "#f5a800", transition: "width 0.4s" }} />
+
+        {/* Client-side validation errors */}
+        {bulkRowErrors.length > 0 && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#e84c3c", marginBottom: 6 }}>⚠ {bulkRowErrors.length} validation error{bulkRowErrors.length !== 1 ? "s" : ""} — fix before uploading</div>
+            {bulkRowErrors.slice(0, 5).map((e, i) => <div key={i} style={{ fontSize: 12, color: "#dc2626" }}>• {e}</div>)}
+            {bulkRowErrors.length > 5 && <div style={{ fontSize: 12, color: "#dc2626" }}>…and {bulkRowErrors.length - 5} more</div>}
+          </div>
+        )}
+
+        {/* CSV Preview table */}
+        {bulkPreviewHeaders.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(13,13,13,0.4)", marginBottom: 8 }}>
+              Preview — first {bulkPreviewRows.length} rows
             </div>
-            <div style={{ fontSize: 12, marginTop: 5, color: bulkProgress.error ? "#f87171" : "#9ca3af" }}>{bulkProgress.msg}</div>
+            <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e8e4dc" }}>
+              <table style={{ ...as.table, minWidth: "auto" }}>
+                <thead style={as.thead}>
+                  <tr>{bulkPreviewHeaders.map((h, i) => <th key={i} style={as.th}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {bulkPreviewRows.map((row, ri) => (
+                    <tr key={ri} style={as.tr}>
+                      {bulkPreviewHeaders.map((h, ci) => (
+                        <td key={ci} style={{ ...as.td, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row[h] ?? ""}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Progress / result */}
+        {bulkProgress && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ background: "#f2f0eb", borderRadius: 6, overflow: "hidden", height: 6, marginBottom: 8 }}>
+              <div style={{ height: "100%", width: `${bulkProgress.pct}%`, background: bulkProgress.error ? "#e84c3c" : "#1db882", transition: "width 0.4s" }} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: bulkProgress.error ? "#e84c3c" : "#1db882", marginBottom: bulkProgress.errors?.length ? 8 : 0 }}>
+              {bulkProgress.msg}
+              {!bulkProgress.error && bulkProgress.created != null && (
+                <span style={{ marginLeft: 10, fontWeight: 400, color: "rgba(13,13,13,0.5)", fontSize: 12 }}>
+                  {bulkProgress.created} created · {bulkProgress.updated} updated
+                </span>
+              )}
+            </div>
+            {bulkProgress.errors?.length > 0 && (
+              <div style={{ background: "#fef9e7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#d4a017", marginBottom: 6 }}>Row errors ({bulkProgress.errors.length})</div>
+                {bulkProgress.errors.slice(0, 8).map((e, i) => <div key={i} style={{ fontSize: 12, color: "#92400e" }}>• {e}</div>)}
+                {bulkProgress.errors.length > 8 && <div style={{ fontSize: 12, color: "#92400e" }}>…and {bulkProgress.errors.length - 8} more</div>}
+              </div>
+            )}
           </div>
         )}
       </div>
