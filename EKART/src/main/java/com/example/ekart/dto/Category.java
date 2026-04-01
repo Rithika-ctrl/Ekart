@@ -29,6 +29,7 @@ public class Category {
     private String emoji = "📦";
 
     /** Display order — lower = shown first */
+    @Column(name = "display_order")
     private int displayOrder = 0;
 
     /** True = this is a top-level parent category.
