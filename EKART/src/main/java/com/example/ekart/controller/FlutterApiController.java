@@ -934,6 +934,7 @@ public class FlutterApiController {
             order.setDeliveryTime(deliveryTime);
             order.setDateTime(LocalDateTime.now());
             order.setTrackingStatus(TrackingStatus.PROCESSING);
+            order.setReplacementRequested(false);
             order.setCurrentCity(deliveryAddress);
             orderRepository.save(order);
 

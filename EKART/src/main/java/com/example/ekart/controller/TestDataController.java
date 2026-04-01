@@ -117,6 +117,7 @@ public class TestDataController {
             order1.setRazorpay_order_id("order_001");
             order1.setRazorpay_payment_id("pay_001");
             order1.setDateTime(LocalDate.now().atStartOfDay());
+            order1.setReplacementRequested(false);
             
             Item item1 = new Item();
             item1.setProductId(p1.getId());
@@ -150,6 +151,7 @@ public class TestDataController {
             order2.setRazorpay_order_id("order_002");
             order2.setRazorpay_payment_id("pay_002");
             order2.setDateTime(LocalDate.now().atStartOfDay());
+            order2.setReplacementRequested(false);
 
             Item item3 = new Item();
             item3.setProductId(p3.getId());
@@ -183,6 +185,7 @@ public class TestDataController {
             order3.setRazorpay_order_id("order_003");
             order3.setRazorpay_payment_id("pay_003");
             order3.setDateTime(LocalDate.now().atStartOfDay());
+            order3.setReplacementRequested(false);
 
             Item item5 = new Item();
             item5.setProductId(p4.getId());

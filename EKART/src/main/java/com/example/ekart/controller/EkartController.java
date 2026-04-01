@@ -562,6 +562,7 @@ public class EkartController {
         order.setRazorpay_order_id(razorpay_order_id);
         order.setDeliveryTime(deliveryTime);
         order.setPaymentMode(paymentMode);
+        order.setReplacementRequested(false);
 
         // ✅ FIX 1: Use the amount sent from the frontend (includes tomorrow delivery surcharge ₹129).
         //           Previously this recalculated from cart and always missed the surcharge.

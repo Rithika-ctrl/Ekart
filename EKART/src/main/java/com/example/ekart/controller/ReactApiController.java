@@ -1461,6 +1461,7 @@ public class ReactApiController {
                 subOrder.setDeliveryTime(deliveryTime);
                 subOrder.setDateTime(LocalDateTime.now());
                 subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+                subOrder.setReplacementRequested(false);
                 subOrder.setCurrentCity((String) body.getOrDefault("city", ""));
                 if (vendor != null) {
                     subOrder.setVendorId(vendor.getId());
