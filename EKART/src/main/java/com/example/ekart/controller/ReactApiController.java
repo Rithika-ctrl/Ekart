@@ -5001,6 +5001,7 @@ public class ReactApiController {
     // ═══════════════════════════════════════════════════════
 
     @Autowired private StockAlertRepository stockAlertRepository;
+    @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
 
     /**
      * POST /api/flutter/orders/{id}/reorder
@@ -5318,6 +5319,10 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+
+        // Keep alert records in sync with current low-stock products for this vendor.
+        productRepository.findByVendor(vendor).forEach(stockAlertService::checkStockLevel);
+
         List<StockAlert> alerts = stockAlertRepository.findByVendor(vendor);
         // Sort: unacknowledged first, then by id desc
         alerts.sort((a, b) -> {
