@@ -44,17 +44,23 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
+    @Column(nullable = true, length = 100)
     private String razorpay_payment_id;
+
+    @Column(nullable = true, length = 100)
     private String razorpay_order_id;
 
-    private double amount;
+    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    private double amount = 0;
+
+    @Column(nullable = true)
     private LocalDateTime dateTime;
 
     @Column(columnDefinition = "DOUBLE DEFAULT 0")
-    private double deliveryCharge;
+    private double deliveryCharge = 0;
 
     @Column(columnDefinition = "DOUBLE DEFAULT 0")
-    private double totalPrice;
+    private double totalPrice = 0;
 
     /**
      * GST component back-calculated from the order's item prices (inclusive pricing).
@@ -63,22 +69,25 @@ public class Order {
      * 0.0 for legacy orders placed before GST tracking was added.
      */
     @Column(columnDefinition = "DOUBLE DEFAULT 0")
-    private double gstAmount;
+    private double gstAmount = 0;
 
+    @Column(nullable = true, length = 50)
     private String paymentMode;
 
     @CreationTimestamp
     private LocalDateTime orderDate;
 
+    @Column(nullable = true, length = 50)
     private String deliveryTime;
 
+    @Column(columnDefinition = "BIT DEFAULT 0")
     private boolean replacementRequested = false;
 
     @Column(length = 50)
     @Enumerated(EnumType.STRING)
     private TrackingStatus trackingStatus = TrackingStatus.PROCESSING;
 
-    @Column(length = 100)
+    @Column(nullable = true, length = 100)
     private String currentCity;
 
     @Transient
