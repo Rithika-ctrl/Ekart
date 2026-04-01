@@ -1028,11 +1028,15 @@ function StockAlertsView({ alerts, api, onRefresh, showToast }) {
     const d = await api(`/vendor/stock-alerts/${id}/acknowledge`, { method: "POST" });
     if (d.success) { showToast("Alert acknowledged"); onRefresh(); } else showToast(d.message || "Error");
   };
+
+  const pendingAlerts = (alerts || []).filter(a => !a.acknowledged);
+  const acknowledgedAlerts = (alerts || []).filter(a => a.acknowledged);
+
   return (
     <div>
       <h2 style={vs.pageTitle}>Stock Alerts ⚠️</h2>
-      {alerts.length === 0 ? <div style={vs.emptyGreen}>✓ No stock alerts. All products are well-stocked!</div> :
-        alerts.map(a => (
+      {pendingAlerts.length === 0 ? <div style={vs.emptyGreen}>✓ No pending stock alerts.</div> :
+        pendingAlerts.map(a => (
           <div key={a.id} style={vs.alertCard}>
             <div>
               <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.productName}</div>
@@ -1042,6 +1046,22 @@ function StockAlertsView({ alerts, api, onRefresh, showToast }) {
             <button style={vs.secondaryBtn} onClick={() => ack(a.id)}>Acknowledge</button>
           </div>
         ))}
+
+      {acknowledgedAlerts.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <h3 style={{ color: "#6b7280", marginBottom: 10, fontSize: 15 }}>Acknowledged ({acknowledgedAlerts.length})</h3>
+          {acknowledgedAlerts.slice(0, 10).map(a => (
+            <div key={a.id} style={{ ...vs.alertCard, opacity: 0.75 }}>
+              <div>
+                <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.productName}</div>
+                <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 4 }}>Stock: <span style={{ color: "#ef4444", fontWeight: 700 }}>{a.currentStock}</span> (threshold: {a.threshold})</div>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>{a.message}</div>
+              </div>
+              <span style={{ ...vs.badge, background: "#374151", color: "#d1d5db" }}>Acknowledged</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
