@@ -116,7 +116,7 @@ function Dashboard({ stats, orders, products }) {
     { label: "Total Products", value: stats?.totalProducts ?? "–", icon: "🏷️", color: "#f59e0b" },
     { label: "Low Stock Items", value: stats?.lowStockProducts ?? "–", icon: "⚠️", color: "#ef4444" },
   ];
-  const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", DELIVERED: "#22c55e", CANCELLED: "#ef4444", OUT_FOR_DELIVERY: "#8b5cf6" };
+  const statusColor = { PROCESSING: "#f59e0b", PACKED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", REFUNDED: "#10b981", CANCELLED: "#ef4444" };
   return (
     <div>
       <h2 style={vs.pageTitle}>Dashboard</h2>
@@ -158,10 +158,10 @@ function Dashboard({ stats, orders, products }) {
 }
 
 function OrdersView({ orders, onMarkPacked }) {
-  const statusColor = { PLACED: "#f59e0b", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", DELIVERED: "#22c55e", CANCELLED: "#ef4444", OUT_FOR_DELIVERY: "#8b5cf6" };
-  const pending = (orders || []).filter(o => o.trackingStatus === "PLACED");
-  const inProgress = (orders || []).filter(o => ["CONFIRMED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
-  const done = (orders || []).filter(o => ["DELIVERED", "CANCELLED"].includes(o.trackingStatus));
+  const statusColor = { PROCESSING: "#f59e0b", PACKED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", REFUNDED: "#10b981", CANCELLED: "#ef4444" };
+  const pending = (orders || []).filter(o => o.trackingStatus === "PROCESSING");
+  const inProgress = (orders || []).filter(o => ["PACKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
+  const done = (orders || []).filter(o => ["DELIVERED", "REFUNDED", "CANCELLED"].includes(o.trackingStatus));
 
   const OrderRow = ({ o }) => (
     <div style={vs.orderCard}>
@@ -183,7 +183,7 @@ function OrdersView({ orders, onMarkPacked }) {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ fontWeight: 700, color: "#fff" }}>{fmt(o.amount || o.totalPrice)}</span>
-          {o.trackingStatus === "PLACED" && (
+          {o.trackingStatus === "PROCESSING" && (
             <button style={vs.primaryBtn} onClick={() => onMarkPacked(o.id)}>✓ Mark Packed</button>
           )}
         </div>
