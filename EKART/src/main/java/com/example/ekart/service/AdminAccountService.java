@@ -2,6 +2,7 @@ package com.example.ekart.service;
 
 // import java.time.LocalDateTime; // unused
 // import java.util.ArrayList; // unused
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,7 +199,24 @@ public class AdminAccountService {
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
                 .count();
         profile.put("averageOrderValue", deliveredCount > 0 ? totalSpent / deliveredCount : 0);
-        
+
+        // Saved delivery addresses
+        List<Map<String, Object>> addresses = customer.getAddresses() == null
+            ? Collections.emptyList()
+            : customer.getAddresses().stream().map(a -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id",            a.getId());
+                m.put("recipientName", a.getRecipientName());
+                m.put("houseStreet",   a.getHouseStreet());
+                m.put("city",          a.getCity());
+                m.put("state",         a.getState());
+                m.put("postalCode",    a.getPostalCode());
+                m.put("details",       a.getDetails());
+                m.put("formatted",     a.getFormattedAddress());
+                return m;
+              }).collect(Collectors.toList());
+        profile.put("addresses", addresses);
+
         return profile;
     }
 

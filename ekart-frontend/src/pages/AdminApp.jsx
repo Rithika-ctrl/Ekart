@@ -2967,6 +2967,40 @@ function AccountsAdmin() {
               )}
             </div>
 
+            {/* Saved Addresses */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "#2563eb", marginBottom: 10 }}>
+                📍 Saved Addresses ({modal.data.addresses?.length || 0})
+              </div>
+              {modal.data.addresses && modal.data.addresses.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+                  {modal.data.addresses.map((addr, i) => (
+                    <div key={addr.id} style={{ background: "#f2f0eb", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(13,13,13,0.4)", marginBottom: 4 }}>
+                        Address #{i + 1}
+                      </div>
+                      {addr.recipientName && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#0d0d0d", marginBottom: 2 }}>{addr.recipientName}</div>
+                      )}
+                      {addr.houseStreet && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)" }}>{addr.houseStreet}</div>
+                      )}
+                      {(addr.city || addr.state || addr.postalCode) && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)" }}>
+                          {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ")}
+                        </div>
+                      )}
+                      {!addr.recipientName && addr.details && (
+                        <div style={{ fontSize: 13, color: "rgba(13,13,13,0.7)", whiteSpace: "pre-line" }}>{addr.details}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "rgba(13,13,13,0.4)", padding: "8px 0" }}>No saved addresses</div>
+              )}
+            </div>
+
             {/* Modal Action Buttons */}
             <div style={{ display: "flex", gap: 10, borderTop: "1px solid rgba(13,13,13,0.1)", paddingTop: 16 }}>
               <button

@@ -3235,6 +3235,49 @@ public class ReactApiController {
     }
 
     /**
+     * GET /api/react/admin/customers/{id}/addresses
+     *
+     * Returns all saved delivery addresses for a customer.
+     * Supports both structured (recipientName/houseStreet/city/state/postalCode)
+     * and legacy flat-text (details) addresses.
+     */
+    @GetMapping("/admin/customers/{id}/addresses")
+    public ResponseEntity<Map<String, Object>> getCustomerAddresses(
+            @PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+
+        com.example.ekart.dto.Customer customer = customerRepository.findById(id).orElse(null);
+        if (customer == null) {
+            res.put("success", false);
+            res.put("message", "Customer not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        List<Map<String, Object>> addresses = customer.getAddresses() == null
+            ? java.util.Collections.emptyList()
+            : customer.getAddresses().stream().map(a -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id",            a.getId());
+                m.put("recipientName", a.getRecipientName());
+                m.put("houseStreet",   a.getHouseStreet());
+                m.put("city",          a.getCity());
+                m.put("state",         a.getState());
+                m.put("postalCode",    a.getPostalCode());
+                m.put("details",       a.getDetails());
+                m.put("formatted",     a.getFormattedAddress());
+                return m;
+              }).collect(java.util.stream.Collectors.toList());
+
+        res.put("success",   true);
+        res.put("addresses", addresses);
+        res.put("count",     addresses.size());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
      * POST /api/react/admin/orders/{id}/cancel
      * Body (optional): { "reason": "Fraud suspected" }
      *
