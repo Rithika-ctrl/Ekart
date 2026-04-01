@@ -60,18 +60,20 @@ public class GenericReadOnlyController {
         Object key = parseId(id);
         try {
             // Use raw type to avoid generic type mismatch warnings
-            @SuppressWarnings({"rawtypes", "unchecked"})  
+            @SuppressWarnings("rawtypes")  
             JpaRepository rawRepo = repo;
             //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Object result = rawRepo.findById(key).orElse(null);
             if (result != null) return ResponseEntity.ok(result);
         } catch (ClassCastException ignored) {
             // try fallback by attempting other numeric types
             try {
                 Object altKey = tryOtherIdTypes(id);
-                @SuppressWarnings({"rawtypes", "unchecked"})
+                @SuppressWarnings("rawtypes")
                 JpaRepository rawRepo = repo;
                 //noinspection unchecked
+                @SuppressWarnings("unchecked")
                 Object result = rawRepo.findById(altKey).orElse(null);
                 if (result != null) return ResponseEntity.ok(result);
             } catch (Exception ignored2) {
