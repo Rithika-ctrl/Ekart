@@ -7,553 +7,10 @@ const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractio
 
 const S = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-  .dk-root {
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    color: #0d0d0d;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    background: #fafaf8;
-  }
-
-  .dk-bg {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-    display: none;
-  }
-
-  /* NAV */
-  .dk-nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #fff;
-    border-bottom: 1px solid #e8e4dc;
-    gap: 8px;
-    height: 64px;
-  }
-  .dk-brand {
-    font-size: 18px;
-    font-weight: 800;
-    color: #0d0d0d;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    letter-spacing: -0.5px;
-  }
-  .dk-brand span { color: #d4a017; }
-  .dk-nav-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 6px 12px;
-    border-radius: 8px;
-    background: rgba(212, 160, 23, 0.12);
-    border: 1px solid rgba(212, 160, 23, 0.25);
-    color: #d4a017;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .dk-nav-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-left: auto;
-  }
-  .dk-nav-info { font-size: 13px; color: rgba(13,13,13,0.5); }
-  .dk-btn-logout {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #e84c3c;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 7px 16px;
-    border-radius: 8px;
-    border: 1px solid #e8e4dc;
-    background: transparent;
-    cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-  .dk-btn-logout:hover { background: rgba(232,76,60,0.08); border-color: #e84c3c; }
-
-  /* AVAILABILITY TOGGLE */
-  .dk-btn-availability {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #0d0d0d;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 7px 16px;
-    border-radius: 8px;
-    border: 1px solid;
-    background: transparent;
-    cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-  .dk-btn-availability.online {
-    border-color: rgba(29, 184, 130, 0.3);
-    color: #1db882;
-  }
-  .dk-btn-availability.online:hover {
-    background: rgba(29, 184, 130, 0.1);
-    border-color: rgba(29, 184, 130, 0.6);
-  }
-  .dk-btn-availability.offline {
-    border-color: rgba(232, 76, 60, 0.3);
-    color: #e84c3c;
-  }
-  .dk-btn-availability.offline:hover {
-    background: rgba(232, 76, 60, 0.1);
-    border-color: rgba(232, 76, 60, 0.6);
-  }
-
-  /* ALERTS */
-  .dk-alert-stack {
-    position: fixed;
-    top: 80px;
-    right: 24px;
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .dk-alert {
-    padding: 12px 16px;
-    background: #fff;
-    border: 1px solid;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    min-width: 260px;
-    animation: dkSlideIn 0.3s ease both;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-  .dk-alert-success { border-color: rgba(29, 184, 130, 0.3); color: #1db882; }
-  .dk-alert-danger  { border-color: rgba(232, 76, 60, 0.3); color: #e84c3c; }
-  .dk-alert-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    opacity: 0.6;
-    font-size: 1rem;
-  }
-
-  /* PAGE */
-  .dk-page {
-    flex: 1;
-    padding: 32px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    max-width: 1300px;
-    margin: 64px auto 0;
-    width: 100%;
-  }
-
-  /* WELCOME BANNER */
-  .dk-welcome {
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 16px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-  }
-  .dk-welcome-text h1 { font-size: 24px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.5px; }
-  .dk-welcome-text h1 span { color: #d4a017; }
-  .dk-welcome-text p { font-size: 13px; color: rgba(13,13,13,0.5); }
-  .dk-welcome-icon {
-    width: 56px; height: 56px;
-    background: rgba(212, 160, 23, 0.12);
-    border: 1px solid rgba(212, 160, 23, 0.25);
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 24px;
-    flex-shrink: 0;
-  }
-
-  /* WAREHOUSE CARD */
-  .dk-wh-card {
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 16px;
-    padding: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .dk-wh-info { display: flex; align-items: center; gap: 12px; }
-  .dk-wh-icon {
-    width: 48px; height: 48px;
-    background: rgba(37, 99, 235, 0.12);
-    border: 1px solid rgba(37, 99, 235, 0.25);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: #2563eb;
-    flex-shrink: 0;
-  }
-  .dk-wh-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; color: #0d0d0d; }
-  .dk-wh-location { font-size: 13px; color: rgba(13,13,13,0.5); }
-  .dk-wh-code { font-size: 11px; color: #d4a017; font-weight: 600; margin-top: 2px; }
-  .dk-wh-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .dk-badge-pending {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 50px;
-    background: rgba(212, 160, 23, 0.12);
-    border: 1px solid rgba(212, 160, 23, 0.25);
-    color: #d4a017;
-  }
-  .dk-btn-transfer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(37, 99, 235, 0.1);
-    border: 1px solid rgba(37, 99, 235, 0.25);
-    color: #2563eb;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .dk-btn-transfer:hover { background: rgba(37, 99, 235, 0.2); border-color: rgba(37, 99, 235, 0.4); }
-
-  /* STATS */
-  .dk-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
-  .dk-stat {
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 14px;
-    padding: 18px;
-    text-align: center;
-  }
-  .dk-stat-val { font-size: 22px; font-weight: 900; color: #0d0d0d; margin-bottom: 2px; }
-  .dk-stat-lbl { font-size: 12px; color: rgba(13,13,13,0.5); }
-
-  /* 3-COLUMN GRID */
-  .dk-col-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    align-items: start;
-  }
-
-  /* SECTION PANEL */
-  .dk-panel {
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 16px;
-    overflow: hidden;
-  }
-  .dk-panel-head {
-    padding: 16px;
-    border-bottom: 1px solid #f2f0eb;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    background: #fafaf8;
-  }
-  .dk-panel-title {
-    font-size: 15px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #0d0d0d;
-  }
-  .dk-count-badge {
-    background: #d4a017;
-    color: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 50px;
-  }
-  .dk-panel-body { padding: 14px; }
-
-  /* ORDER CARD */
-  .dk-order {
-    background: #fafaf8;
-    border: 1px solid #f2f0eb;
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 10px;
-    transition: border-color 0.2s;
-  }
-  .dk-order:last-child { margin-bottom: 0; }
-  .dk-order:hover { border-color: #e8e4dc; background: #fff; }
-  .dk-order.delivered { opacity: 0.6; }
-  .dk-order-id { font-weight: 700; color: #d4a017; font-size: 14px; }
-  .dk-order-customer { font-size: 12px; color: #0d0d0d; margin-top: 3px; }
-  .dk-order-pin { font-size: 11px; color: rgba(13,13,13,0.5); }
-  .dk-order-pin.highlight { color: #d4a017; }
-  .dk-order-items {
-    font-size: 11px;
-    color: rgba(13,13,13,0.5);
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid #f2f0eb;
-  }
-  .dk-order-amount { font-weight: 700; color: #1db882; font-size: 13px; margin-top: 6px; }
-  .dk-order-actions { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-  /* BUTTONS */
-  .dk-btn-pickup {
-    background: #d4a017;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 700;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .dk-btn-pickup:hover { background: #b8860b; }
-  .dk-btn-deliver {
-    background: rgba(29, 184, 130, 0.1);
-    color: #1db882;
-    border: 1px solid rgba(29, 184, 130, 0.3);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 700;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .dk-btn-deliver:hover { background: rgba(29, 184, 130, 0.2); border-color: rgba(29, 184, 130, 0.5); }
-
-  /* CONTACT ACTIONS */
-  .dk-order-actions .dk-contact {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .dk-btn-contact {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    font-family: 'DM Sans', sans-serif;
-    text-decoration: none;
-    color: #0d0d0d;
-    border: 1px solid #e8e4dc;
-    background: #fff;
-    cursor: pointer;
-  }
-  .dk-btn-call { color: #0d0d0d; border-color: rgba(37,99,235,0.15); background: rgba(37,99,235,0.06); }
-  .dk-btn-call:hover { background: rgba(37,99,235,0.12); }
-  .dk-btn-wa { color: #fff; background: #25D366; border-color: rgba(37,99,235,0.06); }
-  .dk-btn-wa:hover { opacity: 0.95; }
-
-  /* ADDRESS & PAYMENT */
-  .dk-order-address {
-    font-size: 12px;
-    color: #0d0d0d;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid #f2f0eb;
-    line-height: 1.5;
-  }
-  .dk-order-address-icon { color: #2563eb; font-size: 0.9rem; margin-right: 0.3rem; }
-  .dk-order-landmark {
-    font-size: 11px;
-    color: rgba(13,13,13,0.5);
-    margin-top: 4px;
-    font-style: italic;
-  }
-  .dk-order-meta { display: flex; gap: 10px; margin-top: 6px; font-size: 11px; }
-  .dk-meta-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: #f2f0eb; color: #0d0d0d; }
-  .dk-meta-tag.cod { background: rgba(212,160,23,0.12); color: #d4a017; }
-  .dk-meta-tag.prepaid { background: rgba(29,184,130,0.12); color: #1db882; }
-
-  /* OTP SECTION */
-  .dk-otp-section {
-    background: rgba(29, 184, 130, 0.08);
-    border: 1px solid rgba(29, 184, 130, 0.2);
-    border-radius: 10px;
-    padding: 12px;
-    margin-top: 10px;
-  }
-  .dk-otp-label {
-    font-size: 11px;
-    color: #1db882;
-    font-weight: 700;
-    margin-bottom: 8px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .dk-otp-row { display: flex; gap: 8px; }
-  .dk-otp-input {
-    flex: 1;
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 8px;
-    padding: 8px 10px;
-    color: #0d0d0d;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    letter-spacing: 0.2em;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.2s;
-    -moz-appearance: textfield;
-  }
-  .dk-otp-input:focus { border-color: #1db882; background: #fafaf8; }
-  .dk-otp-input::-webkit-outer-spin-button,
-  .dk-otp-input::-webkit-inner-spin-button { -webkit-appearance: none; }
-
-  /* EMPTY STATE */
-  .dk-empty { text-align: center; padding: 40px; color: rgba(13,13,13,0.4); font-size: 15px; }
-  .dk-empty i { font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.4; }
-  .dk-empty p { font-size: 13px; }
-
-  /* TOAST */
-  .dk-toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
-  .dk-toast {
-    background: #0d0d0d;
-    border: 1px solid rgba(13,13,13,0.2);
-    border-radius: 12px;
-    padding: 12px 16px;
-    font-size: 12px;
-    min-width: 240px;
-    display: flex; align-items: center; gap: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    animation: dkSlideIn 0.3s ease;
-    color: #fff;
-  }
-  .dk-toast.success { border-color: rgba(29, 184, 130, 0.3); color: #1db882; background: rgba(29, 184, 130, 0.08); }
-  .dk-toast.error   { border-color: rgba(232, 76, 60, 0.3); color: #e84c3c; background: rgba(232, 76, 60, 0.08); }
-
-  /* MODAL */
-  .dk-modal-overlay {
-    position: fixed; inset: 0; z-index: 500;
-    background: rgba(0,0,0,0.3);
-    display: flex; align-items: center; justify-content: center;
-    padding: 16px;
-  }
-  .dk-modal-box {
-    background: #fff;
-    border: 1px solid #e8e4dc;
-    border-radius: 16px;
-    padding: 24px;
-    width: 100%; max-width: 480px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  }
-  .dk-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; color: #0d0d0d; }
-  .dk-modal-title i { color: #2563eb; }
-  .dk-modal-subtitle { font-size: 13px; color: rgba(13,13,13,0.5); margin-bottom: 16px; }
-  .dk-form-group { margin-bottom: 14px; }
-  .dk-form-label { font-size: 11px; font-weight: 700; color: #0d0d0d; margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
-  .dk-form-select, .dk-form-textarea {
-    width: 100%;
-    background: #fafaf8;
-    border: 1px solid #e8e4dc;
-    border-radius: 10px;
-    padding: 10px 12px;
-    color: #0d0d0d;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .dk-form-select option { background: #fff; color: #0d0d0d; }
-  .dk-form-select:focus, .dk-form-textarea:focus { border-color: #2563eb; background: #fff; }
-  .dk-form-textarea { resize: vertical; min-height: 80px; }
-  .dk-modal-actions { display: flex; gap: 12px; margin-top: 20px; }
-  .dk-btn-submit {
-    flex: 1; background: #0d0d0d; color: #fff;
-    border: none; border-radius: 10px; padding: 10px 14px;
-    font-size: 13px; font-weight: 700;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
-  }
-  .dk-btn-submit:hover { background: #1a1a1a; }
-  .dk-btn-cancel {
-    flex: 1; background: #fafaf8; color: rgba(13,13,13,0.5);
-    border: 1px solid #e8e4dc; border-radius: 10px;
-    padding: 10px 14px; font-size: 13px; font-weight: 600;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
-  }
-  .dk-btn-cancel:hover { background: #f2f0eb; color: #0d0d0d; }
-
-  /* FOOTER */
-  .dk-footer {
-    background: #fff;
-    border-top: 1px solid #e8e4dc;
-    padding: 16px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: auto;
-  }
-  .dk-footer-brand { font-size: 14px; font-weight: 700; color: #0d0d0d; }
-  .dk-footer-brand span { color: #d4a017; }
-  .dk-footer-copy { font-size: 11px; color: rgba(13,13,13,0.5); }
-
-  /* PENDING PAGE */
-  .dk-pending-wrap { text-align: center; padding: 60px 20px; margin-top: 64px; }
-  .dk-pending-icon { font-size: 56px; margin-bottom: 16px; }
-  .dk-pending-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; color: #0d0d0d; }
-  .dk-pending-sub { font-size: 13px; color: rgba(13,13,13,0.6); max-width: 400px; margin: 0 auto 16px; line-height: 1.7; }
-  .dk-pending-steps {
-    background: rgba(212, 160, 23, 0.08);
-    border: 1px solid rgba(212, 160, 23, 0.25);
-    border-radius: 12px;
-    padding: 14px 16px;
-    font-size: 12px;
-    color: #0d0d0d;
-    max-width: 360px;
-    margin: 0 auto 16px;
-    text-align: left;
-    line-height: 1.9;
-  }
-
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   @keyframes dkSlideIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
-
-  @media (max-width: 900px) { .dk-col-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 500px) { .dk-stats { grid-template-columns: 1fr; } .dk-page { padding: 16px; } }
+  body { font-family: 'DM Sans', sans-serif; }
+  .dk-animation { animation: dkSlideIn 0.3s ease; }
 `;
 
 export default function DeliveryApp() {
@@ -590,6 +47,13 @@ export default function DeliveryApp() {
   // Per-order OTP state map: { [orderId]: string }
   const [otpMap, setOtpMap] = useState({});
   const setOtp = (id, val) => setOtpMap(prev => ({ ...prev, [id]: val }));
+
+  // Photo capture states
+  const [pickupPhotos, setPickupPhotos] = useState({}); // { [orderId]: base64 }
+  const [deliveryPhotos, setDeliveryPhotos] = useState({}); // { [orderId]: base64 }
+  const [photoModal, setPhotoModal] = useState(null); // { orderId, type: 'pickup' | 'delivery' }
+  const photoInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
 
@@ -695,6 +159,69 @@ export default function DeliveryApp() {
     } catch { showToast("Request failed. Try again.", false); }
   };
 
+  // Photo handling functions
+  const openPhotoModal = (orderId, photoType) => {
+    setPhotoModal({ orderId, type: photoType });
+    setTimeout(() => {
+      if (photoType === 'pickup') cameraInputRef.current?.click();
+      else photoInputRef.current?.click();
+    }, 100);
+  };
+
+  const handlePhotoCapture = (e, photoType) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result;
+      if (photoModal) {
+        if (photoType === 'pickup') {
+          setPickupPhotos(prev => ({ ...prev, [photoModal.orderId]: base64 }));
+        } else {
+          setDeliveryPhotos(prev => ({ ...prev, [photoModal.orderId]: base64 }));
+        }
+        setPhotoModal(null);
+        showToast(`📸 Photo captured successfully`, true);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePickupWithPhoto = async (orderId) => {
+    if (!pickupPhotos[orderId]) {
+      showToast("📸 Please capture a photo of the parcel before marking as picked up", false);
+      openPhotoModal(orderId, 'pickup');
+      return;
+    }
+    try {
+      const d = await api(`/delivery/order/${orderId}/pickup`, {
+        method: "POST",
+        body: JSON.stringify({ photo: pickupPhotos[orderId] })
+      });
+      showToast(d?.message || "✓ Marked as picked up with photo", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
+  };
+
+  const handleDeliveryWithPhoto = async (orderId) => {
+    if (!deliveryPhotos[orderId]) {
+      showToast("📸 Please capture a photo before confirming delivery", false);
+      openPhotoModal(orderId, 'delivery');
+      return;
+    }
+    const otp = (otpMap[orderId] || "").trim();
+    if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
+    if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
+    try {
+      const d = await api(`/delivery/order/${orderId}/deliver`, {
+        method: "POST",
+        body: JSON.stringify({ otp, photo: deliveryPhotos[orderId] })
+      });
+      showToast(d?.message || "✓ Delivery confirmed with photo", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
+  };
+
   const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
 
   // ── Pending approval guard
@@ -702,40 +229,50 @@ export default function DeliveryApp() {
     return (
       <>
         <style>{S}</style>
-        <div className="dk-root">
-          <div className="dk-bg" />
-          <nav className="dk-nav">
-            <div className="dk-brand"><i className="fas fa-shopping-cart" style={{ fontSize: "1.1rem" }} /><span>Ekart</span></div>
-            <div className="dk-nav-right">
-              <span className="dk-nav-badge"><i className="fas fa-motorcycle" />&nbsp; Delivery</span>
-              <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+        <div className="min-h-screen flex flex-col bg-gray-50">
+          <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <i className="fas fa-shopping-cart text-lg" />
+              <span>Ekart</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-100 text-indigo-600 uppercase">
+                <i className="fas fa-motorcycle" /> Delivery
+              </span>
+              <button 
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
+                onClick={() => { logout(); navigate("/auth", { replace: true }); }}
+              >
                 <i className="fas fa-sign-out-alt" /> Logout
               </button>
             </div>
           </nav>
-          <main className="dk-page">
-            <div className="dk-pending-wrap">
-              <div className="dk-pending-icon">⏳</div>
-              <div className="dk-pending-title">Pending Admin Approval</div>
-              <p className="dk-pending-sub">
+          <main className="flex-1 flex items-center justify-center px-4 pt-24">
+            <div className="text-center max-w-md">
+              <div className="text-6xl mb-6">⏳</div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Pending Admin Approval</h1>
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 Your account has been verified but is awaiting admin review.
                 You'll receive an email at <strong>{profile.email}</strong> once approved.
               </p>
-              <div className="dk-pending-steps">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left text-sm text-gray-700 mb-6">
                 <strong>What happens next?</strong><br />
                 1. Admin reviews your application 🔍<br />
                 2. Admin assigns your warehouse & pin codes 📦<br />
                 3. You receive an approval email ✉️<br />
                 4. You can then start accepting deliveries 🛵
               </div>
-              <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+              <button 
+                className="w-full px-4 py-3 font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
+                onClick={() => { logout(); navigate("/auth", { replace: true }); }}
+              >
                 <i className="fas fa-sign-out-alt" /> Logout
               </button>
             </div>
           </main>
-          <footer className="dk-footer">
-            <div className="dk-footer-brand"><span>Ekart</span></div>
-            <div className="dk-footer-copy">© 2026 Ekart. All rights reserved.</div>
+          <footer className="bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between text-sm">
+            <div className="font-bold text-gray-900">Ekart</div>
+            <div className="text-gray-500">© 2026 Ekart. All rights reserved.</div>
           </footer>
         </div>
       </>
@@ -745,91 +282,112 @@ export default function DeliveryApp() {
   return (
     <>
       <style>{S}</style>
-      <div className="dk-root">
-        <div className="dk-bg" />
-
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        
         {/* Alerts */}
-        <div className="dk-alert-stack">
+        <div className="fixed top-20 right-6 z-50 flex flex-col gap-2">
           {alerts.map((a, i) => (
-            <div key={i} className={`dk-alert dk-alert-${a.type}`}>
+            <div key={i} className={`dk-animation p-4 rounded-xl border flex items-center gap-3 min-w-72 shadow-lg ${
+              a.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
+            }`}>
               <i className={`fas ${a.type === "success" ? "fa-check-circle" : "fa-exclamation-circle"}`} />
-              <span>{a.msg}</span>
-              <button className="dk-alert-close" onClick={() => dismissAlert(i)}>×</button>
+              <span className="text-sm font-medium flex-1">{a.msg}</span>
+              <button className="opacity-60 hover:opacity-100" onClick={() => dismissAlert(i)}>×</button>
             </div>
           ))}
         </div>
 
-        {/* Nav */}
-        <nav className="dk-nav">
-          <div className="dk-brand">
-            <i className="fas fa-shopping-cart" style={{ fontSize: "1.1rem" }} />
+        {/* Header */}
+        <nav className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <i className="fas fa-shopping-cart text-lg" />
             <span>Ekart</span>
           </div>
-          <div className="dk-nav-right">
-            <span className="dk-nav-badge"><i className="fas fa-motorcycle" />&nbsp; Delivery</span>
-            <span className="dk-nav-info">{profile?.name || auth?.email}</span>
+          <div className="flex items-center gap-4 ml-auto">
+            <span className="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-100 text-indigo-600 uppercase">
+              <i className="fas fa-motorcycle" /> Delivery
+            </span>
+            <span className="text-sm text-gray-600">{profile?.name || auth?.email}</span>
             <button 
-              className={`dk-btn-availability ${isAvailable ? "online" : "offline"}`}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition ${
+                isAvailable 
+                  ? "bg-green-50 border-green-300 text-green-600 hover:bg-green-100" 
+                  : "bg-red-50 border-red-300 text-red-600 hover:bg-red-100"
+              }`}
               onClick={toggleAvailability}
               disabled={togglingAvailable}
               title={isAvailable ? "Click to go offline" : "Click to go online"}
             >
-              <i className={`fas ${isAvailable ? "fa-circle" : "fa-circle"}`} style={{ fontSize: "0.6rem" }} />
+              <i className="fas fa-circle text-xs" />
               {isAvailable ? "Online" : "Offline"}
             </button>
-            <button className="dk-btn-logout" onClick={() => { logout(); navigate("/auth", { replace: true }); }}>
+            <button 
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
+              onClick={() => { logout(); navigate("/auth", { replace: true }); }}
+            >
               <i className="fas fa-sign-out-alt" /> Logout
             </button>
           </div>
         </nav>
 
-        <main className="dk-page">
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col gap-6 pt-24 pb-8 px-6 max-w-7xl w-full mx-auto">
           {loading ? (
-            <div className="dk-empty"><i className="fas fa-spinner fa-spin" /><p>Loading…</p></div>
+            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+              <i className="fas fa-spinner fa-spin text-4xl mb-4" />
+              <p className="text-lg">Loading…</p>
+            </div>
           ) : (
             <>
               {/* Welcome Banner */}
-              <div className="dk-welcome">
-                <div className="dk-welcome-text">
-                  <h1>Hello, <span>{profile?.name || "Delivery Boy"}</span>!</h1>
-                  <p>
+              <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-between gap-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    Hello, <span className="text-indigo-600">{profile?.name || "Delivery Boy"}</span>!
+                  </h1>
+                  <p className="text-sm text-gray-500">
                     {profile?.deliveryBoyCode}
                     {profile?.assignedPinCodes ? `  ·  Pins: ${profile.assignedPinCodes}` : "  ·  Pins: All"}
                   </p>
                 </div>
-                <div className="dk-welcome-icon">
-                  <i className="fas fa-motorcycle" style={{ color: "var(--yellow)" }} />
+                <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <i className="fas fa-motorcycle text-2xl text-indigo-600" />
                 </div>
               </div>
 
               {/* Warehouse Card */}
-              <div className="dk-wh-card">
-                <div className="dk-wh-info">
-                  <div className="dk-wh-icon"><i className="fas fa-warehouse" /></div>
+              <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center justify-between flex-wrap gap-4 hover:shadow-md transition">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i className="fas fa-warehouse text-xl text-indigo-600" />
+                  </div>
                   {profile?.warehouse ? (
                     <div>
-                      <div className="dk-wh-name">{profile.warehouse.name}</div>
-                      <div className="dk-wh-location">
-                        <i className="fas fa-map-marker-alt" style={{ color: "var(--yellow)", marginRight: "0.3rem", fontSize: "0.7rem" }} />
+                      <div className="font-semibold text-gray-900">{profile.warehouse.name}</div>
+                      <div className="text-sm text-gray-600 flex items-center gap-1">
+                        <i className="fas fa-map-marker-alt text-xs" />
                         {profile.warehouse.city}, {profile.warehouse.state}
                       </div>
-                      <div className="dk-wh-code">{profile.warehouse.warehouseCode}</div>
+                      <div className="text-xs text-indigo-600 font-bold mt-1">{profile.warehouse.warehouseCode}</div>
                     </div>
                   ) : (
                     <div>
-                      <div className="dk-wh-name" style={{ color: "var(--text-dim)" }}>No Warehouse Assigned</div>
-                      <div className="dk-wh-location">Contact admin to get a warehouse assigned.</div>
+                      <div className="font-semibold text-gray-500">No Warehouse Assigned</div>
+                      <div className="text-sm text-gray-500">Contact admin to get a warehouse assigned.</div>
                     </div>
                   )}
                 </div>
-                <div className="dk-wh-right">
+                <div>
                   {pendingTransfer ? (
-                    <span className="dk-badge-pending">
+                    <span className="inline-flex items-center gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-xs font-bold">
                       <i className="fas fa-clock" />
-                      Transfer to <strong style={{ marginLeft: "0.25rem" }}>{pendingTransfer.requestedWarehouse?.name}</strong> — Pending
+                      Transfer to <strong>{pendingTransfer.requestedWarehouse?.name}</strong> — Pending
                     </span>
                   ) : (
-                    <button className="dk-btn-transfer" onClick={openTransferModal}>
+                    <button 
+                      className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition flex items-center gap-2"
+                      onClick={openTransferModal}
+                    >
                       <i className="fas fa-exchange-alt" /> Request Transfer
                     </button>
                   )}
@@ -837,147 +395,162 @@ export default function DeliveryApp() {
               </div>
 
               {/* Stats */}
-              <div className="dk-stats">
-                <div className="dk-stat">
-                  <div className="dk-stat-val">{toPickUp.length}</div>
-                  <div className="dk-stat-lbl">To Pick Up</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition">
+                  <div className="text-3xl font-bold text-indigo-600 mb-2">{toPickUp.length}</div>
+                  <div className="text-sm text-gray-600">To Pick Up</div>
                 </div>
-                <div className="dk-stat">
-                  <div className="dk-stat-val">{outNow.length}</div>
-                  <div className="dk-stat-lbl">Out for Delivery</div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition">
+                  <div className="text-3xl font-bold text-yellow-600 mb-2">{outNow.length}</div>
+                  <div className="text-sm text-gray-600">Out for Delivery</div>
                 </div>
-                <div className="dk-stat">
-                  <div className="dk-stat-val">{delivered.length}</div>
-                  <div className="dk-stat-lbl">Delivered</div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition">
+                  <div className="text-3xl font-bold text-green-600 mb-2">{delivered.length}</div>
+                  <div className="text-sm text-gray-600">Delivered</div>
                 </div>
               </div>
 
               {/* 3-Column Grid */}
-              <div className="dk-col-grid">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {/* TO PICK UP */}
-                <div className="dk-panel">
-                  <div className="dk-panel-head">
-                    <div className="dk-panel-title">
-                      <i className="fas fa-box" style={{ color: "var(--yellow)" }} /> Pick Up from Warehouse
-                    </div>
-                    <span className="dk-count-badge">{toPickUp.length}</span>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition">
+                  <div className="bg-gray-50 border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                      <i className="fas fa-box text-indigo-600" /> 📦 Waiting Pickup
+                    </h3>
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-indigo-600 text-white rounded-full text-xs font-bold">{toPickUp.length}</span>
                   </div>
-                  <div className="dk-panel-body">
+                  <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
                     {toPickUp.length === 0 ? (
-                      <div className="dk-empty">
-                        <i className="fas fa-box-open" />
-                        <p>No orders waiting for pickup</p>
+                      <div className="text-center py-12 text-gray-400">
+                        <i className="fas fa-box-open text-4xl mb-3 block opacity-50" />
+                        <p className="text-sm font-medium">No orders waiting for pickup</p>
                       </div>
                     ) : toPickUp.map(order => (
-                      <div key={order.id} className="dk-order">
-                        <div className="dk-order-id">Order #{order.id}</div>
-                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
-                        <div className="dk-order-pin">{order.customer?.mobile || order.mobile}</div>
+                      <div key={order.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-white hover:border-indigo-300 transition">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
+                          <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
+                        </div>
+                        <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
+                        <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (
-                          <div className="dk-order-pin">PIN: {order.deliveryPinCode}</div>
+                          <div className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-semibold mb-2">
+                            📍 PIN: {order.deliveryPinCode}
+                          </div>
                         )}
                         {(order.deliveryAddress || order.address) && (
-                          <div className="dk-order-address">
-                            <i className="fas fa-map-marker-alt dk-order-address-icon" />
-                            {order.deliveryAddress || order.address}
-                            {(order.landmark) && <div className="dk-order-landmark">Landmark: {order.landmark}</div>}
+                          <div className="text-xs text-gray-600 mb-2 flex items-start gap-2">
+                            <i className="fas fa-map-marker-alt text-indigo-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              {order.deliveryAddress || order.address}
+                              {order.landmark && <div className="text-gray-500 italic mt-1">📍 {order.landmark}</div>}
+                            </div>
                           </div>
                         )}
-                        <div className="dk-order-meta">
-                          {order.paymentType && (
-                            <span className={`dk-meta-tag ${order.paymentType.toLowerCase() === "cod" ? "cod" : "prepaid"}`}>
-                              <i className={`fas ${order.paymentType.toLowerCase() === "cod" ? "fa-money-bill" : "fa-credit-card"}`} />
-                              {order.paymentType}
-                            </span>
-                          )}
-                        </div>
-                        <div className="dk-order-items">
-                          {(order.items || []).map((item, i) => (
-                            <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
-                          ))}
-                        </div>
-                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
-                        <div className="dk-order-actions">
-                          <div className="dk-contact">
-                            <a className="dk-btn-contact dk-btn-call" href={telHref(order.customer?.mobile || order.mobile)}>
-                              <i className="fas fa-phone" /> Call
-                            </a>
-                            <a className="dk-btn-contact dk-btn-wa" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
-                              <i className="fab fa-whatsapp" /> WhatsApp
-                            </a>
-                          </div>
-                          <button className="dk-btn-pickup" onClick={() => markPickedUp(order.id)}>
-                            <i className="fas fa-truck-loading" /> Picked Up
+                        <div className="flex gap-2 mt-3">
+                          <a className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold hover:bg-indigo-100 transition" href={telHref(order.customer?.mobile || order.mobile)}>
+                            <i className="fas fa-phone text-xs" /> Call
+                          </a>
+                          <a className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-50 text-green-600 rounded text-xs font-semibold hover:bg-green-100 transition" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
+                            <i className="fab fa-whatsapp text-xs" /> Chat
+                          </a>
+                          <button className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-bold transition ${
+                            pickupPhotos[order.id]
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                          }`} onClick={() => pickupPhotos[order.id] ? handlePickupWithPhoto(order.id) : openPhotoModal(order.id, 'pickup')}>
+                            <i className={`fas ${pickupPhotos[order.id] ? 'fa-check' : 'fa-camera'} text-xs`} /> {pickupPhotos[order.id] ? 'Picked' : 'Photo'}
                           </button>
                         </div>
+                        {pickupPhotos[order.id] && (
+                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700 flex items-center gap-2">
+                            <i className="fas fa-check-circle" /> Photo captured - Ready to mark picked
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* OUT FOR DELIVERY */}
-                <div className="dk-panel">
-                  <div className="dk-panel-head">
-                    <div className="dk-panel-title">
-                      <i className="fas fa-motorcycle" style={{ color: "#22c55e" }} /> Out for Delivery
-                    </div>
-                    <span className="dk-count-badge">{outNow.length}</span>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition">
+                  <div className="bg-gray-50 border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                      <i className="fas fa-motorcycle text-yellow-600" /> 🛵 Active
+                    </h3>
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-yellow-600 text-white rounded-full text-xs font-bold">{outNow.length}</span>
                   </div>
-                  <div className="dk-panel-body">
+                  <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
                     {outNow.length === 0 ? (
-                      <div className="dk-empty">
-                        <i className="fas fa-road" />
-                        <p>No active deliveries</p>
+                      <div className="text-center py-12 text-gray-400">
+                        <i className="fas fa-road text-4xl mb-3 block opacity-50" />
+                        <p className="text-sm font-medium">No active deliveries</p>
                       </div>
                     ) : outNow.map(order => (
-                      <div key={order.id} className="dk-order">
-                        <div className="dk-order-id">Order #{order.id}</div>
-                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
-                        <div className="dk-order-pin">{order.customer?.mobile || order.mobile}</div>
+                      <div key={order.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-white hover:border-yellow-300 transition">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
+                          <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
+                        </div>
+                        <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
+                        <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (
-                          <div className="dk-order-pin highlight">PIN: {order.deliveryPinCode}</div>
+                          <div className="inline-block px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-semibold mb-2">
+                            📍 PIN: {order.deliveryPinCode}
+                          </div>
                         )}
                         {(order.deliveryAddress || order.address) && (
-                          <div className="dk-order-address">
-                            <i className="fas fa-map-marker-alt dk-order-address-icon" />
-                            {order.deliveryAddress || order.address}
-                            {(order.landmark) && <div className="dk-order-landmark">Landmark: {order.landmark}</div>}
+                          <div className="text-xs text-gray-600 mb-3 flex items-start gap-2">
+                            <i className="fas fa-map-marker-alt text-indigo-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              {order.deliveryAddress || order.address}
+                              {order.landmark && <div className="text-gray-500 italic mt-1">📍 {order.landmark}</div>}
+                            </div>
                           </div>
                         )}
-                        <div className="dk-order-meta">
-                          {order.paymentType && (
-                            <span className={`dk-meta-tag ${order.paymentType.toLowerCase() === "cod" ? "cod" : "prepaid"}`}>
-                              <i className={`fas ${order.paymentType.toLowerCase() === "cod" ? "fa-money-bill" : "fa-credit-card"}`} />
-                              {order.paymentType}
-                            </span>
+                        <div className="flex gap-2 mb-3">
+                          <a className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold hover:bg-indigo-100 transition" href={telHref(order.customer?.mobile || order.mobile)}>
+                            <i className="fas fa-phone text-xs" /> Call
+                          </a>
+                          <a className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-50 text-green-600 rounded text-xs font-semibold hover:bg-green-100 transition" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
+                            <i className="fab fa-whatsapp text-xs" /> Chat
+                          </a>
+                        </div>
+                        
+                        {/* Photo Capture Section */}
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-2">
+                          <label className="text-xs font-bold text-orange-700 flex items-center gap-2 mb-2">
+                            <i className="fas fa-camera text-xs" /> 📸 Take Photo Before Delivery
+                          </label>
+                          <button 
+                            className={`w-full py-2 rounded text-xs font-bold transition flex items-center justify-center gap-2 ${
+                              deliveryPhotos[order.id]
+                                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                : 'bg-orange-100 text-orange-700 border border-orange-300 hover:bg-orange-200'
+                            }`}
+                            onClick={() => openPhotoModal(order.id, 'delivery')}
+                          >
+                            <i className={`fas ${deliveryPhotos[order.id] ? 'fa-check-circle' : 'fa-camera'} text-sm`} /> 
+                            {deliveryPhotos[order.id] ? '✓ Photo Captured' : '📸 Capture Photo'}
+                          </button>
+                          {!deliveryPhotos[order.id] && (
+                            <div className="p-2 bg-orange-100 border border-orange-300 rounded text-xs text-orange-800 mt-2 flex items-start gap-2">
+                              <i className="fas fa-exclamation-circle flex-shrink-0 mt-0.5" />
+                              <span><strong>MANDATORY:</strong> Photo required before delivery</span>
+                            </div>
                           )}
                         </div>
-                        <div className="dk-order-items">
-                          {(order.items || []).map((item, i) => (
-                            <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
-                          ))}
-                        </div>
-                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
-                        <div className="dk-order-actions">
-                          <div className="dk-contact">
-                            <a className="dk-btn-contact dk-btn-call" href={telHref(order.customer?.mobile || order.mobile)}>
-                              <i className="fas fa-phone" /> Call
-                            </a>
-                            <a className="dk-btn-contact dk-btn-wa" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
-                              <i className="fab fa-whatsapp" /> WhatsApp
-                            </a>
-                          </div>
-                        </div>
 
-                        <div className="dk-otp-section">
-                          <div className="dk-otp-label">
-                            <i className="fas fa-key" /> Enter OTP from customer
-                          </div>
-                          <div className="dk-otp-row">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
+                          <label className="text-xs font-bold text-green-700 flex items-center gap-2 mb-2">
+                            <i className="fas fa-key text-xs" /> OTP
+                          </label>
+                          <div className="flex gap-2">
                             <input
                               type="number"
-                              className="dk-otp-input"
+                              className="flex-1 bg-white border border-green-300 rounded px-2 py-1.5 text-center text-sm font-mono focus:border-green-600 focus:ring-1 focus:ring-green-300 outline-none"
                               placeholder="000000"
                               maxLength={6}
                               min={100000}
@@ -985,8 +558,16 @@ export default function DeliveryApp() {
                               value={otpMap[order.id] || ""}
                               onChange={e => setOtp(order.id, e.target.value)}
                             />
-                            <button className="dk-btn-deliver" onClick={() => confirmDelivery(order.id)}>
-                              <i className="fas fa-check" /> Deliver
+                            <button 
+                              className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                                deliveryPhotos[order.id]
+                                  ? 'bg-green-600 text-white hover:bg-green-700'
+                                  : 'bg-gray-400 text-white cursor-not-allowed'
+                              }`}
+                              onClick={() => handleDeliveryWithPhoto(order.id)}
+                              disabled={!deliveryPhotos[order.id]}
+                            >
+                              <i className="fas fa-check text-xs" /> Deliver
                             </button>
                           </div>
                         </div>
@@ -996,57 +577,65 @@ export default function DeliveryApp() {
                 </div>
 
                 {/* DELIVERED */}
-                <div className="dk-panel">
-                  <div className="dk-panel-head">
-                    <div className="dk-panel-title">
-                      <i className="fas fa-check-circle" style={{ color: "#22c55e" }} /> Delivered
-                    </div>
-                    <span className="dk-count-badge">{delivered.length}</span>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition">
+                  <div className="bg-gray-50 border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                      <i className="fas fa-check-circle text-green-600" /> ✅ Completed
+                    </h3>
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-green-600 text-white rounded-full text-xs font-bold">{delivered.length}</span>
                   </div>
-                  <div className="dk-panel-body">
+                  <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
                     {delivered.length === 0 ? (
-                      <div className="dk-empty">
-                        <i className="fas fa-clipboard-check" />
-                        <p>No completed deliveries yet</p>
+                      <div className="text-center py-12 text-gray-400">
+                        <i className="fas fa-clipboard-check text-4xl mb-3 block opacity-50" />
+                        <p className="text-sm font-medium">No completed deliveries yet</p>
                       </div>
                     ) : delivered.map(order => (
-                      <div key={order.id} className="dk-order delivered">
-                        <div className="dk-order-id">Order #{order.id}</div>
-                        <div className="dk-order-customer">{order.customer?.name || order.customerName}</div>
-                        <div className="dk-order-items">
+                      <div key={order.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 opacity-75 hover:opacity-100 transition">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
+                          <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
+                        </div>
+                        <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
+                        <div className="text-xs text-gray-500">
                           {(order.items || []).map((item, i) => (
                             <span key={i}>{item.name} ×{item.quantity}{i < order.items.length - 1 ? ", " : ""}</span>
                           ))}
                         </div>
-                        <div className="dk-order-amount">{fmt(order.amount || order.totalPrice)}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
               </div>
+
             </>
           )}
         </main>
 
-        <footer className="dk-footer">
-          <div className="dk-footer-brand"><span>Ekart</span></div>
-          <div className="dk-footer-copy">© 2026 Ekart. All rights reserved.</div>
+        {/* Footer */}
+        <footer className="bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between text-sm">
+          <div className="font-bold text-gray-900">Ekart</div>
+          <div className="text-gray-500">© 2026 Ekart. All rights reserved.</div>
         </footer>
 
         {/* Warehouse Transfer Modal */}
         {transferModal && (
-          <div className="dk-modal-overlay" onClick={e => { if (e.target === e.currentTarget) setTransferModal(false); }}>
-            <div className="dk-modal-box">
-              <div className="dk-modal-title">
-                <i className="fas fa-exchange-alt" /> Request Warehouse Transfer
-              </div>
-              <div className="dk-modal-subtitle">
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setTransferModal(false); }}>
+            <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-lg">
+              <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <i className="fas fa-exchange-alt text-indigo-600" /> Request Warehouse Transfer
+              </h2>
+              <p className="text-sm text-gray-600 mb-6">
                 Your request will be reviewed by admin. You will be notified by email once approved or rejected.
-              </div>
-              <div className="dk-form-group">
-                <label className="dk-form-label">Transfer to Warehouse</label>
-                <select className="dk-form-select" value={selectedWh} onChange={e => setSelectedWh(e.target.value)}>
+              </p>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">Transfer to Warehouse</label>
+                <select 
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:border-indigo-600 focus:bg-white outline-none transition"
+                  value={selectedWh} 
+                  onChange={e => setSelectedWh(e.target.value)}
+                >
                   <option value="">— Select warehouse —</option>
                   {warehouseList
                     .filter(w => !profile?.warehouse || w.id !== profile.warehouse.id)
@@ -1055,20 +644,29 @@ export default function DeliveryApp() {
                     ))}
                 </select>
               </div>
-              <div className="dk-form-group">
-                <label className="dk-form-label">
-                  Reason <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>(optional)</span>
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">
+                  Reason <span className="font-normal text-gray-500">(optional)</span>
                 </label>
                 <textarea
-                  className="dk-form-textarea"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:border-indigo-600 focus:bg-white outline-none transition resize-none"
                   placeholder="e.g. Relocating to another city, closer to new address..."
                   value={transferReason}
                   onChange={e => setTransferReason(e.target.value)}
+                  rows="4"
                 />
               </div>
-              <div className="dk-modal-actions">
-                <button className="dk-btn-cancel" onClick={() => setTransferModal(false)}>Cancel</button>
-                <button className="dk-btn-submit" onClick={submitTransfer}>
+              <div className="flex gap-3">
+                <button 
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition"
+                  onClick={() => setTransferModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                  onClick={submitTransfer}
+                >
                   <i className="fas fa-paper-plane" /> Submit Request
                 </button>
               </div>
@@ -1076,12 +674,34 @@ export default function DeliveryApp() {
           </div>
         )}
 
+        {/* Hidden File Inputs for Photo Capture */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => handlePhotoCapture(e, 'pickup')}
+          style={{ display: 'none' }}
+        />
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => handlePhotoCapture(e, 'delivery')}
+          style={{ display: 'none' }}
+        />
+
         {/* Toast */}
         {toast && (
-          <div className="dk-toast-wrap">
-            <div className={`dk-toast ${toast.success ? "success" : "error"}`}>
+          <div className="fixed bottom-6 right-6 z-50">
+            <div className={`p-4 rounded-xl border flex items-center gap-3 min-w-64 shadow-lg dk-animation ${
+              toast.success 
+                ? "bg-green-50 border-green-200 text-green-700" 
+                : "bg-red-50 border-red-200 text-red-700"
+            }`}>
               <i className={`fas ${toast.success ? "fa-check-circle" : "fa-exclamation-circle"}`} />
-              {toast.msg}
+              <span className="text-sm font-medium">{toast.msg}</span>
             </div>
           </div>
         )}

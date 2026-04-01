@@ -35,16 +35,17 @@ public class WarehouseChangeRequest {
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20, nullable = false)
-    private Status status = Status.PENDING;
+    @Column(length = 20, nullable = false, columnDefinition = "ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING'")
+    private Status status;
 
     /** Admin's note when approving / rejecting */
     @Column(length = 300)
     private String adminNote;
 
-    @Column(nullable = false)
-    private LocalDateTime requestedAt = LocalDateTime.now();
+    @Column(nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    private LocalDateTime requestedAt;
 
+    @Column(columnDefinition = "TIMESTAMP NULL")
     private LocalDateTime resolvedAt;
 
     // ── Getters & Setters ────────────────────────────────────────

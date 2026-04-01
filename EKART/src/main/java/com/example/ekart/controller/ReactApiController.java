@@ -1422,6 +1422,32 @@ public class ReactApiController {
                 }
             }
 
+            // ── Resolve delivery PIN and warehouse from address ────────────────
+            String deliveryPin   = "";
+            Warehouse warehouse  = null;
+            Object addressIdObj  = body.get("addressId");
+            if (addressIdObj != null) {
+                try {
+                    Integer addressId = Integer.parseInt(addressIdObj.toString());
+                    Address addr = null;
+                    for (Address a : customer.getAddresses()) {
+                        if (a.getId() == addressId) { addr = a; break; }
+                    }
+                    if (addr != null && addr.getPostalCode() != null) {
+                        deliveryPin = addr.getPostalCode().replaceAll("\\D", "").substring(0, Math.min(6, addr.getPostalCode().replaceAll("\\D", "").length()));
+                        // Find warehouse that serves this PIN
+                        for (Warehouse wh : warehouseRepository.findAll()) {
+                            if (wh.serves(deliveryPin)) {
+                                warehouse = wh;
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // If address resolution fails, continue without warehouse
+                }
+            }
+
             boolean multiVendor = vendorItems.size() > 1;
             Integer parentId    = null;
             Order   firstOrder  = null;
@@ -1463,6 +1489,10 @@ public class ReactApiController {
                 subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
                 subOrder.setReplacementRequested(false);
                 subOrder.setCurrentCity((String) body.getOrDefault("city", ""));
+                subOrder.setDeliveryPinCode(deliveryPin);
+                if (warehouse != null) {
+                    subOrder.setWarehouse(warehouse);
+                }
                 if (vendor != null) {
                     subOrder.setVendorId(vendor.getId());
                     subOrder.setVendorName(vendor.getName());
@@ -4068,6 +4098,7 @@ public class ReactApiController {
                 m.put("verified",         db.isVerified());
                 m.put("adminApproved",    db.isAdminApproved());
                 m.put("active",           db.isActive());
+                m.put("isAvailable",      db.isAvailable());
                 m.put("assignedPinCodes", db.getAssignedPinCodes());
                 m.put("approved",         db.isAdminApproved()); // alias read by AdminApp.jsx filter
 
