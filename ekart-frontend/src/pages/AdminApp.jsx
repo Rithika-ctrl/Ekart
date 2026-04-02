@@ -192,6 +192,14 @@ export default function AdminApp() {
       api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
     } else show(d.message || "Error");
   };
+  const markOrderPacked = async (orderId) => {
+    const d = await api(`/admin/delivery/order/pack`, { method: "POST", body: JSON.stringify({ orderId }) });
+    if (d.success) {
+      show(d.autoAssigned ? `✓ Packed & auto-assigned to ${d.assignedTo}` : "✓ Marked as packed — assign manually");
+      api("/admin/orders/packed").then(d => d.success && setPackedOrders(d.orders || []));
+      api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
+    } else show(d.message || "Error");
+  };
   const approveTransfer = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/approve`, { method: "POST" }); if (d.success) { show("Transfer approved!"); } else show(d.message || "Error"); };
   const rejectTransfer  = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/reject`,  { method: "POST" }); if (d.success) { show("Transfer rejected"); } else show(d.message || "Error"); };
 
@@ -245,7 +253,7 @@ export default function AdminApp() {
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} auth={auth} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
-          {page === "delivery"   && <DeliveryAdmin deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
+          {page === "delivery"   && <DeliveryAdmin orders={orders} deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} onMarkPacked={markOrderPacked} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
@@ -1110,7 +1118,7 @@ function VendorsAdmin({ vendors, onToggle }) {
 }
 
 /* ── Delivery Management ── */
-function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, outOrders, onApprove, onReject, onApproveTransfer, onRejectTransfer, onAssign, api, showToast }) {
+function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shippedOrders, outOrders, onApprove, onReject, onApproveTransfer, onRejectTransfer, onAssign, onMarkPacked, api, showToast }) {
   const [transfers, setTransfers] = useState([]);
   const [filter, setFilter] = useState("pending");
   const [selectMap, setSelectMap] = useState({}); // orderId -> deliveryBoyId
@@ -1299,6 +1307,39 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
         </div>
       )}
 
+      {/* ── Processing Orders — Mark as Packed (Triggers Auto-Assign) ── */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>⏳</span>
+          <h3 style={{ ...as.cardTitle, margin: 0 }}>Processing Orders — Mark as Packed</h3>
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(245,168,0,0.08)", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(245,168,0,0.2)" }}>
+          ℹ️ Click "Mark as Packed" to prepare the order for delivery. The system will automatically assign it to an online delivery boy if one is available.
+        </div>
+        <AdminTable
+          cols={["Order", "Customer", "Pin", "Amount", "Action"]}
+          rows={(orders || [])
+            .filter(o => o.trackingStatus === "PROCESSING" || o.trackingStatus === "CONFIRMED" || o.trackingStatus === "PLACED")
+            .map(order => [
+              <div>
+                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
+                <div><span style={{ ...as.badge, background: "rgba(245,168,0,0.15)", color: "#d4a017", fontSize: 10 }}>{order.trackingStatus}</span></div>
+              </div>,
+              <div>
+                <div style={{ fontWeight: 500 }}>{order.customer?.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{order.customer?.mobile}</div>
+              </div>,
+              <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{order.deliveryPinCode || "N/A"}</span>,
+              <span style={{ fontWeight: 600, color: "#1db882" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
+              <button style={as.approveBtn} onClick={() => {
+                if (!window.confirm("Mark order #" + order.id + " as Packed? It will trigger auto-assignment if delivery boys are available online.")) return;
+                onMarkPacked(order.id);
+              }}>↓ Mark Packed</button>
+            ])}
+          empty="✓ No processing orders. All orders are either packed, shipped, or delivered."
+        />
+      </div>
+
       {/* ── Packed Orders — Assign Delivery Boy ── */}
       <div style={{ ...as.card, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -1389,7 +1430,22 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
               <i className={`fas fa-circle`} style={{ fontSize: "0.6rem", marginRight: "0.4rem" }} />
               {d.isAvailable ? "Online" : "Offline"}
             </span>,
-            !d.approved ? (
+            d.approved ? (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button 
+                  style={{ ...as.approveBtn, background: d.isAvailable ? "#ffebee" : "#e8f9f2", color: d.isAvailable ? "#ff8060" : "#1db882", fontSize: 11, padding: "4px 8px" }} 
+                  onClick={async () => {
+                    const res = await api(`/admin/delivery-boys/${d.id}/toggle-availability`, { method: "POST" });
+                    if (res.success) {
+                      showToast(res.message);
+                      api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || []));
+                    } else showToast(res.message || "Error");
+                  }}
+                >
+                  {d.isAvailable ? "🔴 Go Offline" : "🟢 Go Online"}
+                </button>
+              </div>
+            ) : !d.approved ? (
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={as.approveBtn} onClick={() => onApprove(d.id, "", "")}>✓ Approve</button>
                 <button style={as.rejectBtn} onClick={() => handleReject(d.id, d.name)}>✕ Reject</button>

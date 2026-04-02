@@ -7,11 +7,15 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import AuthPage    from "./pages/AuthPage.jsx";
-import CustomerApp from "./pages/CustomerApp.jsx";
-import VendorApp   from "./pages/VendorApp.jsx";
-import AdminApp    from "./pages/AdminApp.jsx";
-import DeliveryApp from "./pages/DeliveryApp.jsx";
+import AuthPage         from "./pages/AuthPage.jsx";
+import CustomerApp      from "./pages/CustomerApp.jsx";
+import VendorApp        from "./pages/VendorApp.jsx";
+import AdminApp         from "./pages/AdminApp.jsx";
+import DeliveryApp      from "./pages/DeliveryApp.jsx";
+import NotFoundPage     from "./pages/NotFoundPage.jsx";
+import ForbiddenPage    from "./pages/ForbiddenPage.jsx";
+import BlockedPage      from "./pages/BlockedPage.jsx";
+import ErrorPage        from "./pages/ErrorPage.jsx";
 
 // ─── Auth Context ───────────────────────────────────────────────────────────
 
@@ -268,6 +272,12 @@ export default function App() {
             }
           />
 
+          {/* ── Error Pages ──────────────────────────────────────── */}
+          <Route path="/error/404" element={<NotFoundPage />} />
+          <Route path="/error/403" element={<ForbiddenPage />} />
+          <Route path="/error/blocked" element={<BlockedPage />} />
+          <Route path="/error/500" element={<ErrorPage />} />
+
           {/* ── Root redirect ─────────────────────────────────────── */}
           <Route
             path="/"
@@ -283,7 +293,7 @@ export default function App() {
             path="*"
             element={
               auth
-                ? <Navigate to={ROLE_HOME[auth.role] ?? "/auth"} replace />
+                ? <NotFoundPage />
                 : <Navigate to="/auth" replace />
             }
           />
