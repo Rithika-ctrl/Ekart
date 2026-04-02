@@ -1116,6 +1116,40 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
   const [selectMap, setSelectMap] = useState({}); // orderId -> deliveryBoyId
   const [eligibleMap, setEligibleMap] = useState({}); // orderId -> [{id,name,code,warehouse}]
 
+  // ── Auto-Assign Logs ──────────────────────────────────────────
+  const [autoAssignLogs, setAutoAssignLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const fetchAutoAssignLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const d = await api("/admin/delivery/auto-assign/logs");
+      if (d.success) setAutoAssignLogs(d.logs || []);
+    } catch (e) { /* silent */ } finally { setLogsLoading(false); }
+  };
+
+  useEffect(() => {
+    fetchAutoAssignLogs();
+    const t = setInterval(fetchAutoAssignLogs, 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Delivery Boy Load Board ───────────────────────────────────
+  const [boyLoad, setBoyLoad] = useState([]);
+
+  const fetchBoyLoad = async () => {
+    try {
+      const d = await api("/admin/delivery/boys/load");
+      if (d.success) setBoyLoad(d.deliveryBoys || []);
+    } catch (e) { /* silent */ }
+  };
+
+  useEffect(() => {
+    fetchBoyLoad();
+    const t = setInterval(fetchBoyLoad, 5000);
+    return () => clearInterval(t);
+  }, []);
+
   useEffect(() => {
     api("/admin/warehouse-transfers").then(d => { if (d.success) setTransfers(d.transfers || []); });
   }, []);
@@ -1364,6 +1398,148 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
           ])}
           empty="No delivery boys"
         />
+      </div>
+
+      {/* ── Delivery Boy Load / Status Board ── */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>📊</span>
+          <h3 style={{ ...as.cardTitle, margin: 0 }}>Delivery Boy Load Board</h3>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(13,13,13,0.4)", fontWeight: 600 }}>
+            Auto-refreshes every 5s
+          </span>
+          <button
+            style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px" }}
+            onClick={fetchBoyLoad}
+          >↻ Refresh</button>
+        </div>
+
+        {boyLoad.length === 0 ? (
+          <div style={as.empty}>No approved delivery boys found.</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+            {boyLoad.map(b => {
+              const MAX = b.maxConcurrent || 3;
+              const pct = Math.min((b.activeOrders / MAX) * 100, 100);
+              const barColor = b.atCap ? "#e84c3c" : b.activeOrders > 0 ? "#d4a017" : "#1db882";
+              return (
+                <div key={b.id} style={{
+                  border: `1px solid ${b.isOnline ? "rgba(29,184,130,0.35)" : "#e8e4dc"}`,
+                  borderRadius: 12, padding: "14px 16px",
+                  background: b.isOnline ? "rgba(29,184,130,0.04)" : "#fafaf8",
+                  opacity: b.isOnline ? 1 : 0.75,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "#0d0d0d" }}>{b.name}</div>
+                      <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", fontFamily: "monospace" }}>{b.code}</div>
+                    </div>
+                    <span style={{
+                      ...as.badge,
+                      background: b.isOnline ? "#e8f9f2" : "#ffe8e8",
+                      color: b.isOnline ? "#1db882" : "#ff8060",
+                    }}>
+                      {b.isOnline ? "🟢 Online" : "⚫ Offline"}
+                    </span>
+                  </div>
+
+                  {/* Load bar */}
+                  <div style={{ fontSize: 11, color: "rgba(13,13,13,0.5)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                    <span>Active orders</span>
+                    <span style={{ fontWeight: 700, color: barColor }}>{b.activeOrders} / {MAX}</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 4, background: "#e8e4dc", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 4, transition: "width 0.4s" }} />
+                  </div>
+
+                  {b.atCap && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#e84c3c", fontWeight: 700 }}>
+                      ⚠ At capacity — no new auto-assigns
+                    </div>
+                  )}
+                  {!b.isOnline && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "rgba(13,13,13,0.4)" }}>
+                      Offline — won't receive auto-assigns
+                    </div>
+                  )}
+                  {b.isOnline && !b.atCap && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#1db882" }}>
+                      {b.slots} slot{b.slots !== 1 ? "s" : ""} available
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Auto-Assign Logs ── */}
+      <div style={{ ...as.card, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>🤖</span>
+          <h3 style={{ ...as.cardTitle, margin: 0 }}>Auto-Assignment Log</h3>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(13,13,13,0.4)", fontWeight: 600 }}>
+            Last 50 events · auto-refreshes every 15s
+          </span>
+          <button
+            style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px" }}
+            onClick={fetchAutoAssignLogs}
+          >{logsLoading ? "…" : "↻ Refresh"}</button>
+        </div>
+
+        {logsLoading && autoAssignLogs.length === 0 ? (
+          <div style={as.empty}>Loading…</div>
+        ) : autoAssignLogs.length === 0 ? (
+          <div style={as.empty}>No auto-assignments recorded yet.</div>
+        ) : (
+          <div style={{ ...as.tableWrap, overflowX: "auto" }}>
+            <table style={as.table}>
+              <thead style={as.thead}>
+                <tr>
+                  {["Order", "Delivery Boy", "Code", "Pin Code", "Load at Time", "Assigned At"].map(h => (
+                    <th key={h} style={as.th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {autoAssignLogs.map((log, i) => (
+                  <tr key={log.id || i} style={as.tr}>
+                    <td style={as.td}>
+                      <span style={{ fontWeight: 700, color: "#d4a017" }}>#{log.orderId}</span>
+                    </td>
+                    <td style={as.td}>{log.deliveryBoyName}</td>
+                    <td style={{ ...as.td, fontFamily: "monospace", fontSize: 12, color: "#7c3aed" }}>
+                      {log.deliveryBoyCode}
+                    </td>
+                    <td style={as.td}>
+                      <span style={{ ...as.badge, background: "rgba(99,179,237,0.12)", color: "#0284c7" }}>
+                        {log.pinCode || "—"}
+                      </span>
+                    </td>
+                    <td style={as.td}>
+                      <span style={{
+                        ...as.badge,
+                        background: log.activeOrdersAtAssignment >= 2 ? "rgba(232,76,60,0.1)" : "rgba(29,184,130,0.1)",
+                        color: log.activeOrdersAtAssignment >= 2 ? "#e84c3c" : "#1db882",
+                      }}>
+                        {log.activeOrdersAtAssignment} / {log.maxConcurrent || 3} active
+                      </span>
+                    </td>
+                    <td style={{ ...as.td, color: "rgba(13,13,13,0.5)", whiteSpace: "nowrap" }}>
+                      {log.assignedAt
+                        ? new Date(log.assignedAt).toLocaleString("en-IN", {
+                            day: "2-digit", month: "short",
+                            hour: "2-digit", minute: "2-digit", hour12: true,
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

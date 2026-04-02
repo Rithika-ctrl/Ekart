@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 
 /**
  * LOCATION: src/main/java/com/example/ekart/dto/WarehouseChangeRequest.java
- * NEW FILE — copy as-is.
  *
  * A delivery boy submits a request to move to a different warehouse.
  * Status: PENDING → APPROVED | REJECTED by admin.
@@ -48,6 +47,11 @@ public class WarehouseChangeRequest {
     @Column(columnDefinition = "TIMESTAMP NULL")
     private LocalDateTime resolvedAt;
 
+    /** The warehouse they are currently assigned to */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_warehouse_id")
+    private Warehouse currentWarehouse;
+
     // ── Getters & Setters ────────────────────────────────────────
 
     public int getId() { return id; }
@@ -73,4 +77,12 @@ public class WarehouseChangeRequest {
 
     public LocalDateTime getResolvedAt() { return resolvedAt; }
     public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
+
+    public void setCurrentWarehouse(Warehouse currentWarehouse) {
+        this.currentWarehouse = currentWarehouse;
+    }
+    
+    public Warehouse getCurrentWarehouse() {
+        return currentWarehouse;
+    }
 }
