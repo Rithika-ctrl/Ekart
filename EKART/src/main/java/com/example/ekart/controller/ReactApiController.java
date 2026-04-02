@@ -58,6 +58,7 @@ public class ReactApiController {
     @Autowired private SocialAuthService    socialAuthService;
     @Autowired private OAuthProviderValidator oAuthProviderValidator;
     @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
+    @Autowired private com.example.ekart.service.AutoAssignmentService autoAssignmentService;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -4218,6 +4219,126 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Failed to approve delivery boy: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/delivery-boys/{id}/toggle-availability
+     * Toggles a delivery boy's online/offline status.
+     * When a delivery boy comes ONLINE, triggers auto-assignment of pending orders.
+     */
+    @PostMapping("/admin/delivery-boys/{id}/toggle-availability")
+    public ResponseEntity<Map<String, Object>> toggleDeliveryBoyAvailability(
+            @PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "Delivery boy not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Toggle availability
+            boolean newStatus = !db.isAvailable();
+            db.setAvailable(newStatus);
+            deliveryBoyRepository.save(db);
+
+            // If delivery boy just came ONLINE, trigger auto-assign
+            if (newStatus) {
+                try {
+                    autoAssignmentService.onDeliveryBoyOnline(db);
+                } catch (Exception e) {
+                    System.err.println("Auto-assign trigger failed: " + e.getMessage());
+                }
+            }
+
+            res.put("success", true);
+            res.put("message", db.getName() + " is now " + (newStatus ? "Online" : "Offline"));
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to update availability: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/delivery/order/pack
+     * Admin marks an order as PACKED.
+     * This triggers auto-assignment: system finds online delivery boys covering the PIN code
+     * and auto-assigns if slots are available.
+     *
+     * Request body: { "orderId": 5 }
+     */
+    @PostMapping("/admin/delivery/order/pack")
+    public ResponseEntity<Map<String, Object>> adminMarkOrderPacked(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            Integer orderId = body != null ? (Integer) body.get("orderId") : null;
+            if (orderId == null) {
+                res.put("success", false);
+                res.put("message", "Missing orderId");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order == null) {
+                res.put("success", false);
+                res.put("message", "Order not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
+                res.put("success", false);
+                res.put("message", "Order must be PROCESSING to mark as Packed. Current: " 
+                    + order.getTrackingStatus().getDisplayName());
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Mark as PACKED
+            order.setTrackingStatus(TrackingStatus.PACKED);
+            orderRepository.save(order);
+
+            // Log the event
+            trackingEventLogRepository.save(new TrackingEventLog(
+                order, TrackingStatus.PACKED,
+                order.getCurrentCity() != null ? order.getCurrentCity() : "Warehouse",
+                "Order packed and ready for pickup", "admin"));
+
+            // TRIGGER AUTO-ASSIGN
+            try {
+                autoAssignmentService.onOrderPacked(order);
+            } catch (Exception e) {
+                System.err.println("Auto-assign trigger failed: " + e.getMessage());
+            }
+
+            // Re-fetch to check if auto-assign succeeded
+            Order refreshed = orderRepository.findById(orderId).orElse(order);
+            boolean autoAssigned = refreshed.getDeliveryBoy() != null;
+
+            res.put("success", true);
+            if (autoAssigned) {
+                res.put("message", "Order #" + orderId + " marked as PACKED and automatically assigned to "
+                    + refreshed.getDeliveryBoy().getName());
+                res.put("autoAssigned", true);
+                res.put("assignedTo", refreshed.getDeliveryBoy().getName());
+            } else {
+                res.put("message", "Order #" + orderId + " marked as PACKED. No eligible delivery boys online — assign manually.");
+                res.put("autoAssigned", false);
+            }
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to mark order as packed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }

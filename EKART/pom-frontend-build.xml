@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+OPTIONAL: Frontend Build Configuration for Maven
+
+To enable automatic React app bundling during Maven build, add this plugin to pom.xml:
+
+<plugin>
+    <groupId>com.github.eirslett</groupId>
+    <artifactId>frontend-maven-plugin</artifactId>
+    <version>1.14.0</version>
+    <configuration>
+        <nodeVersion>v20.0.0</nodeVersion>
+        <npmVersion>10.0.0</npmVersion>
+        <workingDirectory>${project.basedir}/../ekart-frontend</workingDirectory>
+    </configuration>
+    <executions>
+        <execution>
+            <id>install node and npm</id>
+            <goals>
+                <goal>install-node-and-npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+        </execution>
+        <execution>
+            <id>npm install</id>
+            <goals>
+                <goal>npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+                <arguments>install</arguments>
+            </configuration>
+        </execution>
+        <execution>
+            <id>npm build</id>
+            <goals>
+                <goal>npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+                <arguments>run build</arguments>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+
+<plugin>
+    <artifactId>maven-antrun-plugin</artifactId>
+    <version>3.1.0</version>
+    <executions>
+        <execution>
+            <phase>generate-resources</phase>
+            <configuration>
+                <target>
+                    <copy todir="${project.build.directory}/classes/static">
+                        <fileset dir="${project.basedir}/../ekart-frontend/dist" />
+                    </copy>
+                </target>
+            </configuration>
+            <goals>
+                <goal>run</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+CURRENT SETUP (Manual):
+1. Run `npm run build` in ekart-frontend/ to generate dist/
+2. Copy dist/* to EKART/src/main/resources/static/
+3. Run `mvn clean package` to build WAR/JAR with React app included
+
+This file documents the frontend build setup for future reference.
+-->

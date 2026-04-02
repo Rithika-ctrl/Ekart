@@ -9,6 +9,7 @@ package com.example.ekart.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.example.ekart.middleware.AuthGuard;
@@ -64,5 +65,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 "/css/**", "/js/**", "/images/**", "/static/**"
             )
             .order(3);
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Static resources (CSS, JS, images, media) cached for 1 year
+        // Vite includes content hash in filenames, so aggressive caching is safe
+        registry
+                .addResourceHandler("/static/**", "/css/**", "/js/**", "/media/**", "/images/**")
+                .addResourceLocations("classpath:/static/", "classpath:/public/")
+                .setCachePeriod(31536000);
+
+        // Root-level assets (favicon, robots.txt, CSV uploads)
+        registry
+                .addResourceHandler("/favicon.ico", "/robots.txt", "/sample-product-upload.csv")
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod(31536000);
     }
 }
