@@ -1,11 +1,13 @@
 package com.example.ekart.dto;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.validation.constraints.DecimalMax;
@@ -16,6 +18,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import java.io.Serializable;
+import java.util.List;
 
 @Entity
 @Data
@@ -66,6 +69,18 @@ public class Vendor implements Serializable {
 	@Column(nullable = true, columnDefinition = "TEXT")
 	private String description;
 
+	// Stock alerts for products - cascade delete when vendor is deleted
+	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<StockAlert> stockAlerts;
+
+	// Products - cascade delete when vendor is deleted
+	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<Product> products;
+
+	// Sales reports - cascade delete when vendor is deleted
+	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<SalesReport> salesReports;
+
 	// ── Getters & Setters ──────────────────────────────────────
 	public int getId() { return id; }
 	public void setId(int id) { this.id = id; }
@@ -103,4 +118,13 @@ public class Vendor implements Serializable {
 
 	public String getDescription() { return description; }
 	public void setDescription(String description) { this.description = description; }
+
+	public List<StockAlert> getStockAlerts() { return stockAlerts; }
+	public void setStockAlerts(List<StockAlert> stockAlerts) { this.stockAlerts = stockAlerts; }
+
+	public List<Product> getProducts() { return products; }
+	public void setProducts(List<Product> products) { this.products = products; }
+
+	public List<SalesReport> getSalesReports() { return salesReports; }
+	public void setSalesReports(List<SalesReport> salesReports) { this.salesReports = salesReports; }
 }

@@ -77,7 +77,7 @@ public class Order {
     @CreationTimestamp
     private LocalDateTime orderDate;
 
-    @Column(nullable = true, length = 50)
+    @Column(nullable = true, length = 300)
     private String deliveryTime;
 
     @Column(columnDefinition = "BIT DEFAULT 0")
