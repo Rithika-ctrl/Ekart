@@ -310,30 +310,30 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
             if (e.key === "Escape") setAcOpen(false);
           }}
         />
-        <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"rgba(255,255,255,0.35)", fontSize:13, pointerEvents:"none" }}>🔍</span>
+        <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:"#9ca3af", fontSize:13, pointerEvents:"none" }}>🔍</span>
         {acOpen && (
           <div style={cs.acDropdown}>
             {/* History view */}
             {showHistory && (
               <>
-                <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 12px 2px", fontSize:11, color:"rgba(255,255,255,0.35)", fontWeight:700, textTransform:"uppercase" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 12px 2px", fontSize:12, color:"#6b7280", fontWeight:700, textTransform:"uppercase" }}>
                   <span>Recent</span>
-                  <button style={{ background:"none", border:"none", color:"#a5b4fc", fontSize:11, cursor:"pointer", fontWeight:600 }} onClick={clearHist}>Clear all</button>
+                  <button style={{ background:"none", border:"none", color:"#4f46e5", fontSize:12, cursor:"pointer", fontWeight:600 }} onClick={clearHist}>Clear all</button>
                 </div>
                 {hist.map((h, i) => (
                   <div key={i} style={cs.acItem} onClick={() => doNavSearch(h)}>
-                    <span style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>🕐</span>
-                    <span style={{ flex:1, fontSize:13, color:"rgba(255,255,255,0.8)" }}>{h}</span>
-                    <button style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:12 }}
+                    <span style={{ color:"#9ca3af", fontSize:14 }}>🕐</span>
+                    <span style={{ flex:1, fontSize:14, color:"#111827" }}>{h}</span>
+                    <button style={{ background:"none", border:"none", color:"#9ca3af", cursor:"pointer", fontSize:13 }}
                       onClick={e => { e.stopPropagation(); removeHist(h); setAcOpen(getHist().length > 0); }}>✕</button>
                   </div>
                 ))}
               </>
             )}
             {/* Live results */}
-            {acLoading && <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.4)" }}>🔄 Searching…</div>}
+            {acLoading && <div style={{ padding:"10px 14px", fontSize:14, color:"#6b7280" }}>🔄 Searching…</div>}
             {!acLoading && acQuery.trim() && acResults.length === 0 && (
-              <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.35)" }}>No results for "{acQuery}"</div>
+              <div style={{ padding:"10px 14px", fontSize:14, color:"#6b7280" }}>No results for "{acQuery}"</div>
             )}
             {!acLoading && acResults.map((s, i) => (
               <div key={i} style={cs.acItem} onClick={() => doNavSearch(s.productName)}>
@@ -341,8 +341,8 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
                   ? <img src={s.imageLink} alt="" style={{ width:36, height:36, borderRadius:6, objectFit:"cover", flexShrink:0 }} />
                   : <span style={{ fontSize:20 }}>🛍️</span>}
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, color:"#e5e7eb", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.productName}</div>
-                  {s.category && <div style={{ fontSize:11, color:"#a5b4fc", marginTop:1 }}>in {s.category}</div>}
+                  <div style={{ fontSize:14, color:"#111827", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.productName}</div>
+                  {s.category && <div style={{ fontSize:12, color:"#4f46e5", marginTop:1 }}>in {s.category}</div>}
                 </div>
                 {i < 3 && s.purchaseCount > 0 && <span style={{ fontSize:10, background:"rgba(239,68,68,0.2)", color:"#fca5a5", border:"1px solid rgba(239,68,68,0.3)", padding:"2px 6px", borderRadius:20, flexShrink:0 }}>🔥 Popular</span>}
               </div>
@@ -395,7 +395,7 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
             }} title="Account">👤</button>
             {profileOpen && createPortal(
               <div style={{ ...cs.profileDropdown, top: dropdownPos.top, right: dropdownPos.right }} onClick={() => setProfileOpen(false)}>
-                <div style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ padding:"11px 16px", fontSize:13, color:"#6b7280", borderBottom:"1px solid #e5e7eb", display:"flex", alignItems:"center", gap:6 }}>
                   <span>👤</span><span>{auth?.name || "Account"}</span>
                 </div>
                 <div style={cs.profileItem} onClick={() => nav.go("profile")}>👤 My Profile</div>
@@ -406,7 +406,7 @@ function Nav({ nav, onShowAuth, onOpenDrawer, cartCount }) {
             )}
           </div>
         ) : (
-          <button style={{ ...cs.navBtn, borderColor:"rgba(99,102,241,0.5)", border:"1px solid rgba(99,102,241,0.5)", color:"#a5b4fc" }} onClick={onShowAuth}>Sign In</button>
+          <button style={{ ...cs.navBtn, border:"1.5px solid #4f46e5", background:"#ede9fe", color:"#4f46e5", fontWeight:700 }} onClick={onShowAuth}>Sign In</button>
         )}
       </div>
     </nav>
@@ -426,19 +426,19 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
     <>
       <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:998, opacity: open ? 1 : 0, pointerEvents: open ? "all" : "none", transition:"opacity 0.3s", backdropFilter:"blur(3px)" }}
         onClick={onClose} />
-      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:300, maxWidth:"85vw", background:"#131921", zIndex:999, transform: open ? "translateX(0)" : "translateX(-100%)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", overflowX:"hidden" }}>
-        <div style={{ background:"#232f3e", padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, fontWeight:700, color:"#fff", fontSize:14 }}>
-            <span style={{ width:32, height:32, borderRadius:"50%", background:"rgba(245,168,0,0.15)", border:"1px solid rgba(245,168,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", color:"#f5a800" }}>👤</span>
+      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:300, maxWidth:"85vw", background:"#ffffff", zIndex:999, transform: open ? "translateX(0)" : "translateX(-100%)", transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", overflowX:"hidden", boxShadow:"4px 0 24px rgba(0,0,0,0.12)" }}>
+        <div style={{ background:"#4f46e5", padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, fontWeight:700, color:"#fff", fontSize:15 }}>
+            <span style={{ width:34, height:34, borderRadius:"50%", background:"rgba(255,255,255,0.2)", border:"1px solid rgba(255,255,255,0.35)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}>👤</span>
             Hello, {auth?.name?.split(" ")[0] || "Guest"}
           </div>
-          <button style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"50%", width:30, height:30, color:"#fff", cursor:"pointer", fontSize:14 }} onClick={onClose}>✕</button>
+          <button style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:"50%", width:32, height:32, color:"#fff", cursor:"pointer", fontSize:15 }} onClick={onClose}>✕</button>
         </div>
         <div style={{ flex:1, overflowY:"auto" }}>
           <div style={cs.drawerSectionTitle}>Trending</div>
           {[{icon:"🔥",label:"Bestsellers",key:"products"},{icon:"⭐",label:"New Arrivals",key:"products"},{icon:"📊",label:"My Spending",key:"spending"}].map(item => (
             <button key={item.label} style={cs.drawerItem} onClick={() => { nav.go(item.key); onClose(); }}>
-              <span>{item.icon} {item.label}</span><span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>›</span>
+              <span>{item.icon} {item.label}</span><span style={{ color:"#9ca3af", fontSize:14 }}>›</span>
             </button>
           ))}
           <div style={cs.drawerSectionTitle}>Shop by Category</div>
@@ -462,16 +462,16 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
                 }}>
                   <span>{emoji} {name}</span>
                   {subs.length > 0 && (
-                    <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12, transition:"transform 0.2s", transform: isExpanded ? "rotate(90deg)":"rotate(0)", display:"inline-block" }}>›</span>
+                    <span style={{ color:"#9ca3af", fontSize:14, transition:"transform 0.2s", transform: isExpanded ? "rotate(90deg)":"rotate(0)", display:"inline-block" }}>›</span>
                   )}
                 </button>
                 {isExpanded && subs.length > 0 && (
-                  <div style={{ background:"rgba(0,0,0,0.15)", borderLeft:"2px solid rgba(245,168,0,0.25)", marginLeft:16 }}>
+                  <div style={{ background:"#f9fafb", borderLeft:"3px solid #4f46e5", marginLeft:16 }}>
                     {subs.map(sub => {
                       const subName  = typeof sub === "string" ? sub : sub.name;
                       const subEmoji = typeof sub === "string" ? "" : (sub.emoji || "");
                       return (
-                        <button key={subName} style={{ ...cs.drawerItem, paddingLeft:20, fontSize:13, color:"rgba(255,255,255,0.75)" }}
+                        <button key={subName} style={{ ...cs.drawerItem, paddingLeft:20, fontSize:14, color:"#374151" }}
                           onClick={() => {
                             window.dispatchEvent(new CustomEvent("ekart-nav-cat", { detail: { cat: subName } }));
                             nav.go("products");
@@ -490,14 +490,14 @@ function SideDrawer({ open, onClose, nav, auth, categories }) {
           <div style={cs.drawerSectionTitle}>My Account</div>
           {[{icon:"📦",label:"My Orders",key:"orders"},{icon:"🚚",label:"Track Orders",key:"track"},{icon:"❤️",label:"Wishlist",key:"wishlist"},{icon:"🛒",label:"Cart",key:"cart"},{icon:"📊",label:"Spending Analytics",key:"spending"},{icon:"👤",label:"Profile",key:"profile"}].map(item => (
             <button key={item.key} style={cs.drawerItem} onClick={() => { nav.go(item.key); onClose(); }}>
-              <span>{item.icon} {item.label}</span><span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>›</span>
+              <span>{item.icon} {item.label}</span><span style={{ color:"#9ca3af", fontSize:14 }}>›</span>
             </button>
           ))}
           <div style={cs.drawerSectionTitle}>Help</div>
           <button style={cs.drawerItem} onClick={() => { window.location.href="/policies"; onClose(); }}>📄 Policies & Terms ›</button>
         </div>
-        <div style={{ padding:"12px 16px", borderTop:"1px solid rgba(255,255,255,0.08)", background:"rgba(0,0,0,0.2)", flexShrink:0 }}>
-          <button style={{ background:"none", border:"none", color:"rgba(255,255,255,0.55)", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}
+        <div style={{ padding:"12px 16px", borderTop:"1px solid #e5e7eb", background:"#f9fafb", flexShrink:0 }}>
+          <button style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:14, fontWeight:600, display:"flex", alignItems:"center", gap:6 }}
             onClick={() => window.location.href="/logout"}>🚪 Sign Out</button>
         </div>
       </div>
@@ -542,32 +542,32 @@ function LocationBar({ pinState }) {
 
   return (
     <>
-      <div style={{ position:"sticky", top:60, zIndex:99, background:"rgba(8,10,24,0.97)", backdropFilter:"blur(14px)", borderBottom:"1px solid rgba(245,168,0,0.18)", display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 20px", gap:8, fontSize:13, color:"rgba(255,255,255,0.55)" }}>
+      <div style={{ position:"sticky", top:64, zIndex:99, background:"#f9fafb", borderBottom:"1px solid #e5e7eb", display:"flex", alignItems:"center", justifyContent:"center", padding:"6px 20px", gap:8, fontSize:14, color:"#374151" }}>
         <span style={{ color:"#f5a800" }}>📍</span>
         <span>Delivering to</span>
-        <span style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(245,168,0,0.1)", border:"1px solid rgba(245,168,0,0.3)", borderRadius:50, padding:"3px 12px", cursor:"pointer", color: pin ? "#f5a800" : "rgba(255,255,255,0.6)", fontWeight:600, fontSize:13 }}
+        <span style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#ede9fe", border:"1px solid #c4b5fd", borderRadius:50, padding:"3px 12px", cursor:"pointer", color:"#4f46e5", fontWeight:600, fontSize:14 }}
           onClick={() => { setInput(pin || ""); setError(""); setModalOpen(true); }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background: pin ? "#22c55e" : "#f59e0b", boxShadow: pin ? "0 0 6px #22c55e" : "none", flexShrink:0 }} />
+          <span style={{ width:8, height:8, borderRadius:"50%", background: pin ? "#16a34a" : "#f59e0b", flexShrink:0 }} />
           {pin ? `📍 ${pin}` : "Set your location"}
         </span>
-        {pin && <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>· Products greyed out are not available at your pin</span>}
+        {pin && <span style={{ fontSize:13, color:"#6b7280" }}>· Products greyed out are not available at your pin</span>}
       </div>
       {modalOpen && (
-        <div style={{ position:"fixed", inset:0, zIndex:99999, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(5px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+        <div style={{ position:"fixed", inset:0, zIndex:99999, background:"rgba(0,0,0,0.55)", display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false); }}>
-          <div style={{ background:"rgba(10,12,28,0.98)", border:"1px solid rgba(245,168,0,0.25)", borderRadius:22, padding:"28px 32px", width:"90%", maxWidth:400, boxShadow:"0 30px 80px rgba(0,0,0,0.6)", position:"relative" }}>
-            <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"rgba(255,255,255,0.5)", fontSize:18, cursor:"pointer" }} onClick={() => setModalOpen(false)}>✕</button>
-            <div style={{ fontSize:17, fontWeight:700, marginBottom:4, color:"#fff" }}>📍 Set Delivery Location</div>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:20 }}>We'll show only products available at your pin code.</div>
+          <div style={{ background:"#ffffff", border:"1.5px solid #e5e7eb", borderRadius:22, padding:"28px 32px", width:"90%", maxWidth:400, boxShadow:"0 30px 80px rgba(0,0,0,0.15)", position:"relative" }}>
+            <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"#6b7280", fontSize:18, cursor:"pointer" }} onClick={() => setModalOpen(false)}>✕</button>
+            <div style={{ fontSize:18, fontWeight:700, marginBottom:4, color:"#111827" }}>📍 Set Delivery Location</div>
+            <div style={{ fontSize:14, color:"#6b7280", marginBottom:20 }}>We'll show only products available at your pin code.</div>
             <div style={{ display:"flex", gap:8 }}>
-              <input style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:10, color:"#fff", fontSize:15, padding:"10px 14px", letterSpacing:"0.1em", outline:"none" }}
+              <input style={{ flex:1, background:"#f9fafb", border:"1.5px solid #d1d5db", borderRadius:10, color:"#111827", fontSize:16, padding:"11px 14px", letterSpacing:"0.1em", outline:"none" }}
                 placeholder="6-digit pin code" maxLength={6} inputMode="numeric" value={input}
                 onChange={e => { setInput(e.target.value.replace(/\D/g,"").slice(0,6)); setError(""); }}
                 onKeyDown={e => e.key === "Enter" && confirm()} />
-              <button style={{ background:"#f5a800", color:"#1a1000", border:"none", borderRadius:10, padding:"10px 18px", fontWeight:700, cursor:"pointer", fontSize:14 }} onClick={confirm}>Apply</button>
+              <button style={{ background:"#4f46e5", color:"#fff", border:"none", borderRadius:10, padding:"11px 20px", fontWeight:700, cursor:"pointer", fontSize:15 }} onClick={confirm}>Apply</button>
             </div>
-            {error && <div style={{ fontSize:12, color:"#ff8060", marginTop:8 }}>{error}</div>}
-            {pin && <div style={{ textAlign:"center", marginTop:14, fontSize:12, color:"rgba(255,255,255,0.4)", cursor:"pointer" }} onClick={clear}>✕ Clear location filter</div>}
+            {error && <div style={{ fontSize:13, color:"#dc2626", marginTop:8 }}>{error}</div>}
+            {pin && <div style={{ textAlign:"center", marginTop:14, fontSize:13, color:"#6b7280", cursor:"pointer" }} onClick={clear}>✕ Clear location filter</div>}
           </div>
         </div>
       )}
@@ -589,19 +589,19 @@ function CartPopupReminder({ cartCount, onGoCart }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={() => { setVisible(false); setDismissed(true); }}>
-      <div style={{ background:"rgba(15,18,40,0.97)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:24, padding:"36px 32px 28px", maxWidth:360, width:"100%", textAlign:"center", position:"relative" }}
+      <div style={{ background:"#ffffff", border:"1.5px solid #e5e7eb", borderRadius:24, padding:"36px 32px 28px", maxWidth:360, width:"100%", textAlign:"center", position:"relative", boxShadow:"0 20px 60px rgba(0,0,0,0.15)" }}
         onClick={e => e.stopPropagation()}>
-        <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontSize:18, cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>✕</button>
+        <button style={{ position:"absolute", top:14, right:18, background:"none", border:"none", color:"#9ca3af", fontSize:18, cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>✕</button>
         <div style={{ fontSize:48, marginBottom:14 }}>🛒</div>
-        <h4 style={{ fontSize:18, fontWeight:700, color:"#fff", marginBottom:8 }}>You left something behind!</h4>
-        <p style={{ fontSize:13, color:"rgba(255,255,255,0.5)", lineHeight:1.65, marginBottom:20 }}>
-          You have <strong style={{ color:"#f5a800" }}>{cartCount}</strong> item{cartCount > 1 ? "s" : ""} waiting in your cart.
+        <h4 style={{ fontSize:19, fontWeight:700, color:"#111827", marginBottom:8 }}>You left something behind!</h4>
+        <p style={{ fontSize:15, color:"#374151", lineHeight:1.65, marginBottom:20 }}>
+          You have <strong style={{ color:"#4f46e5" }}>{cartCount}</strong> item{cartCount > 1 ? "s" : ""} waiting in your cart.
         </p>
-        <button style={{ background:"#f5a800", color:"#1a1000", border:"none", borderRadius:50, padding:"10px 28px", fontWeight:700, cursor:"pointer", fontSize:14, display:"inline-flex", alignItems:"center", gap:8, boxShadow:"0 6px 24px rgba(245,168,0,0.35)" }}
+        <button style={{ background:"#4f46e5", color:"#fff", border:"none", borderRadius:50, padding:"11px 28px", fontWeight:700, cursor:"pointer", fontSize:15, display:"inline-flex", alignItems:"center", gap:8, boxShadow:"0 6px 24px rgba(79,70,229,0.3)" }}
           onClick={() => { onGoCart(); setVisible(false); setDismissed(true); }}>
           🛒 View My Cart
         </button>
-        <div style={{ marginTop:10, fontSize:12, color:"rgba(255,255,255,0.35)", cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>No thanks, I'll shop later</div>
+        <div style={{ marginTop:12, fontSize:13, color:"#9ca3af", cursor:"pointer" }} onClick={() => { setVisible(false); setDismissed(true); }}>No thanks, I'll shop later</div>
       </div>
     </div>
   );
@@ -619,15 +619,15 @@ function BudgetBar({ products, onBudgetChange }) {
   const handleReset = () => { setVal(maxPrice); setReset(true); onBudgetChange(Infinity); };
 
   return (
-    <div style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:"14px 20px", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap", marginBottom:16 }}>
-      <span style={{ fontSize:13, fontWeight:600, color:"#f5a800", whiteSpace:"nowrap" }}>💰 Budget</span>
+    <div style={{ background:"#f9fafb", border:"1.5px solid #e5e7eb", borderRadius:14, padding:"14px 20px", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap", marginBottom:16 }}>
+      <span style={{ fontSize:14, fontWeight:600, color:"#4f46e5", whiteSpace:"nowrap" }}>💰 Budget</span>
       <input type="range" min={0} max={maxPrice} step={50} value={reset ? maxPrice : val}
         onChange={e => handleChange(e.target.value)}
-        style={{ flex:1, minWidth:120, accentColor:"#f5a800", cursor:"pointer" }} />
-      <span style={{ fontWeight:700, color:"#fff", whiteSpace:"nowrap", minWidth:80 }}>
+        style={{ flex:1, minWidth:120, accentColor:"#4f46e5", cursor:"pointer" }} />
+      <span style={{ fontWeight:700, color:"#111827", whiteSpace:"nowrap", minWidth:80 }}>
         {reset ? "All Products" : "₹" + Number(val).toLocaleString("en-IN")}
       </span>
-      <button style={{ background:"none", border:"1px solid rgba(255,255,255,0.15)", borderRadius:7, padding:"4px 12px", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:12 }} onClick={handleReset}>↺ Reset</button>
+      <button style={{ background:"none", border:"1.5px solid #d1d5db", borderRadius:7, padding:"5px 14px", color:"#374151", cursor:"pointer", fontSize:13, fontWeight:600 }} onClick={handleReset}>↺ Reset</button>
     </div>
   );
 }
@@ -639,18 +639,18 @@ function SortBar({ count, sortType, onSort }) {
     { key:"rating", label:"⭐ Rating" },{ key:"newest", label:"Newest" },{ key:"name", label:"A–Z" },
   ];
   return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 16px", marginBottom:16 }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", background:"#f9fafb", border:"1.5px solid #e5e7eb", borderRadius:12, padding:"10px 16px", marginBottom:16 }}>
       <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-        <span style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em" }}>Sort:</span>
+        <span style={{ fontSize:13, fontWeight:700, color:"#374151", textTransform:"uppercase", letterSpacing:"0.08em" }}>Sort:</span>
         {sorts.map(s => (
           <button key={s.key} onClick={() => onSort(s.key)}
-            style={{ padding:"4px 12px", borderRadius:20, border: sortType===s.key ? "1px solid #f5a800" : "1px solid rgba(255,255,255,0.12)", background: sortType===s.key ? "rgba(245,168,0,0.12)" : "rgba(255,255,255,0.05)", color: sortType===s.key ? "#f5a800" : "rgba(255,255,255,0.7)", fontSize:12, fontWeight: sortType===s.key ? 700 : 500, cursor:"pointer", whiteSpace:"nowrap" }}>
+            style={{ padding:"5px 14px", borderRadius:20, border: sortType===s.key ? "1.5px solid #4f46e5" : "1.5px solid #e5e7eb", background: sortType===s.key ? "#ede9fe" : "#ffffff", color: sortType===s.key ? "#4f46e5" : "#374151", fontSize:13, fontWeight: sortType===s.key ? 700 : 500, cursor:"pointer", whiteSpace:"nowrap" }}>
             {s.label}
           </button>
         ))}
       </div>
-      <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap" }}>
-        Showing <span style={{ color:"#f5a800", fontWeight:600 }}>{count}</span> products
+      <span style={{ fontSize:13, color:"#6b7280", whiteSpace:"nowrap" }}>
+        Showing <span style={{ color:"#4f46e5", fontWeight:600 }}>{count}</span> products
       </span>
     </div>
   );
@@ -5156,143 +5156,143 @@ const getCatIcon = getCatEmoji;
 
 /* ── Styles ── */
 const cs = {
-  root: { minHeight: "100vh", background: "#0f0f1a", fontFamily: "'Segoe UI', sans-serif", color: "#e5e7eb" },
+  root: { minHeight: "100vh", background: "#ffffff", fontFamily: "'Segoe UI', sans-serif", color: "#111827" },
   main: { maxWidth: 1200, margin: "0 auto", padding: "16px 20px 24px" },
-  nav: { background: "rgba(15,15,26,0.95)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 60, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(10px)", flexWrap: "nowrap", overflowX: "auto" },
-  brand: { fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: 2, marginRight: 8, whiteSpace: "nowrap" },
+  nav: { background: "#ffffff", borderBottom: "2px solid #e5e7eb", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.07)", flexWrap: "nowrap", overflowX: "auto" },
+  brand: { fontSize: 20, fontWeight: 800, color: "#111827", letterSpacing: 2, marginRight: 8, whiteSpace: "nowrap" },
   navLinks: { display: "flex", gap: 2, flex: 1 },
-  navBtn: { padding: "6px 10px", borderRadius: 8, border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" },
-  navBtnActive: { background: "rgba(99,102,241,0.2)", color: "#a5b4fc" },
-  greeting: { color: "#9ca3af", fontSize: 13, whiteSpace: "nowrap" },
-  logoutBtn: { padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" },
-  toast: { position: "fixed", bottom: 90, right: 24, background: "#1f2937", border: "1px solid rgba(255,255,255,0.15)", color: "#e5e7eb", padding: "12px 20px", borderRadius: 12, zIndex: 999, fontSize: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" },
-  hero: { background: "linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)", borderRadius: 20, padding: "60px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 },
-  heroTitle: { fontSize: 40, fontWeight: 900, color: "#fff", lineHeight: 1.2, margin: 0 },
-  heroAccent: { color: "#a5b4fc" },
-  heroSub: { color: "#c7d2fe", margin: "16px 0 24px", fontSize: 16 },
-  heroCta: { padding: "14px 32px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" },
+  navBtn: { padding: "7px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#374151", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
+  navBtnActive: { background: "#ede9fe", color: "#5b21b6" },
+  greeting: { color: "#374151", fontSize: 14, whiteSpace: "nowrap" },
+  logoutBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff1f1", color: "#dc2626", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
+  toast: { position: "fixed", bottom: 90, right: 24, background: "#1f2937", border: "1px solid #374151", color: "#f9fafb", padding: "14px 22px", borderRadius: 12, zIndex: 999, fontSize: 15, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" },
+  hero: { background: "linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#4f46e5 100%)", borderRadius: 20, padding: "60px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 },
+  heroTitle: { fontSize: 42, fontWeight: 900, color: "#fff", lineHeight: 1.2, margin: 0 },
+  heroAccent: { color: "#c4b5fd" },
+  heroSub: { color: "#ddd6fe", margin: "16px 0 24px", fontSize: 18 },
+  heroCta: { padding: "14px 32px", borderRadius: 12, border: "none", background: "#ffffff", color: "#4f46e5", fontSize: 17, fontWeight: 800, cursor: "pointer" },
   heroIllus: { fontSize: 100 },
-  carouselWrap: { position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 40, background: "rgba(255,255,255,0.04)", userSelect: "none" },
+  carouselWrap: { position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 40, background: "#f3f4f6", userSelect: "none" },
   carouselImg: { width: "100%", height: 360, objectFit: "cover", display: "block" },
-  carouselCaption: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 24px", background: "linear-gradient(transparent, rgba(0,0,0,0.72))", color: "#fff", fontSize: 18, fontWeight: 700, letterSpacing: 0.2 },
-  carouselArrow: { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", fontSize: 28, fontWeight: 700, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, backdropFilter: "blur(4px)", zIndex: 2 },
+  carouselCaption: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 24px", background: "linear-gradient(transparent, rgba(0,0,0,0.72))", color: "#fff", fontSize: 19, fontWeight: 700, letterSpacing: 0.2 },
+  carouselArrow: { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.9)", border: "none", color: "#111827", fontSize: 28, fontWeight: 700, width: 44, height: 44, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.15)", zIndex: 2 },
   carouselDots: { position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, zIndex: 2 },
-  carouselDot: { width: 8, height: 8, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.35)", cursor: "pointer", padding: 0, transition: "background 0.2s, transform 0.2s" },
+  carouselDot: { width: 9, height: 9, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.5)", cursor: "pointer", padding: 0, transition: "background 0.2s, transform 0.2s" },
   carouselDotActive: { background: "#fff", transform: "scale(1.3)" },
   section: { marginBottom: 40 },
-  secTitle: { fontSize: 20, fontWeight: 700, color: "#e5e7eb", marginBottom: 20 },
+  secTitle: { fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 20 },
   catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))", gap: 12 },
-  catCard: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
-  catIcon: { fontSize: 28, display: "block", marginBottom: 6 },
-  catLabel: { fontSize: 12, color: "#9ca3af", fontWeight: 600 },
+  catCard: { background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
+  catIcon: { fontSize: 30, display: "block", marginBottom: 6 },
+  catLabel: { fontSize: 13, color: "#374151", fontWeight: 600 },
   productGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 20 },
-  productCard: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, overflow: "hidden" },
-  productImgWrap: { position: "relative", height: 180, background: "rgba(255,255,255,0.06)", cursor: "pointer", overflow: "hidden" },
+  productCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
+  productImgWrap: { position: "relative", height: 180, background: "#f3f4f6", cursor: "pointer", overflow: "hidden" },
   productImg: { width: "100%", height: "100%", objectFit: "cover" },
   productImgPlaceholder: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: 48 },
-  discountBadge: { position: "absolute", top: 8, left: 8, background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6 },
-  wishBtn: { position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", border: "none", cursor: "pointer", fontSize: 18, borderRadius: 8, padding: 4 },
-  wishBtnLarge: { padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer", fontSize: 14, fontWeight: 600 },
+  discountBadge: { position: "absolute", top: 8, left: 8, background: "#dc2626", color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 9px", borderRadius: 6 },
+  wishBtn: { position: "absolute", top: 8, right: 8, background: "rgba(255,255,255,0.9)", border: "1px solid #e5e7eb", cursor: "pointer", fontSize: 18, borderRadius: 8, padding: 4 },
+  wishBtnLarge: { padding: "12px 20px", borderRadius: 12, border: "1.5px solid #6366f1", background: "#ede9fe", color: "#4f46e5", cursor: "pointer", fontSize: 15, fontWeight: 600 },
   productInfo: { padding: "14px 16px" },
-  productName: { fontSize: 14, fontWeight: 600, color: "#e5e7eb", marginBottom: 4, cursor: "pointer", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-  productCat: { fontSize: 11, color: "#6366f1", fontWeight: 600, marginBottom: 6, textTransform: "uppercase" },
+  productName: { fontSize: 15, fontWeight: 600, color: "#111827", marginBottom: 4, cursor: "pointer", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
+  productCat: { fontSize: 12, color: "#6366f1", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" },
   priceRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 4 },
-  price: { fontSize: 18, fontWeight: 800, color: "#fff" },
-  mrp: { fontSize: 13, color: "#6b7280", textDecoration: "line-through" },
+  price: { fontSize: 19, fontWeight: 800, color: "#111827" },
+  mrp: { fontSize: 14, color: "#9ca3af", textDecoration: "line-through" },
   ratingRow: { display: "flex", alignItems: "center", gap: 4, marginBottom: 4 },
-  stars: { color: "#f59e0b", fontSize: 12 },
-  ratingNum: { fontSize: 12, color: "#9ca3af" },
-  stockBadge: (stock) => ({ fontSize: 11, color: stock > 0 ? "#22c55e" : "#ef4444", marginBottom: 8, fontWeight: 600 }),
-  addCartBtn: { width: "100%", padding: "9px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" },
-  secondaryBtn: { padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "#e5e7eb", fontWeight: 600, cursor: "pointer", fontSize: 14 },
-  outlineBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(99,102,241,0.4)", background: "transparent", color: "#a5b4fc", cursor: "pointer", fontSize: 13 },
-  pageTitle: { fontSize: 24, fontWeight: 800, color: "#e5e7eb", marginBottom: 24 },
-  backBtn: { background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 14, marginBottom: 20, padding: 0 },
+  stars: { color: "#d97706", fontSize: 13 },
+  ratingNum: { fontSize: 13, color: "#6b7280" },
+  stockBadge: (stock) => ({ fontSize: 12, color: stock > 0 ? "#16a34a" : "#dc2626", marginBottom: 8, fontWeight: 700 }),
+  addCartBtn: { width: "100%", padding: "10px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" },
+  secondaryBtn: { padding: "10px 20px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#f9fafb", color: "#111827", fontWeight: 600, cursor: "pointer", fontSize: 15 },
+  outlineBtn: { padding: "8px 18px", borderRadius: 8, border: "1.5px solid #6366f1", background: "#ede9fe", color: "#4f46e5", cursor: "pointer", fontSize: 14 },
+  pageTitle: { fontSize: 26, fontWeight: 800, color: "#111827", marginBottom: 24 },
+  backBtn: { background: "none", border: "none", color: "#4f46e5", cursor: "pointer", fontSize: 15, marginBottom: 20, padding: 0, fontWeight: 600 },
   searchBox: { display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" },
   filterRow: { display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" },
-  searchInput: { flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 14, minWidth: 150 },
-  suggestionBox: { position: "absolute", top: 44, left: 0, right: 0, background: "#0f1724", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.5)", zIndex: 40, overflow: "hidden" },
-  suggestionItem: { display: "flex", gap: 10, alignItems: "center", padding: "8px 10px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.02)" },
-  suggestionImg: { width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, background: "rgba(255,255,255,0.03)" },
-  searchBtn: { padding: "10px 20px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 },
-  select: { padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "#1a1a2e", color: "#fff", fontSize: 14 },
-  resultCount: { color: "#9ca3af", fontSize: 13, marginBottom: 16 },
-  empty: { textAlign: "center", padding: "60px 0", color: "#6b7280", fontSize: 18 },
+  searchInput: { flex: 1, padding: "11px 16px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", fontSize: 15, minWidth: 150 },
+  suggestionBox: { position: "absolute", top: 44, left: 0, right: 0, background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 40, overflow: "hidden" },
+  suggestionItem: { display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #f3f4f6" },
+  suggestionImg: { width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, background: "#f3f4f6" },
+  searchBtn: { padding: "11px 22px", borderRadius: 10, border: "none", background: "#4f46e5", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  select: { padding: "11px 14px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", fontSize: 15 },
+  resultCount: { color: "#374151", fontSize: 14, marginBottom: 16 },
+  empty: { textAlign: "center", padding: "60px 0", color: "#6b7280", fontSize: 19 },
   detailGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 40 },
   detailImg: { width: "100%", borderRadius: 16, maxHeight: 400, objectFit: "cover" },
-  detailCat: { color: "#6366f1", fontWeight: 700, fontSize: 12, textTransform: "uppercase", marginBottom: 8 },
-  detailTitle: { fontSize: 26, fontWeight: 800, color: "#fff", margin: "0 0 12px" },
-  detailPrice: { fontSize: 26, fontWeight: 900, color: "#fff" },
-  detailDesc: { color: "#9ca3af", lineHeight: 1.7, marginBottom: 16 },
-  vendorInfo: { color: "#9ca3af", fontSize: 14, marginBottom: 12 },
-  reviewSection: { background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 24, border: "1px solid rgba(255,255,255,0.08)" },
-  reviewForm: { background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, marginBottom: 20 },
-  reviewInput: { width: "100%", padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 14, minHeight: 80, resize: "vertical", boxSizing: "border-box" },
-  submitReviewBtn: { marginTop: 8, padding: "9px 20px", borderRadius: 9, border: "none", background: "#6366f1", color: "#fff", cursor: "pointer", fontWeight: 700 },
-  reviewCard: { borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12, marginTop: 12 },
+  detailCat: { color: "#4f46e5", fontWeight: 700, fontSize: 13, textTransform: "uppercase", marginBottom: 8 },
+  detailTitle: { fontSize: 28, fontWeight: 800, color: "#111827", margin: "0 0 12px" },
+  detailPrice: { fontSize: 28, fontWeight: 900, color: "#111827" },
+  detailDesc: { color: "#374151", lineHeight: 1.7, marginBottom: 16, fontSize: 15 },
+  vendorInfo: { color: "#374151", fontSize: 15, marginBottom: 12 },
+  reviewSection: { background: "#f9fafb", borderRadius: 16, padding: 24, border: "1.5px solid #e5e7eb" },
+  reviewForm: { background: "#ffffff", borderRadius: 12, padding: 16, marginBottom: 20, border: "1px solid #e5e7eb" },
+  reviewInput: { width: "100%", padding: "11px", borderRadius: 8, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", fontSize: 15, minHeight: 80, resize: "vertical", boxSizing: "border-box" },
+  submitReviewBtn: { marginTop: 8, padding: "10px 22px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  reviewCard: { borderTop: "1px solid #e5e7eb", paddingTop: 12, marginTop: 12 },
   cartLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
   cartLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
-  cartItem: { display: "flex", gap: 14, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: 14, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" },
-  cartItemImg: { width: 72, height: 72, background: "rgba(255,255,255,0.08)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, overflow: "hidden" },
+  cartItem: { display: "flex", gap: 14, background: "#f9fafb", borderRadius: 14, padding: 14, marginBottom: 12, border: "1.5px solid #e5e7eb" },
+  cartItemImg: { width: 72, height: 72, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, overflow: "hidden" },
   cartItemInfo: { flex: 1 },
-  cartItemName: { fontWeight: 600, color: "#e5e7eb", marginBottom: 4 },
-  cartItemPrice: { color: "#9ca3af", fontSize: 13, marginBottom: 8 },
+  cartItemName: { fontWeight: 600, color: "#111827", marginBottom: 4, fontSize: 15 },
+  cartItemPrice: { color: "#374151", fontSize: 14, marginBottom: 8 },
   qtyRow: { display: "flex", alignItems: "center", gap: 10 },
-  qtyBtn: { width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "#fff", cursor: "pointer", fontSize: 16 },
-  qtyNum: { fontWeight: 700, minWidth: 20, textAlign: "center" },
+  qtyBtn: { width: 30, height: 30, borderRadius: 8, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", cursor: "pointer", fontSize: 17, fontWeight: 700 },
+  qtyNum: { fontWeight: 700, minWidth: 20, textAlign: "center", color: "#111827", fontSize: 15 },
   cartItemTotal: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 },
-  lineTotal: { fontSize: 16, fontWeight: 700, color: "#fff" },
-  removeBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444" },
-  couponBox: { background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.15)", borderRadius: 14, padding: 16, marginTop: 8, display: "flex", flexDirection: "column", gap: 10 },
-  cartSummary: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24, position: "sticky", top: 80 },
+  lineTotal: { fontSize: 17, fontWeight: 700, color: "#111827" },
+  removeBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#dc2626", fontWeight: 600 },
+  couponBox: { background: "#f9fafb", border: "1.5px dashed #d1d5db", borderRadius: 14, padding: 16, marginTop: 8, display: "flex", flexDirection: "column", gap: 10 },
+  cartSummary: { background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 24, position: "sticky", top: 80 },
   cartSummaryMobile: { position: "static", top: "auto" },
-  sumRow: { display: "flex", justifyContent: "space-between", color: "#9ca3af", marginBottom: 10, fontSize: 14 },
-  totalRow: { display: "flex", justifyContent: "space-between", color: "#fff", fontWeight: 800, fontSize: 18, borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginTop: 8 },
+  sumRow: { display: "flex", justifyContent: "space-between", color: "#374151", marginBottom: 10, fontSize: 15 },
+  totalRow: { display: "flex", justifyContent: "space-between", color: "#111827", fontWeight: 800, fontSize: 19, borderTop: "2px solid #e5e7eb", paddingTop: 12, marginTop: 8 },
   paymentLayout: { display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" },
   paymentLayoutMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 16, alignItems: "stretch" },
-  paySection: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 },
-  paySectionTitle: { color: "#e5e7eb", fontWeight: 700, marginBottom: 14, fontSize: 15 },
+  paySection: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 20, marginBottom: 16 },
+  paySectionTitle: { color: "#111827", fontWeight: 700, marginBottom: 14, fontSize: 16 },
   addrCard: { border: "2px solid", borderRadius: 12, padding: 14, marginBottom: 10, cursor: "pointer" },
-  orderCard: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 },
+  orderCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 20, marginBottom: 16 },
   orderHeader: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  orderId: { fontWeight: 700, color: "#e5e7eb" },
-  statusBadge: { padding: "4px 12px", borderRadius: 20, color: "#fff", fontSize: 12, fontWeight: 700 },
-  orderItem: { background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "6px 12px", fontSize: 13 },
-  cancelBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 13 },
-  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 },
-  dialog: { background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 20, padding: 28, maxWidth: 420, width: "100%" },
-  couponCard: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, overflow: "hidden" },
-  couponStripe: { height: 6, background: "linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899)" },
+  orderId: { fontWeight: 700, color: "#111827", fontSize: 15 },
+  statusBadge: { padding: "4px 12px", borderRadius: 20, color: "#fff", fontSize: 13, fontWeight: 700 },
+  orderItem: { background: "#f9fafb", borderRadius: 8, padding: "8px 14px", fontSize: 14, color: "#111827" },
+  cancelBtn: { padding: "8px 18px", borderRadius: 8, border: "1.5px solid #fca5a5", background: "#fff1f1", color: "#dc2626", cursor: "pointer", fontSize: 14, fontWeight: 600 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 },
+  dialog: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 20, padding: 28, maxWidth: 420, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" },
+  couponCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
+  couponStripe: { height: 6, background: "linear-gradient(90deg,#4f46e5,#7c3aed,#ec4899)" },
   couponBody: { padding: 20 },
-  couponCode: { fontFamily: "monospace", fontSize: 22, fontWeight: 900, color: "#a5b4fc", letterSpacing: 2 },
-  couponValue: { background: "rgba(99,102,241,0.2)", color: "#a5b4fc", padding: "4px 10px", borderRadius: 8, fontWeight: 700, fontSize: 14 },
-  profileCard: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24, marginBottom: 16 },
-  profileAvatar: { width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#fff", marginBottom: 20 },
+  couponCode: { fontFamily: "monospace", fontSize: 23, fontWeight: 900, color: "#4f46e5", letterSpacing: 2 },
+  couponValue: { background: "#ede9fe", color: "#4f46e5", padding: "4px 12px", borderRadius: 8, fontWeight: 700, fontSize: 15 },
+  profileCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 24, marginBottom: 16 },
+  profileAvatar: { width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 700, color: "#fff", marginBottom: 20 },
   fieldGroup: { marginBottom: 14 },
-  label: { display: "block", color: "#9ca3af", fontSize: 11, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" },
-  inputField: { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 14, boxSizing: "border-box" },
-  saveBtn: { width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, cursor: "pointer" },
-  addressCard: { background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "12px 14px", marginBottom: 10 },
-  chatWidget: { position: "absolute", bottom: 70, right: 0, width: 340, height: 480, background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 20, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" },
-  chatHeader: { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#fff" },
-  chatMessages: { flex: 1, overflowY: "auto", padding: 16 },
-  quickActions: { display: "flex", gap: 6, padding: "8px 12px", flexWrap: "wrap", borderTop: "1px solid rgba(255,255,255,0.08)" },
-  quickBtn: { padding: "5px 10px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#9ca3af", cursor: "pointer", fontSize: 11, fontWeight: 600 },
-  chatInput: { display: "flex", gap: 8, padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.08)" },
-  chatInputField: { flex: 1, padding: "8px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13 },
-  chatSendBtn: { width: 36, height: 36, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 16 },
-  chatFab: { width: 56, height: 56, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", cursor: "pointer", fontSize: 24, boxShadow: "0 8px 24px rgba(99,102,241,0.4)", display: "flex", alignItems: "center", justifyContent: "center" },
-  /* ── New nav / drawer / location styles ── */
+  label: { display: "block", color: "#374151", fontSize: 13, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" },
+  inputField: { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", fontSize: 15, boxSizing: "border-box" },
+  saveBtn: { width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16 },
+  addressCard: { background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", marginBottom: 10 },
+  chatWidget: { position: "absolute", bottom: 70, right: 0, width: 340, height: 480, background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 20, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" },
+  chatHeader: { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#fff" },
+  chatMessages: { flex: 1, overflowY: "auto", padding: 16, background: "#f9fafb" },
+  quickActions: { display: "flex", gap: 6, padding: "8px 12px", flexWrap: "wrap", borderTop: "1px solid #e5e7eb", background: "#ffffff" },
+  quickBtn: { padding: "6px 12px", borderRadius: 20, border: "1.5px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  chatInput: { display: "flex", gap: 8, padding: "12px 14px", borderTop: "1px solid #e5e7eb", background: "#ffffff" },
+  chatInputField: { flex: 1, padding: "9px 14px", borderRadius: 20, border: "1.5px solid #d1d5db", background: "#f9fafb", color: "#111827", fontSize: 14 },
+  chatSendBtn: { width: 36, height: 36, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 16 },
+  chatFab: { width: 56, height: 56, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", cursor: "pointer", fontSize: 24, boxShadow: "0 8px 24px rgba(99,102,241,0.35)", display: "flex", alignItems: "center", justifyContent: "center" },
+  /* ── Nav / drawer / location styles ── */
   hamburgerBtn: { display:"flex", flexDirection:"column", justifyContent:"center", gap:5, width:36, height:36, cursor:"pointer", background:"none", border:"none", padding:6, flexShrink:0, borderRadius:8 },
-  hamburgerLine: { display:"block", width:20, height:2, background:"rgba(255,255,255,0.8)", borderRadius:2 },
-  navSearchInput: { width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:50, color:"#fff", fontSize:13, padding:"7px 12px 7px 32px", outline:"none", fontFamily:"inherit" },
-  acDropdown: { position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"rgba(8,10,24,0.98)", backdropFilter:"blur(24px)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, zIndex:9999, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", overflow:"hidden" },
-  acItem: { display:"flex", alignItems:"center", gap:10, padding:"9px 14px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.04)", transition:"background 0.1s" },
-  indiaBadge: { display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, border:"1px solid rgba(255,153,51,0.45)", background:"rgba(255,153,51,0.08)", fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.85)", flexShrink:0, userSelect:"none" },
-  cartBadge: { position:"absolute", top:-4, right:-4, background:"#f5a800", color:"#1a1000", fontSize:9, fontWeight:800, width:15, height:15, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" },
-  profileIconBtn: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:"50%", width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:16, color:"#f5a800", flexShrink:0 },
-  profileDropdown: { position:"fixed", top:60, right:16, background:"#1a1208", border:"1px solid rgba(245,168,0,0.25)", borderRadius:14, minWidth:180, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:9999, overflow:"hidden" },
-  profileItem: { display:"flex", alignItems:"center", gap:8, padding:"10px 14px", color:"#ccc", fontSize:14, cursor:"pointer", transition:"background 0.15s" },
-  drawerSectionTitle: { padding:"12px 14px 6px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"rgba(255,255,255,0.4)", borderTop:"1px solid rgba(255,255,255,0.06)", marginTop:4 },
-  drawerItem: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", color:"rgba(255,255,255,0.85)", fontSize:14, cursor:"pointer", border:"none", background:"none", width:"100%", textAlign:"left", transition:"background 0.15s" },
+  hamburgerLine: { display:"block", width:20, height:2, background:"#374151", borderRadius:2 },
+  navSearchInput: { width:"100%", background:"#f9fafb", border:"1.5px solid #d1d5db", borderRadius:50, color:"#111827", fontSize:14, padding:"8px 14px 8px 34px", outline:"none", fontFamily:"inherit" },
+  acDropdown: { position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"#ffffff", border:"1.5px solid #e5e7eb", borderRadius:14, zIndex:9999, boxShadow:"0 16px 40px rgba(0,0,0,0.12)", overflow:"hidden" },
+  acItem: { display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #f3f4f6", transition:"background 0.1s", color:"#111827", fontSize:14 },
+  indiaBadge: { display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, border:"1px solid #d1d5db", background:"#f9fafb", fontSize:13, fontWeight:600, color:"#374151", flexShrink:0, userSelect:"none" },
+  cartBadge: { position:"absolute", top:-4, right:-4, background:"#f5a800", color:"#1a1000", fontSize:9, fontWeight:800, width:16, height:16, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" },
+  profileIconBtn: { background:"#f3f4f6", border:"1.5px solid #e5e7eb", borderRadius:"50%", width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:17, color:"#4f46e5", flexShrink:0 },
+  profileDropdown: { position:"fixed", top:64, right:16, background:"#ffffff", border:"1.5px solid #e5e7eb", borderRadius:14, minWidth:190, boxShadow:"0 16px 40px rgba(0,0,0,0.12)", zIndex:9999, overflow:"hidden" },
+  profileItem: { display:"flex", alignItems:"center", gap:8, padding:"11px 16px", color:"#111827", fontSize:15, cursor:"pointer", transition:"background 0.15s" },
+  drawerSectionTitle: { padding:"12px 14px 6px", fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"#6b7280", borderTop:"1px solid #e5e7eb", marginTop:4 },
+  drawerItem: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 16px", color:"#111827", fontSize:15, cursor:"pointer", border:"none", background:"none", width:"100%", textAlign:"left", transition:"background 0.15s" },
 };
