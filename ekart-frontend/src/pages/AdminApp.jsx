@@ -1132,7 +1132,18 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
             headers: { "Authorization": `Bearer ${token}` }
           });
           const d = await res.json();
-          setEligibleMap(prev => ({ ...prev, [order.id]: d.success ? (d.deliveryBoys || []) : [] }));
+          let eligible = d.success ? (d.deliveryBoys || []) : [];
+          
+          // Fallback: If no delivery boys found for PIN, show all ONLINE delivery boys from the same warehouse
+          if (eligible.length === 0 && order.warehouse && deliveryBoys) {
+            eligible = deliveryBoys.filter(boy => 
+              boy.isAvailable === true && 
+              boy.warehouse && 
+              boy.warehouse.includes(order.warehouse.code || order.warehouse.name || order.warehouse)
+            );
+          }
+          
+          setEligibleMap(prev => ({ ...prev, [order.id]: eligible }));
         } catch (err) {
           console.error("Error loading eligible boys:", err);
           setEligibleMap(prev => ({ ...prev, [order.id]: [] }));
@@ -1143,7 +1154,7 @@ function DeliveryAdmin({ deliveryBoys, warehouses, packedOrders, shippedOrders, 
     refreshEligible();
     const interval = setInterval(refreshEligible, 2000);
     return () => clearInterval(interval);
-  }, [packedOrders]);
+  }, [packedOrders, deliveryBoys]);
 
   const pendingApprovals = (deliveryBoys || []).filter(d => !d.approved);
   const pendingTransfers = transfers.filter(t => t.status === "PENDING");

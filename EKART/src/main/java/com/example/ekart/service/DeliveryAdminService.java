@@ -260,13 +260,14 @@ public class DeliveryAdminService {
 
         List<Map<String, Object>> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
-            if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
+            if (!b.isActive() || !b.isVerified() || !b.isAdminApproved() || !b.isAvailable()) continue;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",        b.getId());
             m.put("name",      b.getName());
             m.put("code",      b.getDeliveryBoyCode());
             m.put("pins",      b.getAssignedPinCodes() != null ? b.getAssignedPinCodes() : "");
             m.put("warehouse", b.getWarehouse() != null ? b.getWarehouse().getName() : "—");
+            m.put("isAvailable", b.isAvailable());
             data.add(m);
         }
 
@@ -295,12 +296,13 @@ public class DeliveryAdminService {
         List<DeliveryBoy> boys = deliveryBoyRepository.findByWarehouse(wh);
         List<Map<String, Object>> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
-            if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
+            if (!b.isActive() || !b.isVerified() || !b.isAdminApproved() || !b.isAvailable()) continue;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",   b.getId());
             m.put("name", b.getName());
             m.put("code", b.getDeliveryBoyCode());
             m.put("pins", b.getAssignedPinCodes());
+            m.put("isAvailable", b.isAvailable());
             data.add(m);
         }
         res.put("success", true);
