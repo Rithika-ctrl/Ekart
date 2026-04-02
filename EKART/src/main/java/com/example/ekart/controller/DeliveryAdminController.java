@@ -1,12 +1,13 @@
 package com.example.ekart.controller;
 
 // ================================================================
-// LOCATION: src/main/java/com/example/ekart/controller/DeliveryAdminController.java
+// UPDATED FILE: src/main/java/com/example/ekart/controller/DeliveryAdminController.java
 // REPLACE your existing file.
 //
 // New endpoints added:
-//   POST /admin/delivery/warehouse-change/approve  → approve transfer request
-//   POST /admin/delivery/warehouse-change/reject   → reject transfer request
+//   POST /admin/delivery/order/pack       → mark order as PACKED (triggers auto-assign)
+//   GET  /admin/delivery/auto-assign/logs → view auto-assignment history
+//   GET  /admin/delivery/boys/load        → view delivery boy load (active orders count)
 // ================================================================
 
 import com.example.ekart.service.DeliveryAdminService;
@@ -98,6 +99,11 @@ public class DeliveryAdminController {
 
     // ── Order Assignment ──────────────────────────────────────────
 
+    /**
+     * Admin manually assigns a delivery boy to an order.
+     * This works as an override even if auto-assign already ran
+     * (e.g., admin wants to reassign to a different delivery boy).
+     */
     @PostMapping("/admin/delivery/assign")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> assignDeliveryBoy(
@@ -106,9 +112,44 @@ public class DeliveryAdminController {
         return deliveryAdminService.assignDeliveryBoy(orderId, deliveryBoyId, session);
     }
 
+    /**
+     * Admin marks an order as PACKED.
+     * This is the primary trigger for auto-assignment:
+     * the system immediately tries to find an online delivery boy
+     * covering the order's pin code with a free slot.
+     */
+    @PostMapping("/admin/delivery/order/pack")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> markOrderPacked(
+            @RequestParam int orderId, HttpSession session) {
+        return deliveryAdminService.markOrderPacked(orderId, session);
+    }
+
+    // ── Auto-Assign Monitoring (Admin) ────────────────────────────
+
+    /**
+     * Returns the last 50 auto-assignment events for admin audit.
+     * Shows: orderId, delivery boy, pin code, timestamp, active orders at time.
+     */
+    @GetMapping("/admin/delivery/auto-assign/logs")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getAutoAssignLogs(HttpSession session) {
+        return deliveryAdminService.getAutoAssignLogs(session);
+    }
+
+    /**
+     * Returns each delivery boy's current active order count and slot availability.
+     * Admin uses this to monitor workload distribution.
+     * Response includes: isOnline, activeOrders (0-3), slots remaining, atCap flag.
+     */
+    @GetMapping("/admin/delivery/boys/load")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getDeliveryBoyLoad(HttpSession session) {
+        return deliveryAdminService.getDeliveryBoyLoad(session);
+    }
+
     // ── Warehouse Change Requests ─────────────────────────────────
 
-    /** Admin approves a delivery boy's warehouse transfer request */
     @PostMapping("/admin/delivery/warehouse-change/approve")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> approveWarehouseChange(
@@ -118,7 +159,6 @@ public class DeliveryAdminController {
         return deliveryBoyService.approveWarehouseChange(requestId, adminNote, session);
     }
 
-    /** Admin rejects a delivery boy's warehouse transfer request */
     @PostMapping("/admin/delivery/warehouse-change/reject")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> rejectWarehouseChange(

@@ -1,10 +1,5 @@
 package com.example.ekart.helper;
 
-// ================================================================
-// LOCATION: src/main/java/com/example/ekart/helper/EmailSender.java
-// REPLACE your existing file with this complete version.
-// ================================================================
-
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -214,7 +209,6 @@ public class EmailSender {
     }
 
     // ===================== SEND OTP TO DELIVERY BOY =====================
-    // Used during delivery boy registration/login for email verification
     @Async
     public void sendDeliveryBoyOtp(DeliveryBoy db) {
         try {
@@ -226,7 +220,6 @@ public class EmailSender {
             Context context = new Context();
             context.setVariable("name", db.getName());
             context.setVariable("otp", db.getOtp());
-            // Reuses existing otp-email.html template
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
@@ -236,8 +229,6 @@ public class EmailSender {
     }
 
     // ===================== SEND DOORSTEP OTP TO CUSTOMER =====================
-    // Sent when delivery boy picks up the order (OUT_FOR_DELIVERY).
-    // Customer shows this OTP to delivery boy at the door to confirm handover.
     @Async
     public void sendDeliveryOtp(Customer customer, int otp, int orderId) {
         try {
@@ -259,7 +250,6 @@ public class EmailSender {
     }
 
     // ===================== SEND SHIPPED NOTIFICATION TO CUSTOMER =====================
-    // Sent when admin assigns a delivery boy (status → SHIPPED).
     @Async
     public void sendShippedEmail(Customer customer, Order order, String deliveryBoyName) {
         try {
@@ -283,7 +273,6 @@ public class EmailSender {
     }
 
     // ===================== SEND DELIVERY CONFIRMATION TO CUSTOMER =====================
-    // Sent after delivery boy enters correct OTP at doorstep (status → DELIVERED).
     @Async
     public void sendDeliveryConfirmation(Customer customer, Order order) {
         try {
@@ -306,15 +295,13 @@ public class EmailSender {
     }
 
     // ===================== NOTIFY ADMIN — NEW DELIVERY BOY PENDING =====================
-    // Sent to admin email when a self-registered delivery boy verifies their OTP.
-    // Admin clicks the link to go to /admin/delivery and approve/reject them.
     @Async
     public void sendDeliveryBoyPendingAlert(DeliveryBoy db) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(fromEmail, "Ekart");
-            helper.setTo(fromEmail); // sends to the admin (same email configured in .env)
+            helper.setTo(fromEmail); 
             helper.setSubject("New Delivery Boy Pending Approval — " + db.getName());
 
             String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:500px;'>"
@@ -338,8 +325,6 @@ public class EmailSender {
     }
 
     // ===================== DELIVERY BOY APPROVED =====================
-    // Sent to the delivery boy when admin approves their account.
-    // They can now login and start accepting deliveries.
     @Async
     public void sendDeliveryBoyApproved(DeliveryBoy db) {
         try {
@@ -373,7 +358,6 @@ public class EmailSender {
     }
 
     // ===================== DELIVERY BOY REJECTED =====================
-    // Sent to the delivery boy when admin rejects their application.
     @Async
     public void sendDeliveryBoyRejected(DeliveryBoy db, String reason) {
         try {
@@ -518,6 +502,63 @@ public class EmailSender {
             mailSender.send(message);
         } catch (Exception e) {
             System.err.println("Dispute notification email failed: " + e.getMessage());
+        }
+    }
+
+    // ===================== AUTO ASSIGN NOTIFICATION =====================
+    /**
+     * Notifies a delivery boy that an order has been automatically assigned to them.
+     * Called by AutoAssignmentService after every successful auto-assignment.
+     */
+    public void sendAutoAssignNotification(DeliveryBoy deliveryBoy, Order order) {
+        String subject = "New Order Auto-Assigned — Ekart Delivery";
+
+        String customerName = order.getCustomer() != null ? order.getCustomer().getName() : "Customer";
+        String address      = order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "See app";
+        String pin          = order.getDeliveryPinCode() != null ? order.getDeliveryPinCode() : "—";
+        double amount       = order.getTotalPrice();
+
+        String body = """
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+              <h2 style="color:#16a34a;">📦 New Order Assigned to You</h2>
+              <p>Hello <strong>%s</strong>,</p>
+              <p>A new order has been <strong>automatically assigned</strong> to you. Please pick it up from the warehouse as soon as possible.</p>
+              <table style="width:100%%;border-collapse:collapse;margin:16px 0;">
+                <tr style="background:#f3f4f6;">
+                  <td style="padding:8px 12px;font-weight:bold;">Order ID</td>
+                  <td style="padding:8px 12px;">#%d</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px;font-weight:bold;">Customer</td>
+                  <td style="padding:8px 12px;">%s</td>
+                </tr>
+                <tr style="background:#f3f4f6;">
+                  <td style="padding:8px 12px;font-weight:bold;">Delivery Address</td>
+                  <td style="padding:8px 12px;">%s</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px;font-weight:bold;">PIN Code</td>
+                  <td style="padding:8px 12px;">%s</td>
+                </tr>
+                <tr style="background:#f3f4f6;">
+                  <td style="padding:8px 12px;font-weight:bold;">Amount</td>
+                  <td style="padding:8px 12px;">₹%.2f</td>
+                </tr>
+              </table>
+              <p>Log in to your delivery dashboard to view full order details and pick up the parcel.</p>
+              <p style="color:#6b7280;font-size:13px;">— Ekart Delivery System</p>
+            </div>
+            """.formatted(deliveryBoy.getName(), order.getId(), customerName, address, pin, amount);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(deliveryBoy.getEmail());
+            helper.setSubject(subject);
+            helper.setText(body, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("sendAutoAssignNotification failed: " + e.getMessage());
         }
     }
 }
