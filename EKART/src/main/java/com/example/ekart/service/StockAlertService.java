@@ -39,9 +39,37 @@ public class StockAlertService {
 		}
 		
 		if (product.getStock() <= product.getStockAlertThreshold()) {
-			// Check if alert already exists for this product
-			if (!stockAlertRepository.existsByProductAndAcknowledgedFalse(product)) {
+			// Check if unacknowledged alert already exists for this product
+			List<StockAlert> existingAlerts = stockAlertRepository.findByProduct(product)
+					.stream()
+					.filter(alert -> !alert.isAcknowledged())
+					.toList();
+			
+			if (existingAlerts.isEmpty()) {
+				// No unacknowledged alert exists, create new one
 				createStockAlert(product);
+			} else {
+				// Update existing unacknowledged alert with new stock level
+				for (StockAlert alert : existingAlerts) {
+					alert.setStockLevel(product.getStock());
+					alert.setAlertTime(LocalDateTime.now());
+					alert.setMessage("Stock level for '" + product.getName() + "' is low (" 
+							+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
+					stockAlertRepository.save(alert);
+				}
+			}
+		} else {
+			// Stock is now above threshold, acknowledge all unacknowledged alerts for this product
+			List<StockAlert> activeAlerts = stockAlertRepository.findByProduct(product)
+					.stream()
+					.filter(alert -> !alert.isAcknowledged())
+					.toList();
+			
+			for (StockAlert alert : activeAlerts) {
+				alert.setAcknowledged(true);
+				alert.setMessage("Stock has recovered for '" + product.getName() + "' (" 
+						+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
+				stockAlertRepository.save(alert);
 			}
 		}
 	}

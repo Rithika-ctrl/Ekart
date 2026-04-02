@@ -57,6 +57,7 @@ public class ReactApiController {
     @Autowired private RefundService        refundService;
     @Autowired private SocialAuthService    socialAuthService;
     @Autowired private OAuthProviderValidator oAuthProviderValidator;
+    @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -1419,6 +1420,8 @@ public class ReactApiController {
                 if (product != null) {
                     product.setStock(product.getStock() - cartItem.getQuantity());
                     productRepository.save(product);
+                    // Check if stock alert needs to be created or updated
+                    stockAlertService.checkStockLevel(product);
                 }
             }
 
@@ -1645,7 +1648,12 @@ public class ReactApiController {
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put("success", false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
         for (Item item : order.getItems()) {
             if (item.getProductId() != null) {
-                productRepository.findById(item.getProductId()).ifPresent(p -> { p.setStock(p.getStock() + item.getQuantity()); productRepository.save(p); });
+                productRepository.findById(item.getProductId()).ifPresent(p -> { 
+                    p.setStock(p.getStock() + item.getQuantity()); 
+                    productRepository.save(p);
+                    // Update stock alert when stock is restored
+                    stockAlertService.checkStockLevel(p);
+                });
             }
         }
         order.setTrackingStatus(TrackingStatus.CANCELLED); orderRepository.save(order);
@@ -3373,6 +3381,8 @@ public class ReactApiController {
                 productRepository.findById(item.getProductId()).ifPresent(p -> {
                     p.setStock(p.getStock() + item.getQuantity());
                     productRepository.save(p);
+                    // Update stock alert when stock is restored
+                    stockAlertService.checkStockLevel(p);
                 });
             }
         }
@@ -5052,7 +5062,6 @@ public class ReactApiController {
     // ═══════════════════════════════════════════════════════
 
     @Autowired private StockAlertRepository stockAlertRepository;
-    @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
 
     /**
      * POST /api/flutter/orders/{id}/reorder
