@@ -41,7 +41,7 @@ public class Warehouse {
      * On order placement we check if customerPinCode is in this list.
      */
     @Column(name = "served_pin_codes", nullable = false, length = 5000)
-    private String servedPinCodes;
+    private String servedPinCodes = "";
 
     private boolean active = true;
 

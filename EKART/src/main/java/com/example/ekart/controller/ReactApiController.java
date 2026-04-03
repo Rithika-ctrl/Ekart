@@ -4074,6 +4074,8 @@ public class ReactApiController {
             wh.setServedPinCodes(servedPinCodes); // Now mandatory, always set
             wh.setActive(true);
             wh.setWarehouseCode(""); // Initialize to empty string to avoid NULL constraint
+            // Defensive null-guard to ensure servedPinCodes is never NULL before DB insert
+            if (wh.getServedPinCodes() == null) wh.setServedPinCodes("");
             warehouseRepository.save(wh);
             // Generate code after save so we have the auto-generated id
             wh.setWarehouseCode(String.format("WH-%03d", wh.getId()));
