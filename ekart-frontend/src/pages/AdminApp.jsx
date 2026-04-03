@@ -1202,14 +1202,11 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
   const pendingTransfers = transfers.filter(t => t.status === "PENDING");
   const filtered = filter === "pending" ? pendingApprovals : (deliveryBoys || []);
 
-  // Local warehouse+pins state for pending approval rows
-  const [approvalWh, setApprovalWh] = useState({});
-  const [approvalPins, setApprovalPins] = useState({});
-
+  // No need for approvalPins anymore - PIN codes are auto-assigned from warehouse
+  
   const handleApprove = (id) => {
-    const warehouseId = approvalWh[id] || "";
-    const pins = approvalPins[id] || "";
-    onApprove(id, warehouseId, pins);
+    // Just approve - PIN codes already set from warehouse during registration
+    onApprove(id, "", "");
   };
 
   const handleReject = (id, name) => {
@@ -1247,10 +1244,10 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
             <span style={{ marginLeft: "auto", background: "#d4a017", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{pendingApprovals.length}</span>
           </div>
           <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(245,168,0,0.08)", padding: "8px 12px", borderRadius: 8 }}>
-            ℹ️ These delivery boys have verified their email and are waiting for your approval. Select a warehouse and enter their pin codes before approving.
+            ℹ️ PIN codes are auto-assigned from their registered warehouse. Review and approve or reject.
           </div>
           <AdminTable
-            cols={["Name", "Email / Mobile", "Code", "Assign Warehouse", "Pin Codes", "Action"]}
+            cols={["Name", "Email / Mobile", "Code", "Registered Warehouse", "Auto-Assigned PIN Codes", "Action"]}
             rows={pendingApprovals.map(db => [
               <span style={{ fontWeight: 600 }}>{db.name}</span>,
               <div>
@@ -1258,13 +1255,12 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
                 <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{db.mobile}</div>
               </div>,
               <span style={{ fontWeight: 700, fontSize: 12, fontFamily: "monospace", color: "#d4a017" }}>{db.deliveryBoyCode}</span>,
-              <select style={inputStyle} value={approvalWh[db.id] || ""} onChange={e => setApprovalWh(prev => ({ ...prev, [db.id]: e.target.value }))}>
-                <option value="">Select warehouse</option>
-                {(warehouses || []).map(wh => <option key={wh.id} value={wh.id}>{wh.name} — {wh.city}</option>)}
-              </select>,
-              <input style={inputStyle} type="text" placeholder="e.g. 600001,600002"
-                value={approvalPins[db.id] || ""}
-                onChange={e => setApprovalPins(prev => ({ ...prev, [db.id]: e.target.value }))} />,
+              <span style={{ fontWeight: 500 }}>
+                {db.warehouse ? `${db.warehouse.name} (${db.warehouse.city})` : "—"}
+              </span>,
+              <span style={{ fontSize: 12, color: "#1db882", fontFamily: "monospace" }}>
+                {db.assignedPinCodes || "—"}
+              </span>,
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={as.approveBtn} onClick={() => handleApprove(db.id)}>✓ Approve</button>
                 <button style={as.rejectBtn} onClick={() => handleReject(db.id, db.name)}>✕ Reject</button>
@@ -1430,27 +1426,14 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
               <i className={`fas fa-circle`} style={{ fontSize: "0.6rem", marginRight: "0.4rem" }} />
               {d.isAvailable ? "Online" : "Offline"}
             </span>,
-            d.approved ? (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button 
-                  style={{ ...as.approveBtn, background: d.isAvailable ? "#ffebee" : "#e8f9f2", color: d.isAvailable ? "#ff8060" : "#1db882", fontSize: 11, padding: "4px 8px" }} 
-                  onClick={async () => {
-                    const res = await api(`/admin/delivery-boys/${d.id}/toggle-availability`, { method: "POST" });
-                    if (res.success) {
-                      showToast(res.message);
-                      api("/admin/delivery-boys").then(d => d.success && setDeliveryBoys(d.deliveryBoys || []));
-                    } else showToast(res.message || "Error");
-                  }}
-                >
-                  {d.isAvailable ? "🔴 Go Offline" : "🟢 Go Online"}
-                </button>
-              </div>
-            ) : !d.approved ? (
+            !d.approved ? (
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={as.approveBtn} onClick={() => onApprove(d.id, "", "")}>✓ Approve</button>
                 <button style={as.rejectBtn} onClick={() => handleReject(d.id, d.name)}>✕ Reject</button>
               </div>
-            ) : null
+            ) : (
+              <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>—</span>
+            )
           ])}
           empty="No delivery boys"
         />
@@ -1608,10 +1591,16 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    // Validate required fields
+    if (!form.name.trim()) { showToast("Warehouse name is required", false); return; }
+    if (!form.city.trim()) { showToast("City is required", false); return; }
+    if (!form.state.trim()) { showToast("State is required", false); return; }
+    if (!form.servedPinCodes.trim()) { showToast("PIN codes are required (e.g., 560001,560002,560003)", false); return; }
+    
     setSaving(true);
     const d = await api("/admin/warehouses/add", { method: "POST", body: JSON.stringify(form) });
     if (d.success) { showToast("Warehouse added!"); setShowForm(false); setForm({ name: "", city: "", state: "", warehouseCode: "", servedPinCodes: "" }); onRefresh(); }
-    else showToast(d.message || "Error");
+    else showToast(d.message || "Error", false);
     setSaving(false);
   };
 

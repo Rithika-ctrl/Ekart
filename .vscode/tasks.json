@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build EKART Backend",
+			"type": "shell",
+			"command": "cd c:\\Users\\whynew.in\\OneDrive\\Desktop\\EKART\\EKART && mvn clean install -DskipTests -q",
+			"isBackground": false,
+			"problemMatcher": [
+				"$java"
+			],
+			"group": "build"
+		}
+	]
+}

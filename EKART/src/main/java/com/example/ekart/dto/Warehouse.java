@@ -32,7 +32,7 @@ public class Warehouse {
     private String state;
 
     /** e.g. "WH-001" — auto-generated after save */
-    @Column(unique = true, nullable = true, length = 20)
+    @Column(name = "warehouse_code", unique = true, nullable = true, length = 20)
     private String warehouseCode;
 
     /**
@@ -40,7 +40,7 @@ public class Warehouse {
      * e.g. "600001,600002,600003,600004"
      * On order placement we check if customerPinCode is in this list.
      */
-    @Column(nullable = false, length = 5000)
+    @Column(name = "served_pin_codes", nullable = false, length = 5000)
     private String servedPinCodes;
 
     private boolean active = true;

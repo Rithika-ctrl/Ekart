@@ -596,7 +596,8 @@ public class ReactApiController {
             db.setAdminApproved(false);
             db.setActive(true);
             db.setWarehouse(warehouse);
-            db.setAssignedPinCodes("");
+            // Auto-assign PIN codes from the warehouse
+            db.setAssignedPinCodes(warehouse.getServedPinCodes());
 
             int otp = new java.util.Random().nextInt(100000, 1000000);
             db.setOtp(otp);
@@ -4051,13 +4052,29 @@ public class ReactApiController {
                 res.put("message", "Warehouse name is required");
                 return ResponseEntity.badRequest().body(res);
             }
+            if (city.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "City is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (state.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "State is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (servedPinCodes.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "PIN codes are required (e.g., 560001,560002,560003)");
+                return ResponseEntity.badRequest().body(res);
+            }
 
             Warehouse wh = new Warehouse();
             wh.setName(name);
             wh.setCity(city);
             wh.setState(state);
-            wh.setServedPinCodes(servedPinCodes);
+            wh.setServedPinCodes(servedPinCodes); // Now mandatory, always set
             wh.setActive(true);
+            wh.setWarehouseCode(""); // Initialize to empty string to avoid NULL constraint
             warehouseRepository.save(wh);
             // Generate code after save so we have the auto-generated id
             wh.setWarehouseCode(String.format("WH-%03d", wh.getId()));
@@ -4152,21 +4169,17 @@ public class ReactApiController {
 
     /**
      * POST /api/flutter/admin/delivery-boys/{id}/approve
-     * Approves a delivery boy account and optionally assigns pin codes.
+     * Approves a delivery boy account.
      *
-     * Fix: DeliveryAdminController exposes POST /admin/delivery/boy/approve
-     * which takes @RequestParam (form fields) and uses HttpSession for auth —
-     * neither works from Flutter. This endpoint uses a JSON body and JWT auth
-     * (already validated upstream by FlutterAuthFilter).
+     * Business rules:
+     *   - Delivery boy must have a warehouse set (auto-set during registration)
+     *   - PIN codes are already auto-assigned from the warehouse during registration
+     *   - Admin can optionally override PIN codes via request body
+     *   - Sets adminApproved=true, active=true
+     *   - Sends approval email
      *
-     * Request body (JSON, all optional):
-     *   { "assignedPinCodes": "600001,600002" }
-     *
-     * Business rules (mirrors DeliveryBoyService.approveDeliveryBoy):
-     *   - Delivery boy must exist
-     *   - Must have a warehouse already set (self-registered boys pick one on signup)
-     *   - Sets adminApproved=true, active=true, saves assignedPinCodes
-     *   - Sends approval email (failure is non-fatal — logged, not thrown)
+     * Request body (JSON, optional):
+     *   { "assignedPinCodes": "600001,600002" }  — if admin wants to override
      */
     @PostMapping("/admin/delivery-boys/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveDeliveryBoy(
@@ -4177,15 +4190,6 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            String assignedPinCodes = (body != null)
-                    ? body.getOrDefault("assignedPinCodes", "").toString().trim()
-                    : "";
-            // AdminApp.jsx sends warehouseId to override/assign warehouse at approval time
-            Integer warehouseId = null;
-            if (body != null && body.get("warehouseId") != null) {
-                try { warehouseId = Integer.parseInt(body.get("warehouseId").toString()); } catch (Exception ignored) {}
-            }
-
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put("success", false);
@@ -4193,28 +4197,30 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
 
-            // If admin selected a warehouse at approval time, apply it
-            if (warehouseId != null && warehouseId > 0) {
-                Warehouse wh = warehouseRepository.findById(warehouseId).orElse(null);
-                if (wh != null) db.setWarehouse(wh);
-            }
-
             if (db.getWarehouse() == null) {
                 res.put("success", false);
-                res.put("message", "No warehouse selected by this delivery boy");
+                res.put("message", "No warehouse selected by this delivery boy during registration");
                 return ResponseEntity.badRequest().body(res);
+            }
+
+            // PIN codes already assigned from warehouse during registration
+            // Admin can optionally override them
+            if (body != null && body.containsKey("assignedPinCodes")) {
+                String pinCodes = body.get("assignedPinCodes").toString().trim();
+                if (!pinCodes.isEmpty()) {
+                    db.setAssignedPinCodes(pinCodes);
+                }
             }
 
             db.setAdminApproved(true);
             db.setActive(true);
-            db.setAssignedPinCodes(assignedPinCodes);
             deliveryBoyRepository.save(db);
 
             try { emailSender.sendDeliveryBoyApproved(db); }
             catch (Exception e) { System.err.println("Approval email failed: " + e.getMessage()); }
 
             res.put("success", true);
-            res.put("message", db.getName() + " approved for " + db.getWarehouse().getName());
+            res.put("message", db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false);

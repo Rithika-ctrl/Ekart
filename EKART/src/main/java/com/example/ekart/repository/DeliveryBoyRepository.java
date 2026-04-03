@@ -33,6 +33,7 @@ public interface DeliveryBoyRepository extends JpaRepository<DeliveryBoy, Intege
     /**
      * Active + approved + verified boys whose assignedPinCodes explicitly covers a pin.
      * Uses delimiter-aware matching — tolerates spaces around commas.
+     * Also matches boys with assignedPinCodes = "All" (universal coverage).
      *
      * NOTE: This only matches boys who have explicit pin assignments.
      * Boys with empty assignedPinCodes are NOT returned here — the service
@@ -41,7 +42,8 @@ public interface DeliveryBoyRepository extends JpaRepository<DeliveryBoy, Intege
     @Query("SELECT d FROM DeliveryBoy d WHERE d.active = true AND d.verified = true " +
            "AND d.adminApproved = true AND d.assignedPinCodes IS NOT NULL " +
            "AND d.assignedPinCodes != '' AND (" +
-           "  REPLACE(d.assignedPinCodes, ' ', '') = :pin" +
+           "  LOWER(TRIM(d.assignedPinCodes)) = 'all'" +
+           "  OR REPLACE(d.assignedPinCodes, ' ', '') = :pin" +
            "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT(:pin, ',%')" +
            "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT('%,', :pin, ',%')" +
            "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT('%,', :pin)" +
