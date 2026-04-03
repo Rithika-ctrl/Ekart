@@ -241,7 +241,7 @@ export default function AdminApp() {
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>Admin</span>
+          <span style={{ color: "#6b7280", fontSize: 13 }}>Admin</span>
           <button style={as.logoutBtn} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
         </div>
       </nav>
@@ -278,11 +278,11 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
   const displayRevenue = analyticsRevenue != null ? analyticsRevenue : totalRevenue;
   const stats = [
     { label: "Customers",       value: users.customers.length, icon: "👥", color: "#2563eb" },
-    { label: "Vendors",         value: users.vendors.length,   icon: "🏪", color: "#d4a017" },
+    { label: "Vendors",         value: users.vendors.length,   icon: "🏪", color: "#d97706" },
     { label: "Products",        value: products.length,        icon: "🏷️", color: "#7c3aed" },
-    { label: "Pending Approval",value: pendingProducts.length, icon: "⏳", color: "#e84c3c" },
+    { label: "Pending Approval",value: pendingProducts.length, icon: "⏳", color: "#dc2626" },
     { label: "Total Orders",    value: orders.length,          icon: "📦", color: "#0284c7" },
-    { label: "Total Revenue",   value: fmt(displayRevenue),    icon: "💰", color: "#1db882" },
+    { label: "Total Revenue",   value: fmt(displayRevenue),    icon: "💰", color: "#16a34a" },
   ];
   const statusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   return (
@@ -302,17 +302,17 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
           <h3 style={as.cardTitle}>Order Status Breakdown</h3>
           {Object.entries(statusCounts).map(([status, count]) => (
             <div key={status} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <span style={{ fontSize: 13, minWidth: 170, color: "#0d0d0d" }}>{status.replace(/_/g, " ")}</span>
-              <div style={{ flex: 1, height: 8, background: "#f2f0eb", borderRadius: 4, overflow: "hidden" }}>
+              <span style={{ fontSize: 13, minWidth: 170, color: "#111827" }}>{status.replace(/_/g, " ")}</span>
+              <div style={{ flex: 1, height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
                 <div style={{ height: "100%", background: "linear-gradient(90deg,#2563eb,#7c3aed)", borderRadius: 4, width: `${Math.round(count / Math.max(orders.length, 1) * 100)}%` }} />
               </div>
-              <span style={{ fontSize: 13, color: "rgba(13,13,13,0.5)", minWidth: 28 }}>{count}</span>
+              <span style={{ fontSize: 13, color: "#6b7280", minWidth: 28 }}>{count}</span>
             </div>
           ))}
         </div>
         <div style={as.card}>
           <h3 style={as.cardTitle}>Pending Approvals</h3>
-          {pendingProducts.length === 0 ? <p style={{ color: "#1db882", fontSize: 14 }}>✓ All products reviewed</p> :
+          {pendingProducts.length === 0 ? <p style={{ color: "#16a34a", fontSize: 14 }}>✓ All products reviewed</p> :
             pendingProducts.slice(0, 5).map(p => (
               <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f2f0eb" }}>
                 <span style={{ flex: 1, fontSize: 14 }}>{p.name}</span>
@@ -364,7 +364,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
         <h2 style={as.pageTitle}>Product Management</h2>
         {pendingCount > 0 && (
           <button
-            style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "#1db882", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
+            style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 6px rgba(22, 163, 74, 0.3)" }}
             onClick={() => setConfirmModal(true)}
           >
             ✓ Approve All Pending ({pendingCount})
@@ -384,7 +384,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
         {q && (
           <button
             onClick={() => setQ("")}
-            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", cursor: "pointer", fontSize: 16, color: "rgba(13,13,13,0.4)", lineHeight: 1, padding: 0 }}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", cursor: "pointer", fontSize: 16, color: "#9ca3af", lineHeight: 1, padding: 0 }}
           >×</button>
         )}
       </div>
@@ -397,7 +397,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
           </button>
         ))}
         {q.trim() && (
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(13,13,13,0.45)", fontWeight: 600 }}>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#9ca3af", fontWeight: 600 }}>
             {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "{q.trim()}"
           </span>
         )}
@@ -409,18 +409,18 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
           return [
             <div
               onClick={() => openPreview(p)}
-              style={{ cursor: "pointer", width: 44, height: 44, borderRadius: 8, overflow: "hidden", border: "1px solid #e8e4dc", background: "#f2f0eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+              style={{ cursor: "pointer", width: 44, height: 44, borderRadius: 8, overflow: "hidden", border: "1.5px solid #e5e7eb", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}
             >
               {imgs[0]
                 ? <img src={imgs[0]} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.display = "none"; }} />
                 : <span style={{ fontSize: 18 }}>📦</span>}
             </div>,
             <div style={{ cursor: "pointer" }} onClick={() => openPreview(p)}>
-              <div style={{ fontWeight: 700, color: "#0d0d0d" }}>{p.name}</div>
-              <div style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>#{p.id} · {imgs.length} photo{imgs.length !== 1 ? "s" : ""}</div>
+              <div style={{ fontWeight: 700, color: "#111827" }}>{p.name}</div>
+              <div style={{ color: "#9ca3af", fontSize: 11 }}>#{p.id} · {imgs.length} photo{imgs.length !== 1 ? "s" : ""}</div>
             </div>,
             p.vendorName || "—", p.category, fmt(p.price), p.stock,
-            <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>{p.approved ? "Approved" : "Pending"}</span>,
+            <span style={{ ...as.badge, background: p.approved ? "#e8faf2" : "#fef3c7", color: p.approved ? "#16a34a" : "#b45309" }}>{p.approved ? "Approved" : "Pending"}</span>,
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <button style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px" }} onClick={() => openPreview(p)}>👁 View</button>
               {!p.approved && <button style={as.approveBtn} onClick={() => onApprove(p.id)}>✓</button>}
@@ -522,7 +522,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
                   <div style={{ padding: 24 }}>
                     {/* Approval status */}
                     <div style={{ marginBottom: 16 }}>
-                      <span style={{ ...as.badge, background: p.approved ? "#e8f9f2" : "#fef9e7", color: p.approved ? "#1db882" : "#d4a017" }}>
+                      <span style={{ ...as.badge, background: p.approved ? "#e8faf2" : "#fef3c7", color: p.approved ? "#16a34a" : "#b45309" }}>
                         {p.approved ? "✓ Approved" : "⏳ Pending Approval"}
                       </span>
                     </div>
@@ -534,7 +534,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
                         {hasDiscount && (
                           <>
                             <span style={{ fontSize: 14, color: "rgba(13,13,13,0.38)", textDecoration: "line-through" }}>{fmt(p.mrp)}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#1db882", background: "#e8f9f2", padding: "2px 8px", borderRadius: 6 }}>{discountPct}% off</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#16a34a", background: "#e8faf2", padding: "2px 8px", borderRadius: 6 }}>{discountPct}% off</span>
                           </>
                         )}
                       </div>
@@ -589,7 +589,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={e => { if (e.target === e.currentTarget) setConfirmModal(false); }}>
           <div style={{ background: "#fff", borderRadius: 18, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#e8f9f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>✓</div>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#e8faf2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>✓</div>
             <h3 style={{ textAlign: "center", margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>Approve All Pending?</h3>
             <p style={{ textAlign: "center", color: "rgba(13,13,13,0.55)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
               This will approve all <strong>{pendingCount} pending product{pendingCount === 1 ? "" : "s"}</strong> and make them immediately visible to customers.
@@ -597,7 +597,7 @@ function ProductsAdmin({ products, onApprove, onReject, onApproveAll }) {
             <div style={{ display: "flex", gap: 10 }}>
               <button style={{ ...as.filterBtn, flex: 1 }} onClick={() => setConfirmModal(false)}>Cancel</button>
               <button
-                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: "#1db882", color: "#fff" }}
+                style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: "#16a34a", color: "#fff", boxShadow: "0 2px 6px rgba(22, 163, 74, 0.3)", transition: "all 0.2s" }}
                 onClick={() => { onApproveAll(); setConfirmModal(false); }}
               >
                 ✓ Approve All
@@ -620,7 +620,7 @@ function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
   const [exporting, setExporting] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false); // id being cancelled, or null
   const [cancelConfirm, setCancelConfirm] = useState(null);     // order object awaiting confirm
-  const sColor = { PLACED:"#d4a017",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#1db882",CANCELLED:"#e84c3c" };
+  const sColor = { PLACED:"#d97706",CONFIRMED:"#2563eb",SHIPPED:"#0284c7",OUT_FOR_DELIVERY:"#7c3aed",DELIVERED:"#16a34a",CANCELLED:"#dc2626" };
 
   const handleExportCsv = async () => {
     setExporting(true);
@@ -714,8 +714,8 @@ function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
           style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "8px 16px", borderRadius: 10,
-            border: "1.5px solid #1db882", background: exporting ? "#f2f0eb" : "#edfaf4",
-            color: "#1db882", fontWeight: 700, fontSize: 13, cursor: (exporting || filtered.length === 0) ? "not-allowed" : "pointer",
+            border: "1.5px solid #16a34a", background: exporting ? "#f3f4f6" : "#e8faf2",
+            color: "#16a34a", fontWeight: 700, fontSize: 13, cursor: (exporting || filtered.length === 0) ? "not-allowed" : "pointer",
             opacity: filtered.length === 0 ? 0.5 : 1, transition: "background 0.15s"
           }}
         >
@@ -886,7 +886,7 @@ function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, paddingTop: 10, borderTop: "1px solid #f2f0eb", color: "#0d0d0d" }}>
                   <span>Total</span>
-                  <span style={{ color: "#1db882" }}>{fmt(selectedOrder.totalPrice || selectedOrder.amount)}</span>
+                  <span style={{ color: "#16a34a" }}>{fmt(selectedOrder.totalPrice || selectedOrder.amount)}</span>
                 </div>
               </div>
             </div>
@@ -899,8 +899,8 @@ function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
                   onClick={() => setCancelConfirm(selectedOrder)}
                   disabled={cancellingOrder === selectedOrder.id}
                   style={{
-                    padding: "8px 18px", borderRadius: 10, border: "1.5px solid #e84c3c",
-                    background: "#fff5f5", color: "#e84c3c", fontWeight: 700, fontSize: 13,
+                    padding: "8px 18px", borderRadius: 10, border: "1.5px solid #dc2626",
+                    background: "#fee2e2", color: "#dc2626", fontWeight: 700, fontSize: 13,
                     cursor: cancellingOrder === selectedOrder.id ? "not-allowed" : "pointer",
                     opacity: cancellingOrder === selectedOrder.id ? 0.6 : 1
                   }}
@@ -928,7 +928,7 @@ function OrdersAdmin({ orders, onUpdateStatus, api, auth }) {
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
-                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1.5px solid #e84c3c", background: "#e84c3c", color: "#fff", fontWeight: 700, fontSize: 14, cursor: cancellingOrder ? "not-allowed" : "pointer", opacity: cancellingOrder ? 0.6 : 1 }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1.5px solid #dc2626", background: "#dc2626", color: "#fff", fontWeight: 700, fontSize: 14, cursor: cancellingOrder ? "not-allowed" : "pointer", opacity: cancellingOrder ? 0.6 : 1 }}
                 disabled={!!cancellingOrder}
                 onClick={() => handleCancelOrder(cancelConfirm, "Admin-initiated cancellation")}
               >
@@ -1035,12 +1035,12 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
                   </select>
                 </td>
                 <td style={as.td}>
-                  <span style={{ color: c.verified ? "#1db882" : "#e84c3c" }}>
+                  <span style={{ color: c.verified ? "#16a34a" : "#dc2626" }}>
                     {c.verified ? "✓" : "✗"}
                   </span>
                 </td>
                 <td style={as.td}>
-                  <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#fef2f2", color: c.active ? "#1db882" : "#e84c3c" }}>
+                  <span style={{ ...as.badge, background: c.active ? "#e8faf2" : "#fee2e2", color: c.active ? "#16a34a" : "#dc2626" }}>
                     {c.active ? "Active" : "Inactive"}
                   </span>
                 </td>
@@ -1083,7 +1083,7 @@ function CustomersAdmin({ customers, onToggle, api, showToast }) {
               </button>
               <button
                 style={{ flex: 1, padding: "9px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.customer.role === "ADMIN" ? "#e84c3c" : "#0d0d0d",
+                  background: roleModal.newRole === "ADMIN" ? "#7c3aed" : roleModal.customer.role === "ADMIN" ? "#dc2626" : "#0d0d0d",
                   color: "#fff" }}
                 onClick={confirmRoleChange}
                 disabled={roleChanging}
@@ -1107,8 +1107,8 @@ function VendorsAdmin({ vendors, onToggle }) {
         cols={["ID","Name","Email","Mobile","Verified","Active","Action"]}
         rows={vendors.map(v => [
           `#${v.id}`, v.name, v.email, v.mobile,
-          <span style={{ color: v.verified ? "#1db882" : "#e84c3c" }}>{v.verified ? "✓" : "✗"}</span>,
-          <span style={{ ...as.badge, background: v.active !== false ? "#e8f9f2" : "#fef2f2", color: v.active !== false ? "#1db882" : "#e84c3c" }}>{v.active !== false ? "Active" : "Inactive"}</span>,
+          <span style={{ color: v.verified ? "#16a34a" : "#dc2626" }}>{v.verified ? "✓" : "✗"}</span>,
+          <span style={{ ...as.badge, background: v.active !== false ? "#e8faf2" : "#fef2f2", color: v.active !== false ? "#16a34a" : "#dc2626" }}>{v.active !== false ? "Active" : "Inactive"}</span>,
           <button style={v.active !== false ? as.rejectBtn : as.approveBtn} onClick={() => onToggle(v.id)}>{v.active !== false ? "Deactivate" : "Activate"}</button>
         ])}
         empty="No vendors"
@@ -1360,8 +1360,8 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
                 <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{order.customer?.mobile}</div>
               </div>,
               <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{order.deliveryPinCode || "N/A"}</span>,
-              order.warehouse ? order.warehouse.name : <span style={{ color: "#e84c3c", fontSize: 12 }}>Not assigned</span>,
-              <span style={{ fontWeight: 600, color: "#1db882" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
+              order.warehouse ? order.warehouse.name : <span style={{ color: "#dc2626", fontSize: 12 }}>Not assigned</span>,
+              <span style={{ fontWeight: 600, color: "#16a34a" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
               <select style={{ ...inputStyle, minWidth: 180 }}
                 value={selectMap[order.id] || ""}
                 onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
@@ -1399,7 +1399,7 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
               o.customer?.name || "—",
               o.deliveryPinCode || "—",
               o.deliveryBoy?.name || "—",
-              <span style={{ ...as.badge, background: "rgba(34,197,94,0.15)", color: "#1db882" }}>OUT FOR DELIVERY</span>
+              <span style={{ ...as.badge, background: "rgba(22,163,74,0.15)", color: "#16a34a" }}>OUT FOR DELIVERY</span>
             ])
           ]}
           empty="No orders in transit right now."
@@ -1421,8 +1421,8 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           rows={filtered.map(d => [
             `#${d.id}`, d.name, d.email, d.mobile || "—", d.deliveryBoyCode,
             d.warehouse ? d.warehouse.name : "—",
-            <span style={{ ...as.badge, background: d.approved ? "#e8f9f2" : "#fef9e7", color: d.approved ? "#1db882" : "#d4a017" }}>{d.approved ? "Active" : "Pending"}</span>,
-            <span style={{ ...as.badge, background: d.isAvailable ? "#e8f9f2" : "#ffe8e8", color: d.isAvailable ? "#1db882" : "#ff8060", fontWeight: 600 }}>
+            <span style={{ ...as.badge, background: d.approved ? "#e8faf2" : "#fef9e7", color: d.approved ? "#16a34a" : "#d97706" }}>{d.approved ? "Active" : "Pending"}</span>,
+            <span style={{ ...as.badge, background: d.isAvailable ? "#e8faf2" : "#ffe8e8", color: d.isAvailable ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
               <i className={`fas fa-circle`} style={{ fontSize: "0.6rem", marginRight: "0.4rem" }} />
               {d.isAvailable ? "Online" : "Offline"}
             </span>,
@@ -1799,7 +1799,7 @@ function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
           <span style={{ color: "rgba(13,13,13,0.6)", fontSize: 12 }}>{c.description || "—"}</span>,
           c.type === "FLAT"
             ? <span style={{ fontWeight: 700, color: "#6366f1" }}>₹{Number(c.value).toFixed(0)} off</span>
-            : <span style={{ fontWeight: 700, color: "#1db882" }}>{c.value}% off</span>,
+            : <span style={{ fontWeight: 700, color: "#16a34a" }}>{c.value}% off</span>,
           c.minOrderAmount > 0 ? <span>₹{Number(c.minOrderAmount).toLocaleString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)" }}>None</span>,
           c.maxDiscount > 0 ? <span>₹{Number(c.maxDiscount).toLocaleString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)" }}>No cap</span>,
           <span>
@@ -1807,7 +1807,7 @@ function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
             <span style={{ color: "rgba(13,13,13,0.4)", fontSize: 11 }}>{c.usageLimit > 0 ? ` / ${c.usageLimit}` : " / ∞"}</span>
           </span>,
           c.expiryDate ? <span style={{ fontSize: 11 }}>{new Date(c.expiryDate).toLocaleDateString("en-IN")}</span> : <span style={{ color: "rgba(13,13,13,0.35)", fontSize: 11 }}>Never</span>,
-          <span style={{ ...as.badge, background: c.active ? "#e8f9f2" : "#f2f0eb", color: c.active ? "#1db882" : "rgba(13,13,13,0.4)" }}>{c.active ? "Active" : "Disabled"}</span>,
+          <span style={{ ...as.badge, background: c.active ? "#e8faf2" : "#f2f0eb", color: c.active ? "#16a34a" : "rgba(13,13,13,0.4)" }}>{c.active ? "Active" : "Disabled"}</span>,
           <div style={{ display: "flex", gap: 6 }}>
             <button style={c.active ? as.rejectBtn : as.approveBtn} onClick={() => toggleCoupon(c.id)}>{c.active ? "Disable" : "Enable"}</button>
             <button style={as.rejectBtn} onClick={() => deleteCoupon(c.id, c.code)}>Delete</button>
@@ -1825,7 +1825,7 @@ function RefundsAdmin({ refunds, onApprove, onReject }) {
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const filtered = filter === "ALL" ? refunds : refunds.filter(r => r.status === filter);
-  const sColor = { PENDING: "#d4a017", APPROVED: "#1db882", REJECTED: "#e84c3c" };
+  const sColor = { PENDING: "#d97706", APPROVED: "#16a34a", REJECTED: "#dc2626" };
   return (
     <div>
       <h2 style={as.pageTitle}>Refund Management 💸</h2>
@@ -1854,7 +1854,7 @@ function RefundsAdmin({ refunds, onApprove, onReject }) {
           <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>{fmt(r.amount)}</div>
           <div style={{ fontSize: 12, color: "rgba(13,13,13,0.4)", marginBottom: 10 }}>
             {r.requestedAt ? new Date(r.requestedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-            {r.rejectionReason && <span style={{ marginLeft: 12, color: "#e84c3c" }}>Reason: {r.rejectionReason}</span>}
+            {r.rejectionReason && <span style={{ marginLeft: 12, color: "#dc2626" }}>Reason: {r.rejectionReason}</span>}
           </div>
           {r.status === "PENDING" && (
             <div style={{ display: "flex", gap: 10 }}>
@@ -1926,7 +1926,7 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
     else { showToast(d.message || "Error"); setBulkModal(null); }
   };
 
-  const barColors = { 5: "#d4a017", 4: "#a3e635", 3: "#38bdf8", 2: "#fb923c", 1: "#ef4444" };
+  const barColors = { 5: "#2563eb", 4: "#16a34a", 3: "#38bdf8", 2: "#d97706", 1: "#dc2626" };
   const starLabel = { 5: "★★★★★", 4: "★★★★☆", 3: "★★★☆☆", 2: "★★☆☆☆", 1: "★☆☆☆☆" };
 
   return (
@@ -1943,7 +1943,7 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
           ["Avg Rating", avgRating + " ⭐", "#d4a017"],
           ["5-Star", starCounts[5], "#d4a017"],
           ["4-Star", starCounts[4], "#a3e635"],
-          ["1–2 Star", starCounts[1] + starCounts[2], "#ef4444"],
+          ["1–2 Star", starCounts[1] + starCounts[2], "#dc2626"],
         ].map(([l, v, col]) => (
           <div key={l} style={as.statCard}>
             <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, color: col }}>{v}</div>
@@ -2076,7 +2076,7 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setDeleteModal(null)}>Cancel</button>
-              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                 onClick={() => { onDelete(deleteModal); setDeleteModal(null); }}>Delete</button>
             </div>
           </div>
@@ -2096,7 +2096,7 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setBulkModal(null)}>Cancel</button>
-              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                 onClick={handleBulkDelete}>Delete All</button>
             </div>
           </div>
@@ -2168,7 +2168,7 @@ function OrdersLineChart({ dailyOrders }) {
 }
 
 function CategoryDoughnutChart({ categoryStats }) {
-  const COLORS = ["#2563eb","#7c3aed","#1db882","#e84c3c","#d4a017","#0284c7","#14b8a6","#f97316"];
+  const COLORS = ["#2563eb","#7c3aed","#16a34a","#dc2626","#d97706","#0284c7","#14b8a6","#f97316"];
   const labels = Object.keys(categoryStats);
   const values = Object.values(categoryStats).map(Number);
   useChartJs((Chart) => {
@@ -2301,7 +2301,7 @@ function AnalyticsAdmin({ data, spending, orders, products, users, totalRevenue 
             {[
               { label: "Processing", count: processingOrders, color: "#d4a017", bg: "#fef9e7", border: "#d4a017" },
               { label: "Shipped",    count: shippedOrders,    color: "#2563eb", bg: "#eff6ff", border: "#2563eb" },
-              { label: "Delivered",  count: deliveredOrders,  color: "#1db882", bg: "#e8f9f2", border: "#1db882" },
+              { label: "Delivered",  count: deliveredOrders,  color: "#16a34a", bg: "#e8faf2", border: "#16a34a" },
             ].map(({ label, count, color, bg, border }) => (
               <div key={label} style={{
                 background: bg, borderRadius: 12, padding: "16px 12px",
@@ -2345,7 +2345,7 @@ function AnalyticsAdmin({ data, spending, orders, products, users, totalRevenue 
         <h3 style={as.cardTitle}>📋 Product Approval Status</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {[
-            { label: "Approved Products", count: approvedProducts,    color: "#1db882", bg: "#e8f9f2", border: "#1db882" },
+            { label: "Approved Products", count: approvedProducts,    color: "#16a34a", bg: "#e8faf2", border: "#16a34a" },
             { label: "Pending Approval",  count: pendingProductsCount, color: "#d4a017", bg: "#fef9e7", border: "#d4a017" },
           ].map(({ label, count, color, bg, border }) => (
             <div key={label} style={{
@@ -2703,7 +2703,7 @@ function UserSearch({ api, showToast }) {
           ["👥", "Total Users", totalUsers, "#d4a017"],
           ["👤", "Customers", allUsers.customers.length, "#2563eb"],
           ["🏪", "Vendors", allUsers.vendors.length, "#10b981"],
-          ["✅", "Verified", verifiedCount, "#22c55e"],
+          ["✅", "Verified", verifiedCount, "#16a34a"],
         ].map(([icon, label, val, color]) => (
           <div key={label} style={as.statCard}>
             <div style={{ ...as.statIcon(color), marginBottom: 8 }}>{icon}</div>
@@ -2857,13 +2857,13 @@ function UserSearch({ api, showToast }) {
         <div style={modalOverlay} onClick={() => setDeleteModal(null)}>
           <div style={{ ...modalBox, maxWidth: 380, textAlign: "center" }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#ef4444", marginBottom: 8 }}>Delete Account?</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#dc2626", marginBottom: 8 }}>Delete Account?</h3>
             <p style={{ color: "rgba(13,13,13,0.55)", fontSize: 13, marginBottom: 24 }}>
               Permanently delete <strong>{deleteModal.user.name}</strong>? This cannot be undone.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <button style={{ ...as.filterBtn, flex: 1, padding: "10px" }} onClick={() => setDeleteModal(null)}>Cancel</button>
-              <button style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }} onClick={handleDelete}>Yes, Delete</button>
+              <button style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }} onClick={handleDelete}>Yes, Delete</button>
             </div>
           </div>
         </div>
@@ -2920,40 +2920,40 @@ function AdminTable({ cols, rows, empty }) {
 
 /* ── Styles ── */
 const as = {
-  root: { minHeight: "100vh", background: "#fafaf8", fontFamily: "'DM Sans', sans-serif", color: "#0d0d0d" },
+  root: { minHeight: "100vh", background: "var(--ek-bg)", fontFamily: "'DM Sans', sans-serif", color: "var(--ek-text)" },
   main: { maxWidth: 1300, margin: "0 auto", padding: "32px 24px" },
-  nav: { background: "#fff", borderBottom: "1px solid #e8e4dc", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, overflowX: "auto" },
-  brand: { fontSize: 18, fontWeight: 800, color: "#0d0d0d", whiteSpace: "nowrap", letterSpacing: "-0.5px" },
+  nav: { background: "var(--ek-nav-bg)", borderBottom: "1.5px solid var(--ek-border)", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, overflowX: "auto", boxShadow: "var(--ek-nav-shadow)" },
+  brand: { fontSize: 18, fontWeight: 800, color: "var(--ek-text)", whiteSpace: "nowrap", letterSpacing: "-0.5px" },
   navLinks: { display: "flex", gap: 2, flex: 1 },
-  navBtn: { padding: "7px 12px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(13,13,13,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" },
-  navBtnActive: { background: "#0d0d0d", color: "#fff" },
-  logoutBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid #e8e4dc", background: "transparent", color: "#e84c3c", cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" },
-  toast: { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#0d0d0d", color: "#fff", padding: "12px 24px", borderRadius: 10, fontSize: 14, fontWeight: 600, zIndex: 999 },
-  pageTitle: { fontSize: 24, fontWeight: 800, marginBottom: 24, color: "#0d0d0d", letterSpacing: "-0.5px" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 14, marginBottom: 32 },
-  statCard: { background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18 },
-  statIcon: c => ({ fontSize: 22, marginBottom: 8, width: 40, height: 40, borderRadius: 10, background: c + "18", display: "flex", alignItems: "center", justifyContent: "center" }),
-  statVal: { fontSize: 22, fontWeight: 900, color: "#0d0d0d", marginBottom: 2 },
-  statLabel: { color: "rgba(13,13,13,0.5)", fontSize: 12 },
+  navBtn: { padding: "8px 14px", borderRadius: 8, border: "none", background: "transparent", color: "var(--ek-muted)", cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" },
+  navBtnActive: { background: "var(--ek-primary)", color: "#fff", boxShadow: "0 2px 6px rgba(37, 99, 235, 0.3)" },
+  logoutBtn: { padding: "8px 16px", borderRadius: 8, border: "1.5px solid var(--ek-danger)", background: "var(--ek-danger-soft)", color: "var(--ek-danger)", cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", transition: "all 0.2s" },
+  toast: { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ek-surface)", color: "var(--ek-text)", padding: "14px 24px", borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 999, boxShadow: "var(--ek-shadow)", border: "1px solid var(--ek-border)" },
+  pageTitle: { fontSize: 28, fontWeight: 800, marginBottom: 28, color: "var(--ek-text)", letterSpacing: "-0.5px" },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 },
+  statCard: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 16, padding: 22, boxShadow: "var(--ek-shadow)", transition: "all 0.3s", cursor: "pointer" },
+  statIcon: c => ({ fontSize: 24, marginBottom: 12, width: 48, height: 48, borderRadius: 12, background: c + "15", display: "flex", alignItems: "center", justifyContent: "center" }),
+  statVal: { fontSize: 26, fontWeight: 900, color: "var(--ek-text)", marginBottom: 4 },
+  statLabel: { color: "var(--ek-muted)", fontSize: 13, fontWeight: 500 },
   twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
-  card: { background: "#fff", border: "1px solid #e8e4dc", borderRadius: 16, padding: 20, marginBottom: 16 },
-  cardTitle: { fontSize: 15, fontWeight: 700, color: "#0d0d0d", marginBottom: 16 },
-  badge: { padding: "3px 10px", borderRadius: 50, fontSize: 11, fontWeight: 700 },
-  tableWrap: { background: "#fff", borderRadius: 16, border: "1px solid #e8e4dc", overflow: "auto" },
+  card: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 16, padding: 24, marginBottom: 16, boxShadow: "var(--ek-shadow)", transition: "all 0.3s" },
+  cardTitle: { fontSize: 16, fontWeight: 700, color: "var(--ek-text)", marginBottom: 18 },
+  badge: { padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  tableWrap: { background: "var(--ek-surface)", borderRadius: 16, border: "1.5px solid var(--ek-border)", overflow: "hidden", boxShadow: "var(--ek-shadow)" },
   table: { width: "100%", borderCollapse: "collapse", minWidth: 600 },
-  thead: { background: "#f2f0eb" },
-  th: { padding: "12px 14px", textAlign: "left", color: "rgba(13,13,13,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" },
-  tr: { borderBottom: "1px solid #f2f0eb" },
-  td: { padding: "12px 14px", fontSize: 13, color: "#0d0d0d" },
-  approveBtn: { padding: "5px 12px", borderRadius: 7, border: "1px solid #86efac", background: "#e8f9f2", color: "#1db882", cursor: "pointer", fontSize: 12, fontWeight: 700, marginRight: 6 },
-  rejectBtn: { padding: "5px 12px", borderRadius: 7, border: "1px solid #fca5a5", background: "#fef2f2", color: "#e84c3c", cursor: "pointer", fontSize: 12, fontWeight: 700 },
-  filterBtn: { padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e4dc", background: "transparent", color: "rgba(13,13,13,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 600 },
-  filterBtnActive: { background: "#0d0d0d", color: "#fff", border: "1px solid #0d0d0d" },
-  statusSelect: { padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e4dc", background: "#fafaf8", color: "#0d0d0d", fontSize: 12 },
-  searchInput: { padding: "10px 16px", borderRadius: 10, border: "1px solid #e8e4dc", background: "#fff", color: "#0d0d0d", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" },
-  inputFull: { width: "100%", padding: "10px 14px", borderRadius: 10, border: "2px solid #e8e4dc", background: "#fafaf8", color: "#0d0d0d", fontSize: 14, boxSizing: "border-box", outline: "none" },
-  label: { display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, color: "#0d0d0d" },
-  empty: { textAlign: "center", padding: "40px", color: "rgba(13,13,13,0.4)", fontSize: 15 },
+  thead: { background: "var(--ek-surface-alt)" },
+  th: { padding: "14px 16px", textAlign: "left", color: "var(--ek-muted)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" },
+  tr: { borderBottom: "1px solid var(--ek-border)", transition: "background-color 0.2s" },
+  td: { padding: "14px 16px", fontSize: 14, color: "var(--ek-text)" },
+  approveBtn: { padding: "6px 14px", borderRadius: 8, border: "1.5px solid var(--ek-success)", background: "var(--ek-success-soft)", color: "var(--ek-success)", cursor: "pointer", fontSize: 12, fontWeight: 700, marginRight: 6, transition: "all 0.2s" },
+  rejectBtn: { padding: "6px 14px", borderRadius: 8, border: "1.5px solid var(--ek-danger)", background: "var(--ek-danger-soft)", color: "var(--ek-danger)", cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.2s" },
+  filterBtn: { padding: "7px 16px", borderRadius: 8, border: "1.5px solid var(--ek-border)", background: "var(--ek-surface)", color: "var(--ek-text)", cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.2s" },
+  filterBtnActive: { background: "var(--ek-primary)", color: "#fff", border: "1.5px solid var(--ek-primary)", boxShadow: "0 2px 6px rgba(37, 99, 235, 0.3)" },
+  statusSelect: { padding: "7px 12px", borderRadius: 8, border: "1.5px solid var(--ek-border)", background: "var(--ek-surface)", color: "var(--ek-text)", fontSize: 13, fontWeight: 500 },
+  searchInput: { padding: "11px 16px", borderRadius: 10, border: "1.5px solid var(--ek-border)", background: "var(--ek-surface)", color: "var(--ek-text)", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box", transition: "border-color 0.2s" },
+  inputFull: { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid var(--ek-border)", background: "var(--ek-surface)", color: "var(--ek-text)", fontSize: 14, boxSizing: "border-box", outline: "none", transition: "border-color 0.2s" },
+  label: { display: "block", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, color: "var(--ek-muted)" },
+  empty: { textAlign: "center", padding: "48px 24px", color: "var(--ek-muted)", fontSize: 15, fontWeight: 500 },
 };
 
 /* ── Accounts Admin ── */
@@ -3107,7 +3107,7 @@ function AccountsAdmin() {
                     </span>
                   </td>
                   <td style={as.td}>
-                    <span style={{ ...as.badge, background: a.active ? "#e8f9f2" : "#fef2f2", color: a.active ? "#1db882" : "#e84c3c" }}>
+                    <span style={{ ...as.badge, background: a.active ? "#e8faf2" : "#fee2e2", color: a.active ? "#16a34a" : "#dc2626" }}>
                       {a.active ? "Active" : "Suspended"}
                     </span>
                   </td>
@@ -3746,7 +3746,7 @@ function ContentAdmin() {
 
           {/* Upload button */}
           <button
-            style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "#1db882", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", opacity: (!bulkFile || bulkUploading || bulkRowErrors.length > 0) ? 0.45 : 1, alignSelf: "flex-end" }}
+            style={{ padding: "10px 22px", borderRadius: 9, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", boxShadow: "0 2px 6px rgba(22, 163, 74, 0.3)", opacity: (!bulkFile || bulkUploading || bulkRowErrors.length > 0) ? 0.45 : 1, alignSelf: "flex-end", transition: "all 0.2s" }}
             onClick={handleBulkSubmit} disabled={!bulkFile || bulkUploading || bulkRowErrors.length > 0}
           >
             {bulkUploading ? "⏳ Importing…" : "⬆ Import CSV"}
@@ -3930,16 +3930,16 @@ function ContentAdmin() {
 
 /* ── Shared modal styles ── */
 const modalOverlay = {
-  position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 500,
+  position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 500,
   display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
 };
 const modalBox = {
-  background: "#fff", borderRadius: 18, padding: 28, maxWidth: 600, width: "100%",
-  maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+  background: "#ffffff", borderRadius: 20, padding: 32, maxWidth: 600, width: "100%",
+  maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", border: "1.5px solid #e5e7eb",
 };
 const closeBtnStyle = {
-  background: "none", border: "none", fontSize: 18, cursor: "pointer",
-  color: "rgba(13,13,13,0.4)", lineHeight: 1,
+  background: "none", border: "none", fontSize: 20, cursor: "pointer",
+  color: "#9ca3af", lineHeight: 1, transition: "color 0.2s", padding: "4px 8px",
 };
 
 /* ── Policies Admin ── */
@@ -4127,7 +4127,7 @@ function CategoryAdmin({ categories, api, showToast, onRefresh }) {
               <input style={{ ...inp, width: "100%", boxSizing: "border-box" }} type="number" value={addSubForm.displayOrder}
                 onChange={e => setAddSubForm(f => ({ ...f, displayOrder: e.target.value }))} />
             </div>
-            <button style={{ ...btn, background: "#1db882", color: "#fff" }} onClick={handleAddSub} disabled={loading}>
+            <button style={{ ...btn, background: "#16a34a", color: "#fff", boxShadow: "0 2px 6px rgba(22, 163, 74, 0.3)" }} onClick={handleAddSub} disabled={loading}>
               {loading ? "…" : "Add Sub"}
             </button>
           </div>

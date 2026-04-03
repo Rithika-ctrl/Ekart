@@ -82,7 +82,7 @@ export default function VendorApp() {
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "#9ca3af", fontSize: 13 }}>{auth.email}</span>
+          <span style={{ color: "#6b7280", fontSize: 13 }}>{auth.email}</span>
           <button style={vs.logoutBtn} onClick={() => { logout(); navigate("/auth", { replace: true }); }}>Logout</button>
         </div>
       </nav>
@@ -112,12 +112,12 @@ export default function VendorApp() {
 
 function Dashboard({ stats, orders, products }) {
   const statCards = [
-    { label: "Total Revenue", value: fmt(stats?.totalRevenue), icon: "💰", color: "#22c55e" },
+    { label: "Total Revenue", value: fmt(stats?.totalRevenue), icon: "💰", color: "#16a34a" },
     { label: "Total Orders", value: stats?.totalOrders ?? "–", icon: "📦", color: "#6366f1" },
-    { label: "Total Products", value: stats?.totalProducts ?? "–", icon: "🏷️", color: "#f59e0b" },
-    { label: "Low Stock Items", value: stats?.lowStockProducts ?? "–", icon: "⚠️", color: "#ef4444" },
+    { label: "Total Products", value: stats?.totalProducts ?? "–", icon: "🏷️", color: "#d97706" },
+    { label: "Low Stock Items", value: stats?.lowStockProducts ?? "–", icon: "⚠️", color: "#dc2626" },
   ];
-  const statusColor = { PROCESSING: "#f59e0b", PACKED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", REFUNDED: "#10b981", CANCELLED: "#ef4444" };
+  const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
   return (
     <div>
       <h2 style={vs.pageTitle}>Dashboard</h2>
@@ -135,10 +135,10 @@ function Dashboard({ stats, orders, products }) {
           <h3 style={vs.cardTitle}>Recent Orders</h3>
           {(orders || []).slice(0, 5).map(o => (
             <div key={o.id} style={vs.listRow}>
-              <span style={{ color: "#e5e7eb", fontWeight: 600 }}>#{o.id}</span>
-              <span style={{ color: "#9ca3af", fontSize: 13 }}>{o.customerName || "–"}</span>
+              <span style={{ color: "#374151", fontWeight: 700 }}>#{o.id}</span>
+              <span style={{ color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
               <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
-              <span style={{ color: "#fff", fontWeight: 700 }}>{fmt(o.amount || o.totalPrice)}</span>
+              <span style={{ color: "#111827", fontWeight: 700 }}>{fmt(o.amount || o.totalPrice)}</span>
             </div>
           ))}
           {(!orders || orders.length === 0) && <p style={vs.empty}>No orders yet</p>}
@@ -147,9 +147,9 @@ function Dashboard({ stats, orders, products }) {
           <h3 style={vs.cardTitle}>Product Summary</h3>
           {(products || []).slice(0, 6).map(p => (
             <div key={p.id} style={vs.listRow}>
-              <span style={{ color: "#e5e7eb", fontSize: 13, flex: 1 }}>{p.name}</span>
-              <span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontSize: 13, fontWeight: 600 }}>Stock: {p.stock}</span>
-              <span style={{ color: "#fff", fontSize: 13 }}>{fmt(p.price)}</span>
+              <span style={{ color: "#111827", fontSize: 13, flex: 1, fontWeight: 500 }}>{p.name}</span>
+              <span style={{ color: p.stock <= 10 ? "#dc2626" : "#16a34a", fontSize: 13, fontWeight: 700 }}>Stock: {p.stock}</span>
+              <span style={{ color: "#111827", fontSize: 13, fontWeight: 700 }}>{fmt(p.price)}</span>
             </div>
           ))}
         </div>
@@ -159,7 +159,7 @@ function Dashboard({ stats, orders, products }) {
 }
 
 function OrdersView({ orders, onMarkPacked }) {
-  const statusColor = { PROCESSING: "#f59e0b", PACKED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#22c55e", REFUNDED: "#10b981", CANCELLED: "#ef4444" };
+  const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
   const pending = (orders || []).filter(o => o.trackingStatus === "PROCESSING");
   const inProgress = (orders || []).filter(o => ["PACKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
   const done = (orders || []).filter(o => ["DELIVERED", "REFUNDED", "CANCELLED"].includes(o.trackingStatus));
@@ -168,22 +168,22 @@ function OrdersView({ orders, onMarkPacked }) {
     <div style={vs.orderCard}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div>
-          <span style={{ fontWeight: 700, color: "#e5e7eb" }}>#{o.id}</span>
-          <span style={{ marginLeft: 12, color: "#9ca3af", fontSize: 13 }}>{o.customerName || "–"}</span>
-          {o.customer?.mobile && <span style={{ marginLeft: 8, color: "#9ca3af", fontSize: 12 }}>📞 {o.customer.mobile}</span>}
+          <span style={{ fontWeight: 700, color: "#374151" }}>#{o.id}</span>
+          <span style={{ marginLeft: 12, color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
+          {o.customer?.mobile && <span style={{ marginLeft: 8, color: "#6b7280", fontSize: 12 }}>📞 {o.customer.mobile}</span>}
         </div>
         <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
       </div>
-      <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 8 }}>
+      <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
         {(o.items || []).map(i => `${i.name} × ${i.quantity}`).join(", ")}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 13, color: "#9ca3af" }}>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>
           {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "–"}
-          {o.paymentMode && <span style={{ marginLeft: 10, color: "#f59e0b" }}>{o.paymentMode}</span>}
+          {o.paymentMode && <span style={{ marginLeft: 10, color: "#d97706" }}>{o.paymentMode}</span>}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontWeight: 700, color: "#fff" }}>{fmt(o.amount || o.totalPrice)}</span>
+          <span style={{ fontWeight: 700, color: "#111827" }}>{fmt(o.amount || o.totalPrice)}</span>
           {o.trackingStatus === "PROCESSING" && (
             <button style={vs.primaryBtn} onClick={() => onMarkPacked(o.id)}>✓ Mark Packed</button>
           )}
@@ -197,7 +197,7 @@ function OrdersView({ orders, onMarkPacked }) {
       <h2 style={vs.pageTitle}>Orders</h2>
       {pending.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <h3 style={{ color: "#f59e0b", marginBottom: 12, fontSize: 16 }}>🆕 New Orders — Pack & Mark Ready ({pending.length})</h3>
+          <h3 style={{ color: "#d97706", marginBottom: 12, fontSize: 16 }}>🆕 New Orders — Pack & Mark Ready ({pending.length})</h3>
           {pending.map(o => <OrderRow key={o.id} o={o} />)}
         </div>
       )}
@@ -241,9 +241,9 @@ function SalesReport({ salesData, onPeriodChange }) {
 
       <div style={vs.statsGrid}>
         {[
-          { label: "Total Revenue", value: fmt(salesData?.totalRevenue || 0), icon: "💰", color: "#22c55e" },
+          { label: "Total Revenue", value: fmt(salesData?.totalRevenue || 0), icon: "💰", color: "#16a34a" },
           { label: "Orders", value: salesData?.totalOrders || 0, icon: "📦", color: "#6366f1" },
-          { label: "Avg Order Value", value: fmt(salesData?.avgOrderValue || 0), icon: "📊", color: "#f59e0b" },
+          { label: "Avg Order Value", value: fmt(salesData?.avgOrderValue || 0), icon: "📊", color: "#d97706" },
           { label: "Top Product", value: salesData?.topProduct || "—", icon: "🏆", color: "#8b5cf6" },
         ].map(s => (
           <div key={s.label} style={vs.statCard}>
@@ -260,8 +260,8 @@ function SalesReport({ salesData, onPeriodChange }) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 140 }}>
             {data.map((d, i) => (
               <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ fontSize: 10, color: "#9ca3af" }}>{fmt(d.revenue || 0)}</div>
-                <div style={{ width: "100%", background: "linear-gradient(180deg,#22c55e,#16a34a)", borderRadius: "4px 4px 0 0", height: `${((d.revenue || 0) / maxRevenue) * 100}px`, minHeight: 4 }} />
+                <div style={{ fontSize: 10, color: "#6b7280" }}>{fmt(d.revenue || 0)}</div>
+                <div style={{ width: "100%", background: "linear-gradient(180deg,#16a34a,#15803d)", borderRadius: "4px 4px 0 0", height: `${((d.revenue || 0) / maxRevenue) * 100}px`, minHeight: 4 }} />
                 <div style={{ fontSize: 10, color: "#6b7280" }}>{d.label || d.date || i + 1}</div>
               </div>
             ))}
@@ -318,12 +318,12 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
       <div style={vs.twoCol}>
         <div style={vs.card}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, color: "#fff", fontWeight: 700 }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#16a34a,#15803d)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, color: "#fff", fontWeight: 700 }}>
               {(profile?.name || "?")[0].toUpperCase()}
             </div>
             <div>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: 20 }}>{profile?.name || "—"}</div>
-              <div style={{ color: "#9ca3af", fontSize: 13 }}>Vendor Code: {profile?.vendorCode || "—"}</div>
+              <div style={{ color: "#111827", fontWeight: 800, fontSize: 20 }}>{profile?.name || "—"}</div>
+              <div style={{ color: "#6b7280", fontSize: 13 }}>Vendor Code: {profile?.vendorCode || "—"}</div>
             </div>
           </div>
 
@@ -335,7 +335,7 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
           ].map(([k, v]) => (
             <div key={k} style={vs.infoRow}>
               <span style={vs.infoLabel}>{k}</span>
-              <span style={{ ...vs.infoVal, color: k === "Verified" ? (profile?.verified ? "#22c55e" : "#ef4444") : "#e5e7eb" }}>{v || "—"}</span>
+              <span style={{ ...vs.infoVal, color: k === "Verified" ? (profile?.verified ? "#16a34a" : "#dc2626") : "#111827" }}>{v || "—"}</span>
             </div>
           ))}
 
@@ -365,9 +365,9 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
             { icon: "⏳", label: "Pending Approval", value: products?.filter(p => !p.approved).length || 0 },
             { icon: "⚠️", label: "Low Stock", value: products?.filter(p => p.stock <= 10).length || 0 },
           ].map(s => (
-            <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <span style={{ color: "#9ca3af", fontSize: 14 }}>{s.icon} {s.label}</span>
-              <span style={{ color: "#fff", fontWeight: 700 }}>{s.value}</span>
+            <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <span style={{ color: "#6b7280", fontSize: 14 }}>{s.icon} {s.label}</span>
+              <span style={{ color: "#111827", fontWeight: 700 }}>{s.value}</span>
             </div>
           ))}
         </div>
@@ -443,7 +443,7 @@ function PinTagInput({ value, onChange }) {
             fontSize: 13, minWidth: 180, flex: 1, fontFamily: "inherit" }}
         />
       </div>
-      {pinError && <div style={{ color: "#f87171", fontSize: 11, marginTop: 4 }}>{pinError}</div>}
+      {pinError && <div style={{ color: "#dc2626", fontSize: 11, marginTop: 4 }}>{pinError}</div>}
     </div>
   );
 }
@@ -466,20 +466,21 @@ function FileUploadArea({ label, accept, multiple, onChange, fileNames, icon }) 
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={e => { e.preventDefault(); setDragging(false); const files = Array.from(e.dataTransfer.files); onChange(multiple ? files : files[0] || null); }}
-        style={{ background: dragging ? "rgba(245,168,0,0.08)" : "rgba(255,255,255,0.04)",
-          border: `2px dashed ${dragging ? "#f5a800" : "rgba(255,255,255,0.18)"}`,
-          borderRadius: 10, padding: "16px 12px", textAlign: "center", cursor: "pointer",
+        style={{ background: dragging ? "var(--ek-surface-alt)" : "var(--ek-surface)",
+          border: `2px dashed ${dragging ? "#f5a800" : "var(--ek-border)"}`,
+          borderRadius: 12, padding: "18px 14px", textAlign: "center", cursor: "pointer",
+          color: "var(--ek-text)",
           transition: "all 0.2s" }}>
         <input ref={inputRef} type="file" accept={accept} multiple={multiple}
           onChange={handleChange} style={{ display: "none" }} />
-        <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
-          <strong style={{ color: "rgba(255,255,255,0.8)", display: "block", marginBottom: 2 }}>
+        <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
+        <div style={{ fontSize: 12, color: "var(--ek-muted)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--ek-text)", display: "block", marginBottom: 2 }}>
             Click or drag to upload
           </strong>
           {accept}
         </div>
-        {fileNames && <div style={{ marginTop: 6, fontSize: 11, color: "#f5a800", fontWeight: 600, wordBreak: "break-all" }}>{fileNames}</div>}
+        {fileNames && <div style={{ marginTop: 8, fontSize: 11, color: "#f5a800", fontWeight: 700, wordBreak: "break-all" }}>{fileNames}</div>}
       </div>
     </div>
   );
@@ -600,9 +601,9 @@ function BulkCsvUpload({ api, showToast }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: "#f5a800", textTransform: "uppercase", letterSpacing: 1 }}>📄 Bulk CSV Import</span>
       </div>
-      <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 16 }}>
+      <p style={{ color: "var(--ek-muted)", fontSize: 13, marginBottom: 16, lineHeight: 1.7 }}>
         Upload a CSV/PIM export to add multiple products at once.
-        Required: <strong style={{ color: "#9ca3af" }}>name (Product Name), price (Selling Price), stock</strong>.
+        Required: <strong style={{ color: "var(--ek-text)" }}>name (Product Name), price (Selling Price), stock</strong>.
         {" "}<a href={"data:text/csv;charset=utf-8," + encodeURIComponent(SAMPLE_CSV)} download="vendor-product-import-template.csv" style={{ color: "#f5a800" }}>Download sample template</a>
         {" "}· <button type="button" onClick={downloadExcelTemplate}
           style={{ background: "none", border: "none", padding: 0, color: "#f5a800", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>
@@ -610,12 +611,12 @@ function BulkCsvUpload({ api, showToast }) {
         </button>
         {" "}or <a href="/sample-product-upload.csv" target="_blank" rel="noopener noreferrer" download="sample-product-upload.csv" style={{ color: "#f5a800" }}>view legacy sample</a>
       </p>
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
-        <div style={{ color: "#e5e7eb", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Accepted Columns (aligned to Add Product)</div>
-        <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.6 }}>
+      <div style={{ background: "var(--ek-surface)", border: "1px solid var(--ek-border)", borderRadius: 12, padding: "12px 14px", marginBottom: 14, boxShadow: "var(--ek-shadow)" }}>
+        <div style={{ color: "var(--ek-text)", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Accepted Columns (aligned to Add Product)</div>
+        <div style={{ color: "var(--ek-muted)", fontSize: 12, lineHeight: 1.7 }}>
           id (optional for update), name, description, price, mrp, category, stock, imageLink, stockAlertThreshold, gstRate, allowedPinCodes
         </div>
-        <div style={{ color: "#6b7280", fontSize: 11, marginTop: 6 }}>
+        <div style={{ color: "var(--ek-muted)", fontSize: 11, marginTop: 6, lineHeight: 1.6 }}>
           PIM-friendly header aliases also work: Product Name, Selling Price, Image URL, Stock Alert Threshold, GST Rate, Allowed Pin Codes.
           For allowedPinCodes, use a quoted comma-separated value like "400001,400002,400003".
         </div>
@@ -635,10 +636,10 @@ function BulkCsvUpload({ api, showToast }) {
       </div>
       {progress && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", height: 8 }}>
-            <div style={{ height: "100%", width: `${progress.pct}%`, background: progress.error ? "#ef4444" : "#f5a800", transition: "width 0.4s" }} />
+          <div style={{ background: "var(--ek-surface-alt)", borderRadius: 6, overflow: "hidden", height: 8 }}>
+            <div style={{ height: "100%", width: `${progress.pct}%`, background: progress.error ? "#dc2626" : "#2563eb", transition: "width 0.4s" }} />
           </div>
-          <div style={{ fontSize: 12, marginTop: 6, color: progress.error ? "#f87171" : "#9ca3af" }}>
+          <div style={{ fontSize: 12, marginTop: 6, color: progress.error ? "#dc2626" : "var(--ek-muted)" }}>
             {progress.msg}{progress.error ? ` — ${progress.error}` : ""}
           </div>
         </div>
@@ -651,16 +652,16 @@ function BulkCsvUpload({ api, showToast }) {
 function UploadOverlay() {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(5,8,20,0.88)", backdropFilter: "blur(8px)",
+      background: "var(--ek-overlay)", backdropFilter: "blur(8px)",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
       <div style={{ width: 56, height: 56, borderRadius: "50%",
         border: "4px solid rgba(245,168,0,0.2)", borderTopColor: "#f5a800",
         animation: "pm-spin 0.9s linear infinite" }} />
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Uploading your product…</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>Uploading images &amp; video to Cloudinary — please wait, this can take up to 60 seconds</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ek-text)", marginBottom: 6 }}>Uploading your product…</div>
+        <div style={{ fontSize: 12, color: "var(--ek-muted)", lineHeight: 1.6 }}>Uploading images &amp; video to Cloudinary — please wait, this can take up to 60 seconds</div>
       </div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Please don't close this tab</div>
+      <div style={{ fontSize: 11, color: "var(--ek-muted)" }}>Please don't close this tab</div>
       <style>{`@keyframes pm-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -794,7 +795,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={vs.cardTitle}>{editProduct ? "✏️ Edit Product" : "📦 Add New Product"}</h3>
               <button onClick={() => setShowForm(false)}
-                style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 20 }}>✕</button>
+                style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 20 }}>✕</button>
             </div>
 
             {/* ── Basic Details ── */}
@@ -838,7 +839,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
               <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "flex-end", gap: 12 }}>
                 {/* Selling Price */}
                 <div style={{ flex: 1 }}>
-                  <label style={vs.label}>Selling Price (₹) <span style={{ color: "#ef4444" }}>*</span></label>
+                  <label style={vs.label}>Selling Price (₹) <span style={{ color: "#dc2626" }}>*</span></label>
                   <div style={{ position: "relative" }}>
                     <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
                       color: "#6b7280", fontSize: 14, pointerEvents: "none", userSelect: "none" }}>₹</span>
@@ -869,7 +870,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   background: "rgba(245,168,0,0.07)", border: "1px solid rgba(245,168,0,0.25)",
                   borderRadius: 10, padding: "10px 14px" }}>
                   {previewPct > 0 && (
-                    <span style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444",
+                    <span style={{ background: "rgba(220,38,38,0.15)", color: "#dc2626",
                       border: "1px solid rgba(239,68,68,0.3)", fontSize: 12, fontWeight: 800,
                       padding: "2px 8px", borderRadius: 6 }}>-{previewPct}%</span>
                   )}
@@ -934,7 +935,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: "#6b7280", marginTop: 5, lineHeight: 1.5 }}>
-                  ℹ️ Prices are <strong style={{ color: "#9ca3af" }}>GST-inclusive</strong> (MRP style).
+                  ℹ️ Prices are <strong style={{ color: "#6b7280" }}>GST-inclusive</strong> (MRP style).
                   The correct tax is back-calculated and shown to customers at checkout.
                   Update this field whenever the government revises the GST slab for your product.
                 </div>
@@ -1022,7 +1023,7 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                     <div>
                       <div style={{ textDecoration: "line-through", color: "#6b7280", fontSize: 12 }}>{fmt(p.mrp)}</div>
                       {p.mrp > p.price && (
-                        <div style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>
+                        <div style={{ color: "#dc2626", fontSize: 11, fontWeight: 700 }}>
                           -{Math.round((p.mrp - p.price) / p.mrp * 100)}%
                         </div>
                       )}
@@ -1047,11 +1048,11 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
                   })()}
                 </td>
                 <td style={vs.td}>
-                  <span style={{ color: p.stock <= 10 ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{p.stock}</span>
-                  {p.stock <= p.stockAlertThreshold && <div style={{ fontSize: 10, color: "#f59e0b" }}>⚠ Low</div>}
+                  <span style={{ color: p.stock <= 10 ? "#dc2626" : "#16a34a", fontWeight: 700 }}>{p.stock}</span>
+                  {p.stock <= p.stockAlertThreshold && <div style={{ fontSize: 10, color: "#d97706" }}>⚠ Low</div>}
                 </td>
                 <td style={vs.td}>
-                  <span style={{ ...vs.badge, background: p.approved ? "#22c55e" : "#f59e0b" }}>
+                  <span style={{ ...vs.badge, background: p.approved ? "#e8faf2" : "#fef3c7", color: p.approved ? "#16a34a" : "#b45309" }}>
                     {p.approved ? "Approved" : "Pending"}
                   </span>
                 </td>
@@ -1075,10 +1076,10 @@ function ProductsManager({ products, api, onRefresh, showToast }) {
 function SectionLabel({ icon, text, optional }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "20px 0 12px",
-      fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#f5a800" }}>
+      fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2563eb" }}>
       {icon} {text}
       {optional && <span style={{ color: "#6b7280", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>(Optional)</span>}
-      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+      <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
     </div>
   );
 }
@@ -1099,8 +1100,8 @@ function StockAlertsView({ alerts, api, onRefresh, showToast }) {
         pendingAlerts.map(a => (
           <div key={a.id} style={vs.alertCard}>
             <div>
-              <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.productName}</div>
-              <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 4 }}>Stock: <span style={{ color: "#ef4444", fontWeight: 700 }}>{a.currentStock}</span> (threshold: {a.threshold})</div>
+              <div style={{ color: "#111827", fontWeight: 700 }}>{a.productName}</div>
+              <div style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>Stock: <span style={{ color: "#dc2626", fontWeight: 700 }}>{a.currentStock}</span> (threshold: {a.threshold})</div>
               <div style={{ color: "#6b7280", fontSize: 12 }}>{a.message}</div>
             </div>
             <button style={vs.secondaryBtn} onClick={() => ack(a.id)}>Acknowledge</button>
@@ -1113,11 +1114,11 @@ function StockAlertsView({ alerts, api, onRefresh, showToast }) {
           {acknowledgedAlerts.slice(0, 10).map(a => (
             <div key={a.id} style={{ ...vs.alertCard, opacity: 0.75 }}>
               <div>
-                <div style={{ color: "#e5e7eb", fontWeight: 700 }}>{a.productName}</div>
-                <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 4 }}>Stock: <span style={{ color: "#ef4444", fontWeight: 700 }}>{a.currentStock}</span> (threshold: {a.threshold})</div>
+                <div style={{ color: "#111827", fontWeight: 700 }}>{a.productName}</div>
+                <div style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>Stock: <span style={{ color: "#dc2626", fontWeight: 700 }}>{a.currentStock}</span> (threshold: {a.threshold})</div>
                 <div style={{ color: "#6b7280", fontSize: 12 }}>{a.message}</div>
               </div>
-              <span style={{ ...vs.badge, background: "#374151", color: "#d1d5db" }}>Acknowledged</span>
+              <span style={{ ...vs.badge, background: "#f3f4f6", color: "#374151" }}>Acknowledged</span>
             </div>
           ))}
         </div>
@@ -1152,7 +1153,7 @@ function VendorProfile({ profile, api, onRefresh, showToast }) {
         <div style={vs.card}>
           <div style={vs.vendorAvatar}>{(profile.name || "?")[0].toUpperCase()}</div>
           {[["Vendor Code", profile.vendorCode || "N/A"], ["Email", profile.email], ["Verified", profile.verified ? "✓ Yes" : "✗ No"]].map(([k, v]) => (
-            <div key={k} style={vs.infoRow}><span style={vs.infoLabel}>{k}</span><span style={{ color: k === "Verified" ? (profile.verified ? "#22c55e" : "#ef4444") : "#e5e7eb", fontSize: 13, fontWeight: 600 }}>{v}</span></div>
+            <div key={k} style={vs.infoRow}><span style={vs.infoLabel}>{k}</span><span style={{ color: k === "Verified" ? (profile.verified ? "#16a34a" : "#dc2626") : "#111827", fontSize: 13, fontWeight: 600 }}>{v}</span></div>
           ))}
           <div style={{ marginTop: 20 }}>
             <label style={vs.label}>Name</label>
@@ -1217,14 +1218,14 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
                 {PROVIDERS.map(p => {
                   const isLinked = linkedProvider === p.id;
                   return (
-                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #f3f4f6" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ width: 28, height: 28, borderRadius: 14, background: p.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{p.icon}</span>
-                        <span style={{ color: "#e5e7eb", fontSize: 13 }}>{p.label}</span>
+                        <span style={{ color: "#111827", fontSize: 13 }}>{p.label}</span>
                       </div>
                       {isLinked ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700 }}>✓ Linked</span>
+                          <span style={{ color: "#16a34a", fontSize: 11, fontWeight: 700 }}>✓ Linked</span>
                           {profile.password && (
                             <button style={{ ...vs.deleteBtn }} onClick={async () => {
                               const d = await api("/vendor/profile/unlink-oauth", { method: "DELETE" });
@@ -1234,7 +1235,7 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
                           )}
                         </div>
                       ) : (
-                        <button style={{ ...vs.editBtn, color: "#22c55e", borderColor: "rgba(34,197,94,0.4)" }} disabled={!!linkedProvider} onClick={async () => {
+                        <button style={{ ...vs.editBtn, color: "#16a34a", borderColor: "rgba(22, 163, 74, 0.3)" }} disabled={!!linkedProvider} onClick={async () => {
                           const d = await api("/vendor/profile/link-oauth", { method: "POST", body: JSON.stringify({ provider: p.id }) });
                           if (d.success && d.redirectUrl) window.location.href = d.redirectUrl;
                           else showToast(d.message || "Failed");
@@ -1244,7 +1245,7 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
                   );
                 })}
                 {linkedProvider && !profile.password && (
-                  <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b" }}>
+                  <div style={{ marginTop: 12, fontSize: 12, color: "#d97706" }}>
                     ⚠️ To unlink your social account, first set a password in the Change Password section.
                   </div>
                 )}
@@ -1258,48 +1259,48 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
 }
 
 const vs = {
-  root: { minHeight: "100vh", background: "#ffffff", fontFamily: "'Segoe UI', sans-serif", color: "#111827" },
+  root: { minHeight: "100vh", background: "var(--ek-bg)", fontFamily: "'Segoe UI', sans-serif", color: "var(--ek-text)" },
   main: { maxWidth: 1200, margin: "0 auto", padding: "24px 20px" },
-  nav: { background: "#ffffff", borderBottom: "2px solid #e5e7eb", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.07)", overflowX: "auto" },
-  brand: { fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: 1, whiteSpace: "nowrap" },
+  nav: { background: "var(--ek-nav-bg)", borderBottom: "1.5px solid var(--ek-border)", padding: "0 24px", display: "flex", alignItems: "center", gap: 8, height: 64, position: "sticky", top: 0, zIndex: 100, boxShadow: "var(--ek-nav-shadow)", overflowX: "auto" },
+  brand: { fontSize: 17, fontWeight: 800, color: "var(--ek-text)", letterSpacing: 1, whiteSpace: "nowrap" },
   navLinks: { display: "flex", gap: 2, flex: 1 },
-  navBtn: { padding: "7px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#374151", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
-  navBtnActive: { background: "#dcfce7", color: "#15803d" },
-  logoutBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff1f1", color: "#dc2626", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
-  toast: { position: "fixed", bottom: 24, right: 24, background: "#1f2937", border: "1px solid #374151", color: "#f9fafb", padding: "14px 22px", borderRadius: 12, zIndex: 999, fontSize: 15 },
-  pageTitle: { fontSize: 26, fontWeight: 800, marginBottom: 24, color: "#111827" },
+  navBtn: { padding: "7px 12px", borderRadius: 8, border: "none", background: "transparent", color: "var(--ek-muted)", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
+  navBtnActive: { background: "var(--ek-success-soft)", color: "var(--ek-success)" },
+  logoutBtn: { padding: "7px 16px", borderRadius: 8, border: "1px solid var(--ek-danger)", background: "var(--ek-danger-soft)", color: "var(--ek-danger)", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
+  toast: { position: "fixed", bottom: 24, right: 24, background: "var(--ek-surface)", border: "1px solid var(--ek-border)", color: "var(--ek-text)", padding: "14px 22px", borderRadius: 12, zIndex: 999, fontSize: 15, boxShadow: "var(--ek-shadow)" },
+  pageTitle: { fontSize: 26, fontWeight: 800, marginBottom: 24, color: "var(--ek-text)" },
   statsGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 },
-  statCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" },
+  statCard: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 16, padding: 20, boxShadow: "var(--ek-shadow)" },
   statIcon: (c) => ({ fontSize: 24, marginBottom: 8, width: 48, height: 48, borderRadius: 12, background: c + "20", display: "flex", alignItems: "center", justifyContent: "center" }),
-  statVal: { fontSize: 28, fontWeight: 900, color: "#111827", marginBottom: 4 },
-  statLabel: { color: "#6b7280", fontSize: 14 },
+  statVal: { fontSize: 28, fontWeight: 900, color: "var(--ek-text)", marginBottom: 4 },
+  statLabel: { color: "var(--ek-muted)", fontSize: 14 },
   twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
-  card: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" },
-  cardTitle: { fontSize: 17, fontWeight: 700, color: "#111827", marginBottom: 16 },
-  listRow: { display: "flex", gap: 12, alignItems: "center", padding: "9px 0", borderBottom: "1px solid #f3f4f6" },
+  card: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "var(--ek-shadow)" },
+  cardTitle: { fontSize: 17, fontWeight: 700, color: "var(--ek-text)", marginBottom: 16 },
+  listRow: { display: "flex", gap: 12, alignItems: "center", padding: "9px 0", borderBottom: "1px solid var(--ek-border)" },
   badge: { padding: "4px 12px", borderRadius: 20, color: "#fff", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" },
   catBadge: { background: "#ede9fe", color: "#5b21b6", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700 },
   empty: { textAlign: "center", padding: "40px", color: "#6b7280", fontSize: 17 },
   emptyGreen: { textAlign: "center", padding: "40px", color: "#16a34a", fontSize: 17 },
-  tableWrap: { background: "#ffffff", borderRadius: 16, border: "1.5px solid #e5e7eb", overflow: "hidden" },
+  tableWrap: { background: "var(--ek-surface)", borderRadius: 16, border: "1.5px solid var(--ek-border)", overflow: "hidden" },
   table: { width: "100%", borderCollapse: "collapse" },
-  thead: { background: "#f9fafb" },
-  th: { padding: "13px 16px", textAlign: "left", color: "#374151", fontSize: 13, fontWeight: 700, textTransform: "uppercase" },
-  tr: { borderBottom: "1px solid #f3f4f6" },
-  td: { padding: "13px 16px", fontSize: 15, color: "#111827" },
+  thead: { background: "var(--ek-surface-alt)" },
+  th: { padding: "13px 16px", textAlign: "left", color: "var(--ek-muted)", fontSize: 13, fontWeight: 700, textTransform: "uppercase" },
+  tr: { borderBottom: "1px solid var(--ek-border)" },
+  td: { padding: "13px 16px", fontSize: 15, color: "var(--ek-text)" },
   editBtn: { padding: "6px 14px", borderRadius: 7, border: "1.5px solid #6366f1", background: "#ede9fe", color: "#4f46e5", cursor: "pointer", fontSize: 13, marginRight: 6, fontWeight: 600 },
   deleteBtn: { padding: "6px 14px", borderRadius: 7, border: "1.5px solid #fca5a5", background: "#fff1f1", color: "#dc2626", cursor: "pointer", fontSize: 13, fontWeight: 600 },
-  primaryBtn: { padding: "11px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 },
-  secondaryBtn: { padding: "9px 18px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#f9fafb", color: "#111827", fontWeight: 600, cursor: "pointer", fontSize: 14 },
-  modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" },
-  modalContent: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 20, padding: 32, width: "90%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" },
+  primaryBtn: { padding: "11px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15, boxShadow: "0 2px 6px rgba(22, 163, 74, 0.3)" },
+  secondaryBtn: { padding: "9px 18px", borderRadius: 10, border: "1.5px solid var(--ek-border)", background: "var(--ek-surface-alt)", color: "var(--ek-text)", fontWeight: 600, cursor: "pointer", fontSize: 14 },
+  modal: { position: "fixed", inset: 0, background: "var(--ek-overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" },
+  modalContent: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 20, padding: 32, width: "90%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "var(--ek-shadow)" },
   formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
-  label: { display: "block", color: "#374151", fontSize: 13, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" },
-  input: { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #d1d5db", background: "#ffffff", color: "#111827", fontSize: 15, boxSizing: "border-box" },
-  alertCard: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff1f1", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "16px 20px", marginBottom: 12 },
-  orderCard: { background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: 18, marginBottom: 12 },
-  vendorAvatar: { width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 700, color: "#fff", marginBottom: 20 },
-  infoRow: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f3f4f6" },
-  infoLabel: { color: "#6b7280", fontSize: 14 },
-  infoVal: { color: "#111827", fontSize: 14, fontWeight: 600 },
+  label: { display: "block", color: "var(--ek-muted)", fontSize: 13, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" },
+  input: { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid var(--ek-border)", background: "var(--ek-input)", color: "var(--ek-text)", fontSize: 15, boxSizing: "border-box" },
+  alertCard: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--ek-danger-soft)", border: "1.5px solid var(--ek-danger)", borderRadius: 12, padding: "16px 20px", marginBottom: 12 },
+  orderCard: { background: "var(--ek-surface)", border: "1.5px solid var(--ek-border)", borderRadius: 14, padding: 18, marginBottom: 12 },
+  vendorAvatar: { width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#16a34a,#15803d)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 700, color: "#fff", marginBottom: 20 },
+  infoRow: { display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--ek-border)" },
+  infoLabel: { color: "var(--ek-muted)", fontSize: 14 },
+  infoVal: { color: "var(--ek-text)", fontSize: 14, fontWeight: 600 },
 };

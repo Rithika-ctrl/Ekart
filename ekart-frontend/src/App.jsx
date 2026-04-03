@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  Link,
   useNavigate,
   useLocation,
 } from "react-router-dom";
@@ -16,13 +17,87 @@ import NotFoundPage     from "./pages/NotFoundPage.jsx";
 import ForbiddenPage    from "./pages/ForbiddenPage.jsx";
 import BlockedPage      from "./pages/BlockedPage.jsx";
 import ErrorPage        from "./pages/ErrorPage.jsx";
+import DocumentationPage from "./pages/DocumentationPage.jsx";
 
 // ─── Auth Context ───────────────────────────────────────────────────────────
 
 const AuthContext = createContext(null);
 export function useAuth() { return useContext(AuthContext); }
 
+const ThemeContext = createContext(null);
+export function useTheme() { return useContext(ThemeContext); }
+
 const AUTH_KEY = "ekart_auth";
+const THEME_KEY = "ekart_theme";
+
+const THEMES = {
+  light: {
+    "--ek-bg": "#f9fafb",
+    "--ek-surface": "#ffffff",
+    "--ek-surface-alt": "#f8fafc",
+    "--ek-surface-muted": "#f3f4f6",
+    "--ek-text": "#111827",
+    "--ek-muted": "#6b7280",
+    "--ek-border": "#e5e7eb",
+    "--ek-primary": "#2563eb",
+    "--ek-primary-soft": "#dbeafe",
+    "--ek-success": "#16a34a",
+    "--ek-success-soft": "#e8faf2",
+    "--ek-danger": "#dc2626",
+    "--ek-danger-soft": "#fef2f2",
+    "--ek-warning": "#d97706",
+    "--ek-warning-soft": "#fef9e7",
+    "--ek-accent": "#7c3aed",
+    "--ek-accent-soft": "#ede9fe",
+    "--ek-shadow": "0 10px 30px rgba(15, 23, 42, 0.08)",
+    "--ek-nav-bg": "#ffffff",
+    "--ek-nav-shadow": "0 2px 8px rgba(0,0,0,0.06)",
+    "--ek-overlay": "rgba(15, 23, 42, 0.55)",
+    "--ek-input": "#ffffff",
+  },
+  dark: {
+    "--ek-bg": "#0b1120",
+    "--ek-surface": "#111827",
+    "--ek-surface-alt": "#0f172a",
+    "--ek-surface-muted": "#1f2937",
+    "--ek-text": "#f9fafb",
+    "--ek-muted": "#9ca3af",
+    "--ek-border": "#243042",
+    "--ek-primary": "#60a5fa",
+    "--ek-primary-soft": "rgba(96, 165, 250, 0.16)",
+    "--ek-success": "#4ade80",
+    "--ek-success-soft": "rgba(74, 222, 128, 0.16)",
+    "--ek-danger": "#f87171",
+    "--ek-danger-soft": "rgba(248, 113, 113, 0.16)",
+    "--ek-warning": "#fbbf24",
+    "--ek-warning-soft": "rgba(251, 191, 36, 0.16)",
+    "--ek-accent": "#c084fc",
+    "--ek-accent-soft": "rgba(192, 132, 252, 0.16)",
+    "--ek-shadow": "0 20px 40px rgba(0, 0, 0, 0.45)",
+    "--ek-nav-bg": "#0f172a",
+    "--ek-nav-shadow": "0 2px 10px rgba(0,0,0,0.35)",
+    "--ek-overlay": "rgba(2, 6, 23, 0.72)",
+    "--ek-input": "#111827",
+  },
+};
+
+function readTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) || "light";
+  } catch {
+    return "light";
+  }
+}
+
+function applyTheme(theme) {
+  const palette = THEMES[theme] || THEMES.light;
+  const root = document.documentElement;
+  Object.entries(palette).forEach(([key, value]) => root.style.setProperty(key, value));
+  root.dataset.theme = theme;
+  root.style.colorScheme = theme;
+  document.body.style.background = palette["--ek-bg"];
+  document.body.style.color = palette["--ek-text"];
+}
 
 /**
  * Reads the persisted auth state on startup.
@@ -116,9 +191,9 @@ function OAuthLinkCallback() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center",
-                  justifyContent: "center", fontFamily: "DM Sans, sans-serif", background: "#f2f0eb", gap: 12 }}>
+                  justifyContent: "center", fontFamily: "DM Sans, sans-serif", background: "var(--ek-bg)", color: "var(--ek-text)", gap: 12 }}>
       <div style={{ fontSize: 32 }}>{status === "linked" ? "✅" : "❌"}</div>
-      <div style={{ fontSize: 16, color: "#555" }}>
+      <div style={{ fontSize: 16, color: "var(--ek-muted)" }}>
         {status === "linked" ? `${provider} account linked!` : "Linking failed. Please try again."}
       </div>
     </div>
@@ -167,11 +242,74 @@ function OAuthCallback({ login }) {
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: "DM Sans, sans-serif",
-      background: "#f2f0eb", flexDirection: "column", gap: 12,
+      background: "var(--ek-bg)", color: "var(--ek-text)", flexDirection: "column", gap: 12,
     }}>
       <div style={{ fontSize: 32 }}>⏳</div>
-      <div style={{ fontSize: 16, color: "#555" }}>{status}</div>
+      <div style={{ fontSize: 16, color: "var(--ek-muted)" }}>{status}</div>
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const theme = useTheme();
+  if (!theme) return null;
+  const nextTheme = theme.theme === "dark" ? "light" : "dark";
+  return (
+    <button
+      type="button"
+      onClick={() => theme.setTheme(nextTheme)}
+      style={{ position: "fixed", right: 18, bottom: 78, zIndex: 1000, border: "1px solid var(--ek-border)", background: "var(--ek-surface)", color: "var(--ek-text)", borderRadius: 999, padding: "11px 16px", boxShadow: "var(--ek-shadow)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+      aria-label={`Switch to ${nextTheme} mode`}
+    >
+      {theme.theme === "dark" ? "Light mode" : "Dark mode"}
+    </button>
+  );
+}
+
+function FooterLinks() {
+  const location = useLocation();
+  const isDocsPage = location.pathname === "/sop-documentation" || location.pathname === "/policy-documentation";
+
+  return (
+    <footer style={{
+      position: "fixed",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 950,
+      display: "flex",
+      justifyContent: "center",
+      pointerEvents: "none",
+      padding: "10px 16px",
+    }}>
+      <div style={{
+        pointerEvents: "auto",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        justifyContent: "center",
+        padding: "10px 16px",
+        borderRadius: 999,
+        border: "1px solid var(--ek-border)",
+        background: "var(--ek-surface)",
+        boxShadow: "var(--ek-shadow)",
+        color: "var(--ek-text)",
+        fontSize: 12,
+        maxWidth: "calc(100vw - 24px)",
+      }}>
+        <span style={{ color: "var(--ek-muted)", fontWeight: 600 }}>Documentation</span>
+        <Link to="/sop-documentation" style={{ color: isDocsPage && location.pathname === "/sop-documentation" ? "var(--ek-primary)" : "var(--ek-text)", textDecoration: "none", fontWeight: 700 }}>
+          SOP Documentation
+        </Link>
+        <span style={{ color: "var(--ek-border)" }}>•</span>
+        <Link to="/policy-documentation" style={{ color: isDocsPage && location.pathname === "/policy-documentation" ? "var(--ek-primary)" : "var(--ek-text)", textDecoration: "none", fontWeight: 700 }}>
+          Policy Documentation
+        </Link>
+        <span style={{ color: "var(--ek-border)" }}>•</span>
+        <span style={{ color: "var(--ek-muted)" }}>© 2026 Ekart</span>
+      </div>
+    </footer>
   );
 }
 
@@ -199,6 +337,12 @@ function RequireAuth({ auth, allowedRoles, children }) {
 
 export default function App() {
   const [auth, setAuth] = useState(() => readAuth());
+  const [theme, setTheme] = useState(() => readTheme());
+
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+    applyTheme(theme);
+  }, [theme]);
 
   /**
    * login(user, rememberMe)
@@ -223,13 +367,24 @@ export default function App() {
     clearAuth();
   };
 
+  const themeValue = {
+    theme,
+    setTheme,
+    toggleTheme: () => setTheme(current => current === "dark" ? "light" : "dark"),
+  };
+
   return (
-    <AuthContext.Provider value={{ auth, login, logout }}>
-      <BrowserRouter>
-        <Routes>
+    <ThemeContext.Provider value={themeValue}>
+      <AuthContext.Provider value={{ auth, login, logout }}>
+        <BrowserRouter>
+          <ThemeToggle />
+          <FooterLinks />
+          <Routes>
           {/* ── Public ────────────────────────────────────────────── */}
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/oauth2/callback" element={<OAuthCallback login={login} />} /><Route path="/oauth2/link-callback" element={<OAuthLinkCallback />} />
+          <Route path="/sop-documentation" element={<DocumentationPage type="sop" />} />
+          <Route path="/policy-documentation" element={<DocumentationPage type="policy" />} />
 
 
           {/* ── Customer / Guest (all sub-pages handled inside CustomerApp) ── */}
@@ -297,8 +452,9 @@ export default function App() {
                 : <Navigate to="/auth" replace />
             }
           />
-        </Routes>
-      </BrowserRouter>
-    </AuthContext.Provider>
+          </Routes>
+        </BrowserRouter>
+      </AuthContext.Provider>
+    </ThemeContext.Provider>
   );
 }
