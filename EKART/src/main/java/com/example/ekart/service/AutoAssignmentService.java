@@ -55,8 +55,17 @@ public class AutoAssignmentService {
 
     @Transactional
     public void onOrderPacked(Order order) {
-        if (order.getDeliveryBoy() != null) return; // already assigned
+        System.out.println("\n✉️  AUTO-ASSIGN TRIGGER: onOrderPacked() called for Order #" + order.getId());
+        System.out.println("   PIN Code on Order: " + order.getDeliveryPinCode());
+        System.out.println("   Already assigned: " + (order.getDeliveryBoy() != null));
+        
+        if (order.getDeliveryBoy() != null) {
+            System.out.println("   → Order already has delivery boy, skipping\n");
+            return; // already assigned
+        }
+        
         tryAssignOrder(order);
+        System.out.println("");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -120,14 +129,35 @@ public class AutoAssignmentService {
         String pin = order.getDeliveryPinCode();
         if (pin == null || pin.isBlank()) return;
 
-        // Find all eligible delivery boys covering this pin
-        List<DeliveryBoy> eligible = deliveryBoyRepository.findByPinCode(pin.trim())
-                .stream()
-                .filter(db -> db.isAvailable())
-                .filter(db -> countActiveOrders(db) < MAX_CONCURRENT_ORDERS)
+        System.out.println("🔍 AUTO-ASSIGN DEBUG: Order #" + order.getId() + " trying to find delivery boy for PIN: " + pin);
+
+        // Find all delivery boys with matching PIN (ignoring availability/load for now)
+        List<DeliveryBoy> allByPin = deliveryBoyRepository.findByPinCode(pin.trim());
+        System.out.println("  ✓ Found " + allByPin.size() + " boy(s) with PIN " + pin);
+        for (DeliveryBoy db : allByPin) {
+            System.out.println("    - " + db.getName() + " (ID:" + db.getId() + ") | Online: " + db.isAvailable() + " | Active Orders: " + countActiveOrders(db));
+        }
+
+        // Now filter: must be available AND under capacity
+        List<DeliveryBoy> eligible = allByPin.stream()
+                .filter(db -> {
+                    boolean isAvail = db.isAvailable();
+                    if (!isAvail) System.out.println("    ✗ " + db.getName() + " OFFLINE (skipped)");
+                    return isAvail;
+                })
+                .filter(db -> {
+                    int active = countActiveOrders(db);
+                    boolean underCap = active < MAX_CONCURRENT_ORDERS;
+                    if (!underCap) System.out.println("    ✗ " + db.getName() + " has " + active + "/" + MAX_CONCURRENT_ORDERS + " (AT CAPACITY - skipped)");
+                    return underCap;
+                })
                 .collect(Collectors.toList());
 
-        if (eligible.isEmpty()) return;
+        System.out.println("  ✓ Eligible boys: " + eligible.size());
+        if (eligible.isEmpty()) {
+            System.out.println("  ❌ NO ELIGIBLE DELIVERY BOYS FOUND");
+            return;
+        }
 
         // Prefer the delivery boy with fewest active orders (load balancing)
         DeliveryBoy best = eligible.stream()
@@ -135,6 +165,7 @@ public class AutoAssignmentService {
                 .orElse(null);
 
         if (best != null) {
+            System.out.println("  ✅ ASSIGNING to " + best.getName() + " (ID:" + best.getId() + ")");
             doAssign(order, best);
         }
     }

@@ -127,6 +127,11 @@ public class DeliveryBoy {
     public boolean covers(String pinCode) {
         if (pinCode == null || pinCode.isBlank() || assignedPinCodes == null) return false;
         String pin = pinCode.trim();
+        
+        // If assigned to "All", covers all PIN codes
+        if (assignedPinCodes.trim().equalsIgnoreCase("all")) return true;
+        
+        // Otherwise check if PIN is in the comma-separated list
         for (String p : assignedPinCodes.split(",")) {
             if (p.trim().equals(pin)) return true;
         }
