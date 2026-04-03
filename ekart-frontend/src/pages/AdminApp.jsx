@@ -4287,7 +4287,10 @@ function SecurityAdmin() {
   const submitPassword = async () => {
     if (!current || !npass || !confirm) { setMsg("Please fill all fields"); return; }
     if (npass !== confirm) { setMsg("New passwords do not match"); return; }
-    if (npass.length < 6) { setMsg("Password must be at least 6 characters"); return; }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(npass)) {
+      setMsg("Password must be at least 8 characters and include uppercase, lowercase, number, and special character");
+      return;
+    }
     setPwLoading(true);
     try {
       const res = await fetch("/api/react/admin/change-password", {

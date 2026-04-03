@@ -12,6 +12,70 @@ const ROLE_HOME = {
   DELIVERY: "/delivery/dashboard",
 };
 
+const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const PASSWORD_RULE_MSG = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.";
+
+function getPasswordChecks(password) {
+  return {
+    length: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+}
+
+function PasswordVerificationHint({ password, confirmPassword }) {
+  const checks = getPasswordChecks(password || "");
+  const rules = [
+    ["At least 8 characters", checks.length],
+    ["One uppercase letter (A-Z)", checks.upper],
+    ["One lowercase letter (a-z)", checks.lower],
+    ["One number (0-9)", checks.digit],
+    ["One special character", checks.special],
+  ];
+  const baseValid = rules.every(([, ok]) => ok);
+  const confirmProvided = typeof confirmPassword === "string";
+  const confirmOk = !confirmProvided || (confirmPassword.length > 0 && confirmPassword === (password || ""));
+  const verified = baseValid && confirmOk;
+  const score = rules.filter(([, ok]) => ok).length;
+  const level =
+    score <= 1 ? "Weak" :
+    score <= 3 ? "Fair" :
+    score === 4 ? "Good" : "Strong";
+  const levelClass =
+    score <= 1 ? "weak" :
+    score <= 3 ? "fair" :
+    score === 4 ? "good" : "strong";
+
+  return (
+    <div className="pw-hint">
+      <div className="pw-hint-title">Password verification</div>
+      <div className="pw-meter-row">
+        <div className="pw-meter-track">
+          <div className={`pw-meter-fill ${levelClass}`} style={{ width: `${score * 20}%` }} />
+        </div>
+        <span className={`pw-meter-label ${levelClass}`}>{password ? level : "Type password"}</span>
+      </div>
+      {rules.map(([label, ok]) => (
+        <div key={label} className={`pw-hint-item${ok ? " ok" : ""}`}>
+          <span>{ok ? "✓" : "•"}</span>
+          <span>{label}</span>
+        </div>
+      ))}
+      {confirmProvided && (
+        <div className={`pw-hint-item${confirmOk ? " ok" : ""}`}>
+          <span>{confirmPassword.length === 0 ? "•" : confirmOk ? "✓" : "•"}</span>
+          <span>Confirm password matches</span>
+        </div>
+      )}
+      <div className={`pw-status ${verified ? "ok" : "bad"}`}>
+        {verified ? "Verified: password meets all requirements" : "Not verified yet"}
+      </div>
+    </div>
+  );
+}
+
 const S = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
   .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ek-bg);padding:24px;font-family:'DM Sans',sans-serif}
@@ -58,6 +122,25 @@ const S = `
   .screen-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;color:var(--ek-text)}
   .screen-sub{font-size:14px;color:var(--ek-muted);margin-bottom:20px;line-height:1.5}
   .timer-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .pw-hint{margin-top:8px;border:1px solid var(--ek-border);background:var(--ek-surface-alt);border-radius:10px;padding:10px 12px}
+  .pw-hint-title{font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--ek-muted);margin-bottom:6px}
+  .pw-hint-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ek-muted);margin:3px 0}
+  .pw-hint-item.ok{color:var(--ek-success)}
+  .pw-meter-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .pw-meter-track{flex:1;height:7px;border-radius:999px;background:var(--ek-border);overflow:hidden}
+  .pw-meter-fill{height:100%;border-radius:999px;transition:width 180ms ease, background-color 180ms ease}
+  .pw-meter-fill.weak{background:#ef4444}
+  .pw-meter-fill.fair{background:#f59e0b}
+  .pw-meter-fill.good{background:#3b82f6}
+  .pw-meter-fill.strong{background:#22c55e}
+  .pw-meter-label{font-size:11px;font-weight:700;min-width:78px;text-align:right}
+  .pw-meter-label.weak{color:#ef4444}
+  .pw-meter-label.fair{color:#f59e0b}
+  .pw-meter-label.good{color:#3b82f6}
+  .pw-meter-label.strong{color:#22c55e}
+  .pw-status{margin-top:8px;font-size:12px;font-weight:700}
+  .pw-status.ok{color:var(--ek-success)}
+  .pw-status.bad{color:var(--ek-danger)}
 `;
 
 export default function AuthPage() {
@@ -92,6 +175,10 @@ export default function AuthPage() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const clear = () => { setError(""); setInfo(""); };
   const fmtTimer = t => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  const registerPasswordVerified =
+    PASSWORD_RULE.test(form.password) &&
+    form.confirmPassword.length > 0 &&
+    form.password === form.confirmPassword;
 
   useEffect(() => {
     if (role === "delivery" && screen === "register" && warehouses.length === 0) {
@@ -140,6 +227,7 @@ export default function AuthPage() {
 
   async function handleRegister(e) {
     e.preventDefault(); clear();
+    if (!PASSWORD_RULE.test(form.password)) { setError(PASSWORD_RULE_MSG); return; }
     if (form.password !== form.confirmPassword) { setError("Passwords don't match"); return; }
     setLoading(true);
     try {
@@ -174,6 +262,7 @@ export default function AuthPage() {
     e.preventDefault(); clear();
     const code = otp.join("");
     if (code.length < 6) { setError("Enter all 6 digits"); return; }
+    if (!PASSWORD_RULE.test(form.password)) { setError(PASSWORD_RULE_MSG); return; }
     setLoading(true);
     try {
       // Step 1: verify the OTP
@@ -229,6 +318,7 @@ export default function AuthPage() {
 
   async function handleReset(e) {
     e.preventDefault(); clear();
+    if (!PASSWORD_RULE.test(resetForm.newPassword)) { setError(PASSWORD_RULE_MSG); return; }
     if (resetForm.newPassword !== resetForm.confirmPassword) { setError("Passwords don't match"); return; }
     setLoading(true);
     try {
@@ -472,6 +562,7 @@ export default function AuthPage() {
               <div className="form-group">
                 <label className="form-label">Confirm Password</label>
                 <input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} required />
+                <PasswordVerificationHint password={form.password} confirmPassword={form.confirmPassword} />
               </div>
               {role === "delivery" && (
                 <>
@@ -487,7 +578,7 @@ export default function AuthPage() {
                   </div>
                 </>
               )}
-              <button className="btn-primary" type="submit" disabled={loading}>
+              <button className="btn-primary" type="submit" disabled={loading || !registerPasswordVerified}>
                 {loading ? "Creating account…" : `Register as ${role}`}
               </button>
 
@@ -675,6 +766,7 @@ export default function AuthPage() {
               <div className="form-group">
                 <label className="form-label">Confirm New Password</label>
                 <input className="form-input" type="password" placeholder="••••••••" value={resetForm.confirmPassword} onChange={e => setResetForm(f => ({ ...f, confirmPassword: e.target.value }))} required />
+                <PasswordVerificationHint password={resetForm.newPassword} confirmPassword={resetForm.confirmPassword} />
               </div>
               <button className="btn-primary" type="submit" disabled={loading}>
                 {loading ? "Resetting…" : "Reset Password"}
