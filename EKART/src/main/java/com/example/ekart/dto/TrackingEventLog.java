@@ -51,11 +51,11 @@ public class TrackingEventLog {
      * Who triggered this event.
      * Values: "system" | "vendor" | "admin" | "delivery_boy"
      */
-    @Column(length = 50)
+    @Column(name = "updated_by", length = 50)
     private String updatedBy;
 
     /** Exact timestamp this event happened */
-    @Column(nullable = false)
+    @Column(name = "event_time", nullable = false)
     private LocalDateTime eventTime;
 
     // ── Constructors ──────────────────────────────────────────────

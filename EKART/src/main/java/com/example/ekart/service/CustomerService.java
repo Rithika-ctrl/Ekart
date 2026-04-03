@@ -899,8 +899,7 @@ public class CustomerService {
 
             // Vendor metadata
             if (vendor != null) {
-                subOrder.setVendorId(vendor.getId());
-                subOrder.setVendorName(vendor.getName());
+                subOrder.setVendor(vendor);
             }
 
             // Delivery fields

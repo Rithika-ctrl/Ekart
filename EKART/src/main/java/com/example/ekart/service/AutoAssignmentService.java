@@ -198,9 +198,7 @@ public class AutoAssignmentService {
         // Admin audit log (dedicated table, admin can see/filter these)
         AutoAssignLog log = new AutoAssignLog();
         log.setOrderId(order.getId());
-        log.setDeliveryBoyId(deliveryBoy.getId());
-        log.setDeliveryBoyName(deliveryBoy.getName());
-        log.setDeliveryBoyCode(deliveryBoy.getDeliveryBoyCode());
+        log.setDeliveryBoy(deliveryBoy);
         log.setPinCode(order.getDeliveryPinCode());
         log.setAssignedAt(LocalDateTime.now());
         log.setActiveOrdersAtAssignment(countActiveOrders(deliveryBoy));

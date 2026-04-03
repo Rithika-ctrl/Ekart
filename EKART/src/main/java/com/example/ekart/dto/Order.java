@@ -34,9 +34,9 @@ import jakarta.persistence.Transient;
  */
 @Entity(name = "shopping_order")
 @Table(name = "shopping_order", indexes = {
-    @Index(name = "idx_order_date",     columnList = "orderDate"),
+    @Index(name = "idx_order_date",     columnList = "order_date"),
     @Index(name = "idx_order_customer", columnList = "customer_id"),
-    @Index(name = "idx_order_parent",   columnList = "parentOrderId")
+    @Index(name = "idx_order_parent",   columnList = "parent_order_id")
 })
 public class Order {
 
@@ -53,13 +53,13 @@ public class Order {
     @Column(columnDefinition = "DOUBLE DEFAULT 0")
     private double amount = 0;
 
-    @Column(nullable = true)
+    @Column(name = "date_time", nullable = true)
     private LocalDateTime dateTime;
 
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "delivery_charge", columnDefinition = "DOUBLE DEFAULT 0")
     private double deliveryCharge = 0;
 
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "total_price", columnDefinition = "DOUBLE DEFAULT 0")
     private double totalPrice = 0;
 
     /**
@@ -68,26 +68,27 @@ public class Order {
      * GST even if rates change later.
      * 0.0 for legacy orders placed before GST tracking was added.
      */
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "gst_amount", columnDefinition = "DOUBLE DEFAULT 0")
     private double gstAmount = 0;
 
-    @Column(nullable = true, length = 50)
+    @Column(name = "payment_mode", nullable = true, length = 50)
     private String paymentMode;
 
     @CreationTimestamp
+    @Column(name = "order_date")
     private LocalDateTime orderDate;
 
-    @Column(nullable = true, length = 300)
+    @Column(name = "delivery_time", nullable = true, length = 300)
     private String deliveryTime;
 
-    @Column(columnDefinition = "BIT DEFAULT 0")
+    @Column(name = "replacement_requested", columnDefinition = "BIT DEFAULT 0")
     private boolean replacementRequested = false;
 
-    @Column(length = 50)
+    @Column(name = "tracking_status", length = 50)
     @Enumerated(EnumType.STRING)
     private TrackingStatus trackingStatus = TrackingStatus.PROCESSING;
 
-    @Column(nullable = true, length = 100)
+    @Column(name = "current_city", nullable = true, length = 100)
     private String currentCity;
 
     @Transient
@@ -109,14 +110,14 @@ public class Order {
     @JoinColumn(name = "delivery_boy_id")
     private DeliveryBoy deliveryBoy;
 
-    @Column(length = 10)
+    @Column(name = "delivery_pin_code", length = 10)
     private String deliveryPinCode;
 
     /**
      * Snapshot of the customer's delivery address at checkout.
      * Format: "RecipientName | HouseStreet, City, State - PostalCode"
      */
-    @Column(length = 500)
+    @Column(name = "delivery_address", length = 500)
     private String deliveryAddress;
 
     // ─── SUB-ORDER SUPPORT ────────────────────────────────────────
@@ -129,18 +130,16 @@ public class Order {
      * null  → single-vendor order or legacy order
      * non-null → this order is part of a multi-vendor split purchase
      */
-    @Column(nullable = true)
+    @Column(name = "parent_order_id", nullable = true)
     private Integer parentOrderId;
 
     /**
      * The vendor who owns the items in this sub-order.
-     * null for legacy orders.
+     * null for legacy orders. Use this relationship instead of vendorId.
      */
-    @Column(nullable = true)
-    private Integer vendorId;
-
-    @Column(nullable = true, length = 100)
-    private String vendorName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_id")
+    private Vendor vendor;
 
     // ─── Getters & Setters ────────────────────────────────────────
 
@@ -212,9 +211,6 @@ public class Order {
     public Integer getParentOrderId() { return parentOrderId; }
     public void setParentOrderId(Integer parentOrderId) { this.parentOrderId = parentOrderId; }
 
-    public Integer getVendorId() { return vendorId; }
-    public void setVendorId(Integer vendorId) { this.vendorId = vendorId; }
-
-    public String getVendorName() { return vendorName; }
-    public void setVendorName(String vendorName) { this.vendorName = vendorName; }
+    public Vendor getVendor() { return vendor; }
+    public void setVendor(Vendor vendor) { this.vendor = vendor; }
 }

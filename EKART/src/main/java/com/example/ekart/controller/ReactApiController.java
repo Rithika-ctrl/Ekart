@@ -1499,8 +1499,7 @@ public class ReactApiController {
                     subOrder.setWarehouse(warehouse);
                 }
                 if (vendor != null) {
-                    subOrder.setVendorId(vendor.getId());
-                    subOrder.setVendorName(vendor.getName());
+                    subOrder.setVendor(vendor);
                 }
 
                 orderRepository.save(subOrder);
