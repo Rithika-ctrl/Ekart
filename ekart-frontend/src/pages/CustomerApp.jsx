@@ -4698,6 +4698,11 @@ function ProfilePage({ profile, api, onUpdate, showToast }) {
   };
 
   const changePw = async () => {
+    const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!strong.test(pwForm.newPassword)) {
+      showToast("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+      return;
+    }
     if (pwForm.newPassword !== pwForm.confirmNewPassword) { showToast("Passwords don't match"); return; }
     const d = await api("/profile/change-password", { method: "PUT", body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }) });
     showToast(d.message || (d.success ? "Password changed!" : "Failed"));

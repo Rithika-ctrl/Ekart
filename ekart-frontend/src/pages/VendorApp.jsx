@@ -1140,6 +1140,11 @@ function VendorProfile({ profile, api, onRefresh, showToast }) {
   };
 
   const changePw = async () => {
+    const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!strong.test(pwForm.newPassword)) {
+      showToast("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+      return;
+    }
     const d = await api("/vendor/profile/change-password", { method: "PUT", body: JSON.stringify(pwForm) });
     showToast(d.message || (d.success ? "Password changed!" : "Failed"));
     if (d.success) setPwForm({ currentPassword: "", newPassword: "" });
@@ -1180,6 +1185,11 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "" });
 
   const changePw = async () => {
+    const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!strong.test(pwForm.newPassword)) {
+      showToast("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+      return;
+    }
     const d = await api("/vendor/profile/change-password", { method: "PUT", body: JSON.stringify(pwForm) });
     showToast(d.message || (d.success ? "Password changed!" : "Failed"));
     if (d.success) setPwForm({ currentPassword: "", newPassword: "" });
