@@ -313,8 +313,8 @@ public class DeliveryAdminService {
         for (AutoAssignLog log : logs) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("orderId",         log.getOrderId());
-            m.put("deliveryBoyName", log.getDeliveryBoyName());
-            m.put("deliveryBoyCode", log.getDeliveryBoyCode());
+            m.put("deliveryBoyName", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A");
+            m.put("deliveryBoyCode", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A");
             m.put("pinCode",         log.getPinCode());
             m.put("assignedAt",      log.getAssignedAt().toString());
             m.put("activeAtTime",    log.getActiveOrdersAtAssignment());

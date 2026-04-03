@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "auto_assign_log", indexes = {
-    @Index(name = "idx_aal_order",    columnList = "orderId"),
-    @Index(name = "idx_aal_db",       columnList = "deliveryBoyId"),
-    @Index(name = "idx_aal_assigned", columnList = "assignedAt")
+    @Index(name = "idx_aal_order",    columnList = "order_id"),
+    @Index(name = "idx_aal_db",       columnList = "delivery_boy_id"),
+    @Index(name = "idx_aal_assigned", columnList = "assigned_at")
 })
 public class AutoAssignLog {
 
@@ -27,14 +27,9 @@ public class AutoAssignLog {
     @Column(nullable = false)
     private int orderId;
 
-    @Column(nullable = false)
-    private int deliveryBoyId;
-
-    @Column(nullable = false, length = 100)
-    private String deliveryBoyName;
-
-    @Column(nullable = false, length = 20)
-    private String deliveryBoyCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "delivery_boy_id")
+    private DeliveryBoy deliveryBoy;
 
     @Column(length = 10)
     private String pinCode;
@@ -54,14 +49,8 @@ public class AutoAssignLog {
     public int getOrderId() { return orderId; }
     public void setOrderId(int orderId) { this.orderId = orderId; }
 
-    public int getDeliveryBoyId() { return deliveryBoyId; }
-    public void setDeliveryBoyId(int deliveryBoyId) { this.deliveryBoyId = deliveryBoyId; }
-
-    public String getDeliveryBoyName() { return deliveryBoyName; }
-    public void setDeliveryBoyName(String deliveryBoyName) { this.deliveryBoyName = deliveryBoyName; }
-
-    public String getDeliveryBoyCode() { return deliveryBoyCode; }
-    public void setDeliveryBoyCode(String deliveryBoyCode) { this.deliveryBoyCode = deliveryBoyCode; }
+    public DeliveryBoy getDeliveryBoy() { return deliveryBoy; }
+    public void setDeliveryBoy(DeliveryBoy deliveryBoy) { this.deliveryBoy = deliveryBoy; }
 
     public String getPinCode() { return pinCode; }
     public void setPinCode(String pinCode) { this.pinCode = pinCode; }
