@@ -5,7 +5,7 @@ cd /d "C:\Users\whynew.in\OneDrive\Desktop\EKART\EKART"
 
 echo.
 echo ╔════════════════════════════════════════════╗
-echo ║   Starting EKART Backend on Port 9000    ║
+echo ║   Starting EKART Backend on Port 9000      ║
 echo ╚════════════════════════════════════════════╝
 echo.
 
