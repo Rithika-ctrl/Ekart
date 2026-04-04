@@ -34,17 +34,17 @@ public class WarehouseChangeRequest {
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20, nullable = false, columnDefinition = "ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING'")
+    @Column(length = 20, nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'PENDING'")
     private Status status;
 
     /** Admin's note when approving / rejecting */
     @Column(length = 300)
     private String adminNote;
 
-    @Column(nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(nullable = false)
     private LocalDateTime requestedAt;
 
-    @Column(columnDefinition = "TIMESTAMP NULL")
+    @Column(nullable = true)
     private LocalDateTime resolvedAt;
 
     /** The warehouse they are currently assigned to */

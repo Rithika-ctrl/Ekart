@@ -25,19 +25,19 @@ public class Coupon {
     private double value;
 
     // Minimum order amount to use this coupon
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(columnDefinition = "FLOAT8 DEFAULT 0")
     private double minOrderAmount = 0;
 
     // Max discount cap (0 = no cap)
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(columnDefinition = "FLOAT8 DEFAULT 0")
     private double maxDiscount = 0;
 
     // Usage limit (0 = unlimited)
-    @Column(columnDefinition = "INT DEFAULT 0")
+    @Column(columnDefinition = "INT4 DEFAULT 0")
     private int usageLimit = 0;
 
     // How many times it has been used
-    @Column(columnDefinition = "INT DEFAULT 0")
+    @Column(columnDefinition = "INT4 DEFAULT 0")
     private int usedCount = 0;
 
     private boolean active = true;

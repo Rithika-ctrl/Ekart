@@ -50,16 +50,16 @@ public class Order {
     @Column(nullable = true, length = 100)
     private String razorpay_order_id;
 
-    @Column(columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(columnDefinition = "FLOAT8 DEFAULT 0")
     private double amount = 0;
 
     @Column(name = "date_time", nullable = true)
     private LocalDateTime dateTime;
 
-    @Column(name = "delivery_charge", columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "delivery_charge", columnDefinition = "FLOAT8 DEFAULT 0")
     private double deliveryCharge = 0;
 
-    @Column(name = "total_price", columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "total_price", columnDefinition = "FLOAT8 DEFAULT 0")
     private double totalPrice = 0;
 
     /**
@@ -68,7 +68,7 @@ public class Order {
      * GST even if rates change later.
      * 0.0 for legacy orders placed before GST tracking was added.
      */
-    @Column(name = "gst_amount", columnDefinition = "DOUBLE DEFAULT 0")
+    @Column(name = "gst_amount", columnDefinition = "FLOAT8 DEFAULT 0")
     private double gstAmount = 0;
 
     @Column(name = "payment_mode", nullable = true, length = 50)
@@ -81,7 +81,7 @@ public class Order {
     @Column(name = "delivery_time", nullable = true, length = 300)
     private String deliveryTime;
 
-    @Column(name = "replacement_requested", columnDefinition = "BIT DEFAULT 0")
+    @Column(name = "replacement_requested", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean replacementRequested = false;
 
     @Column(name = "tracking_status", length = 50)
