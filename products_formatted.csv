@@ -1,0 +1,26 @@
+id,name,description,price,mrp,category,stock,imageLink,stockAlertThreshold,gstRate
++,Lays Classic Salted Chips 26g,Crispy and light salted potato chips perfect for snacking,15,20,Chips,500,https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&q=80,50,5
++,Dairy Milk Silk Chocolate 60g,Smooth and creamy milk chocolate with rich cocoa taste,79,99,Chocolates,300,https://images.unsplash.com/photo-1481391319762-47dff72954d9?w=500&q=80,30,12
++,Parle-G Original Biscuits 800g,Classic glucose biscuits loved by all ages made with wheat,40,50,Biscuits,400,https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80,40,5
++,Amul Butter 500g,Rich and creamy butter made from pure milk fat perfect for cooking,250,280,Dairy,200,https://images.unsplash.com/photo-1589985643862-8f8f25dc4f65?w=500&q=80,25,5
++,Basmati Rice 5kg,Premium quality long grain basmati rice perfect for biryani and pulao,450,550,Rice,150,https://images.unsplash.com/photo-1586190936828-cd7a54b03931?w=500&q=80,20,0
++,Nestlé Nescafé Coffee 50g,Instant coffee blend with smooth rich taste perfect for morning,120,150,Beverages,280,https://images.unsplash.com/photo-1559056199-641a0ac8b3f7?w=500&q=80,30,18
++,Maggi Noodles 70g,Instant noodles with masala seasoning ready in 2 minutes,12,15,Noodles,600,https://images.unsplash.com/photo-1585238341710-57acf1e04e12?w=500&q=80,50,5
++,Britannia NutriChoice Biscuits 250g,Health focused digestive biscuits with oats and honey,45,60,Biscuits,350,https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80,35,5
++,Sunfeast Dark Fantasy 75g,Chocolate coated wafer cookies with delicious creamy filling,35,50,Biscuits,420,https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=500&q=80,40,12
++,Tata Tea Premium 250g,Aromatic and flavorful tea leaves for a perfect cup,85,110,Tea,320,https://images.unsplash.com/photo-1597318280000-ae77fa96ad88?w=500&q=80,30,0
++,Ghee Aachi Pickle 300g,Traditional spicy mango pickle with authentic Indian flavors,65,85,Condiments,250,https://images.unsplash.com/photo-1599599810694-e3ee58ddc0d7?w=500&q=80,25,5
++,Surf Excel Detergent 500g,Powerful stain removal laundry powder for bright clothes,85,120,Home Care,400,https://images.unsplash.com/photo-1599599810980-faddce4e356f?w=500&q=80,50,12
++,Colgate Toothpaste 100ml,Cavity protection toothpaste with fresh mint flavor,45,65,Personal Care,550,https://images.unsplash.com/photo-1599599810936-e94d39bc9836?w=500&q=80,60,18
++,Dettol Hand Sanitizer 200ml,Kills 99.9% germs effective protection for hands,55,80,Personal Care,480,https://images.unsplash.com/photo-1599599810535-b6d1d2c3e96f?w=500&q=80,50,5
++,Soy Sauce 500ml,Traditional soy sauce for Asian cooking and marinades,120,160,Condiments,180,https://images.unsplash.com/photo-1599599810700-cbbf3d7e6b5c?w=500&q=80,20,0
++,Olive Oil Premium 500ml,Extra virgin olive oil cold pressed for cooking and salads,280,350,Oils,220,https://images.unsplash.com/photo-1599599810800-6e7a5e9e0b3e?w=500&q=80,25,5
++,Cornflakes 400g,Crispy breakfast cereal made from corn with honey,120,160,Cereals,290,https://images.unsplash.com/photo-1599599810900-00e1b4f0f8f0?w=500&q=80,30,5
++,Vodka Excise 750ml,Premium vodka with smooth taste perfect for parties,450,550,Alcohol,100,https://images.unsplash.com/photo-1599999810000-00e1c0f0f0f0?w=500&q=80,15,0
++,Red Wine Cabernet 750ml,Rich full bodied red wine with fruity undertones,380,480,Alcohol,85,https://images.unsplash.com/photo-1599999810100-00e1c0f0f0f0?w=500&q=80,15,0
++,Honey 500g Pure,Pure raw honey with natural sweetness and health benefits,180,250,Condiments,150,https://images.unsplash.com/photo-1599999810200-00e1c0f0f0f0?w=500&q=80,20,0
++,Peanut Butter 400g,Creamy peanut butter rich in protein and natural oils,120,160,Spreads,200,https://images.unsplash.com/photo-1599999810300-00e1c0f0f0f0?w=500&q=80,25,12
++,Almond Milk 1L,Plant based milk alternative nutritious and creamy,95,130,Beverages,180,https://images.unsplash.com/photo-1599999810400-00e1c0f0f0f0?w=500&q=80,20,0
++,Granola Cereal 350g,Crunchy granola with nuts and dried fruits healthy breakfast,145,200,Cereals,160,https://images.unsplash.com/photo-1599999810500-00e1c0f0f0f0?w=500&q=80,18,12
++,Coconut Oil 500ml,Pure coconut oil for cooking and skincare multiple uses,160,220,Oils,210,https://images.unsplash.com/photo-1599999810600-00e1c0f0f0f0?w=500&q=80,25,5
++,Dark Chocolate 85% Cocoa,Premium dark chocolate with high cocoa content rich taste,85,120,Chocolates,240,https://images.unsplash.com/photo-1599999810700-00e1c0f0f0f0?w=500&q=80,30,5

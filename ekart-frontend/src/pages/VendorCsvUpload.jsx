@@ -91,9 +91,25 @@ export default function VendorCsvUpload({ api, auth }) {
         <button style={{ padding: '8px 14px' }} onClick={() => { setFile(null); setHeaders([]); setRows([]); setResult(null); }}>Clear</button>
       </div>
       {result && (
-        <div style={{ marginTop: 16, background: '#f8fafc', padding: 12, borderRadius: 8 }}>
-          <div><strong>Result:</strong></div>
-          <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>{JSON.stringify(result, null, 2)}</pre>
+        <div style={{ marginTop: 16, background: result.success ? '#f0fdf4' : '#fef2f2', padding: 12, borderRadius: 8, border: `1px solid ${result.success ? '#86efac' : '#fecaca'}` }}>
+          <div><strong>{result.success ? '✓ Upload Successful' : '✗ Upload Failed'}</strong></div>
+          {(result.created || result.updated) && (
+            <div style={{ marginTop: 8, fontSize: 14 }}>
+              {result.created > 0 && <div style={{ color: '#16a34a' }}>✓ Created: {result.created} products</div>}
+              {result.updated > 0 && <div style={{ color: '#2563eb' }}>↻ Updated: {result.updated} products</div>}
+            </div>
+          )}
+          {result.errors && result.errors.length > 0 && (
+            <div style={{ marginTop: 8, background: '#fff7ed', padding: 8, borderRadius: 4, borderLeft: '3px solid #f97316' }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#92400e', marginBottom: 6 }}>⚠ {result.errors.length} Error{result.errors.length !== 1 ? 's' : ''}:</div>
+              <div style={{ fontSize: 12, color: '#b45309', maxHeight: 150, overflowY: 'auto' }}>
+                {result.errors.slice(0, 10).map((err, i) => (
+                  <div key={i} style={{ marginBottom: 3 }}>• {err}</div>
+                ))}
+                {result.errors.length > 10 && <div style={{ marginTop: 6, fontStyle: 'italic' }}>...and {result.errors.length - 10} more errors</div>}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

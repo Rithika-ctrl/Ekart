@@ -60,7 +60,7 @@ public class MainDataSourceConfig {
 
         Map<String, Object> props = new HashMap<>();
         props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
-       props.put("hibernate.hbm2ddl.auto", "update");
+        props.put("hibernate.hbm2ddl.auto", "update");
         props.put("hibernate.show_sql", "true");
         props.put("hibernate.format_sql", "true");
         props.put("jakarta.persistence.validation.mode", "none");

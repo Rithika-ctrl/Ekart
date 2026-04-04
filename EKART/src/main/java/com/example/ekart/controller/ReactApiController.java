@@ -2436,6 +2436,7 @@ public class ReactApiController {
             @RequestParam("category") String category,
             @RequestParam("stock") String stock,
             @RequestParam(value = "imageLink", required = false) String imageLink,
+            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
             @RequestParam(value = "mrp", required = false) String mrp,
             @RequestParam(value = "gstRate", required = false) String gstRate,
             @RequestParam(value = "allowedPinCodes", required = false) String allowedPinCodes,
@@ -2450,7 +2451,17 @@ public class ReactApiController {
             p.setPrice(Double.parseDouble(price));
             p.setCategory(category);
             p.setStock(Integer.parseInt(stock));
-            p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+            
+            if (image != null && !image.isEmpty()) {
+                try {
+                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
+                    p.setImageLink(imageUrl);
+                } catch (Exception e) {
+                    p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+                }
+            } else {
+                p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+            }
             p.setApproved(false);
             p.setVendor(vendor);
             
@@ -2486,6 +2497,7 @@ public class ReactApiController {
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "stock", required = false) String stock,
             @RequestParam(value = "imageLink", required = false) String imageLink,
+            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
             @RequestParam(value = "mrp", required = false) String mrp,
             @RequestParam(value = "gstRate", required = false) String gstRate,
             @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
@@ -2495,12 +2507,22 @@ public class ReactApiController {
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
-            if (name != null && !name.isBlank()) p.setName(name);
+            if (name != null &&!name.isBlank()) p.setName(name);
             if (description != null && !description.isBlank()) p.setDescription(description);
             if (price != null && !price.isBlank()) p.setPrice(Double.parseDouble(price));
             if (category != null && !category.isBlank()) p.setCategory(category);
             if (stock != null && !stock.isBlank()) p.setStock(Integer.parseInt(stock));
-            if (imageLink != null && !imageLink.isBlank()) p.setImageLink(imageLink);
+            
+            if (image != null && !image.isEmpty()) {
+                try {
+                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
+                    p.setImageLink(imageUrl);
+                } catch (Exception e) {
+                    if (imageLink != null && !imageLink.isBlank()) p.setImageLink(imageLink);
+                }
+            } else if (imageLink != null && !imageLink.isBlank()) {
+                p.setImageLink(imageLink);
+            }
             if (mrp != null && !mrp.isBlank()) p.setMrp(Double.parseDouble(mrp));
             if (gstRate != null && !gstRate.isBlank()) p.setGstRate(Double.parseDouble(gstRate));
             if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
