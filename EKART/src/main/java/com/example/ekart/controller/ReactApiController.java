@@ -131,6 +131,26 @@ public class ReactApiController {
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> registerOtpVerified =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Temporary OTP storage for registration: email → { otp, timestamp, name }
+     * Used only during registration flow - NOT saved to database until OTP verified
+     */
+    private static class OtpData {
+        String otp;
+        long timestamp;
+        String name;
+        OtpData(String otp, String name) {
+            this.otp = otp;
+            this.name = name;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > 5 * 60 * 1000; // 5 minutes
+        }
+    }
+    private final java.util.concurrent.ConcurrentHashMap<String, OtpData> registerOtpCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** POST /api/react/auth/customer/send-register-otp */
     @PostMapping("/auth/customer/send-register-otp")
     public ResponseEntity<Map<String, Object>> customerSendRegisterOtp(
@@ -138,30 +158,32 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String name = ((String) body.getOrDefault("name", "Customer")).trim();
             if (email.isEmpty()) {
                 res.put("success", false); res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (customerRepository.existsByEmail(email)) {
+            // Check only for VERIFIED customers (not temp pending ones)
+            com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
+            if (existing != null && existing.isVerified()) {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            // Build a temporary Customer just to reuse the emailSender template
-            com.example.ekart.dto.Customer temp = new com.example.ekart.dto.Customer();
-            temp.setName((String) body.getOrDefault("name", "Customer"));
-            temp.setEmail(email);
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            temp.setOtp(otp);
-            // Save temporarily so the email template can reference the OTP
-            temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
-            temp.setVerified(false);
-            temp.setActive(false);
-            temp.setRole(com.example.ekart.dto.Role.CUSTOMER);
-            customerRepository.save(temp);
-            try { emailSender.send(temp); } catch (Exception e) {
+            // Generate OTP and store in TEMPORARY cache only (not in DB)
+            String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+            registerOtpCache.put(email, new OtpData(otp, name));
+            registerOtpVerified.remove(email);
+            
+            // Send OTP via email
+            try {
+                com.example.ekart.dto.Customer tempForEmail = new com.example.ekart.dto.Customer();
+                tempForEmail.setEmail(email);
+                tempForEmail.setName(name);
+                tempForEmail.setOtp(Integer.parseInt(otp));
+                emailSender.send(tempForEmail);
+            } catch (Exception e) {
                 System.err.println("Customer register OTP email failed: " + e.getMessage());
             }
-            registerOtpVerified.remove(email);
             res.put("success", true);
             res.put("message", "OTP sent to " + email);
             return ResponseEntity.ok(res);
@@ -179,25 +201,26 @@ public class ReactApiController {
         try {
             String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String otpStr = body.getOrDefault("otp", "").toString().trim();
-            com.example.ekart.dto.Customer temp = customerRepository.findByEmail(email);
-            if (temp == null) {
-                res.put("success", false); res.put("message", "No pending registration for this email");
+            
+            // Get OTP from temporary cache (not from DB)
+            OtpData otpData = registerOtpCache.get(email);
+            if (otpData == null) {
+                res.put("success", false); res.put("message", "No pending OTP. Please request a new one.");
                 return ResponseEntity.badRequest().body(res);
             }
-            int otp;
-            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
-                res.put("success", false); res.put("message", "Invalid OTP format");
+            if (otpData.isExpired()) {
+                registerOtpCache.remove(email);
+                res.put("success", false); res.put("message", "OTP expired. Please request a new one.");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (temp.getOtp() != otp) {
-                res.put("success", false); res.put("message", "Invalid or expired OTP");
+            if (!otpData.otp.equals(otpStr)) {
+                res.put("success", false); res.put("message", "Invalid OTP");
                 return ResponseEntity.badRequest().body(res);
             }
-            // Mark email as register-verified so the final register step can proceed
+            
+            // Mark email as verified in registration map
             registerOtpVerified.put(email, Boolean.TRUE);
-            // Delete the temp placeholder — final register step will create the real record
-            customerRepository.delete(temp);
-            res.put("success", true); res.put("message", "OTP verified");
+            res.put("success", true); res.put("message", "OTP verified successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false); res.put("message", "Verification failed: " + e.getMessage());
@@ -211,25 +234,36 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            
+            // Check if OTP was verified
             if (!Boolean.TRUE.equals(registerOtpVerified.get(email))) {
                 res.put("success", false);
                 res.put("message", "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (customerRepository.existsByEmail(email)) {
+            
+            // Double-check email is not already registered
+            com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
+            if (existing != null && existing.isVerified()) {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
+            
+            // NOW create the final customer record (only after OTP verified)
             com.example.ekart.dto.Customer c = new com.example.ekart.dto.Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get("mobile").toString()));
             c.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
-            c.setVerified(true);
+            c.setVerified(true);  // Only NOW mark as verified
             c.setRole(com.example.ekart.dto.Role.CUSTOMER);
             c.setActive(true);
             customerRepository.save(c);
-            registerOtpVerified.remove(email); // consume — one-time use
+            
+            // Clean up temporary data
+            registerOtpVerified.remove(email);
+            registerOtpCache.remove(email);
+            
             res.put("success", true);
             res.put("message", "Registered successfully");
             res.put("customerId", c.getId());

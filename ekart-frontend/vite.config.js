@@ -11,9 +11,9 @@ export default defineConfig({
     // when the user hits refresh or pastes a direct URL.
     historyApiFallback: true,
     proxy: {
-      // EKART Backend API - Node.js/Express
+      // EKART Backend API - Spring Boot
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
     }
