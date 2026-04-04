@@ -26,7 +26,7 @@ import java.util.Map;
  *  Design:
  *   - Completely separate persistence unit ("reporting")
  *   - ReportingService is the ONLY class that reads/writes here
- *   - Zero reporting queries hit the main MySQL DB
+ *   - Zero reporting queries hit the main PostgreSQL DB
  *   - Auto-creates sales_record table on first startup
  *   - Safe for Railway deployment: no AUTO_SERVER mode
  * ============================================================
