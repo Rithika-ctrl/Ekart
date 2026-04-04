@@ -31,11 +31,11 @@ public class Product {
 	private double price;       // Selling / discounted price (what customer pays)
 
 	/** Original MRP — if > price, shows strikethrough with discount badge. 0 = no MRP set. */
-	@Column(columnDefinition = "DOUBLE DEFAULT 0")
+	@Column(columnDefinition = "FLOAT8 DEFAULT 0")
 	private Double mrp;
 
 	/** GST Rate (%) — applicable tax rate for this product (e.g., 5, 12, 18). Null = auto-determined. */
-	@Column(columnDefinition = "DOUBLE DEFAULT 0")
+	@Column(columnDefinition = "FLOAT8 DEFAULT 0")
 	private Double gstRate;
 
 	private String category;

@@ -20,8 +20,8 @@ import java.util.Map;
  * ============================================================
  *  DECOUPLED REPORTING DATABASE CONFIGURATION
  * ============================================================
- *  Main DB     → MySQL (Railway)   — live transactional data
- *  Reporting DB → H2 file          — analytics / sales data only
+ *  Main DB     → PostgreSQL (ekart)            — live transactional data
+ *  Reporting DB → PostgreSQL (ekart_reporting)  — analytics / sales data only
  *
  *  Design:
  *   - Completely separate persistence unit ("reporting")
@@ -41,16 +41,16 @@ public class ReportingDataSourceConfig {
 
     // ── Read from application.properties (with safe defaults) ─────────────
 
-    @Value("${reporting.datasource.url:jdbc:h2:file:./ekart_reporting_db;DB_CLOSE_ON_EXIT=FALSE;DB_CLOSE_DELAY=-1}")
+    @Value("${reporting.datasource.url:jdbc:postgresql://localhost:5432/ekart_reporting}")
     private String url;
 
-    @Value("${reporting.datasource.username:sa}")
+    @Value("${reporting.datasource.username:postgres}")
     private String username;
 
-    @Value("${reporting.datasource.password:}")
+    @Value("${reporting.datasource.password:postgres}")
     private String password;
 
-    @Value("${reporting.datasource.driver-class-name:org.h2.Driver}")
+    @Value("${reporting.datasource.driver-class-name:org.postgresql.Driver}")
     private String driverClassName;
 
     // ── Beans ──────────────────────────────────────────────────────────────
@@ -76,15 +76,10 @@ public class ReportingDataSourceConfig {
         factory.setPersistenceUnitName("reporting");
 
         Map<String, Object> props = new HashMap<>();
-        props.put("hibernate.dialect",            "org.hibernate.dialect.H2Dialect");
+        props.put("hibernate.dialect",            "org.hibernate.dialect.PostgreSQLDialect");
         props.put("hibernate.hbm2ddl.auto",       "update");   // auto-creates/updates sales_record table
         props.put("hibernate.show_sql",            "false");
         props.put("hibernate.format_sql",          "false");
-        // Connection pool settings — prevents stale connections
-        props.put("hibernate.connection.pool_size", "2");
-        props.put("hibernate.c3p0.min_size",        "1");
-        props.put("hibernate.c3p0.max_size",        "3");
-        props.put("hibernate.c3p0.timeout",         "300");
         factory.setJpaPropertyMap(props);
 
         return factory;
