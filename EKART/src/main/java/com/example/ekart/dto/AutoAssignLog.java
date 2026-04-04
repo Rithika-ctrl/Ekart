@@ -24,7 +24,7 @@ public class AutoAssignLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(nullable = false)
+    @Column(name = "order_id", nullable = false)
     private int orderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -34,11 +34,11 @@ public class AutoAssignLog {
     @Column(length = 10)
     private String pinCode;
 
-    @Column(nullable = false)
+    @Column(name = "assigned_at", nullable = false)
     private LocalDateTime assignedAt;
 
     /** How many active orders the delivery boy had at time of assignment (0-2) */
-    @Column(nullable = false)
+    @Column(name = "active_orders_at_assignment", nullable = false)
     private int activeOrdersAtAssignment;
 
     // ── Getters & Setters ─────────────────────────────────────────
