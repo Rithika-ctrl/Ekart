@@ -34,8 +34,8 @@ public class WarehouseChangeRequest {
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20, nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'PENDING'")
-    private Status status;
+    @Column(length = 20, nullable = false)
+    private Status status = Status.PENDING;
 
     /** Admin's note when approving / rejecting */
     @Column(length = 300)
