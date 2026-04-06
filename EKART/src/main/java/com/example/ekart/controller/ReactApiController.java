@@ -66,6 +66,7 @@ public class ReactApiController {
     @Autowired private com.example.ekart.service.OtpService otpService;
     @Autowired private AdminAuthService adminAuthService;
     @Autowired private com.example.ekart.helper.EmailSender emailSender;
+    @Autowired private com.example.ekart.service.RazorpayService razorpayService;
     @Autowired(required = false)
     private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
@@ -1669,6 +1670,182 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // RAZORPAY PAYMENT INTEGRATION
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * POST /api/react/orders/checkout — Create Razorpay order for payment
+     * 
+     * Frontend workflow:
+     * 1. User selects address, delivery time, payment mode "ONLINE"
+     * 2. Frontend calls this endpoint to get Razorpay order details
+     * 3. Frontend opens Razorpay checkout modal
+     * 4. User completes payment in Razorpay
+     * 5. Frontend calls /orders/callback with verification details
+     * 6. Backend verifies signature and confirms payment
+     * 7. Frontend calls /orders/place with payment details
+     */
+    @PostMapping("/orders/checkout")
+    public ResponseEntity<Map<String, Object>> createRazorpayOrder(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) {
+            res.put("success", false);
+            res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            Customer customer = customerRepository.findById(customerId).orElse(null);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Customer not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            Cart cart = customer.getCart();
+            if (cart == null || cart.getItems().isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Cart is empty");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Calculate order total
+            double subtotal = 0;
+            for (Item cartItem : cart.getItems()) {
+                subtotal += cartItem.getPrice() * cartItem.getQuantity();
+            }
+
+            double deliveryCharge = "EXPRESS".equals(body.get("deliveryTime")) ? 50.0 : 0.0;
+            
+            // Apply coupon if exists
+            Coupon appliedCoupon = appliedCoupons.get(customerId);
+            double couponDiscount = 0;
+            if (appliedCoupon != null && appliedCoupon.isValid()
+                    && subtotal >= appliedCoupon.getMinOrderAmount()) {
+                couponDiscount = appliedCoupon.calculateDiscount(subtotal);
+            }
+
+            double totalAmount = Math.max(0, subtotal - couponDiscount) + deliveryCharge;
+
+            // Create a temporary order record to get an ID for Razorpay receipt
+            Order tempOrder = new Order();
+            tempOrder.setCustomer(customer);
+            tempOrder.setAmount(totalAmount);
+            tempOrder.setTotalPrice(totalAmount);
+            tempOrder.setDateTime(LocalDateTime.now());
+            tempOrder.setTrackingStatus(TrackingStatus.PENDING_PAYMENT);
+            tempOrder.setPaymentMode("RAZORPAY");
+            orderRepository.save(tempOrder);
+            int tempOrderId = tempOrder.getId();
+
+            // Create Razorpay order
+            Map<String, Object> razorpayOrderDetails = razorpayService.createOrder(
+                    totalAmount,
+                    tempOrderId,
+                    customer.getEmail(),
+                    customer.getPhone()
+            );
+
+            if ((boolean) razorpayOrderDetails.getOrDefault("succeeded", false)) {
+                res.put("success", true);
+                res.put("razorpayOrderId", razorpayOrderDetails.get("razorpayOrderId"));
+                res.put("razorpayKeyId", razorpayOrderDetails.get("razorpayKeyId"));
+                res.put("amount", razorpayOrderDetails.get("amount"));
+                res.put("currency", razorpayOrderDetails.get("currency"));
+                res.put("customerEmail", customer.getEmail());
+                res.put("customerPhone", customer.getPhone());
+                res.put("customerName", customer.getName());
+                res.put("tempOrderId", tempOrderId);
+                res.put("subtotal", subtotal);
+                res.put("couponDiscount", couponDiscount);
+                res.put("deliveryCharge", deliveryCharge);
+                res.put("totalAmount", totalAmount);
+                return ResponseEntity.ok(res);
+            } else {
+                res.put("success", false);
+                res.put("message", razorpayOrderDetails.getOrDefault("message", "Failed to create Razorpay order"));
+                return ResponseEntity.status(500).body(res);
+            }
+
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Checkout error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/orders/callback — Verify Razorpay payment signature
+     * 
+     * Frontend calls this after successful Razorpay payment
+     * with signature details for backend verification
+     * 
+     * SECURITY: This endpoint verifies the signature to ensure
+     * the payment was not tampered with. Do NOT proceed without verification.
+     */
+    @PostMapping("/orders/callback")
+    public ResponseEntity<Map<String, Object>> verifyRazorpayPayment(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) {
+            res.put("success", false);
+            res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            String razorpayOrderId = (String) body.get("razorpayOrderId");
+            String razorpayPaymentId = (String) body.get("razorpayPaymentId");
+            String signature = (String) body.get("signature");
+
+            if (razorpayOrderId == null || razorpayPaymentId == null || signature == null) {
+                res.put("success", false);
+                res.put("message", "Missing payment verification details");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Verify signature (CRITICAL SECURITY CHECK)
+            boolean isValid = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, signature);
+            if (!isValid) {
+                res.put("success", false);
+                res.put("message", "Payment verification failed. Invalid signature.");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            Customer customer = customerRepository.findById(customerId).orElse(null);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Customer not found");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Update temporary order with payment details
+            Integer tempOrderId = ((Number) body.get("tempOrderId")).intValue();
+            Order order = orderRepository.findById(tempOrderId).orElse(null);
+            if (order != null) {
+                order.setRazorpay_payment_id(razorpayPaymentId);
+                order.setRazorpay_order_id(razorpayOrderId);
+                order.setTrackingStatus(TrackingStatus.PAYMENT_VERIFIED);
+                orderRepository.save(order);
+            }
+
+            res.put("success", true);
+            res.put("message", "Payment verified successfully");
+            res.put("razorpayPaymentId", razorpayPaymentId);
+            res.put("razorpayOrderId", razorpayOrderId);
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Verification error: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
