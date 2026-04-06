@@ -41,6 +41,9 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class ReactApiController {
 
+    private static final String STRONG_PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+    private static final String STRONG_PASSWORD_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
+
     @Autowired private CustomerRepository  customerRepository;
     @Autowired private VendorRepository    vendorRepository;
     @Autowired private ProductRepository   productRepository;
@@ -81,11 +84,8 @@ public class ReactApiController {
      */
     private final java.util.concurrent.ConcurrentHashMap<String, String> otpVerified =
             new java.util.concurrent.ConcurrentHashMap<>();
-
-    @Autowired
-    private com.example.ekart.helper.EmailSender emailSender;
-
-    @Autowired
+    
+        @Autowired
     private JwtUtil jwtUtil;
 
     // Admin credentials are now database-backed via AdminAuthService.
@@ -112,6 +112,10 @@ public class ReactApiController {
             return ResponseEntity.status(403).body(err);
         }
         return null;
+    }
+
+    private boolean isStrongPassword(String password) {
+        return password != null && password.matches(STRONG_PASSWORD_REGEX);
     }
 
     /** POST /api/flutter/auth/customer/register */
@@ -235,17 +239,19 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            
-            // Check if OTP was verified
+            String password = ((String) body.getOrDefault("password", "")).trim();
             if (!Boolean.TRUE.equals(registerOtpVerified.get(email))) {
                 res.put("success", false);
                 res.put("message", "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
-            
-            // Double-check email is not already registered
             com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) {
+            if (!isStrongPassword(password)) {
+                res.put("success", false);
+                res.put("message", STRONG_PASSWORD_MESSAGE);
+                return ResponseEntity.badRequest().body(res);
+            }
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
@@ -255,8 +261,8 @@ public class ReactApiController {
             c.setName((String) body.get("name"));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get("mobile").toString()));
-            c.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
-            c.setVerified(true);  // Only NOW mark as verified
+            c.setPassword(com.example.ekart.helper.AES.encrypt(password));
+            c.setVerified(true);
             c.setRole(com.example.ekart.dto.Role.CUSTOMER);
             c.setActive(true);
             customerRepository.save(c);
@@ -344,9 +350,10 @@ public class ReactApiController {
             temp.setVerified(false);
             vendorRepository.save(temp);
             try {
-                // 🔒 NEW: Use secure OTP service (BCrypt hashed)
-                String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
-                emailSender.sendVendorOtpSecure(temp, plainOtp);
+                // Generate OTP and send it through the existing mail helper
+                String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+                temp.setOtp(Integer.parseInt(otp));
+                emailSender.send(temp);
             } catch (Exception e) {
                 System.err.println("Vendor register OTP email failed: " + e.getMessage());
             }
@@ -395,9 +402,15 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String password = ((String) body.getOrDefault("password", "")).trim();
             if (!Boolean.TRUE.equals(vendorRegisterOtpVerified.get(email))) {
                 res.put("success", false);
                 res.put("message", "Email not verified. Please complete OTP verification first.");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!isStrongPassword(password)) {
+                res.put("success", false);
+                res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             if (vendorRepository.existsByEmail(email)) {
@@ -408,7 +421,7 @@ public class ReactApiController {
             v.setName((String) body.get("name"));
             v.setEmail(email);
             v.setMobile(Long.parseLong(body.get("mobile").toString()));
-            v.setPassword(com.example.ekart.helper.AES.encrypt((String) body.get("password")));
+            v.setPassword(com.example.ekart.helper.AES.encrypt(password));
             v.setVerified(true);
             vendorRepository.save(v);
             String vendorCode = generateVendorCode(v.getId());
@@ -686,7 +699,7 @@ public class ReactApiController {
             if (!email.contains("@"))                  { res.put("success", false); res.put("message", "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
             if (deliveryBoyRepository.existsByEmail(email)) { res.put("success", false); res.put("message", "This email is already registered"); return ResponseEntity.badRequest().body(res); }
             if (!password.equals(confirmPassword))     { res.put("success", false); res.put("message", "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
-            if (password.length() < 6)                 { res.put("success", false); res.put("message", "Password must be at least 6 characters"); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(password))           { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             if (warehouseId <= 0)                      { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
 
             long mobile;
@@ -822,9 +835,7 @@ public class ReactApiController {
                 return ResponseEntity.ok(res);
             }
             try {
-                // 🔒 NEW: Use secure OTP service
-                String plainOtp = otpService.resendOtp(db.getEmail(), com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
-                emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
+                emailSender.sendDeliveryBoyOtp(db);
             } catch (Exception e) { 
                 System.err.println("OTP resend failed: " + e.getMessage()); 
             }
@@ -955,9 +966,9 @@ public class ReactApiController {
                 res.put("message", "Account not found");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPassword.length() < 8) {
+            if (!isStrongPassword(newPassword)) {
                 res.put("success", false);
-                res.put("message", "Password must be at least 8 characters");
+                res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             customer.setPassword(AES.encrypt(newPassword));
@@ -1074,9 +1085,9 @@ public class ReactApiController {
                 res.put("message", "Account not found");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPassword.length() < 8) {
+            if (!isStrongPassword(newPassword)) {
                 res.put("success", false);
-                res.put("message", "Password must be at least 8 characters");
+                res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             vendor.setPassword(AES.encrypt(newPassword));
@@ -1831,6 +1842,7 @@ public class ReactApiController {
 
         // ── 4. Structured audit log (searchable without a DB table) ────────
         String customerEmail = order.getCustomer().getEmail();
+        String adminEmail = adminAuthService.getPrimaryAdminEmail();
         System.out.printf(
             "[DISPUTE] orderId=%d customerId=%d customerEmail=%s reason=\"%s\" description=\"%s\" ip=%s at=%s%n",
             id, customerId, customerEmail, reason,
@@ -4078,6 +4090,12 @@ public class ReactApiController {
             return ResponseEntity.status(403)
                     .body(Map.of("success", false, "message", "Admin access required"));
         }
+        Integer adminId = (Integer) request.getAttribute("react.userId");
+        if (adminId == null) {
+            return ResponseEntity.status(403)
+                .body(Map.of("success", false, "message", "Admin ID not found in token"));
+        }
+        String adminEmail = adminAuthService.getAdminEmailById(adminId);
         Map<String, Object> result = refundService.approveRefund(id, adminEmail);
         boolean success = Boolean.TRUE.equals(result.get("success"));
         return success
@@ -4105,6 +4123,12 @@ public class ReactApiController {
             return ResponseEntity.status(403)
                     .body(Map.of("success", false, "message", "Admin access required"));
         }
+        Integer adminId = (Integer) request.getAttribute("react.userId");
+        if (adminId == null) {
+            return ResponseEntity.status(403)
+                .body(Map.of("success", false, "message", "Admin ID not found in token"));
+        }
+        String adminEmail = adminAuthService.getAdminEmailById(adminId);
         String reason = body.getOrDefault("reason", "").toString().trim();
         Map<String, Object> result = refundService.rejectRefund(id, reason, adminEmail);
         boolean success = Boolean.TRUE.equals(result.get("success"));
@@ -5233,10 +5257,9 @@ public class ReactApiController {
                 res.put("message", "New passwords do not match");
                 return ResponseEntity.badRequest().body(res);
             }
-            
-            if (newPassword.length() < 8) {
+            if (!isStrongPassword(newPassword)) {
                 res.put("success", false);
-                res.put("message", "Password must be at least 8 characters");
+                res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -5337,7 +5360,7 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             customer.setPassword(AES.encrypt(newPwd));
             customerRepository.save(customer);
             res.put("success", true); res.put("message", "Password changed successfully");
@@ -5461,7 +5484,7 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             vendor.setPassword(AES.encrypt(newPwd));
             vendorRepository.save(vendor);
             res.put("success", true); res.put("message", "Password changed successfully");

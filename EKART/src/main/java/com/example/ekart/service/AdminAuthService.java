@@ -162,6 +162,19 @@ public class AdminAuthService {
         return true;
     }
 
+    public String getAdminEmailById(int adminId) {
+        return adminCredentialRepository.findById(adminId)
+                .map(AdminCredential::getEmail)
+                .orElse(null);
+    }
+
+    public String getPrimaryAdminEmail() {
+        return adminCredentialRepository.findAll().stream()
+                .findFirst()
+                .map(AdminCredential::getEmail)
+                .orElse(null);
+    }
+
     /**
      * Change admin password
      */
