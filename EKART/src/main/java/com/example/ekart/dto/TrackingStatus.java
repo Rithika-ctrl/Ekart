@@ -7,6 +7,8 @@ package com.example.ekart.dto;
  * Change from original: added PACKED status between PROCESSING and SHIPPED.
  */
 public enum TrackingStatus {
+    PENDING_PAYMENT("Pending Payment"),   // NEW — Waiting for Razorpay payment
+    PAYMENT_VERIFIED("Payment Verified"),  // NEW — Razorpay payment verified
     PROCESSING("Processing"),
     PACKED("Packed"),              // NEW — vendor has packed the order, ready for pickup
     SHIPPED("Shipped"),
