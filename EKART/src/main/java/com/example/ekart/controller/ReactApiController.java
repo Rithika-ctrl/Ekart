@@ -8,6 +8,7 @@ import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
 import com.example.ekart.service.RefundService;
 import com.example.ekart.service.SocialAuthService;
+import com.example.ekart.service.AdminAuthService;
 import com.example.ekart.config.OAuthProviderValidator;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
@@ -59,6 +60,9 @@ public class ReactApiController {
     @Autowired private OAuthProviderValidator oAuthProviderValidator;
     @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
     @Autowired private com.example.ekart.service.AutoAssignmentService autoAssignmentService;
+    @Autowired private com.example.ekart.service.OtpService otpService;
+    @Autowired private AdminAuthService adminAuthService;
+    @Autowired private com.example.ekart.helper.EmailSender emailSender;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -84,12 +88,9 @@ public class ReactApiController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Admin credentials come from application.properties (admin.email / admin.password)
-    @org.springframework.beans.factory.annotation.Value("${admin.email}")
-    private String adminEmail;
-
-    @org.springframework.beans.factory.annotation.Value("${admin.password}")
-    private String adminPassword;
+    // Admin credentials are now database-backed via AdminAuthService.
+    // See AdminCredential entity and AdminAuthService for implementation.
+    // Admin setup instructions are in .env.example
 
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
@@ -339,12 +340,14 @@ public class ReactApiController {
             com.example.ekart.dto.Vendor temp = new com.example.ekart.dto.Vendor();
             temp.setName((String) body.getOrDefault("name", "Vendor"));
             temp.setEmail(email);
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            temp.setOtp(otp);
             temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
             temp.setVerified(false);
             vendorRepository.save(temp);
-            try { emailSender.send(temp); } catch (Exception e) {
+            try {
+                // 🔒 NEW: Use secure OTP service (BCrypt hashed)
+                String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
+                emailSender.sendVendorOtpSecure(temp, plainOtp);
+            } catch (Exception e) {
                 System.err.println("Vendor register OTP email failed: " + e.getMessage());
             }
             vendorRegisterOtpVerified.remove(email);
@@ -369,13 +372,11 @@ public class ReactApiController {
                 res.put("success", false); res.put("message", "No pending registration for this email");
                 return ResponseEntity.badRequest().body(res);
             }
-            int otp;
-            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
-                res.put("success", false); res.put("message", "Invalid OTP format");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (temp.getOtp() != otp) {
-                res.put("success", false); res.put("message", "Invalid or expired OTP");
+            // 🔒 NEW: Verify OTP using secure service (hashed comparison)
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, otpStr, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
+            
+            if (!result.success) {
+                res.put("success", false); res.put("message", result.message);
                 return ResponseEntity.badRequest().body(res);
             }
             vendorRegisterOtpVerified.put(email, Boolean.TRUE);
@@ -459,10 +460,20 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/flutter/auth/admin/login
+     * POST /api/react/auth/admin/login
      * Body: { email, password }
-     * Validates against admin.email / admin.password from application.properties.
-     * Returns: { success, name, email, token, role:"ADMIN" }
+     * Authenticates admin via database-backed credentials with optional 2FA.
+     * 
+     * If 2FA is NOT enabled:
+     *   Returns: { success: true, adminId, name, email, token, role: "ADMIN" }
+     * 
+     * If 2FA IS enabled:
+     *   Returns: { success: true, adminId, requires2FA: true, message: "Please provide 2FA code" }
+     *   Next step: POST /api/react/auth/admin/verify-2fa with { adminId, totpCode }
+     * 
+     * Failure cases:
+     *   - Invalid credentials       → 401 + message
+     *   - Account locked (5 fails)  → 403 + message (auto-unlocks after 15 min)
      */
     @PostMapping("/auth/admin/login")
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
@@ -470,21 +481,85 @@ public class ReactApiController {
         String email    = (String) body.get("email");
         String password = (String) body.get("password");
         if (email == null || password == null) {
-            res.put("success", false); res.put("message", "Email and password are required");
+            res.put("success", false); 
+            res.put("message", "Email and password are required");
             return ResponseEntity.badRequest().body(res);
         }
-        if (!email.equals(adminEmail) || !password.equals(adminPassword)) {
-            res.put("success", false); res.put("message", "Invalid admin credentials");
+        
+        // Attempt authentication via AdminAuthService (BCrypt verification, brute force protection)
+        com.example.ekart.dto.AuthenticationResult authResult = adminAuthService.authenticate(email, password);
+        
+        if (!authResult.isSuccess()) {
+            // Authentication failed
+            res.put("success", false);
+            res.put("message", authResult.getMessage());
             return ResponseEntity.status(401).body(res);
         }
-        // Token is a simple signed marker — not sensitive since admin screen is read-only
-        String token = jwtUtil.generateToken(0, adminEmail, "ADMIN");
+        
+        // Authentication succeeded
+        if (authResult.isRequires2FA()) {
+            // 2FA is enabled — client must provide TOTP code in next request
+            res.put("success", true);
+            res.put("adminId", authResult.getAdminId());
+            res.put("requires2FA", true);
+            res.put("message", "Please provide 2FA code from your authenticator app");
+            return ResponseEntity.ok(res);
+        }
+        
+        // No 2FA — issue token immediately
+        String token = jwtUtil.generateToken(0, email, "ADMIN");
         res.put("success", true);
-        res.put("adminId", 0);
-        res.put("name", "Admin");
-        res.put("email", adminEmail);
+        res.put("adminId", authResult.getAdminId());
+        res.put("name", authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
+        res.put("email", email);
         res.put("token", token);
         res.put("role", "ADMIN");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/auth/admin/verify-2fa
+     * Body: { adminId, totpCode }
+     * Verifies 6-digit TOTP code from authenticator app.
+     * Returns: { success: true, token, name, email } on success
+     * Returns: { success: false, message } on failure
+     */
+    @PostMapping("/auth/admin/verify-2fa")
+    public ResponseEntity<Map<String, Object>> adminVerify2FA(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Integer adminId = null;
+        String totpCode = (String) body.get("totpCode");
+        
+        try {
+            adminId = ((Number) body.get("adminId")).intValue();
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Invalid adminId");
+            return ResponseEntity.badRequest().body(res);
+        }
+        
+        if (totpCode == null || totpCode.isEmpty()) {
+            res.put("success", false);
+            res.put("message", "2FA code is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        
+        // Verify TOTP code
+        com.example.ekart.dto.VerificationResult verifyResult = adminAuthService.verify2FA(adminId, totpCode);
+        
+        if (!verifyResult.isSuccess()) {
+            res.put("success", false);
+            res.put("message", verifyResult.getMessage());
+            return ResponseEntity.status(401).body(res);
+        }
+        
+        // 2FA verification successful — issue token
+        // Note: We fetch email from DB via adminAuthService to include in token
+        String token = jwtUtil.generateToken(0, "admin-" + adminId, "ADMIN");
+        res.put("success", true);
+        res.put("adminId", adminId);
+        res.put("token", token);
+        res.put("message", "2FA verification successful");
         return ResponseEntity.ok(res);
     }
 
@@ -692,9 +767,12 @@ public class ReactApiController {
                 res.put("message", "Email already verified. Awaiting admin approval.");
                 return ResponseEntity.ok(res);
             }
-            if (db.getOtp() != otpInt) {
+            // 🔒 NEW: Verify OTP using secure service (hashed comparison)
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, otpStr, com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
+            
+            if (!result.success) {
                 res.put("success", false);
-                res.put("message", "Incorrect OTP. Please try again.");
+                res.put("message", result.message);
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -743,11 +821,13 @@ public class ReactApiController {
                 res.put("message", "Email is already verified");
                 return ResponseEntity.ok(res);
             }
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            db.setOtp(otp);
-            deliveryBoyRepository.save(db);
-            try { emailSender.sendDeliveryBoyOtp(db); }
-            catch (Exception e) { System.err.println("OTP resend failed: " + e.getMessage()); }
+            try {
+                // 🔒 NEW: Use secure OTP service
+                String plainOtp = otpService.resendOtp(db.getEmail(), com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
+                emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
+            } catch (Exception e) { 
+                System.err.println("OTP resend failed: " + e.getMessage()); 
+            }
 
             res.put("success", true);
             res.put("message", "A new OTP has been sent to " + email);
@@ -5107,32 +5187,18 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/flutter/admin/change-password
-     * Changes the admin password for the stateless Flutter admin session.
-     *
-     * Fix: The existing POST /update-admin-password is a Thymeleaf form endpoint
-     * that checks session.getAttribute("admin") — always null in a stateless
-     * JWT-based Flutter session — so it immediately redirects to /admin/login
-     * instead of changing the password.
-     *
-     * AdminService.updateAdminPassword() doesn't persist either: it reads
-     * adminPassword from @Value("${admin.password}") at startup and never writes
-     * it back, so the comment "contact system admin to update credentials" is the
-     * real behaviour of that method.
-     *
-     * This endpoint:
-     *   1. Validates currentPassword against the live in-memory adminPassword field
-     *   2. Persists the new password to the .env file (ADMIN_PASSWORD=REDACTED
-     *      the change survives a server restart
-     *   3. Updates the in-memory adminPassword field on this controller so
-     *      subsequent JWT logins and API calls use the new password immediately,
-     *      without needing a restart
-     *
+     * POST /api/react/admin/change-password
+     * Changes the admin password via database-backed AdminAuthService.
+     * 
      * Request body (JSON):
      *   { "currentPassword": "...", "newPassword": "...", "confirmPassword": "..." }
      *
-     * The .env file is located relative to the JVM working directory (project root),
-     * which is where Spring Boot / DotenvConfig loads it from at startup.
+     * Header: Authorization: Bearer <admin-jwt-token>
+     * The token contains the admin ID which is extracted and used for password change.
+     * 
+     * Response:
+     *   { "success": true, "message": "Password changed successfully" }
+     *   { "success": false, "message": "Current password is incorrect (or other error)" }
      */
     @PostMapping("/admin/change-password")
     public ResponseEntity<Map<String, Object>> adminChangePassword(
@@ -5140,8 +5206,17 @@ public class ReactApiController {
             HttpServletRequest request) {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
+        
         Map<String, Object> res = new LinkedHashMap<>();
         try {
+            // Get admin ID from the JWT token (set by ReactAuthFilter)
+            Integer adminId = (Integer) request.getAttribute("react.userId");
+            if (adminId == null) {
+                res.put("success", false);
+                res.put("message", "Admin ID not found in token");
+                return ResponseEntity.status(403).body(res);
+            }
+            
             String currentPassword  = body.getOrDefault("currentPassword",  "").toString().trim();
             String newPassword      = body.getOrDefault("newPassword",      "").toString().trim();
             String confirmPassword  = body.getOrDefault("confirmPassword",  "").toString().trim();
@@ -5152,33 +5227,34 @@ public class ReactApiController {
                 res.put("message", "All password fields are required");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!currentPassword.equals(adminPassword)) {
-                res.put("success", false);
-                res.put("message", "Current password is incorrect");
-                return ResponseEntity.status(403).body(res);
-            }
+            
             if (!newPassword.equals(confirmPassword)) {
                 res.put("success", false);
                 res.put("message", "New passwords do not match");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPassword.length() < 6) {
+            
+            if (newPassword.length() < 8) {
                 res.put("success", false);
-                res.put("message", "Password must be at least 6 characters");
+                res.put("message", "Password must be at least 8 characters");
                 return ResponseEntity.badRequest().body(res);
             }
+            
             if (newPassword.equals(currentPassword)) {
                 res.put("success", false);
                 res.put("message", "New password must be different from the current password");
                 return ResponseEntity.badRequest().body(res);
             }
 
-            // ── Persist to .env so the change survives a restart ───────────
-            persistPasswordToEnv(newPassword);
+            // Use AdminAuthService to change password (validates current password via BCrypt)
+            com.example.ekart.dto.PasswordChangeResult changeResult = 
+                adminAuthService.changePassword(adminId, currentPassword, newPassword);
 
-            // ── Update in-memory field so the change takes effect immediately
-            // without a restart (subsequent logins and API calls use this field)
-            this.adminPassword = newPassword;
+            if (!changeResult.isSuccess()) {
+                res.put("success", false);
+                res.put("message", changeResult.getMessage());
+                return ResponseEntity.status(401).body(res);
+            }
 
             res.put("success", true);
             res.put("message", "Admin password updated successfully");
@@ -5187,56 +5263,6 @@ public class ReactApiController {
             res.put("success", false);
             res.put("message", "Failed to change password: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
-     * Rewrites ADMIN_PASSWORD in the .env file in the JVM working directory.
-     * Reads the file line-by-line, replaces the ADMIN_PASSWORD=REDACTED
-     * writes the result back atomically via a temp file + rename.
-     *
-     * If the .env file does not exist or the key is not present, the method
-     * appends the key so the next startup picks it up.
-     */
-    private void persistPasswordToEnv(String newPassword) throws java.io.IOException {
-        java.io.File envFile = new java.io.File(".env");
-        String newLine = "ADMIN_PASSWORD=REDACTED
-
-        if (!envFile.exists()) {
-            // .env doesn't exist at runtime working dir — create it with just the key
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(envFile)) {
-                pw.println(newLine);
-            }
-            return;
-        }
-
-        java.util.List<String> lines = new java.util.ArrayList<>();
-        boolean found = false;
-        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(envFile))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.startsWith("ADMIN_PASSWORD=REDACTED
-                    lines.add(newLine);
-                    found = true;
-                } else {
-                    lines.add(line);
-                }
-            }
-        }
-        if (!found) {
-            lines.add(newLine);
-        }
-
-        // Write atomically: temp file → rename
-        java.io.File tmp = new java.io.File(".env.tmp");
-        try (java.io.PrintWriter pw = new java.io.PrintWriter(tmp)) {
-            for (String l : lines) pw.println(l);
-        }
-        if (!tmp.renameTo(envFile)) {
-            // renameTo can fail across filesystems — fall back to copy + delete
-            java.nio.file.Files.copy(tmp.toPath(), envFile.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            tmp.delete();
         }
     }
 

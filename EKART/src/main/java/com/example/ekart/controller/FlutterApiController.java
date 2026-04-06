@@ -6,6 +6,7 @@ import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
+import com.example.ekart.service.AdminAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -55,13 +56,11 @@ public class FlutterApiController {
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private EmailSender                        emailSender;
+    @Autowired private AdminAuthService                   adminAuthService;
 
-    // Admin credentials come from application.properties (admin.email / admin.password)
-    @org.springframework.beans.factory.annotation.Value("${admin.email}")
-    private String adminEmail;
-
-    @org.springframework.beans.factory.annotation.Value("${admin.password}")
-    private String adminPassword;
+    // Admin credentials are now database-backed via AdminAuthService.
+    // See AdminCredential entity and AdminAuthService for implementation.
+    // Admin setup instructions are in .env.example
 
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
@@ -188,7 +187,18 @@ public class FlutterApiController {
     /**
      * POST /api/flutter/auth/admin/login
      * Body: { email, password }
-     * Validates against admin.email / admin.password from application.properties.
+     * Authenticates admin via database-backed credentials with optional 2FA.
+     * 
+     * If 2FA is NOT enabled:
+     *   Returns: { success: true, adminId, name, email, token, role: "ADMIN" }
+     * 
+     * If 2FA IS enabled:
+     *   Returns: { success: true, adminId, requires2FA: true, message: "Please provide 2FA code" }
+     *   Next step: POST /api/flutter/auth/admin/verify-2fa with { adminId, totpCode }
+     * 
+     * Failure cases:
+     *   - Invalid credentials       → 401 + message
+     *   - Account locked (5 fails)  → 403 + message (auto-unlocks after 15 min)
      */
     @PostMapping("/auth/admin/login")
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
@@ -196,20 +206,84 @@ public class FlutterApiController {
         String email    = (String) body.get("email");
         String password = (String) body.get("password");
         if (email == null || password == null) {
-            res.put("success", false); res.put("message", "Email and password are required");
+            res.put("success", false); 
+            res.put("message", "Email and password are required");
             return ResponseEntity.badRequest().body(res);
         }
-        if (!email.equals(adminEmail) || !password.equals(adminPassword)) {
-            res.put("success", false); res.put("message", "Invalid admin credentials");
+        
+        // Attempt authentication via AdminAuthService (BCrypt verification, brute force protection)
+        com.example.ekart.dto.AuthenticationResult authResult = adminAuthService.authenticate(email, password);
+        
+        if (!authResult.isSuccess()) {
+            // Authentication failed
+            res.put("success", false);
+            res.put("message", authResult.getMessage());
             return ResponseEntity.status(401).body(res);
         }
-        String token = Base64.getEncoder().encodeToString(("admin:" + adminEmail).getBytes());
+        
+        // Authentication succeeded
+        if (authResult.isRequires2FA()) {
+            // 2FA is enabled — client must provide TOTP code in next request
+            res.put("success", true);
+            res.put("adminId", authResult.getAdminId());
+            res.put("requires2FA", true);
+            res.put("message", "Please provide 2FA code from your authenticator app");
+            return ResponseEntity.ok(res);
+        }
+        
+        // No 2FA — issue token immediately (Base64 encoded for backward compatibility with Flutter)
+        String token = Base64.getEncoder().encodeToString(("admin:" + email).getBytes());
         res.put("success", true);
-        res.put("adminId", 0);
-        res.put("name", "Admin");
-        res.put("email", adminEmail);
+        res.put("adminId", authResult.getAdminId());
+        res.put("name", authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
+        res.put("email", email);
         res.put("token", token);
         res.put("role", "ADMIN");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/flutter/auth/admin/verify-2fa
+     * Body: { adminId, totpCode }
+     * Verifies 6-digit TOTP code from authenticator app.
+     * Returns: { success: true, token, name, email } on success
+     * Returns: { success: false, message } on failure
+     */
+    @PostMapping("/auth/admin/verify-2fa")
+    public ResponseEntity<Map<String, Object>> adminVerify2FA(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        Integer adminId = null;
+        String totpCode = (String) body.get("totpCode");
+        
+        try {
+            adminId = ((Number) body.get("adminId")).intValue();
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Invalid adminId");
+            return ResponseEntity.badRequest().body(res);
+        }
+        
+        if (totpCode == null || totpCode.isEmpty()) {
+            res.put("success", false);
+            res.put("message", "2FA code is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        
+        // Verify TOTP code
+        com.example.ekart.dto.VerificationResult verifyResult = adminAuthService.verify2FA(adminId, totpCode);
+        
+        if (!verifyResult.isSuccess()) {
+            res.put("success", false);
+            res.put("message", verifyResult.getMessage());
+            return ResponseEntity.status(401).body(res);
+        }
+        
+        // 2FA verification successful — issue token (Base64 encoded for Flutter)
+        String token = Base64.getEncoder().encodeToString(("admin:" + adminId).getBytes());
+        res.put("success", true);
+        res.put("adminId", adminId);
+        res.put("token", token);
+        res.put("message", "2FA verification successful");
         return ResponseEntity.ok(res);
     }
 

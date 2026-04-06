@@ -1,6 +1,7 @@
 package com.example.ekart.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Deprecated;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,30 +15,30 @@ import com.example.ekart.service.OrderTrackingService;
 import jakarta.servlet.http.HttpSession;
 
 /**
- * REST API Controller for Real-Time Shipment Tracking.
+ * ⚠️ DEPRECATED: Order Tracking Controller
  * 
- * Provides endpoints for:
- * - GET /api/orders/{id}/track - Returns current status and tracking history
+ * This controller is deprecated as of April 6, 2026.
+ * All tracking endpoints have been moved to ReactApiController (/api/react/...)
+ * 
+ * Use: GET /api/react/orders/{id}/track instead
+ * 
+ * Kept for backwards compatibility only. Please migrate to ReactApiController.
  */
 @RestController
 @RequestMapping("/api/orders")
+@Deprecated(since = "2.0", forRemoval = true)
 public class OrderTrackingController {
 
     @Autowired
     private OrderTrackingService orderTrackingService;
 
     /**
-     * GET /api/orders/{id}/track
+     * ⚠️ DEPRECATED: Use GET /api/react/orders/{id}/track instead
      * 
-     * Returns tracking information including:
-     * - Current status (Processing, Shipped, Out for Delivery, Delivered)
-     * - Current city/location
-     * - Timestamped history of location updates
-     * - Estimated delivery time
-     * 
-     * Security: Only returns data if the order belongs to the logged-in customer.
+     * @deprecated As of 2.0, use ReactApiController.getOrderTracking() instead
      */
     @GetMapping("/{id}/track")
+    @Deprecated(since = "2.0", forRemoval = true)
     public ResponseEntity<TrackingResponse> getOrderTracking(
             @PathVariable("id") int orderId,
             HttpSession session) {
@@ -45,7 +46,6 @@ public class OrderTrackingController {
         TrackingResponse tracking = orderTrackingService.getOrderTracking(orderId, session);
 
         if (tracking == null) {
-            // Either not authenticated, order not found, or order belongs to another user
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

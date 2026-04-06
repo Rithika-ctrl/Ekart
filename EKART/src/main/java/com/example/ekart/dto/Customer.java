@@ -73,9 +73,6 @@ public class Customer implements Serializable {
 	@Column(nullable = true)
 	private String providerId;
 
-	@OneToOne(cascade = CascadeType.ALL)
-	private Cart cart = new Cart();
-
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Address> addresses = new ArrayList<>();
 
@@ -84,6 +81,9 @@ public class Customer implements Serializable {
 
 	@Column(nullable = true, length = 500)
 	private String profileImage;
+
+	@Embedded
+	private Cart cart = new Cart();
 
 	// ─── Getters ────────────────────────────────────────────────────────────────
 

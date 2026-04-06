@@ -94,7 +94,7 @@ public class Order {
     @Transient
     private boolean returnEligible;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Item> items = new ArrayList<Item>();
 
     @ManyToOne

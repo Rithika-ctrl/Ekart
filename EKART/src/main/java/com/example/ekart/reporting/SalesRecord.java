@@ -4,9 +4,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * REPORTING DB ENTITY
+ * REPORTING ENTITY (Main PostgreSQL DB)
  * One row = one item sold in one order.
  * Tracks: sales, product-wise orders, category revenue.
+ * 
+ * Consolidated with main database for unified queryability.
  */
 @Entity
 @Table(name = "sales_record")
@@ -16,25 +18,33 @@ public class SalesRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    // Order info
-    private int orderId;
+    // Order relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private com.example.ekart.dto.Order order;
     private LocalDateTime orderDate;
     private double orderTotal;
     private double deliveryCharge;
 
-    // Product info
-    private Integer productId;      // FK reference (not a JPA relation — keeps reporting DB decoupled)
+    // Product relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private com.example.ekart.dto.Product product;
     private String productName;
     private String category;
     private double itemPrice;
     private int quantity;
 
-    // Vendor info
-    private int vendorId;
+    // Vendor relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendor_id")
+    private com.example.ekart.dto.Vendor vendor;
     private String vendorName;
 
-    // Customer info
-    private int customerId;
+    // Customer relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private com.example.ekart.dto.Customer customer;
     private String customerName;
 
     // ─── Getters & Setters ───────────────────────────────────────
@@ -42,8 +52,8 @@ public class SalesRecord {
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
-    public int getOrderId() { return orderId; }
-    public void setOrderId(int orderId) { this.orderId = orderId; }
+    public com.example.ekart.dto.Order getOrder() { return order; }
+    public void setOrder(com.example.ekart.dto.Order order) { this.order = order; }
 
     public LocalDateTime getOrderDate() { return orderDate; }
     public void setOrderDate(LocalDateTime orderDate) { this.orderDate = orderDate; }
@@ -54,8 +64,8 @@ public class SalesRecord {
     public double getDeliveryCharge() { return deliveryCharge; }
     public void setDeliveryCharge(double deliveryCharge) { this.deliveryCharge = deliveryCharge; }
 
-    public Integer getProductId() { return productId; }
-    public void setProductId(Integer productId) { this.productId = productId; }
+    public com.example.ekart.dto.Product getProduct() { return product; }
+    public void setProduct(com.example.ekart.dto.Product product) { this.product = product; }
 
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
@@ -69,14 +79,14 @@ public class SalesRecord {
     public int getQuantity() { return quantity; }
     public void setQuantity(int quantity) { this.quantity = quantity; }
 
-    public int getVendorId() { return vendorId; }
-    public void setVendorId(int vendorId) { this.vendorId = vendorId; }
+    public com.example.ekart.dto.Vendor getVendor() { return vendor; }
+    public void setVendor(com.example.ekart.dto.Vendor vendor) { this.vendor = vendor; }
 
     public String getVendorName() { return vendorName; }
     public void setVendorName(String vendorName) { this.vendorName = vendorName; }
 
-    public int getCustomerId() { return customerId; }
-    public void setCustomerId(int customerId) { this.customerId = customerId; }
+    public com.example.ekart.dto.Customer getCustomer() { return customer; }
+    public void setCustomer(com.example.ekart.dto.Customer customer) { this.customer = customer; }
 
     public String getCustomerName() { return customerName; }
     public void setCustomerName(String customerName) { this.customerName = customerName; }

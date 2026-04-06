@@ -31,11 +31,8 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminService {
 
-	@Value("${admin.email}")
-	private String adminEmail;
-
-	@Value("${admin.password}")
-	private String adminPassword;
+	@Autowired
+	private AdminAuthService adminAuthService;
 
 	@Autowired
 	private ProductRepository productRepository;
@@ -75,17 +72,27 @@ public class AdminService {
 	// ---------------- LOGIN ----------------
 	public String adminLogin(String email, String password, HttpSession session) {
 
-		if (!email.equals(adminEmail)) {
-			session.setAttribute("failure", "Invalid Email");
+		// Use AdminAuthService for database-backed authentication with brute force protection
+		com.example.ekart.dto.AuthenticationResult authResult = adminAuthService.authenticate(email, password);
+		
+		if (!authResult.isSuccess()) {
+			session.setAttribute("failure", authResult.getMessage());
 			return "redirect:/admin/login";
 		}
 
-		if (!password.equals(adminPassword)) {
-			session.setAttribute("failure", "Invalid Password");
-			return "redirect:/admin/login";
+		// Check if 2FA is required
+		if (authResult.isRequires2FA()) {
+			// In a web session context, we'd store adminId and require 2FA verification
+			// For now, store in session and redirect to 2FA verification page
+			session.setAttribute("adminId", authResult.getAdminId());
+			session.setAttribute("requires2FA", true);
+			session.setAttribute("info", "Please provide 2FA code from your authenticator app");
+			return "redirect:/admin/verify-2fa";
 		}
 
-		session.setAttribute("admin", adminEmail);
+		// Authentication successful without 2FA
+		session.setAttribute("admin", email);
+		session.setAttribute("adminId", authResult.getAdminId());
 		session.setAttribute("success", "Login Success as Admin");
 		return "redirect:/admin/home";
 	}
@@ -355,11 +362,6 @@ public class AdminService {
 			return "redirect:/admin/login";
 		}
 
-		if (!currentPassword.equals(adminPassword)) {
-			session.setAttribute("failure", "Current password is incorrect");
-			return "redirect:/security-settings";
-		}
-
 		if (!newPassword.equals(confirmPassword)) {
 			session.setAttribute("failure", "New passwords do not match");
 			return "redirect:/security-settings";
@@ -370,9 +372,23 @@ public class AdminService {
 			return "redirect:/security-settings";
 		}
 
-		// Note: In production, this would update database/config
-		// Since admin password is from application.properties, we show a message
-		session.setAttribute("success", "Password change request noted. Contact system admin to update credentials.");
+		// Get adminId from session (set during login)
+		Integer adminId = (Integer) session.getAttribute("adminId");
+		if (adminId == null) {
+			session.setAttribute("failure", "Admin ID not found. Please login again.");
+			return "redirect:/admin/login";
+		}
+
+		// Use AdminAuthService to change password (validates current password via BCrypt)
+		com.example.ekart.dto.PasswordChangeResult changeResult = 
+			adminAuthService.changePassword(adminId, currentPassword, newPassword);
+
+		if (!changeResult.isSuccess()) {
+			session.setAttribute("failure", changeResult.getMessage());
+			return "redirect:/security-settings";
+		}
+
+		session.setAttribute("success", "Password changed successfully");
 		return "redirect:/security-settings";
 	}
 

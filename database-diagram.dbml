@@ -1,0 +1,474 @@
+// EKART - E-Commerce Database Schema
+// Database Diagram - dbdiagram.io format
+// 28 Tables | 5 Enums | Complete Schema
+
+Enum customer_role {
+  CUSTOMER
+  ORDER_MANAGER
+  ADMIN
+}
+
+Enum tracking_status {
+  PROCESSING
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+Enum refund_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+Enum coupon_type {
+  PERCENT
+  FLAT
+}
+
+Enum wcr_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+Table warehouse {
+  id int [pk, increment]
+  name varchar(100) [not null]
+  city varchar(100) [not null]
+  state varchar(100) [not null]
+  warehouse_code varchar(20) [unique]
+  served_pin_codes varchar(5000) [not null]
+  active boolean [default: true]
+  indexes {
+    active
+  }
+}
+
+Table category {
+  id int [pk, increment]
+  name varchar(100) [not null]
+  emoji varchar(10) [default: '📦']
+  display_order int
+  is_parent boolean [default: false]
+  parent_id int
+  indexes {
+    parent_id
+    name
+  }
+  note: '2-level self-referential hierarchy'
+}
+
+Table vendor {
+  id int [pk, increment]
+  name varchar(30) [not null]
+  email varchar(100) [unique, not null]
+  mobile bigint [not null]
+  password varchar(255) [not null]
+  otp int
+  verified boolean
+  provider varchar(50)
+  provider_id varchar(100)
+  vendor_code varchar(20) [unique]
+  description text
+  indexes {
+    email
+    vendor_code
+  }
+}
+
+Table product {
+  id int [pk]
+  name varchar(255)
+  description text
+  price double [default: 0, not null]
+  mrp double [default: 0, not null]
+  gst_rate double [default: 0, not null]
+  category varchar(100)
+  stock int
+  stock_alert_threshold int [default: 10]
+  image_link varchar(1000)
+  extra_image_links varchar(2000)
+  video_link varchar(1000)
+  approved boolean [default: false]
+  allowed_pin_codes varchar(1000)
+  vendor_id int [ref: > vendor.id]
+  indexes {
+    approved
+    category
+    vendor_id
+    stock
+  }
+}
+
+Table cart {
+  id int [pk, increment]
+}
+
+Table customer {
+  id int [pk, increment]
+  name varchar(30)
+  email varchar(100) [unique, not null]
+  mobile bigint
+  password varchar(255) [not null]
+  otp int
+  verified boolean
+  role customer_role [default: 'CUSTOMER']
+  active boolean [default: true]
+  last_login timestamp
+  provider varchar(50)
+  provider_id varchar(100)
+  cart_id int [unique, ref: > cart.id]
+  recently_viewed_products varchar(200)
+  profile_image varchar(500)
+  indexes {
+    email
+    active
+  }
+}
+
+Table address {
+  id int [pk, increment]
+  details text
+  recipient_name varchar(100)
+  house_street varchar(200)
+  city varchar(100)
+  state varchar(100)
+  postal_code varchar(20)
+  customer_id int [not null, ref: > customer.id]
+  indexes {
+    customer_id
+  }
+}
+
+Table item {
+  id int [pk, increment]
+  name varchar(255)
+  description text
+  unit_price double
+  price double
+  category varchar(100)
+  quantity int [default: 1]
+  image_link varchar(1000)
+  product_id int [ref: > product.id]
+  cart_id int [ref: > cart.id]
+  indexes {
+    cart_id
+    product_id
+  }
+  note: 'Product snapshot at purchase time'
+}
+
+Table delivery_boy {
+  id int [pk, increment]
+  name varchar(50) [not null]
+  email varchar(100) [unique, not null]
+  mobile bigint [not null]
+  password varchar(255) [not null]
+  otp int
+  verified boolean [default: false]
+  admin_approved boolean [default: false]
+  active boolean [default: true]
+  warehouse_id int [ref: > warehouse.id]
+  assigned_pin_codes varchar(1000)
+  delivery_boy_code varchar(20) [unique]
+  is_available boolean [default: false]
+  indexes {
+    email
+    warehouse_id
+    is_available
+  }
+}
+
+Table shopping_order {
+  id int [pk, increment]
+  razorpay_payment_id varchar(100)
+  razorpay_order_id varchar(100)
+  amount double
+  date_time timestamp
+  delivery_charge double [default: 0]
+  total_price double [default: 0]
+  gst_amount double [default: 0]
+  payment_mode varchar(50)
+  order_date timestamp [default: 'CURRENT_TIMESTAMP']
+  delivery_time varchar(300)
+  replacement_requested boolean [default: false]
+  tracking_status tracking_status [default: 'PROCESSING']
+  current_city varchar(100)
+  delivery_pin_code varchar(10)
+  delivery_address varchar(500)
+  parent_order_id int
+  customer_id int [ref: > customer.id]
+  warehouse_id int [ref: > warehouse.id]
+  delivery_boy_id int [ref: > delivery_boy.id]
+  vendor_id int [ref: > vendor.id]
+  indexes {
+    order_date
+    customer_id
+    parent_order_id
+    vendor_id
+    tracking_status
+    delivery_boy_id
+  }
+}
+
+Table shopping_order_items {
+  order_id int [not null, ref: > shopping_order.id]
+  items_id int [not null, unique, ref: > item.id]
+  indexes {
+    (order_id, items_id) [pk]
+  }
+  note: 'M2M junction table'
+}
+
+Table delivery_otp {
+  id int [pk, increment]
+  order_id int [unique, not null, ref: > shopping_order.id]
+  otp int [not null]
+  used boolean [default: false]
+  generated_at timestamp
+  used_at timestamp
+  indexes {
+    used
+  }
+}
+
+Table tracking_event_log {
+  id int [pk, increment]
+  order_id int [not null, ref: > shopping_order.id]
+  status tracking_status [not null]
+  city varchar(200)
+  description varchar(500)
+  updated_by varchar(50)
+  event_time timestamp [default: 'CURRENT_TIMESTAMP']
+  indexes {
+    order_id
+    event_time
+  }
+  note: 'Full audit trail of order status changes'
+}
+
+Table refund {
+  id int [pk, increment]
+  order_id int [ref: > shopping_order.id]
+  customer_id int [ref: > customer.id]
+  amount double
+  reason varchar(500)
+  status refund_status [default: 'PENDING']
+  rejection_reason varchar(500)
+  requested_at timestamp
+  processed_at timestamp
+  processed_by varchar(100)
+  indexes {
+    order_id
+    customer_id
+    status
+  }
+}
+
+Table refund_images {
+  id int [pk, increment]
+  image_url varchar(1000) [not null]
+  refund_id int [not null, ref: > refund.id]
+  indexes {
+    refund_id
+  }
+}
+
+Table review {
+  id int [pk, increment]
+  rating smallint
+  comment varchar(1000)
+  customer_name varchar(100)
+  created_at timestamp [default: 'CURRENT_TIMESTAMP']
+  product_id int [not null, ref: > product.id]
+  indexes {
+    product_id
+    rating
+  }
+}
+
+Table review_images {
+  id int [pk, increment]
+  image_url varchar(1000) [not null]
+  review_id int [not null, ref: > review.id]
+  indexes {
+    review_id
+  }
+}
+
+Table wishlist {
+  id int [pk, increment]
+  customer_id int [not null, ref: > customer.id]
+  product_id int [not null, ref: > product.id]
+  added_at timestamp [default: 'CURRENT_TIMESTAMP']
+  indexes {
+    customer_id
+    (customer_id, product_id) [unique]
+  }
+}
+
+Table coupon {
+  id int [pk, increment]
+  code varchar(30) [unique, not null]
+  description varchar(200) [not null]
+  type coupon_type [default: 'PERCENT']
+  value double
+  min_order_amount double [default: 0]
+  max_discount double [default: 0]
+  usage_limit int [default: 0]
+  used_count int [default: 0]
+  active boolean [default: true]
+  expiry_date date
+  indexes {
+    code
+    active
+  }
+}
+
+Table stock_alert {
+  id int [pk, increment]
+  product_id int [not null, ref: > product.id]
+  vendor_id int [not null, ref: > vendor.id]
+  stock_level int [not null]
+  alert_time timestamp [default: 'CURRENT_TIMESTAMP']
+  email_sent boolean [default: false]
+  acknowledged boolean [default: false]
+  message text
+  indexes {
+    vendor_id
+    product_id
+  }
+}
+
+Table back_in_stock_subscription {
+  id int [pk, increment]
+  customer_id int [not null, ref: > customer.id]
+  product_id int [not null, ref: > product.id]
+  subscribed_at timestamp [default: 'CURRENT_TIMESTAMP']
+  notified boolean [default: false]
+  notified_at timestamp
+  indexes {
+    (product_id, notified)
+    (customer_id, product_id) [unique]
+  }
+}
+
+Table warehouse_change_request {
+  id int [pk, increment]
+  delivery_boy_id int [not null, ref: > delivery_boy.id]
+  requested_warehouse_id int [not null, ref: > warehouse.id]
+  current_warehouse_id int [ref: > warehouse.id]
+  reason varchar(500)
+  status wcr_status [default: 'PENDING']
+  admin_note varchar(300)
+  requested_at timestamp [default: 'CURRENT_TIMESTAMP']
+  resolved_at timestamp
+  indexes {
+    delivery_boy_id
+    status
+  }
+}
+
+Table auto_assign_log {
+  id int [pk, increment]
+  order_id int [ref: > shopping_order.id]
+  delivery_boy_id int [ref: > delivery_boy.id]
+  pin_code varchar(10)
+  assigned_at timestamp [default: 'CURRENT_TIMESTAMP']
+  active_orders_at_assignment int [default: 0]
+  indexes {
+    order_id
+    delivery_boy_id
+    assigned_at
+  }
+  note: 'Audit trail for automatic delivery boy assignment'
+}
+
+Table user_activities {
+  id bigint [pk, increment]
+  user_id bigint
+  action_type varchar(100)
+  metadata text
+  created_at timestamp [default: 'CURRENT_TIMESTAMP']
+  indexes {
+    user_id
+    action_type
+    created_at
+  }
+  note: 'Behavioral event log for analytics'
+}
+
+Table policies {
+  id bigint [pk, increment]
+  title varchar(255) [unique, not null]
+  content text [not null]
+  category varchar(100) [not null]
+  slug varchar(255) [unique, not null]
+  last_updated timestamp [default: 'CURRENT_TIMESTAMP']
+  author_admin_id varchar(100) [not null]
+  indexes {
+    slug
+    category
+  }
+  note: 'Legal/CMS pages (Privacy, T&C, Refund Policy, etc.)'
+}
+
+Table banner {
+  id int [pk, increment]
+  title varchar(255)
+  image_url text
+  link_url text
+  active boolean [default: true]
+  show_on_home boolean [default: true]
+  show_on_customer_home boolean [default: true]
+  display_order int [default: 0]
+  indexes {
+    active
+    display_order
+  }
+}
+
+Table sales_report {
+  id int [pk, increment]
+  vendor_id int [not null, ref: > vendor.id]
+  report_type varchar(100)
+  report_date date
+  total_revenue double [default: 0]
+  total_orders int [default: 0]
+  total_items_sold int [default: 0]
+  avg_order_value double [default: 0]
+  generated_at timestamp [default: 'CURRENT_TIMESTAMP']
+  indexes {
+    vendor_id
+    report_date
+  }
+  note: 'Aggregate reporting cache per vendor per period'
+}
+
+Table sales_record {
+  id int [pk, increment]
+  order_id int
+  order_date timestamp [not null]
+  order_total double [default: 0]
+  delivery_charge double [default: 0]
+  product_id int
+  product_name varchar(255)
+  category varchar(100)
+  item_price double [default: 0]
+  quantity int [default: 1]
+  vendor_id int [not null, ref: > vendor.id]
+  vendor_name varchar(100)
+  customer_id int [not null, ref: > customer.id]
+  customer_name varchar(100)
+  indexes {
+    vendor_id
+    order_id
+    order_date
+    product_id
+    customer_id
+  }
+  note: 'Denormalized analytics/reporting table'
+}
