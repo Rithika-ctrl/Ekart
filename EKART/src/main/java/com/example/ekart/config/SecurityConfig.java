@@ -63,6 +63,11 @@ public class SecurityConfig {
     /**
      * CHAIN 2 — Handles all other web routes (website, admin, OAuth2 login etc.)
      * Runs SECOND (Order=2).
+     * 
+     * SECURITY: Enforces role-based URL protection for Thymeleaf routes.
+     * - Public routes are permitAll
+     * - Protected routes require authenticated users
+     * - Invalid roles are rejected at framework level (defense-in-depth with AuthGuard)
      */
     @Bean
     @Order(2)
@@ -71,20 +76,37 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
+                // ── Public routes (anyone can access) ────────────────────────────
                 .requestMatchers(
                     "/", "/guest/**",
+                    "/static/**", "/css/**", "/js/**", "/images/**",
+                    "/api/**"
+                ).permitAll()
+                
+                // ── Authentication routes (unauthenticated users only) ───────────
+                .requestMatchers(
                     "/customer/login", "/customer/register",
                     "/customer/otp/**", "/customer/forgot-password", "/customer/reset-password/**",
                     "/vendor/login", "/vendor/register", "/vendor/otp/**", "/vendor/forgot-password",
                     "/vendor/reset-password/**", "/admin/login", "/admin-login.html",
-                    // ── delivery boy public routes ────────────────────────
                     "/delivery/login", "/delivery/register", "/delivery/pending",
-                    "/delivery/warehouses", "/delivery/otp/**",
-                    // ────────────────────────────────────────────────────
-                    "/static/**", "/css/**", "/js/**", "/images/**",
-                    "/api/**"
+                    "/delivery/warehouses", "/delivery/otp/**"
                 ).permitAll()
-                .anyRequest().permitAll()
+                
+                // ── Admin-only routes (requires ROLE_ADMIN) ─────────────────────
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                
+                // ── Vendor routes (requires ROLE_VENDOR) ──────────────────────
+                .requestMatchers("/vendor/**").hasRole("VENDOR")
+                
+                // ── Customer routes (requires ROLE_CUSTOMER or ROLE_DELIVERY) ──
+                .requestMatchers("/customer/**").hasAnyRole("CUSTOMER", "DELIVERY")
+                
+                // ── Delivery routes (requires ROLE_DELIVERY) ──────────────────
+                .requestMatchers("/delivery/**").hasRole("DELIVERY")
+                
+                // ── Deny all other requests ───────────────────────────────────
+                .anyRequest().denyAll()
             )
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/customer/login")
