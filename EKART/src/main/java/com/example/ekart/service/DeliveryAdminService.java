@@ -153,8 +153,13 @@ public class DeliveryAdminService {
             res.put("success", false); res.put("message", "Email already registered");
             return ResponseEntity.badRequest().body(res);
         }
-        if (!password.equals(confirmPassword)) {
+        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
             res.put("success", false); res.put("message", "Passwords do not match");
+            return ResponseEntity.badRequest().body(res);
+        }
+        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+        if (password == null || !password.matches(passwordRegex)) {
+            res.put("success", false); res.put("message", "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
             return ResponseEntity.badRequest().body(res);
         }
 

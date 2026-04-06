@@ -41,12 +41,12 @@ public class Vendor implements Serializable {
 	@DecimalMax(value = "9999999999", message = "* Enter Proper Mobile Number")
 	private long mobile;
 
-	@Pattern(regexp = "^.*(?=.{8,})(?=..*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$",
+	@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
 			message = "* Enter atleast 8 charecters consisting of one uppercase, one lowercase, one number, one special charecter")
 	private String password;
 
 	@Transient
-	@Pattern(regexp = "^.*(?=.{8,})(?=..*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$",
+	@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
 			message = "* Enter atleast 8 charecters consisting of one uppercase, one lowercase, one number, one special charecter")
 	private String confirmPassword;
 

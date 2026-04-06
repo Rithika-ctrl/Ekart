@@ -252,7 +252,7 @@ public class CustomerService {
             return "redirect:/customer/reset-password/" + id;
         }
 
-        String passwordRegex = "^.*(?=.{8,})(?=..*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=]).*$";
+        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (!password.matches(passwordRegex)) {
             session.setAttribute("failure",
                     "Password must have 8+ characters with uppercase, lowercase, number and special character");

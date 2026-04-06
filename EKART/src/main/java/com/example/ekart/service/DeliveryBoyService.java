@@ -52,12 +52,13 @@ public class DeliveryBoyService {
             session.setAttribute("failure", "This email is already registered");
             return "redirect:/delivery/register";
         }
-        if (!password.equals(confirmPassword)) {
+        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
             session.setAttribute("failure", "Password and Confirm Password must match");
             return "redirect:/delivery/register";
         }
-        if (password.length() < 6) {
-            session.setAttribute("failure", "Password must be at least 6 characters");
+        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+        if (password == null || !password.matches(passwordRegex)) {
+            session.setAttribute("failure", "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
             return "redirect:/delivery/register";
         }
         if (warehouseId <= 0) {
