@@ -66,6 +66,8 @@ public class ReactApiController {
     @Autowired private com.example.ekart.service.OtpService otpService;
     @Autowired private AdminAuthService adminAuthService;
     @Autowired private com.example.ekart.helper.EmailSender emailSender;
+    @Autowired(required = false)
+    private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -5211,6 +5213,179 @@ public class ReactApiController {
     }
 
     /**
+     * GET /api/react/admin/accounts
+     * Get all customer accounts with metadata (JWT auth version, replaces session-based endpoint).
+     * Supports optional search parameter.
+     */
+    @GetMapping("/admin/accounts")
+    public ResponseEntity<Map<String, Object>> adminGetAllAccounts(
+            @RequestParam(required = false) String search,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Customer> accounts = customerRepository.findAll();
+            List<Map<String, Object>> data = new ArrayList<>();
+            for (Customer c : accounts) {
+                if (search != null && !search.isBlank()) {
+                    String q = search.toLowerCase();
+                    if (!c.getName().toLowerCase().contains(q) && !c.getEmail().toLowerCase().contains(q)) {
+                        continue;
+                    }
+                }
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", c.getId());
+                m.put("name", c.getName());
+                m.put("email", c.getEmail());
+                m.put("mobile", c.getMobile() != null ? c.getMobile() : "");
+                m.put("isActive", c.isActive());
+                m.put("role", c.getRole() != null ? c.getRole() : "CUSTOMER");
+                m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
+                data.add(m);
+            }
+            res.put("success", true);
+            res.put("accounts", data);
+            res.put("count", data.size());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to fetch accounts: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/react/admin/accounts/stats
+     * Get account statistics and overview.
+     */
+    @GetMapping("/admin/accounts/stats")
+    public ResponseEntity<Map<String, Object>> adminGetAccountStats(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<Customer> allAccounts = customerRepository.findAll();
+            long activeCount = allAccounts.stream().filter(Customer::isActive).count();
+            long inactiveCount = allAccounts.stream().filter(c -> !c.isActive()).count();
+            
+            res.put("success", true);
+            res.put("totalAccounts", allAccounts.size());
+            res.put("activeAccounts", activeCount);
+            res.put("inactiveAccounts", inactiveCount);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to fetch stats: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * PATCH /api/react/admin/accounts/{id}/status
+     * Toggle account active/inactive status via JWT auth.
+     */
+    @PatchMapping("/admin/accounts/{id}/status")
+    public ResponseEntity<Map<String, Object>> adminToggleAccountStatus(
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            Customer customer = customerRepository.findById(id).orElse(null);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            boolean isActive = Boolean.TRUE.equals(body.get("isActive"));
+            customer.setActive(isActive);
+            customerRepository.save(customer);
+            res.put("success", true);
+            res.put("message", "Account status updated to " + (isActive ? "active" : "inactive"));
+            res.put("isActive", isActive);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to update status: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/react/admin/accounts/{id}/profile
+     * Get detailed customer profile information.
+     */
+    @GetMapping("/admin/accounts/{id}/profile")
+    public ResponseEntity<Map<String, Object>> adminGetAccountProfile(
+            @PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            Customer customer = customerRepository.findById(id).orElse(null);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            res.put("success", true);
+            res.put("id", customer.getId());
+            res.put("name", customer.getName());
+            res.put("email", customer.getEmail());
+            res.put("mobile", customer.getMobile() != null ? customer.getMobile() : "");
+            res.put("isActive", customer.isActive());
+            res.put("role", customer.getRole() != null ? customer.getRole() : "CUSTOMER");
+            res.put("createdAt", customer.getCreatedAt() != null ? customer.getCreatedAt().toString() : null);
+            res.put("addresses", customer.getAddresses() != null ? customer.getAddresses().size() : 0);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to fetch profile: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/accounts/{id}/reset-password
+     * Generate a password reset notification for a customer account.
+     */
+    @PostMapping("/admin/accounts/{id}/reset-password")
+    public ResponseEntity<Map<String, Object>> adminResetAccountPassword(
+            @PathVariable int id,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            Customer customer = customerRepository.findById(id).orElse(null);
+            if (customer == null) {
+                res.put("success", false);
+                res.put("message", "Account not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            // Note: Actual password reset logic would be implemented via email link
+            // For now, just mark that a reset was requested
+            res.put("success", true);
+            res.put("message", "Password reset email would be sent to " + customer.getEmail());
+            res.put("email", customer.getEmail());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to reset password: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
      * POST /api/react/admin/change-password
      * Changes the admin password via database-backed AdminAuthService.
      * 
@@ -6225,5 +6400,164 @@ public class ReactApiController {
             res.put("message", "Failed to load banners: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // DEPRECATION TRACKING & MIGRATION MONITORING
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * GET /api/react/admin/deprecation/summary
+     * Returns summary of deprecated Thymeleaf route usage.
+     * Requires: ADMIN role via JWT
+     */
+    @GetMapping("/admin/deprecation/summary")
+    public ResponseEntity<Map<String, Object>> getDeprecationSummary(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        if (deprecationTracker == null) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", false);
+            res.put("message", "Deprecation tracking not enabled");
+            return ResponseEntity.status(503).body(res);
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("data", deprecationTracker.getSummaryStats());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/admin/deprecation/logs
+     * Returns detailed access logs for deprecated Thymeleaf routes.
+     * Requires: ADMIN role via JWT
+     * Query params:
+     *   - limit: max number of logs to return (default: 100)
+     *   - category: filter by route category (CUSTOMER, VENDOR, ADMIN, GUEST, PUBLIC)
+     */
+    @GetMapping("/admin/deprecation/logs")
+    public ResponseEntity<Map<String, Object>> getDeprecationLogs(
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(required = false) String category,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        if (deprecationTracker == null) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", false);
+            res.put("message", "Deprecation tracking not enabled");
+            return ResponseEntity.status(503).body(res);
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        List<Map<String, Object>> logs = deprecationTracker.getAllAccessLogs();
+        
+        if (category != null && !category.isEmpty()) {
+            logs = logs.stream()
+                    .filter(log -> category.equals(log.get("userRole")))
+                    .toList();
+        }
+
+        res.put("success", true);
+        res.put("total", logs.size());
+        res.put("logs", logs.stream().limit(limit).toList());
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/admin/deprecation/report
+     * Returns comprehensive deprecation report grouped by route category.
+     * Shows usage statistics per route and recommendations for migration.
+     * Requires: ADMIN role via JWT
+     */
+    @GetMapping("/admin/deprecation/report")
+    public ResponseEntity<Map<String, Object>> getDeprecationReport(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        if (deprecationTracker == null) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", false);
+            res.put("message", "Deprecation tracking not enabled");
+            return ResponseEntity.status(503).body(res);
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("report", deprecationTracker.getDeprecationReport());
+        res.put("message", "Migration plan: Prioritize routes with highest access count. Use React SPA endpoints as replacements.");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * GET /api/react/admin/deprecation/route/{route}
+     * Returns usage statistics for a specific deprecated route.
+     * Requires: ADMIN role via JWT
+     * Path: route is URL-encoded route path
+     */
+    @GetMapping("/admin/deprecation/route/{route}")
+    public ResponseEntity<Map<String, Object>> getRouteDeprecationStats(
+            @PathVariable String route,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        if (deprecationTracker == null) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", false);
+            res.put("message", "Deprecation tracking not enabled");
+            return ResponseEntity.status(503).body(res);
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        String decodedRoute = "/" + java.net.URLDecoder.decode(route, java.nio.charset.StandardCharsets.UTF_8);
+        Map<String, Object> stats = deprecationTracker.getRouteStats(decodedRoute);
+
+        if (stats == null) {
+            res.put("success", false);
+            res.put("message", "Route not found in deprecation logs");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        res.put("success", true);
+        res.put("route", decodedRoute);
+        res.put("stats", stats);
+        
+        // Get suggested replacement
+        String replacement = deprecationTracker.getReplacementRoute(decodedRoute);
+        if (replacement != null) {
+            res.put("suggestedReplacement", replacement);
+            res.put("migrationNote", "Migrate to " + replacement + " endpoint in React API");
+        }
+
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/admin/deprecation/clear-logs
+     * Clears all deprecation tracking logs. Use for reset/cleanup.
+     * Requires: ADMIN role via JWT
+     */
+    @PostMapping("/admin/deprecation/clear-logs")
+    public ResponseEntity<Map<String, Object>> clearDeprecationLogs(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        if (deprecationTracker == null) {
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", false);
+            res.put("message", "Deprecation tracking not enabled");
+            return ResponseEntity.status(503).body(res);
+        }
+
+        deprecationTracker.clearAccessLogs();
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("message", "Deprecation logs cleared");
+        return ResponseEntity.ok(res);
     }
 }

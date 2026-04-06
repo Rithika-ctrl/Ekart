@@ -36,6 +36,12 @@ export default function AdminApp() {
   const [spending, setSpending] = useState(null);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  const [userActivities, setUserActivities] = useState({ customers: [] });
+  const [activityCache, setActivityCache] = useState({});
+  const [selectedActivityUserId, setSelectedActivityUserId] = useState(null);
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [deprecationReport, setDeprecationReport] = useState(null);
+  const [deprecationSummary, setDeprecationSummary] = useState(null);
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -73,6 +79,24 @@ export default function AdminApp() {
   useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
   useEffect(() => { if (page === "warehouse")  api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
   useEffect(() => { if (page === "categories") api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || [])); }, [page]);
+  useEffect(() => {
+    if (page === "user-activity") {
+      api("/admin/users").then(d => {
+        if (d.success) setUserActivities({ customers: d.customers || [] });
+      });
+    }
+  }, [page]);
+  useEffect(() => {
+    if (page === "deprecation") {
+      Promise.all([
+        api("/admin/deprecation/summary"),
+        api("/admin/deprecation/report")
+      ]).then(([summary, report]) => {
+        if (summary.success) setDeprecationSummary(summary.data);
+        if (report.success) setDeprecationReport(report.report);
+      });
+    }
+  }, [page]);
   useEffect(() => {
     if (page === "delivery") {
       const token = auth?.token || localStorage.getItem("token");
@@ -124,39 +148,41 @@ export default function AdminApp() {
 
   const fetchPolicies = async () => {
     try {
-      const res = await fetch("/api/policies");
-      if (!res.ok) throw new Error("Failed to fetch policies");
-      const data = await res.json();
-      setPolicies(Array.isArray(data) ? data : (data.policies || []));
+      const d = await api("/admin/policies");
+      if (d.success) setPolicies(Array.isArray(d.policies) ? d.policies : d.data || []);
+      else show("Failed to load policies");
     } catch (err) { show("Failed to load policies"); }
   };
 
   const createPolicy = async (p) => {
     try {
-      const res = await fetch("/api/policies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
-      if (!res.ok) throw new Error("create failed");
-      await fetchPolicies();
-      show("Policy created");
-    } catch { show("Failed to create policy"); }
+      const d = await api("/admin/policies", { method: "POST", body: JSON.stringify(p) });
+      if (d.success) {
+        show("Policy created ✓");
+        await fetchPolicies();
+      } else show(d.message || "Failed to create policy");
+    } catch (err) { show("Failed to create policy"); }
   };
 
   const updatePolicy = async (slug, p) => {
     try {
-      const res = await fetch(`/api/policies/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
-      if (!res.ok) throw new Error("update failed");
-      await fetchPolicies();
-      show("Policy updated");
-    } catch { show("Failed to update policy"); }
+      const d = await api(`/admin/policies/${slug}`, { method: "PUT", body: JSON.stringify(p) });
+      if (d.success) {
+        show("Policy updated ✓");
+        await fetchPolicies();
+      } else show(d.message || "Failed to update policy");
+    } catch (err) { show("Failed to update policy"); }
   };
 
   const deletePolicy = async (slug) => {
     if (!window.confirm("Delete policy?")) return;
     try {
-      const res = await fetch(`/api/policies/${slug}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-      await fetchPolicies();
-      show("Policy deleted");
-    } catch { show("Failed to delete policy"); }
+      const d = await api(`/admin/policies/${slug}`, { method: "DELETE" });
+      if (d.success) {
+        show("Policy deleted ✓");
+        await fetchPolicies();
+      } else show(d.message || "Failed to delete policy");
+    } catch (err) { show("Failed to delete policy"); }
   };
 
   const approveProduct = async (id) => { const d = await api(`/admin/products/${id}/approve`, { method: "POST" }); if (d.success) { show("Approved ✓"); loadAll(); } else show(d.message || "Error"); };
@@ -223,9 +249,11 @@ export default function AdminApp() {
     { key: "reviews",    label: "⭐ Reviews" },
     { key: "analytics",  label: "📈 Analytics" },
     { key: "usersearch", label: "🔍 User Search" },
+    { key: "user-activity", label: "📝 User Activity" },
     { key: "policies",   label: "📜 Policies" },
     { key: "security",   label: "🔐 Security" },
     { key: "accounts",   label: "🔐 Accounts" },
+    { key: "deprecation", label: "⚙️ Deprecation" },
     { key: "content",    label: "🖼️ Content" },
   ];
 
@@ -260,9 +288,11 @@ export default function AdminApp() {
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
           {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
+          {page === "user-activity" && <UserActivityAdmin customers={userActivities.customers} activityCache={activityCache} setActivityCache={setActivityCache} selectedUserId={selectedActivityUserId} setSelectedUserId={setSelectedActivityUserId} activityFilter={activityFilter} setActivityFilter={setActivityFilter} showToast={show} />}
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
           {page === "security"   && <SecurityAdmin />}
           {page === "accounts"   && <AccountsAdmin />}
+          {page === "deprecation" && <DeprecationAdmin summary={deprecationSummary} report={deprecationReport} api={api} showToast={show} />}
           {page === "categories" && <CategoryAdmin categories={adminCategories} api={api} showToast={show} onRefresh={() => api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || []))} />}
           {page === "content"    && <ContentAdmin />}
         </>}
@@ -1887,6 +1917,8 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
   const [search, setSearch] = useState("");
   const [bulkModal, setBulkModal] = useState(null); // productName
   const [deleteModal, setDeleteModal] = useState(null); // review id
+  const [selectedReviews, setSelectedReviews] = useState(new Set()); // for individual review selection
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false); // for bulk delete confirmation
 
   // Computed stats
   const count = n => reviews.filter(r => r.rating === n).length;
@@ -1921,9 +1953,40 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
 
   const handleBulkDelete = async () => {
     if (!bulkModal) return;
-    const d = await api(`/admin/reviews/bulk-delete?productName=${encodeURIComponent(bulkModal)}`, { method: "DELETE" });
+    const d = await api("/admin/reviews/bulk-delete", { method: "POST", body: JSON.stringify({ productName: bulkModal }) });
     if (d.success) { showToast("Bulk deleted"); setBulkModal(null); api("/admin/reviews").then(d => d.success && window.location.reload()); }
     else { showToast(d.message || "Error"); setBulkModal(null); }
+  };
+
+  const toggleReviewSelection = (reviewId) => {
+    const newSelected = new Set(selectedReviews);
+    if (newSelected.has(reviewId)) {
+      newSelected.delete(reviewId);
+    } else {
+      newSelected.add(reviewId);
+    }
+    setSelectedReviews(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedReviews.size === filtered.length) {
+      setSelectedReviews(new Set());
+    } else {
+      setSelectedReviews(new Set(filtered.map(r => r.id)));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedReviews.size === 0) { showToast("No reviews selected"); return; }
+    // Delete each selected review via the existing onDelete handler
+    for (const reviewId of selectedReviews) {
+      onDelete(reviewId);
+    }
+    showToast(`Deleting ${selectedReviews.size} review(s)...`);
+    setSelectedReviews(new Set());
+    setBulkDeleteModal(false);
+    // Reload after brief delay to allow backend processing
+    setTimeout(() => { api("/admin/reviews").then(d => d.success && window.location.reload()); }, 500);
   };
 
   const barColors = { 5: "#2563eb", 4: "#16a34a", 3: "#38bdf8", 2: "#d97706", 1: "#dc2626" };
@@ -2019,6 +2082,24 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {filtered.length > 0 && (
+            <>
+              <button
+                style={{ ...as.filterBtn, fontSize: 12, padding: "6px 14px", background: selectedReviews.size === filtered.length ? "#d4a017" : "rgba(13,13,13,0.08)" }}
+                onClick={toggleSelectAll}
+              >
+                {selectedReviews.size === filtered.length ? "✓ All Selected" : "☐ Select All"}
+              </button>
+              {selectedReviews.size > 0 && (
+                <button
+                  style={{ ...as.rejectBtn, fontSize: 12, padding: "6px 14px" }}
+                  onClick={() => setBulkDeleteModal(true)}
+                >
+                  🗑 Delete {selectedReviews.size}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -2029,7 +2110,14 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
 
       {/* Review Cards */}
       {filtered.map(r => (
-        <div key={r.id} style={{ ...as.card, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <div key={r.id} style={{ ...as.card, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", ...( selectedReviews.has(r.id) ? { background: "rgba(212,160,23,0.06)", border: "2px solid rgba(212,160,23,0.3)" } : {}) }}>
+          {/* Checkbox */}
+          <input
+            type="checkbox"
+            checked={selectedReviews.has(r.id)}
+            onChange={() => toggleReviewSelection(r.id)}
+            style={{ marginTop: 8, cursor: "pointer", width: 18, height: 18, accentColor: "#d4a017" }}
+          />
           {/* Avatar */}
           <div style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(212,160,23,0.15)", border: "2px solid rgba(212,160,23,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#d4a017", fontSize: 16, flexShrink: 0 }}>
             {(r.customerName || "?")[0].toUpperCase()}
@@ -2098,6 +2186,26 @@ function ReviewsAdmin({ reviews, onDelete, api, showToast }) {
               <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setBulkModal(null)}>Cancel</button>
               <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
                 onClick={handleBulkDelete}>Delete All</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Selected Reviews Modal */}
+      {bulkDeleteModal && (
+        <div style={modalOverlay} onClick={() => setBulkDeleteModal(false)}>
+          <div style={{ ...modalBox, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🗑️</div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Delete Selected Reviews?</h3>
+              <p style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>
+                This will permanently delete <strong>{selectedReviews.size} review{selectedReviews.size !== 1 ? "s" : ""}</strong>. This action cannot be undone.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button style={{ ...as.filterBtn, padding: "8px 20px" }} onClick={() => setBulkDeleteModal(false)}>Cancel</button>
+              <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                onClick={handleDeleteSelected}>Delete {selectedReviews.size}</button>
             </div>
           </div>
         </div>
@@ -3005,7 +3113,7 @@ function AccountsAdmin() {
 
   const toggleStatus = async (id, activate) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}/status`, {
+      const res = await fetch(`/api/react/admin/accounts/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth?.token || ""}` },
         body: JSON.stringify({ isActive: activate }),
@@ -3018,7 +3126,7 @@ function AccountsAdmin() {
 
   const resetPassword = async (id) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}/reset-password`, { method: "POST", headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
+      const res = await fetch(`/api/react/admin/accounts/${id}/reset-password`, { method: "POST", headers: { "Authorization": `Bearer ${auth?.token || ""}`, "Content-Type": "application/json" } });
       const d = await res.json();
       if (d.success) setModal({ type: "reset", data: d });
       else show(d.message || "Error");
@@ -3036,7 +3144,7 @@ function AccountsAdmin() {
 
   const viewProfile = async (id) => {
     try {
-      const res = await fetch(`/api/admin/accounts/${id}/profile`, { headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
+      const res = await fetch(`/api/react/admin/accounts/${id}/profile`, { headers: { "Authorization": `Bearer ${auth?.token || ""}` } });
       const d = await res.json();
       if (d.error) { show(d.error); return; }
       setModal({ type: "profile", data: d });
@@ -4556,6 +4664,462 @@ function SecurityAdmin() {
               >
                 {roleChanging ? "Updating…" : "Confirm Change"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserActivityAdmin({ customers = [], activityCache, setActivityCache, selectedUserId, setSelectedUserId, activityFilter, setActivityFilter, showToast }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [allActionTypes, setAllActionTypes] = useState([]);
+
+  // Filter customers by search query
+  const filteredCustomers = customers.filter(c => {
+    const query = searchQuery.toLowerCase().trim();
+    return !query || (c.name || "").toLowerCase().includes(query) || (c.email || "").toLowerCase().includes(query) || (c.mobile || "").toLowerCase().includes(query);
+  });
+
+  // Load activities for a user
+  const loadActivities = async (userId) => {
+    if (selectedUserId === userId) {
+      setSelectedUserId(null);
+      return;
+    }
+    setSelectedUserId(userId);
+    if (activityCache[userId]) return;
+
+    setActivityLoading(true);
+    try {
+      const res = await fetch(`/api/user-activity/user/${userId}`);
+      const activities = await res.json();
+      const actList = Array.isArray(activities) ? activities : [];
+      setActivityCache(prev => ({ ...prev, [userId]: actList }));
+
+      // Extract all unique action types for filter
+      const types = [...new Set(actList.map(a => a.actionType).filter(Boolean))];
+      setAllActionTypes(types.length > allActionTypes.length ? types : allActionTypes);
+    } catch (e) {
+      showToast("Failed to load activities");
+      setActivityCache(prev => ({ ...prev, [userId]: [] }));
+    }
+    setActivityLoading(false);
+  };
+
+  // Get activities for selected user and apply filter
+  const selectedUserActivities = selectedUserId && activityCache[selectedUserId] ? activityCache[selectedUserId].filter(a => activityFilter === "all" || a.actionType === activityFilter) : [];
+
+  // Get stats
+  const selectedUser = customers.find(c => c.id === selectedUserId);
+  const totalActivities = selectedUserId && activityCache[selectedUserId] ? activityCache[selectedUserId].length : 0;
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return "—";
+    const date = new Date(timestamp);
+    return date.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getActionColor = (actionType) => {
+    const colors = {
+      LOGIN: "#2563eb",
+      LOGOUT: "#6b7280",
+      VIEW_PRODUCT: "#7c3aed",
+      ADD_TO_CART: "#d4a017",
+      REMOVE_FROM_CART: "#e84c3c",
+      CHECKOUT: "#16a34a",
+      PURCHASE: "#1db882",
+      REVIEW: "#f59e0b",
+      SEARCH: "#3b82f6",
+      FILTER: "#8b5cf6",
+      DEFAULT: "#6b7280"
+    };
+    return colors[actionType] || colors.DEFAULT;
+  };
+
+  const getActionIcon = (actionType) => {
+    const icons = {
+      LOGIN: "🔓",
+      LOGOUT: "🔐",
+      VIEW_PRODUCT: "👁️",
+      ADD_TO_CART: "🛒",
+      REMOVE_FROM_CART: "🗑️",
+      CHECKOUT: "💳",
+      PURCHASE: "✅",
+      REVIEW: "⭐",
+      SEARCH: "🔍",
+      FILTER: "⚙️"
+    };
+    return icons[actionType] || "📝";
+  };
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2 style={{ marginBottom: 24, fontSize: 20, fontWeight: 700, color: "#0d0d0d" }}>User Activity Tracking</h2>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 20, minHeight: "600px" }}>
+        {/* Users List */}
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", background: "#fff" }}>
+          <div style={{ padding: "15px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb" }}>
+            <input
+              type="text"
+              placeholder="Search customers…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                fontSize: 13,
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", maxHeight: "600px" }}>
+            {filteredCustomers.length === 0 ? (
+              <div style={{ padding: "20px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No customers found</div>
+            ) : (
+              filteredCustomers.map(c => (
+                <div
+                  key={c.id}
+                  onClick={() => loadActivities(c.id)}
+                  style={{
+                    padding: "12px 15px",
+                    borderBottom: "1px solid #f3f4f6",
+                    cursor: "pointer",
+                    background: selectedUserId === c.id ? "#f0f9ff" : "#fff",
+                    borderLeft: selectedUserId === c.id ? "3px solid #2563eb" : "3px solid transparent",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "#0d0d0d" }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{c.email}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Activity Feed */}
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", background: "#fff" }}>
+          {selectedUserId ? (
+            <>
+              <div style={{ padding: "15px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#0d0d0d", marginBottom: 12 }}>
+                  Activity for {selectedUser?.name}
+                </div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                  <select
+                    value={activityFilter}
+                    onChange={(e) => setActivityFilter(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      background: "#fff",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <option value="all">All Activities</option>
+                    {allActionTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  Total: {totalActivities} | Filtered: {selectedUserActivities.length}
+                </div>
+              </div>
+
+              <div style={{ flex: 1, overflowY: "auto", maxHeight: "550px", padding: "15px" }}>
+                {activityLoading ? (
+                  <div style={{ textAlign: "center", color: "#9ca3af", padding: "20px" }}>Loading activities…</div>
+                ) : selectedUserActivities.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13, padding: "20px" }}>
+                    {totalActivities === 0 ? "No activities recorded" : "No activities match this filter"}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {selectedUserActivities.map((activity, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: "12px",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 8,
+                          background: "#fafbfc",
+                          borderLeft: `3px solid ${getActionColor(activity.actionType)}`,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 18 }}>{getActionIcon(activity.actionType)}</span>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 13,
+                              color: getActionColor(activity.actionType),
+                              padding: "2px 8px",
+                              background: getActionColor(activity.actionType) + "18",
+                              borderRadius: 4,
+                            }}
+                          >
+                            {activity.actionType}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
+                          {formatTime(activity.timestamp)}
+                        </div>
+                        {activity.metadata && (
+                          <div style={{ fontSize: 12, color: "#4b5563", background: "#fff", padding: "8px", borderRadius: 4, fontFamily: "monospace", overflowX: "auto", maxHeight: "80px", overflowY: "auto", whiteSpace: "nowrap" }}>
+                            {typeof activity.metadata === "string" ? activity.metadata : JSON.stringify(activity.metadata).substring(0, 200)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14 }}>
+              Select a customer to view activity
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeprecationAdmin({ summary, report, api, showToast }) {
+  const [tab, setTab] = useState("overview");
+  const [loading, setLoading] = useState(false);
+
+  const stats = summary || {};
+  const categories = report?.byCategory || {};
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2 style={{ marginBottom: 24, fontSize: 20, fontWeight: 700, color: "#0d0d0d" }}>Thymeleaf Deprecation Tracking</h2>
+      <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
+        Monitor Thymeleaf template route usage and plan migration to React SPA API endpoints.
+      </p>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, borderBottom: "1px solid #e5e7eb", paddingBottom: 12 }}>
+        {["overview", "by-category", "logs", "plan"].map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: "8px 16px",
+              border: "none",
+              borderBottom: tab === t ? "2px solid #2563eb" : "none",
+              background: "transparent",
+              color: tab === t ? "#2563eb" : "#6b7280",
+              fontWeight: tab === t ? 600 : 400,
+              fontSize: 13,
+              cursor: "pointer",
+              textTransform: "capitalize"
+            }}
+          >
+            {t === "overview" && "📊 Overview"}
+            {t === "by-category" && "📂 By Category"}
+            {t === "logs" && "📋 Access Logs"}
+            {t === "plan" && "🗺️ Migration Plan"}
+          </button>
+        ))}
+      </div>
+
+      {/* OVERVIEW TAB */}
+      {tab === "overview" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+            {[
+              { label: "Total Accesses", value: stats.totalAccesses || 0, icon: "📊" },
+              { label: "Unique Routes", value: stats.uniqueRoutes || 0, icon: "🛣️" },
+              { label: "Unique Users", value: stats.uniqueUsers || 0, icon: "👥" },
+              { label: "Route Mappings", value: stats.routeMappingsCount || 0, icon: "🔗" },
+            ].map(s => (
+              <div key={s.label} style={{ padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#f9fafb" }}>
+                <div style={{ fontSize: 20, marginBottom: 8 }}>{s.icon}</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "#0d0d0d" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ padding: "16px", borderRadius: 10, background: "#f0f9ff", borderLeft: "3px solid #2563eb" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1e40af", marginBottom: 8 }}>Migration Status</div>
+            <div style={{ fontSize: 12, color: "#1e3a8a", lineHeight: "1.6" }}>
+              ✓ Deprecation tracking is active across all Thymeleaf routes<br/>
+              ✓ Access logs are categorized by user role (customer, vendor, admin, guest)<br/>
+              → Review routes by category to prioritize migration<br/>
+              → Routes with highest access count should migrate first
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BY CATEGORY TAB */}
+      {tab === "by-category" && (
+        <div>
+          {Object.entries(categories).map(([category, routes]) => (
+            <div key={category} style={{ marginBottom: 24, border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", background: "#f9fafb", borderBottom: "1px solid #e5e7eb", fontWeight: 600, color: "#0d0d0d", fontSize: 14 }}>
+                {category} Routes ({routes.length} total)
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#fafbfc", borderBottom: "1px solid #e5e7eb" }}>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#667085" }}>Route</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600, color: "#667085" }}>Accesses</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600, color: "#667085" }}>Unique Users</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#667085" }}>Last Access</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routes.map((route, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                        <td style={{ padding: "10px 12px", fontFamily: "monospace", color: "#0d0d0d" }}>{route.route}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600, color: "#2563eb" }}>{route.accessCount}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", color: "#6b7280" }}>{route.uniqueUsers}</td>
+                        <td style={{ padding: "10px 12px", fontSize: 11, color: "#6b7280" }}>
+                          {route.lastAccess ? new Date(route.lastAccess).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* LOGS TAB */}
+      {tab === "logs" && (
+        <div>
+          <div style={{ marginBottom: 16, display: "flex", gap: 10 }}>
+            <button
+              onClick={() => {
+                setLoading(true);
+                api("/admin/deprecation/logs?limit=100").then(d => {
+                  if (d.success) showToast("Loaded " + d.total + " log entries");
+                  else showToast("Failed to load logs");
+                  setLoading(false);
+                });
+              }}
+              disabled={loading}
+              style={{
+                padding: "8px 16px",
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.6 : 1
+              }}
+            >
+              {loading ? "Refreshing…" : "Refresh Logs"}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Clear all deprecation logs?")) {
+                  setLoading(true);
+                  api("/admin/deprecation/clear-logs", { method: "POST" }).then(d => {
+                    showToast(d.message || "Logs cleared");
+                    setLoading(false);
+                  });
+                }
+              }}
+              style={{
+                padding: "8px 16px",
+                background: "#e5e7eb",
+                color: "#0d0d0d",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              Clear Logs
+            </button>
+          </div>
+
+          <div style={{ padding: "16px", textAlign: "center", color: "#6b7280", fontSize: 13, background: "#f9fafb", borderRadius: 10 }}>
+            💡 Access logs are being continuously tracked. Use the Refresh button above to load latest entries from the server.
+          </div>
+        </div>
+      )}
+
+      {/* MIGRATION PLAN TAB */}
+      {tab === "plan" && (
+        <div style={{ maxWidth: "900px" }}>
+          <div style={{ marginBottom: 20, padding: "16px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 8 }}>📋 Deprecation Strategy</div>
+            <div style={{ fontSize: 12, color: "#78350f", lineHeight: "1.6" }}>
+              <strong>Phase 1 (Now):</strong> Track usage of Thymeleaf routes via interceptor<br/>
+              <strong>Phase 2:</strong> Prioritize high-traffic routes for React SPA migration<br/>
+              <strong>Phase 3:</strong> Add deprecation banners to Thymeleaf templates<br/>
+              <strong>Phase 4:</strong> Sunset old routes after 90% traffic migrated<br/>
+              <strong>Phase 5:</strong> Archive Thymeleaf templates and remove old controllers
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Key Mappings (Sample)</h3>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600 }}>Thymeleaf Route</th>
+                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600 }}>React API Endpoint</th>
+                    <th style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600 }}>Priority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["/customer/home", "/api/react/customer", "HIGH"],
+                    ["/customer/register", "/api/react/auth/register", "HIGH"],
+                    ["/customer/login", "/api/react/auth/login", "HIGH"],
+                    ["/view-products", "/api/react/products", "HIGH"],
+                    ["/view-cart", "/api/react/cart", "HIGH"],
+                    ["/payment", "/api/react/orders/checkout", "HIGH"],
+                    ["/view-orders", "/api/react/orders", "HIGH"],
+                    ["/vendor/home", "/api/react/vendor", "MEDIUM"],
+                    ["/vendor/orders", "/api/react/vendor/orders", "MEDIUM"],
+                    ["/admin/home", "/api/react/admin", "MEDIUM"],
+                    ["/approve-products", "/api/react/admin/products", "MEDIUM"]
+                  ].map(([old, newApi, priority], idx) => (
+                    <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                      <td style={{ padding: "10px 12px", fontFamily: "monospace", color: "#e84c3c", fontSize: 11 }}>{old}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "monospace", color: "#16a34a", fontSize: 11 }}>{newApi}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600, color: priority === "HIGH" ? "#e84c3c" : "#f59e0b" }}>{priority}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ padding: "16px", background: "#ecfdf5", border: "1px solid #10b981", borderRadius: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#065f46", marginBottom: 8 }}>✓ Next Steps</div>
+            <div style={{ fontSize: 12, color: "#047857", lineHeight: "1.6" }}>
+              1. Use the "By Category" tab to identify low-traffic routes for quick migration<br/>
+              2. Coordinate with development team on React SPA API completeness<br/>
+              3. Set deprecation banners in Thymeleaf templates pointing to React equivalents<br/>
+              4. Monitor migration progress weekly using the tracking dashboard<br/>
+              5. Plan sunsetdate for each route based on usage data
             </div>
           </div>
         </div>

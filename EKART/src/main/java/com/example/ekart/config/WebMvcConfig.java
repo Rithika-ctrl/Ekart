@@ -15,6 +15,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.example.ekart.middleware.AuthGuard;
 import com.example.ekart.middleware.DeliveryBoyAuthGuard;
 import com.example.ekart.middleware.IndiaOnlyInterceptor;
+import com.example.ekart.deprecation.ThymeleafDeprecationInterceptor;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
@@ -22,6 +23,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Autowired private AuthGuard             authGuard;
     @Autowired private IndiaOnlyInterceptor  indiaOnlyInterceptor;
     @Autowired private DeliveryBoyAuthGuard  deliveryBoyAuthGuard;  // NEW
+    @Autowired(required = false)
+    private ThymeleafDeprecationInterceptor deprecationInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -65,6 +68,37 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 "/css/**", "/js/**", "/images/**", "/static/**"
             )
             .order(3);
+
+        // Order 4 — Deprecation tracking: monitors Thymeleaf route usage
+        if (deprecationInterceptor != null) {
+            registry.addInterceptor(deprecationInterceptor)
+                .addPathPatterns(
+                    "/customer/**",
+                    "/vendor/**",
+                    "/admin/**",
+                    "/guest/**",
+                    "/view-products",
+                    "/view-cart",
+                    "/search-products",
+                    "/payment",
+                    "/success",
+                    "/order-*",
+                    "/track-*",
+                    "/cancel-order/**",
+                    "/request-*/**",
+                    "/add-review",
+                    "/approve-products",
+                    "/change/**",
+                    "/refund-management",
+                    "/content-management",
+                    "/security-settings"
+                )
+                .excludePathPatterns(
+                    "/api/**",
+                    "/css/**", "/js/**", "/images/**", "/static/**"
+                )
+                .order(4);
+        }
     }
 
     @Override
