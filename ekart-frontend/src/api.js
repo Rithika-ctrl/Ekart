@@ -1,4 +1,4 @@
-export const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8080/api/flutter";
+export const API_BASE = import.meta.env.VITE_API_BASE || "/api/react";
 
 /**
  * Central fetch wrapper for all /api/flutter/** calls.
