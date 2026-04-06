@@ -845,10 +845,37 @@ export default function CustomerApp() {
     if (d.success) setSpendingData(d);
   }, [api]);
 
+  // Auto-detect delivery PIN from user's IP location
+  const autoDetectDeliveryPin = useCallback(async () => {
+    // Skip if already have a PIN stored
+    if (deliveryPin) return;
+    
+    try {
+      const res = await fetch("/api/geocode/auto");
+      const data = await res.json();
+      
+      if (data.success && data.pin) {
+        setDeliveryPin(data.pin);
+        localStorage.setItem("ekart_delivery_pin", data.pin);
+        showToast(`📍 Auto-detected your location: ${data.city}, ${data.state} (PIN: ${data.pin})`);
+      } else if (data.pinMissing && data.city) {
+        // Got city but no PIN - prompt user
+        showToast(`📍 Detected ${data.city}, ${data.state} - please enter your PIN code`);
+      } else if (data.outsideIndia) {
+        showToast(`🌍 We deliver only in India. You're accessing from ${data.country}.`);
+      }
+    } catch (err) {
+      // Silently fail - auto-detect is optional
+      console.log("Auto-detect PIN failed:", err);
+    }
+  }, [deliveryPin]);
+
   useEffect(() => { 
     loadProducts(); loadCategories();
     if (auth?.role === "CUSTOMER") {
       loadCart(); loadWishlist(); loadProfile();
+      // Auto-detect delivery PIN on first load
+      autoDetectDeliveryPin();
     }
     // load recently viewed products (local or server)
     loadInitialRecentlyViewed();
