@@ -63,6 +63,9 @@ public class AdminService {
 	@org.springframework.beans.factory.annotation.Value("${ekart.banner.subtitle:Your one-stop shopping destination}")
 	private String bannerSubtitle;
 
+	@org.springframework.beans.factory.annotation.Value("${admin.email:admin@ekart.com}")
+	private String adminEmail;
+
 	// ---------------- LOGOUT ----------------
 	public String logout(HttpSession session) {
 		session.invalidate(); // 🔥 clear all sessions safely

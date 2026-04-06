@@ -1162,7 +1162,7 @@ public class CustomerService {
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) return;
 
-        boolean alreadyReviewed = reviewRepository.existsByProductIdAndCustomerName(productId, customer.getName());
+        boolean alreadyReviewed = reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId());
         if (alreadyReviewed) return;
 
         int safeRating = Math.max(1, Math.min(5, rating));
@@ -1170,7 +1170,7 @@ public class CustomerService {
         Review review = new Review();
         review.setRating(safeRating);
         review.setComment(comment);
-        review.setCustomerName(customer.getName());
+        review.setCustomer(customer);
         review.setProduct(product);
 
         reviewRepository.save(review);

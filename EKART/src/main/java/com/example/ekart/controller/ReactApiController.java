@@ -1239,7 +1239,7 @@ public class ReactApiController {
     @GetMapping("/cart")
     public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
@@ -1324,7 +1324,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
@@ -1384,7 +1384,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
         appliedCoupons.remove(customerId);
         res.put("success", true); res.put("message", "Coupon removed");
@@ -1398,7 +1398,7 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-                if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+                if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int productId = Integer.parseInt(body.get("productId").toString());
@@ -1432,7 +1432,7 @@ public class ReactApiController {
         public ResponseEntity<Map<String, Object>> removeFromCart(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         List<Item> toRemove = customer.getCart().getItems().stream()
@@ -1455,7 +1455,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
@@ -1489,7 +1489,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
@@ -1698,7 +1698,7 @@ public class ReactApiController {
         if (customerId == null) {
             res.put("success", false);
             res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
 
         try {
@@ -1750,7 +1750,7 @@ public class ReactApiController {
                     totalAmount,
                     tempOrderId,
                     customer.getEmail(),
-                    customer.getPhone()
+                    String.valueOf(customer.getMobile())
             );
 
             if ((boolean) razorpayOrderDetails.getOrDefault("succeeded", false)) {
@@ -1760,7 +1760,7 @@ public class ReactApiController {
                 res.put("amount", razorpayOrderDetails.get("amount"));
                 res.put("currency", razorpayOrderDetails.get("currency"));
                 res.put("customerEmail", customer.getEmail());
-                res.put("customerPhone", customer.getPhone());
+                res.put("customerPhone", String.valueOf(customer.getMobile()));
                 res.put("customerName", customer.getName());
                 res.put("tempOrderId", tempOrderId);
                 res.put("subtotal", subtotal);
@@ -1798,7 +1798,7 @@ public class ReactApiController {
         if (customerId == null) {
             res.put("success", false);
             res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
 
         try {
@@ -1854,7 +1854,7 @@ public class ReactApiController {
     @GetMapping("/orders")
     public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
@@ -1868,7 +1868,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getOrder(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         res.put("success", true); res.put("order", mapOrder(order));
@@ -1903,7 +1903,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put("success", false); res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer() == null || order.getCustomer().getId() != customerId) {
@@ -1947,7 +1947,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> cancelOrder(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put("success", false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
@@ -1998,7 +1998,7 @@ public class ReactApiController {
         if (customerId == null) {
             res.put("success", false);
             res.put("message", "Missing X-Customer-Id header");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.status(401).body(res);
         }
 
         // ── 2. Validate order ownership ────────────────────────────────────
@@ -2057,7 +2057,7 @@ public class ReactApiController {
     @GetMapping("/wishlist")
     public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
@@ -2077,7 +2077,7 @@ public class ReactApiController {
     @GetMapping("/wishlist/ids")
     public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
@@ -2092,7 +2092,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Integer productId = body.get("productId");
@@ -2120,7 +2120,7 @@ public class ReactApiController {
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
@@ -2153,7 +2153,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
@@ -2173,7 +2173,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
@@ -2216,7 +2216,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> deleteAddress(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
@@ -2235,7 +2235,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
@@ -2243,9 +2243,14 @@ public class ReactApiController {
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
+        if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
+            res.put("success", false); res.put("message", "You have already reviewed this product");
+            return ResponseEntity.badRequest().body(res);
+        }
+        int safeRating = Math.max(1, Math.min(5, rating));
         Review review = new Review();
-        review.setProduct(product); review.setRating(rating); review.setComment(comment);
-        review.setCustomerName(customer.getName());
+        review.setProduct(product); review.setRating(safeRating); review.setComment(comment);
+        review.setCustomer(customer);
         reviewRepository.save(review);
         res.put("success", true); res.put("message", "Review added successfully");
         res.put("reviewId", review.getId());
@@ -2257,7 +2262,7 @@ public class ReactApiController {
      * Multipart upload of up to 5 evidence photos for a review.
      * Field name: "images" (multiple files).
      * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per review.
-     * Header: X-Customer-Id — ownership enforced via customerName match.
+    * Header: X-Customer-Id — ownership enforced via review.customer FK.
      */
     @PostMapping(value = "/reviews/{reviewId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadReviewImageFlutter(
@@ -2280,8 +2285,8 @@ public class ReactApiController {
             res.put("success", false); res.put("message", "Review not found");
             return ResponseEntity.status(404).body(res);
         }
-        // Ownership: Review stores customerName (no FK), match against logged-in customer
-        if (!review.getCustomerName().equals(customer.getName())) {
+        // Ownership: enforce using immutable customer FK, not display name
+        if (review.getCustomer() == null || review.getCustomer().getId() != customer.getId()) {
             res.put("success", false); res.put("message", "You can only add photos to your own reviews");
             return ResponseEntity.status(403).body(res);
         }
@@ -2343,7 +2348,7 @@ public class ReactApiController {
     @GetMapping("/spending-summary")
     public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
@@ -2386,7 +2391,7 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int orderId  = Integer.parseInt(body.get("orderId").toString());
@@ -2413,7 +2418,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getRefundStatus(
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
@@ -5416,10 +5421,10 @@ public class ReactApiController {
                 m.put("id", c.getId());
                 m.put("name", c.getName());
                 m.put("email", c.getEmail());
-                m.put("mobile", c.getMobile() != null ? c.getMobile() : "");
+                m.put("mobile", c.getMobile());
                 m.put("isActive", c.isActive());
                 m.put("role", c.getRole() != null ? c.getRole() : "CUSTOMER");
-                m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
+                m.put("createdAt", c.getLastLogin() != null ? c.getLastLogin().toString() : null);
                 data.add(m);
             }
             res.put("success", true);
@@ -5517,10 +5522,10 @@ public class ReactApiController {
             res.put("id", customer.getId());
             res.put("name", customer.getName());
             res.put("email", customer.getEmail());
-            res.put("mobile", customer.getMobile() != null ? customer.getMobile() : "");
+            res.put("mobile", customer.getMobile());
             res.put("isActive", customer.isActive());
             res.put("role", customer.getRole() != null ? customer.getRole() : "CUSTOMER");
-            res.put("createdAt", customer.getCreatedAt() != null ? customer.getCreatedAt().toString() : null);
+            res.put("createdAt", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
             res.put("addresses", customer.getAddresses() != null ? customer.getAddresses().size() : 0);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -5658,7 +5663,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
@@ -5701,7 +5706,7 @@ public class ReactApiController {
             @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.badRequest().body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         String current = (String) body.get("currentPassword");

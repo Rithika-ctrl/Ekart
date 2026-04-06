@@ -1258,9 +1258,14 @@ public class FlutterApiController {
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
+        if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
+            res.put("success", false); res.put("message", "You have already reviewed this product");
+            return ResponseEntity.badRequest().body(res);
+        }
+        int safeRating = Math.max(1, Math.min(5, rating));
         Review review = new Review();
-        review.setProduct(product); review.setRating(rating); review.setComment(comment);
-        review.setCustomerName(customer.getName());
+        review.setProduct(product); review.setRating(safeRating); review.setComment(comment);
+        review.setCustomer(customer);
         reviewRepository.save(review);
         res.put("success", true); res.put("message", "Review added successfully");
         return ResponseEntity.ok(res);

@@ -50,14 +50,14 @@ public interface SalesRecordRepository extends JpaRepository<SalesRecord, Intege
     long getTotalOrdersByVendor(@Param("vendorId") int vendorId);
 
     // ── 8. Total orders count for a vendor within a date range ──
-    @Query("SELECT COUNT(DISTINCT s.orderId) FROM SalesRecord s WHERE s.vendorId = :vendorId AND s.orderDate BETWEEN :from AND :to")
+    @Query("SELECT COUNT(DISTINCT s.order.id) FROM SalesRecord s WHERE s.vendor.id = :vendorId AND s.orderDate BETWEEN :from AND :to")
     long getOrderCountByVendorAndDateRange(
             @Param("vendorId") int vendorId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
     // ── 9. Total items sold for a vendor within a date range ──
-    @Query("SELECT COALESCE(SUM(s.quantity), 0) FROM SalesRecord s WHERE s.vendorId = :vendorId AND s.orderDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(s.quantity), 0) FROM SalesRecord s WHERE s.vendor.id = :vendorId AND s.orderDate BETWEEN :from AND :to")
     long getItemsSoldByVendorAndDateRange(
             @Param("vendorId") int vendorId,
             @Param("from") LocalDateTime from,
@@ -78,11 +78,11 @@ public interface SalesRecordRepository extends JpaRepository<SalesRecord, Intege
             @Param("to") LocalDateTime to);
 
     // ── 12. Platform total orders ──
-    @Query("SELECT COUNT(DISTINCT s.orderId) FROM SalesRecord s")
+        @Query("SELECT COUNT(DISTINCT s.order.id) FROM SalesRecord s")
     long getPlatformTotalOrders();
 
     // ── 13. Top vendors by revenue: [vendorId, vendorName, totalRevenue] ──
-    @Query("SELECT s.vendorId, s.vendorName, SUM(s.itemPrice * s.quantity) FROM SalesRecord s GROUP BY s.vendorId, s.vendorName ORDER BY SUM(s.itemPrice * s.quantity) DESC")
+        @Query("SELECT s.vendor.id, s.vendorName, SUM(s.itemPrice * s.quantity) FROM SalesRecord s GROUP BY s.vendor.id, s.vendorName ORDER BY SUM(s.itemPrice * s.quantity) DESC")
     List<Object[]> getTopVendorsByRevenue();
 
     // ── 14. Platform-wide category revenue: [category, totalRevenue] ──
@@ -93,6 +93,10 @@ public interface SalesRecordRepository extends JpaRepository<SalesRecord, Intege
     @Query("SELECT FUNCTION('DATE', s.orderDate), SUM(s.itemPrice * s.quantity) FROM SalesRecord s WHERE s.orderDate >= :since GROUP BY FUNCTION('DATE', s.orderDate) ORDER BY FUNCTION('DATE', s.orderDate) ASC")
     List<Object[]> getDailyRevenueSince(@Param("since") LocalDateTime since);
 
-    // ── 16. Idempotency guard — prevent double-recording an order ──
-    boolean existsByOrderId(int orderId);
+        // ── 16. Idempotency guard — prevent double-recording an order ──
+        boolean existsByOrder_Id(int orderId);
+
+        default boolean existsByOrderId(int orderId) {
+                return existsByOrder_Id(orderId);
+        }
 }

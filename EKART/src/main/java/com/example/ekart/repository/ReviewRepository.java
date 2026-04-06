@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
 
@@ -38,4 +39,11 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
     // Check if customer already reviewed a product (by name match)
     @Query("SELECT COUNT(r) > 0 FROM Review r WHERE r.product.id = :productId AND r.customerName = :customerName")
     boolean existsByProductIdAndCustomerName(@Param("productId") int productId, @Param("customerName") String customerName);
+
+    // Check if customer already reviewed a product (authoritative FK-based check)
+    @Query("SELECT COUNT(r) > 0 FROM Review r WHERE r.product.id = :productId AND r.customer.id = :customerId")
+    boolean existsByProductIdAndCustomerId(@Param("productId") int productId, @Param("customerId") int customerId);
+
+    @Query("SELECT r FROM Review r WHERE r.product.id = :productId AND r.customer.id = :customerId ORDER BY r.id DESC")
+    Optional<Review> findLatestByProductIdAndCustomerId(@Param("productId") int productId, @Param("customerId") int customerId);
 }

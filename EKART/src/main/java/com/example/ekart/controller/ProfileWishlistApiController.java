@@ -328,11 +328,19 @@ public class ProfileWishlistApiController {
             return ResponseEntity.status(404).body(res);
         }
 
+        if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
+            res.put("success", false);
+            res.put("message", "You have already reviewed this product");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        int safeRating = Math.max(1, Math.min(5, rating));
+
         Review review = new Review();
         review.setProduct(product);
-        review.setRating(rating);
+        review.setRating(safeRating);
         review.setComment(comment);
-        review.setCustomerName(customer.getName());
+        review.setCustomer(customer);
         reviewRepository.save(review);
 
         res.put("success", true);

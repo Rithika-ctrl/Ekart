@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS admin_credential (
 --   Online:       https://bcrypt-generator.com/ (for testing only, never in production!)
 -- ========================================================================
 
--- Example: Initial admin with password "REDACTED_ADMIN_PASSWORD" (replace the hash)
+-- Example: Initial admin with a temporary password (replace the hash)
 -- INSERT INTO admin_credential (email, hashed_password, name, two_factor_enabled, created_at, updated_at)
 -- VALUES ('admin@ekart.local', '$2a$10$YOUR_BCRYPTED_HASH_HERE', 'Administrator', FALSE, NOW(), NOW());
 
@@ -54,5 +54,5 @@ CREATE TABLE IF NOT EXISTS admin_credential (
 -- NOTE: For development, use this temporary command (NEVER in production):
 -- INSERT INTO admin_credential (email, hashed_password, name, created_at, updated_at)
 -- VALUES ('admin@ekart.local', '$2a$10$slYQmyNdGzin0rdZfH.iPuIC9z2qK21j5YbFsJ.cTPa0BvW7xDYiK', 'Admin User', NOW(), NOW());
--- This hash represents: "REDACTED_ADMIN_PASSWORD" (change it after first login!)
+-- Example hash shown for local bootstrap only (rotate immediately after first login).
 -- ========================================================================

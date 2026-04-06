@@ -66,8 +66,8 @@ public class RazorpayService {
                     .put("description", "EKART Order #" + orderId)
             );
 
-            JSONObject orderResponse = razorpayClient.Orders.create(orderRequest);
-            String razorpayOrderId = orderResponse.getString("id");
+            com.razorpay.Order orderResponse = razorpayClient.orders.create(orderRequest);
+            String razorpayOrderId = String.valueOf(orderResponse.get("id"));
 
             Map<String, Object> result = new HashMap<>();
             result.put("razorpayOrderId", razorpayOrderId);
