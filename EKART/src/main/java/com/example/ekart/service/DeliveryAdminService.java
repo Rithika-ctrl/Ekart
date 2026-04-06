@@ -317,12 +317,14 @@ public class DeliveryAdminService {
         List<Map<String, Object>> data = new ArrayList<>();
         for (AutoAssignLog log : logs) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("orderId",         log.getOrderId());
-            m.put("deliveryBoyName", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A");
-            m.put("deliveryBoyCode", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A");
-            m.put("pinCode",         log.getPinCode());
-            m.put("assignedAt",      log.getAssignedAt().toString());
-            m.put("activeAtTime",    log.getActiveOrdersAtAssignment());
+            m.put("id",                           log.getId());
+            m.put("orderId",                      log.getOrderId());
+            m.put("deliveryBoyName",              log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A");
+            m.put("deliveryBoyCode",              log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A");
+            m.put("pinCode",                      log.getPinCode());
+            m.put("assignedAt",                   log.getAssignedAt() != null ? log.getAssignedAt().toString() : null);
+            m.put("activeOrdersAtAssignment",     log.getActiveOrdersAtAssignment());
+            m.put("maxConcurrent",                AutoAssignmentService.MAX_CONCURRENT_ORDERS);
             data.add(m);
         }
 
@@ -346,14 +348,16 @@ public class DeliveryAdminService {
         for (DeliveryBoy db : boys) {
             if (!db.isVerified() || !db.isAdminApproved()) continue;
             int active = autoAssignmentService.countActiveOrders(db);
+            int maxConcurrent = AutoAssignmentService.MAX_CONCURRENT_ORDERS;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",           db.getId());
             m.put("name",         db.getName());
             m.put("code",         db.getDeliveryBoyCode());
             m.put("isOnline",     db.isAvailable());
             m.put("activeOrders", active);
-            m.put("slots",        AutoAssignmentService.MAX_CONCURRENT_ORDERS - active);
-            m.put("atCap",        active >= AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+            m.put("slots",        maxConcurrent - active);
+            m.put("maxConcurrent", maxConcurrent);
+            m.put("atCap",        active >= maxConcurrent);
             m.put("pins",         db.getAssignedPinCodes());
             m.put("warehouse",    db.getWarehouse() != null ? db.getWarehouse().getName() : "—");
             data.add(m);

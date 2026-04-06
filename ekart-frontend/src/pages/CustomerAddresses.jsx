@@ -43,7 +43,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
 /* ─── Toggle this to `false` once your backend endpoint is live ─────────── */
-const MOCK_FALLBACK = true;
+const MOCK_FALLBACK = false;
 
 /* ─── Deterministic mock per customer id ───────────────────────────────── */
 function mockAddresses(customerId) {

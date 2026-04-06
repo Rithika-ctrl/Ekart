@@ -158,6 +158,7 @@ function useActivityTracker(auth) {
 import AuthPage from "./AuthPage";
 import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
+import AddressForm from "../components/AddressForm";
 import VendorCsvUpload from "./VendorCsvUpload";
 // At the top of CustomerApp.jsx, with the other page imports:
 
@@ -3951,6 +3952,13 @@ function TrackSingleOrderPage({ order: o, onBack }) {
   const { auth } = useAuth();
   const [tracking, setTracking] = useState(null);   // server response
   const [loadErr, setLoadErr] = useState(false);
+  
+  // Report issue state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportForm, setReportForm] = useState({ reason: "", description: "" });
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState(null);
 
   // All statuses in pipeline order — includes PACKED which the old hardcoded list missed
   const PIPELINE = [
@@ -3996,6 +4004,49 @@ function TrackSingleOrderPage({ order: o, onBack }) {
     ...(currentCity ? [["Current Location", currentCity]] : []),
     ...(o.deliveryAddress ? [["Delivery Address", o.deliveryAddress]] : []),
   ];
+
+  // Handle report issue form submission
+  const handleReportIssue = async () => {
+    if (!reportForm.reason.trim()) {
+      setReportError("Please select or enter a reason for reporting this issue");
+      return;
+    }
+
+    setReportLoading(true);
+    setReportError(null);
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+      if (auth?.id) headers["X-Customer-Id"] = auth.id;
+
+      const response = await fetch(`/api/react/orders/${o.id}/report-issue`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          reason: reportForm.reason,
+          description: reportForm.description,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setReportSuccess(true);
+        setTimeout(() => {
+          setShowReportModal(false);
+          setReportForm({ reason: "", description: "" });
+          setReportSuccess(false);
+        }, 2000);
+      } else {
+        setReportError(data.message || "Failed to report issue. Please try again.");
+      }
+    } catch (err) {
+      setReportError("Network error: " + err.message);
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -4145,8 +4196,219 @@ function TrackSingleOrderPage({ order: o, onBack }) {
               </div>
             ))}
           </div>
+
+          {/* Report Issue Button */}
+          <button
+            style={{
+              width: "100%",
+              padding: 12,
+              marginTop: 16,
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: 12,
+              color: "#fca5a5",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onClick={() => setShowReportModal(true)}
+            onMouseOver={(e) => {
+              e.target.style.background = "rgba(239, 68, 68, 0.2)";
+              e.target.style.borderColor = "rgba(239, 68, 68, 0.5)";
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = "rgba(239, 68, 68, 0.1)";
+              e.target.style.borderColor = "rgba(239, 68, 68, 0.3)";
+            }}
+          >
+            🚨 Report Issue
+          </button>
         </div>
       </div>
+
+      {/* Report Issue Modal */}
+      {showReportModal && createPortal(
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: "#1a1a2e",
+            borderRadius: 16,
+            padding: 28,
+            maxWidth: 500,
+            width: "90%",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Report an Issue 🚨</h3>
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setReportError(null);
+                  setReportForm({ reason: "", description: "" });
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 24,
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {reportSuccess && (
+              <div style={{
+                background: "rgba(34, 197, 94, 0.1)",
+                border: "1px solid rgba(34, 197, 94, 0.3)",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 16,
+                color: "#86efac",
+                fontSize: 13,
+              }}>
+                ✓ Your issue has been reported. Our support team will review it shortly!
+              </div>
+            )}
+
+            {reportError && (
+              <div style={{
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 16,
+                color: "#fca5a5",
+                fontSize: 13,
+              }}>
+                ⚠️ {reportError}
+              </div>
+            )}
+
+            {!reportSuccess && (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", color: "#e5e7eb", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Reason for Issue *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Wrong item delivered, Damaged product, Late delivery..."
+                    value={reportForm.reason}
+                    onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: 12,
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 8,
+                      color: "#fff",
+                      fontSize: 13,
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", color: "#e5e7eb", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Additional Details (Optional)
+                  </label>
+                  <textarea
+                    placeholder="Please provide more details about the issue..."
+                    value={reportForm.description}
+                    onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      padding: 12,
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 8,
+                      color: "#fff",
+                      fontSize: 13,
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    onClick={() => {
+                      setShowReportModal(false);
+                      setReportError(null);
+                      setReportForm({ reason: "", description: "" });
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 8,
+                      color: "#e5e7eb",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseOver={(e) => e.target.style.background = "rgba(255,255,255,0.12)"}
+                    onMouseOut={(e) => e.target.style.background = "rgba(255,255,255,0.08)"}
+                    disabled={reportLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReportIssue}
+                    disabled={reportLoading}
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      background: reportLoading ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.8)",
+                      border: "1px solid rgba(99,102,241,0.3)",
+                      borderRadius: 8,
+                      color: "#fff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: reportLoading ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseOver={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = "rgba(99,102,241,1)";
+                        e.target.style.borderColor = "rgba(99,102,241,0.6)";
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = "rgba(99,102,241,0.8)";
+                        e.target.style.borderColor = "rgba(99,102,241,0.3)";
+                      }
+                    }}
+                  >
+                    {reportLoading ? "Submitting..." : "Submit Report"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
