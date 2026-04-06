@@ -36,6 +36,7 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
+import com.example.ekart.repository.AuthenticationOtpRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -90,6 +91,11 @@ public class VendorService {
     private TrackingEventLogRepository trackingEventLogRepository;
     // ─────────────────────────────────────────────────────────────
 
+    // ── NEW: OTP Service (secure OTP management) ──────────────────
+    @Autowired
+    private OtpService otpService;
+    // ─────────────────────────────────────────────────────────────
+
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
 		map.put("vendor", vendor);
@@ -112,8 +118,7 @@ public class VendorService {
 		if (result.hasErrors())
 			return "vendor-register.html";
 
-		int otp = new Random().nextInt(100000, 1000000);
-		vendor.setOtp(otp);
+		// 🔒 NEW: Use secure OTP service instead of plain Random
 		vendor.setPassword(AES.encrypt(vendor.getPassword()));
 		vendor.setVerified(false);
 
@@ -124,7 +129,10 @@ public class VendorService {
         vendorRepository.save(vendor);
 
 		try {
-			emailSender.send(vendor);
+			// Generate secure OTP (BCrypt hashed, stored in AuthenticationOtp table)
+			String plainOtp = otpService.generateAndStoreOtp(vendor.getEmail(), OtpService.PURPOSE_VENDOR_REGISTER);
+			// Send plain OTP to email (never stored in plain text)
+			emailSender.sendVendorOtpSecure(vendor, plainOtp);
 		} catch (Exception e) {
 			System.err.println("Vendor OTP email failed: " + e.getMessage());
 		}
@@ -144,14 +152,17 @@ public class VendorService {
 
 		Vendor vendor = vendorRepository.findById(id).orElseThrow();
 
-		if (vendor.getOtp() == otp) {
+		// 🔒 NEW: Verify OTP using secure service (hashed comparison)
+		OtpService.VerificationResult result = otpService.verifyOtp(vendor.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_VENDOR_REGISTER);
+		
+		if (result.success) {
 			vendor.setVerified(true);
 			vendorRepository.save(vendor);
 			session.setAttribute("success", "Vendor Verified Successfully");
 			return "redirect:/";
 		}
 
-		session.setAttribute("failure", "OTP Mismatch");
+		session.setAttribute("failure", result.message);
 		return "redirect:/vendor/otp/" + id;
 	}
 
@@ -172,12 +183,10 @@ public class VendorService {
 
 		if (!vendor.isVerified()) {
 
-			int otp = new Random().nextInt(100000, 1000000);
-			vendor.setOtp(otp);
-			vendorRepository.save(vendor);
-
 			try {
-				emailSender.send(vendor);
+				// 🔒 NEW: Use secure OTP service to resend
+				String plainOtp = otpService.resendOtp(vendor.getEmail(), OtpService.PURPOSE_VENDOR_REGISTER);
+				emailSender.sendVendorOtpSecure(vendor, plainOtp);
 			} catch (Exception e) {
 				System.err.println("Vendor OTP resend email failed: " + e.getMessage());
 			}
@@ -202,10 +211,13 @@ public class VendorService {
 			return "redirect:/vendor/forgot-password";
 		}
 
-		int otp = new Random().nextInt(100000, 1000000);
-		vendor.setOtp(otp);
-		vendorRepository.save(vendor);
-		emailSender.send(vendor);
+		try {
+			// 🔒 NEW: Use secure OTP service
+			String plainOtp = otpService.generateAndStoreOtp(vendor.getEmail(), OtpService.PURPOSE_PASSWORD_RESET);
+			emailSender.sendVendorOtpSecure(vendor, plainOtp);
+		} catch (Exception e) {
+			System.err.println("Vendor password reset OTP email failed: " + e.getMessage());
+		}
 
 		session.setAttribute("success", "OTP sent to your registered email");
 		return "redirect:/vendor/reset-password/" + vendor.getId();
@@ -223,8 +235,10 @@ public class VendorService {
 			return "redirect:/vendor/forgot-password";
 		}
 
-		if (vendor.getOtp() != otp) {
-			session.setAttribute("failure", "Invalid OTP");
+		// 🔒 NEW: Verify OTP using secure service (hashed comparison)
+		OtpService.VerificationResult result = otpService.verifyOtp(vendor.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_PASSWORD_RESET);
+		if (!result.success) {
+			session.setAttribute("failure", result.message);
 			return "redirect:/vendor/reset-password/" + id;
 		}
 

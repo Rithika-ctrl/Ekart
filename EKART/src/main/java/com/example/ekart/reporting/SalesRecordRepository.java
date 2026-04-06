@@ -8,27 +8,28 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Repository for the REPORTING database.
- * All queries here run on ekart_reporting_db, NOT the main DB.
+ * Repository for SALES_RECORD table (Main PostgreSQL DB).
+ * Unified queryability with Order, Product, Vendor, Customer entities.
  */
 public interface SalesRecordRepository extends JpaRepository<SalesRecord, Integer> {
 
     // ── 1. All records for a specific vendor ──
-    List<SalesRecord> findByVendorId(int vendorId);
+    @Query("SELECT s FROM SalesRecord s WHERE s.vendor.id = :vendorId")
+    List<SalesRecord> findByVendorId(@Param("vendorId") int vendorId);
 
     // ── 2. Records for a vendor within a date range ──
-    @Query("SELECT s FROM SalesRecord s WHERE s.vendorId = :vendorId AND s.orderDate BETWEEN :from AND :to")
+    @Query("SELECT s FROM SalesRecord s WHERE s.vendor.id = :vendorId AND s.orderDate BETWEEN :from AND :to")
     List<SalesRecord> findByVendorIdAndDateRange(
             @Param("vendorId") int vendorId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
     // ── 3. Total revenue earned by a vendor ──
-    @Query("SELECT COALESCE(SUM(s.itemPrice * s.quantity), 0) FROM SalesRecord s WHERE s.vendorId = :vendorId")
+    @Query("SELECT COALESCE(SUM(s.itemPrice * s.quantity), 0) FROM SalesRecord s WHERE s.vendor.id = :vendorId")
     double getTotalRevenueByVendor(@Param("vendorId") int vendorId);
 
     // ── 4. Total revenue for a vendor within a date range ──
-    @Query("SELECT COALESCE(SUM(s.itemPrice * s.quantity), 0) FROM SalesRecord s WHERE s.vendorId = :vendorId AND s.orderDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(s.itemPrice * s.quantity), 0) FROM SalesRecord s WHERE s.vendor.id = :vendorId AND s.orderDate BETWEEN :from AND :to")
     double getRevenueByVendorAndDateRange(
             @Param("vendorId") int vendorId,
             @Param("from") LocalDateTime from,
@@ -36,16 +37,16 @@ public interface SalesRecordRepository extends JpaRepository<SalesRecord, Intege
 
     // ── 5. Product-wise order count for a vendor ──
     // Returns: [productName, totalQuantitySold]
-    @Query("SELECT s.productName, SUM(s.quantity) FROM SalesRecord s WHERE s.vendorId = :vendorId GROUP BY s.productName ORDER BY SUM(s.quantity) DESC")
+    @Query("SELECT s.productName, SUM(s.quantity) FROM SalesRecord s WHERE s.vendor.id = :vendorId GROUP BY s.productName ORDER BY SUM(s.quantity) DESC")
     List<Object[]> getProductWiseSales(@Param("vendorId") int vendorId);
 
     // ── 6. Category-wise revenue for a vendor ──
     // Returns: [category, totalRevenue]
-    @Query("SELECT s.category, SUM(s.itemPrice * s.quantity) FROM SalesRecord s WHERE s.vendorId = :vendorId GROUP BY s.category ORDER BY SUM(s.itemPrice * s.quantity) DESC")
+    @Query("SELECT s.category, SUM(s.itemPrice * s.quantity) FROM SalesRecord s WHERE s.vendor.id = :vendorId GROUP BY s.category ORDER BY SUM(s.itemPrice * s.quantity) DESC")
     List<Object[]> getCategoryWiseRevenue(@Param("vendorId") int vendorId);
 
     // ── 7. Total orders count for a vendor ──
-    @Query("SELECT COUNT(DISTINCT s.orderId) FROM SalesRecord s WHERE s.vendorId = :vendorId")
+    @Query("SELECT COUNT(DISTINCT s.order.id) FROM SalesRecord s WHERE s.vendor.id = :vendorId")
     long getTotalOrdersByVendor(@Param("vendorId") int vendorId);
 
     // ── 8. Total orders count for a vendor within a date range ──

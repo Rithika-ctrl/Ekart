@@ -8,8 +8,12 @@ import jakarta.persistence.*;
 public class Wishlist {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne private Customer customer;
-    @ManyToOne private Product product;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
     private LocalDateTime addedAt;
 
     public int getId() { return id; }

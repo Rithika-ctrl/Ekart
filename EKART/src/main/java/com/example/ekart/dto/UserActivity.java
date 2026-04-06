@@ -10,15 +10,18 @@ public class UserActivity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     private String actionType;
     private String metadata; // JSON string
     private LocalDateTime timestamp;
 
     public UserActivity() {}
 
-    public UserActivity(Long userId, String actionType, String metadata, LocalDateTime timestamp) {
-        this.userId = userId;
+    public UserActivity(Customer customer, String actionType, String metadata, LocalDateTime timestamp) {
+        this.customer = customer;
         this.actionType = actionType;
         this.metadata = metadata;
         this.timestamp = timestamp;
@@ -27,8 +30,8 @@ public class UserActivity {
     // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public Customer getCustomer() { return customer; }
+    public void setCustomer(Customer customer) { this.customer = customer; }
     public String getActionType() { return actionType; }
     public void setActionType(String actionType) { this.actionType = actionType; }
     public String getMetadata() { return metadata; }

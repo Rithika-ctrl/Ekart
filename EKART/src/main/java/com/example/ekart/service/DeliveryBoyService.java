@@ -26,6 +26,7 @@ public class DeliveryBoyService {
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private EmailSender                        emailSender;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
+    @Autowired private OtpService                         otpService;
 
     @Autowired @Lazy private AutoAssignmentService autoAssignmentService;
 
@@ -81,15 +82,17 @@ public class DeliveryBoyService {
         db.setWarehouse(warehouse);
         db.setAssignedPinCodes("");
 
-        int otp = new Random().nextInt(100000, 1000000);
-        db.setOtp(otp);
-
         deliveryBoyRepository.save(db);
         db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
         deliveryBoyRepository.save(db);
 
-        try { emailSender.sendDeliveryBoyOtp(db); }
-        catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
+        try {
+            // 🔒 NEW: Use secure OTP service instead of plain Random
+            String plainOtp = otpService.generateAndStoreOtp(db.getEmail(), OtpService.PURPOSE_DELIVERY_REGISTER);
+            emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
+        } catch (Exception e) { 
+            System.err.println("Delivery boy OTP email failed: " + e.getMessage());
+        }
 
         session.setAttribute("success", "OTP sent to " + email + ". Verify your email to continue.");
         return "redirect:/delivery/otp/" + db.getId();
@@ -109,7 +112,10 @@ public class DeliveryBoyService {
             return "redirect:/delivery/login";
         }
 
-        if (db.getOtp() == otp) {
+        // 🔒 NEW: Verify OTP using secure service (hashed comparison)
+        OtpService.VerificationResult result = otpService.verifyOtp(db.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_DELIVERY_REGISTER);
+        
+        if (result.success) {
             db.setVerified(true);
             deliveryBoyRepository.save(db);
 
@@ -123,7 +129,7 @@ public class DeliveryBoyService {
             return "redirect:/delivery/login";
         }
 
-        session.setAttribute("failure", "Wrong OTP. Try again.");
+        session.setAttribute("failure", result.message);
         return "redirect:/delivery/otp/" + id;
     }
 
@@ -209,10 +215,11 @@ public class DeliveryBoyService {
         }
 
         if (!db.isVerified()) {
-            int otp = new Random().nextInt(100000, 1000000);
-            db.setOtp(otp);
-            deliveryBoyRepository.save(db);
-            try { emailSender.sendDeliveryBoyOtp(db); } catch (Exception ignored) {}
+            try {
+                // 🔒 NEW: Use secure OTP service to resend
+                String plainOtp = otpService.resendOtp(db.getEmail(), OtpService.PURPOSE_DELIVERY_LOGIN);
+                emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
+            } catch (Exception ignored) {}
             session.setAttribute("success", "Please verify your email first. OTP resent.");
             return "redirect:/delivery/otp/" + db.getId();
         }

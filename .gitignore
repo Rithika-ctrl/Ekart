@@ -1,1 +1,42 @@
 node_modules
+
+# ========================================================================
+# 🔐 ENVIRONMENT & SECRETS - NEVER COMMIT
+# ========================================================================
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+target/
+build/
+dist/
+
+# Logs
+logs/
+*.log
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Database backups
+*.sql
+*.dump
+
+# Temporary files
+*.tmp
+.env.tmp

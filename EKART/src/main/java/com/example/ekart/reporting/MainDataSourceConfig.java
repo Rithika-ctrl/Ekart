@@ -27,7 +27,7 @@ import java.util.Map;
  */
 @Configuration
 @EnableJpaRepositories(
-    basePackages = "com.example.ekart.repository",   // all normal repos
+    basePackages = {"com.example.ekart.repository", "com.example.ekart.reporting"},
     entityManagerFactoryRef = "mainEntityManagerFactory",
     transactionManagerRef = "mainTransactionManager"
 )
@@ -54,7 +54,7 @@ public class MainDataSourceConfig {
 
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
-        factory.setPackagesToScan("com.example.ekart.dto", "com.example.ekart.model");  // main entities + Policy
+        factory.setPackagesToScan("com.example.ekart.dto", "com.example.ekart.model", "com.example.ekart.reporting");
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factory.setPersistenceUnitName("main");
 
