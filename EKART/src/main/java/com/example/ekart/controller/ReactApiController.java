@@ -26,8 +26,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * React REST API Controller for Ekart Web Application.
+ * PRIMARY REST API Controller for Ekart Web Application.
  * Base path: /api/react
+ * 
+ * ✅ This is the PRIMARY API for all new clients and integrations.
+ * Replaces the deprecated FlutterApiController (/api/flutter).
  *
  * Auth pattern:
  *   X-Customer-Id: <id>  for customer endpoints
@@ -35,6 +38,9 @@ import java.util.stream.Collectors;
  *
  * All endpoints are under /api/react/** which must be
  * permitted in SecurityConfig (same as /api/flutter/**).
+ * 
+ * Migration from /api/flutter:
+ *   See FlutterApiController for deprecation notice and migration guidance.
  */
 @RestController
 @RequestMapping("/api/react")

@@ -16,9 +16,25 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Flutter REST API Controller for Ekart Mobile App.
+ * ⚠️  DEPRECATED: Flutter REST API Controller for Ekart Mobile App.
+ * 
  * Base path: /api/flutter
+ * 
+ * DEPRECATION NOTICE:
+ * This controller duplicates nearly all endpoints from ReactApiController (/api/react).
+ * To reduce maintenance burden and prevent divergence, clients should migrate to /api/react.
+ * 
+ * Migration Timeline:
+ *   - CURRENT: Fully functional but DEPRECATED
+ *   - NEXT MAJOR RELEASE: Will be removed
+ * 
+ * Clients still using /api/flutter should:
+ *   1. Review differences between /api/flutter and /api/react endpoints
+ *   2. Update client code to use /api/react equivalents
+ *   3. Test thoroughly before deploying
  *
+ * For migration guidance, see ReactApiController javadoc or contact DevOps.
+ * 
  * Auth pattern:
  *   X-Customer-Id: <id>  for customer endpoints
  *   X-Vendor-Id:   <id>  for vendor endpoints
@@ -26,13 +42,17 @@ import java.util.stream.Collectors;
  * All endpoints are under /api/flutter/** which is already
  * permitted in SecurityConfig (Chain 1 = permitAll, stateless).
  *
- * NEW ENDPOINTS added for mobile features:
- *   GET  /api/flutter/banners                       — banner carousel
- *   POST /api/flutter/orders/place                  — now accepts structured address fields
- *   POST /api/flutter/notify-me/{productId}         — subscribe back-in-stock
- *   DELETE /api/flutter/notify-me/{productId}       — unsubscribe
- *   GET  /api/flutter/notify-me/{productId}         — check subscription status
+ * DEPRECATED ENDPOINTS (use /api/react equivalents instead):
+ *   GET  /api/flutter/banners                       → GET  /api/react/banners
+ *   POST /api/flutter/orders/place                  → POST /api/react/orders/place
+ *   POST /api/flutter/notify-me/{productId}         → POST /api/react/notify-me/{productId}
+ *   DELETE /api/flutter/notify-me/{productId}       → DELETE /api/react/notify-me/{productId}
+ *   GET  /api/flutter/notify-me/{productId}         → GET  /api/react/notify-me/{productId}
+ *
+ * @deprecated Use {@link ReactApiController} (/api/react) instead. This controller will be removed in a future major release.
+ * @see ReactApiController
  */
+@Deprecated(since = "0.0.1", forRemoval = true)
 @RestController
 @RequestMapping("/api/flutter")
 @CrossOrigin(origins = "*")

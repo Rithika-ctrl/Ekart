@@ -72,24 +72,46 @@ export default function DeliveryApp() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, o, t] = await Promise.all([
+      // Use allSettled to prevent one failure from blocking all data loads
+      const results = await Promise.allSettled([
         api("/delivery/profile"),
         api("/delivery/orders"),
-        api("/delivery/warehouse-change/pending").catch(() => null),
+        api("/delivery/warehouse-change/pending"),
       ]);
-      if (p?.success) {
-        setProfile(p.deliveryBoy);
-        setIsAvailable(p.deliveryBoy?.isAvailable || false);
+
+      // Extract results: each can now be { status: 'fulfilled', value } or { status: 'rejected', reason }
+      const [profileResult, ordersResult, transferResult] = results;
+
+      // Process profile — critical, but show what succeeded
+      if (profileResult.status === "fulfilled" && profileResult.value?.success) {
+        setProfile(profileResult.value.deliveryBoy);
+        setIsAvailable(profileResult.value.deliveryBoy?.isAvailable || false);
+      } else if (profileResult.status === "rejected") {
+        console.error("Profile load error:", profileResult.reason);
+        showToast("Failed to load profile", false);
       }
-      if (o?.success) {
-        setToPickUp(o.toPickUp || []);
-        setOutNow(o.outForDelivery || []);
-        setDelivered(o.delivered || []);
+
+      // Process orders — critical
+      if (ordersResult.status === "fulfilled" && ordersResult.value?.success) {
+        setToPickUp(ordersResult.value.toPickUp || []);
+        setOutNow(ordersResult.value.outForDelivery || []);
+        setDelivered(ordersResult.value.delivered || []);
+      } else if (ordersResult.status === "rejected") {
+        console.error("Orders load error:", ordersResult.reason);
+        showToast("Failed to load orders", false);
       }
-      if (t?.success) setPendingTransfer(t.request || null);
-      else setPendingTransfer(null);
-    } catch {
-      showToast("Failed to load data", false);
+
+      // Process transfer request — non-critical, graceful degradation
+      if (transferResult.status === "fulfilled" && transferResult.value?.success) {
+        setPendingTransfer(transferResult.value.request || null);
+      } else {
+        setPendingTransfer(null);
+        // Don't show error for this — it's non-critical
+      }
+    } catch (err) {
+      // Fallback for unexpected errors
+      console.error("Unexpected error in load():", err);
+      showToast("An unexpected error occurred", false);
     }
     setLoading(false);
   }, [api]);

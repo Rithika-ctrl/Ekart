@@ -34,15 +34,57 @@ export default function VendorApp() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [s, p, o, a, pr] = await Promise.all([
-      api("/vendor/stats"), api("/vendor/products"),
-      api("/vendor/orders"), api("/vendor/stock-alerts"), api("/vendor/profile")
-    ]);
-    if (s.success) setStats(s);
-    if (p.success) setProducts(p.products || []);
-    if (o.success) setOrders(o.orders || []);
-    if (a.success) setStockAlerts(a.alerts || []);
-    if (pr.success) setProfile(pr.vendor);
+    try {
+      // Use allSettled to prevent one API failure from breaking the entire dashboard
+      const results = await Promise.allSettled([
+        api("/vendor/stats"),
+        api("/vendor/products"),
+        api("/vendor/orders"),
+        api("/vendor/stock-alerts"),
+        api("/vendor/profile")
+      ]);
+
+      // Extract results with proper fulfilled/rejected handling
+      const [statsResult, productsResult, ordersResult, alertsResult, profileResult] = results;
+
+      // Process stats — non-critical
+      if (statsResult.status === "fulfilled" && statsResult.value?.success) {
+        setStats(statsResult.value);
+      } else if (statsResult.status === "rejected") {
+        console.error("Stats load error:", statsResult.reason);
+      }
+
+      // Process products
+      if (productsResult.status === "fulfilled" && productsResult.value?.success) {
+        setProducts(productsResult.value.products || []);
+      } else if (productsResult.status === "rejected") {
+        console.error("Products load error:", productsResult.reason);
+      }
+
+      // Process orders
+      if (ordersResult.status === "fulfilled" && ordersResult.value?.success) {
+        setOrders(ordersResult.value.orders || []);
+      } else if (ordersResult.status === "rejected") {
+        console.error("Orders load error:", ordersResult.reason);
+      }
+
+      // Process alerts — non-critical
+      if (alertsResult.status === "fulfilled" && alertsResult.value?.success) {
+        setStockAlerts(alertsResult.value.alerts || []);
+      } else if (alertsResult.status === "rejected") {
+        console.error("Alerts load error:", alertsResult.reason);
+      }
+
+      // Process profile
+      if (profileResult.status === "fulfilled" && profileResult.value?.success) {
+        setProfile(profileResult.value.vendor);
+      } else if (profileResult.status === "rejected") {
+        console.error("Profile load error:", profileResult.reason);
+      }
+    } catch (err) {
+      // Fallback for unexpected errors
+      console.error("Unexpected error in loadAll():", err);
+    }
     setLoading(false);
   }, [api]);
 

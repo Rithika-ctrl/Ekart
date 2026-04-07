@@ -38,9 +38,20 @@ public class SecurityConfig {
     private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     /**
-     * CHAIN 1 — Handles ALL /api/flutter/** requests.
+     * CHAIN 1 — Handles all REST API requests (/api/react/** and deprecated /api/flutter/**).
      * Completely stateless: no session, no OAuth2, no redirects.
      * Runs FIRST (Order=1) so OAuth2 chain never sees these requests.
+     * 
+     * SECURITY CONTEXT:
+     *   - All requests matched by securityMatcher("/api/react/**")
+     *   - JWT token validation via ReactAuthFilter (validates bearer tokens)
+     *   - Public endpoints (auth/**, products/**, etc.) are whitelisted inside the filter
+     *   - Protected endpoints (admin/**, vendor/**, etc.) require valid JWT
+     * 
+     * MIGRATION NOTE:
+     *   - Clients should use /api/react/** (all endpoints)
+     *   - /api/flutter/** is deprecated and will be removed in next major release
+     *   - See FlutterApiController for migration guidance
      */
     @Bean
     @Order(1)
