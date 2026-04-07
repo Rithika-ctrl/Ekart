@@ -6,9 +6,11 @@ package com.example.ekart.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.repository.query.Param;
 
 import com.example.ekart.dto.Customer;
@@ -20,9 +22,20 @@ import com.example.ekart.dto.Warehouse;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
 
-    // ── Customer queries ─────────────────────────────────────────
+    // ── Admin queries (optimized for N+1 prevention) ──────────────
 
+    /**
+     * Fetches all orders with items eagerly loaded.
+     * Uses @EntityGraph to avoid N+1 queries when admin loads all orders.
+     */
+    @EntityGraph(attributePaths = "items")
+    List<Order> findAll();
+
+    @EntityGraph(attributePaths = "items")
     List<Order> findByCustomer(Customer customer);
+
+    @EntityGraph(attributePaths = "items")
+    Optional<Order> findWithItemsById(Integer id);
 
     // ── Vendor queries ───────────────────────────────────────────
 

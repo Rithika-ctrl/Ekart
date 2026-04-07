@@ -3,6 +3,7 @@ package com.example.ekart.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.ekart.dto.Customer;
@@ -12,6 +13,7 @@ import com.example.ekart.dto.Wishlist;
 public interface WishlistRepository extends JpaRepository<Wishlist, Integer> {
     
     // Find all wishlist items for a customer
+    @EntityGraph(attributePaths = "product")
     List<Wishlist> findByCustomer(Customer customer);
     
     // Find a specific wishlist entry by customer and product

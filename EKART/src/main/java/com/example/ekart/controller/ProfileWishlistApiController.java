@@ -4,6 +4,7 @@ import com.example.ekart.dto.*;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
 import com.example.ekart.helper.CloudinaryHelper;
+import com.example.ekart.service.MobileApiReadService;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,7 @@ public class ProfileWishlistApiController {
     @Autowired private ReviewRepository   reviewRepository;
     @Autowired private JwtUtil            jwtUtil;
     @Autowired private CloudinaryHelper   cloudinaryHelper;
+    @Autowired private MobileApiReadService mobileApiReadService;
 
     // ══════════════════════════════════════════════════════════
     //  PROFILE
@@ -59,7 +61,8 @@ public class ProfileWishlistApiController {
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        customer = customerRepository.findById(customer.getId()).orElseThrow();
+        customer = mobileApiReadService.findCustomerWithAddresses(customer.getId());
+        if (customer == null) return unauthorized(res);
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",           customer.getId());
@@ -151,7 +154,7 @@ public class ProfileWishlistApiController {
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
+        List<Wishlist> wishlist = mobileApiReadService.findWishlistWithProducts(customer);
 
         List<Map<String, Object>> items = wishlist.stream().map(w -> {
             Map<String, Object> m = new HashMap<>();
@@ -293,7 +296,7 @@ public class ProfileWishlistApiController {
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
+        List<Integer> ids = mobileApiReadService.findWishlistWithProducts(customer).stream()
                 .map(w -> w.getProduct().getId())
                 .collect(Collectors.toList());
 

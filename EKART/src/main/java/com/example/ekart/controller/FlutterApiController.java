@@ -7,6 +7,7 @@ import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AdminAuthService;
+import com.example.ekart.service.MobileApiReadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -77,6 +78,7 @@ public class FlutterApiController {
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private EmailSender                        emailSender;
     @Autowired private AdminAuthService                   adminAuthService;
+    @Autowired private MobileApiReadService               mobileApiReadService;
 
     // Admin credentials are now database-backed via AdminAuthService.
     // See AdminCredential entity and AdminAuthService for implementation.
@@ -1052,7 +1054,7 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        List<Order> orders = orderRepository.findByCustomer(customer);
+        List<Order> orders = mobileApiReadService.findOrdersWithItems(customer);
         res.put("success", true);
         res.put("orders", orders.stream().map(this::mapOrder).collect(Collectors.toList()));
         return ResponseEntity.ok(res);
@@ -1063,7 +1065,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getOrder(
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        Order order = orderRepository.findById(id).orElse(null);
+        Order order = mobileApiReadService.findOrderWithItems(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         res.put("success", true); res.put("order", mapOrder(order));
         return ResponseEntity.ok(res);
@@ -1074,7 +1076,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> cancelOrder(
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        Order order = orderRepository.findById(id).orElse(null);
+        Order order = mobileApiReadService.findOrderWithItems(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) {
             res.put("success", false); res.put("message", "Cannot cancel this order");
@@ -1102,7 +1104,7 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
+        List<Wishlist> wishlist = mobileApiReadService.findWishlistWithProducts(customer);
         List<Map<String, Object>> items = wishlist.stream().map(w -> {
             Map<String, Object> m = new HashMap<>();
             Product p = w.getProduct();
@@ -1121,7 +1123,7 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
-        List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
+        List<Integer> ids = mobileApiReadService.findWishlistWithProducts(customer).stream()
                 .map(w -> w.getProduct().getId()).collect(Collectors.toList());
         res.put("success", true); res.put("ids", ids);
         return ResponseEntity.ok(res);
@@ -1160,7 +1162,7 @@ public class FlutterApiController {
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
-        Customer customer = customerRepository.findById(customerId).orElse(null);
+        Customer customer = mobileApiReadService.findCustomerWithAddresses(customerId);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", customer.getId()); profile.put("name", customer.getName());
@@ -1203,11 +1205,12 @@ public class FlutterApiController {
      * Also accepts legacy "address" flat-text field for backward compatibility.
      */
     @PostMapping("/profile/address/add")
+    @Transactional
     public ResponseEntity<Map<String, Object>> addAddress(
             @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
-        Customer customer = customerRepository.findById(customerId).orElse(null);
+        Customer customer = mobileApiReadService.findCustomerWithAddresses(customerId);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
         Address address = new Address();
@@ -1244,10 +1247,11 @@ public class FlutterApiController {
 
     /** DELETE /api/flutter/profile/address/{id}/delete */
     @DeleteMapping("/profile/address/{id}/delete")
+    @Transactional
     public ResponseEntity<Map<String, Object>> deleteAddress(
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        Customer customer = customerRepository.findById(customerId).orElse(null);
+        Customer customer = mobileApiReadService.findCustomerWithAddresses(customerId);
         if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
         customerRepository.save(customer);
