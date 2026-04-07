@@ -29,7 +29,6 @@ public class RefundService {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
     // private EmailSender emailSender; // unused
 
     // ───────────────────────────────────────────────────────────────────────────

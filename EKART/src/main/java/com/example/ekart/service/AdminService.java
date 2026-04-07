@@ -52,7 +52,6 @@ public class AdminService {
 	@Autowired
 	private RefundRepository refundRepository;
 
-	@Autowired
 	// private ItemRepository itemRepository; // unused
 
 	// Banner text stored via @Value — set in application.properties or .env

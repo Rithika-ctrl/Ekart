@@ -17,17 +17,22 @@ import java.util.Date;
  * Token contains: customerId, email, role
  * Expiry: 7 days
  *
- * ✅ FIX: Secret is now injected from application.properties / .env
- *         Add to .env:                JWT_SECRET=your-strong-256-bit-secret-here
- *         Add to application.properties: jwt.secret=${JWT_SECRET:ekart-default-change-me}
+ * ✅ SECURITY: Secret is injected from application.properties / .env
+ *    REQUIRED: Set JWT_SECRET environment variable with a strong 256+ bit random value
+ *    Generate with: openssl rand -base64 32
+ *    NO DEFAULT PROVIDED — application fails to start without this, preventing token forgery
  */
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret:ekart-super-secret-jwt-key-2024-minimum-256bits!!}")
+    @Value("${jwt.secret}")
     private String secretValue;
 
+    @Value("${spring.profiles.active:default}")
+    private String environment;
+
     private static final long EXPIRY_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
+    private static final String DEV_DEFAULT = "ekart-dev-default-256bit-key-change-in-production!!";
 
     // Static holder so getKey() can be used — initialised by @PostConstruct
     private static String SECRET;
@@ -35,6 +40,34 @@ public class JwtUtil {
     @PostConstruct
     private void initSecret() {
         SECRET = this.secretValue;
+        
+        // ⚠️ SECURITY CHECK: Warn if using default secret in production
+        if ((environment.contains("prod") || environment.contains("production")) && 
+            SECRET.equals(DEV_DEFAULT)) {
+            System.err.println("\n" +
+                "╔════════════════════════════════════════════════════════════════╗\n" +
+                "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
+                "║                                                                ║\n" +
+                "║ Your JWT tokens are being signed with a KNOWN default secret.  ║\n" +
+                "║ This allows ANYONE to forge valid authentication tokens.       ║\n" +
+                "║                                                                ║\n" +
+                "║ FIX: Set JWT_SECRET environment variable with a strong value   ║\n" +
+                "║      Example: openssl rand -base64 32                          ║\n" +
+                "║                                                                ║\n" +
+                "║ APPLICATION WILL NOT START IN PRODUCTION WITHOUT THIS!         ║\n" +
+                "╚════════════════════════════════════════════════════════════════╝\n");
+            throw new IllegalStateException(
+                "SECURITY: JWT_SECRET environment variable must be set with a strong " +
+                "random value in production. Generate with: openssl rand -base64 32"
+            );
+        }
+        
+        // Warn in development
+        if (!environment.contains("prod") && SECRET.equals(DEV_DEFAULT)) {
+            System.out.println("\n" +
+                "⚠️  JWT using development default (not secure). " +
+                "Set JWT_SECRET env var for production.\n");
+        }
     }
 
     private Key getKey() {

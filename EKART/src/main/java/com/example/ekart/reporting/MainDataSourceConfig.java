@@ -3,12 +3,14 @@ package com.example.ekart.reporting;
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -59,7 +61,6 @@ public class MainDataSourceConfig {
         factory.setPersistenceUnitName("main");
 
         Map<String, Object> props = new HashMap<>();
-        props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         props.put("hibernate.hbm2ddl.auto", "update");
         props.put("hibernate.show_sql", "true");
         props.put("hibernate.format_sql", "true");
@@ -74,5 +75,10 @@ public class MainDataSourceConfig {
     public JpaTransactionManager mainTransactionManager(
             @Qualifier("mainEntityManagerFactory") EntityManagerFactory emf) {
         return new JpaTransactionManager(emf);
+    }
+
+    @Bean
+    public CommandLineRunner reportingSchemaInitializer(@Qualifier("mainDataSource") DataSource dataSource) {
+        return args -> new JdbcTemplate(dataSource).execute("CREATE SCHEMA IF NOT EXISTS reporting");
     }
 }

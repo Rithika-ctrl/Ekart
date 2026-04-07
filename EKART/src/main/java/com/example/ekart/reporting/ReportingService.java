@@ -51,7 +51,7 @@ public class ReportingService {
      * Idempotent: if the orderId already exists in reporting DB, it is skipped
      * to prevent double-counting on retries.
      */
-    @Transactional(value = "reportingTransactionManager", propagation = Propagation.REQUIRES_NEW)
+    @Transactional(value = "mainTransactionManager", propagation = Propagation.REQUIRES_NEW)
     public void recordOrder(Order order) {
         if (order == null || order.getItems() == null || order.getItems().isEmpty()) return;
 

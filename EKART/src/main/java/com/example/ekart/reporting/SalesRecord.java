@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * Consolidated with main database for unified queryability.
  */
 @Entity
-@Table(name = "sales_record")
+@Table(name = "sales_record", schema = "reporting")
 public class SalesRecord {
 
     @Id
