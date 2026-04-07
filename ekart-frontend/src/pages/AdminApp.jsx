@@ -4824,7 +4824,7 @@ function UserActivityAdmin({ customers = [], activityCache, setActivityCache, se
                       background: "#fff",
                       fontFamily: "inherit",
                     }}
-                  >
+                  
                     <option value="all">All Activities</option>
                     {allActionTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
