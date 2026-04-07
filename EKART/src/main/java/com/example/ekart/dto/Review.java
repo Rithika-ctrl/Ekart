@@ -4,6 +4,12 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_review_customer_product",
+        columnNames = {"customer_id", "product_id"}
+    )
+)
 public class Review {
 
     @Id
@@ -28,7 +34,19 @@ public class Review {
 
     @PrePersist
     public void prePersist() {
+        syncCustomerNameFromCustomer();
         if (createdAt == null) createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        syncCustomerNameFromCustomer();
+    }
+
+    private void syncCustomerNameFromCustomer() {
+        if (customer != null && customer.getName() != null && !customer.getName().isBlank()) {
+            customerName = customer.getName();
+        }
     }
 
     // ── Getters & Setters ──────────────────────────────────────────
@@ -42,14 +60,22 @@ public class Review {
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
 
-    public String getCustomerName() { return customerName; }
+    public String getCustomerName() {
+        if (customer != null && customer.getName() != null && !customer.getName().isBlank()) {
+            return customer.getName();
+        }
+        return customerName;
+    }
     public void setCustomerName(String customerName) { this.customerName = customerName; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+        syncCustomerNameFromCustomer();
+    }
 
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }

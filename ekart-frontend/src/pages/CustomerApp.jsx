@@ -1039,6 +1039,25 @@ export default function CustomerApp() {
     else showToast(d.message || "Reorder failed");
   };
 
+  const requestReplacement = async (orderId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to request a replacement"); return; }
+    try {
+      const res = await fetch(`/request-replacement/${orderId}`, { method: "GET", credentials: "include" });
+      if (res.redirected && res.url.includes("/customer/login")) {
+        showToast("Please sign in again to request a replacement");
+        return;
+      }
+      if (res.ok) {
+        showToast("Replacement requested successfully");
+        await loadOrders();
+        return;
+      }
+      showToast("Could not request replacement");
+    } catch {
+      showToast("Could not request replacement");
+    }
+  };
+
   const confirmReorder = async (orderId) => {
     setReorderStockCheck(null);
     const d = await api(`/orders/${orderId}/reorder`, { method: "POST" });
@@ -1199,6 +1218,7 @@ export default function CustomerApp() {
         <GuestGate auth={auth} onShowAuth={() => setShowAuth(true)} pageName="your orders">
           <OrdersPage orders={orders} onCancel={cancelOrder}
             onReorder={reorderItems} onReport={o => setReportOrder(o)}
+            onRequestReplacement={requestReplacement}
             onTrack={o => { setSelectedOrder(o); setPage("track-single"); }} />
         </GuestGate>
       )}
@@ -3786,9 +3806,17 @@ function OrderSuccessPage({ order, onTrack, onHome }) {
 }
 
 /* ── Orders Page ── */
-function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack }) {
+function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestReplacement }) {
   const [cancelConfirm, setCancelConfirm] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
+
+  const canRequestReplacement = (order) => {
+    if (!order || order.trackingStatus !== "DELIVERED" || order.replacementRequested) return false;
+    if (!order.orderDate) return false;
+    const orderTime = new Date(order.orderDate).getTime();
+    if (Number.isNaN(orderTime)) return false;
+    return Date.now() - orderTime <= 7 * 24 * 60 * 60 * 1000;
+  };
 
   return (
     <div>
@@ -3805,6 +3833,11 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack }) {
             <span style={{ ...cs.statusBadge, background: statusColor[o.trackingStatus] || "#6b7280" }}>
               {o.trackingStatus?.replace(/_/g, " ")}
             </span>
+            {o.replacementRequested && (
+              <span style={{ ...cs.statusBadge, marginLeft: 8, background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
+                Replacement Requested
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
@@ -3850,6 +3883,14 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack }) {
             {o.trackingStatus === "DELIVERED" && (
               <>
                 <button style={cs.outlineBtn} onClick={() => onReorder(o.id)}>🔄 Reorder</button>
+                {canRequestReplacement(o) && (
+                  <button
+                    style={{ ...cs.outlineBtn, borderColor: "rgba(245,158,11,0.4)", color: "#fbbf24" }}
+                    onClick={() => onRequestReplacement(o.id)}
+                  >
+                    🔁 Request Replacement
+                  </button>
+                )}
                 <button style={{ ...cs.cancelBtn, borderColor: "rgba(234,179,8,0.4)", color: "#fbbf24" }}
                   onClick={() => onReport(o)}>⚠️ Report Issue</button>
               </>

@@ -90,7 +90,7 @@ public class CustomerImageUploadController {
         }
 
         // Ownership check — only the author can attach images
-        if (!review.getCustomerName().equals(customer.getName())) {
+        if (review.getCustomer() == null || review.getCustomer().getId() != customer.getId()) {
             session.setAttribute("failure", "You can only add images to your own reviews");
             return "redirect:/view-products";
         }
@@ -185,7 +185,7 @@ public class CustomerImageUploadController {
         }
 
         // Ownership check
-        if (!img.getReview().getCustomerName().equals(customer.getName())) {
+        if (img.getReview().getCustomer() == null || img.getReview().getCustomer().getId() != customer.getId()) {
             session.setAttribute("failure", "You can only delete your own review images");
             return "redirect:/view-products";
         }
@@ -388,13 +388,8 @@ public class CustomerImageUploadController {
         if (customer == null) return "redirect:/customer/login";
 
         // Find the customer's most recent review for this product
-        List<Review> allReviews = reviewRepository.findAll();
-        Review latestReview = allReviews.stream()
-                .filter(r -> r.getProduct() != null
-                        && r.getProduct().getId() == productId
-                        && r.getCustomerName().equals(customer.getName()))
-                .max(java.util.Comparator.comparingInt(Review::getId))
-                .orElse(null);
+        Review latestReview = reviewRepository.findLatestByProductIdAndCustomerId(productId, customer.getId())
+            .orElse(null);
 
         if (latestReview == null) {
             session.setAttribute("failure", "Please write a review for this product before uploading images");

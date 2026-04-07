@@ -52,6 +52,17 @@ public class EmailSender {
         }
     }
 
+    /** Backward-compatible secure OTP sender used by services. */
+    @Async
+    public void sendVendorOtpSecure(Vendor vendor, String plainOtp) {
+        try {
+            vendor.setOtp(Integer.parseInt(plainOtp));
+        } catch (Exception ignored) {
+            // Fall back to existing otp value if parsing fails
+        }
+        send(vendor);
+    }
+
     // ===================== SEND OTP TO CUSTOMER =====================
     @Async
     public void send(Customer customer) {
@@ -226,6 +237,17 @@ public class EmailSender {
         } catch (Exception e) {
             System.err.println("Delivery boy OTP email failed: " + e.getMessage());
         }
+    }
+
+    /** Backward-compatible secure OTP sender used by services. */
+    @Async
+    public void sendDeliveryBoyOtpSecure(DeliveryBoy db, String plainOtp) {
+        try {
+            db.setOtp(Integer.parseInt(plainOtp));
+        } catch (Exception ignored) {
+            // Fall back to existing otp value if parsing fails
+        }
+        sendDeliveryBoyOtp(db);
     }
 
     // ===================== SEND DOORSTEP OTP TO CUSTOMER =====================
