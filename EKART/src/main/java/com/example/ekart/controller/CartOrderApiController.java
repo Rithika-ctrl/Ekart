@@ -4,6 +4,7 @@ import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,8 @@ import java.util.stream.Collectors;
  *   GET    /api/orders/{id}         → single order detail
  *   POST   /api/orders/{id}/cancel  → cancel order
  */
+@Deprecated(since = "0.0.1", forRemoval = true)
+@ConditionalOnProperty(name = "ekart.api.legacy-cart.enabled", havingValue = "true", matchIfMissing = false)
 @RestController
 @CrossOrigin(origins = "*")
 public class CartOrderApiController {

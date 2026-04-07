@@ -3,6 +3,7 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
+import com.example.ekart.helper.DeliveryRefreshTokenUtil;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
@@ -78,6 +79,40 @@ public class ReactApiController {
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
+        private static final Map<String, Double> GST_CATEGORY_RATES = Map.ofEntries(
+            Map.entry("groceries", 0.0),
+            Map.entry("fresh produce", 0.0),
+            Map.entry("dairy & eggs", 0.0),
+            Map.entry("meat & seafood", 0.0),
+            Map.entry("baby products", 0.0),
+            Map.entry("books", 0.0),
+            Map.entry("educational", 0.0),
+            Map.entry("snacks", 5.0),
+            Map.entry("beverages", 5.0),
+            Map.entry("health & wellness", 5.0),
+            Map.entry("medicines", 5.0),
+            Map.entry("apparel", 5.0),
+            Map.entry("footwear", 5.0),
+            Map.entry("textiles", 5.0),
+            Map.entry("home & kitchen", 12.0),
+            Map.entry("furniture", 12.0),
+            Map.entry("sports", 12.0),
+            Map.entry("stationery", 12.0),
+            Map.entry("toys & games", 12.0),
+            Map.entry("electronics", 18.0),
+            Map.entry("computers", 18.0),
+            Map.entry("mobile & tablets", 18.0),
+            Map.entry("appliances", 18.0),
+            Map.entry("beauty", 18.0),
+            Map.entry("personal care", 18.0),
+            Map.entry("software", 18.0),
+            Map.entry("services", 18.0),
+            Map.entry("gaming", 28.0),
+            Map.entry("luxury", 28.0),
+            Map.entry("automobile accessories", 28.0)
+        );
+        private static final double DEFAULT_GST_RATE = 18.0;
+
     /**
      * In-memory coupon store: customerId → applied Coupon.
      * Cleared on coupon removal or successful order placement.
@@ -96,6 +131,9 @@ public class ReactApiController {
     
         @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
 
     // Admin credentials are now database-backed via AdminAuthService.
     // See AdminCredential entity and AdminAuthService for implementation.
@@ -644,15 +682,17 @@ public class ReactApiController {
                 res.put("message", "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
-            // Issue JWT for both approved and pending-approval delivery boys.
-            // Pending boys can log in but DeliveryApp will show the pending screen
-            // based on the approved=false field returned here and from /delivery/profile.
-            String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
+            // Generate token pair (access + refresh) for delivery boy
+            DeliveryRefreshTokenUtil.DeliveryTokenPair tokenPair = 
+                deliveryRefreshTokenUtil.generateTokenPair(db.getId(), db.getEmail());
+            
             res.put("success",       true);
             res.put("deliveryBoyId", db.getId());
             res.put("name",          db.getName());
             res.put("email",         db.getEmail());
-            res.put("token",         token);
+            res.put("accessToken",   tokenPair.getAccessToken());
+            res.put("refreshToken",  tokenPair.getRefreshToken());
+            res.put("expiresIn",     tokenPair.getExpiresIn());
             res.put("approved",      db.isAdminApproved());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -855,6 +895,73 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Resend failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/auth/delivery/refresh
+     * 
+     * Refresh access token using a valid refresh token.
+     * Called by mobile apps after access token expires (every 15 minutes).
+     * 
+     * SECURITY:
+     * - Refresh tokens are long-lived (7 days)
+     * - Access tokens are short-lived (15 minutes)
+     * - Client stores both in secure storage
+     * - No password transmitted during refresh
+     * 
+     * Body: { refreshToken }
+     * Success Response: { success: true, accessToken, expiresIn }
+     * Error Response: { success: false, message }
+     */
+    @PostMapping("/auth/delivery/refresh")
+    public ResponseEntity<Map<String, Object>> deliveryRefreshToken(
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String refreshToken = ((String) body.getOrDefault("refreshToken", "")).trim();
+            if (refreshToken.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "Refresh token is required");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Validate refresh token
+            if (!deliveryRefreshTokenUtil.isValidRefreshToken(refreshToken)) {
+                res.put("success", false);
+                res.put("message", "Invalid or expired refresh token. Please login again.");
+                return ResponseEntity.status(401).body(res);
+            }
+
+            // Get delivery boy ID from refresh token
+            int deliveryBoyId = deliveryRefreshTokenUtil.getDeliveryBoyId(refreshToken);
+            String email = deliveryRefreshTokenUtil.getEmail(refreshToken);
+
+            // Verify delivery boy still exists and is active
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
+            if (db == null || !db.isActive() || !db.isVerified()) {
+                res.put("success", false);
+                res.put("message", "Account is no longer valid. Please login again.");
+                return ResponseEntity.status(403).body(res);
+            }
+
+            // Generate new access token
+            String newAccessToken = deliveryRefreshTokenUtil.refreshAccessToken(refreshToken);
+            long expiresIn = 15L * 60 * 1000; // 15 minutes in milliseconds
+
+            res.put("success", true);
+            res.put("accessToken", newAccessToken);
+            res.put("expiresIn", expiresIn);
+            return ResponseEntity.ok(res);
+
+        } catch (io.jsonwebtoken.JwtException e) {
+            res.put("success", false);
+            res.put("message", "Token validation failed: " + e.getMessage());
+            return ResponseEntity.status(401).body(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Token refresh failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -3257,8 +3364,10 @@ public class ReactApiController {
 
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
+        double resolvedGstRate = resolveGstRate(p.getGstRate(), p.getCategory());
         m.put("id", p.getId()); m.put("name", p.getName()); m.put("description", p.getDescription());
         m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("gstRate", p.getGstRate());
+        m.put("gstRateResolved", resolvedGstRate);
         m.put("category", p.getCategory()); m.put("stock", p.getStock());
         m.put("stockAlertThreshold", p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
         m.put("imageLink", p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
@@ -3269,10 +3378,43 @@ public class ReactApiController {
 
     private Map<String, Object> mapItem(Item i) {
         Map<String, Object> m = new HashMap<>();
+        double resolvedGstRate = resolveItemGstRate(i);
         m.put("id", i.getId()); m.put("name", i.getName()); m.put("description", i.getDescription());
         m.put("price", i.getPrice()); m.put("category", i.getCategory());
+        m.put("gstRateResolved", resolvedGstRate);
         m.put("quantity", i.getQuantity()); m.put("imageLink", i.getImageLink()); m.put("productId", i.getProductId());
         return m;
+    }
+
+    private double resolveItemGstRate(Item item) {
+        if (item == null) return DEFAULT_GST_RATE;
+        Integer productId = item.getProductId();
+        if (productId != null) {
+            Product p = productRepository.findById(productId).orElse(null);
+            if (p != null) {
+                return resolveGstRate(p.getGstRate(), p.getCategory());
+            }
+        }
+        return resolveGstRate(null, item.getCategory());
+    }
+
+    private double resolveGstRate(Double productGstRate, String category) {
+        if (productGstRate != null && productGstRate > 0) {
+            return productGstRate;
+        }
+        return gstRateForCategory(category);
+    }
+
+    private double gstRateForCategory(String category) {
+        if (category == null || category.isBlank()) return DEFAULT_GST_RATE;
+        String normalized = category.toLowerCase(Locale.ROOT);
+        for (Map.Entry<String, Double> entry : GST_CATEGORY_RATES.entrySet()) {
+            String key = entry.getKey();
+            if (normalized.contains(key) || key.contains(normalized)) {
+                return entry.getValue();
+            }
+        }
+        return DEFAULT_GST_RATE;
     }
 
     private Map<String, Object> mapOrder(Order o) {

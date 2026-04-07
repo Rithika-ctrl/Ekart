@@ -41,32 +41,42 @@ public class SecurityConfig {
      * CHAIN 1 — Handles all REST API requests (/api/react/** and deprecated /api/flutter/**).
      * Completely stateless: no session, no OAuth2, no redirects.
      * Runs FIRST (Order=1) so OAuth2 chain never sees these requests.
-     * 
+     *
      * SECURITY CONTEXT:
-     *   - All requests matched by securityMatcher("/api/react/**")
-     *   - JWT token validation via ReactAuthFilter (validates bearer tokens)
-     *   - Public endpoints (auth/**, products/**, etc.) are whitelisted inside the filter
-     *   - Protected endpoints (admin/**, vendor/**, etc.) require valid JWT
-     * 
-     * MIGRATION NOTE:
-     *   - Clients should use /api/react/** (all endpoints)
-     *   - /api/flutter/** is deprecated and will be removed in next major release
-     *   - See FlutterApiController for migration guidance
+     *   - /api/react/** uses JWT via ReactAuthFilter and role-based matchers below
+     *   - /api/flutter/** is explicitly kept permitAll for backward compatibility
+     *     (deprecated controller path; clients should migrate to /api/react/**)
      */
     @Bean
     @Order(1)
     public SecurityFilterChain reactApiFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/react/**")
+            .securityMatcher("/api/react/**", "/api/flutter/**")
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
+                // Deprecated Flutter API remains explicit for compatibility.
+                .requestMatchers("/api/flutter/**").permitAll()
+
+                // React public endpoints.
+                .requestMatchers(
+                    "/api/react/auth/**",
+                    "/api/react/products/**",
+                    "/api/react/banners",
+                    "/api/react/home-banners",
+                    "/api/react/assistant/chat"
+                ).permitAll()
+
+                // Role-based React API protection.
+                .requestMatchers("/api/react/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/react/vendor/**").hasRole("VENDOR")
+                .requestMatchers("/api/react/delivery/**").hasRole("DELIVERY")
+
+                // All remaining React routes require any authenticated JWT role.
+                .anyRequest().authenticated()
             )
-            // JWT validation — rejects requests missing/invalid token on protected endpoints.
-            // Public endpoints (auth/**, products/**, assistant/chat) are whitelisted inside
-            // the filter itself, so they pass through regardless.
+            // JWT validation for /api/react/**; the filter builds Spring Security auth context.
             .addFilterBefore(reactAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -91,7 +101,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/", "/guest/**",
                     "/static/**", "/css/**", "/js/**", "/images/**",
-                    "/api/**"
+                    "/oauth2/**", "/login/oauth2/**"
                 ).permitAll()
                 
                 // ── Authentication routes (unauthenticated users only) ───────────

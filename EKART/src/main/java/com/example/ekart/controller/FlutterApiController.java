@@ -8,6 +8,7 @@ import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AdminAuthService;
 import com.example.ekart.service.MobileApiReadService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
  * @see ReactApiController
  */
 @Deprecated(since = "0.0.1", forRemoval = true)
+@ConditionalOnProperty(name = "ekart.api.flutter.enabled", havingValue = "true", matchIfMissing = true)
 @RestController
 @RequestMapping("/api/flutter")
 @CrossOrigin(origins = "*")

@@ -182,6 +182,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
+            case "instagram" -> {
+                Object id = u.getAttribute("id");
+                yield id != null ? id.toString() : null;
+            }
             default -> null;
         };
     }
@@ -195,6 +199,11 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 yield n;
             }
             case "facebook" -> u.getAttribute("name");
+            case "instagram" -> {
+                String name = u.getAttribute("username");
+                if (name == null || name.isEmpty()) name = u.getAttribute("name");
+                yield name;
+            }
             default         -> u.getAttribute("name");
         };
     }

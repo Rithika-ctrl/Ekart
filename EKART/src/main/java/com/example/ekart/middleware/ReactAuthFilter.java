@@ -7,34 +7,38 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * JWT authentication filter for all /api/flutter/** endpoints.
+ * JWT authentication filter for /api/react/** endpoints.
  *
  * PUBLIC paths (no token required):
- *   POST /api/flutter/auth/**          — login, register, forgot-password, OTP, reset
- *   GET  /api/flutter/products/**      — product catalogue (browsable without login)
- *   POST /api/flutter/assistant/chat   — AI chat works for guests too
+ *   POST /api/react/auth/**          — login, register, forgot-password, OTP, reset
+ *   GET  /api/react/products/**      — product catalogue (browsable without login)
+ *   POST /api/react/assistant/chat   — AI chat works for guests too
  *
  * PROTECTED paths (Bearer JWT required):
- *   Everything else under /api/flutter/**
+ *   Everything else under /api/react/**
  *
  * ADMIN-ONLY paths (Bearer JWT with role=ADMIN required):
- *   /api/flutter/admin/**              — any non-ADMIN token is rejected with 403
+ *   /api/react/admin/**              — any non-ADMIN token is rejected with 403
  *                                        no token at all is rejected with 401
  *
  * Token contract (issued by login endpoints):
  *   JWT signed with HS256, claims: sub=<id>, email=<email>, role=<CUSTOMER|VENDOR|ADMIN|DELIVERY>
  *
  * The filter extracts (id, role) from the token and writes them into request attributes:
- *   flutter.userId  — int
- *   flutter.role    — String (CUSTOMER | VENDOR | ADMIN | DELIVERY)
+ *   react.userId  — int
+ *   react.role    — String (CUSTOMER | VENDOR | ADMIN | DELIVERY)
  *
  * Controllers that currently read X-Customer-Id / X-Vendor-Id headers keep working —
  * but the filter ALSO verifies that the header value matches the token subject,
@@ -68,7 +72,7 @@ public class ReactAuthFilter extends OncePerRequestFilter {
 
     // ── Helper: is this path an admin path? ──────────────────────────────────
     private boolean isAdminPath(String sub) {
-        // sub is the URI with /api/flutter stripped, e.g. "/admin/users"
+        // sub is the URI with /api/react stripped, e.g. "/admin/users"
         // Match /admin/<anything> or bare /admin (no trailing slash)
         return sub.startsWith("/admin/") || sub.equals("/admin");
     }
@@ -117,7 +121,7 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         String role   = jwtUtil.getRole(token);
 
         // ── Admin-only path guard ─────────────────────────────────────────────
-        // Any request to /api/flutter/admin/** MUST carry an ADMIN token.
+        // Any request to /api/react/admin/** MUST carry an ADMIN token.
         // A valid CUSTOMER, VENDOR, or DELIVERY token is explicitly rejected here
         // so that non-admin roles can never reach admin data even with a valid JWT.
         if (isAdminPath(sub)) {
@@ -141,6 +145,16 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         // Expose parsed claims to controllers via request attributes
         request.setAttribute("react.userId", userId);
         request.setAttribute("react.role",   role);
+
+        // Build Spring Security authentication so role matchers in SecurityConfig
+        // enforce authorization at framework level as well.
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(
+                userId,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + role))
+            );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         chain.doFilter(request, response);
     }

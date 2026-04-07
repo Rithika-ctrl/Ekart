@@ -46,13 +46,27 @@ CREATE TABLE IF NOT EXISTS admin_credential (
 --   Online:       https://bcrypt-generator.com/ (for testing only, never in production!)
 -- ========================================================================
 
--- Example: Initial admin with a temporary password (replace the hash)
--- INSERT INTO admin_credential (email, hashed_password, name, two_factor_enabled, created_at, updated_at)
--- VALUES ('admin@ekart.local', '$2a$10$YOUR_BCRYPTED_HASH_HERE', 'Administrator', FALSE, NOW(), NOW());
-
 -- ========================================================================
--- NOTE: For development, use this temporary command (NEVER in production):
--- INSERT INTO admin_credential (email, hashed_password, name, created_at, updated_at)
--- VALUES ('admin@ekart.local', '$2a$10$slYQmyNdGzin0rdZfH.iPuIC9z2qK21j5YbFsJ.cTPa0BvW7xDYiK', 'Admin User', NOW(), NOW());
--- Example hash shown for local bootstrap only (rotate immediately after first login).
+-- INITIAL ADMIN SETUP (IMPORTANT - READ BEFORE DEPLOYING)
+--
+-- ⚠️  DO NOT insert credentials manually or hardcode in migrations!
+--
+-- Instead, use the application bootstrap mechanism:
+--   1. Set environment variables: ADMIN_EMAIL, ADMIN_PASSWORD
+--   2. Start application with --init-admin flag
+--   3. Application will create initial admin securely during startup
+--
+-- Example (Linux/macOS):
+--   export ADMIN_EMAIL="admin@mycompany.com"
+--   export ADMIN_PASSWORD="SecurePassword123!@#"
+--   java -jar app.jar --init-admin
+--
+-- Example (Windows PowerShell):
+--   $env:ADMIN_EMAIL="admin@mycompany.com"
+--   $env:ADMIN_PASSWORD="SecurePassword123!@#"
+--   java -jar app.jar --init-admin
+--
+-- ========================================================================
+-- NOTE: Initial INSERT is handled by AdminBootstrapService, not migrations!
+-- This table will be empty until first admin is created via --init-admin.
 -- ========================================================================

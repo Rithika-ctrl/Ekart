@@ -60,11 +60,26 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     private String extractEmail(OAuth2User oAuth2User, String provider) {
-        // Instagram doesn't provide email in basic display API
+        // Instagram requires app approval to access email
         if ("instagram".equals(provider.toLowerCase())) {
-            // Use username as identifier for Instagram
+            // Try to get email if app is approved for email access
+            String email = oAuth2User.getAttribute("email");
+            if (email != null && !email.isEmpty()) {
+                return email;
+            }
+            
+            // Fallback: generate synthetic email from Instagram ID + username
+            // Important: This is only a temporary identifier. Users should add real email
+            // when they update their profile.
+            Object id = oAuth2User.getAttribute("id");
             String username = oAuth2User.getAttribute("username");
-            return username != null ? username + "@instagram.user" : null;
+            if (id != null) {
+                return id.toString() + "@instagram.user";
+            }
+            if (username != null) {
+                return username + "@instagram.user";
+            }
+            return null;
         }
         return oAuth2User.getAttribute("email");
     }
