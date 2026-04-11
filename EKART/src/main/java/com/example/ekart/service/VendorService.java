@@ -1,15 +1,5 @@
 package com.example.ekart.service;
 
-// ================================================================
-// LOCATION: src/main/java/com/example/ekart/service/VendorService.java
-// REPLACE your existing file with this complete version.
-// Changes from original:
-//   1. Added imports for TrackingEventLog, TrackingStatus, TrackingEventLogRepository
-//   2. Added @Autowired for trackingEventLogRepository
-//   3. Added markOrderReady() method — vendor marks order as PACKED
-//   4. Added loadVendorOrders() method — vendor sees their orders
-// ================================================================
-
 import com.example.ekart.helper.PinCodeValidator;
 
 import java.io.IOException;
@@ -18,7 +8,6 @@ import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.http.HttpStatus; // unused
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -44,10 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
 import com.example.ekart.reporting.ReportingService;
-// import java.time.LocalDate; // unused
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
-// import java.util.stream.Collectors; // unused
 
 import com.example.ekart.dto.Item;
 
@@ -86,23 +73,17 @@ public class VendorService {
     @Autowired
     private ReportingService reportingService;
 
-    // ── NEW: for delivery system ──────────────────────────────────
     @Autowired
     private TrackingEventLogRepository trackingEventLogRepository;
-    // ─────────────────────────────────────────────────────────────
 
-    // ── NEW: OTP Service (secure OTP management) ──────────────────
     @Autowired
     private OtpService otpService;
-    // ─────────────────────────────────────────────────────────────
-
-	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
 		map.put("vendor", vendor);
 		return "vendor-register.html";
 	}
 
-    private String generateVendorCode(int vendorId) {
+private String generateVendorCode(int vendorId) {
         return String.format("VND-%05d", vendorId);
     }
 
@@ -118,7 +99,6 @@ public class VendorService {
 		if (result.hasErrors())
 			return "vendor-register.html";
 
-		// 🔒 NEW: Use secure OTP service instead of plain Random
 		vendor.setPassword(AES.encrypt(vendor.getPassword()));
 		vendor.setVerified(false);
 
@@ -129,9 +109,7 @@ public class VendorService {
         vendorRepository.save(vendor);
 
 		try {
-			// Generate secure OTP (BCrypt hashed, stored in AuthenticationOtp table)
 			String plainOtp = otpService.generateAndStoreOtp(vendor.getEmail(), OtpService.PURPOSE_VENDOR_REGISTER);
-			// Send plain OTP to email (never stored in plain text)
 			emailSender.sendVendorOtpSecure(vendor, plainOtp);
 		} catch (Exception e) {
 			System.err.println("Vendor OTP email failed: " + e.getMessage());
@@ -141,13 +119,10 @@ public class VendorService {
 		return "redirect:/vendor/otp/" + vendor.getId();
 	}
 
-	// ---------------- OTP PAGE ----------------
-	public String loadOtpPage(int id, ModelMap map) {
+public String loadOtpPage(int id, ModelMap map) {
 		map.put("id", id);
 		return "vendor-otp.html";
 	}
-
-	// ---------------- OTP VERIFY ----------------
 	public String verifyOtp(int id, int otp, HttpSession session) {
 
 		Vendor vendor = vendorRepository.findById(id).orElseThrow();
