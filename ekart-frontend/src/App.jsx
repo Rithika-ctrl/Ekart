@@ -342,6 +342,7 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(THEME_KEY, theme); } catch {}
     applyTheme(theme);
+    console.log('Theme applied:', theme, 'Auth:', auth);
   }, [theme]);
 
   /**
@@ -377,6 +378,7 @@ export default function App() {
     <ThemeContext.Provider value={themeValue}>
       <AuthContext.Provider value={{ auth, login, logout }}>
         <BrowserRouter>
+          {/* Debug: App is rendering */}
           <ThemeToggle />
           <FooterLinks />
           <Routes>

@@ -479,6 +479,9 @@ export default function AuthPage() {
     <>
       <style>{S}</style>
       <div className="auth-wrap">
+        <div style={{ position: 'fixed', top: 10, right: 10, background: 'red', color: 'white', padding: '10px', zIndex: 9999 }}>
+          AuthPage Loaded - Theme: light - Redux Test
+        </div>
         <div className="auth-card">
           <span className="auth-logo">e<span>kart</span></span>
 
