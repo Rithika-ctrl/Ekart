@@ -1,5 +1,9 @@
 package com.example.ekart.dto;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -50,6 +54,16 @@ public class Vendor implements Serializable {
 			message = "* Enter atleast 8 charecters consisting of one uppercase, one lowercase, one number, one special charecter")
 	private String confirmPassword;
 
+	// ─── OTP Management (Feature #2 Security Fix)
+	// otpHash: BCrypt hashed OTP (never store plain OTP in DB)
+	// otpExpiry: Timestamp when OTP expires (5 min default)
+	@Column(nullable = true, length = 100)
+	private String otpHash;
+
+	@Column(nullable = true)
+	private LocalDateTime otpExpiry;
+
+	@Deprecated // Use otpHash field instead
 	private int otp;
 
 	private boolean verified;
@@ -101,6 +115,12 @@ public class Vendor implements Serializable {
 	public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
 
 	public int getOtp() { return otp; }
+	public String getOtpHash() { return otpHash; }
+	public void setOtpHash(String otpHash) { this.otpHash = otpHash; }
+	public LocalDateTime getOtpExpiry() { return otpExpiry; }
+	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
+
+	@Deprecated // Use setOtpHash() instead
 	public void setOtp(int otp) { this.otp = otp; }
 
 	public boolean isVerified() { return verified; }

@@ -55,7 +55,18 @@ public class Customer implements Serializable {
 			message = "* Enter atleast 8 charecters consisting of one uppercase, one lowercase, one number, one special charecter")
 	private String confirmPassword;
 
+	// ─── OTP Management (Feature #1 Security Fix)
+	// otpHash: BCrypt hashed OTP (never store plain OTP in DB)
+	// otpExpiry: Timestamp when OTP expires (5 min default)
+	@Column(nullable = true, length = 100)
+	private String otpHash;
+
+	@Column(nullable = true)
+	private LocalDateTime otpExpiry;
+
+	@Deprecated // Use otpHash field instead
 	private int otp;
+
 	private boolean verified;
 
 	@Enumerated(EnumType.STRING)
@@ -115,6 +126,12 @@ public class Customer implements Serializable {
 	public void setMobile(long mobile) { this.mobile = mobile; }
 	public void setPassword(String password) { this.password = password; }
 	public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
+	public String getOtpHash() { return otpHash; }
+	public void setOtpHash(String otpHash) { this.otpHash = otpHash; }
+	public LocalDateTime getOtpExpiry() { return otpExpiry; }
+	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
+
+	@Deprecated // Use setOtpHash() instead
 	public void setOtp(int otp) { this.otp = otp; }
 	public void setVerified(boolean verified) { this.verified = verified; }
 	public void setRole(Role role) { this.role = role; }

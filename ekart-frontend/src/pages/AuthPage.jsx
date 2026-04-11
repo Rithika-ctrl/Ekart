@@ -424,28 +424,56 @@ export default function AuthPage() {
 
   /**
    * Renders the social login button group for customer/vendor screens.
-   * Google is shown full-width first, then GitHub / Facebook / Instagram
-   * in a compact 3-across row beneath it.
+   * 
+   * Button availability by role:
+   * - CUSTOMER/VENDOR: Google, Facebook (admin-only: GitHub disabled)
+   * - ADMIN: Google, GitHub, Facebook (Instagram disabled for all)
+   * 
+   * STATUS (Feature #5 - OAuth2 Social Login):
+   * ✅ Google: Production-ready
+   * ✅ GitHub: Production-ready (admin-only)
+   * ⚠️  Facebook: Ready but requires App Review before public launch
+   * ❌ Instagram: Disabled (uses non-standard Graph API)
+   * 
+   * See: OAUTH2-DEPLOYMENT-CHECKLIST.md for before-launch requirements
    */
-  const SocialButtons = () => (
-    <>
-      <div className="divider">or continue with</div>
-      <button type="button" className="btn-google" onClick={() => handleSocialLogin("google")}>
-        {GOOGLE_SVG} Continue with Google
-      </button>
-      <div className="social-row">
-        <button type="button" className="btn-social github" onClick={() => handleSocialLogin("github")} title="Continue with GitHub">
-          {GITHUB_SVG} GitHub
+  const SocialButtons = () => {
+    const isAdminLogin = page === "admin-login";
+    
+    return (
+      <>
+        <div className="divider">or continue with</div>
+        
+        {/* GOOGLE — Available for all roles */}
+        <button type="button" className="btn-google" onClick={() => handleSocialLogin("google")}>
+          {GOOGLE_SVG} Continue with Google
         </button>
-        <button type="button" className="btn-social facebook" onClick={() => handleSocialLogin("facebook")} title="Continue with Facebook">
-          {FACEBOOK_SVG} Facebook
-        </button>
-        <button type="button" className="btn-social instagram" onClick={() => handleSocialLogin("instagram")} title="Continue with Instagram">
-          {INSTAGRAM_SVG} Instagram
-        </button>
-      </div>
-    </>
-  );
+        
+        {/* GITHUB, FACEBOOK, (Instagram disabled) */}
+        <div className="social-row">
+          {/* GITHUB — Admin only */}
+          {isAdminLogin && (
+            <button type="button" className="btn-social github" onClick={() => handleSocialLogin("github")} title="Continue with GitHub (Admin)">
+              {GITHUB_SVG} GitHub
+            </button>
+          )}
+          
+          {/* FACEBOOK — Customer, Vendor, Admin */}
+          {/* ⚠️ WARNING: Requires Facebook App Review before production launch */}
+          <button type="button" className="btn-social facebook" onClick={() => handleSocialLogin("facebook")} title="Continue with Facebook">
+            {FACEBOOK_SVG} Facebook
+          </button>
+          
+          {/* INSTAGRAM — DISABLED (API incompatibility) */}
+          {/* Instagram uses non-standard Meta Graph API that's not compatible with Spring OAuth2. */}
+          {/* See OAUTH2-DEPLOYMENT-CHECKLIST.md "Instagram OAuth2 - Disabled" section */}
+          {/* <button type="button" className="btn-social instagram" onClick={() => handleSocialLogin("instagram")} title="Continue with Instagram (Disabled)">
+            {INSTAGRAM_SVG} Instagram
+          </button> */}
+        </div>
+      </>
+    );
+  };
 
   return (
     <>

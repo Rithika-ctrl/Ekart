@@ -1047,6 +1047,39 @@ export default function CustomerApp() {
     else showToast(d.message || "Could not request replacement");
   };
 
+  const downloadInvoice = async (orderId) => {
+    if (auth?.role === "GUEST" || !auth) { showToast("Sign in to download invoice"); return; }
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ""}/api/react/orders/${orderId}/invoice`, {
+        method: "GET",
+        headers: {
+          "X-Customer-Id": auth.customerId || auth.id,
+          "Content-Type": "application/pdf",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        showToast(errorData?.message || "Failed to download invoice");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Order_${orderId}_Invoice.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showToast("Invoice downloaded successfully");
+    } catch (err) {
+      console.error("Invoice download error:", err);
+      showToast("Error downloading invoice: " + err.message);
+    }
+  };
+
   const confirmReorder = async (orderId) => {
     setReorderStockCheck(null);
     const d = await api(`/orders/${orderId}/reorder`, { method: "POST" });
@@ -1208,6 +1241,7 @@ export default function CustomerApp() {
           <OrdersPage orders={orders} onCancel={cancelOrder}
             onReorder={reorderItems} onReport={o => setReportOrder(o)}
             onRequestReplacement={requestReplacement}
+            onDownloadInvoice={downloadInvoice}
             onTrack={o => { setSelectedOrder(o); setPage("track-single"); }} />
         </GuestGate>
       )}
@@ -3753,7 +3787,7 @@ function OrderSuccessPage({ order, onTrack, onHome }) {
 }
 
 /* ── Orders Page ── */
-function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestReplacement }) {
+function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestReplacement, onDownloadInvoice }) {
   const [cancelConfirm, setCancelConfirm] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
 
@@ -3830,6 +3864,15 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestR
             {o.trackingStatus === "DELIVERED" && (
               <>
                 <button style={cs.outlineBtn} onClick={() => onReorder(o.id)}>🔄 Reorder</button>
+                {onDownloadInvoice && (
+                  <button
+                    style={{ ...cs.outlineBtn, borderColor: "rgba(34,197,94,0.4)", color: "#22c55e" }}
+                    onClick={() => onDownloadInvoice(o.id)}
+                    title="Download invoice PDF for this order"
+                  >
+                    📄 Download Invoice
+                  </button>
+                )}
                 {canRequestReplacement(o) && (
                   <button
                     style={{ ...cs.outlineBtn, borderColor: "rgba(245,158,11,0.4)", color: "#fbbf24" }}

@@ -339,15 +339,50 @@ function SalesReport({ salesData, onPeriodChange }) {
 function StoreFront({ profile, products, api, onRefresh, showToast }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", mobile: "", description: "" });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (profile) setForm({ name: profile.name || "", mobile: profile.mobile ? String(profile.mobile) : "", description: profile.description || "" });
+    if (profile) {
+      setForm({ 
+        name: profile.name || "", 
+        mobile: profile.mobile ? String(profile.mobile) : "", 
+        description: profile.description || "" 
+      });
+      setErrors({});
+    }
   }, [profile]);
 
+  const validate = () => {
+    const newErrors = {};
+    if (!form.name || form.name.trim() === "") newErrors.name = "Store name is required";
+    if (form.mobile && !/^\d{10}$/.test(form.mobile.replace(/\D/g, ""))) {
+      newErrors.mobile = "Mobile must be 10 digits";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const save = async () => {
-    const d = await api("/vendor/storefront/update", { method: "PUT", body: JSON.stringify(form) });
-    showToast(d.success ? "Store front updated!" : d.message || "Error");
-    if (d.success) { onRefresh(); setEditing(false); }
+    if (!validate()) {
+      showToast("Please fix errors below");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const d = await api("/vendor/storefront/update", { method: "PUT", body: JSON.stringify(form) });
+      showToast(d.success ? "✅ Store front updated!" : d.message || "Error updating storefront");
+      if (d.success) { 
+        onRefresh(); 
+        setEditing(false); 
+        setErrors({});
+      }
+    } catch (err) {
+      showToast("Connection error updating storefront");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const copyId = () => {
@@ -383,18 +418,47 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
 
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             <button style={vs.secondaryBtn} onClick={copyId}>📋 Copy Vendor ID</button>
-            <button style={vs.primaryBtn} onClick={() => setEditing(!editing)}>✏️ Edit Store</button>
+            <button style={vs.primaryBtn} onClick={() => { setEditing(!editing); setErrors({}); }}>
+              {editing ? "✕ Cancel" : "✏️ Edit Store"}
+            </button>
           </div>
 
           {editing && (
             <div style={{ marginTop: 16 }}>
-              <label style={vs.label}>Store Name</label>
-              <input style={vs.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <label style={vs.label}>Store Name *</label>
+              <input 
+                style={{ ...vs.input, borderColor: errors.name ? "#dc2626" : undefined }} 
+                value={form.name} 
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} 
+                placeholder="Enter your store name"
+              />
+              {errors.name && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>{errors.name}</div>}
+              
               <label style={{ ...vs.label, marginTop: 10 }}>Mobile Number</label>
-              <input style={vs.input} type="tel" placeholder="e.g. 9876543210" value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} />
+              <input 
+                style={{ ...vs.input, borderColor: errors.mobile ? "#dc2626" : undefined }} 
+                type="tel" 
+                placeholder="e.g. 9876543210" 
+                value={form.mobile} 
+                onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} 
+              />
+              {errors.mobile && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>{errors.mobile}</div>}
+              
               <label style={{ ...vs.label, marginTop: 10 }}>Store Description</label>
-              <textarea style={{ ...vs.input, minHeight: 80, resize: "vertical" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-              <button style={{ ...vs.primaryBtn, marginTop: 12, width: "100%" }} onClick={save}>Save Changes</button>
+              <textarea 
+                style={{ ...vs.input, minHeight: 80, resize: "vertical" }} 
+                value={form.description} 
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} 
+                placeholder="Tell customers about your store..."
+              />
+              
+              <button 
+                style={{ ...vs.primaryBtn, marginTop: 12, width: "100%", opacity: saving ? 0.6 : 1 }} 
+                onClick={save}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           )}
         </div>

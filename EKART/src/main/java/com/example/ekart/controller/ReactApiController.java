@@ -74,6 +74,7 @@ public class ReactApiController {
     @Autowired private AdminAuthService adminAuthService;
     @Autowired private com.example.ekart.helper.EmailSender emailSender;
     @Autowired private com.example.ekart.service.RazorpayService razorpayService;
+    @Autowired private com.example.ekart.service.InvoiceService invoiceService;
     @Autowired(required = false)
     private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
@@ -2187,6 +2188,73 @@ public class ReactApiController {
         res.put("orderId", id);
         res.put("reason", reason);
         return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // INVOICE PDF  (X-Customer-Id)  [Feature #46]
+    // ═══════════════════════════════════════════════════════
+
+    /**
+     * GET /api/react/orders/{id}/invoice
+     * 
+     * Downloads invoice PDF for a delivered order.
+     * Feature #46: Invoice PDF Generation & Download
+     * 
+     * - Validates order exists and belongs to authenticated customer
+     * - Only allows download for DELIVERED orders
+     * - Generates PDF using InvoiceService
+     * - Returns PDF as attachment with Content-Disposition header
+     */
+    @GetMapping("/orders/{id}/invoice")
+    public ResponseEntity<?> downloadOrderInvoice(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
+            @PathVariable int id) {
+        
+        // ── 1. Auth check ──────────────────────────────────────────────────
+        if (customerId == null) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Missing X-Customer-Id header");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        // ── 2. Validate order ownership & delivery status ──────────────────
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getCustomer().getId() != customerId) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        if (order.getTrackingStatus() != TrackingStatus.DELIVERED) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Invoice is only available for delivered orders");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            // ── 3. Generate PDF ────────────────────────────────────────────
+            byte[] pdfContent = invoiceService.generateInvoicePdf(order);
+
+            // ── 4. Return PDF as attachment ────────────────────────────────
+            String fileName = "Order_" + id + "_Invoice.pdf";
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
+                    .body(pdfContent);
+
+        } catch (Exception e) {
+            System.err.println("[INVOICE] PDF generation failed for order " + id + ": " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Failed to generate invoice PDF");
+            res.put("error", e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
     }
 
     // ═══════════════════════════════════════════════════════

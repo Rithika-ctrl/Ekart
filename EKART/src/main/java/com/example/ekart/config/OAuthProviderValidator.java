@@ -21,14 +21,17 @@ public class OAuthProviderValidator {
     private static final Map<String, List<String>> ALLOWED_PROVIDERS = new HashMap<>();
 
     static {
-        // Customer can use: Google, Facebook, Instagram
-        ALLOWED_PROVIDERS.put("customer", Arrays.asList("google", "facebook", "instagram"));
+        // Customer can use: Google, Facebook
+        // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
+        ALLOWED_PROVIDERS.put("customer", Arrays.asList("google", "facebook"));
         
-        // Vendor can use: Google, Facebook, Instagram
-        ALLOWED_PROVIDERS.put("vendor", Arrays.asList("google", "facebook", "instagram"));
+        // Vendor can use: Google, Facebook
+        // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
+        ALLOWED_PROVIDERS.put("vendor", Arrays.asList("google", "facebook"));
         
-        // Admin can use: Google, Facebook, Instagram, GitHub (all providers)
-        ALLOWED_PROVIDERS.put("admin", Arrays.asList("google", "facebook", "instagram", "github"));
+        // Admin can use: Google, GitHub, Facebook
+        // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
+        ALLOWED_PROVIDERS.put("admin", Arrays.asList("google", "github", "facebook"));
     }
 
     /**

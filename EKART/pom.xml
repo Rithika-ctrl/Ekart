@@ -156,6 +156,14 @@
             <version>5.9</version>
         </dependency>
 
+        <!-- iText PDF for Invoice Generation (Feature #46) -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext-core</artifactId>
+            <version>8.0.3</version>
+            <type>pom</type>
+        </dependency>
+
         <dependency>
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
