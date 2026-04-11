@@ -3671,6 +3671,8 @@ function ContentAdmin() {
         setBulkProgress({ pct: 100, msg: d.message || "Import complete!", error: false, created: d.created, updated: d.updated, errors: d.errors || [] });
         show(`✓ ${d.created || 0} created, ${d.updated || 0} updated`);
         setBulkFile(null); setBulkPreviewHeaders([]); setBulkPreviewRows([]); setBulkRowErrors([]);
+        // Reload products list to show newly uploaded products
+        loadAll();
       } else {
         setBulkProgress({ pct: 0, msg: d.message || "Upload failed.", error: true });
       }

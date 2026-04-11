@@ -3061,11 +3061,24 @@ public class ReactApiController {
      */
     @PostMapping("/vendor/products/upload-csv")
     public ResponseEntity<Map<String, Object>> vendorUploadCsv(
-            @RequestHeader("X-Vendor-Id") int vendorId,
-            @RequestParam("file") MultipartFile file) {
+            @RequestHeader(value = "X-Vendor-Id", required = false) Integer vendorId,
+            @RequestParam("file") MultipartFile file,
+            jakarta.servlet.http.HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
+        // Allow header to be omitted when the request carries a valid JWT — fall back
+        // to the parsed token subject set by ReactAuthFilter (request attribute "react.userId").
+        if (vendorId == null) {
+            Object attr = request.getAttribute("react.userId");
+            if (attr instanceof Integer) vendorId = (Integer) attr;
+            else if (attr instanceof Number) vendorId = ((Number) attr).intValue();
+        }
+        if (vendorId == null) {
+            res.put("success", false); res.put("message", "Vendor id header missing or unauthenticated");
+            return ResponseEntity.status(401).body(res);
+        }
+
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found (id=" + vendorId + ")"); return ResponseEntity.badRequest().body(res); }
         if (file == null || file.isEmpty()) { res.put("success", false); res.put("message", "No file uploaded"); return ResponseEntity.badRequest().body(res); }
 
         int created = 0, updated = 0; List<String> errors = new ArrayList<>();

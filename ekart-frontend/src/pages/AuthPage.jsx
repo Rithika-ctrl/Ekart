@@ -438,7 +438,7 @@ export default function AuthPage() {
    * See: OAUTH2-DEPLOYMENT-CHECKLIST.md for before-launch requirements
    */
   const SocialButtons = () => {
-    const isAdminLogin = page === "admin-login";
+    const isAdminLogin = role === "admin" && screen === "login";
     
     return (
       <>

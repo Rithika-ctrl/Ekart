@@ -691,6 +691,8 @@ function BulkCsvUpload({ api, showToast }) {
           setProgress({ pct: 100, msg: d.message || "Upload successful!" });
           showToast("Bulk upload successful! ✓");
           setFile(null);
+          // Reload products list to show newly uploaded/updated products
+          loadAll();
         } else {
           setProgress({ pct: 0, msg: "Upload failed.", error: d.message || "Server error" });
         }
