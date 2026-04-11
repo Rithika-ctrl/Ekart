@@ -57,11 +57,11 @@ public class ReactApiController {
     @Autowired private OrderRepository     orderRepository;
     @Autowired private ItemRepository      itemRepository;
     @Autowired private WishlistRepository  wishlistRepository;
-    // @Autowired private AddressRepository   addressRepository; // unused
     @Autowired private ReviewRepository      reviewRepository;
     @Autowired private ReviewImageRepository reviewImageRepository;
     @Autowired private RefundRepository      refundRepository;
     @Autowired private RefundImageRepository  refundImageRepository;
+    @Autowired private AutoAssignLogRepository autoAssignLogRepository;
     @Autowired private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
     @Autowired private CouponRepository    couponRepository;
     @Autowired private AiAssistantService  aiAssistantService;
@@ -2076,6 +2076,33 @@ public class ReactApiController {
         }
         order.setTrackingStatus(TrackingStatus.CANCELLED); orderRepository.save(order);
         res.put("success", true); res.put("message", "Order cancelled");
+        return ResponseEntity.ok(res);
+    }
+
+    /** POST /api/react/orders/{id}/request-replacement */
+    @PostMapping("/orders/{id}/request-replacement")
+    public ResponseEntity<Map<String, Object>> requestReplacement(
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put("success", false); res.put("message", "Can only request replacement for delivered orders"); return ResponseEntity.badRequest().body(res); }
+        
+        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
+        if (order.getOrderDate() == null || order.getOrderDate().isBefore(cutoff)) { res.put("success", false); res.put("message", "Replacement window has expired (7 days only)"); return ResponseEntity.badRequest().body(res); }
+        if (order.isReplacementRequested()) { res.put("success", false); res.put("message", "Replacement already requested for this order"); return ResponseEntity.badRequest().body(res); }
+        
+        order.setReplacementRequested(true);
+        orderRepository.save(order);
+        
+        try {
+            emailSender.sendReplacementRequest(order.getCustomer(), order.getAmount(), order.getId(), order.getItems());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        res.put("success", true); res.put("message", "Replacement requested successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -4994,6 +5021,81 @@ public class ReactApiController {
             res.put("message", "Assignment failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
+    }
+
+    /** GET /api/react/admin/delivery/boys/load — Delivery Boy Load Board */
+    @GetMapping("/admin/delivery/boys/load")
+    public ResponseEntity<Map<String, Object>> adminDeliveryBoysLoad(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new HashMap<>();
+        List<DeliveryBoy> boys = deliveryBoyRepository.findAll().stream()
+            .filter(b -> b.isAdminApproved())
+            .collect(Collectors.toList());
+        
+        List<Map<String, Object>> load = new ArrayList<>();
+        for (DeliveryBoy b : boys) {
+            int active = (int) orderRepository.findAll().stream()
+                .filter(o -> b.equals(o.getDeliveryBoy()) && 
+                    (o.getTrackingStatus() == TrackingStatus.SHIPPED || 
+                     o.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY))
+                .count();
+            
+            int maxConcurrent = 3;
+            int slots = Math.max(0, maxConcurrent - active);
+            
+            Map<String, Object> status = new HashMap<>();
+            status.put("id", b.getId());
+            status.put("name", b.getName());
+            status.put("code", b.getDeliveryBoyCode());
+            status.put("isOnline", b.isAvailable());
+            status.put("activeOrders", active);
+            status.put("maxConcurrent", maxConcurrent);
+            status.put("slots", slots);
+            status.put("atCap", active >= maxConcurrent);
+            load.add(status);
+        }
+        
+        res.put("success", true);
+        res.put("deliveryBoys", load);
+        return ResponseEntity.ok(res);
+    }
+
+    /** GET /api/react/admin/delivery/auto-assign/logs — Auto-Assignment Event Log (last 50) */
+    @GetMapping("/admin/delivery/auto-assign/logs")
+    public ResponseEntity<Map<String, Object>> adminAutoAssignLogs(HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new HashMap<>();
+        try {
+            List<AutoAssignLog> logs = autoAssignLogRepository.findAll().stream()
+                .sorted((a, b) -> b.getAssignedAt().compareTo(a.getAssignedAt()))
+                .limit(50)
+                .collect(Collectors.toList());
+            
+            List<Map<String, Object>> logList = new ArrayList<>();
+            for (AutoAssignLog log : logs) {
+                Map<String, Object> l = new HashMap<>();
+                l.put("id", log.getId());
+                l.put("orderId", log.getOrderId());
+                l.put("deliveryBoyName", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "—");
+                l.put("deliveryBoyCode", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "—");
+                l.put("pinCode", log.getPinCode());
+                l.put("activeOrdersAtAssignment", log.getActiveOrdersAtAssignment());
+                l.put("maxConcurrent", 3);
+                l.put("assignedAt", log.getAssignedAt());
+                logList.add(l);
+            }
+            
+            res.put("success", true);
+            res.put("logs", logList);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to load auto-assign logs: " + e.getMessage());
+        }
+        return ResponseEntity.ok(res);
     }
 
     // ── ADMIN — WAREHOUSE TRANSFER REQUESTS ──────────────────────────────────

@@ -160,6 +160,7 @@ import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
 import AddressForm from "../components/AddressForm";
 import VendorCsvUpload from "./VendorCsvUpload";
+import { RazorpayCheckoutModal } from "../components/RazorpayCheckoutModal";
 // At the top of CustomerApp.jsx, with the other page imports:
 
 /* ── GuestGate ────────────────────────────────────────────────────
@@ -1041,21 +1042,9 @@ export default function CustomerApp() {
 
   const requestReplacement = async (orderId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to request a replacement"); return; }
-    try {
-      const res = await fetch(`/request-replacement/${orderId}`, { method: "GET", credentials: "include" });
-      if (res.redirected && res.url.includes("/customer/login")) {
-        showToast("Please sign in again to request a replacement");
-        return;
-      }
-      if (res.ok) {
-        showToast("Replacement requested successfully");
-        await loadOrders();
-        return;
-      }
-      showToast("Could not request replacement");
-    } catch {
-      showToast("Could not request replacement");
-    }
+    const d = await api(`/orders/${orderId}/request-replacement`, { method: "POST" });
+    if (d.success) { showToast("Replacement requested successfully"); loadOrders(); }
+    else showToast(d.message || "Could not request replacement");
   };
 
   const confirmReorder = async (orderId) => {
@@ -3407,7 +3396,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const [payMode, setPayMode] = useState("COD");
   const [deliveryTime, setDeliveryTime] = useState("STANDARD");
   const [placing, setPlacing] = useState(false);
-  const [razorpayKey, setRazorpayKey] = useState("");
+  const [razorpayModalOpen, setRazorpayModalOpen] = useState(false);
   const addrs = profile?.addresses || [];
   // selectedAddr comes pre-chosen from the Address step; fall back to first saved address
   const selectedAddr = selectedAddressId || (addrs.length > 0 ? addrs[0].id : null);
@@ -3423,84 +3412,31 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const pinRestrictedItems = getPinRestrictedItems(cart.items, deliveryPin);
   const pinBlocked = pinRestrictedItems.length > 0;
 
-  // ── Load Razorpay script and key on component mount ──
-  useEffect(() => {
-    // Load Razorpay script
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    // Fetch Razorpay key from backend
-    const fetchKey = async () => {
-      try {
-        const res = await fetch("/api/razorpay-key");
-        const data = await res.json();
-        if (data.razorpayKeyId) setRazorpayKey(data.razorpayKeyId);
-      } catch (e) {
-        console.error("Failed to fetch Razorpay key:", e);
-      }
-    };
-    fetchKey();
-
-    return () => {
-      if (script.parentNode) document.body.removeChild(script);
-    };
-  }, []);
-
-  // ── Handle Online Payment (Razorpay) ──
-  const handleOnlinePay = (e) => {
-    e.preventDefault();
-    if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
-    if (!window.Razorpay) { showToast?.("Payment gateway not loaded. Please try again."); return; }
-    if (!razorpayKey) { showToast?.("Payment system error. Please refresh and try again."); return; }
-
-    const payAmount = Math.round(grandTotal * 100); // Convert to paise
-    const options = {
-      key: razorpayKey,
-      amount: payAmount,
-      currency: "INR",
-      name: "Ekart Shop",
-      description: "Order Payment",
-      prefill: {
-        name: profile?.name || "Customer",
-        email: profile?.email || "email@example.com",
-        contact: profile?.phone || "",
-      },
-      theme: { color: "#f5a800" },
-      handler: async (response) => {
-        setPlacing(true);
-        try {
-          // Complete the order with payment details
-          await onPlaceOrder(selectedAddr, "ONLINE", deliveryTime, {
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpayOrderId: response.razorpay_order_id,
-          });
-        } catch (err) {
-          showToast?.("Payment processing error. Please try again.");
-          console.error(err);
-        }
-        setPlacing(false);
-      },
-      modal: {
-        ondismiss: () => {
-          showToast?.("Payment cancelled. You can try again.");
-        }
-      }
-    };
-
-    try {
-      new window.Razorpay(options).open();
-    } catch (err) {
-      showToast?.("Failed to open payment gateway. Please try again.");
-      console.error(err);
+  // ── Handle Online Payment — open Razorpay checkout modal ──
+  const handleOnlinePay = () => {
+    if (!selectedAddr) { 
+      showToast?.("No delivery address selected"); 
+      return; 
     }
+    // Open the RazorpayCheckoutModal
+    setRazorpayModalOpen(true);
+  };
+
+  // ── Handle payment success from modal ──
+  const handlePaymentSuccess = async (paymentDetails) => {
+    // paymentDetails: { razorpayPaymentId, razorpayOrderId, amount }
+    setPlacing(true);
+    await onPlaceOrder(selectedAddr, "ONLINE", deliveryTime, paymentDetails);
+    setPlacing(false);
+    setRazorpayModalOpen(false);
   };
 
   const handlePlace = async () => {
     if (!selectedAddr) { showToast?.("No delivery address selected"); return; }
+    if (pinBlocked) { showToast?.(`Cannot place order — some items cannot be delivered to PIN ${deliveryPin}`); return; }
+    
     if (payMode === "ONLINE") {
-      handleOnlinePay({ preventDefault: () => {} });
+      handleOnlinePay();
       return;
     }
     // For COD
@@ -3756,6 +3692,17 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
           </div>
         </div>
       </div>
+
+      {/* ── Razorpay Checkout Modal ── */}
+      <RazorpayCheckoutModal
+        isOpen={razorpayModalOpen}
+        onClose={() => setRazorpayModalOpen(false)}
+        carttotal={grandTotal}
+        addressId={selectedAddr}
+        deliveryTime={deliveryTime}
+        onPaymentSuccess={handlePaymentSuccess}
+        showToast={showToast}
+      />
     </div>
   );
 }
@@ -5375,6 +5322,23 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
   const [loading, setLoading] = useState(false);
   const msgEnd = useRef(null);
 
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("ekart_chat_history");
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load chat history:", e);
+      }
+    }
+  }, []);
+
+  // Save chat history to localStorage whenever messages change
+  useEffect(() => {
+    localStorage.setItem("ekart_chat_history", JSON.stringify(messages));
+  }, [messages]);
+
   useEffect(() => { if (open) msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
 
   const quickActions = [
@@ -5406,6 +5370,13 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
     setLoading(false);
   };
 
+  const clearHistory = () => {
+    if (window.confirm("Clear all chat history?")) {
+      setMessages([{ role: "bot", text: "Hi! I'm your Ekart assistant 🛒 How can I help you today?" }]);
+      localStorage.removeItem("ekart_chat_history");
+    }
+  };
+
   return (
     <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 1000 }}>
       {open && (
@@ -5418,7 +5389,10 @@ function AIAssistantWidget({ api, onNavigate, showToast }) {
                 <div style={{ fontSize: 11, color: "#86efac" }}>● Online</div>
               </div>
             </div>
-            <button style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18 }} onClick={() => setOpen(false)}>×</button>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, padding: "4px 8px", borderRadius: 4 }} onClick={clearHistory} title="Clear chat history">🗑️</button>
+              <button style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18 }} onClick={() => setOpen(false)}>×</button>
+            </div>
           </div>
 
           <div style={cs.chatMessages}>

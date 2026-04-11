@@ -15,21 +15,41 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * ✅ REST API — Cart & Orders
- * Used by Flutter mobile app.
- *
- * All routes require: Authorization: Bearer <token>
- *
- * Endpoints:
- *   GET    /api/cart                → get cart items + total
- *   POST   /api/cart/add/{id}       → add product to cart
- *   DELETE /api/cart/remove/{id}    → remove item from cart
- *   POST   /api/cart/increase/{id}  → increase item qty
- *   POST   /api/cart/decrease/{id}  → decrease item qty
- *   POST   /api/orders/place        → place order (COD)
- *   GET    /api/orders/my           → get all my orders
- *   GET    /api/orders/{id}         → single order detail
- *   POST   /api/orders/{id}/cancel  → cancel order
+ * ⚠️ DEPRECATED — DO NOT USE THIS CONTROLLER
+ * 
+ * This controller has been deprecated and is scheduled for removal.
+ * Use {@link ReactApiController} instead (/api/react/cart/* and /api/react/orders/*).
+ * 
+ * ISSUE: Duplicate cart controllers create confusion and risk of double-handling.
+ * - CartOrderApiController uses /api/cart/* endpoints (LEGACY)
+ * - ReactApiController uses /api/react/cart/* endpoints (CURRENT)
+ * 
+ * MIGRATION GUIDE:
+ * 1. Frontend (React): already uses /api/react/* endpoints ✅
+ * 2. Flutter app: migrate from /api/cart/* → /api/flutter/* or /api/react/*
+ * 3. Any mobile app using /api/cart/*: redirect to /api/react/cart/*
+ * 
+ * LEGACY ENDPOINTS (DO NOT USE):
+ *   GET    /api/cart                → use /api/react/cart instead
+ *   POST   /api/cart/add/{id}       → use /api/react/cart/add instead
+ *   DELETE /api/cart/remove/{id}    → use /api/react/cart/remove/{productId} instead
+ *   POST   /api/cart/increase/{id}  → use /api/react/cart/update instead
+ *   POST   /api/cart/decrease/{id}  → use /api/react/cart/update instead
+ *   POST   /api/orders/place        → use /api/react/orders/place instead
+ *   GET    /api/orders/my           → use /api/react/orders instead
+ *   GET    /api/orders/{id}         → use /api/react/orders/{id} instead
+ *   POST   /api/orders/{id}/cancel  → use /api/react/orders/{id}/cancel instead
+ * 
+ * CONFIGURATION:
+ * - Disabled by default: ekart.api.legacy-cart.enabled=false (see application.properties)
+ * - Status: @Deprecated(since = "0.0.1", forRemoval = true)
+ * - Removal: Next major version
+ * 
+ * For Flutter app, use FlutterApiController instead: {@link FlutterApiController}
+ * 
+ * @see ReactApiController
+ * @see FlutterApiController
+ * @deprecated Use {@link ReactApiController} (/api/react) instead
  */
 @Deprecated(since = "0.0.1", forRemoval = true)
 @ConditionalOnProperty(name = "ekart.api.legacy-cart.enabled", havingValue = "true", matchIfMissing = false)
