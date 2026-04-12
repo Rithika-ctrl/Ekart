@@ -6438,13 +6438,24 @@ public class ReactApiController {
     // ═══════════════════════════════════════════════════════════════════
 
     /**
-     * GET /api/flutter/delivery/profile
+     * GET /api/react/delivery/profile
      * Returns the delivery boy's profile including warehouse and assigned pin codes.
+     * Auth: JWT Bearer token (validated by DeliveryJwtInterceptor)
+     *       Extracts delivery boy ID from token, ignores X-Delivery-Id header
      */
     @GetMapping("/delivery/profile")
     public ResponseEntity<Map<String, Object>> deliveryProfile(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
+            HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token (set by DeliveryJwtInterceptor)
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6479,16 +6490,26 @@ public class ReactApiController {
     }
 
     /**
-     * GET /api/flutter/delivery/orders
+     * GET /api/react/delivery/orders
      * Returns orders assigned to this delivery boy split into three lists:
      *   toPickUp  — status SHIPPED  (needs to be picked up from warehouse)
      *   outNow    — status OUT_FOR_DELIVERY (currently en route)
      *   delivered — status DELIVERED (completed today/recently)
+     * Auth: JWT Bearer token (validated by DeliveryJwtInterceptor)
      */
     @GetMapping("/delivery/orders")
     public ResponseEntity<Map<String, Object>> deliveryOrders(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
+            HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token (set by DeliveryJwtInterceptor)
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6514,14 +6535,24 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/flutter/delivery/orders/{id}/pickup
+     * POST /api/react/delivery/orders/{id}/pickup
      * Marks the order as OUT_FOR_DELIVERY and emails the customer a delivery OTP.
+     * Auth: JWT Bearer token
      */
     @PostMapping("/delivery/orders/{id}/pickup")
     public ResponseEntity<Map<String, Object>> deliveryPickup(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
+            HttpServletRequest request,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6559,16 +6590,26 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/flutter/delivery/orders/{id}/deliver
+     * POST /api/react/delivery/orders/{id}/deliver
      * Body: { otp }
      * Verifies customer OTP and marks the order as DELIVERED.
+     * Auth: JWT Bearer token
      */
     @PostMapping("/delivery/orders/{id}/deliver")
     public ResponseEntity<Map<String, Object>> deliveryConfirm(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
+            HttpServletRequest request,
             @PathVariable int id,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6613,13 +6654,23 @@ public class ReactApiController {
     }
 
     /**
-     * GET /api/flutter/delivery/warehouses
+     * GET /api/react/delivery/warehouses
      * Returns all active warehouses for the transfer-request dropdown.
+     * Auth: JWT Bearer token
      */
     @GetMapping("/delivery/warehouses")
     public ResponseEntity<Map<String, Object>> deliveryWarehouses(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
+            HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6644,12 +6695,22 @@ public class ReactApiController {
      * Body: { warehouseId, reason? }
      * Submits a warehouse transfer request for admin approval.
      * Only one pending request allowed at a time.
+     * Auth: JWT Bearer token
      */
     @PostMapping("/delivery/warehouse-change/request")
     public ResponseEntity<Map<String, Object>> deliveryWarehouseChangeRequest(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6693,12 +6754,22 @@ public class ReactApiController {
      * POST /api/react/delivery/availability/toggle
      * Body: { isAvailable: boolean }
      * Toggles the availability status of a delivery boy.
+     * Auth: JWT Bearer token
      */
     @PostMapping("/delivery/availability/toggle")
     public ResponseEntity<Map<String, Object>> deliveryAvailabilityToggle(
-            @RequestHeader("X-Delivery-Id") int deliveryId,
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
@@ -6723,11 +6794,21 @@ public class ReactApiController {
     /**
      * GET /api/react/delivery/warehouse-change/pending
      * Returns the pending warehouse change request for this delivery boy (if any).
+     * Auth: JWT Bearer token
      */
     @GetMapping("/delivery/warehouse-change/pending")
     public ResponseEntity<Map<String, Object>> deliveryPendingTransfer(
-            @RequestHeader("X-Delivery-Id") int deliveryId) {
+            HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
+        
+        // Extract delivery ID from JWT token
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 

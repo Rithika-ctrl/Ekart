@@ -82,13 +82,22 @@ export default function DeliveryApp() {
       // Extract results: each can now be { status: 'fulfilled', value } or { status: 'rejected', reason }
       const [profileResult, ordersResult, transferResult] = results;
 
-      // Process profile — critical, but show what succeeded
+      // Process profile — critical
       if (profileResult.status === "fulfilled" && profileResult.value?.success) {
-        setProfile(profileResult.value.deliveryBoy);
-        setIsAvailable(profileResult.value.deliveryBoy?.isAvailable || false);
+        const profileData = profileResult.value.deliveryBoy;
+        if (profileData) {
+          setProfile(profileData);
+          setIsAvailable(profileData?.isAvailable || false);
+        } else {
+          console.warn("Profile data empty");
+          showToast("Profile data incomplete", false);
+        }
       } else if (profileResult.status === "rejected") {
         console.error("Profile load error:", profileResult.reason);
-        showToast("Failed to load profile", false);
+        showToast("❌ Failed to load profile - " + (profileResult.reason?.message || "Unknown error"), false);
+      } else {
+        console.error("Profile error:", profileResult.value?.message);
+        showToast("❌ " + (profileResult.value?.message || "Failed to load profile"), false);
       }
 
       // Process orders — critical
@@ -106,7 +115,6 @@ export default function DeliveryApp() {
         setPendingTransfer(transferResult.value.request || null);
       } else {
         setPendingTransfer(null);
-        // Don't show error for this — it's non-critical
       }
     } catch (err) {
       // Fallback for unexpected errors
@@ -130,17 +138,24 @@ export default function DeliveryApp() {
     setTogglingAvailable(true);
     try {
       const newStatus = !isAvailable;
-      const d = await api("/delivery/availability/toggle", { method: "POST", body: JSON.stringify({ isAvailable: newStatus }) });
+      const d = await api("/delivery/availability/toggle", { 
+        method: "POST", 
+        body: JSON.stringify({ isAvailable: newStatus }),
+        headers: { "Content-Type": "application/json" }
+      });
       if (d?.success) {
         setIsAvailable(newStatus);
-        showToast(newStatus ? "You are now ONLINE ✓ - Available for deliveries" : "You are now OFFLINE ✗ - Not available for deliveries", true);
+        setTimeout(load, 500); // Refresh data after toggle
+        showToast(newStatus ? "✅ You are now ONLINE - Available for deliveries" : "⚫ You are now OFFLINE - Not available for deliveries", true);
       } else {
         showToast(d?.message || "Failed to update status", false);
       }
-    } catch {
+    } catch (err) {
+      console.error("Toggle error:", err);
       showToast("Request failed. Try again.", false);
+    } finally {
+      setTogglingAvailable(false);
     }
-    setTogglingAvailable(false);
   };
 
   const confirmDelivery = async (orderId) => {
@@ -170,15 +185,34 @@ export default function DeliveryApp() {
   };
 
   const submitTransfer = async () => {
-    if (!selectedWh) { showToast("Please select a warehouse.", false); return; }
+    if (!selectedWh || selectedWh === "") { 
+      showToast("❌ Please select a warehouse.", false); 
+      return; 
+    }
+    if (!profile?.warehouse) {
+      showToast("❌ No current warehouse assigned. Contact admin.", false);
+      return;
+    }
     try {
       const d = await api("/delivery/warehouse-change/request", {
         method: "POST",
-        body: JSON.stringify({ warehouseId: parseInt(selectedWh), reason: transferReason })
+        body: JSON.stringify({ 
+          warehouseId: parseInt(selectedWh), 
+          reason: transferReason.trim() || "Warehouse change requested"
+        }),
+        headers: { "Content-Type": "application/json" }
       });
-      showToast(d?.message || "Request submitted", d?.success);
-      if (d?.success) { setTransferModal(false); setTimeout(load, 1800); }
-    } catch { showToast("Request failed. Try again.", false); }
+      if (d?.success) {
+        showToast("✅ Transfer request submitted successfully", true);
+        setTransferModal(false);
+        setTimeout(load, 1500);
+      } else {
+        showToast(d?.message || "❌ Failed to submit request", false);
+      }
+    } catch (err) {
+      console.error("Transfer error:", err);
+      showToast("❌ Request failed. Try again.", false);
+    }
   };
 
   // Photo handling functions
@@ -323,13 +357,13 @@ export default function DeliveryApp() {
         <nav className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <i className="fas fa-shopping-cart text-lg" />
-            <span>Ekart</span>
+            <span>Ekart Delivery</span>
           </div>
           <div className="flex items-center gap-4 ml-auto">
             <span className="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-100 text-indigo-600 uppercase">
-              <i className="fas fa-motorcycle" /> Delivery
+              <i className="fas fa-motorcycle" /> Delivery Partner
             </span>
-            <span className="text-sm text-gray-600">{profile?.name || auth?.email}</span>
+            <span className="text-sm text-gray-600 font-medium">{profile?.name ? `${profile.name}` : auth?.email || "User"}</span>
             <button 
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition ${
                 isAvailable 
@@ -340,8 +374,8 @@ export default function DeliveryApp() {
               disabled={togglingAvailable}
               title={isAvailable ? "Click to go offline" : "Click to go online"}
             >
-              <i className="fas fa-circle text-xs" />
-              {isAvailable ? "Online" : "Offline"}
+              <i className={`fas fa-circle text-xs ${isAvailable ? "animate-pulse" : ""}`} />
+              {togglingAvailable ? "Updating..." : (isAvailable ? "🟢 Online" : "⚫ Offline")}
             </button>
             <button 
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
@@ -362,52 +396,79 @@ export default function DeliveryApp() {
           ) : (
             <>
               {/* Welcome Banner */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-between gap-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                    Hello, <span className="text-indigo-600">{profile?.name || "Delivery Boy"}</span>!
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-6 flex items-center justify-between gap-6">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Welcome, <span className="text-indigo-600">{profile?.name ? profile.name.split(' ')[0] : "Partner"}</span>! 👋
                   </h1>
-                  <p className="text-sm text-gray-500">
-                    {profile?.deliveryBoyCode}
-                    {profile?.assignedPinCodes ? `  ·  Pins: ${profile.assignedPinCodes}` : "  ·  Pins: All"}
-                  </p>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="bg-white rounded-lg p-3 border border-indigo-100">
+                      <div className="text-xs text-gray-600 font-bold">DELIVERY ID</div>
+                      <div className="text-lg font-bold text-indigo-600">{profile?.deliveryBoyCode || "N/A"}</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-indigo-100">
+                      <div className="text-xs text-gray-600 font-bold">EMAIL</div>
+                      <div className="text-sm font-semibold text-gray-900 truncate">{profile?.email || auth?.email || "N/A"}</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-indigo-100">
+                      <div className="text-xs text-gray-600 font-bold">PHONE</div>
+                      <div className="text-sm font-semibold text-gray-900">{profile?.mobile ? `+91 ${profile.mobile}` : "N/A"}</div>
+                    </div>
+                    <div className={`rounded-lg p-3 border font-bold text-center ${
+                      isAvailable 
+                        ? "bg-green-50 border-green-300 text-green-700" 
+                        : "bg-red-50 border-red-300 text-red-700"
+                    }`}>
+                      <div className="text-xs text-gray-600 font-bold mb-1">STATUS</div>
+                      {isAvailable ? "🟢 ONLINE" : "⚫ OFFLINE"}
+                    </div>
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <i className="fas fa-motorcycle text-2xl text-indigo-600" />
+                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                  <i className="fas fa-motorcycle text-4xl text-indigo-600" />
                 </div>
               </div>
 
               {/* Warehouse Card */}
               <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center justify-between flex-wrap gap-4 hover:shadow-md transition">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
                   <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <i className="fas fa-warehouse text-xl text-indigo-600" />
                   </div>
                   {profile?.warehouse ? (
-                    <div>
-                      <div className="font-semibold text-gray-900">{profile.warehouse.name}</div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900">{profile.warehouse.name || "Warehouse"}</div>
                       <div className="text-sm text-gray-600 flex items-center gap-1">
                         <i className="fas fa-map-marker-alt text-xs" />
-                        {profile.warehouse.city}, {profile.warehouse.state}
+                        {profile.warehouse.city || "N/A"}, {profile.warehouse.state || "N/A"}
                       </div>
-                      <div className="text-xs text-indigo-600 font-bold mt-1">{profile.warehouse.warehouseCode}</div>
+                      <div className="text-xs text-indigo-600 font-bold mt-1">Code: {profile.warehouse.warehouseCode || "N/A"}</div>
+                      {profile.assignedPinCodes && (
+                        <div className="text-xs text-gray-700 mt-2 bg-blue-50 p-2 rounded">
+                          <strong>PIN Codes:</strong> {profile.assignedPinCodes}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div>
-                      <div className="font-semibold text-gray-500">No Warehouse Assigned</div>
-                      <div className="text-sm text-gray-500">Contact admin to get a warehouse assigned.</div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-red-600">⚠️ No Warehouse Assigned</div>
+                      <div className="text-sm text-gray-600">Contact admin to get a warehouse assigned.</div>
                     </div>
                   )}
                 </div>
-                <div>
+                <div className="flex-shrink-0">
                   {pendingTransfer ? (
-                    <span className="inline-flex items-center gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-xs font-bold">
-                      <i className="fas fa-clock" />
-                      Transfer to <strong>{pendingTransfer.requestedWarehouse?.name}</strong> — Pending
-                    </span>
+                    <div className="inline-block bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-xs font-bold p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <i className="fas fa-clock" />
+                        <strong>Transfer Pending</strong>
+                      </div>
+                      <div>To: {pendingTransfer.requestedWarehouse?.name || "Unknown"}</div>
+                      <div className="text-xs mt-1">Status: {pendingTransfer.status || "Awaiting Review"}</div>
+                    </div>
                   ) : (
                     <button 
-                      className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition flex items-center gap-2"
+                      className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition flex items-center gap-2 whitespace-nowrap"
                       onClick={openTransferModal}
                     >
                       <i className="fas fa-exchange-alt" /> Request Transfer
@@ -648,23 +709,33 @@ export default function DeliveryApp() {
               <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
                 <i className="fas fa-exchange-alt text-indigo-600" /> Request Warehouse Transfer
               </h2>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-gray-600 mb-4">
                 Your request will be reviewed by admin. You will be notified by email once approved or rejected.
               </p>
+              {profile?.warehouse && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                  <strong>Current Warehouse:</strong> {profile.warehouse.name} ({profile.warehouse.city})
+                </div>
+              )}
               <div className="mb-4">
-                <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">Transfer to Warehouse</label>
+                <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">Transfer to Warehouse *</label>
                 <select 
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:border-indigo-600 focus:bg-white outline-none transition"
                   value={selectedWh} 
                   onChange={e => setSelectedWh(e.target.value)}
                 >
-                  <option value="">— Select warehouse —</option>
+                  <option value="">— Select a warehouse —</option>
                   {warehouseList
                     .filter(w => !profile?.warehouse || w.id !== profile.warehouse.id)
                     .map(w => (
-                      <option key={w.id} value={w.id}>{w.name} — {w.city}, {w.state}</option>
+                      <option key={w.id} value={w.id}>
+                        {w.name} • {w.city}, {w.state} {w.warehouseCode ? `(${w.warehouseCode})` : ""}
+                      </option>
                     ))}
                 </select>
+                {warehouseList.length === 0 && (
+                  <div className="text-xs text-red-600 mt-1">No other warehouses available</div>
+                )}
               </div>
               <div className="mb-6">
                 <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">
@@ -672,11 +743,13 @@ export default function DeliveryApp() {
                 </label>
                 <textarea
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:border-indigo-600 focus:bg-white outline-none transition resize-none"
-                  placeholder="e.g. Relocating to another city, closer to new address..."
+                  placeholder="e.g. Relocating, closer to new address, traffic reasons..."
                   value={transferReason}
                   onChange={e => setTransferReason(e.target.value)}
-                  rows="4"
+                  maxLength={500}
+                  rows="3"
                 />
+                <div className="text-xs text-gray-500 mt-1">{transferReason.length}/500</div>
               </div>
               <div className="flex gap-3">
                 <button 
@@ -686,8 +759,13 @@ export default function DeliveryApp() {
                   Cancel
                 </button>
                 <button 
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2 ${
+                    selectedWh && warehouseList.length > 0
+                      ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                      : "bg-gray-400 text-white cursor-not-allowed"
+                  }`}
                   onClick={submitTransfer}
+                  disabled={!selectedWh || warehouseList.length === 0}
                 >
                   <i className="fas fa-paper-plane" /> Submit Request
                 </button>

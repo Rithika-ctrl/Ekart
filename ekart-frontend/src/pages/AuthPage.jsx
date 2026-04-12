@@ -217,7 +217,8 @@ export default function AuthPage() {
                : role === "vendor"   ? data.vendorId
                : role === "delivery" ? data.deliveryBoyId
                : null;
-      const token = data.token || null;
+      // Handle both 'token' (legacy) and 'accessToken' (new) from backend
+      const token = data.accessToken || data.token || null;
       const user = { role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token };
       login(user, rememberMe);
       navigate(from ?? ROLE_HOME[user.role] ?? "/", { replace: true });

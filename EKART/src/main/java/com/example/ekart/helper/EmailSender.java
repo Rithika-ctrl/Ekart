@@ -35,6 +35,12 @@ public class EmailSender {
     // ===================== SEND OTP TO VENDOR =====================
     @Async
     public void send(Vendor vendor) {
+        sendVendorOtpSecure(vendor, String.format("%06d", vendor.getOtp()));
+    }
+
+    /** Secure OTP sender - displays OTP as 6-digit formatted string */
+    @Async
+    public void sendVendorOtpSecure(Vendor vendor, String plainOtp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -43,24 +49,19 @@ public class EmailSender {
             helper.setSubject("OTP for Email Verification - Ekart");
             Context context = new Context();
             context.setVariable("name", vendor.getName());
-            context.setVariable("otp", vendor.getOtp());
+            context.setVariable("otp", plainOtp);  // 🔒 Use plainOtp String (6-digit formatted)
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
+            // Update the integer otp in DB as well
+            try {
+                vendor.setOtp(Integer.parseInt(plainOtp));
+            } catch (Exception ignored) {
+                // Fall back to existing otp value if parsing fails
+            }
         } catch (Exception e) {
             System.err.println("Vendor OTP email failed: " + e.getMessage());
         }
-    }
-
-    /** Backward-compatible secure OTP sender used by services. */
-    @Async
-    public void sendVendorOtpSecure(Vendor vendor, String plainOtp) {
-        try {
-            vendor.setOtp(Integer.parseInt(plainOtp));
-        } catch (Exception ignored) {
-            // Fall back to existing otp value if parsing fails
-        }
-        send(vendor);
     }
 
     // ===================== SEND OTP TO CUSTOMER =====================
@@ -74,7 +75,7 @@ public class EmailSender {
             helper.setSubject("OTP for Email Verification - Ekart");
             Context context = new Context();
             context.setVariable("name", customer.getName());
-            context.setVariable("otp", customer.getOtp());
+            context.setVariable("otp", String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
@@ -209,7 +210,7 @@ public class EmailSender {
             helper.setSubject("Password Reset - Ekart");
             Context context = new Context();
             context.setVariable("name", customer.getName());
-            context.setVariable("otp", customer.getOtp());
+            context.setVariable("otp", String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
@@ -222,6 +223,12 @@ public class EmailSender {
     // ===================== SEND OTP TO DELIVERY BOY =====================
     @Async
     public void sendDeliveryBoyOtp(DeliveryBoy db) {
+        sendDeliveryBoyOtpSecure(db, String.format("%06d", db.getOtp()));
+    }
+
+    /** Secure OTP sender - displays OTP as 6-digit formatted string */
+    @Async
+    public void sendDeliveryBoyOtpSecure(DeliveryBoy db, String plainOtp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -230,24 +237,19 @@ public class EmailSender {
             helper.setSubject("OTP for Email Verification - Ekart Delivery");
             Context context = new Context();
             context.setVariable("name", db.getName());
-            context.setVariable("otp", db.getOtp());
+            context.setVariable("otp", plainOtp);  // 🔒 Use plainOtp String (6-digit formatted)
             String html = templateEngine.process("otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
+            // Update the integer otp in DB as well
+            try {
+                db.setOtp(Integer.parseInt(plainOtp));
+            } catch (Exception ignored) {
+                // Fall back to existing otp value if parsing fails
+            }
         } catch (Exception e) {
             System.err.println("Delivery boy OTP email failed: " + e.getMessage());
         }
-    }
-
-    /** Backward-compatible secure OTP sender used by services. */
-    @Async
-    public void sendDeliveryBoyOtpSecure(DeliveryBoy db, String plainOtp) {
-        try {
-            db.setOtp(Integer.parseInt(plainOtp));
-        } catch (Exception ignored) {
-            // Fall back to existing otp value if parsing fails
-        }
-        sendDeliveryBoyOtp(db);
     }
 
     // ===================== SEND DOORSTEP OTP TO CUSTOMER =====================
@@ -261,7 +263,7 @@ public class EmailSender {
             helper.setSubject("Your Delivery OTP - Order #" + orderId + " - Ekart");
             Context context = new Context();
             context.setVariable("name", customer.getName());
-            context.setVariable("otp", otp);
+            context.setVariable("otp", String.format("%06d", otp));  // 🔒 Format as 6-digit string
             context.setVariable("orderId", orderId);
             String html = templateEngine.process("delivery-otp-email.html", context);
             helper.setText(html, true);

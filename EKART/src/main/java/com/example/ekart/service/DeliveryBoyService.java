@@ -87,7 +87,8 @@ public class DeliveryBoyService {
         db.setAdminApproved(false);
         db.setActive(true);
         db.setWarehouse(warehouse);
-        db.setAssignedPinCodes("");
+        // 🔒 Auto-assign PIN codes from warehouse (critical fix)
+        db.setAssignedPinCodes(warehouse.getServedPinCodes());
 
         deliveryBoyRepository.save(db);
         if (existing == null || existing.getId() == 0) {
@@ -476,6 +477,8 @@ public class DeliveryBoyService {
 
         DeliveryBoy db = req.getDeliveryBoy();
         db.setWarehouse(req.getRequestedWarehouse());
+        // 🔒 Update pin codes when warehouse changes
+        db.setAssignedPinCodes(req.getRequestedWarehouse().getServedPinCodes());
         deliveryBoyRepository.save(db);
 
         req.setStatus(WarehouseChangeRequest.Status.APPROVED);
