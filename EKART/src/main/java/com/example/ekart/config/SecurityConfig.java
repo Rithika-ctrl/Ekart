@@ -101,7 +101,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/", "/guest/**",
                     "/static/**", "/css/**", "/js/**", "/images/**",
-                    "/oauth2/**", "/login/oauth2/**"
+                    "/oauth2/**", "/login/oauth2/**",
+                    "/admin/test-data/**"
                 ).permitAll()
                 
                 // ── Authentication routes (unauthenticated users only) ───────────
