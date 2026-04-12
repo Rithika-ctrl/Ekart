@@ -100,40 +100,45 @@ function applyTheme(theme) {
 }
 
 /**
- * Reads the persisted auth state on startup.
+ * Reads the persisted auth state on startup - Tab-aware version.
  *
  * Priority order:
- *  1. localStorage  – written when the user checked "Remember me" (survives
- *     browser close / restart).
- *  2. sessionStorage – written when "Remember me" is unchecked (cleared when
- *     the tab/browser is closed).
- *  3. null           – user is not authenticated; AuthPage is rendered.
+ *  1. sessionStorage – tab-specific, written on normal login (cleared when tab is closed)
+ *  2. localStorage  – shared across tabs, written when user checked "Remember me"
+ *  3. null           – user is not authenticated
+ *
+ * sessionStorage has priority because it's per-tab and won't conflict with other tabs.
  */
 function readAuth() {
   try {
-    const ls = localStorage.getItem(AUTH_KEY);
-    if (ls) return JSON.parse(ls);
+    // Always check sessionStorage first (tab-specific)
     const ss = sessionStorage.getItem(AUTH_KEY);
     if (ss) return JSON.parse(ss);
+    
+    // Fall back to localStorage only if sessionStorage is empty
+    const ls = localStorage.getItem(AUTH_KEY);
+    if (ls) return JSON.parse(ls);
   } catch { /* corrupted storage — treat as logged out */ }
   return null;
 }
 
 /**
  * Persists auth state according to the rememberMe flag:
- *  - rememberMe=true  → localStorage  (survives browser close)
- *  - rememberMe=false → sessionStorage (cleared on tab/browser close)
+ *  - rememberMe=true  → localStorage (persists across browser restarts, shared across tabs)
+ *  - rememberMe=false → sessionStorage (tab-specific, cleared on tab close)
  *
- * Always clears the other storage to avoid stale state when the user
- * switches preference between sessions.
+ * Always write to sessionStorage as well to ensure immediate tab-specific state.
  */
 function writeAuth(user, rememberMe) {
   try {
+    // Always write to sessionStorage for immediate tab-specific state
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    
     if (rememberMe) {
+      // Also persist to localStorage for cross-session persistence
       localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-      sessionStorage.removeItem(AUTH_KEY);
     } else {
-      sessionStorage.setItem(AUTH_KEY, JSON.stringify(user));
+      // Clear localStorage to avoid stale state
       localStorage.removeItem(AUTH_KEY);
     }
   } catch { /* storage unavailable (private mode quota) — in-memory only */ }
@@ -344,6 +349,19 @@ export default function App() {
     applyTheme(theme);
     console.log('Theme applied:', theme, 'Auth:', auth);
   }, [theme]);
+
+  // Listen for auth changes from other tabs
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === AUTH_KEY) {
+        const newAuth = e.newValue ? JSON.parse(e.newValue) : null;
+        setAuth(newAuth);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   /**
    * login(user, rememberMe)

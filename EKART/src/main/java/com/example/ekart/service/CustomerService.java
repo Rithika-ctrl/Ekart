@@ -132,8 +132,10 @@ public class CustomerService {
             result.rejectValue("confirmPassword", "error.confirmPassword",
                     "* Password and Confirm Password Should Match");
 
-        if (customerRepository.existsByEmail(customer.getEmail()))
-            result.rejectValue("email", "error.email", "* Email Already Exists");
+        // Allow re-registration if email exists but NOT verified
+        Customer existing = customerRepository.findByEmail(customer.getEmail());
+        if (existing != null && existing.isVerified())
+            result.rejectValue("email", "error.email", "* Email Already Exists. Please login instead.");
 
         if (customerRepository.existsByMobile(customer.getMobile()))
             result.rejectValue("mobile", "error.mobile", "* Mobile Number Already Exists");

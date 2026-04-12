@@ -61,9 +61,29 @@ export default function VendorCsvUpload({ api, auth }) {
       if (auth?.token)              headers['Authorization'] = `Bearer ${auth.token}`;
       if (auth?.role === 'VENDOR')  headers['X-Vendor-Id']   = auth.id;
       const res = await fetch('/api/react/vendor/products/upload-csv', { method: 'POST', body: fd, headers });
-      const d = await res.json();
+      
+      if (!res.ok) {
+        setError(`Upload failed: HTTP ${res.status}`);
+        setUploading(false);
+        return;
+      }
+      
+      let d;
+      try {
+        d = await res.json();
+      } catch (parseError) {
+        setError('Upload response invalid (not JSON)');
+        setUploading(false);
+        return;
+      }
+      
       setResult(d);
-    } catch (e) { setError('Upload failed'); }
+      if (!d.success && !d.message) {
+        setError('Upload failed: No response message');
+      }
+    } catch (e) { 
+      setError(`Upload failed: ${e.message || 'Network error'}`);
+    }
     setUploading(false);
   };
 
@@ -91,9 +111,10 @@ export default function VendorCsvUpload({ api, auth }) {
         <button style={{ padding: '8px 14px' }} onClick={() => { setFile(null); setHeaders([]); setRows([]); setResult(null); }}>Clear</button>
       </div>
       {result && (
-        <div style={{ marginTop: 16, background: result.success ? '#f0fdf4' : '#fef2f2', padding: 12, borderRadius: 8, border: `1px solid ${result.success ? '#86efac' : '#fecaca'}` }}>
-          <div><strong>{result.success ? '✓ Upload Successful' : '✗ Upload Failed'}</strong></div>
-          {(result.created || result.updated) && (
+        <div style={{ marginTop: 16, background: (result.success && (result.created > 0 || result.updated > 0)) ? '#f0fdf4' : '#fef2f2', padding: 12, borderRadius: 8, border: `1px solid ${(result.success && (result.created > 0 || result.updated > 0)) ? '#86efac' : '#fecaca'}` }}>
+          <div><strong>{(result.success && (result.created > 0 || result.updated > 0)) ? '✓ Upload Successful' : result.success ? '⚠ Partial Upload' : '✗ Upload Failed'}</strong></div>
+          {result.message && <div style={{ marginTop: 4, fontSize: 14, color: '#666' }}>{result.message}</div>}
+          {(result.created > 0 || result.updated > 0) && (
             <div style={{ marginTop: 8, fontSize: 14 }}>
               {result.created > 0 && <div style={{ color: '#16a34a' }}>✓ Created: {result.created} products</div>}
               {result.updated > 0 && <div style={{ color: '#2563eb' }}>↻ Updated: {result.updated} products</div>}

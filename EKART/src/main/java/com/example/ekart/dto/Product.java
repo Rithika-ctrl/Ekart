@@ -66,6 +66,9 @@ public class Product {
 	@Transient
 	private MultipartFile video;
 
+	@Transient
+	private String vendorName;
+
 	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	private java.util.List<Review> reviews;
 
@@ -128,6 +131,9 @@ public class Product {
 	public void setVideo(MultipartFile video) { this.video = video; }
 	public java.util.List<Review> getReviews() { return reviews; }
 	public void setReviews(java.util.List<Review> reviews) { this.reviews = reviews; }
+
+	public String getVendorName() { return vendor != null ? vendor.getName() : vendorName; }
+	public void setVendorName(String vendorName) { this.vendorName = vendorName; }
 
 	public double getMrp() { return mrp != null ? mrp : 0.0; }
 	public void setMrp(Double mrp) { this.mrp = (mrp != null) ? mrp : 0.0; }

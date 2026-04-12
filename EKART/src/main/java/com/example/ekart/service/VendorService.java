@@ -112,8 +112,10 @@ public class VendorService {
 			result.rejectValue("confirmPassword", "error.confirmPassword",
 					"* Password and Confirm Password should match");
 
-		if (vendorRepository.existsByEmail(vendor.getEmail()))
-			result.rejectValue("email", "error.email", "* Email already exists");
+		// Allow re-registration if email exists but NOT verified
+		Vendor existing = vendorRepository.findByEmail(vendor.getEmail());
+		if (existing != null && existing.isVerified())
+			result.rejectValue("email", "error.email", "* Email already exists. Please login instead.");
 
 		if (result.hasErrors())
 			return "vendor-register.html";

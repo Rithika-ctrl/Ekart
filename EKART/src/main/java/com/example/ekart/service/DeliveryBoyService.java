@@ -49,8 +49,12 @@ public class DeliveryBoyService {
             return "redirect:/delivery/register";
         }
         if (deliveryBoyRepository.existsByEmail(email.trim().toLowerCase())) {
-            session.setAttribute("failure", "This email is already registered");
-            return "redirect:/delivery/register";
+            DeliveryBoy existing = deliveryBoyRepository.findByEmail(email.trim().toLowerCase());
+            if (existing != null && existing.isVerified()) {
+                session.setAttribute("failure", "This email is already verified. Please login instead.");
+                return "redirect:/delivery/register";
+            }
+            // Allow updating unverified account
         }
         if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
             session.setAttribute("failure", "Password and Confirm Password must match");
@@ -72,7 +76,9 @@ public class DeliveryBoyService {
             return "redirect:/delivery/register";
         }
 
-        DeliveryBoy db = new DeliveryBoy();
+        // Reuse existing unverified account or create new
+        DeliveryBoy existing = deliveryBoyRepository.findByEmail(email.trim().toLowerCase());
+        DeliveryBoy db = (existing != null && !existing.isVerified()) ? existing : new DeliveryBoy();
         db.setName(name.trim());
         db.setEmail(email.trim().toLowerCase());
         db.setMobile(mobile);
@@ -84,8 +90,10 @@ public class DeliveryBoyService {
         db.setAssignedPinCodes("");
 
         deliveryBoyRepository.save(db);
-        db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
-        deliveryBoyRepository.save(db);
+        if (existing == null || existing.getId() == 0) {
+            db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
+            deliveryBoyRepository.save(db);
+        }
 
         try {
             // 🔒 NEW: Use secure OTP service instead of plain Random

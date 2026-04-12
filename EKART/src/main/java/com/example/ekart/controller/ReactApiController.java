@@ -293,19 +293,20 @@ public class ReactApiController {
                 res.put("message", "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
-            if (existing != null && existing.isVerified()) {
             if (!isStrongPassword(password)) {
                 res.put("success", false);
                 res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
-                res.put("success", false); res.put("message", "Email already registered");
+            com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
+            if (existing != null && existing.isVerified()) {
+                res.put("success", false);
+                res.put("message", "Email already registered. Please login instead.");
                 return ResponseEntity.badRequest().body(res);
             }
             
-            // NOW create the final customer record (only after OTP verified)
-            com.example.ekart.dto.Customer c = new com.example.ekart.dto.Customer();
+            // Reuse unverified customer or create new
+            com.example.ekart.dto.Customer c = existing != null ? existing : new com.example.ekart.dto.Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get("mobile").toString()));
@@ -461,11 +462,14 @@ public class ReactApiController {
                 res.put("message", STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
-            if (vendorRepository.existsByEmail(email)) {
-                res.put("success", false); res.put("message", "Email already registered");
+            com.example.ekart.dto.Vendor existing = vendorRepository.findByEmail(email);
+            if (existing != null && existing.isVerified()) {
+                res.put("success", false);
+                res.put("message", "Email already registered. Please login instead.");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.dto.Vendor v = new com.example.ekart.dto.Vendor();
+            // Reuse unverified vendor or create new
+            com.example.ekart.dto.Vendor v = existing != null ? existing : new com.example.ekart.dto.Vendor();
             v.setName((String) body.get("name"));
             v.setEmail(email);
             v.setMobile(Long.parseLong(body.get("mobile").toString()));
@@ -747,7 +751,9 @@ public class ReactApiController {
 
             if (name.length() < 3)                    { res.put("success", false); res.put("message", "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
             if (!email.contains("@"))                  { res.put("success", false); res.put("message", "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
-            if (deliveryBoyRepository.existsByEmail(email)) { res.put("success", false); res.put("message", "This email is already registered"); return ResponseEntity.badRequest().body(res); }
+            // Allow re-registration if email exists but NOT verified
+            DeliveryBoy existingDb = deliveryBoyRepository.findByEmail(email);
+            if (existingDb != null && existingDb.isVerified()) { res.put("success", false); res.put("message", "This email is already verified. Please login instead."); return ResponseEntity.badRequest().body(res); }
             if (!password.equals(confirmPassword))     { res.put("success", false); res.put("message", "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
             if (!isStrongPassword(password))           { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             if (warehouseId <= 0)                      { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
@@ -759,7 +765,8 @@ public class ReactApiController {
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse == null) { res.put("success", false); res.put("message", "Selected warehouse not found"); return ResponseEntity.badRequest().body(res); }
 
-            DeliveryBoy db = new DeliveryBoy();
+            // Use existing account if email exists but not verified, otherwise create new
+            DeliveryBoy db = existingDb != null ? existingDb : new DeliveryBoy();
             db.setName(name);
             db.setEmail(email);
             db.setMobile(mobile);
@@ -771,13 +778,17 @@ public class ReactApiController {
             // Auto-assign PIN codes from the warehouse
             db.setAssignedPinCodes(warehouse.getServedPinCodes());
 
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            db.setOtp(otp);
             deliveryBoyRepository.save(db);
-            db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
-            deliveryBoyRepository.save(db);
+            if (existingDb == null) {
+                db.setDeliveryBoyCode(String.format("DB-%05d", db.getId()));
+                deliveryBoyRepository.save(db);
+            }
 
-            try { emailSender.sendDeliveryBoyOtp(db); }
+            // Use new secure OTP service
+            try {
+                String plainOtp = otpService.generateAndStoreOtp(db.getEmail(), com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
+                emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
+            }
             catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
 
             res.put("success",       true);
@@ -830,8 +841,9 @@ public class ReactApiController {
                 res.put("message", "Email already verified. Awaiting admin approval.");
                 return ResponseEntity.ok(res);
             }
-            // 🔒 NEW: Verify OTP using secure service (hashed comparison)
-            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, otpStr, com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
+            // 🔒 Format OTP with leading zeros (e.g., 352410 → "352410")
+            String formattedOtp = String.format("%06d", otpInt);
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
             
             if (!result.success) {
                 res.put("success", false);
@@ -1225,14 +1237,15 @@ public class ReactApiController {
     // PRODUCTS
     // ═══════════════════════════════════════════════════════
 
-    /** GET /api/flutter/products[?search=x][?category=y] */
+    /** GET /api/flutter/products[?search=x][?category=y][?pinCode=z] — filters by delivery availability */
     @GetMapping("/products")
     public ResponseEntity<Map<String, Object>> getProducts(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false, defaultValue = "default") String sortBy) {
+            @RequestParam(required = false, defaultValue = "default") String sortBy,
+            @RequestParam(required = false) String pinCode) {
         Map<String, Object> res = new HashMap<>();
         List<Product> products;
 
@@ -1251,7 +1264,14 @@ public class ReactApiController {
             products = productRepository.findByApprovedTrue();
         }
 
-        // 2. Apply price range filters (in-memory — avoids extra repo methods)
+        // 2. Filter by pin code availability (if provided)
+        if (pinCode != null && !pinCode.isBlank()) {
+            products = products.stream()
+                    .filter(p -> p.isDeliverableTo(pinCode))
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Apply price range filters (in-memory — avoids extra repo methods)
         if (minPrice != null) {
             products = products.stream()
                     .filter(p -> p.getPrice() >= minPrice)
@@ -1263,7 +1283,7 @@ public class ReactApiController {
                     .collect(Collectors.toList());
         }
 
-        // 3. Sort
+        // 4. Sort
         switch (sortBy == null ? "default" : sortBy.toLowerCase()) {
             case "price_asc":
                 products.sort(Comparator.comparingDouble(Product::getPrice));
@@ -3144,7 +3164,12 @@ public class ReactApiController {
             }
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed to process file: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
 
-        res.put("success", true); res.put("created", created); res.put("updated", updated); res.put("errors", errors);
+        res.put("success", true); 
+        res.put("created", created); 
+        res.put("updated", updated); 
+        res.put("errors", errors);
+        res.put("message", String.format("Processed %d products: %d created, %d updated, %d errors", 
+                created + updated + errors.size(), created, updated, errors.size()));
         return ResponseEntity.ok(res);
     }
 
@@ -3481,6 +3506,8 @@ public class ReactApiController {
         m.put("imageLink", p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
+        m.put("vendorName", p.getVendorName());
+        m.put("isRestricted", p.isRestrictedByPinCode());
         return m;
     }
 
