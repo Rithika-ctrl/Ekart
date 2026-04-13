@@ -259,6 +259,15 @@ export default function DeliveryApp() {
     } catch { showToast("Request failed. Try again.", false); }
   };
 
+  const resendOtp = async (orderId) => {
+    try {
+      const d = await api(`/delivery/orders/${orderId}/resend-otp`, { method: "POST" });
+      showToast(d?.message || "OTP resent to customer", d?.success);
+    } catch {
+      showToast("Failed to resend OTP. Try again.", false);
+    }
+  };
+
   const handleDeliveryWithPhoto = async (orderId) => {
     if (!deliveryPhotos[orderId]) {
       showToast("📸 Please capture a photo before confirming delivery", false);
@@ -646,9 +655,17 @@ export default function DeliveryApp() {
                         </div>
 
                         <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
-                          <label className="text-xs font-bold text-green-700 flex items-center gap-2 mb-2">
-                            <i className="fas fa-key text-xs" /> OTP
-                          </label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-bold text-green-700 flex items-center gap-2">
+                              <i className="fas fa-key text-xs" /> OTP
+                            </label>
+                            <button
+                              className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                              onClick={() => resendOtp(order.id)}
+                            >
+                              <i className="fas fa-paper-plane text-xs" /> Resend OTP
+                            </button>
+                          </div>
                           <div className="flex gap-2">
                             <input
                               type="number"
