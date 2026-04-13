@@ -6653,6 +6653,61 @@ public class ReactApiController {
         res.put("message", "Order #" + id + " marked as Delivered!");
         return ResponseEntity.ok(res);
     }
+    
+    @PostMapping("/delivery/orders/{id}/resend-otp")
+    public ResponseEntity<Map<String, Object>> resendDeliveryOtp(
+            HttpServletRequest request,
+            @PathVariable int id) {
+        Map<String, Object> res = new HashMap<>();
+
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) {
+            res.put("success", false);
+            res.put("message", "Delivery boy not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false);
+            res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+        if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
+            res.put("success", false);
+            res.put("message", "Order is not out for delivery");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
+        if (deliveryOtp == null || deliveryOtp.isUsed()) {
+            res.put("success", false);
+            res.put("message", "No active OTP found for this order");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            emailSender.sendDeliveryOtp(order.getCustomer(), deliveryOtp.getOtp(), order.getId());
+            res.put("success", true);
+            res.put("message", "OTP resent to " + order.getCustomer().getEmail() + ". Ask customer to check spam folder too.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to send email: " + e.getMessage());
+        }
+        return ResponseEntity.ok(res);
+    }
 
     /**
      * GET /api/react/delivery/warehouses
