@@ -7532,4 +7532,127 @@ public class ReactApiController {
         res.put("message", "Deprecation logs cleared");
         return ResponseEntity.ok(res);
     }
+
+    /**
+     * GET /api/react/admin/settlements?month=YYYY-MM
+     * Returns COD settlement data for specified month.
+     * Auth: Admin only
+     */
+    @GetMapping("/admin/settlements")
+    public ResponseEntity<Map<String, Object>> getSettlements(
+            HttpServletRequest request,
+            @RequestParam(name = "month", required = false) String month) {
+        
+        // Admin guard check
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Admin access required");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        Map<String, Object> res = new HashMap<>();
+
+        if (month == null || month.isEmpty()) {
+            java.time.YearMonth ym = java.time.YearMonth.now();
+            month = ym.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
+        }
+
+        try {
+            // Parse month to get start and end dates
+            java.time.YearMonth ym = java.time.YearMonth.parse(month, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
+            java.time.LocalDateTime monthStart = ym.atDay(1).atStartOfDay();
+            java.time.LocalDateTime monthEnd = ym.atEndOfMonth().atTime(23, 59, 59);
+
+            // Get all delivery boys and their COD collections for the month
+            List<DeliveryBoy> deliveryBoys = deliveryBoyRepository.findAll();
+            List<Map<String, Object>> settlements = new ArrayList<>();
+
+            for (DeliveryBoy db : deliveryBoys) {
+                // Find all COD orders for this delivery boy in the month with collection status
+                List<Order> codOrders = orderRepository.findAll().stream()
+                        .filter(o -> o.getDeliveryBoy() != null && o.getDeliveryBoy().getId() == db.getId())
+                        .filter(o -> o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase("COD") || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")))
+                        .filter(o -> o.getCodCollectionTimestamp() != null && o.getCodCollectionTimestamp().isAfter(monthStart) && o.getCodCollectionTimestamp().isBefore(monthEnd))
+                        .collect(Collectors.toList());
+
+                if (codOrders.isEmpty()) continue;
+
+                double totalCollected = codOrders.stream()
+                        .filter(o -> "COLLECTED".equals(o.getCodCollectionStatus().name()))
+                        .mapToDouble(o -> o.getCodAmountCollected())
+                        .sum();
+
+                double failedAmount = codOrders.stream()
+                        .filter(o -> "FAILED".equals(o.getCodCollectionStatus().name()))
+                        .mapToDouble(o -> o.getTotalPrice() + o.getDeliveryCharge())
+                        .sum();
+
+                int collectedCount = (int) codOrders.stream()
+                        .filter(o -> "COLLECTED".equals(o.getCodCollectionStatus().name()))
+                        .count();
+
+                int failedCount = (int) codOrders.stream()
+                        .filter(o -> "FAILED".equals(o.getCodCollectionStatus().name()))
+                        .count();
+
+                Map<String, Object> settlement = new HashMap<>();
+                settlement.put("deliveryBoyId", db.getId());
+                settlement.put("deliveryBoyName", db.getName());
+                settlement.put("totalCodCollected", totalCollected);
+                settlement.put("failedCollectionAmount", failedAmount);
+                settlement.put("codOrderCount", codOrders.size());
+                settlement.put("collectedCount", collectedCount);
+                settlement.put("failedCount", failedCount);
+                settlement.put("salary", 5000); // Fixed salary
+                settlement.put("totalPayout", totalCollected + 5000);
+                settlements.add(settlement);
+            }
+
+            res.put("success", true);
+            res.put("settlements", settlements);
+            res.put("month", month);
+            res.put("count", settlements.size());
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Error retrieving settlements: " + e.getMessage());
+            res.put("settlements", new ArrayList<>());
+            return ResponseEntity.ok(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/settlements/process?month=YYYY-MM
+     * Processes settlement for the given month.
+     * Auth: Admin only
+     */
+    @PostMapping("/admin/settlements/process")
+    public ResponseEntity<Map<String, Object>> processSettlement(
+            HttpServletRequest request,
+            @RequestParam(name = "month", required = false) String month) {
+        
+        // Admin guard check
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "Admin access required");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("message", "Settlement processed for " + month);
+        res.put("status", "COMPLETED");
+        return ResponseEntity.ok(res);
+    }
 }

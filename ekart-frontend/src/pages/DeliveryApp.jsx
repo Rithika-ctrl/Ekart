@@ -61,6 +61,10 @@ export default function DeliveryApp() {
   const [codCashCollected, setCodCashCollected] = useState("");
   const [confirmingCodDelivery, setConfirmingCodDelivery] = useState(false);
 
+  // Cash collection tracking
+  const [totalCodCollected, setTotalCodCollected] = useState(0);
+  const [currentBalance, setCurrentBalance] = useState(0);
+
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
 
   const sanitizePhone = (p) => (p || "").toString().replace(/\D/g, "");
@@ -108,9 +112,27 @@ export default function DeliveryApp() {
 
       // Process orders — critical
       if (ordersResult.status === "fulfilled" && ordersResult.value?.success) {
-        setToPickUp(ordersResult.value.toPickUp || []);
-        setOutNow(ordersResult.value.outForDelivery || []);
-        setDelivered(ordersResult.value.delivered || []);
+        const toPickUpOrders = ordersResult.value.toPickUp || [];
+        const outForDeliveryOrders = ordersResult.value.outForDelivery || [];
+        const deliveredOrders = ordersResult.value.delivered || [];
+        
+        setToPickUp(toPickUpOrders);
+        setOutNow(outForDeliveryOrders);
+        setDelivered(deliveredOrders);
+
+        // Calculate COD collections
+        // Total COD collected = all delivered orders with COLLECTED status
+        const totalCollected = deliveredOrders
+          .filter(o => o.isCod && o.codCollectionStatus === "COLLECTED")
+          .reduce((sum, o) => sum + (o.codAmountCollected || 0), 0);
+        
+        // Current balance = outForDelivery + toPickUp COD orders ready to collect
+        const pendingCollection = [...toPickUpOrders, ...outForDeliveryOrders]
+          .filter(o => o.isCod)
+          .reduce((sum, o) => sum + (o.totalPrice + o.deliveryCharge || o.amount), 0);
+        
+        setTotalCodCollected(totalCollected);
+        setCurrentBalance(pendingCollection);
       } else if (ordersResult.status === "rejected") {
         console.error("Orders load error:", ordersResult.reason);
         showToast("Failed to load orders", false);
@@ -572,6 +594,31 @@ export default function DeliveryApp() {
                 <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition">
                   <div className="text-3xl font-bold text-green-600 mb-2">{delivered.length}</div>
                   <div className="text-sm text-gray-600">Delivered</div>
+                </div>
+              </div>
+
+              {/* Cash Collection Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-300 rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">💰 Lifetime Collected</h3>
+                    <i className="fas fa-check-circle text-green-600 text-xl" />
+                  </div>
+                  <div className="text-4xl font-bold text-green-700 mb-1">
+                    ₹{Number(totalCodCollected || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </div>
+                  <div className="text-xs text-gray-600">Total COD collected & deposited</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">⏳ Current Balance</h3>
+                    <i className="fas fa-clock text-amber-600 text-xl" />
+                  </div>
+                  <div className="text-4xl font-bold text-amber-700 mb-1">
+                    ₹{Number(currentBalance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </div>
+                  <div className="text-xs text-gray-600">To collect & deposit this turn</div>
                 </div>
               </div>
 
