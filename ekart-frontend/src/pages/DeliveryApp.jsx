@@ -128,7 +128,7 @@ export default function DeliveryApp() {
 
   const markPickedUp = async (orderId) => {
     try {
-      const d = await api(`/delivery/order/${orderId}/pickup`, { method: "POST" });
+      const d = await api(`/delivery/orders/${orderId}/pickup`, { method: "POST" });
       showToast(d?.message || "Marked as picked up", d?.success);
       if (d?.success) setTimeout(load, 1800);
     } catch { showToast("Request failed. Try again.", false); }
@@ -140,19 +140,20 @@ export default function DeliveryApp() {
       const newStatus = !isAvailable;
       const d = await api("/delivery/availability/toggle", { 
         method: "POST", 
-        body: JSON.stringify({ isAvailable: newStatus }),
-        headers: { "Content-Type": "application/json" }
+        body: JSON.stringify({ isAvailable: newStatus })
       });
       if (d?.success) {
-        setIsAvailable(newStatus);
-        setTimeout(load, 500); // Refresh data after toggle
-        showToast(newStatus ? "✅ You are now ONLINE - Available for deliveries" : "⚫ You are now OFFLINE - Not available for deliveries", true);
+        // Prefer server-returned value to stay in sync
+        const serverStatus = d.isAvailable !== undefined ? d.isAvailable : newStatus;
+        setIsAvailable(serverStatus);
+        showToast(serverStatus ? "🟢 You are now ONLINE — Available for deliveries" : "⚫ You are now OFFLINE — Not available for deliveries", true);
+        setTimeout(load, 500);
       } else {
-        showToast(d?.message || "Failed to update status", false);
+        showToast("❌ " + (d?.message || "Failed to update status"), false);
       }
     } catch (err) {
       console.error("Toggle error:", err);
-      showToast("Request failed. Try again.", false);
+      showToast("❌ Request failed. Check connection and try again.", false);
     } finally {
       setTogglingAvailable(false);
     }
@@ -163,9 +164,9 @@ export default function DeliveryApp() {
     if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
     if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
     try {
-      const d = await api(`/delivery/order/${orderId}/deliver`, { 
+      const d = await api(`/delivery/orders/${orderId}/deliver`, { 
         method: "POST", 
-        body: JSON.stringify({ otp })
+        body: JSON.stringify({ otp: otp })
       });
       showToast(d?.message || "Delivery confirmed", d?.success);
       if (d?.success) setTimeout(load, 1800);
@@ -199,8 +200,7 @@ export default function DeliveryApp() {
         body: JSON.stringify({ 
           warehouseId: parseInt(selectedWh), 
           reason: transferReason.trim() || "Warehouse change requested"
-        }),
-        headers: { "Content-Type": "application/json" }
+        })
       });
       if (d?.success) {
         showToast("✅ Transfer request submitted successfully", true);
@@ -250,7 +250,7 @@ export default function DeliveryApp() {
       return;
     }
     try {
-      const d = await api(`/delivery/order/${orderId}/pickup`, {
+      const d = await api(`/delivery/orders/${orderId}/pickup`, {
         method: "POST",
         body: JSON.stringify({ photo: pickupPhotos[orderId] })
       });
@@ -269,7 +269,7 @@ export default function DeliveryApp() {
     if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
     if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
     try {
-      const d = await api(`/delivery/order/${orderId}/deliver`, {
+      const d = await api(`/delivery/orders/${orderId}/deliver`, {
         method: "POST",
         body: JSON.stringify({ otp, photo: deliveryPhotos[orderId] })
       });
@@ -363,19 +363,27 @@ export default function DeliveryApp() {
             <span className="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-100 text-indigo-600 uppercase">
               <i className="fas fa-motorcycle" /> Delivery Partner
             </span>
-            <span className="text-sm text-gray-600 font-medium">{profile?.name ? `${profile.name}` : auth?.email || "User"}</span>
+            <span className="text-sm text-gray-600 font-medium">
+              {profile?.name || auth?.email || "Delivery Partner"}
+            </span>
             <button 
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition ${
-                isAvailable 
-                  ? "bg-green-50 border-green-300 text-green-600 hover:bg-green-100" 
-                  : "bg-red-50 border-red-300 text-red-600 hover:bg-red-100"
+                togglingAvailable
+                  ? "bg-gray-100 border-gray-300 text-gray-500 cursor-wait"
+                  : isAvailable 
+                    ? "bg-green-50 border-green-300 text-green-600 hover:bg-green-100" 
+                    : "bg-red-50 border-red-300 text-red-600 hover:bg-red-100"
               }`}
               onClick={toggleAvailability}
               disabled={togglingAvailable}
-              title={isAvailable ? "Click to go offline" : "Click to go online"}
+              title={togglingAvailable ? "Updating status..." : isAvailable ? "Click to go Offline" : "Click to go Online"}
             >
-              <i className={`fas fa-circle text-xs ${isAvailable ? "animate-pulse" : ""}`} />
-              {togglingAvailable ? "Updating..." : (isAvailable ? "🟢 Online" : "⚫ Offline")}
+              {togglingAvailable
+                ? <><i className="fas fa-spinner fa-spin text-xs" /> Updating…</>
+                : isAvailable
+                  ? <><i className="fas fa-circle text-xs animate-pulse" /> 🟢 Online</>
+                  : <><i className="fas fa-circle text-xs" /> ⚫ Offline</>
+              }
             </button>
             <button 
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
@@ -399,12 +407,14 @@ export default function DeliveryApp() {
               <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-6 flex items-center justify-between gap-6">
                 <div className="flex-1">
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Welcome, <span className="text-indigo-600">{profile?.name ? profile.name.split(' ')[0] : "Partner"}</span>! 👋
+                    Welcome, <span className="text-indigo-600">{profile?.name ? profile.name.split(' ')[0] : (auth?.email ? auth.email.split('@')[0] : "Delivery Partner")}</span>! 👋
                   </h1>
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="bg-white rounded-lg p-3 border border-indigo-100">
                       <div className="text-xs text-gray-600 font-bold">DELIVERY ID</div>
-                      <div className="text-lg font-bold text-indigo-600">{profile?.deliveryBoyCode || "N/A"}</div>
+                      <div className="text-lg font-bold text-indigo-600">
+                        {profile?.deliveryBoyCode || (profile?.id ? `DEL-${profile.id}` : "N/A")}
+                      </div>
                     </div>
                     <div className="bg-white rounded-lg p-3 border border-indigo-100">
                       <div className="text-xs text-gray-600 font-bold">EMAIL</div>
@@ -412,7 +422,12 @@ export default function DeliveryApp() {
                     </div>
                     <div className="bg-white rounded-lg p-3 border border-indigo-100">
                       <div className="text-xs text-gray-600 font-bold">PHONE</div>
-                      <div className="text-sm font-semibold text-gray-900">{profile?.mobile ? `+91 ${profile.mobile}` : "N/A"}</div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        {profile?.mobile
+                          ? <a href={`tel:${profile.mobile}`} className="text-indigo-600 hover:underline">+91 {profile.mobile}</a>
+                          : <span className="text-gray-400 italic">Not set</span>
+                        }
+                      </div>
                     </div>
                     <div className={`rounded-lg p-3 border font-bold text-center ${
                       isAvailable 
@@ -443,9 +458,13 @@ export default function DeliveryApp() {
                         {profile.warehouse.city || "N/A"}, {profile.warehouse.state || "N/A"}
                       </div>
                       <div className="text-xs text-indigo-600 font-bold mt-1">Code: {profile.warehouse.warehouseCode || "N/A"}</div>
-                      {profile.assignedPinCodes && (
+                      {profile.assignedPinCodes ? (
                         <div className="text-xs text-gray-700 mt-2 bg-blue-50 p-2 rounded">
-                          <strong>PIN Codes:</strong> {profile.assignedPinCodes}
+                          <strong>📍 PIN Codes:</strong> {profile.assignedPinCodes}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-amber-700 mt-2 bg-amber-50 p-2 rounded border border-amber-200">
+                          <strong>📍 PIN Codes:</strong> <span className="italic">Not assigned yet — contact admin</span>
                         </div>
                       )}
                     </div>

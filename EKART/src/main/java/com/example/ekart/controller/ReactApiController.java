@@ -687,17 +687,18 @@ public class ReactApiController {
                 res.put("message", "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
-            // Generate token pair (access + refresh) for delivery boy
-            DeliveryRefreshTokenUtil.DeliveryTokenPair tokenPair = 
-                deliveryRefreshTokenUtil.generateTokenPair(db.getId(), db.getEmail());
-            
+            // FIX: Use JwtUtil with role="DELIVERY" so ReactAuthFilter accepts the token.
+            // Old code used DeliveryRefreshTokenUtil which produced tokens with no "role" claim,
+            // causing ReactAuthFilter to return 403 "Unknown role in token: null" on every
+            // delivery API call (profile, orders, toggle, pickup, deliver).
+            String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
+
             res.put("success",       true);
             res.put("deliveryBoyId", db.getId());
             res.put("name",          db.getName());
             res.put("email",         db.getEmail());
-            res.put("accessToken",   tokenPair.getAccessToken());
-            res.put("refreshToken",  tokenPair.getRefreshToken());
-            res.put("expiresIn",     tokenPair.getExpiresIn());
+            res.put("accessToken",   token);  // AuthPage reads data.accessToken || data.token
+            res.put("token",         token);  // legacy fallback
             res.put("approved",      db.isAdminApproved());
             return ResponseEntity.ok(res);
         } catch (Exception e) {

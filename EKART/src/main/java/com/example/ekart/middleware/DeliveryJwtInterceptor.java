@@ -1,6 +1,6 @@
 package com.example.ekart.middleware;
 
-import com.example.ekart.helper.DeliveryRefreshTokenUtil;
+import com.example.ekart.helper.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -9,91 +9,76 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * JWT Token Interceptor for Delivery Boy REST API endpoints.
- * 
- * PROTECTED PATH PATTERNS:
- * - /api/react/delivery/** (all delivery management endpoints)
- * - /api/react/delivery-app/** (delivery app endpoints)
- * 
- * PUBLIC PATHS (excluded):
- * - /api/react/auth/delivery/register
- * - /api/react/auth/delivery/login
- * - /api/react/auth/delivery/verify-otp
- * - /api/react/auth/delivery/resend-otp
- * - /api/react/auth/delivery/refresh (token refresh)
- * - /api/react/auth/delivery/warehouses
- * 
- * SECURITY:
- * 1. Extracts "Authorization: Bearer <accessToken>" from requests
- * 2. Validates token using DeliveryRefreshTokenUtil
- * 3. Stores delivery boy info in request attributes for controllers
- * 4. Returns 401 Unauthorized if token invalid/expired
- * 
- * TOKEN STRUCTURE:
- * - Type: access or refresh
- * - Subject: delivery boy ID
- * - Claims: email, type (access/refresh)
- * - Expiry: 15 minutes for access, 7 days for refresh
- * 
- * USAGE:
- * Register in WebMvcConfig:
- *   registry.addInterceptor(deliveryJwtInterceptor)
- *       .addPathPatterns("/api/react/delivery/**", "/api/react/delivery-app/**")
- *       .excludePathPatterns(
- *           "/api/react/auth/delivery/**"
- *       );
+ *
+ * FIX: Previously used DeliveryRefreshTokenUtil to validate tokens, but delivery
+ * login issues tokens via JwtUtil (with role="DELIVERY"). Switched to JwtUtil
+ * so that token validation is consistent end-to-end:
+ *
+ *   Login  → JwtUtil.generateToken(id, email, "DELIVERY")  → accessToken
+ *   Filter → ReactAuthFilter uses JwtUtil.isValid() + getRole() → passes DELIVERY role
+ *   This  → JwtUtil.isValid() + getRole() == "DELIVERY"    → sets deliveryBoyId attribute
+ *
+ * PROTECTED PATH PATTERNS (registered in WebMvcConfig):
+ *   /api/react/delivery/**
+ *
+ * PUBLIC PATHS (excluded in WebMvcConfig):
+ *   /api/react/auth/delivery/**
  */
 @Component
 public class DeliveryJwtInterceptor implements HandlerInterceptor {
 
-    @Autowired(required = false)
-    private DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
                              Object handler) throws Exception {
-        // Skip if DeliveryRefreshTokenUtil not available
-        if (deliveryRefreshTokenUtil == null) {
+
+        // ReactAuthFilter already validated the token and set react.userId / react.role.
+        // We just read those attributes and re-expose them as deliveryBoyId for the
+        // delivery controllers that call request.getAttribute("deliveryBoyId").
+
+        Object roleAttr = request.getAttribute("react.role");
+        Object idAttr   = request.getAttribute("react.userId");
+
+        if (idAttr != null && "DELIVERY".equals(roleAttr)) {
+            // ReactAuthFilter already did full validation — trust its result.
+            request.setAttribute("deliveryBoyId", (Integer) idAttr);
             return true;
         }
 
-        // Extract Authorization header
+        // Fallback: ReactAuthFilter may not have run (e.g. different filter chain order).
+        // Do our own validation using JwtUtil directly.
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"success\":false,\"message\":\"Missing or invalid Authorization header\"}");
+            rejectJson(response, 401, "Missing or invalid Authorization header");
             return false;
         }
 
-        // Extract token
-        String accessToken = authHeader.substring(7); // Remove "Bearer "
-
-        // Validate token
-        if (!deliveryRefreshTokenUtil.isValidAccessToken(accessToken)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"success\":false,\"message\":\"Invalid or expired access token. Please refresh.\"}");
+        String token = authHeader.substring(7);
+        if (!jwtUtil.isValid(token)) {
+            rejectJson(response, 401, "Invalid or expired token. Please log in again.");
             return false;
         }
 
-        // Extract delivery boy info and store in request
-        try {
-            int deliveryBoyId = deliveryRefreshTokenUtil.getDeliveryBoyId(accessToken);
-            String email = deliveryRefreshTokenUtil.getEmail(accessToken);
-
-            // Store in request attributes for controller access
-            request.setAttribute("deliveryBoyId", deliveryBoyId);
-            request.setAttribute("deliveryBoyEmail", email);
-            request.setAttribute("accessToken", accessToken);
-
-            return true;
-
-        } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"success\":false,\"message\":\"Token validation error: " + e.getMessage() + "\"}");
+        String role = jwtUtil.getRole(token);
+        if (!"DELIVERY".equals(role)) {
+            rejectJson(response, 403, "Access denied: delivery token required");
             return false;
         }
+
+        int deliveryBoyId = jwtUtil.getCustomerId(token); // getCustomerId works for all roles (sub = id)
+        request.setAttribute("deliveryBoyId", deliveryBoyId);
+        return true;
+    }
+
+    private void rejectJson(HttpServletResponse response, int status, String message)
+            throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write(
+            "{\"success\":false,\"message\":\"" + message + "\"}"
+        );
     }
 }
