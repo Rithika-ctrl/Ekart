@@ -39,14 +39,17 @@ public interface DeliveryBoyRepository extends JpaRepository<DeliveryBoy, Intege
      * Boys with empty assignedPinCodes are NOT returned here — the service
      * layer falls back to warehouse-based matching for them.
      */
+    // FIX: Use TRIM(REPLACE(...)) so leading/trailing whitespace in the stored
+    //      assignedPinCodes value doesn't break the equality and LIKE checks.
+    //      e.g. stored "583121 " (trailing space) now correctly matches pin "583121".
     @Query("SELECT d FROM DeliveryBoy d WHERE d.active = true AND d.verified = true " +
            "AND d.adminApproved = true AND d.assignedPinCodes IS NOT NULL " +
            "AND d.assignedPinCodes != '' AND (" +
            "  LOWER(TRIM(d.assignedPinCodes)) = 'all'" +
-           "  OR REPLACE(d.assignedPinCodes, ' ', '') = :pin" +
-           "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT(:pin, ',%')" +
-           "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT('%,', :pin, ',%')" +
-           "  OR REPLACE(d.assignedPinCodes, ' ', '') LIKE CONCAT('%,', :pin)" +
+           "  OR TRIM(REPLACE(d.assignedPinCodes, ' ', '')) = :pin" +
+           "  OR TRIM(REPLACE(d.assignedPinCodes, ' ', '')) LIKE CONCAT(:pin, ',%')" +
+           "  OR TRIM(REPLACE(d.assignedPinCodes, ' ', '')) LIKE CONCAT('%,', :pin, ',%')" +
+           "  OR TRIM(REPLACE(d.assignedPinCodes, ' ', '')) LIKE CONCAT('%,', :pin)" +
            ")")
     List<DeliveryBoy> findByPinCode(@Param("pin") String pin);
 

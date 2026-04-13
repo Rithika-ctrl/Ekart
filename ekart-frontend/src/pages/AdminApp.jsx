@@ -218,14 +218,6 @@ export default function AdminApp() {
       api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
     } else show(d.message || "Error");
   };
-  const markOrderPacked = async (orderId) => {
-    const d = await api(`/admin/delivery/order/pack`, { method: "POST", body: JSON.stringify({ orderId }) });
-    if (d.success) {
-      show(d.autoAssigned ? `✓ Packed & auto-assigned to ${d.assignedTo}` : "✓ Marked as packed — assign manually");
-      api("/admin/orders/packed").then(d => d.success && setPackedOrders(d.orders || []));
-      api("/admin/orders/shipped").then(d => d.success && setShippedOrders(d.orders || []));
-    } else show(d.message || "Error");
-  };
   const approveTransfer = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/approve`, { method: "POST" }); if (d.success) { show("Transfer approved!"); } else show(d.message || "Error"); };
   const rejectTransfer  = async (id) => { const d = await api(`/admin/warehouse-transfers/${id}/reject`,  { method: "POST" }); if (d.success) { show("Transfer rejected"); } else show(d.message || "Error"); };
 
@@ -281,7 +273,7 @@ export default function AdminApp() {
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} auth={auth} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
-          {page === "delivery"   && <DeliveryAdmin orders={orders} deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} onMarkPacked={markOrderPacked} api={api} showToast={show} />}
+          {page === "delivery"   && <DeliveryAdmin orders={orders} deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
@@ -1148,29 +1140,53 @@ function VendorsAdmin({ vendors, onToggle }) {
 }
 
 /* ── Delivery Management ── */
-function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shippedOrders, outOrders, onApprove, onReject, onApproveTransfer, onRejectTransfer, onAssign, onMarkPacked, api, showToast }) {
+function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shippedOrders, outOrders, onApprove, onReject, onApproveTransfer, onRejectTransfer, onAssign, api, showToast }) {
   const [transfers, setTransfers] = useState([]);
   const [filter, setFilter] = useState("pending");
   const [selectMap, setSelectMap] = useState({}); // orderId -> deliveryBoyId
   const [eligibleMap, setEligibleMap] = useState({}); // orderId -> [{id,name,code,warehouse}]
 
-  // ── Auto-Assign Logs ──────────────────────────────────────────
-  const [autoAssignLogs, setAutoAssignLogs] = useState([]);
-  const [logsLoading, setLogsLoading] = useState(false);
+  // ── PIN Code Editing ──────────────────────────────────────────
+  const [editingBoyId, setEditingBoyId] = useState(null);
+  const [editingBoyName, setEditingBoyName] = useState("");
+  const [editingPins, setEditingPins] = useState("");
+  const [savingPins, setSavingPins] = useState(false);
 
-  const fetchAutoAssignLogs = async () => {
-    setLogsLoading(true);
-    try {
-      const d = await api("/admin/delivery/auto-assign/logs");
-      if (d.success) setAutoAssignLogs(d.logs || []);
-    } catch (e) { /* silent */ } finally { setLogsLoading(false); }
+  const openEditPinsModal = (boy) => {
+    setEditingBoyId(boy.id);
+    setEditingBoyName(boy.name);
+    setEditingPins(boy.assignedPinCodes || "");
   };
 
-  useEffect(() => {
-    fetchAutoAssignLogs();
-    const t = setInterval(fetchAutoAssignLogs, 15000);
-    return () => clearInterval(t);
-  }, []);
+  const saveDeliveryBoyPins = async () => {
+    if (!editingPins.trim()) {
+      showToast("PIN codes cannot be empty", false);
+      return;
+    }
+    setSavingPins(true);
+    try {
+      const res = await api(`/admin/delivery/boy/${editingBoyId}/pins`, {
+        method: "POST",
+        body: JSON.stringify({ assignedPinCodes: editingPins })
+      });
+      if (res.success) {
+        showToast(`✓ PIN codes updated for ${editingBoyName}`, true);
+        setEditingBoyId(null);
+        // Refetch eligible boys without full page reload
+        const timer = setTimeout(() => {
+          window.location.reload();
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+        showToast(`❌ ${res.message || "Failed to update PIN codes"}`, false);
+      }
+    } catch (e) {
+      showToast("❌ Error updating PIN codes", false);
+      console.error(e);
+    } finally {
+      setSavingPins(false);
+    }
+  };
 
   // ── Delivery Boy Load Board ───────────────────────────────────
   const [boyLoad, setBoyLoad] = useState([]);
@@ -1206,13 +1222,43 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           const d = await res.json();
           let eligible = d.success ? (d.deliveryBoys || []) : [];
           
-          // Fallback: If no delivery boys found for PIN, show all ONLINE delivery boys from the same warehouse
-          if (eligible.length === 0 && order.warehouse && deliveryBoys) {
-            eligible = deliveryBoys.filter(boy => 
-              boy.isAvailable === true && 
-              boy.warehouse && 
-              boy.warehouse.includes(order.warehouse.code || order.warehouse.name || order.warehouse)
+          // FIX: The old fallback called boy.warehouse.includes() where boy.warehouse is an
+          // OBJECT {id, name, city, warehouseCode} — not a string — so .includes() always
+          // threw a TypeError and the fallback silently produced an empty list.
+          //
+          // Corrected fallback strategy (mirrors the backend union logic):
+          //   1. Same-warehouse boys: compare warehouse IDs (objects, not strings)
+          //   2. Boys whose assignedPinCodes covers the order PIN (client-side covers check)
+          //   3. Last resort: ALL approved+active boys so admin is never blocked
+          if (eligible.length === 0 && deliveryBoys && deliveryBoys.length > 0) {
+            const orderPin = (order.deliveryPinCode || "").trim();
+            const orderWhId = order.warehouse?.id;
+
+            const coversPin = (boy) => {
+              const pins = (boy.assignedPinCodes || "").trim();
+              if (!pins || !orderPin) return false;
+              if (pins.toLowerCase() === "all") return true;
+              return pins.split(",").map(p => p.trim()).includes(orderPin);
+            };
+
+            // Step 1: same warehouse + right pin
+            let fallback = deliveryBoys.filter(boy =>
+              boy.approved &&
+              (boy.warehouse?.id === orderWhId || coversPin(boy))
             );
+
+            // Step 2: if still empty, show every approved boy so admin can always assign
+            if (fallback.length === 0) {
+              fallback = deliveryBoys.filter(boy => boy.approved);
+            }
+
+            // Sort: online first, then by name
+            fallback.sort((a, b) => {
+              if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
+              return (a.name || "").localeCompare(b.name || "");
+            });
+
+            eligible = fallback;
           }
           
           setEligibleMap(prev => ({ ...prev, [order.id]: eligible }));
@@ -1333,39 +1379,6 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
         </div>
       )}
 
-      {/* ── Processing Orders — Mark as Packed (Triggers Auto-Assign) ── */}
-      <div style={{ ...as.card, marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>⏳</span>
-          <h3 style={{ ...as.cardTitle, margin: 0 }}>Processing Orders — Mark as Packed</h3>
-        </div>
-        <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)", marginBottom: 14, background: "rgba(245,168,0,0.08)", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(245,168,0,0.2)" }}>
-          ℹ️ Click "Mark as Packed" to prepare the order for delivery. The system will automatically assign it to an online delivery boy if one is available.
-        </div>
-        <AdminTable
-          cols={["Order", "Customer", "Pin", "Amount", "Action"]}
-          rows={(orders || [])
-            .filter(o => o.trackingStatus === "PROCESSING" || o.trackingStatus === "CONFIRMED" || o.trackingStatus === "PLACED")
-            .map(order => [
-              <div>
-                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
-                <div><span style={{ ...as.badge, background: "rgba(245,168,0,0.15)", color: "#d4a017", fontSize: 10 }}>{order.trackingStatus}</span></div>
-              </div>,
-              <div>
-                <div style={{ fontWeight: 500 }}>{order.customer?.name}</div>
-                <div style={{ fontSize: 11, color: "rgba(13,13,13,0.4)" }}>{order.customer?.mobile}</div>
-              </div>,
-              <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{order.deliveryPinCode || "N/A"}</span>,
-              <span style={{ fontWeight: 600, color: "#1db882" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
-              <button style={as.approveBtn} onClick={() => {
-                if (!window.confirm("Mark order #" + order.id + " as Packed? It will trigger auto-assignment if delivery boys are available online.")) return;
-                onMarkPacked(order.id);
-              }}>↓ Mark Packed</button>
-            ])}
-          empty="✓ No processing orders. All orders are either packed, shipped, or delivered."
-        />
-      </div>
-
       {/* ── Packed Orders — Assign Delivery Boy ── */}
       <div style={{ ...as.card, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -1396,7 +1409,7 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
                 value={selectMap[order.id] || ""}
                 onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
                 <option value="">{eligible.length === 0 ? `No delivery boys found for pin ${order.deliveryPinCode || "N/A"}` : "Select delivery boy"}</option>
-                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse} {b.isAvailable ? "🟢 Online" : "🔴 Offline"}</option>)}
+                {eligible.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code}) — {b.warehouse?.name} {b.isAvailable ? "🟢 Online" : "🔴 Offline"}</option>)}
               </select>,
               <button style={as.approveBtn} onClick={() => {
                 if (!selectMap[order.id]) { showToast("Select a delivery boy first"); return; }
@@ -1444,12 +1457,34 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
             {[["pending","Pending Approval"],["all","All"]].map(([k, l]) => (
               <button key={k} style={{ ...as.filterBtn, ...(filter === k ? as.filterBtnActive : {}) }} onClick={() => setFilter(k)}>{l}</button>
             ))}
+            <button
+              onClick={async () => {
+                if (!window.confirm("Make all delivery boys eligible for assignment?")) return;
+                const d = await api("/admin/delivery/verify-all", "POST");
+                if (d.success) {
+                  alert("✓ " + d.message);
+                  fetchBoys();
+                } else {
+                  alert("Error: " + d.message);
+                }
+              }}
+              style={{ ...as.filterBtn, background: "#10b981", color: "white", fontSize: 12 }}
+            >
+              ✓ Verify All
+            </button>
           </div>
         </div>
         <AdminTable
-          cols={["ID","Name","Email","Mobile","Code","Warehouse","Status","Availability","Action"]}
+          cols={["ID","Name","Email","Mobile","Code","PIN Codes","Warehouse","Status","Availability","Action"]}
           rows={filtered.map(d => [
             `#${d.id}`, d.name, d.email, d.mobile || "—", d.deliveryBoyCode,
+            d.assignedPinCodes ? (
+              <span style={{ fontSize: 11, fontFamily: "monospace", color: "#7c3aed", fontWeight: 600, cursor: "pointer" }} onClick={() => openEditPinsModal(d)}>
+                {d.assignedPinCodes.length > 20 ? d.assignedPinCodes.substring(0, 20) + "..." : d.assignedPinCodes}
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", fontStyle: "italic" }}>Not set</span>
+            ),
             d.warehouse ? d.warehouse.name : "—",
             <span style={{ ...as.badge, background: d.approved ? "#e8faf2" : "#fef9e7", color: d.approved ? "#16a34a" : "#d97706" }}>{d.approved ? "Active" : "Pending"}</span>,
             <span style={{ ...as.badge, background: d.isAvailable ? "#e8faf2" : "#ffe8e8", color: d.isAvailable ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
@@ -1462,7 +1497,9 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
                 <button style={as.rejectBtn} onClick={() => handleReject(d.id, d.name)}>✕ Reject</button>
               </div>
             ) : (
-              <span style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>—</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={{...as.approveBtn, fontSize: 11, padding: "4px 8px"}} onClick={() => openEditPinsModal(d)}>📍 Edit Pins</button>
+              </div>
             )
           ])}
           empty="No delivery boys"
@@ -1543,73 +1580,66 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
         )}
       </div>
 
-      {/* ── Auto-Assign Logs ── */}
-      <div style={{ ...as.card, marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>🤖</span>
-          <h3 style={{ ...as.cardTitle, margin: 0 }}>Auto-Assignment Log</h3>
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(13,13,13,0.4)", fontWeight: 600 }}>
-            Last 50 events · auto-refreshes every 15s
-          </span>
-          <button
-            style={{ ...as.filterBtn, fontSize: 11, padding: "4px 10px" }}
-            onClick={fetchAutoAssignLogs}
-          >{logsLoading ? "…" : "↻ Refresh"}</button>
-        </div>
-
-        {logsLoading && autoAssignLogs.length === 0 ? (
-          <div style={as.empty}>Loading…</div>
-        ) : autoAssignLogs.length === 0 ? (
-          <div style={as.empty}>No auto-assignments recorded yet.</div>
-        ) : (
-          <div style={{ ...as.tableWrap, overflowX: "auto" }}>
-            <table style={as.table}>
-              <thead style={as.thead}>
-                <tr>
-                  {["Order", "Delivery Boy", "Code", "Pin Code", "Load at Time", "Assigned At"].map(h => (
-                    <th key={h} style={as.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {autoAssignLogs.map((log, i) => (
-                  <tr key={log.id || i} style={as.tr}>
-                    <td style={as.td}>
-                      <span style={{ fontWeight: 700, color: "#d4a017" }}>#{log.orderId}</span>
-                    </td>
-                    <td style={as.td}>{log.deliveryBoyName}</td>
-                    <td style={{ ...as.td, fontFamily: "monospace", fontSize: 12, color: "#7c3aed" }}>
-                      {log.deliveryBoyCode}
-                    </td>
-                    <td style={as.td}>
-                      <span style={{ ...as.badge, background: "rgba(99,179,237,0.12)", color: "#0284c7" }}>
-                        {log.pinCode || "—"}
-                      </span>
-                    </td>
-                    <td style={as.td}>
-                      <span style={{
-                        ...as.badge,
-                        background: log.activeOrdersAtAssignment >= 2 ? "rgba(232,76,60,0.1)" : "rgba(29,184,130,0.1)",
-                        color: log.activeOrdersAtAssignment >= 2 ? "#e84c3c" : "#1db882",
-                      }}>
-                        {log.activeOrdersAtAssignment} / {log.maxConcurrent || 3} active
-                      </span>
-                    </td>
-                    <td style={{ ...as.td, color: "rgba(13,13,13,0.5)", whiteSpace: "nowrap" }}>
-                      {log.assignedAt
-                        ? new Date(log.assignedAt).toLocaleString("en-IN", {
-                            day: "2-digit", month: "short",
-                            hour: "2-digit", minute: "2-digit", hour12: true,
-                          })
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* ── PIN Codes Edit Modal ── */}
+      {editingBoyId && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 20 }}>
+          <div style={{ background: "white", borderRadius: 12, padding: 24, maxWidth: 500, width: "100%", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 700 }}>Edit PIN Codes for {editingBoyName}</h3>
+            <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "rgba(13,13,13,0.6)" }}>
+              Enter comma-separated PIN codes this delivery boy should cover. e.g: 560001, 560002, 583121
+              <br />Or enter "all" to allow deliveries to all areas.
+            </p>
+            <textarea
+              value={editingPins}
+              onChange={(e) => setEditingPins(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #e5e7eb",
+                borderRadius: 6,
+                fontSize: 13,
+                fontFamily: "monospace",
+                minHeight: 80,
+                resize: "vertical"
+              }}
+              placeholder="560001, 560002, 583121"
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setEditingBoyId(null)}
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6,
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+                disabled={savingPins}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveDeliveryBoyPins}
+                style={{
+                  padding: "8px 16px",
+                  background: "#16a34a",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+                disabled={savingPins}
+              >
+                {savingPins ? "Saving…" : "Save PIN Codes"}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

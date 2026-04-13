@@ -5035,8 +5035,16 @@ public class ReactApiController {
     /**
      * GET /api/react/admin/delivery/boys/for-order/{orderId}
      * Returns delivery boys eligible for a specific packed order.
-     * Eligibility: adminApproved=true, active=true, and assignedPinCodes covers the order's deliveryPinCode.
-     * Response includes isAvailable so the frontend can show 🟢/🔴 status.
+     * Eligibility: adminApproved=true, active=true, and either:
+     *   (a) assignedPinCodes covers the order's deliveryPinCode via covers(), OR
+     *   (b) the delivery boy belongs to a warehouse that serves that PIN.
+     * Falls back to ALL approved+active boys if no match found, so admin is never blocked.
+     * Response includes isAvailable so the frontend can show Online/Offline status.
+     *
+     * FIX: The old implementation only used db.covers(pin), which returns false when
+     * assignedPinCodes is null. Boys registered at the right warehouse but with a null
+     * assignedPinCodes were silently excluded. Now uses union strategy matching
+     * DeliveryAdminService.getEligibleDeliveryBoys().
      */
     @GetMapping("/admin/delivery/boys/for-order/{orderId}")
     public ResponseEntity<Map<String, Object>> adminGetEligibleDeliveryBoys(
@@ -5050,10 +5058,43 @@ public class ReactApiController {
             res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
-        String pin = order.getDeliveryPinCode();
-        List<Map<String, Object>> boys = deliveryBoyRepository.findAll().stream()
-            .filter(db -> db.isAdminApproved() && db.isActive())
-            .filter(db -> pin == null || pin.isBlank() || db.covers(pin))
+
+        String pin = (order.getDeliveryPinCode() != null) ? order.getDeliveryPinCode().trim() : null;
+
+        // Step 1: find all eligible boys using union strategy
+        Set<Integer> seen = new LinkedHashSet<>();
+        List<DeliveryBoy> eligible = new ArrayList<>();
+
+        // 1a: boys whose assignedPinCodes explicitly covers the pin (covers() handles null safely)
+        if (pin != null && !pin.isBlank()) {
+            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+                if (!db.isAdminApproved() || !db.isActive()) continue;
+                if (db.covers(pin) && seen.add(db.getId())) eligible.add(db);
+            }
+        }
+
+        // 1b: boys assigned to the warehouse that serves this pin
+        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
+        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
+            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
+            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
+        }
+        if (orderWarehouse != null) {
+            for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
+                if (!db.isAdminApproved() || !db.isActive()) continue;
+                if (seen.add(db.getId())) eligible.add(db);
+            }
+        }
+
+        // Step 2: last-resort — show all approved+active boys so admin is never blocked
+        if (eligible.isEmpty()) {
+            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+                if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) eligible.add(db);
+            }
+        }
+
+        // Step 3: map to response DTOs, sort online first
+        List<Map<String, Object>> boys = eligible.stream()
             .map(db -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id",          db.getId());
@@ -5067,9 +5108,10 @@ public class ReactApiController {
             })
             .sorted(Comparator.comparing(m -> !((Boolean) m.get("isAvailable")))) // online first
             .collect(Collectors.toList());
+
         res.put("success", true);
         res.put("deliveryBoys", boys);
-        res.put("orderPin", pin);
+        res.put("orderPin", pin != null ? pin : "N/A");
         return ResponseEntity.ok(res);
     }
 
@@ -5128,6 +5170,54 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Assignment failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/delivery/boy/{id}/pins
+     * Admin updates a delivery boy's assigned PIN codes.
+     * Body: { assignedPinCodes: "583121,583122" or "all" }
+     */
+    @PostMapping("/admin/delivery/boy/{id}/pins")
+    public ResponseEntity<Map<String, Object>> adminUpdateDeliveryBoyPins(
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String pins = body.get("assignedPinCodes") != null 
+                ? body.get("assignedPinCodes").toString().trim() 
+                : "";
+            
+            if (pins.isEmpty()) {
+                res.put("success", false);
+                res.put("message", "PIN codes cannot be empty");
+                return ResponseEntity.badRequest().body(res);
+            }
+            
+            DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
+            if (db == null) {
+                res.put("success", false);
+                res.put("message", "Delivery boy not found");
+                return ResponseEntity.status(404).body(res);
+            }
+            
+            db.setAssignedPinCodes(pins);
+            deliveryBoyRepository.save(db);
+            
+            res.put("success", true);
+            res.put("message", "PIN codes updated for " + db.getName());
+            res.put("id", id);
+            res.put("name", db.getName());
+            res.put("newPins", pins);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Update failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }

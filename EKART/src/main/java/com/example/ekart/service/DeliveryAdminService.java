@@ -1,16 +1,15 @@
 package com.example.ekart.service;
 
 // ================================================================
-// UPDATED FILE: src/main/java/com/example/ekart/service/DeliveryAdminService.java
-// REPLACE your existing DeliveryAdminService.java with this.
-//
-// Changes from previous version:
-//   1. loadDeliveryManagement() — now includes auto-assign stats per delivery boy
-//   2. assignDeliveryBoy() — admin manual override still works as before
-//   3. NEW: getAutoAssignLogs() — admin can see all auto-assignment history
-//   4. NEW: getDeliveryBoyLoadMap() — admin sees each boy's active order count
-//   5. markOrderPacked() — triggers auto-assign after status change
-//   6. AutoAssignmentService is wired in for all three triggers
+// DeliveryAdminService.java
+// Handles all admin delivery management operations.
+// 
+// Key Features:
+//   - Manual delivery boy assignment (admin-controlled)
+//   - PIN code matching for deliveries
+//   - 3-order concurrent limit per delivery boy
+//   - Warehouse and delivery boy management
+//   - Delivery boy load tracking (active order counts)
 // ================================================================
 
 import com.example.ekart.dto.*;
@@ -24,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
 import java.util.*;
+import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,7 +37,20 @@ public class DeliveryAdminService {
     @Autowired private AutoAssignLogRepository    autoAssignLogRepository;
     @Autowired private EmailSender                emailSender;
     @Autowired private DeliveryBoyService         deliveryBoyService;
-    @Autowired private AutoAssignmentService      autoAssignmentService;
+
+    // Constants (from removed AutoAssignmentService)
+    private static final int MAX_CONCURRENT_ORDERS = 3;
+
+    // Count active orders for a delivery boy (replaces autoAssignmentService.countActiveOrders)
+    private int countActiveOrders(DeliveryBoy deliveryBoy) {
+        if (deliveryBoy == null) return 0;
+        return (int) orderRepository.findAll().stream()
+                .filter(o -> o.getDeliveryBoy() != null 
+                        && o.getDeliveryBoy().getId() == deliveryBoy.getId()
+                        && (o.getTrackingStatus() == TrackingStatus.SHIPPED 
+                            || o.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY))
+                .count();
+    }
 
     // ── Load delivery management page ────────────────────────────
 
@@ -55,7 +68,7 @@ public class DeliveryAdminService {
         // Map<deliveryBoyId, activeOrderCount>
         Map<Integer, Integer> activeOrderCounts = new LinkedHashMap<>();
         for (DeliveryBoy db : deliveryBoys) {
-            activeOrderCounts.put(db.getId(), autoAssignmentService.countActiveOrders(db));
+            activeOrderCounts.put(db.getId(), countActiveOrders(db));
         }
 
         // Recent auto-assign logs (last 50)
@@ -82,7 +95,7 @@ public class DeliveryAdminService {
         map.put("pendingApprovals",   pendingApprovals);
         map.put("activeOrderCounts",  activeOrderCounts);
         map.put("recentAutoAssigns",  recentAutoAssigns);
-        map.put("maxConcurrent",      AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+        map.put("maxConcurrent",      MAX_CONCURRENT_ORDERS);
 
         return "admin-delivery-management.html";
     }
@@ -176,7 +189,7 @@ public class DeliveryAdminService {
         db.setPassword(com.example.ekart.helper.AES.encrypt(password));
         db.setWarehouse(warehouse);
         db.setAssignedPinCodes(assignedPinCodes != null ? assignedPinCodes.trim() : "");
-        db.setVerified(false);
+        db.setVerified(true);  // ← FIXED: Admin-created boys are immediately verified
         db.setAdminApproved(true);
         db.setActive(true);
 
@@ -228,8 +241,8 @@ public class DeliveryAdminService {
             return ResponseEntity.badRequest().body(res);
         }
 
-        int activeCount = autoAssignmentService.countActiveOrders(db);
-        boolean overCap = activeCount >= AutoAssignmentService.MAX_CONCURRENT_ORDERS;
+        int activeCount = countActiveOrders(db);
+        boolean overCap = activeCount >= MAX_CONCURRENT_ORDERS;
 
         order.setDeliveryBoy(db);
         order.setTrackingStatus(TrackingStatus.SHIPPED);
@@ -239,7 +252,7 @@ public class DeliveryAdminService {
 
         String note = overCap
             ? "[ADMIN OVERRIDE] Manually assigned to " + db.getName()
-              + " (" + db.getDeliveryBoyCode() + "). Note: over cap (" + activeCount + "/" + AutoAssignmentService.MAX_CONCURRENT_ORDERS + ")"
+              + " (" + db.getDeliveryBoyCode() + "). Note: over cap (" + activeCount + "/" + MAX_CONCURRENT_ORDERS + ")"
             : "[ADMIN] Manually assigned to " + db.getName() + " (" + db.getDeliveryBoyCode() + ")";
 
         trackingEventLogRepository.save(new TrackingEventLog(
@@ -284,23 +297,8 @@ public class DeliveryAdminService {
             order.getCurrentCity() != null ? order.getCurrentCity() : "Warehouse",
             "Order packed and ready for pickup", "admin"));
 
-        // 🔑 TRIGGER AUTO-ASSIGN
-        autoAssignmentService.onOrderPacked(order);
-
-        // Re-fetch to check if auto-assign succeeded
-        Order refreshed = orderRepository.findById(orderId).orElse(order);
-        boolean autoAssigned = refreshed.getDeliveryBoy() != null;
-
         res.put("success", true);
-        if (autoAssigned) {
-            res.put("message", "Order #" + orderId + " marked as PACKED and automatically assigned to "
-                + refreshed.getDeliveryBoy().getName());
-            res.put("autoAssigned", true);
-            res.put("assignedTo", refreshed.getDeliveryBoy().getName());
-        } else {
-            res.put("message", "Order #" + orderId + " marked as PACKED. No eligible delivery boys online — assign manually.");
-            res.put("autoAssigned", false);
-        }
+        res.put("message", "Order #" + orderId + " marked as PACKED. Admin must manually assign a delivery boy.");
         return ResponseEntity.ok(res);
     }
 
@@ -324,13 +322,13 @@ public class DeliveryAdminService {
             m.put("pinCode",                      log.getPinCode());
             m.put("assignedAt",                   log.getAssignedAt() != null ? log.getAssignedAt().toString() : null);
             m.put("activeOrdersAtAssignment",     log.getActiveOrdersAtAssignment());
-            m.put("maxConcurrent",                AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+            m.put("maxConcurrent",                MAX_CONCURRENT_ORDERS);
             data.add(m);
         }
 
         res.put("success", true);
         res.put("logs", data);
-        res.put("maxConcurrent", AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+        res.put("maxConcurrent", MAX_CONCURRENT_ORDERS);
         return ResponseEntity.ok(res);
     }
 
@@ -347,8 +345,8 @@ public class DeliveryAdminService {
         List<Map<String, Object>> data = new ArrayList<>();
         for (DeliveryBoy db : boys) {
             if (!db.isVerified() || !db.isAdminApproved()) continue;
-            int active = autoAssignmentService.countActiveOrders(db);
-            int maxConcurrent = AutoAssignmentService.MAX_CONCURRENT_ORDERS;
+            int active = countActiveOrders(db);
+            int maxConcurrent = MAX_CONCURRENT_ORDERS;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",           db.getId());
             m.put("name",         db.getName());
@@ -365,11 +363,11 @@ public class DeliveryAdminService {
 
         res.put("success", true);
         res.put("deliveryBoys", data);
-        res.put("maxConcurrent", AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+        res.put("maxConcurrent", MAX_CONCURRENT_ORDERS);
         return ResponseEntity.ok(res);
     }
 
-    // ── Get ELIGIBLE delivery boys for an order ───────────────────
+    // ── Get ELIGIBLE delivery boys for an order ─────────────────;
 
     public ResponseEntity<Map<String, Object>> getEligibleDeliveryBoys(int orderId,
                                                                          HttpSession session) {
@@ -387,30 +385,60 @@ public class DeliveryAdminService {
 
         String pin = order.getDeliveryPinCode();
 
+        // ── FIX: Use a union strategy to find ALL eligible delivery boys ──
+        // Problem: findByPinCode() only matched boys with explicit assignedPinCodes entries.
+        // Boys registered at a warehouse that serves the PIN were missed when
+        // the order had no warehouse set, or when DB-level REPLACE() failed on
+        // edge-case whitespace/encoding.  We now:
+        //   1. Collect boys via DB pin-code query  (catches explicit assignments)
+        //   2. Collect boys via warehouse lookup   (catches warehouse-assigned boys)
+        //   3. Merge & deduplicate by id
+        //   4. Java-side covers() + warehouse-pin re-check as safety net
+        //   5. If still empty, show ALL approved+active boys so admin is never blocked
+
+        Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> boys = new ArrayList<>();
+
+        // Step 1: DB-level pin-code match
         if (pin != null && !pin.isBlank()) {
-            boys = deliveryBoyRepository.findByPinCode(pin.trim());
+            for (DeliveryBoy b : deliveryBoyRepository.findByPinCode(pin.trim())) {
+                if (seen.add(b.getId())) boys.add(b);
+            }
         }
 
+        // Step 2: Warehouse-based match (always run, not just as fallback)
+        Warehouse orderWarehouse = order.getWarehouse();
+        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
+            List<Warehouse> whs = warehouseRepository.findByPinCode(pin.trim());
+            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
+        }
+        if (orderWarehouse != null) {
+            for (DeliveryBoy b : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
+                if (seen.add(b.getId())) boys.add(b);
+            }
+        }
+
+        // Step 3: Java-side safety-net — also include any active+verified boys whose
+        //         covers() returns true for this pin (catches whitespace/encoding edge cases)
+        if (pin != null && !pin.isBlank()) {
+            for (DeliveryBoy b : deliveryBoyRepository.findByActiveTrue()) {
+                if (!b.isVerified() || !b.isAdminApproved()) continue;
+                if (b.covers(pin.trim()) && seen.add(b.getId())) boys.add(b);
+            }
+        }
+
+        // Step 4: Last-resort — if still nobody found, show all approved boys
+        //         so admin is never completely blocked from assigning
         if (boys.isEmpty()) {
-            Warehouse orderWarehouse = order.getWarehouse();
-            if (orderWarehouse == null && pin != null && !pin.isBlank()) {
-                List<Warehouse> whs = warehouseRepository.findByPinCode(pin.trim());
-                if (!whs.isEmpty()) orderWarehouse = whs.get(0);
-            }
-            if (orderWarehouse != null) {
-                boys = deliveryBoyRepository.findActiveByWarehouse(orderWarehouse);
-            } else {
-                boys = deliveryBoyRepository.findByActiveTrue().stream()
-                        .filter(b -> b.isVerified() && b.isAdminApproved())
-                        .collect(java.util.stream.Collectors.toList());
-            }
+            boys = deliveryBoyRepository.findByActiveTrue().stream()
+                    .filter(b -> b.isVerified() && b.isAdminApproved())
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         List<Map<String, Object>> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
-            int active = autoAssignmentService.countActiveOrders(b);
+            int active = countActiveOrders(b);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",           b.getId());
             m.put("name",         b.getName());
@@ -419,8 +447,8 @@ public class DeliveryAdminService {
             m.put("warehouse",    b.getWarehouse() != null ? b.getWarehouse().getName() : "—");
             m.put("isAvailable",  b.isAvailable());
             m.put("activeOrders", active);
-            m.put("slots",        AutoAssignmentService.MAX_CONCURRENT_ORDERS - active);
-            m.put("atCap",        active >= AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+            m.put("slots",        MAX_CONCURRENT_ORDERS - active);
+            m.put("atCap",        active >= MAX_CONCURRENT_ORDERS);
             data.add(m);
         }
 
@@ -450,7 +478,7 @@ public class DeliveryAdminService {
         List<Map<String, Object>> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
-            int active = autoAssignmentService.countActiveOrders(b);
+            int active = countActiveOrders(b);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",           b.getId());
             m.put("name",         b.getName());
@@ -458,11 +486,65 @@ public class DeliveryAdminService {
             m.put("pins",         b.getAssignedPinCodes());
             m.put("isAvailable",  b.isAvailable());
             m.put("activeOrders", active);
-            m.put("atCap",        active >= AutoAssignmentService.MAX_CONCURRENT_ORDERS);
+            m.put("atCap",        active >= MAX_CONCURRENT_ORDERS);
             data.add(m);
         }
         res.put("success", true);
         res.put("deliveryBoys", data);
+        return ResponseEntity.ok(res);
+    }
+
+    // ── Update Delivery Boy PIN Codes ────────────────────────────
+
+    public ResponseEntity<Map<String, Object>> updateDeliveryBoyPinCodes(
+            int deliveryBoyId, String assignedPinCodes, HttpSession session) {
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        if (!isAdmin(session)) {
+            res.put("success", false); res.put("message", "Unauthorized");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
+        if (db == null) {
+            res.put("success", false); res.put("message", "Delivery boy not found");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // Update PIN codes
+        String pins = assignedPinCodes != null ? assignedPinCodes.trim() : "";
+        db.setAssignedPinCodes(pins);
+        deliveryBoyRepository.save(db);
+
+        res.put("success", true);
+        res.put("message", "PIN codes updated for " + db.getName());
+        res.put("oldPins", assignedPinCodes);
+        res.put("newPins", pins);
+        return ResponseEntity.ok(res);
+    }
+
+    // ── Verify all delivery boys (make them eligible for assignment) ─
+
+    public ResponseEntity<Map<String, Object>> verifyAllDeliveryBoys(HttpSession session) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        if (!isAdmin(session)) {
+            res.put("success", false); res.put("message", "Unauthorized");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        List<DeliveryBoy> boys = deliveryBoyRepository.findByActiveTrue();
+        int updated = 0;
+        for (DeliveryBoy b : boys) {
+            if (!b.isVerified()) {
+                b.setVerified(true);
+                deliveryBoyRepository.save(b);
+                updated++;
+            }
+        }
+
+        res.put("success", true);
+        res.put("message", "Verified " + updated + " delivery boys for assignment eligibility");
+        res.put("updated", updated);
         return ResponseEntity.ok(res);
     }
 

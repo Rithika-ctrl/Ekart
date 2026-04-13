@@ -1,13 +1,11 @@
 package com.example.ekart.controller;
 
 // ================================================================
-// UPDATED FILE: src/main/java/com/example/ekart/controller/DeliveryAdminController.java
-// REPLACE your existing file.
+// DeliveryAdminController.java
+// Admin delivery management endpoints.
 //
-// New endpoints added:
-//   POST /admin/delivery/order/pack       → mark order as PACKED (triggers auto-assign)
-//   GET  /admin/delivery/auto-assign/logs → view auto-assignment history
-//   GET  /admin/delivery/boys/load        → view delivery boy load (active orders count)
+// Note: Only vendors can mark orders as PACKED through their vendor panel.
+// Admins can only assign delivery boys to already-packed orders.
 // ================================================================
 
 import com.example.ekart.service.DeliveryAdminService;
@@ -20,6 +18,7 @@ import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 @Controller
 public class DeliveryAdminController {
@@ -113,16 +112,18 @@ public class DeliveryAdminController {
     }
 
     /**
-     * Admin marks an order as PACKED.
-     * This is the primary trigger for auto-assignment:
-     * the system immediately tries to find an online delivery boy
-     * covering the order's pin code with a free slot.
+     * DEPRECATED: Admin cannot mark orders as packed.
+     * Only vendors can mark their orders as PACKED.
+     * This endpoint now returns an access denied error.
      */
     @PostMapping("/admin/delivery/order/pack")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> markOrderPacked(
             @RequestParam int orderId, HttpSession session) {
-        return deliveryAdminService.markOrderPacked(orderId, session);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", false);
+        res.put("message", "Admins cannot mark orders as packed. Only vendors can do this through their vendor panel.");
+        return ResponseEntity.status(403).body(res);
     }
 
     // ── Auto-Assign Monitoring (Admin) ────────────────────────────
@@ -166,5 +167,31 @@ public class DeliveryAdminController {
             @RequestParam(required = false, defaultValue = "") String adminNote,
             HttpSession session) {
         return deliveryBoyService.rejectWarehouseChange(requestId, adminNote, session);
+    }
+
+    // ── Update Delivery Boy PIN Codes ─────────────────────────────
+
+    /**
+     * Admin updates a delivery boy's assigned PIN codes.
+     * Comma-separated list or "all" for all regions.
+     */
+    @PostMapping("/admin/delivery/boy/{id}/pins")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateDeliveryBoyPins(
+            @PathVariable int id,
+            @RequestParam String assignedPinCodes,
+            HttpSession session) {
+        return deliveryAdminService.updateDeliveryBoyPinCodes(id, assignedPinCodes, session);
+    }
+
+    /**
+     * POST /admin/delivery/verify-all
+     * Make all active delivery boys eligible for assignment by marking them as verified.
+     * Used to fix issues where existing boys can't be assigned due to verification status.
+     */
+    @PostMapping("/admin/delivery/verify-all")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> verifyAllDeliveryBoys(HttpSession session) {
+        return deliveryAdminService.verifyAllDeliveryBoys(session);
     }
 }
