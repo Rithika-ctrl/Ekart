@@ -41,7 +41,19 @@ public class UserActivityController {
     }
 
     @GetMapping("/user/{userId}")
-    public List<UserActivity> getUserActivities(@PathVariable Long userId) {
-        return userActivityRepository.findTop20ByUserIdOrderByTimestampDesc(userId);
+    public ResponseEntity<Map<String, Object>> getUserActivities(@PathVariable Long userId) {
+        Map<String, Object> res = new java.util.HashMap<>();
+        try {
+            List<UserActivity> activities = userActivityRepository.findTop20ByUserIdOrderByTimestampDesc(userId);
+            res.put("success", true);
+            res.put("activities", activities);
+            res.put("count", activities.size());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Error retrieving activities: " + e.getMessage());
+            res.put("activities", new java.util.ArrayList<>());
+            return ResponseEntity.ok(res);
+        }
     }
 }

@@ -55,6 +55,12 @@ export default function DeliveryApp() {
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
+  // COD Payment Collection Modal
+  const [codPaymentModal, setCodPaymentModal] = useState(null); // { orderId, totalAmount }
+  const [codPaymentStatus, setCodPaymentStatus] = useState(null); // 'COLLECTED' | 'FAILED' | 'PARTIAL'
+  const [codCashCollected, setCodCashCollected] = useState("");
+  const [confirmingCodDelivery, setConfirmingCodDelivery] = useState(false);
+
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
 
   const sanitizePhone = (p) => (p || "").toString().replace(/\D/g, "");
@@ -283,8 +289,56 @@ export default function DeliveryApp() {
         body: JSON.stringify({ otp, photo: deliveryPhotos[orderId] })
       });
       showToast(d?.message || "✓ Delivery confirmed with photo", d?.success);
-      if (d?.success) setTimeout(load, 1800);
+      if (d?.success) {
+        // Check if order is COD - trigger payment modal
+        const order = outNow.find(o => o.id === orderId);
+        if (order && order.isCod) {
+          setCodPaymentModal({ orderId, totalAmount: order.totalPrice || order.amount });
+          setCodPaymentStatus(null);
+          setCodCashCollected("");
+        }
+        setTimeout(load, 1800);
+      }
     } catch { showToast("Request failed. Try again.", false); }
+  };
+
+  const handleCodPaymentConfirmation = async () => {
+    if (!codPaymentModal) return;
+    if (!codPaymentStatus) {
+      showToast("Select payment status (Collected/Failed)", false);
+      return;
+    }
+    if (codPaymentStatus === 'COLLECTED' && !codCashCollected.trim()) {
+      showToast("Enter amount collected from customer", false);
+      return;
+    }
+    const amountCollected = codPaymentStatus === 'COLLECTED' ? parseFloat(codCashCollected) || 0 : 0;
+    if (amountCollected && amountCollected > codPaymentModal.totalAmount * 1.1) {
+      showToast("⚠️ Amount collected exceeds total. Please verify.", false);
+      return;
+    }
+    try {
+      setConfirmingCodDelivery(true);
+      const d = await api(`/delivery/confirm`, {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: codPaymentModal.orderId,
+          codStatus: codPaymentStatus,
+          amountCollected: amountCollected
+        })
+      });
+      showToast(d?.message || "✅ Payment collection recorded", d?.success);
+      if (d?.success) {
+        setCodPaymentModal(null);
+        setCodPaymentStatus(null);
+        setCodCashCollected("");
+        setTimeout(load, 1500);
+      }
+    } catch (err) {
+      showToast("Failed to record payment. Try again.", false);
+    } finally {
+      setConfirmingCodDelivery(false);
+    }
   };
 
   const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
@@ -845,6 +899,103 @@ export default function DeliveryApp() {
         )}
 
         {/* Hidden File Inputs for Photo Capture */}
+        {/* COD Payment Modal */}
+        {codPaymentModal && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget && !confirmingCodDelivery) setCodPaymentModal(null); }}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dk-animation">
+              <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <i className="fas fa-money-bill-wave text-amber-600" /> COD Payment Collection
+              </h2>
+              <p className="text-sm text-gray-600 mb-5">
+                Order #{codPaymentModal.orderId} • Amount: <span className="font-bold text-lg text-amber-600">{fmt(codPaymentModal.totalAmount)}</span>
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-900 uppercase mb-2">Payment Status *</label>
+                  <div className="flex gap-2">
+                    <button
+                      className={`flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition ${
+                        codPaymentStatus === 'COLLECTED'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      onClick={() => setCodPaymentStatus('COLLECTED')}
+                      disabled={confirmingCodDelivery}
+                    >
+                      <i className="fas fa-check-circle mr-2" /> Collected
+                    </button>
+                    <button
+                      className={`flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition ${
+                        codPaymentStatus === 'FAILED'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      onClick={() => setCodPaymentStatus('FAILED')}
+                      disabled={confirmingCodDelivery}
+                    >
+                      <i className="fas fa-times-circle mr-2" /> Failed
+                    </button>
+                  </div>
+                </div>
+
+                {codPaymentStatus === 'COLLECTED' && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-900 uppercase mb-2">Amount Collected from Customer *</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-lg font-bold text-amber-600">₹</span>
+                      <input
+                        type="number"
+                        className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-gray-900 focus:border-amber-600 focus:ring-2 focus:ring-amber-100 outline-none transition"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value={codCashCollected}
+                        onChange={e => setCodCashCollected(e.target.value)}
+                        disabled={confirmingCodDelivery}
+                      />
+                    </div>
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-600">
+                      Expected: {fmt(codPaymentModal.totalAmount)}
+                    </div>
+                  </div>
+                )}
+
+                {codPaymentStatus === 'FAILED' && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <i className="fas fa-exclamation-triangle mr-2" />
+                      This will be marked as failed collection. You can retry later.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
+                  onClick={() => { if (!confirmingCodDelivery) setCodPaymentModal(null); }}
+                  disabled={confirmingCodDelivery}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition disabled:opacity-50"
+                  onClick={handleCodPaymentConfirmation}
+                  disabled={!codPaymentStatus || confirmingCodDelivery}
+                >
+                  {confirmingCodDelivery ? (
+                    <><i className="fas fa-spinner fa-spin mr-2" /> Saving...</>
+                  ) : (
+                    <><i className="fas fa-save mr-2" /> Save Record</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Photo inputs */}
         <input
           ref={cameraInputRef}
           type="file"

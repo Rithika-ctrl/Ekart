@@ -29,6 +29,19 @@ export function useTheme() { return useContext(ThemeContext); }
 
 const AUTH_KEY = "ekart_auth";
 const THEME_KEY = "ekart_theme";
+const TAB_ID_KEY = "ekart_tab_id"; // Unique identifier per tab
+
+// Generate or retrieve unique tab ID to keep sessions separate across tabs
+function getTabId() {
+  let tabId = sessionStorage.getItem(TAB_ID_KEY);
+  if (!tabId) {
+    tabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    sessionStorage.setItem(TAB_ID_KEY, tabId);
+  }
+  return tabId;
+}
+
+const tabId = getTabId();
 
 const THEMES = {
   light: {
@@ -104,19 +117,20 @@ function applyTheme(theme) {
  *
  * Priority order:
  *  1. sessionStorage – tab-specific, written on normal login (cleared when tab is closed)
- *  2. localStorage  – shared across tabs, written when user checked "Remember me"
- *  3. null           – user is not authenticated
+ *  2. localStorage (with tab ID) – tab-isolated, persists on "Remember me"
+ *  3. null – user is not authenticated
  *
- * sessionStorage has priority because it's per-tab and won't conflict with other tabs.
+ * Each tab has a unique ID to prevent cross-tab auth conflicts.
  */
 function readAuth() {
   try {
-    // Always check sessionStorage first (tab-specific)
+    // Always check sessionStorage first (tab-specific, cleared on tab close)
     const ss = sessionStorage.getItem(AUTH_KEY);
     if (ss) return JSON.parse(ss);
     
-    // Fall back to localStorage only if sessionStorage is empty
-    const ls = localStorage.getItem(AUTH_KEY);
+    // Fall back to tab-isolated localStorage (tab-specific storage with tab ID prefix)
+    const tabAuthKey = `${AUTH_KEY}_${tabId}`;
+    const ls = localStorage.getItem(tabAuthKey);
     if (ls) return JSON.parse(ls);
   } catch { /* corrupted storage — treat as logged out */ }
   return null;
@@ -124,10 +138,11 @@ function readAuth() {
 
 /**
  * Persists auth state according to the rememberMe flag:
- *  - rememberMe=true  → localStorage (persists across browser restarts, shared across tabs)
- *  - rememberMe=false → sessionStorage (tab-specific, cleared on tab close)
+ *  - rememberMe=true  → tab-isolated localStorage (persists this tab across restarts)
+ *  - rememberMe=false → sessionStorage (cleared on tab close)
  *
- * Always write to sessionStorage as well to ensure immediate tab-specific state.
+ * Always write to sessionStorage to ensure immediate state, and use tab ID in localStorage
+ * to ensure each tab maintains its own session even with "Remember me" checked.
  */
 function writeAuth(user, rememberMe) {
   try {
@@ -135,11 +150,13 @@ function writeAuth(user, rememberMe) {
     sessionStorage.setItem(AUTH_KEY, JSON.stringify(user));
     
     if (rememberMe) {
-      // Also persist to localStorage for cross-session persistence
-      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+      // Store in localStorage with tab ID to keep tabs isolated
+      const tabAuthKey = `${AUTH_KEY}_${tabId}`;
+      localStorage.setItem(tabAuthKey, JSON.stringify(user));
     } else {
-      // Clear localStorage to avoid stale state
-      localStorage.removeItem(AUTH_KEY);
+      // Clear tab-specific localStorage entry
+      const tabAuthKey = `${AUTH_KEY}_${tabId}`;
+      localStorage.removeItem(tabAuthKey);
     }
   } catch { /* storage unavailable (private mode quota) — in-memory only */ }
 }
@@ -147,7 +164,8 @@ function writeAuth(user, rememberMe) {
 /** Clears auth from both storages unconditionally. */
 function clearAuth() {
   try {
-    localStorage.removeItem(AUTH_KEY);
+    const tabAuthKey = `${AUTH_KEY}_${tabId}`;
+    localStorage.removeItem(tabAuthKey);
     sessionStorage.removeItem(AUTH_KEY);
   } catch { /* ignore */ }
 }

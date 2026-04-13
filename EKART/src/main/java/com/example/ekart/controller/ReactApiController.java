@@ -6889,6 +6889,115 @@ public class ReactApiController {
     }
 
     /**
+     * POST /api/react/delivery/confirm
+     * Records COD payment collection by delivery boy.
+     * Expects: { orderId, codStatus: 'COLLECTED'|'FAILED', amountCollected: number }
+     * Auth: JWT Bearer token
+     */
+    @PostMapping("/delivery/confirm")
+    public ResponseEntity<Map<String, Object>> confirmCodPayment(
+            HttpServletRequest request,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
+        if (deliveryId == null) {
+            res.put("success", false);
+            res.put("message", "Authentication failed: No valid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
+        if (db == null) {
+            res.put("success", false);
+            res.put("message", "Delivery boy not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        Integer orderId = null;
+        try {
+            orderId = ((Number) body.get("orderId")).intValue();
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Invalid orderId");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            res.put("success", false);
+            res.put("message", "Order not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
+            res.put("success", false);
+            res.put("message", "This order is not assigned to you");
+            return ResponseEntity.status(403).body(res);
+        }
+
+        // Check if it's a COD order
+        if (order.getPaymentMode() == null || (!order.getPaymentMode().equalsIgnoreCase("COD") && !order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"))) {
+            res.put("success", false);
+            res.put("message", "This is not a COD order");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        String codStatus = (String) body.get("codStatus");
+        if (codStatus == null || (!codStatus.equals("COLLECTED") && !codStatus.equals("FAILED"))) {
+            res.put("success", false);
+            res.put("message", "Invalid codStatus. Must be COLLECTED or FAILED");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        try {
+            // Set COD collection status
+            order.setCodCollectionStatus(CodCollectionStatus.valueOf(codStatus));
+            order.setCodCollectionTimestamp(java.time.LocalDateTime.now());
+
+            if ("COLLECTED".equals(codStatus)) {
+                Double amountCollected = null;
+                try {
+                    Object amt = body.get("amountCollected");
+                    if (amt instanceof Number) {
+                        amountCollected = ((Number) amt).doubleValue();
+                    }
+                } catch (Exception e) {
+                    // amountCollected remains null, which is okay
+                }
+                
+                if (amountCollected != null && amountCollected > 0) {
+                    order.setCodAmountCollected(amountCollected);
+                }
+            }
+
+            orderRepository.save(order);
+
+            // Create tracking event log for audit
+            TrackingEventLog log = new TrackingEventLog(
+                    order,
+                    TrackingStatus.DELIVERED,
+                    "COD Payment - " + codStatus,
+                    codStatus.equals("COLLECTED") 
+                        ? "Payment collected: ₹" + order.getCodAmountCollected() 
+                        : "Payment collection failed",
+                    "delivery_boy");
+            trackingEventLogRepository.save(log);
+
+            res.put("success", true);
+            res.put("message", "✅ COD payment collection recorded: " + codStatus);
+            res.put("codStatus", order.getCodCollectionStatus());
+            res.put("amountCollected", order.getCodAmountCollected());
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Failed to record payment: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
      * GET /api/react/delivery/warehouses
      * Returns all active warehouses for the transfer-request dropdown.
      * Auth: JWT Bearer token

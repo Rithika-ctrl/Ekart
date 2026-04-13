@@ -42,6 +42,11 @@ export default function AdminApp() {
   const [activityFilter, setActivityFilter] = useState("all");
   const [deprecationReport, setDeprecationReport] = useState(null);
   const [deprecationSummary, setDeprecationSummary] = useState(null);
+  const [settlements, setSettlements] = useState([]);
+  const [settlementMonth, setSettlementMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -143,6 +148,13 @@ export default function AdminApp() {
   }, [page, auth]);
   
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
+  useEffect(() => {
+    if (page === "settlement") {
+      api(`/admin/settlements?month=${settlementMonth}`).then(d => {
+        if (d.success) setSettlements(d.settlements || []);
+      }).catch(err => console.error("Error loading settlements:", err));
+    }
+  }, [page, settlementMonth, api]);
 
   const [policies, setPolicies] = useState([]);
 
@@ -240,6 +252,7 @@ export default function AdminApp() {
     { key: "refunds",    label: `💸 Refunds${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ""}` },
     { key: "reviews",    label: "⭐ Reviews" },
     { key: "analytics",  label: "📈 Analytics" },
+    { key: "settlement", label: "💼 Settlement" },
     { key: "usersearch", label: "🔍 User Search" },
     { key: "user-activity", label: "📝 User Activity" },
     { key: "policies",   label: "📜 Policies" },
@@ -279,6 +292,7 @@ export default function AdminApp() {
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
           {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
+          {page === "settlement" && <SettlementAdmin settlements={settlements} month={settlementMonth} setMonth={setSettlementMonth} api={api} showToast={show} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
           {page === "user-activity" && <UserActivityAdmin customers={userActivities.customers} activityCache={activityCache} setActivityCache={setActivityCache} selectedUserId={selectedActivityUserId} setSelectedUserId={setSelectedActivityUserId} activityFilter={activityFilter} setActivityFilter={setActivityFilter} showToast={show} />}
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
@@ -4906,14 +4920,15 @@ function UserActivityAdmin({ customers = [], activityCache, setActivityCache, se
     setActivityLoading(true);
     try {
       const res = await fetch(`/api/user-activity/user/${userId}`);
-      const activities = await res.json();
-      const actList = Array.isArray(activities) ? activities : [];
+      const data = await res.json();
+      const actList = data.success && Array.isArray(data.activities) ? data.activities : [];
       setActivityCache(prev => ({ ...prev, [userId]: actList }));
 
       // Extract all unique action types for filter
       const types = [...new Set(actList.map(a => a.actionType).filter(Boolean))];
       setAllActionTypes(types.length > allActionTypes.length ? types : allActionTypes);
     } catch (e) {
+      console.error("Error loading activities:", e);
       showToast("Failed to load activities");
       setActivityCache(prev => ({ ...prev, [userId]: [] }));
     }
@@ -5103,6 +5118,154 @@ function UserActivityAdmin({ customers = [], activityCache, setActivityCache, se
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SettlementAdmin({ settlements = [], month, setMonth, api, showToast }) {
+  const [processing, setProcessing] = useState(false);
+  const [processedMonth, setProcessedMonth] = useState(null);
+
+  const handleMonthChange = (e) => {
+    setMonth(e.target.value);
+  };
+
+  const processSettlement = async () => {
+    if (!window.confirm(`Process settlement for ${month}? This will finalize COD collections and salary payments.`)) return;
+    setProcessing(true);
+    try {
+      const response = await api(`/admin/settlements/process?month=${month}`, { method: "POST" });
+      if (response.success) {
+        showToast("✅ Settlement processed successfully");
+        setProcessedMonth(month);
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        showToast(response.message || "Failed to process settlement");
+      }
+    } catch (err) {
+      showToast("Error processing settlement");
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const totalCollection = settlements.reduce((sum, s) => sum + (s.totalCodCollected || 0), 0);
+  const totalFailedAmount = settlements.reduce((sum, s) => sum + (s.failedCollectionAmount || 0), 0);
+  const totalSalary = settlements.length * 5000; // Fixed ₹5000 salary per delivery boy
+  const totalPayout = totalSalary;
+
+  const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0d0d0d", margin: 0 }}>💼 Monthly Settlement</h2>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <input
+            type="month"
+            value={month}
+            onChange={handleMonthChange}
+            disabled={processing}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              fontSize: 14,
+              fontFamily: "inherit",
+              cursor: processing ? "not-allowed" : "pointer",
+            }}
+          />
+          <button
+            onClick={processSettlement}
+            disabled={processing || settlements.length === 0}
+            style={{
+              padding: "9px 18px",
+              background: processing ? "#9ca3af" : "#10b981",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: processing || settlements.length === 0 ? "not-allowed" : "pointer",
+              transition: "0.2s",
+            }}
+          >
+            {processing ? "Processing..." : "Process Settlement"}
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>TOTAL COD COLLECTION</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#10b981" }}>{fmt(totalCollection)}</div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>{settlements.length} delivery boy{settlements.length !== 1 ? "s" : ""}</div>
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>FAILED COLLECTIONS</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#ef4444" }}>{fmt(totalFailedAmount)}</div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>From {settlements.reduce((sum, s) => sum + (s.failedCount || 0), 0)} orders</div>
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>TOTAL SALARY EXPENSE</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#3b82f6" }}>{fmt(totalSalary)}</div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>Fixed ₹5000/delivery boy</div>
+        </div>
+      </div>
+
+      {/* Settlements Table */}
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "auto", background: "#fff", marginBottom: 20 }}>
+        {settlements.length === 0 ? (
+          <div style={{ padding: "40px 20px", textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+            No settlement data for {month}
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 700, color: "#4b5563" }}>Delivery Boy</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>COD Orders</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Collected</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Failed</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Salary</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Total Payout</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.map((s, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "12px 16px", color: "#0d0d0d", fontWeight: 600 }}>{s.deliveryBoyName || `DB-${s.deliveryBoyId}`}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#6b7280" }}>{s.codOrderCount || 0}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#10b981", fontWeight: 600 }}>{fmt(s.totalCodCollected || 0)}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#ef4444" }}>{fmt(s.failedCollectionAmount || 0)}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#3b82f6", fontWeight: 600 }}>₹5000</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#0d0d0d", fontWeight: 700 }}>{fmt((s.totalCodCollected || 0) + 5000)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Total Row */}
+      {settlements.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, padding: "16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, fontSize: 13 }}>
+          <div>
+            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Total Collection (Deposited)</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981" }}>{fmt(totalCollection)}</div>
+          </div>
+          <div>
+            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Total Salary Payout</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#3b82f6" }}>{fmt(totalSalary)}</div>
+          </div>
+          <div>
+            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Net Settlement</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#0d0d0d" }}>{fmt(totalCollection - totalSalary)}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
