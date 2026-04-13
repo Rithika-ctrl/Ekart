@@ -544,6 +544,23 @@ export default function DeliveryApp() {
                           <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
                           <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
                         </div>
+                        
+                        {/* Payment Mode Badge */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${
+                            order.isCod
+                              ? 'bg-red-100 text-red-700 border border-red-300'
+                              : 'bg-green-100 text-green-700 border border-green-300'
+                          }`}>
+                            {order.isCod ? '💵 COD' : '✓ Prepaid'}
+                          </span>
+                          {order.isCod && (
+                            <span className="text-xs font-bold text-red-600">
+                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </span>
+                          )}
+                        </div>
+                        
                         <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
                         <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (
@@ -605,6 +622,23 @@ export default function DeliveryApp() {
                           <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
                           <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
                         </div>
+                        
+                        {/* Payment Mode Badge */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${
+                            order.isCod
+                              ? 'bg-red-100 text-red-700 border border-red-300'
+                              : 'bg-green-100 text-green-700 border border-green-300'
+                          }`}>
+                            {order.isCod ? '💵 COD' : '✓ Prepaid'}
+                          </span>
+                          {order.isCod && (
+                            <span className="text-xs font-bold text-red-600">
+                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </span>
+                          )}
+                        </div>
+                        
                         <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
                         <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (

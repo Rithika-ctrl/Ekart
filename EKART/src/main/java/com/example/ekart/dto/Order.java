@@ -141,6 +141,32 @@ public class Order {
     @JoinColumn(name = "vendor_id")
     private Vendor vendor;
 
+    // ─── COD (CASH ON DELIVERY) PAYMENT TRACKING ──────────────────
+
+    /**
+     * COD Collection Status: tracks payment collection state for cash orders.
+     * PENDING: Order awaiting cash collection at delivery
+     * COLLECTED: Cash collected successfully from customer
+     * FAILED: Payment collection failed (customer refused / payment issue)
+     * NOT_APPLICABLE: Order is online payment (no COD needed)
+     */
+    @Column(name = "cod_collection_status", length = 30)
+    @Enumerated(EnumType.STRING)
+    private CodCollectionStatus codCollectionStatus = CodCollectionStatus.NOT_APPLICABLE;
+
+    /**
+     * For COD orders: actual cash amount collected from customer at delivery.
+     * 0 = not yet collected / online payment order.
+     */
+    @Column(name = "cod_amount_collected", columnDefinition = "FLOAT8 DEFAULT 0")
+    private double codAmountCollected = 0;
+
+    /**
+     * Timestamp when COD payment was collected (for online payment, remains null).
+     */
+    @Column(name = "cod_collection_timestamp", nullable = true)
+    private LocalDateTime codCollectionTimestamp;
+
     // ─── Getters & Setters ────────────────────────────────────────
 
     public int getId() { return id; }
@@ -213,4 +239,13 @@ public class Order {
 
     public Vendor getVendor() { return vendor; }
     public void setVendor(Vendor vendor) { this.vendor = vendor; }
+
+    public CodCollectionStatus getCodCollectionStatus() { return codCollectionStatus; }
+    public void setCodCollectionStatus(CodCollectionStatus codCollectionStatus) { this.codCollectionStatus = codCollectionStatus; }
+
+    public double getCodAmountCollected() { return codAmountCollected; }
+    public void setCodAmountCollected(double codAmountCollected) { this.codAmountCollected = codAmountCollected; }
+
+    public LocalDateTime getCodCollectionTimestamp() { return codCollectionTimestamp; }
+    public void setCodCollectionTimestamp(LocalDateTime codCollectionTimestamp) { this.codCollectionTimestamp = codCollectionTimestamp; }
 }

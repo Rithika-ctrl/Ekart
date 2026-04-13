@@ -1152,6 +1152,12 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
   const [editingPins, setEditingPins] = useState("");
   const [savingPins, setSavingPins] = useState(false);
 
+  // ── COD Delivery Confirmation ──────────────────────────────────
+  const [codConfirmModal, setCodConfirmModal] = useState(null); // { orderId, isCod, totalAmount }
+  const [codAmountCollected, setCodAmountCollected] = useState("");
+  const [codStatus, setCodStatus] = useState("COLLECTED");
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+
   const openEditPinsModal = (boy) => {
     setEditingBoyId(boy.id);
     setEditingBoyName(boy.name);
@@ -1185,6 +1191,46 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
       console.error(e);
     } finally {
       setSavingPins(false);
+    }
+  };
+
+  // ── COD Delivery Confirmation ──────────────────────────────────
+  const confirmDelivery = async (orderId, isCod, totalAmount) => {
+    if (isCod && !codAmountCollected.trim()) {
+      showToast("Please enter the amount collected or select payment status", false);
+      return;
+    }
+    
+    setConfirmingDelivery(true);
+    try {
+      const body = {
+        orderId,
+        codStatus,
+      };
+      if (isCod) {
+        body.amountCollected = parseFloat(codAmountCollected) || totalAmount;
+      }
+      
+      const res = await api("/admin/delivery/confirm", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+      
+      if (res.success) {
+        showToast(`✓ ${res.message}`);
+        setCodConfirmModal(null);
+        setCodAmountCollected("");
+        setCodStatus("COLLECTED");
+        // Refresh data
+        window.location.reload();
+      } else {
+        showToast(`❌ ${res.message || "Failed to confirm delivery"}`);
+      }
+    } catch (e) {
+      showToast("❌ Error confirming delivery: " + e.message);
+      console.error(e);
+    } finally {
+      setConfirmingDelivery(false);
     }
   };
 
@@ -1390,9 +1436,10 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           ✓ You can assign orders to any delivery boy. 🟢 indicates Online, 🔴 indicates Offline. Orders will appear in their app when they come online.
         </div>
         <AdminTable
-          cols={["Order", "Customer", "Pin", "Warehouse", "Amount", "Assign To", ""]}
+          cols={["Order", "Customer", "Pin", "Warehouse", "Amount", "Payment", "Assign To", ""]}
           rows={(packedOrders || []).map(order => {
             const eligible = (eligibleMap[order.id] || []);
+            const isCod = order.paymentMode === "COD" || order.paymentMode === "Cash on Delivery";
             return [
               <div>
                 <span style={{ fontWeight: 700, color: "#d4a017" }}>#{order.id}</span>
@@ -1405,6 +1452,9 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
               <span style={{ color: "rgba(13,13,13,0.5)", fontSize: 13 }}>{order.deliveryPinCode || "N/A"}</span>,
               order.warehouse ? order.warehouse.name : <span style={{ color: "#dc2626", fontSize: 12 }}>Not assigned</span>,
               <span style={{ fontWeight: 600, color: "#16a34a" }}>₹{Number(order.amount || order.totalPrice || 0).toLocaleString("en-IN")}</span>,
+              <span style={{ ...as.badge, background: isCod ? "rgba(220,38,38,0.15)" : "rgba(34,197,94,0.15)", color: isCod ? "#dc2626" : "#16a34a", fontSize: 11, fontWeight: 600 }}>
+                {isCod ? "💵 COD" : "✓ Prepaid"}
+              </span>,
               <select style={{ ...inputStyle, minWidth: 180 }}
                 value={selectMap[order.id] || ""}
                 onChange={e => setSelectMap(prev => ({ ...prev, [order.id]: e.target.value }))}>
@@ -1428,22 +1478,48 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           <h3 style={{ ...as.cardTitle, margin: 0 }}>In Progress</h3>
         </div>
         <AdminTable
-          cols={["Order", "Customer", "Pin", "Delivery Boy", "Status"]}
+          cols={["Order", "Customer", "Pin", "Delivery Boy", "Status", "Payment", "Action"]}
           rows={[
-            ...(shippedOrders || []).map(o => [
-              <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
-              o.customer?.name || "—",
-              o.deliveryPinCode || "—",
-              o.deliveryBoy?.name || "—",
-              <span style={{ ...as.badge, background: "rgba(99,179,237,0.15)", color: "#63b3ed" }}>SHIPPED</span>
-            ]),
-            ...(outOrders || []).map(o => [
-              <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
-              o.customer?.name || "—",
-              o.deliveryPinCode || "—",
-              o.deliveryBoy?.name || "—",
-              <span style={{ ...as.badge, background: "rgba(22,163,74,0.15)", color: "#16a34a" }}>OUT FOR DELIVERY</span>
-            ])
+            ...(shippedOrders || []).map(o => {
+              const isCod = o.paymentMode === "COD" || o.paymentMode === "Cash on Delivery";
+              const totalAmount = o.totalPrice + o.deliveryCharge;
+              return [
+                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
+                o.customer?.name || "—",
+                o.deliveryPinCode || "—",
+                o.deliveryBoy?.name || "—",
+                <span style={{ ...as.badge, background: "rgba(99,179,237,0.15)", color: "#63b3ed" }}>SHIPPED</span>,
+                <span style={{ ...as.badge, background: isCod ? "rgba(220,38,38,0.15)" : "rgba(34,197,94,0.15)", color: isCod ? "#dc2626" : "#16a34a", fontSize: 11 }}>
+                  {isCod ? "💵 COD" : "✓ Paid"}
+                </span>,
+                <button 
+                  style={{ ...as.approveBtn, fontSize: 11, padding: "4px 8px" }}
+                  onClick={() => setCodConfirmModal({ orderId: o.id, isCod, totalAmount })}
+                >
+                  ✓ Delivered
+                </button>
+              ];
+            }),
+            ...(outOrders || []).map(o => {
+              const isCod = o.paymentMode === "COD" || o.paymentMode === "Cash on Delivery";
+              const totalAmount = o.totalPrice + o.deliveryCharge;
+              return [
+                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
+                o.customer?.name || "—",
+                o.deliveryPinCode || "—",
+                o.deliveryBoy?.name || "—",
+                <span style={{ ...as.badge, background: "rgba(22,163,74,0.15)", color: "#16a34a" }}>OUT FOR DELIVERY</span>,
+                <span style={{ ...as.badge, background: isCod ? "rgba(220,38,38,0.15)" : "rgba(34,197,94,0.15)", color: isCod ? "#dc2626" : "#16a34a", fontSize: 11 }}>
+                  {isCod ? "💵 COD" : "✓ Paid"}
+                </span>,
+                <button 
+                  style={{ ...as.approveBtn, fontSize: 11, padding: "4px 8px" }}
+                  onClick={() => setCodConfirmModal({ orderId: o.id, isCod, totalAmount })}
+                >
+                  ✓ Delivered
+                </button>
+              ];
+            })
           ]}
           empty="No orders in transit right now."
         />
@@ -1579,6 +1655,109 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           </div>
         )}
       </div>
+
+      {/* ── COD Delivery Confirmation Modal ── */}
+      {codConfirmModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 20 }}>
+          <div style={{ background: "white", borderRadius: 12, padding: 24, maxWidth: 500, width: "100%", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 700 }}>Confirm Delivery - Order #{codConfirmModal.orderId}</h3>
+            
+            {codConfirmModal.isCod ? (
+              <div>
+                <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "rgba(13,13,13,0.6)" }}>
+                  💵 <strong>Cash on Delivery Order</strong>
+                  <br />Total amount to collect: <strong>₹{Number(codConfirmModal.totalAmount).toLocaleString("en-IN")}</strong>
+                </p>
+                
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.8)" }}>
+                    Payment Status
+                  </label>
+                  <select
+                    value={codStatus}
+                    onChange={(e) => setCodStatus(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 6,
+                      fontSize: 13
+                    }}
+                  >
+                    <option value="COLLECTED">✓ Payment Collected</option>
+                    <option value="FAILED">✕ Payment Collection Failed</option>
+                  </select>
+                </div>
+
+                {codStatus === "COLLECTED" && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.8)" }}>
+                      Amount Collected (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={codAmountCollected}
+                      onChange={(e) => setCodAmountCollected(e.target.value)}
+                      placeholder={codConfirmModal.totalAmount.toString()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 6,
+                        fontSize: 13
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ marginBottom: 12, background: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, border: "1px solid rgba(34,197,94,0.3)" }}>
+                <p style={{ margin: 0, fontSize: 13, color: "#16a34a", fontWeight: 500 }}>
+                  ✓ Prepaid Order - Payment already received online
+                </p>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setCodConfirmModal(null);
+                  setCodAmountCollected("");
+                  setCodStatus("COLLECTED");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6,
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+                disabled={confirmingDelivery}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmDelivery(codConfirmModal.orderId, codConfirmModal.isCod, codConfirmModal.totalAmount)}
+                style={{
+                  padding: "8px 16px",
+                  background: "#16a34a",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+                disabled={confirmingDelivery}
+              >
+                {confirmingDelivery ? "Confirming…" : "✓ Confirm Delivery"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── PIN Codes Edit Modal ── */}
       {editingBoyId && (

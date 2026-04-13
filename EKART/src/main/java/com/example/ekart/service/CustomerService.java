@@ -36,6 +36,7 @@ import com.example.ekart.dto.Vendor;
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.TrackingEventLog;
 import com.example.ekart.dto.TrackingStatus;
+import com.example.ekart.dto.CodCollectionStatus;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.AddressRepository;
@@ -898,6 +899,16 @@ public class CustomerService {
             // ── Calculate GST from inclusive prices ───────────────
             double subGst = GstUtil.calculateTotalGst(orderItems);
             subOrder.setGstAmount(subGst);
+
+            // ── Initialize COD Collection Status ──────────────────
+            // For COD orders: set to PENDING (awaiting collection at delivery)
+            // For online payments: set to NOT_APPLICABLE
+            String paymentMode = baseOrder.getPaymentMode() != null ? baseOrder.getPaymentMode() : "COD";
+            if (paymentMode.equalsIgnoreCase("COD") || paymentMode.equalsIgnoreCase("Cash on Delivery")) {
+                subOrder.setCodCollectionStatus(CodCollectionStatus.PENDING);
+            } else {
+                subOrder.setCodCollectionStatus(CodCollectionStatus.NOT_APPLICABLE);
+            }
 
             // Vendor metadata
             if (vendor != null) {

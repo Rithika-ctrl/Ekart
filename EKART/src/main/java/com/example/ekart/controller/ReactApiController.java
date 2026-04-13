@@ -5156,12 +5156,20 @@ public class ReactApiController {
             order.setTrackingStatus(TrackingStatus.SHIPPED);
             orderRepository.save(order);
 
+            // Determine if this is a COD order
+            boolean isCod = order.getPaymentMode() != null && 
+                           (order.getPaymentMode().equalsIgnoreCase("COD") || 
+                            order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
+
             res.put("success", true);
             res.put("message", "Order #" + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
             res.put("orderId",         orderId);
             res.put("deliveryBoyId",   db.getId());
             res.put("deliveryBoyName", db.getName());
             res.put("newStatus",       TrackingStatus.SHIPPED.name());
+            res.put("isCod",           isCod);
+            res.put("paymentMode",     order.getPaymentMode());
+            res.put("totalAmount",     order.getTotalPrice() + order.getDeliveryCharge());
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
             res.put("success", false);
@@ -5170,6 +5178,87 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Assignment failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * POST /api/react/admin/delivery/confirm
+     * Body: { orderId: int, amountCollected?: double, codStatus: "COLLECTED"|"FAILED" }
+     * Marks an order as DELIVERED and records COD payment collection (if applicable).
+     * 
+     * For COD orders:
+     *   - amountCollected: cash collected from customer
+     *   - codStatus: COLLECTED or FAILED
+     * 
+     * For online payment orders:
+     *   - Just marks as DELIVERED (codStatus ignored)
+     */
+    @PostMapping("/admin/delivery/confirm")
+    public ResponseEntity<Map<String, Object>> confirmDelivery(
+            @RequestBody Map<String, Object> body, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
+        if (_guard != null) return _guard;
+        Map<String, Object> res = new HashMap<>();
+        try {
+            int orderId = Integer.parseInt(body.get("orderId").toString());
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order == null) {
+                res.put("success", false);
+                res.put("message", "Order not found");
+                return ResponseEntity.status(404).body(res);
+            }
+
+            // Mark as delivered
+            order.setTrackingStatus(TrackingStatus.DELIVERED);
+
+            // Handle COD payment collection
+            boolean isCod = order.getPaymentMode() != null && 
+                           (order.getPaymentMode().equalsIgnoreCase("COD") || 
+                            order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
+
+            if (isCod) {
+                String codStatus = body.getOrDefault("codStatus", "COLLECTED").toString();
+                double amountCollected = body.containsKey("amountCollected") 
+                    ? Double.parseDouble(body.get("amountCollected").toString()) 
+                    : order.getTotalPrice() + order.getDeliveryCharge();
+
+                if (codStatus.equals("COLLECTED")) {
+                    order.setCodCollectionStatus(CodCollectionStatus.COLLECTED);
+                    order.setCodAmountCollected(amountCollected);
+                    order.setCodCollectionTimestamp(java.time.LocalDateTime.now());
+                    res.put("message", "Order delivered. COD amount ₹" + amountCollected + " collected.");
+                } else if (codStatus.equals("FAILED")) {
+                    order.setCodCollectionStatus(CodCollectionStatus.FAILED);
+                    res.put("message", "Order delivered. COD payment collection failed - payment still pending.");
+                }
+            } else {
+                order.setCodCollectionStatus(CodCollectionStatus.NOT_APPLICABLE);
+                res.put("message", "Order marked as delivered.");
+            }
+
+            orderRepository.save(order);
+
+            // Create tracking event
+            trackingEventLogRepository.save(new TrackingEventLog(
+                order, TrackingStatus.DELIVERED, order.getCurrentCity(),
+                isCod ? "Delivered. COD " + order.getCodCollectionStatus().getDescription() : "Delivered",
+                "system"
+            ));
+
+            res.put("success", true);
+            res.put("orderId", orderId);
+            res.put("newStatus", TrackingStatus.DELIVERED.name());
+            res.put("isCod", isCod);
+            res.put("codStatus", order.getCodCollectionStatus().name());
+            return ResponseEntity.ok(res);
+        } catch (NullPointerException | NumberFormatException e) {
+            res.put("success", false);
+            res.put("message", "Missing or invalid orderId in request body");
+            return ResponseEntity.badRequest().body(res);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Delivery confirmation failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6998,6 +7087,13 @@ public class ReactApiController {
         m.put("customerName",    o.getCustomer() != null ? o.getCustomer().getName() : null);
         // Item count summary
         m.put("itemCount",       o.getItems() != null ? o.getItems().size() : 0);
+        // Payment mode and COD info — needed for delivery boy to know payment method and collect cash if COD
+        m.put("paymentMode",     o.getPaymentMode() != null ? o.getPaymentMode() : "PREPAID");
+        m.put("deliveryCharge",  o.getDeliveryCharge());
+        m.put("totalPrice",      o.getTotalPrice());
+        m.put("isCod",           o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase("COD") || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")));
+        m.put("codCollectionStatus", o.getCodCollectionStatus() != null ? o.getCodCollectionStatus().name() : "PENDING");
+        m.put("codAmountCollected",  o.getCodAmountCollected());
         return m;
     }
 
