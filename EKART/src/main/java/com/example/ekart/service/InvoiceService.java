@@ -1,6 +1,7 @@
 package com.example.ekart.service;
 
 import com.example.ekart.dto.Order;
+import com.example.ekart.dto.Address;
 import com.example.ekart.helper.GstUtil;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.colors.ColorConstants;
@@ -99,11 +100,31 @@ public class InvoiceService {
         addressTable.addCell(billTo);
 
         // Ship To
+        String deliveryAddr = order.getDeliveryAddress();
+        if (deliveryAddr == null || deliveryAddr.trim().isEmpty()) {
+            deliveryAddr = "N/A";
+            if (order.getCustomer() != null && order.getCustomer().getAddresses() != null && !order.getCustomer().getAddresses().isEmpty()) {
+                com.example.ekart.dto.Address addr = order.getCustomer().getAddresses().get(order.getCustomer().getAddresses().size() - 1);
+                StringBuilder sb = new StringBuilder();
+                if (addr.getRecipientName() != null && !addr.getRecipientName().isBlank())
+                    sb.append(addr.getRecipientName()).append("\n");
+                if (addr.getHouseStreet() != null && !addr.getHouseStreet().isBlank())
+                    sb.append(addr.getHouseStreet()).append(", ");
+                if (addr.getCity() != null && !addr.getCity().isBlank())
+                    sb.append(addr.getCity());
+                if (addr.getState() != null && !addr.getState().isBlank())
+                    sb.append(", ").append(addr.getState());
+                if (addr.getPostalCode() != null && !addr.getPostalCode().isBlank())
+                    sb.append(" - ").append(addr.getPostalCode());
+                String snap = sb.toString().trim().replaceAll("[,\\s]+$", "");
+                if (!snap.isEmpty()) deliveryAddr = snap;
+            }
+        }
         Cell shipTo = new Cell()
                 .setBorder(new SolidBorder(1))
                 .setPadding(8)
                 .add(new Paragraph("SHIP TO").setFont(headerFont).setFontSize(10))
-                .add(new Paragraph(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "N/A")
+                .add(new Paragraph(deliveryAddr)
                         .setFont(normalFont).setFontSize(9));
         addressTable.addCell(shipTo);
 
@@ -148,13 +169,19 @@ public class InvoiceService {
         document.add(itemsTable);
         document.add(new Paragraph("\n"));
 
+        // ─── Calculate GST dynamically from items if not stored ─────────────────
+        double gstTotal = order.getGstAmount();
+        if (gstTotal <= 0 && order.getItems() != null && !order.getItems().isEmpty()) {
+            gstTotal = GstUtil.calculateTotalGst(order.getItems());
+        }
+
         // ─── Totals Section ───────────────────────────────────────────────────
         Table totalsTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}));
         totalsTable.setWidth(UnitValue.createPercentValue(100));
         totalsTable.setHorizontalAlignment(HorizontalAlignment.RIGHT);
 
         addTotalRow(totalsTable, "Subtotal (before GST):", "₹" + String.format("%.2f", subTotalBeforeGST), normalFont);
-        addTotalRow(totalsTable, "GST (Total):", "₹" + String.format("%.2f", order.getGstAmount()), normalFont);
+        addTotalRow(totalsTable, "GST (Total):", "₹" + String.format("%.2f", gstTotal), normalFont);
         addTotalRow(totalsTable, "Delivery Charges:", "₹" + String.format("%.2f", order.getDeliveryCharge()), normalFont);
 
         Cell finalTotalCell = new Cell()

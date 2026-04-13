@@ -1050,11 +1050,12 @@ export default function CustomerApp() {
   const downloadInvoice = async (orderId) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to download invoice"); return; }
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ""}/api/react/orders/${orderId}/invoice`, {
+      const token = auth?.token || localStorage.getItem("token");
+      const response = await fetch(`/api/react/orders/${orderId}/invoice`, {
         method: "GET",
         headers: {
+          "Authorization": `Bearer ${token}`,
           "X-Customer-Id": auth.customerId || auth.id,
-          "Content-Type": "application/pdf",
         },
       });
 
