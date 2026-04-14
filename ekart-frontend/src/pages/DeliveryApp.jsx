@@ -55,16 +55,6 @@ export default function DeliveryApp() {
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  // COD Payment Collection Modal
-  const [codPaymentModal, setCodPaymentModal] = useState(null); // { orderId, totalAmount }
-  const [codPaymentStatus, setCodPaymentStatus] = useState(null); // 'COLLECTED' | 'FAILED' | 'PARTIAL'
-  const [codCashCollected, setCodCashCollected] = useState("");
-  const [confirmingCodDelivery, setConfirmingCodDelivery] = useState(false);
-
-  // Cash collection tracking
-  const [totalCodCollected, setTotalCodCollected] = useState(0);
-  const [currentBalance, setCurrentBalance] = useState(0);
-
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
 
   const sanitizePhone = (p) => (p || "").toString().replace(/\D/g, "");
@@ -119,20 +109,6 @@ export default function DeliveryApp() {
         setToPickUp(toPickUpOrders);
         setOutNow(outForDeliveryOrders);
         setDelivered(deliveredOrders);
-
-        // Calculate COD collections
-        // Total COD collected = all delivered orders with COLLECTED status
-        const totalCollected = deliveredOrders
-          .filter(o => o.isCod && o.codCollectionStatus === "COLLECTED")
-          .reduce((sum, o) => sum + (o.codAmountCollected || 0), 0);
-        
-        // Current balance = outForDelivery + toPickUp COD orders ready to collect
-        const pendingCollection = [...toPickUpOrders, ...outForDeliveryOrders]
-          .filter(o => o.isCod)
-          .reduce((sum, o) => sum + (o.totalPrice + o.deliveryCharge || o.amount), 0);
-        
-        setTotalCodCollected(totalCollected);
-        setCurrentBalance(pendingCollection);
       } else if (ordersResult.status === "rejected") {
         console.error("Orders load error:", ordersResult.reason);
         showToast("Failed to load orders", false);
@@ -312,55 +288,9 @@ export default function DeliveryApp() {
       });
       showToast(d?.message || "✓ Delivery confirmed with photo", d?.success);
       if (d?.success) {
-        // Check if order is COD - trigger payment modal
-        const order = outNow.find(o => o.id === orderId);
-        if (order && order.isCod) {
-          setCodPaymentModal({ orderId, totalAmount: order.totalPrice || order.amount });
-          setCodPaymentStatus(null);
-          setCodCashCollected("");
-        }
         setTimeout(load, 1800);
       }
     } catch { showToast("Request failed. Try again.", false); }
-  };
-
-  const handleCodPaymentConfirmation = async () => {
-    if (!codPaymentModal) return;
-    if (!codPaymentStatus) {
-      showToast("Select payment status (Collected/Failed)", false);
-      return;
-    }
-    if (codPaymentStatus === 'COLLECTED' && !codCashCollected.trim()) {
-      showToast("Enter amount collected from customer", false);
-      return;
-    }
-    const amountCollected = codPaymentStatus === 'COLLECTED' ? parseFloat(codCashCollected) || 0 : 0;
-    if (amountCollected && amountCollected > codPaymentModal.totalAmount * 1.1) {
-      showToast("⚠️ Amount collected exceeds total. Please verify.", false);
-      return;
-    }
-    try {
-      setConfirmingCodDelivery(true);
-      const d = await api(`/delivery/confirm`, {
-        method: "POST",
-        body: JSON.stringify({
-          orderId: codPaymentModal.orderId,
-          codStatus: codPaymentStatus,
-          amountCollected: amountCollected
-        })
-      });
-      showToast(d?.message || "✅ Payment collection recorded", d?.success);
-      if (d?.success) {
-        setCodPaymentModal(null);
-        setCodPaymentStatus(null);
-        setCodCashCollected("");
-        setTimeout(load, 1500);
-      }
-    } catch (err) {
-      showToast("Failed to record payment. Try again.", false);
-    } finally {
-      setConfirmingCodDelivery(false);
-    }
   };
 
   const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
@@ -594,31 +524,6 @@ export default function DeliveryApp() {
                 <div className="bg-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition">
                   <div className="text-3xl font-bold text-green-600 mb-2">{delivered.length}</div>
                   <div className="text-sm text-gray-600">Delivered</div>
-                </div>
-              </div>
-
-              {/* Cash Collection Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-300 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">💰 Lifetime Collected</h3>
-                    <i className="fas fa-check-circle text-green-600 text-xl" />
-                  </div>
-                  <div className="text-4xl font-bold text-green-700 mb-1">
-                    ₹{Number(totalCodCollected || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </div>
-                  <div className="text-xs text-gray-600">Total COD collected & deposited</div>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">⏳ Current Balance</h3>
-                    <i className="fas fa-clock text-amber-600 text-xl" />
-                  </div>
-                  <div className="text-4xl font-bold text-amber-700 mb-1">
-                    ₹{Number(currentBalance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </div>
-                  <div className="text-xs text-gray-600">To collect & deposit this turn</div>
                 </div>
               </div>
 
@@ -944,104 +849,7 @@ export default function DeliveryApp() {
             </div>
           </div>
         )}
-
-        {/* Hidden File Inputs for Photo Capture */}
-        {/* COD Payment Modal */}
-        {codPaymentModal && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget && !confirmingCodDelivery) setCodPaymentModal(null); }}>
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dk-animation">
-              <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <i className="fas fa-money-bill-wave text-amber-600" /> COD Payment Collection
-              </h2>
-              <p className="text-sm text-gray-600 mb-5">
-                Order #{codPaymentModal.orderId} • Amount: <span className="font-bold text-lg text-amber-600">{fmt(codPaymentModal.totalAmount)}</span>
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-900 uppercase mb-2">Payment Status *</label>
-                  <div className="flex gap-2">
-                    <button
-                      className={`flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition ${
-                        codPaymentStatus === 'COLLECTED'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                      onClick={() => setCodPaymentStatus('COLLECTED')}
-                      disabled={confirmingCodDelivery}
-                    >
-                      <i className="fas fa-check-circle mr-2" /> Collected
-                    </button>
-                    <button
-                      className={`flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition ${
-                        codPaymentStatus === 'FAILED'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                      onClick={() => setCodPaymentStatus('FAILED')}
-                      disabled={confirmingCodDelivery}
-                    >
-                      <i className="fas fa-times-circle mr-2" /> Failed
-                    </button>
-                  </div>
-                </div>
-
-                {codPaymentStatus === 'COLLECTED' && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-900 uppercase mb-2">Amount Collected from Customer *</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-lg font-bold text-amber-600">₹</span>
-                      <input
-                        type="number"
-                        className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-gray-900 focus:border-amber-600 focus:ring-2 focus:ring-amber-100 outline-none transition"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        value={codCashCollected}
-                        onChange={e => setCodCashCollected(e.target.value)}
-                        disabled={confirmingCodDelivery}
-                      />
-                    </div>
-                    <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-600">
-                      Expected: {fmt(codPaymentModal.totalAmount)}
-                    </div>
-                  </div>
-                )}
-
-                {codPaymentStatus === 'FAILED' && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      <i className="fas fa-exclamation-triangle mr-2" />
-                      This will be marked as failed collection. You can retry later.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 mt-6">
-                <button
-                  className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
-                  onClick={() => { if (!confirmingCodDelivery) setCodPaymentModal(null); }}
-                  disabled={confirmingCodDelivery}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition disabled:opacity-50"
-                  onClick={handleCodPaymentConfirmation}
-                  disabled={!codPaymentStatus || confirmingCodDelivery}
-                >
-                  {confirmingCodDelivery ? (
-                    <><i className="fas fa-spinner fa-spin mr-2" /> Saving...</>
-                  ) : (
-                    <><i className="fas fa-save mr-2" /> Save Record</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        
         {/* Photo inputs */}
         <input
           ref={cameraInputRef}

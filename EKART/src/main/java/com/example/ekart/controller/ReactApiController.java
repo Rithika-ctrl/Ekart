@@ -5184,15 +5184,8 @@ public class ReactApiController {
 
     /**
      * POST /api/react/admin/delivery/confirm
-     * Body: { orderId: int, amountCollected?: double, codStatus: "COLLECTED"|"FAILED" }
-     * Marks an order as DELIVERED and records COD payment collection (if applicable).
-     * 
-     * For COD orders:
-     *   - amountCollected: cash collected from customer
-     *   - codStatus: COLLECTED or FAILED
-     * 
-     * For online payment orders:
-     *   - Just marks as DELIVERED (codStatus ignored)
+     * Body: { orderId: int }
+     * Marks an order as DELIVERED.
      */
     @PostMapping("/admin/delivery/confirm")
     public ResponseEntity<Map<String, Object>> confirmDelivery(
@@ -5211,46 +5204,19 @@ public class ReactApiController {
 
             // Mark as delivered
             order.setTrackingStatus(TrackingStatus.DELIVERED);
-
-            // Handle COD payment collection
-            boolean isCod = order.getPaymentMode() != null && 
-                           (order.getPaymentMode().equalsIgnoreCase("COD") || 
-                            order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
-
-            if (isCod) {
-                String codStatus = body.getOrDefault("codStatus", "COLLECTED").toString();
-                double amountCollected = body.containsKey("amountCollected") 
-                    ? Double.parseDouble(body.get("amountCollected").toString()) 
-                    : order.getTotalPrice() + order.getDeliveryCharge();
-
-                if (codStatus.equals("COLLECTED")) {
-                    order.setCodCollectionStatus(CodCollectionStatus.COLLECTED);
-                    order.setCodAmountCollected(amountCollected);
-                    order.setCodCollectionTimestamp(java.time.LocalDateTime.now());
-                    res.put("message", "Order delivered. COD amount ₹" + amountCollected + " collected.");
-                } else if (codStatus.equals("FAILED")) {
-                    order.setCodCollectionStatus(CodCollectionStatus.FAILED);
-                    res.put("message", "Order delivered. COD payment collection failed - payment still pending.");
-                }
-            } else {
-                order.setCodCollectionStatus(CodCollectionStatus.NOT_APPLICABLE);
-                res.put("message", "Order marked as delivered.");
-            }
-
             orderRepository.save(order);
 
             // Create tracking event
             trackingEventLogRepository.save(new TrackingEventLog(
                 order, TrackingStatus.DELIVERED, order.getCurrentCity(),
-                isCod ? "Delivered. COD " + order.getCodCollectionStatus().getDescription() : "Delivered",
+                "Delivered",
                 "system"
             ));
 
             res.put("success", true);
             res.put("orderId", orderId);
             res.put("newStatus", TrackingStatus.DELIVERED.name());
-            res.put("isCod", isCod);
-            res.put("codStatus", order.getCodCollectionStatus().name());
+            res.put("message", "Order marked as delivered.");
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
             res.put("success", false);
@@ -5387,24 +5353,6 @@ public class ReactApiController {
     }
 
     // ── ADMIN — WAREHOUSE TRANSFER REQUESTS ──────────────────────────────────
-    //
-    // Fix: No /api/flutter endpoint existed for warehouse transfer management.
-    // DeliveryAdminController only has POST /admin/delivery/warehouse-change/approve|reject
-    // (session-based, @RequestParam, no /api/flutter prefix).
-    // The Flutter AdminApp calls:
-    //   GET  /api/flutter/admin/warehouse-transfers
-    //   POST /api/flutter/admin/warehouse-transfers/{id}/approve
-    //   POST /api/flutter/admin/warehouse-transfers/{id}/reject
-
-    /**
-     * GET /api/flutter/admin/warehouse-transfers
-     * Returns ALL warehouse transfer requests ordered by most recent first,
-     * enriched with delivery boy and warehouse details so the Flutter screen
-     * can render the list without extra round-trips.
-     *
-     * Query param (optional): ?status=PENDING|APPROVED|REJECTED
-     * Omitting the param returns all requests across all statuses.
-     */
     @GetMapping("/admin/warehouse-transfers")
     public ResponseEntity<Map<String, Object>> adminGetWarehouseTransfers(
             @RequestParam(required = false) String status,
@@ -6889,115 +6837,6 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/react/delivery/confirm
-     * Records COD payment collection by delivery boy.
-     * Expects: { orderId, codStatus: 'COLLECTED'|'FAILED', amountCollected: number }
-     * Auth: JWT Bearer token
-     */
-    @PostMapping("/delivery/confirm")
-    public ResponseEntity<Map<String, Object>> confirmCodPayment(
-            HttpServletRequest request,
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-
-        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
-        if (deliveryId == null) {
-            res.put("success", false);
-            res.put("message", "Authentication failed: No valid JWT token");
-            return ResponseEntity.status(401).body(res);
-        }
-
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) {
-            res.put("success", false);
-            res.put("message", "Delivery boy not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        Integer orderId = null;
-        try {
-            orderId = ((Number) body.get("orderId")).intValue();
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Invalid orderId");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            res.put("success", false);
-            res.put("message", "Order not found");
-            return ResponseEntity.status(404).body(res);
-        }
-
-        if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false);
-            res.put("message", "This order is not assigned to you");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        // Check if it's a COD order
-        if (order.getPaymentMode() == null || (!order.getPaymentMode().equalsIgnoreCase("COD") && !order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"))) {
-            res.put("success", false);
-            res.put("message", "This is not a COD order");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        String codStatus = (String) body.get("codStatus");
-        if (codStatus == null || (!codStatus.equals("COLLECTED") && !codStatus.equals("FAILED"))) {
-            res.put("success", false);
-            res.put("message", "Invalid codStatus. Must be COLLECTED or FAILED");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        try {
-            // Set COD collection status
-            order.setCodCollectionStatus(CodCollectionStatus.valueOf(codStatus));
-            order.setCodCollectionTimestamp(java.time.LocalDateTime.now());
-
-            if ("COLLECTED".equals(codStatus)) {
-                Double amountCollected = null;
-                try {
-                    Object amt = body.get("amountCollected");
-                    if (amt instanceof Number) {
-                        amountCollected = ((Number) amt).doubleValue();
-                    }
-                } catch (Exception e) {
-                    // amountCollected remains null, which is okay
-                }
-                
-                if (amountCollected != null && amountCollected > 0) {
-                    order.setCodAmountCollected(amountCollected);
-                }
-            }
-
-            orderRepository.save(order);
-
-            // Create tracking event log for audit
-            TrackingEventLog log = new TrackingEventLog(
-                    order,
-                    TrackingStatus.DELIVERED,
-                    "COD Payment - " + codStatus,
-                    codStatus.equals("COLLECTED") 
-                        ? "Payment collected: ₹" + order.getCodAmountCollected() 
-                        : "Payment collection failed",
-                    "delivery_boy");
-            trackingEventLogRepository.save(log);
-
-            res.put("success", true);
-            res.put("message", "✅ COD payment collection recorded: " + codStatus);
-            res.put("codStatus", order.getCodCollectionStatus());
-            res.put("amountCollected", order.getCodAmountCollected());
-            return ResponseEntity.ok(res);
-
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to record payment: " + e.getMessage());
-            return ResponseEntity.status(500).body(res);
-        }
-    }
-
-    /**
      * GET /api/react/delivery/warehouses
      * Returns all active warehouses for the transfer-request dropdown.
      * Auth: JWT Bearer token
@@ -7201,8 +7040,6 @@ public class ReactApiController {
         m.put("deliveryCharge",  o.getDeliveryCharge());
         m.put("totalPrice",      o.getTotalPrice());
         m.put("isCod",           o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase("COD") || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")));
-        m.put("codCollectionStatus", o.getCodCollectionStatus() != null ? o.getCodCollectionStatus().name() : "PENDING");
-        m.put("codAmountCollected",  o.getCodAmountCollected());
         return m;
     }
 
@@ -7533,126 +7370,4 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * GET /api/react/admin/settlements?month=YYYY-MM
-     * Returns COD settlement data for specified month.
-     * Auth: Admin only
-     */
-    @GetMapping("/admin/settlements")
-    public ResponseEntity<Map<String, Object>> getSettlements(
-            HttpServletRequest request,
-            @RequestParam(name = "month", required = false) String month) {
-        
-        // Admin guard check
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("react.role");
-        if (!"ADMIN".equals(role)) {
-            Map<String, Object> res = new HashMap<>();
-            res.put("success", false);
-            res.put("message", "Admin access required");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        Map<String, Object> res = new HashMap<>();
-
-        if (month == null || month.isEmpty()) {
-            java.time.YearMonth ym = java.time.YearMonth.now();
-            month = ym.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
-        }
-
-        try {
-            // Parse month to get start and end dates
-            java.time.YearMonth ym = java.time.YearMonth.parse(month, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
-            java.time.LocalDateTime monthStart = ym.atDay(1).atStartOfDay();
-            java.time.LocalDateTime monthEnd = ym.atEndOfMonth().atTime(23, 59, 59);
-
-            // Get all delivery boys and their COD collections for the month
-            List<DeliveryBoy> deliveryBoys = deliveryBoyRepository.findAll();
-            List<Map<String, Object>> settlements = new ArrayList<>();
-
-            for (DeliveryBoy db : deliveryBoys) {
-                // Find all COD orders for this delivery boy in the month with collection status
-                List<Order> codOrders = orderRepository.findAll().stream()
-                        .filter(o -> o.getDeliveryBoy() != null && o.getDeliveryBoy().getId() == db.getId())
-                        .filter(o -> o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase("COD") || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")))
-                        .filter(o -> o.getCodCollectionTimestamp() != null && o.getCodCollectionTimestamp().isAfter(monthStart) && o.getCodCollectionTimestamp().isBefore(monthEnd))
-                        .collect(Collectors.toList());
-
-                if (codOrders.isEmpty()) continue;
-
-                double totalCollected = codOrders.stream()
-                        .filter(o -> "COLLECTED".equals(o.getCodCollectionStatus().name()))
-                        .mapToDouble(o -> o.getCodAmountCollected())
-                        .sum();
-
-                double failedAmount = codOrders.stream()
-                        .filter(o -> "FAILED".equals(o.getCodCollectionStatus().name()))
-                        .mapToDouble(o -> o.getTotalPrice() + o.getDeliveryCharge())
-                        .sum();
-
-                int collectedCount = (int) codOrders.stream()
-                        .filter(o -> "COLLECTED".equals(o.getCodCollectionStatus().name()))
-                        .count();
-
-                int failedCount = (int) codOrders.stream()
-                        .filter(o -> "FAILED".equals(o.getCodCollectionStatus().name()))
-                        .count();
-
-                Map<String, Object> settlement = new HashMap<>();
-                settlement.put("deliveryBoyId", db.getId());
-                settlement.put("deliveryBoyName", db.getName());
-                settlement.put("totalCodCollected", totalCollected);
-                settlement.put("failedCollectionAmount", failedAmount);
-                settlement.put("codOrderCount", codOrders.size());
-                settlement.put("collectedCount", collectedCount);
-                settlement.put("failedCount", failedCount);
-                settlement.put("salary", 5000); // Fixed salary
-                settlement.put("totalPayout", totalCollected + 5000);
-                settlements.add(settlement);
-            }
-
-            res.put("success", true);
-            res.put("settlements", settlements);
-            res.put("month", month);
-            res.put("count", settlements.size());
-            return ResponseEntity.ok(res);
-
-        } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error retrieving settlements: " + e.getMessage());
-            res.put("settlements", new ArrayList<>());
-            return ResponseEntity.ok(res);
-        }
-    }
-
-    /**
-     * POST /api/react/admin/settlements/process?month=YYYY-MM
-     * Processes settlement for the given month.
-     * Auth: Admin only
-     */
-    @PostMapping("/admin/settlements/process")
-    public ResponseEntity<Map<String, Object>> processSettlement(
-            HttpServletRequest request,
-            @RequestParam(name = "month", required = false) String month) {
-        
-        // Admin guard check
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
-
-        String role = (String) request.getAttribute("react.role");
-        if (!"ADMIN".equals(role)) {
-            Map<String, Object> res = new HashMap<>();
-            res.put("success", false);
-            res.put("message", "Admin access required");
-            return ResponseEntity.status(403).body(res);
-        }
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        res.put("message", "Settlement processed for " + month);
-        res.put("status", "COMPLETED");
-        return ResponseEntity.ok(res);
-    }
 }

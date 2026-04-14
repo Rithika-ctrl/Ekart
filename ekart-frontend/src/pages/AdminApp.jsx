@@ -42,11 +42,6 @@ export default function AdminApp() {
   const [activityFilter, setActivityFilter] = useState("all");
   const [deprecationReport, setDeprecationReport] = useState(null);
   const [deprecationSummary, setDeprecationSummary] = useState(null);
-  const [settlements, setSettlements] = useState([]);
-  const [settlementMonth, setSettlementMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -148,13 +143,6 @@ export default function AdminApp() {
   }, [page, auth]);
   
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
-  useEffect(() => {
-    if (page === "settlement") {
-      api(`/admin/settlements?month=${settlementMonth}`).then(d => {
-        if (d.success) setSettlements(d.settlements || []);
-      }).catch(err => console.error("Error loading settlements:", err));
-    }
-  }, [page, settlementMonth, api]);
 
   const [policies, setPolicies] = useState([]);
 
@@ -252,7 +240,6 @@ export default function AdminApp() {
     { key: "refunds",    label: `💸 Refunds${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ""}` },
     { key: "reviews",    label: "⭐ Reviews" },
     { key: "analytics",  label: "📈 Analytics" },
-    { key: "settlement", label: "💼 Settlement" },
     { key: "usersearch", label: "🔍 User Search" },
     { key: "user-activity", label: "📝 User Activity" },
     { key: "policies",   label: "📜 Policies" },
@@ -292,7 +279,6 @@ export default function AdminApp() {
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
           {page === "analytics"  && <AnalyticsAdmin data={analytics} spending={spending} orders={orders} products={products} users={users} totalRevenue={totalRevenue} />}
-          {page === "settlement" && <SettlementAdmin settlements={settlements} month={settlementMonth} setMonth={setSettlementMonth} api={api} showToast={show} />}
           {page === "usersearch" && <UserSearch api={api} showToast={show} />}
           {page === "user-activity" && <UserActivityAdmin customers={userActivities.customers} activityCache={activityCache} setActivityCache={setActivityCache} selectedUserId={selectedActivityUserId} setSelectedUserId={setSelectedActivityUserId} activityFilter={activityFilter} setActivityFilter={setActivityFilter} showToast={show} />}
           {page === "policies"   && <PoliciesAdmin policies={policies} onCreate={createPolicy} onUpdate={updatePolicy} onDelete={deletePolicy} />}
@@ -309,8 +295,6 @@ export default function AdminApp() {
 
 /* ── Overview ── */
 function Overview({ users, products, orders, totalRevenue, pendingProducts, analyticsRevenue }) {
-  // Prefer the server-side figure from /admin/analytics when available (uses all orders + totalPrice).
-  // Falls back to the client-computed value while the analytics tab hasn't been visited yet.
   const displayRevenue = analyticsRevenue != null ? analyticsRevenue : totalRevenue;
   const stats = [
     { label: "Customers",       value: users.customers.length, icon: "👥", color: "#2563eb" },
@@ -1166,12 +1150,6 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
   const [editingPins, setEditingPins] = useState("");
   const [savingPins, setSavingPins] = useState(false);
 
-  // ── COD Delivery Confirmation ──────────────────────────────────
-  const [codConfirmModal, setCodConfirmModal] = useState(null); // { orderId, isCod, totalAmount }
-  const [codAmountCollected, setCodAmountCollected] = useState("");
-  const [codStatus, setCodStatus] = useState("COLLECTED");
-  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
-
   const openEditPinsModal = (boy) => {
     setEditingBoyId(boy.id);
     setEditingBoyName(boy.name);
@@ -1205,46 +1183,6 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
       console.error(e);
     } finally {
       setSavingPins(false);
-    }
-  };
-
-  // ── COD Delivery Confirmation ──────────────────────────────────
-  const confirmDelivery = async (orderId, isCod, totalAmount) => {
-    if (isCod && !codAmountCollected.trim()) {
-      showToast("Please enter the amount collected or select payment status", false);
-      return;
-    }
-    
-    setConfirmingDelivery(true);
-    try {
-      const body = {
-        orderId,
-        codStatus,
-      };
-      if (isCod) {
-        body.amountCollected = parseFloat(codAmountCollected) || totalAmount;
-      }
-      
-      const res = await api("/admin/delivery/confirm", {
-        method: "POST",
-        body: JSON.stringify(body)
-      });
-      
-      if (res.success) {
-        showToast(`✓ ${res.message}`);
-        setCodConfirmModal(null);
-        setCodAmountCollected("");
-        setCodStatus("COLLECTED");
-        // Refresh data
-        window.location.reload();
-      } else {
-        showToast(`❌ ${res.message || "Failed to confirm delivery"}`);
-      }
-    } catch (e) {
-      showToast("❌ Error confirming delivery: " + e.message);
-      console.error(e);
-    } finally {
-      setConfirmingDelivery(false);
     }
   };
 
@@ -1282,14 +1220,7 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           const d = await res.json();
           let eligible = d.success ? (d.deliveryBoys || []) : [];
           
-          // FIX: The old fallback called boy.warehouse.includes() where boy.warehouse is an
-          // OBJECT {id, name, city, warehouseCode} — not a string — so .includes() always
-          // threw a TypeError and the fallback silently produced an empty list.
-          //
-          // Corrected fallback strategy (mirrors the backend union logic):
-          //   1. Same-warehouse boys: compare warehouse IDs (objects, not strings)
-          //   2. Boys whose assignedPinCodes covers the order PIN (client-side covers check)
-          //   3. Last resort: ALL approved+active boys so admin is never blocked
+
           if (eligible.length === 0 && deliveryBoys && deliveryBoys.length > 0) {
             const orderPin = (order.deliveryPinCode || "").trim();
             const orderWhId = order.warehouse?.id;
@@ -1508,27 +1439,7 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
                 </span>,
                 <button 
                   style={{ ...as.approveBtn, fontSize: 11, padding: "4px 8px" }}
-                  onClick={() => setCodConfirmModal({ orderId: o.id, isCod, totalAmount })}
-                >
-                  ✓ Delivered
-                </button>
-              ];
-            }),
-            ...(outOrders || []).map(o => {
-              const isCod = o.paymentMode === "COD" || o.paymentMode === "Cash on Delivery";
-              const totalAmount = o.totalPrice + o.deliveryCharge;
-              return [
-                <span style={{ fontWeight: 700, color: "#d4a017" }}>#{o.id}</span>,
-                o.customer?.name || "—",
-                o.deliveryPinCode || "—",
-                o.deliveryBoy?.name || "—",
-                <span style={{ ...as.badge, background: "rgba(22,163,74,0.15)", color: "#16a34a" }}>OUT FOR DELIVERY</span>,
-                <span style={{ ...as.badge, background: isCod ? "rgba(220,38,38,0.15)" : "rgba(34,197,94,0.15)", color: isCod ? "#dc2626" : "#16a34a", fontSize: 11 }}>
-                  {isCod ? "💵 COD" : "✓ Paid"}
-                </span>,
-                <button 
-                  style={{ ...as.approveBtn, fontSize: 11, padding: "4px 8px" }}
-                  onClick={() => setCodConfirmModal({ orderId: o.id, isCod, totalAmount })}
+                  onClick={() => {}}
                 >
                   ✓ Delivered
                 </button>
@@ -1669,109 +1580,6 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
           </div>
         )}
       </div>
-
-      {/* ── COD Delivery Confirmation Modal ── */}
-      {codConfirmModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 20 }}>
-          <div style={{ background: "white", borderRadius: 12, padding: 24, maxWidth: 500, width: "100%", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
-            <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 700 }}>Confirm Delivery - Order #{codConfirmModal.orderId}</h3>
-            
-            {codConfirmModal.isCod ? (
-              <div>
-                <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "rgba(13,13,13,0.6)" }}>
-                  💵 <strong>Cash on Delivery Order</strong>
-                  <br />Total amount to collect: <strong>₹{Number(codConfirmModal.totalAmount).toLocaleString("en-IN")}</strong>
-                </p>
-                
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.8)" }}>
-                    Payment Status
-                  </label>
-                  <select
-                    value={codStatus}
-                    onChange={(e) => setCodStatus(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 6,
-                      fontSize: 13
-                    }}
-                  >
-                    <option value="COLLECTED">✓ Payment Collected</option>
-                    <option value="FAILED">✕ Payment Collection Failed</option>
-                  </select>
-                </div>
-
-                {codStatus === "COLLECTED" && (
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.8)" }}>
-                      Amount Collected (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={codAmountCollected}
-                      onChange={(e) => setCodAmountCollected(e.target.value)}
-                      placeholder={codConfirmModal.totalAmount.toString()}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 6,
-                        fontSize: 13
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div style={{ marginBottom: 12, background: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, border: "1px solid rgba(34,197,94,0.3)" }}>
-                <p style={{ margin: 0, fontSize: 13, color: "#16a34a", fontWeight: 500 }}>
-                  ✓ Prepaid Order - Payment already received online
-                </p>
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => {
-                  setCodConfirmModal(null);
-                  setCodAmountCollected("");
-                  setCodStatus("COLLECTED");
-                }}
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  background: "white",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600
-                }}
-                disabled={confirmingDelivery}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => confirmDelivery(codConfirmModal.orderId, codConfirmModal.isCod, codConfirmModal.totalAmount)}
-                style={{
-                  padding: "8px 16px",
-                  background: "#16a34a",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600
-                }}
-                disabled={confirmingDelivery}
-              >
-                {confirmingDelivery ? "Confirming…" : "✓ Confirm Delivery"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── PIN Codes Edit Modal ── */}
       {editingBoyId && (
@@ -5118,154 +4926,6 @@ function UserActivityAdmin({ customers = [], activityCache, setActivityCache, se
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function SettlementAdmin({ settlements = [], month, setMonth, api, showToast }) {
-  const [processing, setProcessing] = useState(false);
-  const [processedMonth, setProcessedMonth] = useState(null);
-
-  const handleMonthChange = (e) => {
-    setMonth(e.target.value);
-  };
-
-  const processSettlement = async () => {
-    if (!window.confirm(`Process settlement for ${month}? This will finalize COD collections and salary payments.`)) return;
-    setProcessing(true);
-    try {
-      const response = await api(`/admin/settlements/process?month=${month}`, { method: "POST" });
-      if (response.success) {
-        showToast("✅ Settlement processed successfully");
-        setProcessedMonth(month);
-        setTimeout(() => location.reload(), 2000);
-      } else {
-        showToast(response.message || "Failed to process settlement");
-      }
-    } catch (err) {
-      showToast("Error processing settlement");
-      console.error(err);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const totalCollection = settlements.reduce((sum, s) => sum + (s.totalCodCollected || 0), 0);
-  const totalFailedAmount = settlements.reduce((sum, s) => sum + (s.failedCollectionAmount || 0), 0);
-  const totalSalary = settlements.length * 5000; // Fixed ₹5000 salary per delivery boy
-  const totalPayout = totalSalary;
-
-  const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  return (
-    <div style={{ padding: "20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0d0d0d", margin: 0 }}>💼 Monthly Settlement</h2>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <input
-            type="month"
-            value={month}
-            onChange={handleMonthChange}
-            disabled={processing}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #d1d5db",
-              fontSize: 14,
-              fontFamily: "inherit",
-              cursor: processing ? "not-allowed" : "pointer",
-            }}
-          />
-          <button
-            onClick={processSettlement}
-            disabled={processing || settlements.length === 0}
-            style={{
-              padding: "9px 18px",
-              background: processing ? "#9ca3af" : "#10b981",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: processing || settlements.length === 0 ? "not-allowed" : "pointer",
-              transition: "0.2s",
-            }}
-          >
-            {processing ? "Processing..." : "Process Settlement"}
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
-          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>TOTAL COD COLLECTION</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#10b981" }}>{fmt(totalCollection)}</div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>{settlements.length} delivery boy{settlements.length !== 1 ? "s" : ""}</div>
-        </div>
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
-          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>FAILED COLLECTIONS</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#ef4444" }}>{fmt(totalFailedAmount)}</div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>From {settlements.reduce((sum, s) => sum + (s.failedCount || 0), 0)} orders</div>
-        </div>
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, background: "#fff" }}>
-          <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>TOTAL SALARY EXPENSE</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#3b82f6" }}>{fmt(totalSalary)}</div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>Fixed ₹5000/delivery boy</div>
-        </div>
-      </div>
-
-      {/* Settlements Table */}
-      <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "auto", background: "#fff", marginBottom: 20 }}>
-        {settlements.length === 0 ? (
-          <div style={{ padding: "40px 20px", textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
-            No settlement data for {month}
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 700, color: "#4b5563" }}>Delivery Boy</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>COD Orders</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Collected</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Failed</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Salary</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#4b5563" }}>Total Payout</th>
-              </tr>
-            </thead>
-            <tbody>
-              {settlements.map((s, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "12px 16px", color: "#0d0d0d", fontWeight: 600 }}>{s.deliveryBoyName || `DB-${s.deliveryBoyId}`}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#6b7280" }}>{s.codOrderCount || 0}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#10b981", fontWeight: 600 }}>{fmt(s.totalCodCollected || 0)}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#ef4444" }}>{fmt(s.failedCollectionAmount || 0)}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#3b82f6", fontWeight: 600 }}>₹5000</td>
-                  <td style={{ padding: "12px 16px", textAlign: "right", color: "#0d0d0d", fontWeight: 700 }}>{fmt((s.totalCodCollected || 0) + 5000)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Total Row */}
-      {settlements.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, padding: "16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, fontSize: 13 }}>
-          <div>
-            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Total Collection (Deposited)</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981" }}>{fmt(totalCollection)}</div>
-          </div>
-          <div>
-            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Total Salary Payout</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#3b82f6" }}>{fmt(totalSalary)}</div>
-          </div>
-          <div>
-            <div style={{ color: "#6b7280", fontWeight: 600, marginBottom: 4 }}>Net Settlement</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#0d0d0d" }}>{fmt(totalCollection - totalSalary)}</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
