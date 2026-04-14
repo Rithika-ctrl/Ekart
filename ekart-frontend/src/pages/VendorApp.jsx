@@ -153,11 +153,19 @@ export default function VendorApp() {
 }
 
 function Dashboard({ stats, orders, products }) {
+  // ── COD CALCULATIONS ──
+  const codOrders = (orders || []).filter(o => (o.paymentMode || "").toUpperCase() === "COD");
+  const codEarnings = codOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const codCollected = codOrders.filter(o => o.paymentStatus === "RECEIVED").reduce((sum, o) => sum + (o.amount || 0), 0);
+  const codPending = codEarnings - codCollected;
+  
   const statCards = [
     { label: "Total Revenue", value: fmt(stats?.totalRevenue), icon: "💰", color: "#16a34a" },
     { label: "Total Orders", value: stats?.totalOrders ?? "–", icon: "📦", color: "#6366f1" },
     { label: "Total Products", value: stats?.totalProducts ?? "–", icon: "🏷️", color: "#d97706" },
     { label: "Low Stock Items", value: stats?.lowStockProducts ?? "–", icon: "⚠️", color: "#dc2626" },
+    { label: "COD Earnings", value: fmt(codEarnings), icon: "💵", color: "#059669" },
+    { label: "COD Collected", value: fmt(codCollected), icon: "✓", color: "#22c55e" },
   ];
   const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
   return (
@@ -172,6 +180,17 @@ function Dashboard({ stats, orders, products }) {
           </div>
         ))}
       </div>
+      {/* ── COD PENDING REMINDER ── */}
+      {codPending > 0 && (
+        <div style={{ background: "rgba(29,185,84,0.1)", border: "2px solid rgba(29,185,84,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>💵</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#16a34a", fontWeight: 700, fontSize: 14 }}>COD Pending: {fmt(codPending)}</div>
+            <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>{codCollected > 0 ? `Already collected: ${fmt(codCollected)}` : "Awaiting customer payment confirmation"}</div>
+          </div>
+        </div>
+      )}
+      
       <div style={vs.twoCol}>
         <div style={vs.card}>
           <h3 style={vs.cardTitle}>Recent Orders</h3>
@@ -180,6 +199,11 @@ function Dashboard({ stats, orders, products }) {
               <span style={{ color: "#374151", fontWeight: 700 }}>#{o.id}</span>
               <span style={{ color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
               <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
+              {(o.paymentMode || "").toUpperCase() === "COD" && (
+                <span style={{ ...vs.badge, background: o.paymentStatus === "RECEIVED" ? "rgba(34,197,94,0.12)" : "rgba(249,115,22,0.12)", color: o.paymentStatus === "RECEIVED" ? "#4ade80" : "#fb923c", fontSize: 11 }}>
+                  {o.paymentStatus === "RECEIVED" ? "✓ Paid" : "⏳ Pending"}
+                </span>
+              )}
               <span style={{ color: "#111827", fontWeight: 700 }}>{fmt(o.amount || o.totalPrice)}</span>
             </div>
           ))}
@@ -201,20 +225,37 @@ function Dashboard({ stats, orders, products }) {
 }
 
 function OrdersView({ orders, onMarkPacked }) {
+  const [showCodOnly, setShowCodOnly] = useState(false);
   const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
-  const pending = (orders || []).filter(o => o.trackingStatus === "PROCESSING");
-  const inProgress = (orders || []).filter(o => ["PACKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
-  const done = (orders || []).filter(o => ["DELIVERED", "REFUNDED", "CANCELLED"].includes(o.trackingStatus));
+  
+  // ── COD FILTER & CALCULATIONS ──
+  const allCodOrders = (orders || []).filter(o => (o.paymentMode || "").toUpperCase() === "COD");
+  const codCollected = allCodOrders.filter(o => o.paymentStatus === "RECEIVED").length;
+  const codPending = allCodOrders.length - codCollected;
+  
+  const filteredOrders = showCodOnly ? allCodOrders : (orders || []);
+  
+  const pending = filteredOrders.filter(o => o.trackingStatus === "PROCESSING");
+  const inProgress = filteredOrders.filter(o => ["PACKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
+  const done = filteredOrders.filter(o => ["DELIVERED", "REFUNDED", "CANCELLED"].includes(o.trackingStatus));
 
   const OrderRow = ({ o }) => (
     <div style={vs.orderCard}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
         <div>
           <span style={{ fontWeight: 700, color: "#374151" }}>#{o.id}</span>
           <span style={{ marginLeft: 12, color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
           {o.customer?.mobile && <span style={{ marginLeft: 8, color: "#6b7280", fontSize: 12 }}>📞 {o.customer.mobile}</span>}
         </div>
-        <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
+          {/* ── COD PAYMENT STATUS ── */}
+          {(o.paymentMode || "").toUpperCase() === "COD" && (
+            <span style={{ ...vs.badge, background: o.paymentStatus === "RECEIVED" ? "rgba(34,197,94,0.12)" : "rgba(249,115,22,0.12)", color: o.paymentStatus === "RECEIVED" ? "#4ade80" : "#fb923c", fontSize: 11, fontWeight: 700 }}>
+              💵 {o.paymentStatus === "RECEIVED" ? "Paid" : "Pending"}
+            </span>
+          )}
+        </div>
       </div>
       <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
         {(o.items || []).map(i => `${i.name} × ${i.quantity}`).join(", ")}
@@ -236,7 +277,44 @@ function OrdersView({ orders, onMarkPacked }) {
 
   return (
     <div>
-      <h2 style={vs.pageTitle}>Orders</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={vs.pageTitle}>Orders</h2>
+        {/* ── COD FILTER TOGGLE ── */}
+        <button
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "2px solid",
+            borderColor: showCodOnly ? "#16a34a" : "rgba(255,255,255,0.15)",
+            background: showCodOnly ? "rgba(34,197,94,0.1)" : "transparent",
+            color: showCodOnly ? "#4ade80" : "#6b7280",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            transition: "all 0.2s",
+          }}
+          onClick={() => setShowCodOnly(!showCodOnly)}
+        >
+          💵 COD Only {allCodOrders.length > 0 ? `(${allCodOrders.length})` : ""}
+        </button>
+      </div>
+      {/* ── COD STATUS SUMMARY ── */}
+      {showCodOnly && allCodOrders.length > 0 && (
+        <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 700 }}>Total COD Orders</div>
+            <div style={{ color: "#4ade80", fontSize: 16, fontWeight: 800 }}>{allCodOrders.length}</div>
+          </div>
+          <div>
+            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 700 }}>Collected</div>
+            <div style={{ color: "#22c55e", fontSize: 16, fontWeight: 800 }}>{codCollected}</div>
+          </div>
+          <div>
+            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 700 }}>Awaiting Payment</div>
+            <div style={{ color: "#fb923c", fontSize: 16, fontWeight: 800 }}>{codPending}</div>
+          </div>
+        </div>
+      )}
       {pending.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <h3 style={{ color: "#d97706", marginBottom: 12, fontSize: 16 }}>🆕 New Orders — Pack & Mark Ready ({pending.length})</h3>

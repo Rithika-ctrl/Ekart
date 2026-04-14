@@ -109,7 +109,31 @@ public class EmailSender {
         }
     }
 
-    // ===================== SEND STOCK ALERT TO VENDOR =====================
+    // ===================== SEND COD ORDER CONFIRMATION =====================
+    @Async
+    public void sendCodOrderConfirmation(Customer customer, Order order) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, "Ekart");
+            helper.setTo(customer.getEmail());
+            helper.setSubject("COD Order Confirmed - Order #" + order.getId());
+            Context context = new Context();
+            context.setVariable("CUSTOMER_NAME", customer.getName());
+            context.setVariable("ORDER_ID", order.getId());
+            context.setVariable("ORDER_DATE", order.getOrderDate());
+            context.setVariable("DELIVERY_ADDRESS", order.getDeliveryAddress());
+            context.setVariable("SUBTOTAL", order.getAmount());
+            context.setVariable("DELIVERY_CHARGE", order.getDeliveryCharge());
+            context.setVariable("TOTAL_AMOUNT", order.getTotalPrice());
+            context.setVariable("TRACKING_URL", "https://ekart.local/track/" + order.getId());
+            String html = templateEngine.process("cod-order-confirmation.html", context);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("COD order confirmation email failed: " + e.getMessage());
+        }
+    }
     @Async
     public void sendStockAlert(Vendor vendor, Product product, int currentStock) {
         try {
@@ -583,6 +607,57 @@ public class EmailSender {
             mailSender.send(message);
         } catch (Exception e) {
             System.err.println("sendAutoAssignNotification failed: " + e.getMessage());
+        }
+    }
+
+    // ===================== WAREHOUSE STAFF CREDENTIALS =====================
+    /**
+     * Send credentials email to warehouse staff after account creation.
+     * Contains: Staff ID, Email, Password (plain text for one-time display).
+     */
+    @Async
+    public void sendWarehouseStaffCredentials(com.example.ekart.dto.WarehouseStaff staff, String plainPassword) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, "Ekart Warehouse");
+            helper.setTo(staff.getEmail());
+            helper.setSubject("Your Warehouse Staff Account Credentials - Ekart");
+            Context context = new Context();
+            context.setVariable("name", staff.getName());
+            context.setVariable("staff_id", staff.getId());
+            context.setVariable("email", staff.getEmail());
+            context.setVariable("password", plainPassword);
+            context.setVariable("login_url", "http://localhost:3000/warehouse/login");
+            String html = templateEngine.process("warehouse-credentials-email.html", context);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Warehouse staff credentials email failed: " + e.getMessage());
+        }
+    }
+
+    // ===================== WAREHOUSE STAFF OTP (DEPRECATED - for backward compatibility) =====================
+    /**
+     * Send OTP email to warehouse staff during account verification.
+     * DEPRECATED: Now using direct password method instead.
+     */
+    @Async
+    public void sendWarehouseStaffOtp(com.example.ekart.dto.WarehouseStaff staff, String plainOtp) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, "Ekart Warehouse");
+            helper.setTo(staff.getEmail());
+            helper.setSubject("OTP for Email Verification - Ekart Warehouse");
+            Context context = new Context();
+            context.setVariable("name", staff.getName());
+            context.setVariable("otp", plainOtp);  // 6-digit formatted string
+            String html = templateEngine.process("otp-email.html", context);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Warehouse staff OTP email failed: " + e.getMessage());
         }
     }
 }

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .success-badge { display: inline-block; background: #27ae60; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold; }
+        .delivery-details { background: #e8f4f8; border-left: 4px solid #3498db; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .product-list { background: #f9f9f9; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .button { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✓ Order Delivered Successfully</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{CUSTOMER_NAME}},</p>
+            
+            <p>Your order has been <span class="success-badge">DELIVERED</span> successfully!</p>
+            
+            <div class="delivery-details">
+                <strong>Delivery Confirmation:</strong>
+                <table>
+                    <tr>
+                        <td>Order ID</td>
+                        <td>#{{ORDER_ID}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivered At</td>
+                        <td>{{DELIVERY_TIME}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Address</td>
+                        <td>{{DELIVERY_ADDRESS}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivered By</td>
+                        <td>{{DELIVERY_BOY_NAME}} ({{DELIVERY_BOY_PHONE}})</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="product-list">
+                <strong>Items Delivered:</strong>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th style="text-align: center;">Qty</th>
+                            <th style="text-align: right;">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{PRODUCT_ROWS}}
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top: 2px solid #ddd; font-weight: bold;">
+                            <td colspan="2">Total Amount Paid</td>
+                            <td style="text-align: right; font-size: 16px;">₹{{TOTAL_PAID}}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <p><strong>What's Next?</strong></p>
+            <ul>
+                <li>Please inspect the items for damage or defects</li>
+                <li>If there are any issues, initiate a return within 7 days</li>
+                <li>Leave a product review to help other customers</li>
+                <li>Track future orders from your account dashboard</li>
+            </ul>
+            
+            <center>
+                <a href="{{CUSTOMER_DASHBOARD_URL}}" class="button">View Your Orders</a>
+            </center>
+            
+            <p><strong>Need Help?</strong></p>
+            <ul>
+                <li><strong>Product Issue:</strong> <a href="{{RETURN_URL}}">File a return request</a></li>
+                <li><strong>Damaged Item:</strong> Contact us with photos within 24 hours</li>
+                <li><strong>Quality Issue:</strong> Report within 7 days for refund/replacement</li>
+            </ul>
+            
+            <p>Thank you for shopping with EKART! We hope you're satisfied with your purchase.</p>
+            
+            <p>Best regards,<br><strong>EKART Customer Service Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated email. For support, visit {{SUPPORT_URL}}</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

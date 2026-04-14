@@ -103,4 +103,43 @@ public class OrderTrackingService {
 
         return order;
     }
+
+    /**
+     * Log an order status change to the TrackingEventLog.
+     * Updates the order's tracking status and logs the event.
+     * 
+     * @param orderId        Order ID
+     * @param fromStatus     Previous status (description)
+     * @param toStatus       New status (description/enum name)
+     * @param description    Event description/reason
+     */
+    public void logOrderStatusChange(int orderId, String fromStatus, String toStatus, String description) {
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (orderOpt.isEmpty()) return;
+
+        Order order = orderOpt.get();
+
+        // Try to parse toStatus as TrackingStatus enum
+        TrackingStatus newStatus;
+        try {
+            newStatus = TrackingStatus.valueOf(toStatus.trim().toUpperCase().replace(" ", "_"));
+        } catch (Exception e) {
+            // If parsing fails, keep current status
+            newStatus = order.getTrackingStatus();
+        }
+
+        // Update order's tracking status
+        order.setTrackingStatus(newStatus);
+        orderRepository.save(order);
+
+        // Create event log entry
+        TrackingEventLog event = new TrackingEventLog();
+        event.setOrder(order);
+        event.setStatus(newStatus);
+        event.setCity(order.getCurrentCity());
+        event.setDescription(description != null ? description : toStatus);
+        event.setEventTime(java.time.LocalDateTime.now());
+        
+        trackingEventLogRepository.save(event);
+    }
 }

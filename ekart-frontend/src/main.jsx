@@ -48,5 +48,5 @@ document.head.appendChild(style)
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 )

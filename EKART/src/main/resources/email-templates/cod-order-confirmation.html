@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .order-details, .payment-info { background: #f5f5f5; padding: 15px; margin: 15px 0; border-left: 4px solid #e74c3c; border-radius: 4px; }
+        .amount { font-size: 18px; font-weight: bold; color: #e74c3c; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .button { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Cash On Delivery Order Confirmed</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{CUSTOMER_NAME}},</p>
+            
+            <p>Thank you for placing your order! We're excited to get your delivery started. Your order has been confirmed for <strong>Cash On Delivery (COD)</strong>.</p>
+            
+            <div class="order-details">
+                <strong>Order Details:</strong>
+                <table>
+                    <tr>
+                        <th>Order ID</th>
+                        <td>#{{ORDER_ID}}</td>
+                    </tr>
+                    <tr>
+                        <th>Order Date</th>
+                        <td>{{ORDER_DATE}}</td>
+                    </tr>
+                    <tr>
+                        <th>Delivery Address</th>
+                        <td>{{DELIVERY_ADDRESS}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="payment-info">
+                <strong>Payment Information:</strong>
+                <table>
+                    <tr>
+                        <td>Subtotal</td>
+                        <td style="text-align: right;">₹{{SUBTOTAL}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Charge</td>
+                        <td style="text-align: right;">₹{{DELIVERY_CHARGE}}</td>
+                    </tr>
+                    <tr style="border-top: 2px solid #ddd; font-weight: bold;">
+                        <td>Total Amount Due (COD)</td>
+                        <td style="text-align: right;" class="amount">₹{{TOTAL_AMOUNT}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="warning">
+                <strong>⏱️ Payment Instructions:</strong>
+                <p>You will pay <strong>₹{{TOTAL_AMOUNT}}</strong> in cash when your order is delivered. Our delivery partner will collect this amount at your doorstep.</p>
+                <p><strong>Note:</strong> Please keep the exact amount ready to avoid delays.</p>
+            </div>
+            
+            <p><strong>What happens next?</strong></p>
+            <ul>
+                <li>Your order will be packed by our vendor</li>
+                <li>Transfer to nearest warehouse (if multi-city)</li>
+                <li>Assignment to delivery partner</li>
+                <li>Delivery at your location (cash collected)</li>
+                <li>Confirmation via OTP verification</li>
+            </ul>
+            
+            <p>You will receive updates on your order status shortly.</p>
+            
+            <center>
+                <a href="{{TRACKING_URL}}" class="button">Track Your Order</a>
+            </center>
+            
+            <p>If you have any questions or need to modify your order, please contact us immediately.</p>
+            
+            <p>Best regards,<br><strong>EKART Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated email. Please do not reply. For support, visit {{SUPPORT_URL}}</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

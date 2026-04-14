@@ -141,6 +141,104 @@ public class Order {
     @JoinColumn(name = "vendor_id")
     private Vendor vendor;
 
+    // ─── MULTI-WAREHOUSE ROUTING & COD FIELDS ─────────────────────
+
+    /**
+     * Payment method: RAZORPAY (prepaid) or COD (cash on delivery).
+     * Determines checkout flow and payment collection strategy.
+     */
+    @Column(name = "payment_method", length = 50, nullable = true)
+    private String paymentMethod = "RAZORPAY";
+
+    /**
+     * Source warehouse ID for multi-city routing.
+     * Warehouse where vendor's items are stored initially.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_warehouse_id")
+    private Warehouse sourceWarehouse;
+
+    /**
+     * Destination warehouse ID for multi-city routing.
+     * Final warehouse closest to customer's delivery location.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destination_warehouse_id")
+    private Warehouse destinationWarehouse;
+
+    /**
+     * Comma-separated list of intermediate warehouse IDs.
+     * Example: "5,8,12" means transfer through warehouses 5 → 8 → 12
+     */
+    @Column(name = "intermediate_warehouse_ids", length = 500, nullable = true)
+    private String intermediateWarehouseIds;
+
+    /**
+     * Complete routing path for display: "Delhi → Hyderabad → Bangalore"
+     * Generated from warehouse chain during routing calculation.
+     */
+    @Column(name = "warehouse_routing_path", length = 1000, nullable = true)
+    private String warehouseRoutingPath;
+
+    /**
+     * COD (Cash On Delivery) amount collected from customer.
+     * Only populated for COD orders; null for Razorpay orders.
+     */
+    @Column(name = "cod_amount", columnDefinition = "FLOAT8", nullable = true)
+    private Double codAmount;
+
+    /**
+     * Delivery boy ID who collected the COD cash.
+     * Set when delivery boy confirms delivery for COD order.
+     */
+    @Column(name = "cod_collected_by", nullable = true)
+    private Integer codCollectedBy;
+
+    /**
+     * Timestamp when COD cash was collected by delivery boy.
+     */
+    @Column(name = "cod_collection_timestamp", nullable = true)
+    private LocalDateTime codCollectionTimestamp;
+
+    /**
+     * Final delivery boy assigned for last-mile delivery.
+     * Set during warehouse staff assignment phase.
+     */
+    @Column(name = "final_delivery_boy_id", nullable = true)
+    private Integer finalDeliveryBoyId;
+
+    /**
+     * Cash settlement ID this order belongs to (for COD only).
+     * Links to the settlement batch that processed this order's COD cash.
+     */
+    @Column(name = "cash_settlement_id", nullable = true)
+    private Integer cashSettlementId;
+
+    /**
+     * Payment status for COD orders:
+     * PENDING → COLLECTED → VERIFIED → SETTLED
+     */
+    @Column(name = "payment_status", length = 50, nullable = true)
+    private String paymentStatus = "PENDING";
+
+    /**
+     * Timestamp when payment was verified by admin (COD orders only).
+     */
+    @Column(name = "payment_verified_at", nullable = true)
+    private LocalDateTime paymentVerifiedAt;
+
+    /**
+     * Timestamp when order was prepared for warehouse transfer.
+     */
+    @Column(name = "prepared_for_transfer_at", nullable = true)
+    private LocalDateTime preparedForTransferAt;
+
+    /**
+     * Flag indicating if order is currently at an intermediate hub.
+     * Used for tracking multi-city orders in transit.
+     */
+    @Column(name = "in_intermediate_hub", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean inIntermediateHub = false;
 
     // ─── Getters & Setters ────────────────────────────────────────
 
@@ -214,4 +312,46 @@ public class Order {
 
     public Vendor getVendor() { return vendor; }
     public void setVendor(Vendor vendor) { this.vendor = vendor; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public Warehouse getSourceWarehouse() { return sourceWarehouse; }
+    public void setSourceWarehouse(Warehouse sourceWarehouse) { this.sourceWarehouse = sourceWarehouse; }
+
+    public Warehouse getDestinationWarehouse() { return destinationWarehouse; }
+    public void setDestinationWarehouse(Warehouse destinationWarehouse) { this.destinationWarehouse = destinationWarehouse; }
+
+    public String getIntermediateWarehouseIds() { return intermediateWarehouseIds; }
+    public void setIntermediateWarehouseIds(String intermediateWarehouseIds) { this.intermediateWarehouseIds = intermediateWarehouseIds; }
+
+    public String getWarehouseRoutingPath() { return warehouseRoutingPath; }
+    public void setWarehouseRoutingPath(String warehouseRoutingPath) { this.warehouseRoutingPath = warehouseRoutingPath; }
+
+    public Double getCodAmount() { return codAmount; }
+    public void setCodAmount(Double codAmount) { this.codAmount = codAmount; }
+
+    public Integer getCodCollectedBy() { return codCollectedBy; }
+    public void setCodCollectedBy(Integer codCollectedBy) { this.codCollectedBy = codCollectedBy; }
+
+    public LocalDateTime getCodCollectionTimestamp() { return codCollectionTimestamp; }
+    public void setCodCollectionTimestamp(LocalDateTime codCollectionTimestamp) { this.codCollectionTimestamp = codCollectionTimestamp; }
+
+    public Integer getFinalDeliveryBoyId() { return finalDeliveryBoyId; }
+    public void setFinalDeliveryBoyId(Integer finalDeliveryBoyId) { this.finalDeliveryBoyId = finalDeliveryBoyId; }
+
+    public Integer getCashSettlementId() { return cashSettlementId; }
+    public void setCashSettlementId(Integer cashSettlementId) { this.cashSettlementId = cashSettlementId; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    public LocalDateTime getPaymentVerifiedAt() { return paymentVerifiedAt; }
+    public void setPaymentVerifiedAt(LocalDateTime paymentVerifiedAt) { this.paymentVerifiedAt = paymentVerifiedAt; }
+
+    public LocalDateTime getPreparedForTransferAt() { return preparedForTransferAt; }
+    public void setPreparedForTransferAt(LocalDateTime preparedForTransferAt) { this.preparedForTransferAt = preparedForTransferAt; }
+
+    public boolean isInIntermediateHub() { return inIntermediateHub; }
+    public void setInIntermediateHub(boolean inIntermediateHub) { this.inIntermediateHub = inIntermediateHub; }
 }

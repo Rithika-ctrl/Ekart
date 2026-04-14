@@ -118,6 +118,20 @@ public class Customer implements Serializable {
 	public String getRecentlyViewedProducts() { return recentlyViewedProducts; }
 	public String getProfileImage() { return profileImage; }
 
+	/**
+	 * Convenience method: get full name (returns name field).
+	 */
+	public String getFullName() {
+		return name;
+	}
+
+	/**
+	 * Convenience method: check if account status is active.
+	 */
+	public boolean isAccountStatus() {
+		return active;
+	}
+
 	// ─── Setters ────────────────────────────────────────────────────────────────
 
 	public void setId(int id) { this.id = id; }

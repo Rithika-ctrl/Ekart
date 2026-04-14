@@ -2919,6 +2919,16 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
                 </div>
               );
             })()}
+            
+            {/* ── COD INFO TIP ── */}
+            <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 10, padding: "10px 12px", marginTop: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>💵</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "#86efac", fontSize: 12, fontWeight: 700 }}>Cash on Delivery Available</div>
+                <div style={{ color: "#86efac", fontSize: 11, marginTop: 3, opacity: 0.8 }}>Pay when your order arrives. Keep exact change ready for faster checkout.</div>
+              </div>
+            </div>
+
             <button
               style={{ ...cs.addCartBtn, width: "100%", padding: "14px", marginTop: 16, fontSize: 16,
                 ...(pinRestrictedItems.length > 0 ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
@@ -3745,18 +3755,39 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
 /* ── Order Success ── */
 function OrderSuccessPage({ order, onTrack, onHome }) {
   const steps = ["Confirmed", "Processing", "Shipped", "Delivered"];
+  const isCod = (order.paymentMode || "").toUpperCase() === "COD";
+  const amountDue = order.amount || order.total || 0;
+
   return (
     <div style={{ textAlign: "center", padding: "40px 20px" }}>
       <div style={{ fontSize: 80, marginBottom: 16 }}>🎉</div>
       <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Order Placed Successfully!</h1>
       <p style={{ color: "#9ca3af", marginBottom: 32 }}>Your order is confirmed. A confirmation email has been sent to your registered address.</p>
 
+      {/* ── COD PAYMENT INFO ── */}
+      {isCod && (
+        <div style={{ background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.3)", borderRadius: 14, padding: "16px 20px", marginBottom: 24, maxWidth: 500, margin: "0 auto 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 24 }}>💵</span>
+            <div style={{ textAlign: "left", flex: 1 }}>
+              <div style={{ color: "#4ade80", fontWeight: 700, fontSize: 14 }}>Cash on Delivery</div>
+              <div style={{ color: "#86efac", fontSize: 12 }}>Pay when your order arrives</div>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid rgba(34,197,94,0.2)", paddingTop: 12, marginTop: 12 }}>
+            <div style={{ color: "#86efac", fontSize: 13, marginBottom: 6 }}>Amount Due at Delivery:</div>
+            <div style={{ color: "#4ade80", fontSize: 28, fontWeight: 800 }}>₹{Math.round(amountDue).toLocaleString("en-IN")}</div>
+            <div style={{ color: "#86efac", fontSize: 12, marginTop: 8 }}>⚠️ Keep exact change ready for faster checkout</div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, maxWidth: 700, margin: "0 auto 32px", textAlign: "left" }}>
         {[
           { icon: "🔢", label: "Order ID", value: `#${order.orderId || order.id || "—"}` },
-          { icon: "💰", label: "Amount Paid", value: fmt(order.amount || order.total) },
+          { icon: "💰", label: "Amount", value: fmt(order.amount || order.total) },
           { icon: "🚚", label: "Delivery", value: order.deliveryTime || "Standard (3–5 days)" },
-          { icon: "💳", label: "Payment", value: order.paymentMode || "COD" },
+          { icon: "💳", label: "Payment", value: isCod ? "💵 COD" : "💳 Online" },
         ].map(item => (
           <div key={item.label} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
             <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon}</div>
@@ -3800,9 +3831,25 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestR
     return Date.now() - orderTime <= 7 * 24 * 60 * 60 * 1000;
   };
 
+  // ── COD PENDING REMINDER ──
+  const pendingCodOrders = orders.filter(o => (o.paymentMode || "").toUpperCase() === "COD" && o.paymentStatus !== "RECEIVED" && o.trackingStatus !== "DELIVERED");
+  const totalPendingAmount = pendingCodOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
+
   return (
     <div>
       <h2 style={cs.pageTitle}>Order History 📦</h2>
+      {/* ── COD PENDING REMINDER BANNER ── */}
+      {pendingCodOrders.length > 0 && (
+        <div style={{ background: "rgba(236,72,153,0.1)", border: "2px solid rgba(236,72,153,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>💵</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#f472b6", fontWeight: 700, fontSize: 14 }}>
+              {pendingCodOrders.length} COD Order{pendingCodOrders.length > 1 ? "s" : ""} — Payment Due: ₹{Math.round(totalPendingAmount).toLocaleString("en-IN")}
+            </div>
+            <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>Have exact change ready for faster checkout when delivery arrives</div>
+          </div>
+        </div>
+      )}
       {orders.length === 0 ? <div style={cs.empty}>No orders yet 📦</div> : orders.map(o => (
         <div key={o.id} style={cs.orderCard}>
           <div style={cs.orderHeader}>
@@ -3812,14 +3859,22 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestR
                 {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
               </span>
             </div>
-            <span style={{ ...cs.statusBadge, background: statusColor[o.trackingStatus] || "#6b7280" }}>
-              {o.trackingStatus?.replace(/_/g, " ")}
-            </span>
-            {o.replacementRequested && (
-              <span style={{ ...cs.statusBadge, marginLeft: 8, background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
-                Replacement Requested
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ ...cs.statusBadge, background: statusColor[o.trackingStatus] || "#6b7280" }}>
+                {o.trackingStatus?.replace(/_/g, " ")}
               </span>
-            )}
+              {/* ── COD PAYMENT STATUS ── */}
+              {(o.paymentMode || "").toUpperCase() === "COD" && (
+                <span style={{ ...cs.statusBadge, background: o.paymentStatus === "RECEIVED" ? "rgba(34,197,94,0.12)" : "rgba(236,72,153,0.12)", color: o.paymentStatus === "RECEIVED" ? "#4ade80" : "#f472b6", fontSize: 11, fontWeight: 700 }}>
+                  💵 {o.paymentStatus === "RECEIVED" ? "Paid" : "₹" + Math.round(o.amount || 0).toLocaleString("en-IN")}
+                </span>
+              )}
+              {o.replacementRequested && (
+                <span style={{ ...cs.statusBadge, background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
+                  Replacement Requested
+                </span>
+              )}
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
@@ -3842,17 +3897,25 @@ function OrdersPage({ orders, onCancel, onReorder, onReport, onTrack, onRequestR
                   ["Amount", fmt(o.amount || o.totalPrice)],
                   ["Delivery Charge", o.deliveryCharge > 0 ? fmt(o.deliveryCharge) : "FREE"],
                   ["GST", o.gstAmount > 0 ? fmt(o.gstAmount) : "Included"],
-                  ["Payment", o.paymentMode || "COD"],
+                  ["Payment Mode", (o.paymentMode || "").toUpperCase() === "COD" ? "💵 Cash on Delivery" : "💳 Online Payment"],
+                  ...(((o.paymentMode || "").toUpperCase() === "COD") ? [["Payment Status", o.paymentStatus === "RECEIVED" ? "✓ Paid" : "⏳ Pending"]] : []),
                   ["Delivery By", o.deliveryTime || "Standard (3–5 days)"],
                   ...(o.razorpay_payment_id ? [["Payment ID", o.razorpay_payment_id]] : []),
                 ].map(([k, v]) => (
                   <div key={k} style={{ fontSize: 13 }}>
                     <span style={{ color: "#6b7280" }}>{k}: </span>
-                    <span style={{ color: "#e5e7eb", fontWeight: 600 }}>{v}</span>
+                    <span style={{ color: o.paymentStatus === "RECEIVED" ? "#4ade80" : "#e5e7eb", fontWeight: 600 }}>{v}</span>
                   </div>
                 ))}
               </div>
               {o.deliveryAddress && <div style={{ marginTop: 8, fontSize: 13, color: "#9ca3af" }}>📍 {o.deliveryAddress}</div>}
+              {/* ── COD AMOUNT DUE REMINDER ── */}
+              {(o.paymentMode || "").toUpperCase() === "COD" && o.paymentStatus !== "RECEIVED" && (
+                <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(236,72,153,0.1)", borderRadius: 8, border: "1px solid rgba(236,72,153,0.2)" }}>
+                  <div style={{ color: "#f472b6", fontSize: 12, fontWeight: 600 }}>⚠️ Amount Due: ₹{Math.round(o.amount || 0).toLocaleString("en-IN")}</div>
+                  <div style={{ color: "#9ca3af", fontSize: 11, marginTop: 4 }}>Ready payment at delivery for smooth checkout</div>
+                </div>
+              )}
             </div>
           )}
 

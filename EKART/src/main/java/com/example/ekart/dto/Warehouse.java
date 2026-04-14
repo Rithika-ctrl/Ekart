@@ -43,6 +43,27 @@ public class Warehouse {
     @Column(name = "served_pin_codes", nullable = false, length = 5000)
     private String servedPinCodes = "";
 
+    /**
+     * Latitude coordinate for warehouse location.
+     * Used for calculating distances to intermediate hubs in multi-city routing.
+     */
+    @Column(name = "latitude", nullable = true)
+    private Double latitude;
+
+    /**
+     * Longitude coordinate for warehouse location.
+     * Used for calculating distances to intermediate hubs in multi-city routing.
+     */
+    @Column(name = "longitude", nullable = true)
+    private Double longitude;
+
+    /**
+     * Distance from delivery location in kilometers.
+     * Calculated during multi-city routing to find optimal intermediate hub.
+     */
+    @Column(name = "distance_from_location_km", nullable = true)
+    private Double distanceFromLocationKm;
+
     private boolean active = true;
 
     // ── Getters & Setters ─────────────────────────────────────────
@@ -65,6 +86,15 @@ public class Warehouse {
     public String getServedPinCodes() { return servedPinCodes; }
     public void setServedPinCodes(String servedPinCodes) { this.servedPinCodes = servedPinCodes; }
 
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+
+    public Double getDistanceFromLocationKm() { return distanceFromLocationKm; }
+    public void setDistanceFromLocationKm(Double distanceFromLocationKm) { this.distanceFromLocationKm = distanceFromLocationKm; }
+
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
@@ -76,5 +106,34 @@ public class Warehouse {
             if (p.trim().equals(pin)) return true;
         }
         return false;
+    }
+
+    /**
+     * Calculates the distance between this warehouse and another warehouse
+     * using the Haversine formula (great-circle distance).
+     * Returns distance in kilometers.
+     */
+    public double calculateDistanceTo(Warehouse other) {
+        if (this.latitude == null || this.longitude == null ||
+            other.latitude == null || other.longitude == null) {
+            return Double.MAX_VALUE;  // Unknown distance
+        }
+
+        double lat1 = Math.toRadians(this.latitude);
+        double lon1 = Math.toRadians(this.longitude);
+        double lat2 = Math.toRadians(other.latitude);
+        double lon2 = Math.toRadians(other.longitude);
+
+        double dLat = lat2 - lat1;
+        double dLon = lon2 - lon1;
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(lat1) * Math.cos(lat2) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double radiusEarth = 6371;  // km
+
+        return radiusEarth * c;
     }
 }

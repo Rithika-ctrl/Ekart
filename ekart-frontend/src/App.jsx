@@ -19,6 +19,13 @@ import BlockedPage      from "./pages/BlockedPage.jsx";
 import ErrorPage        from "./pages/ErrorPage.jsx";
 import DocumentationPage from "./pages/DocumentationPage.jsx";
 
+// Warehouse Staff Pages
+import WarehouseStaffLoginPage from "./pages/WarehouseStaffLoginPage.jsx";
+import WarehouseDashboard from "./pages/WarehouseDashboard.jsx";
+import AssignDeliveryBoyPage from "./pages/AssignDeliveryBoyPage.jsx";
+import OrderTrackingPage from "./pages/OrderTrackingPage.jsx";
+import AdminStaffManagementPage from "./pages/AdminStaffManagementPage.jsx";
+
 // ─── Auth Context ───────────────────────────────────────────────────────────
 
 const AuthContext = createContext(null);
@@ -424,6 +431,13 @@ export default function App() {
           <Route path="/sop-documentation" element={<DocumentationPage type="sop" />} />
           <Route path="/policy-documentation" element={<DocumentationPage type="policy" />} />
 
+          {/* ── Warehouse Staff (Standalone Auth - Session-based) ──– */}
+          <Route path="/warehouse/login" element={<WarehouseStaffLoginPage />} />
+          <Route path="/warehouse/dashboard" element={<WarehouseDashboard />} />
+          <Route path="/warehouse/assign/:orderId" element={<AssignDeliveryBoyPage />} />
+
+          {/* ── Order Tracking (Public for customers) ───────────── */}
+          <Route path="/track/:orderId" element={<OrderTrackingPage />} />
 
           {/* ── Customer / Guest (all sub-pages handled inside CustomerApp) ── */}
           <Route
@@ -451,6 +465,16 @@ export default function App() {
             element={
               <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
                 <AdminApp />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Admin Staff Management (integrated with Admin app) ─ */}
+          <Route
+            path="/admin/staff-management"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
+                <AdminStaffManagementPage />
               </RequireAuth>
             }
           />

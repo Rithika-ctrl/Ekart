@@ -31,3 +31,64 @@ export async function apiFetch(path, options = {}, auth = null) {
   const res = await fetch(API_BASE + path, { ...options, headers });
   return res.json();
 }
+
+/**
+ * Simple API client with axios-like interface for backward compatibility.
+ * Provides post(), get(), put(), delete() methods that wrap fetch calls.
+ */
+const api = {
+  async post(path, data = {}, config = {}) {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : API_BASE + path;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(config.headers || {}) },
+      body: JSON.stringify(data),
+      ...config,
+    });
+    return response.json().then(result => ({ data: result, status: response.status }));
+  },
+
+  async get(path, config = {}) {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : API_BASE + path;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...(config.headers || {}) },
+      ...config,
+    });
+    return response.json().then(result => ({ data: result, status: response.status }));
+  },
+
+  async put(path, data = {}, config = {}) {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : API_BASE + path;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(config.headers || {}) },
+      body: JSON.stringify(data),
+      ...config,
+    });
+    return response.json().then(result => ({ data: result, status: response.status }));
+  },
+
+  async delete(path, config = {}) {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : API_BASE + path;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(config.headers || {}) },
+      ...config,
+    });
+    return response.json().then(result => ({ data: result, status: response.status }));
+  },
+
+  async patch(path, data = {}, config = {}) {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : API_BASE + path;
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(config.headers || {}) },
+      body: JSON.stringify(data),
+      ...config,
+    });
+    return response.json().then(result => ({ data: result, status: response.status }));
+  },
+};
+
+export default api;

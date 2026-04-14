@@ -4883,13 +4883,11 @@ public class ReactApiController {
             db.setAvailable(newStatus);
             deliveryBoyRepository.save(db);
 
-            // If delivery boy just came ONLINE, trigger auto-assign
+            // AUTO-ASSIGN DISABLED (Phase 3)
+            // Previously: if (newStatus) autoAssignmentService.onDeliveryBoyOnline(db);
+            // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
             if (newStatus) {
-                try {
-                    autoAssignmentService.onDeliveryBoyOnline(db);
-                } catch (Exception e) {
-                    System.err.println("Auto-assign trigger failed: " + e.getMessage());
-                }
+                System.out.println("[API] Delivery boy " + db.getName() + " is now online (manual assignment enabled)");
             }
 
             res.put("success", true);
@@ -4949,25 +4947,23 @@ public class ReactApiController {
                 order.getCurrentCity() != null ? order.getCurrentCity() : "Warehouse",
                 "Order packed and ready for pickup", "admin"));
 
-            // TRIGGER AUTO-ASSIGN
-            try {
-                autoAssignmentService.onOrderPacked(order);
-            } catch (Exception e) {
-                System.err.println("Auto-assign trigger failed: " + e.getMessage());
-            }
+            // AUTO-ASSIGN DISABLED (Phase 3)
+            // Previously: autoAssignmentService.onOrderPacked(order);
+            // Now: Warehouse staff manually assigns delivery boy via WarehouseReceivingService
+            System.out.println("[API] Order #" + orderId + " marked as PACKED (manual assignment enabled)");
 
-            // Re-fetch to check if auto-assign succeeded
+            // Re-fetch for response (delivery boy will be null until manual assignment)
             Order refreshed = orderRepository.findById(orderId).orElse(order);
-            boolean autoAssigned = refreshed.getDeliveryBoy() != null;
+            boolean hasDeliveryBoy = refreshed.getDeliveryBoy() != null;
 
             res.put("success", true);
-            if (autoAssigned) {
-                res.put("message", "Order #" + orderId + " marked as PACKED and automatically assigned to "
+            if (hasDeliveryBoy) {
+                res.put("message", "Order #" + orderId + " marked as PACKED and already assigned to "
                     + refreshed.getDeliveryBoy().getName());
-                res.put("autoAssigned", true);
+                res.put("autoAssigned", false);  // Not auto-assigned (Phase 3)
                 res.put("assignedTo", refreshed.getDeliveryBoy().getName());
             } else {
-                res.put("message", "Order #" + orderId + " marked as PACKED. No eligible delivery boys online — assign manually.");
+                res.put("message", "Order #" + orderId + " marked as PACKED. Warehouse staff will assign delivery boy.");
                 res.put("autoAssigned", false);
             }
             return ResponseEntity.ok(res);

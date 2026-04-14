@@ -77,8 +77,23 @@ function PasswordVerificationHint({ password, confirmPassword }) {
 }
 
 const S = `
+  :root {
+    --ek-bg: #f9fafb;
+    --ek-surface: #ffffff;
+    --ek-surface-alt: #f8fafc;
+    --ek-text: #111827;
+    --ek-muted: #6b7280;
+    --ek-border: #e5e7eb;
+    --ek-primary: #2563eb;
+    --ek-success: #16a34a;
+    --ek-success-soft: #e8faf2;
+    --ek-danger: #dc2626;
+    --ek-danger-soft: #fef2f2;
+    --ek-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    --ek-input: #ffffff;
+  }
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
-  .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ek-bg);padding:24px;font-family:'DM Sans',sans-serif}
+  .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ek-bg, #f9fafb);padding:24px;font-family:'DM Sans',sans-serif}
   .auth-card{background:var(--ek-surface);border-radius:20px;padding:40px;width:100%;max-width:420px;box-shadow:var(--ek-shadow);border:1px solid var(--ek-border)}
   .auth-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.5px;color:var(--ek-text);margin-bottom:28px;display:block}
   .auth-logo span{color:var(--ek-danger)}
@@ -480,10 +495,10 @@ export default function AuthPage() {
     <>
       <style>{S}</style>
       <div className="auth-wrap">
-        <div style={{ position: 'fixed', top: 10, right: 10, background: 'red', color: 'white', padding: '10px', zIndex: 9999 }}>
-          AuthPage Loaded - Theme: light - Redux Test
-        </div>
         <div className="auth-card">
+          <div style={{ background: 'red', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '10px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>
+            ✅ AUTH FORM IS LOADING - If you see this red banner, CSS is working
+          </div>
           <span className="auth-logo">e<span>kart</span></span>
 
           {/* Role switcher — only on login/register/forgot */}

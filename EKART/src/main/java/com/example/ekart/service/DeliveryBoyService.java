@@ -288,8 +288,11 @@ public class DeliveryBoyService {
         db.setAvailable(isAvailable);
         deliveryBoyRepository.save(db);
 
+        // AUTO-ASSIGN DISABLED (Phase 3)
+        // Previously: if (isAvailable) autoAssignmentService.onDeliveryBoyOnline(db);
+        // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
         if (isAvailable) {
-            autoAssignmentService.onDeliveryBoyOnline(db);
+            System.out.println("[DELIVERY BOY] " + db.getName() + " is now online (manual assignment enabled)");
         }
 
         res.put("success", true);
@@ -400,7 +403,10 @@ public class DeliveryBoyService {
         try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
         catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
 
-        autoAssignmentService.onOrderDelivered(db);
+        // AUTO-ASSIGN DISABLED (Phase 3)
+        // Previously: autoAssignmentService.onOrderDelivered(db);
+        // Now: Warehouse staff will manually assign next order for delivery boy
+        System.out.println("[DELIVERY] Order #" + orderId + " delivered by " + db.getName() + " (auto-fill disabled);");
 
         res.put("success", true);
         res.put("message", "Order #" + orderId + " marked as Delivered!");

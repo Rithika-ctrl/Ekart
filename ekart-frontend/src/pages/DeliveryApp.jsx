@@ -48,6 +48,11 @@ export default function DeliveryApp() {
   const [otpMap, setOtpMap] = useState({});
   const setOtp = (id, val) => setOtpMap(prev => ({ ...prev, [id]: val }));
 
+  // ── COD CASH COLLECTION TRACKING ──
+  const [cashCollected, setCashCollected] = useState({}); // { [orderId]: { amount, collected, timestamp } }
+  const [showCashModal, setShowCashModal] = useState(null); // { orderId, amount }
+  const [collectionNotes, setCollectionNotes] = useState({});
+
   // Photo capture states
   const [pickupPhotos, setPickupPhotos] = useState({}); // { [orderId]: base64 }
   const [deliveryPhotos, setDeliveryPhotos] = useState({}); // { [orderId]: base64 }
@@ -295,6 +300,35 @@ export default function DeliveryApp() {
 
   const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
 
+  // ── CASH COLLECTION METHODS ──
+  const markPaymentReceived = (orderId, amount) => {
+    setCashCollected(prev => ({
+      ...prev,
+      [orderId]: {
+        amount,
+        collected: true,
+        timestamp: new Date().toLocaleTimeString('en-IN'),
+        notes: collectionNotes[orderId] || ''
+      }
+    }));
+    showToast(`✅ Payment of ${fmt(amount)} marked as received from Order #${orderId}`, true);
+    setShowCashModal(null);
+  };
+
+  const getTodaysCashCollection = () => {
+    let total = 0;
+    delivered.forEach(order => {
+      if (order.isCod && cashCollected[order.id]?.collected) {
+        total += (order.totalPrice || 0) + (order.deliveryCharge || 0);
+      }
+    });
+    return total;
+  };
+
+  const getCodOrdersForCollection = () => {
+    return outNow.filter(o => o.isCod && !cashCollected[o.id]?.collected);
+  };
+
   // ── Pending approval guard
   if (!loading && profile && !profile.approved) {
     return (
@@ -527,6 +561,51 @@ export default function DeliveryApp() {
                 </div>
               </div>
 
+              {/* ── COD CASH COLLECTION DASHBOARD ── */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <i className="fas fa-money-bill-wave text-amber-600 text-xl" /> 💵 COD Cash Collection
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">Track your Cash on Delivery collections</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-amber-700">{fmt(getTodaysCashCollection())}</div>
+                    <div className="text-xs text-amber-600 font-semibold">Today's Collection</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div className="bg-white rounded-lg p-4 border border-amber-200">
+                    <div className="text-sm text-gray-600 font-semibold mb-1">📍 Pending Collection</div>
+                    <div className="text-2xl font-bold text-red-600">{getCodOrdersForCollection().length}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Pending: {fmt(getCodOrdersForCollection().reduce((s, o) => s + (o.totalPrice || 0) + (o.deliveryCharge || 0), 0))}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                    <div className="text-sm text-gray-600 font-semibold mb-1">✅ Collected Today</div>
+                    <div className="text-2xl font-bold text-green-600">{Object.values(cashCollected).filter(c => c.collected).length}</div>
+                    <div className="text-xs text-gray-500 mt-1">Orders from deliveries</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                    <div className="text-sm text-gray-600 font-semibold mb-1">💳 Payment Methods</div>
+                    <div className="text-2xl font-bold text-blue-600">COD</div>
+                    <div className="text-xs text-gray-500 mt-1">100% Cash Collection</div>
+                  </div>
+                </div>
+
+                {getCodOrdersForCollection().length > 0 && (
+                  <div className="mt-4 bg-orange-100 border border-orange-300 rounded-lg p-3 text-sm text-orange-800 flex items-start gap-2">
+                    <i className="fas fa-exclamation-circle flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Action Required:</strong> You have <strong>{getCodOrdersForCollection().length} active COD delivery/deliveries</strong> awaiting payment collection.
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 3-Column Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -730,6 +809,39 @@ export default function DeliveryApp() {
                             </button>
                           </div>
                         </div>
+
+                        {/* ── COD PAYMENT COLLECTION ── */}
+                        {order.isCod && (
+                          <div className="mt-2.5 bg-red-50 border-2 border-red-300 rounded-lg p-2.5">
+                            {!cashCollected[order.id]?.collected ? (
+                              <>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="text-xs font-bold text-red-700 flex items-center gap-2">
+                                    <i className="fas fa-money-bill text-xs" /> 💵 COD Amount Due
+                                  </label>
+                                  <span className="text-sm font-bold text-red-700">
+                                    {fmt((order.totalPrice || 0) + (order.deliveryCharge || 0))}
+                                  </span>
+                                </div>
+                                <button 
+                                  className="w-full px-3 py-1.5 rounded text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center gap-2"
+                                  onClick={() => setShowCashModal({ 
+                                    orderId: order.id, 
+                                    amount: (order.totalPrice || 0) + (order.deliveryCharge || 0),
+                                    customerName: order.customer?.name || order.customerName
+                                  })}
+                                >
+                                  <i className="fas fa-check-circle text-xs" /> Mark Payment Received
+                                </button>
+                              </>
+                            ) : (
+                              <div className="flex items-center gap-2 p-2 bg-green-100 border border-green-300 rounded text-xs text-green-700 font-semibold">
+                                <i className="fas fa-check-double text-sm" />
+                                ✅ Payment {fmt(cashCollected[order.id].amount)} collected at {cashCollected[order.id].timestamp}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -844,6 +956,65 @@ export default function DeliveryApp() {
                   disabled={!selectedWh || warehouseList.length === 0}
                 >
                   <i className="fas fa-paper-plane" /> Submit Request
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* ── PAYMENT RECEIVED MODAL ── */}
+        {showCashModal && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setShowCashModal(null); }}>
+            <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-green-100 rounded-full p-3">
+                  <i className="fas fa-money-bill-wave text-2xl text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Confirm Payment Received</h2>
+                  <p className="text-sm text-gray-600">Order #{showCashModal.orderId}</p>
+                </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <div className="text-xs text-gray-600 font-semibold mb-1">Amount Collected</div>
+                <div className="text-3xl font-bold text-green-600">{fmt(showCashModal.amount)}</div>
+                <div className="text-xs text-green-700 mt-2 flex items-center gap-1">
+                  <i className="fas fa-user-circle" /> From: {showCashModal.customerName}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-700 mb-2">📝 Collection Notes (Optional)</label>
+                <textarea
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-green-600 focus:ring-1 focus:ring-green-300 outline-none"
+                  placeholder="E.g., Customer paid via Google Pay, exact change, etc."
+                  rows="3"
+                  value={collectionNotes[showCashModal.orderId] || ""}
+                  onChange={(e) => setCollectionNotes(prev => ({
+                    ...prev,
+                    [showCashModal.orderId]: e.target.value
+                  }))}
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 mb-4 flex items-start gap-2">
+                <i className="fas fa-info-circle flex-shrink-0 mt-0.5" />
+                <span>Confirming payment marks this order as cash collected. This can be synced with admin later.</span>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition"
+                  onClick={() => setShowCashModal(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2"
+                  onClick={() => markPaymentReceived(showCashModal.orderId, showCashModal.amount)}
+                >
+                  <i className="fas fa-check-circle" /> Confirm Payment
                 </button>
               </div>
             </div>

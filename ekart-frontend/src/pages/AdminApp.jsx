@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
+import CODSettlementAdmin from "./CODSettlementAdmin";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
@@ -42,6 +43,8 @@ export default function AdminApp() {
   const [activityFilter, setActivityFilter] = useState("all");
   const [deprecationReport, setDeprecationReport] = useState(null);
   const [deprecationSummary, setDeprecationSummary] = useState(null);
+  const [settlements, setSettlements] = useState([]);
+  const [codStats, setCodStats] = useState(null);
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -97,6 +100,23 @@ export default function AdminApp() {
       });
     }
   }, [page]);
+  
+  // ── COD STATISTICS ──
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const codOrders = orders.filter(o => (o.paymentMode || "").toUpperCase() === "COD");
+      const codEarnings = codOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
+      const codCollected = codOrders.filter(o => o.paymentStatus === "RECEIVED").reduce((sum, o) => sum + (o.amount || 0), 0);
+      const codPending = codEarnings - codCollected;
+      setCodStats({
+        totalCodOrders: codOrders.length,
+        codEarnings,
+        codCollected,
+        codPending,
+        collectionRate: codOrders.length > 0 ? ((codOrders.filter(o => o.paymentStatus === "RECEIVED").length / codOrders.length) * 100).toFixed(1) : 0
+      });
+    }
+  }, [orders]);
   useEffect(() => {
     if (page === "delivery") {
       const token = auth?.token || localStorage.getItem("token");
@@ -235,6 +255,7 @@ export default function AdminApp() {
     { key: "vendors",    label: "🏪 Vendors" },
     { key: "delivery",   label: "🛵 Delivery" },
     { key: "warehouse",  label: "🏭 Warehouses" },
+    { key: "settlement", label: "💰 COD Settlement" },
     { key: "categories", label: "🗂️ Categories" },
     { key: "coupons",    label: "🎟️ Coupons" },
     { key: "refunds",    label: `💸 Refunds${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ""}` },
@@ -268,13 +289,14 @@ export default function AdminApp() {
 
       <main style={as.main}>
         {loading ? <div style={as.empty}>Loading admin data…</div> : <>
-          {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} />}
+          {page === "overview"   && <Overview users={users} products={products} orders={orders} totalRevenue={totalRevenue} pendingProducts={pendingProducts} analyticsRevenue={analytics?.totalRevenue} codStats={codStats} />}
           {page === "products"   && <ProductsAdmin products={products} onApprove={approveProduct} onReject={rejectProduct} onApproveAll={approveAllProducts} />}
           {page === "orders"     && <OrdersAdmin orders={orders} onUpdateStatus={updateOrder} api={api} auth={auth} />}
           {page === "customers"  && <CustomersAdmin customers={users.customers} onToggle={toggleCustomer} api={api} showToast={show} />}
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin orders={orders} deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
+          {page === "settlement" && <CODSettlementAdmin codStats={codStats} orders={orders} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
@@ -294,7 +316,7 @@ export default function AdminApp() {
 }
 
 /* ── Overview ── */
-function Overview({ users, products, orders, totalRevenue, pendingProducts, analyticsRevenue }) {
+function Overview({ users, products, orders, totalRevenue, pendingProducts, analyticsRevenue, codStats }) {
   const displayRevenue = analyticsRevenue != null ? analyticsRevenue : totalRevenue;
   const stats = [
     { label: "Customers",       value: users.customers.length, icon: "👥", color: "#2563eb" },
@@ -303,6 +325,8 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
     { label: "Pending Approval",value: pendingProducts.length, icon: "⏳", color: "#dc2626" },
     { label: "Total Orders",    value: orders.length,          icon: "📦", color: "#0284c7" },
     { label: "Total Revenue",   value: fmt(displayRevenue),    icon: "💰", color: "#16a34a" },
+    { label: "COD Earnings",    value: fmt(codStats?.codEarnings || 0), icon: "💵", color: "#059669" },
+    { label: "COD Collected",   value: fmt(codStats?.codCollected || 0), icon: "✓", color: "#22c55e" },
   ];
   const statusCounts = orders.reduce((a, o) => { a[o.trackingStatus] = (a[o.trackingStatus] || 0) + 1; return a; }, {});
   return (
@@ -317,6 +341,18 @@ function Overview({ users, products, orders, totalRevenue, pendingProducts, anal
           </div>
         ))}
       </div>
+      {/* ── COD PENDING REMINDER ── */}
+      {codStats?.codPending > 0 && (
+        <div style={{ background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>💵</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#16a34a", fontWeight: 700, fontSize: 14 }}>COD Collection Status</div>
+            <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
+              Pending: {fmt(codStats?.codPending)} (Collection Rate: {codStats?.collectionRate}%)
+            </div>
+          </div>
+        </div>
+      )}
       <div style={as.twoCol}>
         <div style={as.card}>
           <h3 style={as.cardTitle}>Order Status Breakdown</h3>
