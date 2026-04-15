@@ -83,6 +83,10 @@ public class Vendor implements Serializable {
 	@Column(nullable = true, columnDefinition = "TEXT")
 	private String description;
 
+	// City where vendor is located (used for auto-assigning warehouses)
+	@Column(nullable = true, length = 100)
+	private String city;
+
 	// Stock alerts for products - cascade delete when vendor is deleted
 	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<StockAlert> stockAlerts;
@@ -138,6 +142,9 @@ public class Vendor implements Serializable {
 
 	public String getDescription() { return description; }
 	public void setDescription(String description) { this.description = description; }
+
+	public String getCity() { return city; }
+	public void setCity(String city) { this.city = city; }
 
 	public List<StockAlert> getStockAlerts() { return stockAlerts; }
 	public void setStockAlerts(List<StockAlert> stockAlerts) { this.stockAlerts = stockAlerts; }

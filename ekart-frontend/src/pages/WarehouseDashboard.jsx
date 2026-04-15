@@ -1,477 +1,647 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import axios from 'axios';
 
-/**
- * LOCATION: ekart-frontend/src/pages/WarehouseDashboard.jsx
- * 
- * Warehouse Manager Dashboard
- * - View pending orders for manual assignment
- * - Assign delivery boys with load balancing
- * - View cash settlement status
- * - Real-time statistics
- */
+const API_BASE_URL = 'http://localhost:8080/api/react';
+
 export default function WarehouseDashboard() {
-  const [staffInfo, setStaffInfo] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [deliveryBoys, setDeliveryBoys] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [stats, setStats] = useState({
-    ordersReceived: 0,
-    ordersAssigned: 0,
-    pendingAssignment: 0,
-    activeDeliveryBoys: 0,
-    totalCash: 0,
-  });
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('receiving');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
+  // Get user data from localStorage
+  const warehouseToken = localStorage.getItem('warehouseToken');
+  const warehouseId = localStorage.getItem('warehouseId');
+  const warehouseName = localStorage.getItem('warehouseName');
+  const warehouseCity = localStorage.getItem('warehouseCity');
+
+  // Redirect if not logged in
   useEffect(() => {
-    const checkAuth = () => {
-      const staffId = sessionStorage.getItem('warehouseStaffId');
-      const staffName = sessionStorage.getItem('warehouseStaffName');
-      const warehouseId = sessionStorage.getItem('warehouseId');
+    if (!warehouseToken) {
+      navigate('/warehouse/login');
+    }
+  }, [warehouseToken, navigate]);
 
-      if (!staffId || !staffName || !warehouseId) {
-        alert('❌ Session expired. Please login again.');
-        navigate('/warehouse/login');
-        return;
-      }
+  // Tab 1: Receiving Queue
+  const [receivingQueue, setReceivingQueue] = useState([]);
+  const [loadingReceiving, setLoadingReceiving] = useState(false);
 
-      setStaffInfo({
-        id: staffId,
-        name: staffName,
-        email: sessionStorage.getItem('warehouseStaffEmail'),
-        role: sessionStorage.getItem('warehouseStaffRole'),
-        warehouseId: warehouseId,
+  const fetchReceivingQueue = async () => {
+    setLoadingReceiving(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/receiving-queue`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
       });
+      setReceivingQueue(response.data.orders || []);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching receiving queue:', err);
+      setError('Failed to load receiving queue');
+    } finally {
+      setLoadingReceiving(false);
+    }
+  };
 
-      fetchDashboardData(warehouseId);
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  const fetchDashboardData = async (warehouseId) => {
+  const markAsReceived = async (orderId) => {
     try {
       setLoading(true);
-
-      // Get dashboard info from warehouse endpoint
-      const dashResponse = await api.get('/warehouse/dashboard');
-      if (dashResponse.data?.success) {
-        setStaffInfo((prev) => ({
-          ...prev,
-          ...dashResponse.data.data,
-        }));
-      }
-
-      // Get pending orders (PACKED status)
-      try {
-        const ordersResponse = await api.get('/api/react/admin/orders/packed');
-        if (ordersResponse.data?.success && ordersResponse.data?.orders) {
-          setOrders(ordersResponse.data.orders);
-        } else {
-          // Fallback: use mock data if API fails
-          setOrders([
-            {
-              id: 2001,
-              customerId: 5,
-              customerName: 'Priya Sharma',
-              product: 'iPhone 13 Pro',
-              amount: 79999,
-              address: 'Whitefield Tech Park, Bengaluru',
-              status: 'PACKED',
-            },
-            {
-              id: 2002,
-              customerId: 8,
-              customerName: 'Rajesh Kumar',
-              product: 'Dell Laptop',
-              amount: 45500,
-              address: 'Indiranagar, Bengaluru',
-              status: 'PACKED',
-            },
-            {
-              id: 2003,
-              customerId: 12,
-              customerName: 'Sneha Patel',
-              product: 'Sony Headphones',
-              amount: 8999,
-              address: 'Koramangala, Bengaluru',
-              status: 'PACKED',
-            },
-          ]);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch pending orders:', err);
-        // Use fallback mock data
-        setOrders([
-          {
-            id: 2001,
-            customerId: 5,
-            customerName: 'Priya Sharma',
-            product: 'iPhone 13 Pro',
-            amount: 79999,
-            address: 'Whitefield Tech Park, Bengaluru',
-            status: 'PACKED',
-          },
-        ]);
-      }
-
-      // Get delivery boys for this warehouse
-      try {
-        const boysResponse = await api.get(`/admin/delivery/boys/${warehouseId}`);
-        if (boysResponse.data?.success && boysResponse.data?.deliveryBoys) {
-          setDeliveryBoys(boysResponse.data.deliveryBoys);
-        } else {
-          // Fallback: use mock data
-          setDeliveryBoys([
-            {
-              id: 45,
-              name: 'Suresh Kumar',
-              rating: 4.8,
-              active_orders: 3,
-              active: true,
-            },
-            {
-              id: 46,
-              name: 'Ravi Kumar',
-              rating: 4.6,
-              active_orders: 5,
-              active: true,
-            },
-            {
-              id: 47,
-              name: 'Vikram',
-              rating: 4.7,
-              active_orders: 6,
-              active: true,
-            },
-            {
-              id: 48,
-              name: 'Ajit',
-              rating: 4.9,
-              active_orders: 2,
-              active: true,
-            },
-          ]);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch delivery boys:', err);
-        // Use mock data
-        setDeliveryBoys([
-          {
-            id: 45,
-            name: 'Suresh Kumar',
-            rating: 4.8,
-            active_orders: 3,
-            active: true,
-          },
-        ]);
-      }
-
-      // Calculate stats
-      const staffResponse = await api.get('/warehouse/dashboard');
-      const dashData = staffResponse.data?.data || {};
-      
-      // Try to get shipped orders for stats
-      let shippedCount = 0;
-      try {
-        const shippedResponse = await api.get('/api/react/admin/orders/shipped');
-        if (shippedResponse.data?.success) {
-          shippedCount = shippedResponse.data.orders?.length || 0;
-        }
-      } catch (err) {
-        console.warn('Failed to fetch shipped orders:', err);
-      }
-
-      setStats({
-        ordersReceived: 15,
-        ordersAssigned: shippedCount,
-        pendingAssignment: orders.length,
-        activeDeliveryBoys: deliveryBoys.length,
-        totalCash: 139098,
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/warehouse/orders/${orderId}/mark-received`,
+        {},
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+      setSuccessMessage(`Order ${orderId} marked as received`);
+      fetchReceivingQueue();
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Failed to load dashboard data: ' + (err.message || ''));
-      console.error('Dashboard error:', err);
+      console.error('Error marking as received:', err);
+      setError('Failed to mark as received');
     } finally {
       setLoading(false);
     }
   };
 
+  // Tab 2: In-Transit Management
+  const [inTransitOrders, setInTransitOrders] = useState([]);
+  const [loadingInTransit, setLoadingInTransit] = useState(false);
+
+  const fetchInTransitOrders = async () => {
+    setLoadingInTransit(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/in-transit`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      setInTransitOrders(response.data.orders || []);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching in-transit orders:', err);
+      setError('Failed to load in-transit orders');
+    } finally {
+      setLoadingInTransit(false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId, action) => {
+    try {
+      setLoading(true);
+      const endpoint = action === 'prepare' 
+        ? `/api/react/warehouse/orders/${orderId}/prepare-for-hub-transit`
+        : action === 'transit'
+        ? `/api/react/warehouse/orders/${orderId}/mark-in-hub-transit`
+        : `/api/react/warehouse/orders/${orderId}/mark-arrived-at-destination`;
+
+      await axios.post(
+        `${API_BASE_URL}${endpoint}`,
+        {},
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+      setSuccessMessage(`Order ${orderId} status updated`);
+      fetchInTransitOrders();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      setError('Failed to update order status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tab 3: Assignment Queue
+  const [assignmentQueue, setAssignmentQueue] = useState([]);
+  const [loadingAssignment, setLoadingAssignment] = useState(false);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+
+  const fetchAssignmentQueue = async () => {
+    setLoadingAssignment(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/assignment-queue`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      setAssignmentQueue(response.data.orders || []);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching assignment queue:', err);
+      setError('Failed to load assignment queue');
+    } finally {
+      setLoadingAssignment(false);
+    }
+  };
+
+  const getDeliveryBoys = async (pinCode) => {
+    if (!pinCode) return;
+    try {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/delivery-boys?pinCode=${pinCode}`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      setDeliveryBoys(response.data.deliveryBoys || []);
+    } catch (err) {
+      console.error('Error fetching delivery boys:', err);
+      setError('Failed to load delivery boys');
+    }
+  };
+
+  const assignDeliveryBoy = async () => {
+    if (!selectedOrder || !selectedDeliveryBoy) {
+      setError('Please select both order and delivery boy');
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${API_BASE_URL}/warehouse/orders/${selectedOrder.id}/assign-delivery-boy`,
+        { deliveryBoyId: selectedDeliveryBoy },
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+      setSuccessMessage(`Delivery boy assigned successfully`);
+      setShowAssignModal(false);
+      setSelectedOrder(null);
+      setSelectedDeliveryBoy(null);
+      fetchAssignmentQueue();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error assigning delivery boy:', err);
+      setError(err.response?.data?.error || 'Failed to assign delivery boy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tab 4: COD Settlements
+  const [pendingSettlements, setPendingSettlements] = useState([]);
+  const [loadingSettlements, setLoadingSettlements] = useState(false);
+  const [selectedSettlements, setSelectedSettlements] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadProof, setUploadProof] = useState('');
+  const [settlementNotes, setSettlementNotes] = useState('');
+
+  const fetchPendingSettlements = async () => {
+    setLoadingSettlements(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/settlements/pending`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      setPendingSettlements(response.data.settlements || []);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching settlements:', err);
+      setError('Failed to load settlements');
+    } finally {
+      setLoadingSettlements(false);
+    }
+  };
+
+  const toggleSettlementSelection = (orderId) => {
+    if (selectedSettlements.includes(orderId)) {
+      setSelectedSettlements(selectedSettlements.filter(id => id !== orderId));
+    } else {
+      setSelectedSettlements([...selectedSettlements, orderId]);
+    }
+  };
+
+  const handleProofUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadProof(reader.result); // Base64 encoded image
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadSettlementProof = async () => {
+    if (selectedSettlements.length === 0) {
+      setError('Please select at least one settlement');
+      return;
+    }
+    if (!uploadProof) {
+      setError('Please upload proof image');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${API_BASE_URL}/warehouse/settlements/create-and-upload-proof`,
+        {
+          orderIds: selectedSettlements,
+          proofImage: uploadProof,
+          notes: settlementNotes,
+        },
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+      setSuccessMessage('Settlement proof uploaded successfully');
+      setShowUploadModal(false);
+      setUploadProof('');
+      setSettlementNotes('');
+      setSelectedSettlements([]);
+      fetchPendingSettlements();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error uploading proof:', err);
+      setError(err.response?.data?.error || 'Failed to upload proof');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data when tabs change
+  useEffect(() => {
+    if (activeTab === 'receiving') fetchReceivingQueue();
+    else if (activeTab === 'transit') fetchInTransitOrders();
+    else if (activeTab === 'assignment') fetchAssignmentQueue();
+    else if (activeTab === 'settlements') fetchPendingSettlements();
+  }, [activeTab]);
+
   const handleLogout = () => {
-    // Call backend logout
-    api.post('/warehouse/logout').catch((err) => console.error('Logout error:', err));
-
-    // Clear session
-    sessionStorage.removeItem('warehouseStaffId');
-    sessionStorage.removeItem('warehouseStaffName');
-    sessionStorage.removeItem('warehouseStaffEmail');
-    sessionStorage.removeItem('warehouseStaffRole');
-    sessionStorage.removeItem('warehouseId');
-
+    localStorage.removeItem('warehouseToken');
+    localStorage.removeItem('warehouseId');
+    localStorage.removeItem('warehouseName');
+    localStorage.removeItem('warehouseCity');
+    localStorage.removeItem('warehouseLoginId');
     navigate('/warehouse/login');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-gray-600 font-semibold">Loading dashboard...</p>
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Top Bar */}
+      <div className="bg-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">🏭 Warehouse Dashboard</h1>
+            <p className="text-sm text-gray-600">{warehouseName} • {warehouseCity}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+          >
+            Logout
+          </button>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <span className="text-3xl mr-3">📦</span>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">EKART Warehouse</h1>
-              <p className="text-sm text-gray-600">Staff Portal</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="font-semibold text-gray-800">{staffInfo?.name}</p>
-              <p className="text-xs text-gray-600">{staffInfo?.role}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-semibold"
-            >
-              Logout
-            </button>
+      {/* Alerts */}
+      {error && (
+        <div className="max-w-7xl mx-auto mt-4 px-6">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert">
+            {error}
           </div>
         </div>
-      </nav>
+      )}
+      {successMessage && (
+        <div className="max-w-7xl mx-auto mt-4 px-6">
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg" role="alert">
+            ✓ {successMessage}
+          </div>
+        </div>
+      )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Error Alert */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <p className="font-semibold">⚠️ Error</p>
-            <p className="text-sm">{error}</p>
+      {/* Tabs Navigation */}
+      <div className="bg-white shadow-md mt-4 max-w-7xl mx-auto rounded-t-lg">
+        <div className="flex border-b">
+          <button
+            onClick={() => setActiveTab('receiving')}
+            className={`flex-1 py-4 px-6 font-semibold transition ${
+              activeTab === 'receiving'
+                ? 'bg-blue-600 text-white border-b-2 border-blue-700'
+                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            📦 Receiving Queue
+          </button>
+          <button
+            onClick={() => setActiveTab('transit')}
+            className={`flex-1 py-4 px-6 font-semibold transition ${
+              activeTab === 'transit'
+                ? 'bg-blue-600 text-white border-b-2 border-blue-700'
+                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            🚚 In-Transit
+          </button>
+          <button
+            onClick={() => setActiveTab('assignment')}
+            className={`flex-1 py-4 px-6 font-semibold transition ${
+              activeTab === 'assignment'
+                ? 'bg-blue-600 text-white border-b-2 border-blue-700'
+                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            👤 Assignment
+          </button>
+          <button
+            onClick={() => setActiveTab('settlements')}
+            className={`flex-1 py-4 px-6 font-semibold transition ${
+              activeTab === 'settlements'
+                ? 'bg-blue-600 text-white border-b-2 border-blue-700'
+                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            💰 COD Settlement
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Tab 1: Receiving Queue */}
+        {activeTab === 'receiving' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4">📦 Receiving Queue</h2>
+            {loadingReceiving ? (
+              <p className="text-gray-600">Loading...</p>
+            ) : receivingQueue.length === 0 ? (
+              <p className="text-gray-600">No orders in receiving queue</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-200">
+                      <th className="border px-4 py-2 text-left">Order ID</th>
+                      <th className="border px-4 py-2 text-left">Customer</th>
+                      <th className="border px-4 py-2 text-left">Vendor</th>
+                      <th className="border px-4 py-2 text-left">Payment</th>
+                      <th className="border px-4 py-2 text-right">Amount</th>
+                      <th className="border px-4 py-2 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receivingQueue.map((order) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="border px-4 py-3 font-semibold">#{order.id}</td>
+                        <td className="border px-4 py-3">{order.customerName}</td>
+                        <td className="border px-4 py-3">{order.vendorName}</td>
+                        <td className="border px-4 py-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            order.paymentMethod === 'COD'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {order.paymentMethod}
+                          </span>
+                        </td>
+                        <td className="border px-4 py-3 text-right font-semibold">₹{order.totalPrice}</td>
+                        <td className="border px-4 py-3 text-center">
+                          <button
+                            onClick={() => markAsReceived(order.id)}
+                            disabled={loading}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                          >
+                            ✓ Receive
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <StatCard
-            title="Orders Today"
-            value={stats.ordersReceived}
-            icon="📦"
-            color="blue"
-          />
-          <StatCard
-            title="Assigned"
-            value={stats.ordersAssigned}
-            icon="✅"
-            color="green"
-          />
-          <StatCard
-            title="Pending"
-            value={stats.pendingAssignment}
-            icon="⏳"
-            color="orange"
-          />
-          <StatCard
-            title="Active Delivery Boys"
-            value={stats.activeDeliveryBoys}
-            icon="🚗"
-            color="purple"
-          />
-          <StatCard
-            title="Cash Collected"
-            value={`₹${stats.totalCash.toLocaleString('en-IN')}`}
-            icon="💰"
-            color="green"
-          />
-        </div>
-
-        {/* Pending Orders Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="text-3xl mr-2">📦</span>
-            Pending Order Assignments ({orders.length})
-          </h2>
-
-          {orders.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-600 text-lg">✅ All orders have been assigned!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  deliveryBoys={deliveryBoys}
-                  onAssign={(deliveryBoyId) => {
-                    navigate(`/warehouse/assign/${order.id}`, { state: { deliveryBoyId } });
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Delivery Boys Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="text-3xl mr-2">🚗</span>
-            Active Delivery Boys (Load Balanced)
-          </h2>
-
-          <div className="space-y-3">
-            {deliveryBoys.map((boy) => (
-              <div
-                key={boy.id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl">
-                    🛵
+        {/* Tab 2: In-Transit Management */}
+        {activeTab === 'transit' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4">🚚 In-Transit Management</h2>
+            {loadingInTransit ? (
+              <p className="text-gray-600">Loading...</p>
+            ) : inTransitOrders.length === 0 ? (
+              <p className="text-gray-600">No orders in transit</p>
+            ) : (
+              <div className="space-y-4">
+                {inTransitOrders.map((order) => (
+                  <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-bold text-lg">Order #{order.id}</h3>
+                        <p className="text-sm text-gray-600">{order.customerName}</p>
+                      </div>
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                        {order.trackingStatus}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {order.trackingStatus === 'WAREHOUSE_RECEIVED' && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'prepare')}
+                          disabled={loading}
+                          className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                        >
+                          📋 Prepare for Transit
+                        </button>
+                      )}
+                      {order.trackingStatus === 'PREPARED_FOR_HUB_TRANSIT' && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'transit')}
+                          disabled={loading}
+                          className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                        >
+                          🚚 Mark In-Transit
+                        </button>
+                      )}
+                      {order.trackingStatus === 'IN_HUB_TRANSIT' && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'arrived')}
+                          disabled={loading}
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                        >
+                          ✓ Mark Arrived
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">{boy.name}</p>
-                    <p className="text-sm text-gray-600">
-                      Rating: {boy.rating}/5 ⭐
-                    </p>
-                  </div>
-                </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-gray-800">
-                      {boy.currentDeliveries}
-                    </p>
-                    <p className="text-xs text-gray-600">Active Orders</p>
+        {/* Tab 3: Assignment Queue */}
+        {activeTab === 'assignment' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4">👤 Delivery Boy Assignment</h2>
+            {loadingAssignment ? (
+              <p className="text-gray-600">Loading...</p>
+            ) : assignmentQueue.length === 0 ? (
+              <p className="text-gray-600">No orders ready for assignment</p>
+            ) : (
+              <div className="space-y-4">
+                {assignmentQueue.map((order) => (
+                  <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg">Order #{order.id}</h3>
+                        <p className="text-sm text-gray-600">{order.customerName}</p>
+                        <p className="text-sm text-gray-600">PIN: {order.pinCode}</p>
+                      </div>
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                        ₹{order.totalPrice}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        getDeliveryBoys(order.pinCode);
+                        setShowAssignModal(true);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition font-semibold"
+                    >
+                      🎯 Assign Delivery Boy
+                    </button>
                   </div>
+                ))}
+              </div>
+            )}
 
-                  <div
-                    className={`px-3 py-1 rounded-full text-white font-semibold text-sm ${
-                      boy.currentDeliveries <= 3
-                        ? 'bg-green-500'
-                        : boy.currentDeliveries <= 5
-                        ? 'bg-yellow-500'
-                        : 'bg-red-500'
-                    }`}
-                  >
-                    {boy.currentDeliveries <= 3
-                      ? '✅ Low Load'
-                      : boy.currentDeliveries <= 5
-                      ? '⚠️ Medium Load'
-                      : '🔴 High Load'}
+            {/* Assignment Modal */}
+            {showAssignModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full">
+                  <h3 className="text-xl font-bold mb-4">Assign Delivery Boy</h3>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">Order #{selectedOrder?.id}</p>
+                    <label className="block text-sm font-semibold mb-2">Select Delivery Boy</label>
+                    <select
+                      value={selectedDeliveryBoy || ''}
+                      onChange={(e) => setSelectedDeliveryBoy(parseInt(e.target.value) || null)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Choose a delivery boy --</option>
+                      {deliveryBoys.map((boy) => (
+                        <option key={boy.id} value={boy.id}>
+                          {boy.name} (ID: {boy.id})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={assignDeliveryBoy}
+                      disabled={loading}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                    >
+                      Assign
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAssignModal(false);
+                        setSelectedOrder(null);
+                        setSelectedDeliveryBoy(null);
+                      }}
+                      className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition font-semibold"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Settlement Section */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-md p-6 border-l-4 border-green-500">
-          <h2 className="text-2xl font-bold text-gray-800 mb-3 flex items-center">
-            <span className="text-3xl mr-2">💰</span>
-            Cash Settlement
-          </h2>
+        {/* Tab 4: COD Settlements */}
+        {activeTab === 'settlements' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4">💰 COD Settlements</h2>
+            {loadingSettlements ? (
+              <p className="text-gray-600">Loading...</p>
+            ) : pendingSettlements.length === 0 ? (
+              <p className="text-gray-600">No pending COD settlements</p>
+            ) : (
+              <>
+                <div className="mb-6 p-4 bg-blue-100 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <strong>Selected:</strong> {selectedSettlements.length} order(s) | 
+                    <strong className="ml-3">Total Amount:</strong> ₹{
+                      pendingSettlements
+                        .filter(s => selectedSettlements.includes(s.orderId))
+                        .reduce((sum, s) => sum + s.codAmount, 0)
+                    }
+                  </p>
+                </div>
+                <div className="space-y-3 mb-6">
+                  {pendingSettlements.map((settlement) => (
+                    <div key={settlement.orderId} className="flex items-start border rounded-lg p-4 hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={selectedSettlements.includes(settlement.orderId)}
+                        onChange={() => toggleSettlementSelection(settlement.orderId)}
+                        className="mt-1 mr-4 w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold">Order #{settlement.orderId}</p>
+                        <p className="text-sm text-gray-600">{settlement.customerName}</p>
+                        <p className="text-sm font-semibold text-orange-600">₹{settlement.codAmount} COD</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  disabled={selectedSettlements.length === 0 || loading}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg transition font-semibold w-full"
+                >
+                  📸 Upload Proof ({selectedSettlements.length})
+                </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-gray-600 text-sm">Today's Collection</p>
-              <p className="text-3xl font-bold text-green-600">
-                ₹{stats.totalCash.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Status</p>
-              <p className="text-xl font-semibold text-blue-600">
-                ⏳ Pending Admin Approval
-              </p>
-            </div>
-            <div className="flex items-end">
-              <button className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition">
-                📊 View Settlement Details
-              </button>
-            </div>
+                {/* Upload Modal */}
+                {showUploadModal && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full">
+                      <h3 className="text-xl font-bold mb-4">Upload Settlement Proof</h3>
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold mb-2">Proof Image</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProofUpload}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {uploadProof && (
+                          <p className="text-xs text-green-600 mt-2">✓ Image selected</p>
+                        )}
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold mb-2">Notes (optional)</label>
+                        <textarea
+                          value={settlementNotes}
+                          onChange={(e) => setSettlementNotes(e.target.value)}
+                          placeholder="Add any notes..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={uploadSettlementProof}
+                          disabled={!uploadProof || loading}
+                          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold"
+                        >
+                          Upload
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUploadModal(false);
+                            setUploadProof('');
+                            setSettlementNotes('');
+                          }}
+                          className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Helper Components
-function StatCard({ title, value, icon, color }) {
-  const colorClass = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-600',
-    green: 'bg-green-50 border-green-200 text-green-600',
-    orange: 'bg-orange-50 border-orange-200 text-orange-600',
-    purple: 'bg-purple-50 border-purple-200 text-purple-600',
-  }[color];
-
-  return (
-    <div className={`border rounded-lg p-4 ${colorClass}`}>
-      <p className="text-sm font-semibold text-gray-700">{title}</p>
-      <div className="flex items-center gap-2 mt-2">
-        <span className="text-3xl">{icon}</span>
-        <p className="text-3xl font-bold">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function OrderCard({ order, deliveryBoys, onAssign }) {
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="font-bold text-gray-800">
-            Order #{order.id} - {order.product}
-          </p>
-          <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
-          <p className="text-sm text-gray-600">Delivery: {order.address}</p>
-        </div>
-        <p className="text-2xl font-bold text-orange-600">₹{order.amount.toLocaleString('en-IN')}</p>
-      </div>
-
-      {/* Recommended Delivery Boy */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-        <p className="text-xs font-semibold text-blue-700 mb-2">⭐ RECOMMENDED (Lowest Load):</p>
-        <div className="flex items-center justify-between">
-          <p className="font-semibold text-gray-800">
-            {deliveryBoys[0]?.name} ({deliveryBoys[0]?.currentDeliveries} orders)
-          </p>
-          <button
-            onClick={() => onAssign(deliveryBoys[0]?.id)}
-            className="bg-blue-500 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-blue-600 transition"
-          >
-            Assign Now
-          </button>
-        </div>
-      </div>
-
-      {/* All Available Options */}
-      <p className="text-xs font-semibold text-gray-600 mb-2">Or choose from available:</p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {deliveryBoys.slice(1).map((boy) => (
-          <button
-            key={boy.id}
-            onClick={() => onAssign(boy.id)}
-            className="border-2 border-gray-300 px-3 py-2 rounded text-sm text-gray-700 hover:border-orange-500 hover:bg-orange-50 transition"
-          >
-            <p className="font-semibold">{boy.name}</p>
-            <p className="text-xs text-gray-600">{boy.currentDeliveries} orders</p>
-          </button>
-        ))}
+        )}
       </div>
     </div>
   );

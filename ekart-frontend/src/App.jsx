@@ -25,6 +25,7 @@ import WarehouseDashboard from "./pages/WarehouseDashboard.jsx";
 import AssignDeliveryBoyPage from "./pages/AssignDeliveryBoyPage.jsx";
 import OrderTrackingPage from "./pages/OrderTrackingPage.jsx";
 import AdminStaffManagementPage from "./pages/AdminStaffManagementPage.jsx";
+import AdminWarehousePage from "./pages/AdminWarehousePage.jsx";
 
 // ─── Auth Context ───────────────────────────────────────────────────────────
 
@@ -475,6 +476,16 @@ export default function App() {
             element={
               <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
                 <AdminStaffManagementPage />
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Admin Warehouse Management ────────────────────────── */}
+          <Route
+            path="/admin/warehouses"
+            element={
+              <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
+                <AdminWarehousePage />
               </RequireAuth>
             }
           />

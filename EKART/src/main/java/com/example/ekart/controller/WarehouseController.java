@@ -1,10 +1,14 @@
 package com.example.ekart.controller;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,13 +22,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import com.example.ekart.dto.DeliveryBoy;
 import com.example.ekart.dto.Order;
+import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.WarehouseTransferLeg;
+import com.example.ekart.helper.EmailSender;
 import com.example.ekart.service.WarehouseReceivingService;
 import com.example.ekart.service.WarehouseRoutingService;
 import com.example.ekart.service.WarehouseTransferService;
+import com.example.ekart.repository.DeliveryBoyRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.WarehouseTransferLegRepository;
 import com.example.ekart.repository.OrderRepository;
@@ -66,6 +75,12 @@ public class WarehouseController {
 
     @Autowired
     private WarehouseTransferLegRepository warehouseTransferLegRepository;
+
+    @Autowired
+    private DeliveryBoyRepository deliveryBoyRepository;
+
+    @Autowired
+    private EmailSender emailSender;
 
     // ─────────────────────────────────────────────────────────────
     // RECEIVING QUEUE - Orders to scan in
@@ -504,6 +519,358 @@ public class WarehouseController {
                 "order_id", orderId,
                 "leg_count", legs.size(),
                 "transfer_legs", legs
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // HUB TRANSIT ENDPOINTS - Multi-warehouse order routing
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * TASK 1: Prepare for Hub Transit
+     * POST /api/warehouse/orders/{orderId}/prepare-transit
+     * 
+     * After warehouse receives an order (WAREHOUSE_RECEIVED), mark it as
+     * PREPARED_FOR_HUB_TRANSIT so it can be dispatched to next hub.
+     */
+    @PostMapping("/orders/{orderId}/prepare-transit")
+    public ResponseEntity<?> prepareForTransit(
+            @PathVariable int orderId,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getTrackingStatus() != TrackingStatus.WAREHOUSE_RECEIVED) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be WAREHOUSE_RECEIVED", 
+                                 "current_status", order.getTrackingStatus()));
+            }
+
+            order.setTrackingStatus(TrackingStatus.PREPARED_FOR_HUB_TRANSIT);
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "status", "PREPARED_FOR_HUB_TRANSIT",
+                "orderId", orderId
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 2: Mark In-Transit
+     * POST /api/warehouse/orders/{orderId}/mark-in-transit
+     * 
+     * Warehouse staff marks order as dispatched (in-transit to next hub).
+     * Status changes: PREPARED_FOR_HUB_TRANSIT → IN_HUB_TRANSIT
+     */
+    @PostMapping("/orders/{orderId}/mark-in-transit")
+    public ResponseEntity<?> markInTransit(
+            @PathVariable int orderId,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getTrackingStatus() != TrackingStatus.PREPARED_FOR_HUB_TRANSIT) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be PREPARED_FOR_HUB_TRANSIT",
+                                 "current_status", order.getTrackingStatus()));
+            }
+
+            order.setTrackingStatus(TrackingStatus.IN_HUB_TRANSIT);
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "status", "IN_HUB_TRANSIT",
+                "orderId", orderId,
+                "routingPath", order.getWarehouseRoutingPath()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 3: Mark Arrived at Intermediate/Destination Hub
+     * POST /api/warehouse/orders/{orderId}/mark-arrived-intermediate
+     * 
+     * When order arrives at a hub, check if it's intermediate or final destination:
+     * - Intermediate hub → ARRIVED_AT_INTERMEDIATE_HUB (for continued transfer)
+     * - Final destination → ARRIVED_AT_DESTINATION_HUB (ready for delivery assignment)
+     */
+    @PostMapping("/orders/{orderId}/mark-arrived-intermediate")
+    public ResponseEntity<?> markArrivedIntermediate(
+            @PathVariable int orderId,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getTrackingStatus() != TrackingStatus.IN_HUB_TRANSIT) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be IN_HUB_TRANSIT",
+                                 "current_status", order.getTrackingStatus()));
+            }
+
+            // Check if this warehouse is the final destination
+            boolean isFinalDestination = order.getDestinationWarehouse() != null &&
+                order.getDestinationWarehouse().getId() == warehouseId;
+
+            if (isFinalDestination) {
+                order.setTrackingStatus(TrackingStatus.ARRIVED_AT_DESTINATION_HUB);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "status", "ARRIVED_AT_DESTINATION_HUB",
+                    "orderId", orderId,
+                    "message", "Order ready for delivery assignment"
+                ));
+            } else {
+                order.setTrackingStatus(TrackingStatus.ARRIVED_AT_INTERMEDIATE_HUB);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "status", "ARRIVED_AT_INTERMEDIATE_HUB",
+                    "orderId", orderId,
+                    "message", "Mark for continued transit to destination"
+                ));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 4: Assignment Queue
+     * GET /api/warehouse/assignment-queue
+     * 
+     * Get orders ready for delivery boy assignment at this destination warehouse.
+     * Only returns orders with status ARRIVED_AT_DESTINATION_HUB.
+     */
+    @GetMapping("/assignment-queue")
+    public ResponseEntity<?> warehouseAssignmentQueue(HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            List<Order> queue = orderRepository.findByDestinationWarehouseIdAndTrackingStatus(
+                warehouseId, TrackingStatus.ARRIVED_AT_DESTINATION_HUB);
+
+            List<Map<String, Object>> result = queue.stream().map(o -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", o.getId());
+                m.put("status", o.getTrackingStatus().getDisplayName());
+                m.put("deliveryPinCode", o.getDeliveryPinCode());
+                m.put("deliveryAddress", o.getDeliveryAddress());
+                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put("customerEmail", o.getCustomer() != null ? o.getCustomer().getEmail() : "");
+                m.put("totalPrice", o.getTotalPrice());
+                m.put("paymentMethod", o.getPaymentMethod());
+                m.put("routingPath", o.getWarehouseRoutingPath());
+                return m;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                "count", result.size(),
+                "orders", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 5: Get Available Delivery Boys for Pin Code
+     * GET /api/warehouse/delivery-boys
+     * 
+     * Fetch delivery boys who serve the specified pin code at this warehouse.
+     * Warehouse staff uses this to select which boy to assign for delivery.
+     */
+    @GetMapping("/delivery-boys")
+    public ResponseEntity<?> getDeliveryBoysForPinCode(
+            @RequestParam String pinCode,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Warehouse> whOpt = warehouseRepository.findById(warehouseId);
+            if (whOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Warehouse not found"));
+            }
+
+            Warehouse wh = whOpt.get();
+
+            // Verify this warehouse serves this pin code
+            if (wh.getServedPinCodes() != null && 
+                !Arrays.asList(wh.getServedPinCodes().split(",")).stream()
+                    .map(String::trim)
+                    .collect(Collectors.toList())
+                    .contains(pinCode.trim())) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Pin code " + pinCode + " is not served by this warehouse"));
+            }
+
+            // Find all active + admin-approved delivery boys
+            List<DeliveryBoy> allBoys = deliveryBoyRepository.findByActiveTrueAndAdminApprovedTrue();
+
+            // Filter to boys who serve this pin code
+            List<Map<String, Object>> boys = allBoys.stream()
+                .filter(b -> b.getAssignedPinCodes() != null &&
+                    Arrays.asList(b.getAssignedPinCodes().split(",")).stream()
+                        .map(String::trim)
+                        .collect(Collectors.toList())
+                        .contains(pinCode.trim()))
+                .map(b -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", b.getId());
+                    m.put("name", b.getName());
+                    m.put("mobile", b.getMobile());
+                    m.put("assignedPinCodes", b.getAssignedPinCodes());
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                "pinCode", pinCode,
+                "availableBoys", boys,
+                "count", boys.size()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 6: Assign Delivery Boy + Send OTP to Customer
+     * POST /api/warehouse/orders/{orderId}/assign-delivery-boy
+     * 
+     * Assign a delivery boy to order and send 6-digit OTP to customer email.
+     * Status changes: ARRIVED_AT_DESTINATION_HUB → SHIPPED
+     * Request body: { "deliveryBoyId": 5 }
+     */
+    @PostMapping("/orders/{orderId}/assign-delivery-boy")
+    public ResponseEntity<?> assignDeliveryBoy(
+            @PathVariable int orderId,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getTrackingStatus() != TrackingStatus.ARRIVED_AT_DESTINATION_HUB) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order not ready for delivery boy assignment",
+                                 "current_status", order.getTrackingStatus()));
+            }
+
+            if (body.get("deliveryBoyId") == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "deliveryBoyId is required"));
+            }
+
+            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
+
+            Optional<DeliveryBoy> boyOpt = deliveryBoyRepository.findById(deliveryBoyId);
+            if (boyOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Delivery boy not found"));
+            }
+
+            DeliveryBoy boy = boyOpt.get();
+
+            // Assign delivery boy
+            order.setDeliveryBoy(boy);
+            order.setFinalDeliveryBoyId(deliveryBoyId);
+            order.setTrackingStatus(TrackingStatus.SHIPPED);
+
+            // Generate 6-digit OTP for delivery confirmation
+            String otp = String.format("%06d", new Random().nextInt(1000000));
+            order.setDeliveryOtp(otp);
+            order.setDeliveryOtpVerified(false);
+
+            orderRepository.save(order);
+
+            // Send OTP to customer via email (async)
+            try {
+                if (order.getCustomer() != null) {
+                    String customerEmail = order.getCustomer().getEmail();
+                    String customerName = order.getCustomer().getName();
+                    emailSender.sendDeliveryOtp(customerEmail, customerName, otp, order.getId());
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send OTP email: " + e.getMessage());
+                // Don't fail the request if email sending fails
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "orderId", orderId,
+                "deliveryBoyName", boy.getName(),
+                "deliveryBoyId", boy.getId(),
+                "status", "SHIPPED",
+                "message", "Delivery OTP sent to customer email"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -1,173 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import api from '../api';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 /**
- * LOCATION: ekart-frontend/src/pages/OrderTrackingPage.jsx
- * 
- * Order Tracking with COD Payment Status
- * - Real-time order status
- * - Multi-hub transfer tracking
- * - COD payment instructions
- * - OTP verification display
+ * OrderTrackingPage.jsx - Visual timeline tracking with warehouse hops
+ * Shows order progress with color-coded stages and payment/COD status
  */
 export default function OrderTrackingPage() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
-  const [tracking, setTracking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchId, setSearchId] = useState(orderId || '');
 
   useEffect(() => {
-    fetchOrderTracking();
-    const interval = setInterval(fetchOrderTracking, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
+    if (orderId) {
+      fetchOrderTracking(orderId);
+      const interval = setInterval(() => fetchOrderTracking(orderId), 15000);
+      return () => clearInterval(interval);
+    }
   }, [orderId]);
 
-  const fetchOrderTracking = async () => {
+  const fetchOrderTracking = async (id) => {
     try {
-      // Try to fetch order details from available endpoints
-      let foundOrder = null;
-
-      try {
-        // Try admin orders endpoints
-        const packedRes = await api.get('/api/react/admin/orders/packed').catch(() => null);
-        if (packedRes?.data?.success && packedRes.data?.orders) {
-          foundOrder = packedRes.data.orders.find(o => o.id === parseInt(orderId));
+      setLoading(true);
+      const response = await axios.get(`http://localhost:8080/api/react/customer/orders/${id}/tracking`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
         }
-
-        if (!foundOrder) {
-          const shippedRes = await api.get('/api/react/admin/orders/shipped').catch(() => null);
-          if (shippedRes?.data?.success && shippedRes.data?.orders) {
-            foundOrder = shippedRes.data.orders.find(o => o.id === parseInt(orderId));
-          }
-        }
-
-        if (!foundOrder) {
-          const outRes = await api.get('/api/react/admin/orders/out-for-delivery').catch(() => null);
-          if (outRes?.data?.success && outRes.data?.orders) {
-            foundOrder = outRes.data.orders.find(o => o.id === parseInt(orderId));
-          }
-        }
-      } catch (err) {
-        console.warn('Could not fetch order from admin endpoints:', err);
-      }
-
-      // If found in API, use it; otherwise use mock data
-      const order = foundOrder || {
-        id: parseInt(orderId),
-        customerId: 5,
-        customerName: 'Priya Sharma',
-        product: 'iPhone 13 Pro',
-        amount: 79999,
-        deliveryCharge: 0,
-        totalAmount: 79999,
-        paymentMethod: 'COD',
-        paymentStatus: 'PENDING',
-        status: 'OUT_FOR_DELIVERY',
-        deliveryAddress: 'Whitefield Tech Park, Bengaluru',
-        estimatedDelivery: 'Today 2:00 PM - 4:00 PM',
-        deliveryBoyName: 'Suresh Kumar',
-        deliveryBoyPhone: '9876543210',
-        otp: '847362',
-      };
-
-      // Build tracking timeline based on order status
-      const trackingTimeline = buildTrackingTimeline(order);
-
-      setOrder(order);
-      setTracking(trackingTimeline);
+      });
+      setOrder(response.data);
       setError('');
     } catch (err) {
-      setError('Failed to fetch tracking: ' + err.message);
+      setError(err.response?.data?.message || 'Failed to fetch tracking information');
       console.error('Tracking error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper function to build tracking timeline from order data
-  const buildTrackingTimeline = (orderData) => {
-    const timeline = [];
-
-    // Always include order placed
-    timeline.push({
-      timestamp: orderData.orderDate || 'Just now',
-      status: 'PAYMENT_PENDING',
-      location: 'Your City',
-      message: 'Order placed - awaiting warehouse dispatch',
-      icon: '✅',
-    });
-
-    // Add status-based events
-    if (orderData.status === 'PACKED' || orderData.status === 'SHIPPED' || orderData.status === 'OUT_FOR_DELIVERY' || orderData.status === 'DELIVERED') {
-      timeline.push({
-        timestamp: 'Yesterday',
-        status: 'WAREHOUSE_RECEIVED',
-        location: 'Origin Warehouse',
-        message: 'Item received in warehouse',
-        icon: '✅',
-      });
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchId.trim()) {
+      navigate(`/track/${searchId}`);
+      fetchOrderTracking(searchId);
     }
-
-    if (orderData.status === 'SHIPPED' || orderData.status === 'OUT_FOR_DELIVERY' || orderData.status === 'DELIVERED') {
-      timeline.push({
-        timestamp: 'This morning',
-        status: 'IN_HUB_TRANSIT',
-        location: 'In Hub Network',
-        message: 'In transit via hub network',
-        icon: '✅',
-      });
-
-      timeline.push({
-        timestamp: '2 hours ago',
-        status: 'WAREHOUSE_RECEIVED',
-        location: 'Destination Warehouse',
-        message: 'Arrived at destination warehouse',
-        icon: '✅',
-      });
-    }
-
-    if (orderData.status === 'OUT_FOR_DELIVERY' || orderData.status === 'DELIVERED') {
-      timeline.push({
-        timestamp: '1 hour ago',
-        status: 'ASSIGNED_TO_DELIVERY_BOY',
-        location: 'Warehouse',
-        message: 'Order assigned to delivery boy: ' + (orderData.deliveryBoyName || 'Driver'),
-        icon: '✅',
-      });
-
-      timeline.push({
-        timestamp: 'Just now',
-        status: 'OUT_FOR_DELIVERY',
-        location: 'In Transit',
-        message: 'Delivery boy picked up - on the way to your address',
-        icon: '🟡',
-      });
-
-      timeline.push({
-        timestamp: 'Expected soon',
-        status: 'EXPECTED_DELIVERY',
-        location: 'Your Address',
-        message: 'Expected delivery window - be available to receive',
-        icon: '⏳',
-      });
-    }
-
-    if (orderData.status === 'DELIVERED') {
-      timeline.push({
-        timestamp: 'Just now',
-        status: 'DELIVERED',
-        location: 'Your Address',
-        message: 'Order delivered successfully',
-        icon: '✅',
-      });
-    }
-
-    return timeline;
   };
 
-  if (loading) {
+  // Build timeline stages based on tracking status
+  const buildTimeline = () => {
+    if (!order) return [];
+
+    const status = order.status;
+    const stages = [
+      { name: 'Order Placed', icon: '📦', status: 'ORDER_PLACED' },
+      { name: 'Order Packed by Vendor', icon: '📋', status: 'ORDER_PACKED' },
+      { name: `Received at ${order.sourceWarehouse || 'Source'} Hub`, icon: '🏢', status: 'RECEIVED_SOURCE' },
+      { name: 'In Transit', icon: '🚚', status: 'IN_TRANSIT', subtitle: order.routingPath },
+      { name: `Arrived at ${order.destinationWarehouse || 'Destination'} Hub`, icon: '🏢', status: 'RECEIVED_DESTINATION' },
+      { name: 'Out for Delivery', icon: '🛵', status: 'OUT_FOR_DELIVERY' },
+      { name: 'Delivered', icon: '✅', status: 'DELIVERED' }
+    ];
+
+    const statusMap = {
+      'PROCESSING': 0,
+      'PACKED': 1,
+      'SHIPPED': 3,
+      'OUT_FOR_DELIVERY': 5,
+      'DELIVERED': 6
+    };
+
+    const currentIndex = statusMap[status] || 0;
+
+    return stages.map((stage, index) => ({
+      ...stage,
+      completed: index < currentIndex,
+      current: index === currentIndex,
+      future: index > currentIndex
+    }));
+  };
+
+  const timeline = buildTimeline();
+
+  const getStatusBadgeColor = (paymentStatus) => {
+    switch(paymentStatus) {
+      case 'PENDING': return 'bg-gray-100 text-gray-800';
+      case 'COD_COLLECTED': return 'bg-yellow-100 text-yellow-800';
+      case 'PAID': return 'bg-green-100 text-green-800';
+      case 'VERIFIED': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPaymentMethodBadge = (method) => {
+    if (method === 'COD') {
+      return 'bg-orange-100 text-orange-800';
+    }
+    return 'bg-purple-100 text-purple-800';
+  };
+
+  if (loading && !order) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -179,285 +112,179 @@ export default function OrderTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <button
-          onClick={() => window.history.back()}
-          className="text-gray-600 hover:text-gray-800 flex items-center gap-2 mb-6"
-        >
-          ← Back
-        </button>
-
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Order Tracking</h1>
-        <p className="text-gray-600 mb-6">Order #{order?.id}</p>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Current Status - Sidebar */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Status Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-              <p className="text-gray-600 text-sm font-semibold mb-2">Current Status</p>
-              <div className="mb-3">
-                <p className="text-2xl font-bold text-blue-600">
-                  {order?.trackingStatus === 'OUT_FOR_DELIVERY'
-                    ? '🚗 Out for Delivery'
-                    : order?.trackingStatus === 'DELIVERED'
-                    ? '✅ Delivered'
-                    : order?.trackingStatus === 'PAYMENT_PENDING'
-                    ? '⏳ Pending'
-                    : order?.trackingStatus}
-                </p>
-              </div>
-              <p className="text-gray-700 text-sm">
-                Expected Delivery: <strong>{order?.estimatedDelivery}</strong>
-              </p>
-            </div>
-
-            {/* Delivery Boy Info */}
-            {order?.trackingStatus === 'OUT_FOR_DELIVERY' && (
-              <div className="bg-blue-50 rounded-lg shadow-md p-6 border border-blue-200">
-                <p className="font-semibold text-gray-800 mb-3 flex items-center">
-                  <span className="text-2xl mr-2">🛵</span>
-                  On Its Way
-                </p>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-gray-600 text-sm font-semibold">Delivery Partner</p>
-                    <p className="text-lg font-bold text-gray-800">{order?.deliveryBoyName}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm font-semibold">Contact</p>
-                    <p className="text-gray-800">{order?.deliveryBoyPhone}</p>
-                  </div>
-                  <button className="w-full bg-blue-500 text-white font-semibold py-2 rounded mt-3 hover:bg-blue-600 transition">
-                    📍 Live Tracking Map
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Payment Section */}
-            <div
-              className={`rounded-lg shadow-md p-6 border-l-4 ${
-                order?.paymentStatus === 'RECEIVED'
-                  ? 'bg-green-50 border-green-500'
-                  : 'bg-yellow-50 border-orange-500'
-              }`}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with Search */}
+      <div className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-gray-900">
+              📍 Order Tracking
+            </h1>
+            <button
+              onClick={() => navigate('/')}
+              className="text-gray-600 hover:text-gray-900 text-sm font-semibold"
             >
-              <p className="font-semibold text-gray-800 mb-3 flex items-center">
-                {order?.paymentStatus === 'RECEIVED' ? (
-                  <>
-                    <span className="text-2xl mr-2">✅</span>
-                    Payment Confirmed
-                  </>
-                ) : (
-                  <>
-                    <span className="text-2xl mr-2">💰</span>
-                    Payment Method
-                  </>
-                )}
-              </p>
-
-              <div className="space-y-2">
-                <div>
-                  <p className="text-gray-600 text-sm font-semibold">Amount Due</p>
-                  <p className="text-3xl font-bold text-orange-600">
-                    ₹{order?.totalAmount?.toLocaleString('en-IN')}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-600 text-sm font-semibold">Method</p>
-                  <p className="text-gray-800 font-semibold">CASH ON DELIVERY</p>
-                </div>
-
-                <div>
-                  <p className="text-gray-600 text-sm font-semibold">Status</p>
-                  <p
-                    className={`font-semibold ${
-                      order?.paymentStatus === 'RECEIVED'
-                        ? 'text-green-600'
-                        : 'text-orange-600'
-                    }`}
-                  >
-                    {order?.paymentStatus === 'RECEIVED'
-                      ? '✅ Collected'
-                      : '⏳ Pending at Doorstep'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* OTP Display */}
-            {order?.trackingStatus === 'OUT_FOR_DELIVERY' && order?.otp && (
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-md p-6 border border-purple-200">
-                <p className="font-semibold text-gray-800 mb-3 flex items-center">
-                  <span className="text-2xl mr-2">🔐</span>
-                  Your Payment OTP
-                </p>
-
-                <div className="bg-white rounded-lg p-4 border-2 border-purple-300 mb-3">
-                  <p className="text-center text-4xl font-bold text-purple-600 tracking-widest">
-                    {order?.otp}
-                  </p>
-                </div>
-
-                <div className="bg-purple-100 p-3 rounded border border-purple-300 text-sm text-purple-800">
-                  <p className="font-semibold mb-2">📝 Instructions:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Share this OTP with delivery partner</li>
-                    <li>Ask them to verify the order</li>
-                    <li>Inspect package before payment</li>
-                    <li>Pay ₹{order?.totalAmount?.toLocaleString('en-IN')} CASH</li>
-                    <li>Get receipt from delivery partner</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Issue Reporting */}
-            <button className="w-full bg-white border-2 border-red-300 text-red-600 font-bold py-2 rounded hover:bg-red-50 transition">
-              🆘 Report an Issue
+              ← Back
             </button>
           </div>
 
-          {/* Timeline - Main Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <span className="text-3xl mr-2">📍</span>
-                Tracking Timeline
-              </h2>
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <input
+              type="number"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              placeholder="Enter Order ID"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+      </div>
 
-              {/* Vertical Timeline */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            ❌ {error}
+          </div>
+        )}
+
+        {order && (
+          <>
+            {/* Order Summary Section */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-white rounded-lg shadow p-4">
+                <p className="text-gray-600 text-sm font-semibold">Order ID</p>
+                <p className="text-2xl font-bold text-gray-900">#{order.orderId}</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                <p className="text-gray-600 text-sm font-semibold">Payment Method</p>
+                <p className={`px-3 py-1 rounded-full inline-block text-xs font-bold mt-2 ${getPaymentMethodBadge(order.paymentMethod)}`}>
+                  {order.paymentMethod === 'COD' && '💵 COD'}
+                  {order.paymentMethod === 'RAZORPAY' && '💳 Card'}
+                  {!['COD', 'RAZORPAY'].includes(order.paymentMethod) && order.paymentMethod}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                <p className="text-gray-600 text-sm font-semibold">Payment Status</p>
+                <p className={`px-3 py-1 rounded-full inline-block text-xs font-bold mt-2 ${getStatusBadgeColor(order.paymentStatus)}`}>
+                  {order.paymentStatus === 'PENDING' && '⏳ Pending'}
+                  {order.paymentStatus === 'COD_COLLECTED' && '✓ Collected'}
+                  {order.paymentStatus === 'PAID' && '✓ Paid'}
+                  {order.paymentStatus === 'VERIFIED' && '✓ Verified'}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4">
+                <p className="text-gray-600 text-sm font-semibold">Amount</p>
+                <p className="text-2xl font-bold text-green-600 mt-2">₹{order.totalPrice?.toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            {order.deliveryAddress && (
+              <div className="bg-white rounded-lg shadow p-4 mb-8">
+                <p className="text-gray-600 text-sm font-semibold mb-2">📍 Delivery Address</p>
+                <p className="text-gray-900 font-semibold text-lg">{order.deliveryAddress}</p>
+              </div>
+            )}
+
+            {/* Timeline */}
+            <div className="bg-white rounded-lg shadow p-8 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-8">Order Progress</h2>
+              
               <div className="relative">
-                {tracking.map((event, index) => (
-                  <div key={index} className="flex gap-4 mb-6 relative">
+                {timeline.map((stage, index) => (
+                  <div key={index} className="mb-8 flex items-start">
                     {/* Timeline Line */}
-                    {index < tracking.length - 1 && (
-                      <div className="absolute left-6 top-12 w-0.5 h-12 bg-gradient-to-b from-blue-300 to-gray-300"></div>
+                    {index < timeline.length - 1 && (
+                      <div className="absolute left-6 top-16 w-1 h-12 bg-gray-200"></div>
                     )}
 
                     {/* Timeline Dot */}
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center mr-6 relative z-10">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
-                          event.status === 'EXPECTED_DELIVERY' ||
-                          event.status === 'OUT_FOR_DELIVERY'
-                            ? 'bg-yellow-100 text-gray-800'
-                            : event.status === 'DELIVERED'
-                            ? 'bg-green-100'
-                            : 'bg-blue-100'
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold border-2 ${
+                          stage.completed
+                            ? 'bg-green-100 border-green-500 text-green-600'
+                            : stage.current
+                            ? 'bg-blue-100 border-blue-500 text-blue-600 animate-pulse'
+                            : 'bg-gray-100 border-gray-300 text-gray-600'
                         }`}
                       >
-                        {event.icon}
+                        {stage.icon}
                       </div>
                     </div>
 
                     {/* Timeline Content */}
-                    <div className="flex-1 pt-1 pb-6">
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition">
-                        <div className="flex items-start justify-between mb-2">
-                          <p className="font-bold text-gray-800">{event.message}</p>
-                          {event.status === 'DELIVERED' && (
-                            <span className="text-2xl">✅</span>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                          <div>
-                            <p className="text-xs font-semibold text-gray-500">TIME</p>
-                            <p className="font-semibold">{event.timestamp}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-gray-500">LOCATION</p>
-                            <p className="font-semibold">{event.location}</p>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="pt-2 pb-4">
+                      <p className={`text-lg font-bold ${
+                        stage.completed ? 'text-green-600' :
+                        stage.current ? 'text-blue-600' :
+                        'text-gray-600'
+                      }`}>
+                        {stage.name}
+                      </p>
+                      {stage.subtitle && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          Route: {stage.subtitle}
+                        </p>
+                      )}
+                      {stage.completed && (
+                        <p className="text-xs text-green-600 mt-1">✓ Completed</p>
+                      )}
+                      {stage.current && (
+                        <p className="text-xs text-blue-600 font-semibold mt-1">→ Currently here</p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* Hub Transfer Info */}
-              <div className="border-t border-gray-200 pt-6 mt-6">
-                <p className="font-bold text-gray-800 mb-3 flex items-center">
-                  <span className="text-2xl mr-2">🚚</span>
-                  Multi-Hub Route
+            {/* Status Info Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Current Status */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow p-6 border border-blue-200">
+                <h3 className="text-lg font-bold text-blue-900 mb-2">📦 Current Status</h3>
+                <p className="text-3xl font-bold text-blue-600">
+                  {order.statusDisplay || order.status}
                 </p>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <p className="text-xs text-gray-600">LEG 1</p>
-                    <p className="font-bold text-gray-800 text-sm">Delhi ➜ Jaipur</p>
-                    <p className="text-xs text-gray-600">280 km</p>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <p className="text-xs text-gray-600">LEG 2</p>
-                    <p className="font-bold text-gray-800 text-sm">Jaipur ➜ Bhopal</p>
-                    <p className="text-xs text-gray-600">400 km</p>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <p className="text-xs text-gray-600">LEG 3</p>
-                    <p className="font-bold text-gray-800 text-sm">Bhopal ➜ Nagpur</p>
-                    <p className="text-xs text-gray-600">450 km</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded border border-green-200">
-                    <p className="text-xs text-gray-600">LEG 4</p>
-                    <p className="font-bold text-gray-800 text-sm">Nagpur ➜ Bengaluru</p>
-                    <p className="text-xs text-gray-600">1050 km ✅</p>
-                  </div>
-                </div>
+                <p className="text-blue-700 text-sm mt-2">
+                  Progress: {order.progressPercent}% complete
+                </p>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Order Summary at Bottom */}
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Order Summary</h2>
+              {/* Estimated Delivery */}
+              {order.estimatedDelivery && (
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow p-6 border border-green-200">
+                  <h3 className="text-lg font-bold text-green-900 mb-2">📅 Estimated Delivery</h3>
+                  <p className="text-lg font-semibold text-green-600">
+                    {new Date(order.estimatedDelivery).toLocaleDateString()}
+                  </p>
+                  <p className="text-green-700 text-sm mt-2">Expected within 2-3 business days</p>
+                </div>
+              )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">Product</p>
-              <p className="font-bold text-gray-800 text-lg">{order?.product}</p>
+              {/* COD Instructions */}
+              {order.paymentMethod === 'COD' && (
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow p-6 border border-orange-200 md:col-span-2">
+                  <h3 className="text-lg font-bold text-orange-900 mb-3">💰 Cash on Delivery Instructions</h3>
+                  <ul className="text-orange-700 text-sm space-y-2">
+                    <li>✓ Please keep exact cash ready</li>
+                    <li>✓ Amount Due: ₹{order.totalPrice?.toLocaleString('en-IN')}</li>
+                    <li>✓ Ask for invoice from delivery agent</li>
+                    <li>✓ Inspect package before payment</li>
+                  </ul>
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">Delivery Address</p>
-              <p className="font-bold text-gray-800">{order?.deliveryAddress}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">Subtotal</p>
-              <p className="font-bold text-gray-800">
-                ₹{(order?.totalAmount - order?.deliveryCharge)?.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm font-semibold mb-2">Delivery Charge</p>
-              <p className="font-bold text-gray-800">
-                {order?.deliveryCharge === 0 ? '✅ FREE' : `₹${order?.deliveryCharge}`}
-              </p>
-            </div>
-            <div className="border-t border-gray-200 pt-4">
-              <p className="text-gray-600 text-sm font-semibold mb-2">Total</p>
-              <p className="font-bold text-2xl text-orange-600">
-                ₹{order?.totalAmount?.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div className="border-t border-gray-200 pt-4">
-              <p className="text-gray-600 text-sm font-semibold mb-2">Placed On</p>
-              <p className="font-bold text-gray-800">{order?.orderDate}</p>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

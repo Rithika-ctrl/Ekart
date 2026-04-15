@@ -149,4 +149,20 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
+
+    /** Extract delivery boy ID from delivery-role token */
+    public int extractDeliveryBoyId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object dbid = claims.getSubject();
+        if (dbid == null) throw new RuntimeException("No delivery boy ID in token");
+        return Integer.parseInt(dbid.toString());
+    }
+
+    /** Extract admin ID from admin-role token */
+    public int extractAdminId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object adminId = claims.getSubject();
+        if (adminId == null) throw new RuntimeException("No admin ID in token");
+        return Integer.parseInt(adminId.toString());
+    }
 }

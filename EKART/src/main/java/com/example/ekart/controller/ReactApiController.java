@@ -63,6 +63,7 @@ public class ReactApiController {
     @Autowired private RefundRepository      refundRepository;
     @Autowired private RefundImageRepository  refundImageRepository;
     @Autowired private AutoAssignLogRepository autoAssignLogRepository;
+    @Autowired private CashSettlementRepository cashSettlementRepository;
     @Autowired private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
     @Autowired private CouponRepository    couponRepository;
     @Autowired private AiAssistantService  aiAssistantService;
@@ -644,6 +645,7 @@ public class ReactApiController {
     @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
     @Autowired private WarehouseRepository                warehouseRepository;
     @Autowired private com.example.ekart.service.WarehouseService warehouseService;
+    @Autowired private com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
@@ -2210,6 +2212,57 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /**
+     * GET /api/react/customer/orders/{orderId}/tracking
+     * 
+     * Comprehensive order tracking endpoint with visual timeline data.
+     * Returns: orderId, status, payment info, warehouse routing, progress percent
+     */
+    @GetMapping("/customer/orders/{orderId}/tracking")
+    public ResponseEntity<Map<String, Object>> customerOrderTracking(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId) {
+        try {
+            Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
+            );
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("orderId", orderId);
+            res.put("status", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
+            res.put("statusDisplay", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "Unknown");
+            res.put("paymentMethod", order.getPaymentMethod());
+            res.put("paymentStatus", order.getPaymentStatus());
+            res.put("routingPath", order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
+            res.put("sourceWarehouse", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : "N/A");
+            res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : "N/A");
+            res.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : "N/A");
+            res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : "N/A");
+            res.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : "N/A");
+            res.put("deliveryAddress", order.getDeliveryAddress());
+            res.put("totalPrice", order.getAmount());
+            res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
+            
+            // Estimated delivery: +48 hours from order date if still in transit
+            if (order.getOrderDate() != null && order.getTrackingStatus() != null) {
+                TrackingStatus status = order.getTrackingStatus();
+                if (status != TrackingStatus.DELIVERED && status != TrackingStatus.CANCELLED 
+                    && status != TrackingStatus.REFUNDED) {
+                    res.put("estimatedDelivery", order.getOrderDate().plusHours(48).toString());
+                } else {
+                    res.put("estimatedDelivery", null);
+                }
+            }
+            
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "Order not found or fetch failed");
+            return ResponseEntity.status(404).body(error);
+        }
+    }
+
     /** POST /api/flutter/orders/{id}/cancel */
     @PostMapping("/orders/{id}/cancel")
     public ResponseEntity<Map<String, Object>> cancelOrder(
@@ -3028,7 +3081,15 @@ public class ReactApiController {
             return ResponseEntity.badRequest().body(res);
         }
 
-        // 5. Update status and persist
+        // 5. Auto-assign source warehouse based on vendor's city
+        if (vendor.getCity() != null && !vendor.getCity().isEmpty()) {
+            List<Warehouse> cityWarehouses = warehouseRepository.findByCityIgnoreCaseAndActiveTrue(vendor.getCity());
+            if (!cityWarehouses.isEmpty()) {
+                order.setSourceWarehouse(cityWarehouses.get(0));
+            }
+        }
+
+        // 6. Update status and persist
         order.setTrackingStatus(TrackingStatus.PACKED);
         orderRepository.save(order);
 
@@ -3036,6 +3097,9 @@ public class ReactApiController {
         res.put("message", "Order marked as packed");
         res.put("orderId", orderId);
         res.put("newStatus", TrackingStatus.PACKED.name());
+        if (order.getSourceWarehouse() != null) {
+            res.put("sourceWarehouse", order.getSourceWarehouse().getName());
+        }
         return ResponseEntity.ok(res);
     }
 
@@ -7713,6 +7777,939 @@ public class ReactApiController {
         res.put("warehouse", warehouseDto);
         res.put("message", "Warehouse credentials retrieved (password is encrypted and not shown)");
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * TASK 1: Warehouse Receiving Queue
+     * GET /api/react/warehouse/receiving-queue
+     * 
+     * Warehouse staff sees a queue of PACKED orders assigned to their source warehouse.
+     * Returns list of orders ready to be scanned in and received.
+     * 
+     * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
+     */
+    @GetMapping("/warehouse/receiving-queue")
+    public ResponseEntity<?> warehouseReceivingQueue(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
+            }
+
+            // Orders with status PACKED where sourceWarehouseId = this warehouse
+            List<Order> queue = orderRepository.findBySourceWarehouseIdAndTrackingStatus(
+                warehouseId, TrackingStatus.PACKED);
+
+            List<Map<String, Object>> result = queue.stream().map(o -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", o.getId());
+                m.put("status", o.getTrackingStatus());
+                m.put("deliveryPinCode", o.getDeliveryPinCode());
+                m.put("deliveryAddress", o.getDeliveryAddress());
+                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put("totalPrice", o.getTotalPrice());
+                m.put("paymentMethod", o.getPaymentMethod());
+                m.put("orderDate", o.getOrderDate());
+                return m;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of("count", result.size(), "orders", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 2: Mark Order as Received + Auto-calculate Routing
+     * POST /api/react/warehouse/orders/{orderId}/mark-received
+     * 
+     * Warehouse staff marks order as received (PACKED → WAREHOUSE_RECEIVED).
+     * System automatically:
+     *   1. Finds destination warehouse based on delivery pin code
+     *   2. Calculates routing path (direct or via intermediate hub)
+     *   3. Saves shipping routing info to order
+     * 
+     * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
+     */
+    @PostMapping("/warehouse/orders/{orderId}/mark-received")
+    public ResponseEntity<?> warehouseMarkReceived(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            }
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+
+            if (order.getSourceWarehouse() == null || order.getSourceWarehouse().getId() != warehouseId) {
+                return ResponseEntity.status(403)
+                    .body(Map.of("error", "This order is not assigned to your warehouse"));
+            }
+
+            if (order.getTrackingStatus() != TrackingStatus.PACKED) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be in PACKED status. Current: " + order.getTrackingStatus()));
+            }
+
+            // Mark received
+            order.setTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
+
+            // Calculate destination warehouse based on delivery pin code
+            String deliveryPin = order.getDeliveryPinCode();
+            Warehouse destinationWarehouse = null;
+            if (deliveryPin != null) {
+                List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
+                for (Warehouse wh : allWarehouses) {
+                    if (wh.serves(deliveryPin)) {
+                        destinationWarehouse = wh;
+                        break;
+                    }
+                }
+            }
+
+            if (destinationWarehouse != null) {
+                order.setDestinationWarehouse(destinationWarehouse);
+            }
+
+            // Calculate routing path using WarehouseRoutingService
+            // This builds a path: SourceCity -> (IntermediateHub?) -> DestinationCity
+            String routingPath = warehouseRoutingService.calculateRoutingPath(order);
+            order.setWarehouseRoutingPath(routingPath);
+
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "orderId", orderId,
+                "newStatus", "WAREHOUSE_RECEIVED",
+                "destinationWarehouse", destinationWarehouse != null ? destinationWarehouse.getName() : "Unknown",
+                "routingPath", routingPath != null ? routingPath : "Direct"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DELIVERY BOY ENDPOINTS - Order pickup, delivery, OTP verification, COD cash
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * TASK 1: Delivery Boy - Get My Orders
+     * GET /api/react/delivery/my-orders
+     * 
+     * Returns all orders assigned to this delivery boy (SHIPPED or OUT_FOR_DELIVERY).
+     * Used by delivery boy app to show pickup/delivery list.
+     */
+    @GetMapping("/delivery/my-orders")
+    public ResponseEntity<?> deliveryGetOrders(@RequestHeader("Authorization") String authHeader) {
+        try {
+            // Extract delivery boy ID from JWT
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+
+            List<Order> orders = orderRepository.findByFinalDeliveryBoyIdAndTrackingStatusIn(
+                deliveryBoyId,
+                List.of(TrackingStatus.SHIPPED, TrackingStatus.OUT_FOR_DELIVERY)
+            );
+
+            List<Map<String, Object>> result = orders.stream().map(o -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", o.getId());
+                m.put("status", o.getTrackingStatus());
+                m.put("statusDisplay", o.getTrackingStatus().getDisplayName());
+                m.put("deliveryAddress", o.getDeliveryAddress());
+                m.put("deliveryPinCode", o.getDeliveryPinCode());
+                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put("customerPhone", o.getCustomer() != null ? o.getCustomer().getMobile() : "");
+                m.put("totalPrice", o.getTotalPrice());
+                m.put("paymentMethod", o.getPaymentMethod());
+                m.put("routingPath", o.getWarehouseRoutingPath());
+                return m;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 2: Mark Order as Picked Up (OUT_FOR_DELIVERY)
+     * POST /api/react/delivery/orders/{orderId}/pickup
+     * 
+     * Delivery boy marks order as picked up and ready to deliver.
+     * Status: SHIPPED → OUT_FOR_DELIVERY
+     */
+    @PostMapping("/delivery/orders/{orderId}/pickup")
+    public ResponseEntity<?> deliveryPickup(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId) {
+        try {
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getFinalDeliveryBoyId() == null || order.getFinalDeliveryBoyId() != deliveryBoyId) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not your order"));
+            }
+            if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be in SHIPPED status"));
+            }
+
+            order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
+            orderRepository.save(order);
+            return ResponseEntity.ok(Map.of("success", true, "status", "OUT_FOR_DELIVERY"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 3: Confirm Delivery (OTP + COD Cash validation)
+     * POST /api/react/delivery/orders/{orderId}/confirm-delivery
+     * 
+     * Delivery boy confirms delivery by verifying OTP.
+     * For COD orders: must also provide cash collected amount.
+     * Status: OUT_FOR_DELIVERY → DELIVERED
+     * 
+     * Request body:
+     * {
+     *   "otp": "123456",
+     *   "cashCollected": 2500  (only for COD orders)
+     * }
+     */
+    @PostMapping("/delivery/orders/{orderId}/confirm-delivery")
+    public ResponseEntity<?> deliveryConfirm(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId,
+            @RequestBody Map<String, Object> body) {
+        try {
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getFinalDeliveryBoyId() == null || order.getFinalDeliveryBoyId() != deliveryBoyId) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not your order"));
+            }
+            if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be OUT_FOR_DELIVERY"));
+            }
+
+            // Validate OTP
+            String enteredOtp = (String) body.get("otp");
+            if (enteredOtp == null || !enteredOtp.equals(order.getDeliveryOtp())) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Incorrect OTP. Please check with the customer."));
+            }
+
+            // COD validation
+            boolean isCOD = "COD".equalsIgnoreCase(order.getPaymentMethod());
+            if (isCOD) {
+                Object cashObj = body.get("cashCollected");
+                if (cashObj == null) {
+                    return ResponseEntity.badRequest()
+                        .body(Map.of("error", "cashCollected is required for COD orders"));
+                }
+                double cashCollected = Double.parseDouble(cashObj.toString());
+                if (cashCollected <= 0) {
+                    return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Cash collected must be greater than 0 for COD orders"));
+                }
+                order.setCodAmount(cashCollected);
+                order.setCodCollectedBy(deliveryBoyId);
+                order.setCodCollectionTimestamp(java.time.LocalDateTime.now());
+                order.setPaymentStatus("COD_COLLECTED");
+            } else {
+                order.setPaymentStatus("ONLINE_PAID");
+            }
+
+            order.setDeliveryOtpVerified(true);
+            order.setTrackingStatus(TrackingStatus.DELIVERED);
+            orderRepository.save(order);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", true);
+            res.put("orderId", orderId);
+            res.put("status", "DELIVERED");
+            if (isCOD) {
+                res.put("message", "Delivery confirmed. Please submit the collected cash to your warehouse.");
+                res.put("cashToSubmit", order.getCodAmount());
+            } else {
+                res.put("message", "Delivery confirmed.");
+            }
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 4: Delivery Boy Submits Cash to Warehouse
+     * POST /api/react/delivery/orders/{orderId}/submit-cash
+     * 
+     * Delivery boy submits collected COD cash to warehouse.
+     * Only for COD orders where payment status is COD_COLLECTED.
+     * Status remains DELIVERED, paymentStatus: COD_COLLECTED → COD_SUBMITTED_TO_WAREHOUSE
+     */
+    @PostMapping("/delivery/orders/{orderId}/submit-cash")
+    public ResponseEntity<?> deliverySubmitCash(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId,
+            @RequestBody Map<String, Object> body) {
+        try {
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+            if (order.getFinalDeliveryBoyId() == null || order.getFinalDeliveryBoyId() != deliveryBoyId) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not your order"));
+            }
+            if (order.getTrackingStatus() != TrackingStatus.DELIVERED) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be DELIVERED first"));
+            }
+            if (!"COD_COLLECTED".equals(order.getPaymentStatus())) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "No COD cash to submit for this order"));
+            }
+
+            order.setPaymentStatus("COD_SUBMITTED_TO_WAREHOUSE");
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Cash submission recorded. Hand ₹" + order.getCodAmount() + " to warehouse staff.",
+                "cashAmount", order.getCodAmount()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // WAREHOUSE CASH SETTLEMENT ENDPOINTS - COD deposit & proof upload
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * TASK 1: Warehouse - View Pending COD Settlements
+     * GET /api/react/warehouse/settlements/pending
+     * 
+     * Warehouse staff views all COD cash submitted by delivery boys
+     * (paymentStatus = COD_SUBMITTED_TO_WAREHOUSE).
+     */
+    @GetMapping("/warehouse/settlements/pending")
+    public ResponseEntity<?> warehousePendingSettlements(HttpServletRequest request) {
+        Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+
+        // Orders where paymentStatus = COD_SUBMITTED_TO_WAREHOUSE and destinationWarehouseId = this warehouse
+        List<Order> orders = orderRepository.findByDestinationWarehouseIdAndPaymentStatus(
+            warehouseId, "COD_SUBMITTED_TO_WAREHOUSE");
+
+        List<Map<String, Object>> result = orders.stream().map(o -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("orderId", o.getId());
+            m.put("codAmount", o.getCodAmount());
+            m.put("deliveredAt", o.getCodCollectionTimestamp());
+            m.put("deliveryBoyId", o.getFinalDeliveryBoyId());
+            m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+            return m;
+        }).collect(Collectors.toList());
+
+        double totalPending = result.stream()
+            .mapToDouble(m -> (double) m.getOrDefault("codAmount", 0.0)).sum();
+
+        return ResponseEntity.ok(Map.of("pendingOrders", result, "totalPending", totalPending));
+    }
+
+    /**
+     * TASK 2: Warehouse - Create Settlement & Upload Payment Proof
+     * POST /api/react/warehouse/settlements/create-and-upload-proof
+     * 
+     * Warehouse deposits COD cash to bank or sends online,
+     * uploads proof photo, marks settlement as PROOF_UPLOADED.
+     * Admin then verifies it.
+     * 
+     * Request params:
+     * - proofImageUrl: URL of payment proof (bank transfer/deposit slip)
+     * - orderIds: Comma-separated list of order IDs to settle
+     * - notes: Optional notes (e.g., "Deposited to HDFC account")
+     */
+    @PostMapping("/warehouse/settlements/create-and-upload-proof")
+    public ResponseEntity<?> createSettlementAndUploadProof(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request,
+            @RequestParam("proofImageUrl") String proofImageUrl,
+            @RequestParam("orderIds") String orderIdsStr,
+            @RequestParam(value = "notes", required = false) String notes) {
+        Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+
+        try {
+            List<Integer> orderIds = Arrays.stream(orderIdsStr.split(","))
+                .map(s -> Integer.parseInt(s.trim()))
+                .collect(Collectors.toList());
+
+            double totalCash = 0;
+            List<Order> orders = new ArrayList<>();
+            for (int oid : orderIds) {
+                Order o = orderRepository.findById(oid).orElseThrow();
+                if (!"COD_SUBMITTED_TO_WAREHOUSE".equals(o.getPaymentStatus())) continue;
+                totalCash += o.getCodAmount() != null ? o.getCodAmount() : 0;
+                orders.add(o);
+            }
+
+            // Create settlement record
+            Warehouse wh = new Warehouse();
+            wh.setId(warehouseId);
+
+            CashSettlement settlement = new CashSettlement();
+            settlement.setWarehouse(wh);
+            settlement.setTotalAmountCollected(totalCash);
+            settlement.setAdminCommission(totalCash * 0.20);
+            settlement.setVendorPayAmount(totalCash * 0.80);
+            settlement.setSettlementStatus("PROOF_UPLOADED");
+            settlement.setProofPhotoUrl(proofImageUrl);
+            settlement.setSubmittedAt(LocalDateTime.now());
+            settlement.setOrderCount(orders.size());
+            settlement.setNotes(notes);
+
+            // Generate batch number
+            String batchNum = "BATCH-" + warehouseId + "-" + System.currentTimeMillis();
+            settlement.setSettlementBatchNumber(batchNum);
+
+            CashSettlement saved = cashSettlementRepository.save(settlement);
+
+            // Update each order's payment status and link to settlement
+            for (Order o : orders) {
+                o.setPaymentStatus("PROOF_UPLOADED");
+                o.setCashSettlementId(saved.getId());
+                orderRepository.save(o);
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "settlementId", saved.getId(),
+                "batchNumber", batchNum,
+                "totalCash", totalCash,
+                "adminCommission", settlement.getAdminCommission(),
+                "vendorPayAmount", settlement.getVendorPayAmount(),
+                "status", "PROOF_UPLOADED",
+                "message", "Settlement submitted to admin for verification"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ADMIN SETTLEMENT ENDPOINTS - COD review, verification, payout
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * TASK 1: Admin - Get All Pending Settlements
+     * GET /api/react/admin/settlements/pending
+     * 
+     * Admin views all pending COD settlement batches with proof photos.
+     */
+    @GetMapping("/admin/settlements/pending")
+    public ResponseEntity<?> adminPendingSettlements(@RequestHeader("Authorization") String authHeader) {
+        // Validate admin JWT
+        List<CashSettlement> settlements = cashSettlementRepository.findBySettlementStatus("PROOF_UPLOADED");
+
+        List<Map<String, Object>> result = settlements.stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", s.getId());
+            m.put("batchNumber", s.getSettlementBatchNumber());
+            m.put("warehouseId", s.getWarehouse() != null ? s.getWarehouse().getId() : null);
+            m.put("warehouseName", s.getWarehouse() != null ? s.getWarehouse().getName() : "");
+            m.put("totalAmount", s.getTotalAmountCollected());
+            m.put("adminCommission", s.getAdminCommission());
+            m.put("vendorPayAmount", s.getVendorPayAmount());
+            m.put("status", s.getSettlementStatus());
+            m.put("proofPhotoUrl", s.getProofPhotoUrl());
+            m.put("submittedAt", s.getSubmittedAt());
+            m.put("orderCount", s.getOrderCount());
+            m.put("notes", s.getNotes());
+            return m;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of("count", result.size(), "settlements", result));
+    }
+
+    /**
+     * TASK 2: Admin - Verify Settlement
+     * POST /api/react/admin/settlements/{settlementId}/verify
+     * 
+     * Admin verifies the proof photo and marks settlement as VERIFIED.
+     */
+    @PostMapping("/admin/settlements/{settlementId}/verify")
+    public ResponseEntity<?> adminVerifySettlement(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int settlementId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        // Extract admin ID from JWT
+        int adminId = jwtUtil.extractAdminId(authHeader.replace("Bearer ", ""));
+
+        CashSettlement settlement = cashSettlementRepository.findById(settlementId)
+            .orElseThrow(() -> new RuntimeException("Settlement not found"));
+
+        if (!"PROOF_UPLOADED".equals(settlement.getSettlementStatus())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Settlement not in PROOF_UPLOADED status"));
+        }
+
+        settlement.setSettlementStatus("VERIFIED");
+        settlement.setVerifiedByAdminId(adminId);
+        settlement.setVerifiedAt(LocalDateTime.now());
+        cashSettlementRepository.save(settlement);
+
+        // Update linked orders
+        List<Order> orders = orderRepository.findByCashSettlementId(settlementId);
+        for (Order o : orders) {
+            o.setPaymentStatus("VERIFIED");
+            orderRepository.save(o);
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "settlementId", settlementId,
+            "status", "VERIFIED",
+            "adminCommission", settlement.getAdminCommission(),
+            "vendorPayAmount", settlement.getVendorPayAmount()
+        ));
+    }
+
+    /**
+     * TASK 3: Admin - Trigger Vendor Payout
+     * POST /api/react/admin/settlements/{settlementId}/payout
+     * 
+     * Admin approves payment. System sends 80% to vendor, keeps 20% commission.
+     * Triggers vendor payment confirmation emails.
+     */
+    @PostMapping("/admin/settlements/{settlementId}/payout")
+    public ResponseEntity<?> adminVendorPayout(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int settlementId,
+            @RequestBody Map<String, Object> body) {
+        int adminId = jwtUtil.extractAdminId(authHeader.replace("Bearer ", ""));
+
+        CashSettlement settlement = cashSettlementRepository.findById(settlementId)
+            .orElseThrow(() -> new RuntimeException("Settlement not found"));
+
+        if (!"VERIFIED".equals(settlement.getSettlementStatus())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Settlement must be VERIFIED before payout"));
+        }
+
+        settlement.setSettlementStatus("PAID");
+        settlement.setPaidToWarehouseAt(LocalDateTime.now());
+        cashSettlementRepository.save(settlement);
+
+        // Update linked orders
+        List<Order> orders = orderRepository.findByCashSettlementId(settlementId);
+        for (Order o : orders) {
+            o.setPaymentStatus("PAID");
+            o.setPaymentVerifiedAt(LocalDateTime.now());
+            orderRepository.save(o);
+
+            // Send payment confirmation email to vendor
+            try {
+                if (o.getVendor() != null && o.getVendor().getEmail() != null) {
+                    double vendorAmount = settlement.getVendorPayAmount() / Math.max(1, orders.size());
+                    emailSender.sendVendorPaymentConfirmation(
+                        o.getVendor().getEmail(),
+                        o.getVendor().getName(),
+                        vendorAmount,
+                        o.getId(),
+                        settlement.getSettlementBatchNumber()
+                    );
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send vendor payment email: " + e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "settlementId", settlementId,
+            "status", "PAID",
+            "totalPaid", settlement.getTotalAmountCollected(),
+            "adminKept", settlement.getAdminCommission(),
+            "vendorReceived", settlement.getVendorPayAmount(),
+            "ordersUpdated", orders.size()
+        ));
+    }
+
+    /**
+     * TASK 4: Admin - Process Online Payment Payout
+     * POST /api/react/admin/online-payments/process-payout/{orderId}
+     * 
+     * For RAZORPAY orders: payment comes directly to admin.
+     * Admin processes payout: keeps 20%, sends 80% to vendor.
+     */
+    @PostMapping("/admin/online-payments/process-payout/{orderId}")
+    public ResponseEntity<?> adminOnlinePaymentPayout(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (!"RAZORPAY".equalsIgnoreCase(order.getPaymentMethod())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not an online payment order"));
+        }
+        if (order.getTrackingStatus() != TrackingStatus.DELIVERED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Order must be DELIVERED"));
+        }
+
+        double total = order.getTotalPrice();
+        double adminCut = total * 0.20;
+        double vendorCut = total * 0.80;
+
+        order.setPaymentStatus("PAID");
+        order.setPaymentVerifiedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        // Email vendor about payout
+        try {
+            if (order.getVendor() != null) {
+                emailSender.sendVendorPaymentConfirmation(
+                    order.getVendor().getEmail(), order.getVendor().getName(),
+                    vendorCut, orderId, "ONLINE-" + orderId
+                );
+            }
+        } catch (Exception e) { 
+            System.err.println("Vendor payment email failed: " + e.getMessage()); 
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "orderId", orderId,
+            "totalAmount", total,
+            "adminKeeps", adminCut,
+            "vendorReceives", vendorCut,
+            "paymentStatus", "PAID"
+        ));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ADMIN DASHBOARD ENDPOINTS - Orders, Warehouses, Delivery Boys, Vendor Payments
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * TASK 1: Admin - Get All Orders with Full Details
+     * GET /api/react/admin/orders/all?page=0&size=50
+     * 
+     * Paginated list of all orders, newest first.
+     * Includes: id, status, paymentMethod, paymentStatus, customer, vendor, warehouses, delivery boy, routing
+     */
+    @GetMapping("/admin/orders/all")
+    public ResponseEntity<?> adminAllOrders(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        try {
+            List<Order> allOrders = orderRepository.findAllByOrderByOrderDateDesc();
+            
+            // Simple pagination
+            int start = page * size;
+            int end = Math.min(start + size, allOrders.size());
+            List<Order> pageOrders = allOrders.subList(start, end);
+
+            List<Map<String, Object>> result = pageOrders.stream().map(o -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", o.getId());
+                m.put("status", o.getTrackingStatus());
+                m.put("paymentMethod", o.getPaymentMethod());
+                m.put("paymentStatus", o.getPaymentStatus());
+                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put("customerId", o.getCustomer() != null ? o.getCustomer().getId() : null);
+                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                m.put("vendorId", o.getVendor() != null ? o.getVendor().getId() : null);
+                m.put("sourceWarehouse", o.getSourceWarehouse() != null ? o.getSourceWarehouse().getName() : "");
+                m.put("destinationWarehouse", o.getDestinationWarehouse() != null ? o.getDestinationWarehouse().getName() : "");
+                m.put("routingPath", o.getWarehouseRoutingPath());
+                m.put("deliveryBoyId", o.getFinalDeliveryBoyId());
+                m.put("totalPrice", o.getTotalPrice());
+                m.put("orderDate", o.getOrderDate());
+                return m;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                "total", allOrders.size(),
+                "page", page,
+                "size", size,
+                "orders", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 2: Admin - Get All Warehouses
+     * GET /api/react/admin/warehouses/all
+     * 
+     * Lists all warehouses with details. Password NOT returned (use /credentials endpoint).
+     */
+    @GetMapping("/admin/warehouses/all")
+    public ResponseEntity<?> adminAllWarehouses(@RequestHeader("Authorization") String authHeader) {
+        try {
+            List<Warehouse> warehouses = warehouseRepository.findAll();
+            List<Map<String, Object>> result = warehouses.stream().map(wh -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", wh.getId());
+                m.put("name", wh.getName());
+                m.put("city", wh.getCity());
+                m.put("state", wh.getState());
+                m.put("warehouseCode", wh.getWarehouseCode());
+                m.put("loginId", wh.getWarehouseLoginId());
+                m.put("contactEmail", wh.getContactEmail());
+                m.put("contactPhone", wh.getContactPhone());
+                m.put("address", wh.getAddress());
+                m.put("servedPinCodes", wh.getServedPinCodes());
+                m.put("active", wh.isActive());
+                m.put("latitude", wh.getLatitude());
+                m.put("longitude", wh.getLongitude());
+                return m;
+            }).collect(Collectors.toList());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 3: Admin - Reset Warehouse Password
+     * POST /api/react/admin/warehouse/{warehouseId}/reset-password
+     * 
+     * Generates new password, encrypts, saves, and emails to warehouse contact.
+     */
+    @PostMapping("/admin/warehouse/{warehouseId}/reset-password")
+    public ResponseEntity<?> adminResetWarehousePassword(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int warehouseId) {
+        try {
+            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException("Warehouse not found"));
+
+            String newPlainPassword = Warehouse.generateLoginPassword();
+            String encrypted = AES.encrypt(newPlainPassword);
+
+            wh.setWarehouseLoginPassword(encrypted);
+            warehouseRepository.save(wh);
+
+            // Email new password to warehouse contact
+            if (wh.getContactEmail() != null) {
+                try { 
+                    emailSender.sendWarehouseCredentials(
+                        wh.getContactEmail(), wh.getName(), 
+                        wh.getWarehouseLoginId(), newPlainPassword, wh.getCity()
+                    ); 
+                } catch (Exception e) { 
+                    System.err.println("Failed to send credentials email: " + e.getMessage()); 
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "newPassword", newPlainPassword,
+                "message", "Password reset. New password emailed to " + wh.getContactEmail()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 4: Admin - Toggle Warehouse Active Status
+     * PUT /api/react/admin/warehouse/{warehouseId}/toggle-active
+     * 
+     * Activates or deactivates a warehouse.
+     */
+    @PutMapping("/admin/warehouse/{warehouseId}/toggle-active")
+    public ResponseEntity<?> adminToggleWarehouseActive(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int warehouseId) {
+        try {
+            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException("Warehouse not found"));
+            wh.setActive(!wh.isActive());
+            warehouseRepository.save(wh);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "active", wh.isActive(),
+                "warehouseId", warehouseId,
+                "message", "Warehouse " + (wh.isActive() ? "activated" : "deactivated")
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 6: Admin - View Pending Vendor Payments
+     * GET /api/react/admin/vendor-payments/pending
+     * 
+     * Shows all DELIVERED orders that are NOT PAID yet.
+     * Displays: order ID, payment method, vendor info, admin cut (20%), vendor cut (80%).
+     */
+    @GetMapping("/admin/vendor-payments/pending")
+    public ResponseEntity<?> adminPendingVendorPayments(@RequestHeader("Authorization") String authHeader) {
+        try {
+            List<Order> delivered = orderRepository.findByTrackingStatusAndPaymentStatusNot(
+                TrackingStatus.DELIVERED, "PAID");
+            
+            List<Map<String, Object>> result = delivered.stream().map(o -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("orderId", o.getId());
+                m.put("paymentMethod", o.getPaymentMethod());
+                m.put("paymentStatus", o.getPaymentStatus());
+                m.put("totalPrice", o.getTotalPrice());
+                m.put("vendorId", o.getVendor() != null ? o.getVendor().getId() : null);
+                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                m.put("adminCut20pct", o.getTotalPrice() * 0.20);
+                m.put("vendorGet80pct", o.getTotalPrice() * 0.80);
+                return m;
+            }).collect(Collectors.toList());
+            
+            return ResponseEntity.ok(Map.of(
+                "total", result.size(),
+                "pendingPayments", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 5: Admin - Get Pending Delivery Boy Approvals
+     * GET /api/react/admin/delivery-boys/pending
+     * 
+     * Lists all delivery boys awaiting admin approval (adminApproved = false, verified = true).
+     */
+    @GetMapping("/admin/delivery-boys/pending")
+    public ResponseEntity<?> adminPendingDeliveryBoys(@RequestHeader("Authorization") String authHeader) {
+        try {
+            List<DeliveryBoy> pending = deliveryBoyRepository.findByAdminApprovedFalseAndVerifiedTrue();
+            
+            List<Map<String, Object>> result = pending.stream().map(db -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", db.getId());
+                m.put("name", db.getName());
+                m.put("email", db.getEmail());
+                m.put("mobile", db.getMobile());
+                m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId() : null);
+                m.put("warehouseName", db.getWarehouse() != null ? db.getWarehouse().getName() : "");
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
+                m.put("active", db.isActive());
+                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                return m;
+            }).collect(Collectors.toList());
+            
+            return ResponseEntity.ok(Map.of(
+                "total", result.size(),
+                "pending", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 5: Admin - Approve Delivery Boy
+     * POST /api/react/admin/delivery-boys/{deliveryBoyId}/approve
+     * 
+     * Approves a pending delivery boy and activates their account.
+     */
+    @PostMapping("/admin/delivery-boys/{deliveryBoyId}/approve")
+    public ResponseEntity<?> adminApproveDeliveryBoy(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int deliveryBoyId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
+            
+            db.setAdminApproved(true);
+            db.setActive(true);
+            deliveryBoyRepository.save(db);
+            
+            // Optional: Send approval email
+            try {
+                if (db.getEmail() != null) {
+                    emailSender.sendDeliveryBoyApproved(db);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send approval email: " + e.getMessage());
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "deliveryBoyId", deliveryBoyId,
+                "message", "Delivery boy approved and activated",
+                "deliveryBoyCode", db.getDeliveryBoyCode()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 5: Admin - Reject/Deactivate Delivery Boy
+     * POST /api/react/admin/delivery-boys/{deliveryBoyId}/reject
+     * 
+     * Rejects a pending delivery boy or deactivates an approved one.
+     */
+    @PostMapping("/admin/delivery-boys/{deliveryBoyId}/reject")
+    public ResponseEntity<?> adminRejectDeliveryBoy(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int deliveryBoyId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
+            
+            String reason = body != null ? (String) body.get("reason") : null;
+            
+            db.setAdminApproved(false);
+            db.setActive(false);
+            deliveryBoyRepository.save(db);
+            
+            // Optional: Send rejection email
+            try {
+                if (db.getEmail() != null && reason != null) {
+                    emailSender.sendDeliveryBoyRejected(db, reason);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send rejection email: " + e.getMessage());
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "deliveryBoyId", deliveryBoyId,
+                "message", "Delivery boy deactivated"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 
 }

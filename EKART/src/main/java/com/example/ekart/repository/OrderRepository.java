@@ -69,6 +69,30 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     List<Order> findByWarehouse(Warehouse warehouse);
 
+    /**
+     * Get all orders at a specific source warehouse with given tracking status.
+     * Used for receiving queue: orders at source warehouse ready to be scanned in.
+     */
+    @Query("SELECT o FROM shopping_order o " +
+           "WHERE o.sourceWarehouse.id = :warehouseId " +
+           "AND o.trackingStatus = :status")
+    List<Order> findBySourceWarehouseIdAndTrackingStatus(
+        @Param("warehouseId") int warehouseId,
+        @Param("status") TrackingStatus status
+    );
+
+    /**
+     * Get all orders at a specific destination warehouse with given tracking status.
+     * Used for assignment queue: orders ready for delivery boy assignment.
+     */
+    @Query("SELECT o FROM shopping_order o " +
+           "WHERE o.destinationWarehouse.id = :warehouseId " +
+           "AND o.trackingStatus = :status")
+    List<Order> findByDestinationWarehouseIdAndTrackingStatus(
+        @Param("warehouseId") int warehouseId,
+        @Param("status") TrackingStatus status
+    );
+
     // ── Sub-order grouping ───────────────────────────────────────
 
     /**
@@ -76,4 +100,35 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
      * Used on order-success and order-history to group split orders.
      */
     List<Order> findByParentOrderId(Integer parentOrderId);
+
+    /**
+     * Get all orders assigned to a delivery boy with specific tracking statuses.
+     * Used by delivery boys to see their assigned orders (SHIPPED or OUT_FOR_DELIVERY).
+     */
+    List<Order> findByFinalDeliveryBoyIdAndTrackingStatusIn(int deliveryBoyId, List<TrackingStatus> statuses);
+
+    /**
+     * Find all orders by destination warehouse and payment status.
+     * Used for warehouse settlement workflow (COD cash collection).
+     * Returns orders with paymentStatus = "COD_SUBMITTED_TO_WAREHOUSE".
+     */
+    List<Order> findByDestinationWarehouseIdAndPaymentStatus(int warehouseId, String paymentStatus);
+
+    /**
+     * Find all orders linked to a cash settlement.
+     * Used by admin during settlement verification and payout.
+     */
+    List<Order> findByCashSettlementId(int cashSettlementId);
+
+    /**
+     * Find all orders ordered by date descending (newest first).
+     * Used by admin to view all orders paginated.
+     */
+    List<Order> findAllByOrderByOrderDateDesc();
+
+    /**
+     * Find all DELIVERED orders that are NOT PAID.
+     * Used to show admin pending vendor payments for payout.
+     */
+    List<Order> findByTrackingStatusAndPaymentStatusNot(TrackingStatus status, String paymentStatus);
 }

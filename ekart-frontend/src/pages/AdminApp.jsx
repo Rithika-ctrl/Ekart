@@ -280,6 +280,9 @@ export default function AdminApp() {
             <button key={t.key} style={{ ...as.navBtn, ...(page === t.key ? as.navBtnActive : {}) }}
               onClick={() => setPage(t.key)}>{t.label}</button>
           ))}
+          <button style={as.navBtn} onClick={() => navigate('/admin/warehouses')} title="Advanced Warehouse Management">
+            🏢 Warehouse Mgmt
+          </button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ color: "#6b7280", fontSize: 13 }}>Admin</span>

@@ -279,15 +279,30 @@ public class EmailSender {
     // ===================== SEND DOORSTEP OTP TO CUSTOMER =====================
     @Async
     public void sendDeliveryOtp(Customer customer, int otp, int orderId) {
+        this.sendDeliveryOtp(customer.getEmail(), customer.getName(), String.format("%06d", otp), orderId);
+    }
+
+    /**
+     * Send delivery OTP to customer email. Overloaded version accepting String otp.
+     * This OTP is sent when delivery boy is assigned for final-mile delivery.
+     * Customer must provide this OTP to delivery boy for confirmation.
+     *
+     * @param toEmail Customer email
+     * @param customerName Customer name
+     * @param otp 6-digit OTP as string
+     * @param orderId Order ID
+     */
+    @Async
+    public void sendDeliveryOtp(String toEmail, String customerName, String otp, int orderId) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(fromEmail, "Ekart");
-            helper.setTo(customer.getEmail());
+            helper.setTo(toEmail);
             helper.setSubject("Your Delivery OTP - Order #" + orderId + " - Ekart");
             Context context = new Context();
-            context.setVariable("name", customer.getName());
-            context.setVariable("otp", String.format("%06d", otp));  // 🔒 Format as 6-digit string
+            context.setVariable("name", customerName);
+            context.setVariable("otp", otp);  // 🔒 Use provided OTP string (6-digit formatted)
             context.setVariable("orderId", orderId);
             String html = templateEngine.process("delivery-otp-email.html", context);
             helper.setText(html, true);
@@ -682,6 +697,43 @@ public class EmailSender {
             mailSender.send(message);
         } catch (Exception e) {
             System.err.println("Warehouse credentials email send failed: " + e.getMessage());
+        }
+    }
+
+    // ===================== VENDOR PAYMENT CONFIRMATION =====================
+    /**
+     * Send payment confirmation email to vendor after settlement/payout.
+     * Contains: Amount received, order ID, batch reference.
+     */
+    @Async
+    public void sendVendorPaymentConfirmation(String email, String name, double amount, int orderId, String batchRef) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, "Ekart Payments");
+            helper.setTo(email);
+            helper.setSubject("Payment Confirmation - Ekart Vendor Settlement");
+
+            String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:550px;'>"
+                + "<h2 style='color:#4CAF50;margin-bottom:4px;'>Payment Processed ✓</h2>"
+                + "<p style='color:#555;margin-top:0;'>Hi " + name + ", your vendor payment has been processed successfully.</p>"
+                + "<table style='border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;'>"
+                + "<tr style='background:#f5f5f5;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Amount Received</td>"
+                +   "<td style='padding:12px 14px;font-weight:600;text-align:right;color:#4CAF50;font-size:1.1rem;'>₹" + String.format("%.2f", amount) + "</td></tr>"
+                + "<tr style='border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Order ID</td>"
+                +   "<td style='padding:12px 14px;font-weight:600;text-align:right;'>#" + orderId + "</td></tr>"
+                + "<tr style='background:#f5f5f5;border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Batch Reference</td>"
+                +   "<td style='padding:12px 14px;font-weight:600;text-align:right;color:#1976D2;'>" + batchRef + "</td></tr>"
+                + "</table>"
+                + "<p style='color:#555;margin-top:16px;'>The payment has been transferred to your registered bank account. It may take 1-2 business days to reflect in your account.</p>"
+                + "<p style='color:#555;'>If you have questions, please contact our vendor support team.</p>"
+                + "<p style='color:#aaa;font-size:0.75rem;margin-top:20px;'>— Ekart Payments Team</p>"
+                + "</div>";
+
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Vendor payment confirmation email failed: " + e.getMessage());
         }
     }
 }

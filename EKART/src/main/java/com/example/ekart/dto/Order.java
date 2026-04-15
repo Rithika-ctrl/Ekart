@@ -240,6 +240,21 @@ public class Order {
     @Column(name = "in_intermediate_hub", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean inIntermediateHub = false;
 
+    // ─── DELIVERY OTP FOR ORDER CONFIRMATION ──────────────────────
+
+    /**
+     * 6-digit OTP sent to customer when delivery boy is assigned.
+     * Customer must provide this OTP to delivery boy for confirmation.
+     */
+    @Column(name = "delivery_otp", length = 10, nullable = true)
+    private String deliveryOtp;
+
+    /**
+     * Flag indicating if delivery OTP has been verified by customer.
+     */
+    @Column(name = "delivery_otp_verified", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean deliveryOtpVerified = false;
+
     // ─── Getters & Setters ────────────────────────────────────────
 
     public int getId() { return id; }
@@ -354,4 +369,10 @@ public class Order {
 
     public boolean isInIntermediateHub() { return inIntermediateHub; }
     public void setInIntermediateHub(boolean inIntermediateHub) { this.inIntermediateHub = inIntermediateHub; }
+
+    public String getDeliveryOtp() { return deliveryOtp; }
+    public void setDeliveryOtp(String deliveryOtp) { this.deliveryOtp = deliveryOtp; }
+
+    public boolean isDeliveryOtpVerified() { return deliveryOtpVerified; }
+    public void setDeliveryOtpVerified(boolean deliveryOtpVerified) { this.deliveryOtpVerified = deliveryOtpVerified; }
 }

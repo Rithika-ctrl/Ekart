@@ -60,4 +60,10 @@ public interface DeliveryBoyRepository extends JpaRepository<DeliveryBoy, Intege
     @Query("SELECT d FROM DeliveryBoy d WHERE d.active = true AND d.verified = true " +
            "AND d.adminApproved = true AND d.warehouse = :warehouse")
     List<DeliveryBoy> findActiveByWarehouse(@Param("warehouse") Warehouse warehouse);
+
+    /**
+     * All active + admin-approved delivery boys (for multi-warehouse operations).
+     * Used by warehouse staff to get available delivery boys matching pin codes.
+     */
+    List<DeliveryBoy> findByActiveTrueAndAdminApprovedTrue();
 }

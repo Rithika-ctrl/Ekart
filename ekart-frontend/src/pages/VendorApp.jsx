@@ -100,6 +100,7 @@ export default function VendorApp() {
     { key: "dashboard", label: "📊 Dashboard" },
     { key: "products", label: "📦 Products" },
     { key: "orders", label: "🛒 Orders" },
+    { key: "payments", label: "💰 Payments" },
     { key: "sales", label: "📈 Sales Report" },
     { key: "alerts", label: `⚠️ Alerts${stockAlerts.length > 0 ? ` (${stockAlerts.length})` : ""}` },
     { key: "storefront", label: "🏪 Store Front" },
@@ -139,7 +140,8 @@ export default function VendorApp() {
           <>
             {page === "dashboard" && <Dashboard stats={stats} orders={orders} products={products} />}
             {page === "products" && <ProductsManager products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
-            {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} />}
+            {page === "orders" && <OrdersView orders={orders} onMarkPacked={markPacked} api={api} showToast={showToast} />}
+            {page === "payments" && <PaymentsView orders={orders} showToast={showToast} />}
             {page === "sales" && <SalesReport salesData={salesData} onPeriodChange={loadSales} />}
             {page === "alerts" && <StockAlertsView alerts={stockAlerts} api={api} onRefresh={loadAll} showToast={showToast} />}
             {page === "storefront" && <StoreFront profile={profile} products={products} api={api} onRefresh={loadAll} showToast={showToast} />}
@@ -224,14 +226,38 @@ function Dashboard({ stats, orders, products }) {
   );
 }
 
-function OrdersView({ orders, onMarkPacked }) {
+function OrdersView({ orders, onMarkPacked, api, showToast }) {
   const [showCodOnly, setShowCodOnly] = useState(false);
+  const [markingPacked, setMarkingPacked] = useState({});
+  const [warehouseInfo, setWarehouseInfo] = useState({});
+  
   const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
+  const paymentMethodColor = { COD: "#f97316", RAZORPAY: "#8b5cf6" };
+  const paymentStatusColor = { PENDING: "#9ca3af", COD_COLLECTED: "#f59e0b", PAID: "#10b981" };
   
   // ── COD FILTER & CALCULATIONS ──
-  const allCodOrders = (orders || []).filter(o => (o.paymentMode || "").toUpperCase() === "COD");
-  const codCollected = allCodOrders.filter(o => o.paymentStatus === "RECEIVED").length;
+  const allCodOrders = (orders || []).filter(o => (o.paymentMethod || o.paymentMode || "").toUpperCase() === "COD");
+  const codCollected = allCodOrders.filter(o => o.paymentStatus === "COD_COLLECTED").length;
   const codPending = allCodOrders.length - codCollected;
+  
+  const handleMarkPacked = async (orderId) => {
+    setMarkingPacked(prev => ({ ...prev, [orderId]: true }));
+    try {
+      const d = await api(`/vendor/orders/${orderId}/mark-packed`, { method: "POST" });
+      if (d.success) {
+        setWarehouseInfo(prev => ({ ...prev, [orderId]: d.warehouse }));
+        showToast("Order marked as packed ✓");
+        onMarkPacked(orderId);
+      } else {
+        showToast(d.message || "Error marking as packed");
+      }
+    } catch (err) {
+      console.error('Error marking packed:', err);
+      showToast("Error marking as packed");
+    } finally {
+      setMarkingPacked(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
   
   const filteredOrders = showCodOnly ? allCodOrders : (orders || []);
   
@@ -239,41 +265,66 @@ function OrdersView({ orders, onMarkPacked }) {
   const inProgress = filteredOrders.filter(o => ["PACKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.trackingStatus));
   const done = filteredOrders.filter(o => ["DELIVERED", "REFUNDED", "CANCELLED"].includes(o.trackingStatus));
 
-  const OrderRow = ({ o }) => (
-    <div style={vs.orderCard}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <span style={{ fontWeight: 700, color: "#374151" }}>#{o.id}</span>
-          <span style={{ marginLeft: 12, color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
-          {o.customer?.mobile && <span style={{ marginLeft: 8, color: "#6b7280", fontSize: 12 }}>📞 {o.customer.mobile}</span>}
+  const OrderRow = ({ o }) => {
+    const pm = (o.paymentMethod || o.paymentMode || "").toUpperCase();
+    const ps = o.paymentStatus || "PENDING";
+    const isPacked = warehouseInfo[o.id];
+    
+    return (
+      <div style={vs.orderCard}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <div>
+            <span style={{ fontWeight: 700, color: "#374151" }}>#{o.id}</span>
+            <span style={{ marginLeft: 12, color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
+            {o.customer?.mobile && <span style={{ marginLeft: 8, color: "#6b7280", fontSize: 12 }}>📞 {o.customer.mobile}</span>}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280", color: "#fff" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
+            <span style={{ ...vs.badge, background: paymentMethodColor[pm] || "#9ca3af", color: "#fff", fontSize: 11 }}>{pm === "COD" ? "💵 COD" : "💳 Razorpay"}</span>
+            <span style={{ ...vs.badge, background: paymentStatusColor[ps] || "#9ca3af", color: "#fff", fontSize: 11 }}>{ps.replace(/_/g, " ")}</span>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ ...vs.badge, background: statusColor[o.trackingStatus] || "#6b7280" }}>{o.trackingStatus?.replace(/_/g, " ")}</span>
-          {/* ── COD PAYMENT STATUS ── */}
-          {(o.paymentMode || "").toUpperCase() === "COD" && (
-            <span style={{ ...vs.badge, background: o.paymentStatus === "RECEIVED" ? "rgba(34,197,94,0.12)" : "rgba(249,115,22,0.12)", color: o.paymentStatus === "RECEIVED" ? "#4ade80" : "#fb923c", fontSize: 11, fontWeight: 700 }}>
-              💵 {o.paymentStatus === "RECEIVED" ? "Paid" : "Pending"}
-            </span>
-          )}
+        <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
+          {(o.items || []).map(i => `${i.name} × ${i.quantity}`).join(", ")}
+        </div>
+        
+        {/* ── WAREHOUSE INFO BOX (for packed orders) ── */}
+        {isPacked && (
+          <div style={{ background: "rgba(249, 115, 22, 0.1)", border: "1.5px solid rgba(249, 115, 22, 0.3)", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#ea580c", marginBottom: 6 }}>📍 Drop Parcel At</div>
+            <div style={{ fontSize: 13, color: "#374151", fontWeight: 600 }}>{isPacked.name || "Warehouse"}</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{isPacked.address || "–"}</div>
+            {isPacked.city && <div style={{ fontSize: 12, color: "#6b7280" }}>{isPacked.city}, {isPacked.state || ""}</div>}
+          </div>
+        )}
+        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: "#6b7280" }}>
+            {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "–"}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontWeight: 700, color: "#111827" }}>{fmt(o.totalPrice || o.amount)}</span>
+            {o.trackingStatus === "PROCESSING" && (
+              <button style={{ ...vs.primaryBtn, opacity: markingPacked[o.id] ? 0.6 : 1, cursor: markingPacked[o.id] ? "wait" : "pointer" }} 
+                onClick={() => handleMarkPacked(o.id)}
+                disabled={markingPacked[o.id]}>
+                {markingPacked[o.id] ? "⏳" : "✓"} {markingPacked[o.id] ? "Loading..." : "Mark Packed"}
+              </button>
+            )}
+            {o.trackingStatus === "PACKED" && (
+              <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 700, padding: "6px 12px", background: "#ede9fe", borderRadius: 6 }}>⏳ Awaiting warehouse pickup</span>
+            )}
+            {o.trackingStatus === "DELIVERED" && (
+              <div style={{ fontSize: 13, textAlign: "right" }}>
+                <div style={{ color: "#16a34a", fontWeight: 700 }}>✓ Delivered</div>
+                <div style={{ fontSize: 11, color: ps === "PAID" ? "#16a34a" : "#9ca3af" }}>{ps === "PAID" ? "Payment received" : "Payment pending"}</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
-        {(o.items || []).map(i => `${i.name} × ${i.quantity}`).join(", ")}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>
-          {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "–"}
-          {o.paymentMode && <span style={{ marginLeft: 10, color: "#d97706" }}>{o.paymentMode}</span>}
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontWeight: 700, color: "#111827" }}>{fmt(o.amount || o.totalPrice)}</span>
-          {o.trackingStatus === "PROCESSING" && (
-            <button style={vs.primaryBtn} onClick={() => onMarkPacked(o.id)}>✓ Mark Packed</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>
@@ -1450,6 +1501,102 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
           })()}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PaymentsView({ orders, showToast }) {
+  const paymentStatusColor = { PENDING: "#9ca3af", COD_COLLECTED: "#f59e0b", PAID: "#10b981" };
+  
+  // Calculate earnings
+  const paidOrders = (orders || []).filter(o => o.paymentStatus === "PAID");
+  const pendingOrders = (orders || []).filter(o => o.paymentStatus === "PENDING" || o.paymentStatus === "COD_COLLECTED");
+  
+  const totalEarnings = paidOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const vendorEarnings = totalEarnings * 0.8; // Vendor gets 80%
+  const platformCommission = totalEarnings * 0.2; // Platform gets 20%
+  
+  const pendingAmount = pendingOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const vendorPendingEarnings = pendingAmount * 0.8;
+  
+  const paymentMethodColor = { COD: "#f97316", RAZORPAY: "#8b5cf6" };
+  
+  const PaymentRow = ({ o }) => {
+    const pm = (o.paymentMethod || o.paymentMode || "").toUpperCase();
+    const ps = o.paymentStatus || "PENDING";
+    return (
+      <div style={vs.orderCard}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <div>
+            <span style={{ fontWeight: 700, color: "#374151" }}>Order #{o.id}</span>
+            <span style={{ marginLeft: 12, color: "#6b7280", fontSize: 13 }}>{o.customerName || "–"}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ ...vs.badge, background: paymentMethodColor[pm] || "#9ca3af", color: "#fff", fontSize: 11 }}>{pm === "COD" ? "💵 COD" : "💳 Razorpay"}</span>
+            <span style={{ ...vs.badge, background: paymentStatusColor[ps] || "#9ca3af", color: "#fff", fontSize: 11 }}>{ps.replace(/_/g, " ")}</span>
+          </div>
+        </div>
+        <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
+          {(o.items || []).map(i => `${i.name} × ${i.quantity}`).join(", ")}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: "#6b7280" }}>
+            {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "–"}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontWeight: 700, color: "#111827", fontSize: 14 }}>₹{Number(o.totalPrice || 0).toLocaleString("en-IN")}</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Your earnings: ₹{Number((o.totalPrice || 0) * 0.8).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <div>
+      <h2 style={vs.pageTitle}>Payments 💰</h2>
+      
+      {/* Earnings Summary */}
+      <div style={vs.statsGrid}>
+        <div style={vs.statCard}>
+          <div style={vs.statIcon("#10b981")}>✓</div>
+          <div style={vs.statVal}>₹{Number(vendorEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div style={vs.statLabel}>Your Earnings (80%)</div>
+        </div>
+        <div style={vs.statCard}>
+          <div style={vs.statIcon("#f59e0b")}>⏳</div>
+          <div style={vs.statVal}>₹{Number(vendorPendingEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div style={vs.statLabel}>Pending (80%)</div>
+        </div>
+        <div style={vs.statCard}>
+          <div style={vs.statIcon("#8b5cf6")}>📊</div>
+          <div style={vs.statVal}>{paidOrders.length}</div>
+          <div style={vs.statLabel}>Paid Orders</div>
+        </div>
+        <div style={vs.statCard}>
+          <div style={vs.statIcon("#6366f1")}>📦</div>
+          <div style={vs.statVal}>{pendingOrders.length}</div>
+          <div style={vs.statLabel}>Pending Orders</div>
+        </div>
+      </div>
+      
+      {/* Paid Orders */}
+      {paidOrders.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <h3 style={{ color: "#10b981", marginBottom: 12, fontSize: 16 }}>✓ Paid Orders ({paidOrders.length})</h3>
+          {paidOrders.map(o => <PaymentRow key={o.id} o={o} />)}
+        </div>
+      )}
+      
+      {/* Pending/COD Orders */}
+      {pendingOrders.length > 0 && (
+        <div>
+          <h3 style={{ color: "#f59e0b", marginBottom: 12, fontSize: 16 }}>⏳ Awaiting Payment ({pendingOrders.length})</h3>
+          {pendingOrders.map(o => <PaymentRow key={o.id} o={o} />)}
+        </div>
+      )}
+      
+      {(!orders || orders.length === 0) && <div style={vs.empty}>No orders yet</div>}
     </div>
   );
 }

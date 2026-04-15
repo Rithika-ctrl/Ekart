@@ -258,4 +258,79 @@ public class WarehouseRoutingService {
             .sorted(Comparator.comparing(Warehouse::getCity))
             .toList();
     }
+
+    /**
+     * Calculate warehouse routing path string for display.
+     * 
+     * Algorithm:
+     * 1. Get all active warehouses
+     * 2. Calculate distance from source to destination using Haversine
+     * 3. If distance < 800km → direct route
+     * 4. If distance >= 800km → find intermediate hub closest to midpoint
+     * 5. Build routing path string: "Delhi Hub → Bengaluru South Hub" or 
+     *                                 "Delhi Hub → Hyderabad Hub → Bengaluru South Hub"
+     *
+     * @param order Order with source and destination warehouses set
+     * @return Formatted routing path string
+     */
+    public String calculateRoutingPath(com.example.ekart.dto.Order order) {
+        if (order.getSourceWarehouse() == null || order.getDestinationWarehouse() == null) {
+            return "Direct";
+        }
+
+        Optional<Warehouse> sourceOpt = warehouseRepository.findById(order.getSourceWarehouse().getId());
+        Optional<Warehouse> destOpt = warehouseRepository.findById(order.getDestinationWarehouse().getId());
+
+        if (sourceOpt.isEmpty() || destOpt.isEmpty()) {
+            return "Direct";
+        }
+
+        Warehouse source = sourceOpt.get();
+        Warehouse destination = destOpt.get();
+
+        double distance = source.calculateDistanceTo(destination);
+
+        // Direct route for < 800 km
+        if (distance < 800) {
+            return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+        }
+
+        // Find intermediate hub: warehouse closest to midpoint
+        double midLat = (source.getLatitude() + destination.getLatitude()) / 2.0;
+        double midLon = (source.getLongitude() + destination.getLongitude()) / 2.0;
+
+        List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
+        Warehouse bestHub = null;
+        double bestDist = Double.MAX_VALUE;
+
+        for (Warehouse wh : allWarehouses) {
+            // Skip source and destination
+            if (wh.getId() == source.getId() || wh.getId() == destination.getId()) {
+                continue;
+            }
+            // Skip warehouses without coordinates
+            if (wh.getLatitude() == null || wh.getLongitude() == null) {
+                continue;
+            }
+
+            // Calculate distance to midpoint using Euclidean distance (approximate for lat/lon)
+            double d = Math.sqrt(
+                Math.pow(wh.getLatitude() - midLat, 2) + 
+                Math.pow(wh.getLongitude() - midLon, 2)
+            );
+
+            if (d < bestDist) {
+                bestDist = d;
+                bestHub = wh;
+            }
+        }
+
+        if (bestHub != null) {
+            // Save intermediate warehouse ID for tracking
+            order.setIntermediateWarehouseIds(String.valueOf(bestHub.getId()));
+            return source.getCity() + " Hub → " + bestHub.getCity() + " Hub → " + destination.getCity() + " Hub";
+        }
+
+        return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+    }
 }
