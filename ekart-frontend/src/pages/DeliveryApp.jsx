@@ -1,3059 +1,375 @@
-﻿import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../App";
+import { apiFetch } from "../api";
 
-const API_BASE_URL = 'http://localhost:8080/api/react';
+const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const S = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @keyframes dkSlideIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
+  body { font-family: 'DM Sans', sans-serif; }
+  .dk-animation { animation: dkSlideIn 0.3s ease; }
+`;
 
 export default function DeliveryApp() {
+  const { auth, logout } = useAuth();
   const navigate = useNavigate();
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
 
+  const [profile, setProfile] = useState(null);
+  const [toPickUp, setToPickUp] = useState([]);
+  const [outNow, setOutNow] = useState([]);
+  const [delivered, setDelivered] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [orders, setOrders] = useState([]);
+  const [pendingTransfer, setPendingTransfer] = useState(null);
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [togglingAvailable, setTogglingAvailable] = useState(false);
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // Fetch orders
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(res.data.orders || []);
-      } catch (err) {
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/auth');
+  // Toast
+  const [toast, setToast] = useState(null); // { msg, success }
+  const toastTimer = useRef(null);
+  const showToast = (msg, success = true) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, success });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">🛵 Delivery Dashboard</h1>
-            <p className="text-sm text-gray-600">Welcome, {deliveryName || 'Partner'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
+  // Alerts (flash messages)
+  const [alerts, setAlerts] = useState([]);
 
-      {/* Messages */}
-      {error && (
-        <div className="max-w-6xl mx-auto m-4 p-4 bg-red-100 border border-red-400 rounded-lg text-red-700">
-          ⚠️ {error}
-        </div>
-      )}
-      {success && (
-        <div className="max-w-6xl mx-auto m-4 p-4 bg-green-100 border border-green-400 rounded-lg text-green-700">
-          ✓ {success}
-        </div>
-      )}
+  // Transfer modal
+  const [transferModal, setTransferModal] = useState(false);
+  const [warehouseList, setWarehouseList] = useState([]);
+  const [selectedWh, setSelectedWh] = useState("");
+  const [transferReason, setTransferReason] = useState("");
 
-      {/* Content */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 font-semibold">Loading orders...</p>
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border">
-            <p className="text-2xl">📦</p>
-            <p className="text-gray-600 font-semibold mt-2">No orders assigned</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {orders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">Order #{order.id}</h3>
-                    <p className="text-xs text-gray-500">Created: {order.createdAt || 'N/A'}</p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">
-                    {order.trackingStatus || 'PENDING'}
-                  </span>
-                </div>
+  // Per-order OTP state map: { [orderId]: string }
+  const [otpMap, setOtpMap] = useState({});
+  const setOtp = (id, val) => setOtpMap(prev => ({ ...prev, [id]: val }));
 
-                <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-900">👤 {order.customerName || 'Customer'}</p>
-                  <p className="text-xs text-gray-600">{order.customerPhone || 'N/A'}</p>
-                </div>
+  // Photo capture states
+  const [pickupPhotos, setPickupPhotos] = useState({}); // { [orderId]: base64 }
+  const [deliveryPhotos, setDeliveryPhotos] = useState({}); // { [orderId]: base64 }
+  const [photoModal, setPhotoModal] = useState(null); // { orderId, type: 'pickup' | 'delivery' }
+  const photoInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
-                <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-gray-700">📍 {order.deliveryAddress || 'Address not provided'}</p>
-                  {order.pinCode && (
-                    <span className="inline-block mt-2 bg-gray-100 text-xs font-semibold px-2 py-1 rounded">
-                      PIN: {order.pinCode}
-                    </span>
-                  )}
-                </div>
+  // COD cash collection states
+  const [cashCollected, setCashCollected] = useState({}); // { [orderId]: { collected, amount, timestamp } }
+  const [showCashModal, setShowCashModal] = useState(null); // { orderId, amount, customerName }
+  const [collectionNotes, setCollectionNotes] = useState({}); // { [orderId]: string }
 
-                <div className="flex items-center justify-between mb-4">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                    {order.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-                  </span>
-                  {order.paymentMethod === 'COD' && (
-                    <p className="text-xs font-bold text-red-600">Collect: ₹{order.totalPrice || '0'}</p>
-                  )}
-                </div>
+  const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
 
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
-                  View Order Details
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+  const sanitizePhone = (p) => (p || "").toString().replace(/\D/g, "");
+  const telHref = (p) => {
+    const s = sanitizePhone(p);
+    return s ? `tel:${s}` : "#";
+  };
+  const waHref = (p, orderId) => {
+    const s = sanitizePhone(p);
+    if (!s) return "#";
+    const txt = `Hi, I'm the Ekart delivery partner for Order #${orderId}.`;
+    return `https://wa.me/${s}?text=${encodeURIComponent(txt)}`;
+  };
 
-const API_BASE_URL = 'http://localhost:8080/api/react';
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const results = await Promise.allSettled([
+        api("/delivery/profile"),
+        api("/delivery/orders"),
+        api("/delivery/warehouse-change/pending"),
+      ]);
 
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
+      const [profileResult, ordersResult, transferResult] = results;
 
-  useEffect(() => {
-    if (!deliveryToken) navigate('/auth');
-  }, [deliveryToken, navigate]);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
+      if (profileResult.status === "fulfilled" && profileResult.value?.success) {
+        const profileData = profileResult.value.deliveryBoy;
+        if (profileData) {
+          setProfile(profileData);
+          setIsAvailable(profileData?.isAvailable || false);
+        } else {
+          console.warn("Profile data empty");
+          showToast("Profile data incomplete", false);
+        }
+      } else if (profileResult.status === "rejected") {
+        console.error("Profile load error:", profileResult.reason);
+        showToast("❌ Failed to load profile - " + (profileResult.reason?.message || "Unknown error"), false);
+      } else {
+        console.error("Profile error:", profileResult.value?.message);
+        showToast("❌ " + (profileResult.value?.message || "Failed to load profile"), false);
       }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
+
+      if (ordersResult.status === "fulfilled" && ordersResult.value?.success) {
+        setToPickUp(ordersResult.value.toPickUp || []);
+        setOutNow(ordersResult.value.outForDelivery || []);
+        setDelivered(ordersResult.value.delivered || []);
+      } else if (ordersResult.status === "rejected") {
+        console.error("Orders load error:", ordersResult.reason);
+        showToast("Failed to load orders", false);
+      }
+
+      if (transferResult.status === "fulfilled" && transferResult.value?.success) {
+        setPendingTransfer(transferResult.value.request || null);
+      } else {
+        setPendingTransfer(null);
+      }
+    } catch (err) {
+      console.error("Unexpected error in load():", err);
+      showToast("An unexpected error occurred", false);
+    }
+    setLoading(false);
+  }, [api]);
+
+  useEffect(() => { load(); }, [load]);
 
   const markPickedUp = async (orderId) => {
     try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
+      const d = await api(`/delivery/orders/${orderId}/pickup`, { method: "POST" });
+      showToast(d?.message || "Marked as picked up", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
   };
 
-  const confirmDelivery = async () => {
-    if (!modalOtp || String(modalOtp).length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order?.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
+  const toggleAvailability = async () => {
+    setTogglingAvailable(true);
     try {
-      setLoading(true);
-      const payload = { otp: modalOtp };
-      if (order?.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
+      const newStatus = !isAvailable;
+      const d = await api("/delivery/availability/toggle", {
+        method: "POST",
+        body: JSON.stringify({ isAvailable: newStatus })
+      });
+      if (d?.success) {
+        const serverStatus = d.isAvailable !== undefined ? d.isAvailable : newStatus;
+        setIsAvailable(serverStatus);
+        showToast(serverStatus ? "🟢 You are now ONLINE — Available for deliveries" : "⚫ You are now OFFLINE — Not available for deliveries", true);
+        setTimeout(load, 500);
+      } else {
+        showToast("❌ " + (d?.message || "Failed to update status"), false);
       }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order?.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Order ${order?.id} delivered successfully!`);
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError('Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
+      console.error("Toggle error:", err);
+      showToast("❌ Request failed. Check connection and try again.", false);
     } finally {
-      setLoading(false);
+      setTogglingAvailable(false);
     }
   };
 
-  const submitCashToWarehouse = async (orderId) => {
+  const confirmDelivery = async (orderId) => {
+    const otp = (otpMap[orderId] || "").trim();
+    if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
+    if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
     try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash for Order ${orderId} submitted to warehouse`);
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
+      const d = await api(`/delivery/orders/${orderId}/deliver`, {
+        method: "POST",
+        body: JSON.stringify({ otp: otp })
       });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showToast(d?.message || "Delivery confirmed", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
+  };
+
+  const loadWarehouses = async () => {
+    const d = await api("/delivery/warehouses").catch(() => null);
+    if (d?.success) setWarehouseList(d.warehouses || []);
+  };
+
+  const openTransferModal = async () => {
+    setTransferModal(true);
+    setSelectedWh("");
+    setTransferReason("");
+    await loadWarehouses();
+  };
+
+  const submitTransfer = async () => {
+    if (!selectedWh || selectedWh === "") {
+      showToast("❌ Please select a warehouse.", false);
+      return;
+    }
+    if (!profile?.warehouse) {
+      showToast("❌ No current warehouse assigned. Contact admin.", false);
+      return;
+    }
+    try {
+      const d = await api("/delivery/warehouse-change/request", {
+        method: "POST",
+        body: JSON.stringify({
+          warehouseId: parseInt(selectedWh),
+          reason: transferReason.trim() || "Warehouse change requested"
+        })
+      });
+      if (d?.success) {
+        showToast("✅ Transfer request submitted successfully", true);
+        setTransferModal(false);
+        setTimeout(load, 1500);
+      } else {
+        showToast(d?.message || "❌ Failed to submit request", false);
+      }
     } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
+      console.error("Transfer error:", err);
+      showToast("❌ Request failed. Try again.", false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    navigate('/auth');
+  // Photo handling
+  const openPhotoModal = (orderId, photoType) => {
+    setPhotoModal({ orderId, type: photoType });
+    setTimeout(() => {
+      if (photoType === 'pickup') cameraInputRef.current?.click();
+      else photoInputRef.current?.click();
+    }, 100);
   };
 
-  const handleOtpChange = (e) => {
-    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-    setModalOtp(value);
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-screen-lg mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery Dashboard</h1>
-            <p className="text-sm text-gray-600">Welcome, {deliveryName || 'Delivery Partner'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {error && (
-        <div className="max-w-screen-lg mx-auto m-4 p-4 bg-red-100 border border-red-400 rounded-lg text-red-700">
-          ⚠️ {error}
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-screen-lg mx-auto m-4 p-4 bg-green-100 border border-green-400 rounded-lg text-green-700">
-          ✓ {successMessage}
-        </div>
-      )}
-
-      <main className="max-w-screen-lg mx-auto px-4 py-6">
-        {loading && orders.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-block">
-              <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-            </div>
-            <p className="mt-4 text-gray-600 font-semibold">Loading your orders...</p>
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <p className="text-2xl">📦</p>
-            <p className="text-gray-600 font-semibold mt-2">No orders assigned yet</p>
-            <p className="text-sm text-gray-500">Check back soon for new deliveries</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
-            {orders.map(order => (
-              <OrderCard
-                key={order?.id}
-                order={order}
-                onPickup={() => markPickedUp(order?.id)}
-                onConfirmDelivery={() => {
-                  setShowConfirmModal(order);
-                  setModalOtp('');
-                  setModalCashCollected(order?.paymentMethod === 'COD' ? order?.totalPrice : '');
-                }}
-                onSubmitCash={() => submitCashToWarehouse(order?.id)}
-                loading={loading}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900">Confirm Delivery</h2>
-              <p className="text-sm text-gray-600 mt-1">Order #{showConfirmModal?.id}</p>
-            </div>
-
-            <div className="px-6 py-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery OTP</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={modalOtp}
-                  onChange={handleOtpChange}
-                  placeholder="Enter 6-digit OTP"
-                  maxLength="6"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {showConfirmModal?.paymentMethod === 'COD' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cash to Collect (₹)</label>
-                  <input
-                    type="number"
-                    value={modalCashCollected || showConfirmModal?.totalPrice || ''}
-                    onChange={(e) => setModalCashCollected(e.target.value)}
-                    placeholder="Enter cash amount"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              )}
-
-              {error && (
-                <div className="p-3 bg-red-100 border border-red-400 rounded-lg text-red-700 text-sm">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setError('');
-                }}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {loading ? 'Confirming...' : 'Confirm & Complete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OrderCard({ order, onPickup, onConfirmDelivery, onSubmitCash, loading }) {
-  const getStatusColor = (status) => {
-    const colors = {
-      'ASSIGNED': 'bg-yellow-100 text-yellow-800',
-      'PICKED_UP': 'bg-blue-100 text-blue-800',
-      'IN_TRANSIT': 'bg-indigo-100 text-indigo-800',
-      'DELIVERED': 'bg-green-100 text-green-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getActionLabel = (status) => {
-    if (status === 'ASSIGNED') return '📍 Mark as Picked Up';
-    if (status === 'PICKED_UP') return '🚚 Confirm Delivery';
-    if (status === 'IN_TRANSIT') return '✓ Mark as Delivered';
-    return '✓ Delivered';
-  };
-
-  const getActionColor = (status) => {
-    if (status === 'ASSIGNED') return 'bg-yellow-600 hover:bg-yellow-700';
-    if (status === 'PICKED_UP' || status === 'IN_TRANSIT') return 'bg-blue-600 hover:bg-blue-700';
-    return 'bg-gray-400 cursor-not-allowed';
-  };
-
-  const getActionHandler = (status) => {
-    if (status === 'ASSIGNED') return onPickup;
-    if (status === 'PICKED_UP') return onConfirmDelivery;
-    if (status === 'IN_TRANSIT') return onSubmitCash;
-    return null;
-  };
-
-  const actionLabel = getActionLabel(order?.trackingStatus);
-  const actionColor = getActionColor(order?.trackingStatus);
-  const onAction = getActionHandler(order?.trackingStatus);
-
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">Order #{order?.id}</h3>
-          <p className="text-xs text-gray-500">Created: {order?.createdAt || 'N/A'}</p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order?.trackingStatus)}`}>
-          {order?.trackingStatus || 'UNKNOWN'}
-        </span>
-      </div>
-
-      <div className="mb-4">
-        <p className="text-sm font-semibold text-gray-900">👤 {order?.customerName || 'Customer'}</p>
-        <p className="text-xs text-gray-600">{order?.customerPhone || 'Phone not provided'}</p>
-      </div>
-
-      <div className="bg-gray-50 rounded-lg p-3 mb-4">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order?.deliveryAddress || 'Address not provided'}</span>
-        </p>
-        {order?.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order?.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order?.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order?.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order?.totalPrice || 'N/A'}</p>
-        )}
-      </div>
-
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
+  const handlePhotoCapture = (e, photoType) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result;
+      if (photoModal) {
+        if (photoType === 'pickup') {
+          setPickupPhotos(prev => ({ ...prev, [photoModal.orderId]: base64 }));
+        } else {
+          setDeliveryPhotos(prev => ({ ...prev, [photoModal.orderId]: base64 }));
+        }
+        setPhotoModal(null);
+        showToast(`📸 Photo captured successfully`, true);
       }
     };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
+    reader.readAsDataURL(file);
   };
 
-  // Confirm delivery (FIXED: OTP validation, cash pre-population, defensive checks)
-  const confirmDelivery = async () => {
-    if (!modalOtp || String(modalOtp).length !== 6) {
-      setError('OTP must be 6 digits');
+  const handlePickupWithPhoto = async (orderId) => {
+    if (!pickupPhotos[orderId]) {
+      showToast("📸 Please capture a photo of the parcel before marking as picked up", false);
+      openPhotoModal(orderId, 'pickup');
       return;
     }
+    try {
+      const d = await api(`/delivery/orders/${orderId}/pickup`, {
+        method: "POST",
+        body: JSON.stringify({ photo: pickupPhotos[orderId] })
+      });
+      showToast(d?.message || "✓ Marked as picked up with photo", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
+  };
 
-    const order = showConfirmModal;
-    if (order?.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
+  const resendOtp = async (orderId) => {
+    try {
+      const d = await api(`/delivery/orders/${orderId}/resend-otp`, { method: "POST" });
+      showToast(d?.message || "OTP resent to customer", d?.success);
+    } catch {
+      showToast("Failed to resend OTP. Try again.", false);
+    }
+  };
+
+  const handleDeliveryWithPhoto = async (orderId) => {
+    if (!deliveryPhotos[orderId]) {
+      showToast("📸 Please capture a photo before confirming delivery", false);
+      openPhotoModal(orderId, 'delivery');
       return;
     }
-
+    const otp = (otpMap[orderId] || "").trim();
+    if (!otp || otp.length !== 6) { showToast("Enter the 6-digit OTP from customer.", false); return; }
+    if (!window.confirm(`Confirm delivery of Order #${orderId} with OTP ${otp}?`)) return;
     try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order?.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order?.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Order ${order?.id} delivered successfully!`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
+      const d = await api(`/delivery/orders/${orderId}/deliver`, {
+        method: "POST",
+        body: JSON.stringify({ otp, photo: deliveryPhotos[orderId] })
       });
-      setOrders(response.data.orders || []);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError('Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
+      showToast(d?.message || "✓ Delivery confirmed with photo", d?.success);
+      if (d?.success) setTimeout(load, 1800);
+    } catch { showToast("Request failed. Try again.", false); }
   };
 
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash for Order ${orderId} submitted to warehouse`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
+  // COD cash collection handlers
+  const getCodOrdersForCollection = () =>
+    outNow.filter(o => o.isCod && !cashCollected[o.id]?.collected);
+
+  const getTodaysCashCollection = () =>
+    Object.values(cashCollected)
+      .filter(c => c.collected)
+      .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  const markPaymentReceived = (orderId, amount) => {
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    setCashCollected(prev => ({
+      ...prev,
+      [orderId]: { collected: true, amount, timestamp }
+    }));
+    setShowCashModal(null);
+    showToast(`✅ Payment of ${fmt(amount)} marked as received`, true);
   };
 
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    navigate('/auth');
-  };
+  const dismissAlert = (i) => setAlerts(prev => prev.filter((_, idx) => idx !== i));
 
-  // OTP input handler (FIXED: numeric input only via text type)
-  const handleOtpChange = (e) => {
-    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-    setModalOtp(value);
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-screen-lg mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery Dashboard</h1>
-            <p className="text-sm text-gray-600">Welcome, {deliveryName || 'Delivery Partner'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {/* Messages */}
-      {error && (
-        <div className="max-w-screen-lg mx-auto m-4 p-4 bg-red-100 border border-red-400 rounded-lg text-red-700">
-          ⚠️ {error}
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-screen-lg mx-auto m-4 p-4 bg-green-100 border border-green-400 rounded-lg text-green-700">
-          ✓ {successMessage}
-        </div>
-      )}
-
-      {/* Content */}
-      <main className="max-w-screen-lg mx-auto px-4 py-6">
-        {loading && orders.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-block">
-              <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+  // ── Pending approval guard
+  if (!loading && profile && !profile.approved) {
+    return (
+      <>
+        <style>{S}</style>
+        <div className="min-h-screen flex flex-col bg-gray-50">
+          <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <i className="fas fa-shopping-cart text-lg" />
+              <span>Ekart</span>
             </div>
-            <p className="mt-4 text-gray-600 font-semibold">Loading your orders...</p>
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <p className="text-2xl">📦</p>
-            <p className="text-gray-600 font-semibold mt-2">No orders assigned yet</p>
-            <p className="text-sm text-gray-500">Check back soon for new deliveries</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
-            {orders.map(order => (
-              <OrderCard
-                key={order?.id}
-                order={order}
-                onPickup={() => markPickedUp(order?.id)}
-                onConfirmDelivery={() => {
-                  setShowConfirmModal(order);
-                  setModalOtp('');
-                  setModalCashCollected(order?.paymentMethod === 'COD' ? order?.totalPrice : '');
-                }}
-                onSubmitCash={() => submitCashToWarehouse(order?.id)}
-                loading={loading}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900">Confirm Delivery</h2>
-              <p className="text-sm text-gray-600 mt-1">Order #{showConfirmModal?.id}</p>
-            </div>
-
-            <div className="px-6 py-4 space-y-4">
-              {/* OTP Input (FIXED: text type with numeric input) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery OTP</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={modalOtp}
-                  onChange={handleOtpChange}
-                  placeholder="Enter 6-digit OTP"
-                  maxLength="6"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* COD Cash Input (FIXED: auto-population with controlled component) */}
-              {showConfirmModal?.paymentMethod === 'COD' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cash to Collect (₹)</label>
-                  <input
-                    type="number"
-                    value={modalCashCollected || showConfirmModal?.totalPrice || ''}
-                    onChange={(e) => setModalCashCollected(e.target.value)}
-                    placeholder="Enter cash amount"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              )}
-
-              {error && (
-                <div className="p-3 bg-red-100 border border-red-400 rounded-lg text-red-700 text-sm">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setError('');
-                }}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {loading ? 'Confirming...' : 'Confirm & Complete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// OrderCard Component
-function OrderCard({ order, onPickup, onConfirmDelivery, onSubmitCash, loading }) {
-  const getStatusColor = (status) => {
-    const colors = {
-      'ASSIGNED': 'bg-yellow-100 text-yellow-800',
-      'PICKED_UP': 'bg-blue-100 text-blue-800',
-      'IN_TRANSIT': 'bg-indigo-100 text-indigo-800',
-      'DELIVERED': 'bg-green-100 text-green-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getActionLabel = (status) => {
-    if (status === 'ASSIGNED') return '📍 Mark as Picked Up';
-    if (status === 'PICKED_UP') return '🚚 Confirm Delivery';
-    if (status === 'IN_TRANSIT') return '✓ Mark as Delivered';
-    return '✓ Delivered';
-  };
-
-  const getActionColor = (status) => {
-    if (status === 'ASSIGNED') return 'bg-yellow-600 hover:bg-yellow-700';
-    if (status === 'PICKED_UP' || status === 'IN_TRANSIT') return 'bg-blue-600 hover:bg-blue-700';
-    return 'bg-gray-400 cursor-not-allowed';
-  };
-
-  const getActionHandler = (status) => {
-    if (status === 'ASSIGNED') return onPickup;
-    if (status === 'PICKED_UP') return onConfirmDelivery;
-    if (status === 'IN_TRANSIT') return onSubmitCash;
-    return null;
-  };
-
-  const actionLabel = getActionLabel(order?.trackingStatus);
-  const actionColor = getActionColor(order?.trackingStatus);
-  const onAction = getActionHandler(order?.trackingStatus);
-
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-      {/* Order Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">Order #{order?.id}</h3>
-          <p className="text-xs text-gray-500">Created: {order?.createdAt || 'N/A'}</p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order?.trackingStatus)}`}>
-          {order?.trackingStatus || 'UNKNOWN'}
-        </span>
-      </div>
-
-      {/* Customer Info */}
-      <div className="mb-4">
-        <p className="text-sm font-semibold text-gray-900">👤 {order?.customerName || 'Customer'}</p>
-        <p className="text-xs text-gray-600">{order?.customerPhone || 'Phone not provided'}</p>
-      </div>
-
-      {/* Delivery Address */}
-      <div className="bg-gray-50 rounded-lg p-3 mb-4">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order?.deliveryAddress || 'Address not provided'}</span>
-        </p>
-        {order?.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order?.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order?.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order?.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order?.totalPrice || 'N/A'}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm delivery (FIXED: OTP validation, cash pre-population, defensive checks)
-  const confirmDelivery = async () => {
-    if (!modalOtp || String(modalOtp).length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order?.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order?.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order?.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Delivery Confirmed! ${order?.paymentMethod === 'COD' ? `Please submit ₹${modalCashCollected} to your warehouse.` : ''}`);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError(err.response?.data?.error || 'Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash submitted to warehouse for Order ${orderId}`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    localStorage.removeItem('deliveryEmail');
-    navigate('/auth');
-  };
-
-  // Filter orders by status
-  const shippedOrders = orders.filter(o => o.trackingStatus === 'SHIPPED');
-  const outForDeliveryOrders = orders.filter(o => o.trackingStatus === 'OUT_FOR_DELIVERY');
-  const deliveredCodOrders = orders.filter(o => o.trackingStatus === 'DELIVERED' && o.paymentStatus === 'COD_COLLECTED');
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery App</h1>
-            <p className="text-sm text-gray-600">{deliveryName || 'Delivery Boy'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-            ✓ {successMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="max-w-md mx-auto px-6 py-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-600">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="font-semibold">Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            {/* SECTION 1: My Orders */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold mb-4">📦 My Orders</h2>
-
-              {/* SHIPPED Orders - Mark Picked Up */}
-              {shippedOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-indigo-600">📭 Ready to Pickup ({shippedOrders.length})</h3>
-                  <div className="space-y-4">
-                    {shippedOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => markPickedUp(order.id)}
-                        actionLabel="Mark Picked Up"
-                        actionColor="bg-indigo-600 hover:bg-indigo-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* OUT_FOR_DELIVERY Orders - Confirm Delivery */}
-              {outForDeliveryOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-yellow-600">🚚 Out for Delivery ({outForDeliveryOrders.length})</h3>
-                  <div className="space-y-4">
-                    {outForDeliveryOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => setShowConfirmModal(order)}
-                        actionLabel="Confirm Delivery"
-                        actionColor="bg-yellow-600 hover:bg-yellow-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Orders */}
-              {shippedOrders.length === 0 && outForDeliveryOrders.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p>No orders assigned yet</p>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Submit Cash to Warehouse */}
-            {deliveredCodOrders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">💰 Submit Cash to Warehouse</h2>
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <div className="space-y-4">
-                    {deliveredCodOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-indigo-600">Order #{order?.id || 'N/A'}</h4>
-                            <p className="text-sm text-gray-600">{order?.customerName || 'Customer'}</p>
-                            <p className="text-sm text-gray-600">{order?.deliveryAddress || 'Address not provided'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">₹{order?.totalPrice || 'N/A'}</p>
-                            <p className="text-xs text-gray-600">COD Collected</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => submitCashToWarehouse(order.id)}
-                          disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                        >
-                          💳 Submit Cash
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">Confirm Delivery</h2>
-
-            {/* Order Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Order ID</p>
-              <p className="text-2xl font-bold text-indigo-600">#{showConfirmModal?.id || 'N/A'}</p>
-              <p className="text-sm text-gray-700 mt-2">{showConfirmModal?.customerName || 'Customer'}</p>
-              <p className="text-sm text-gray-700">{showConfirmModal?.customerPhone || 'N/A'}</p>
-              <p className="text-sm text-gray-600 mt-2">{showConfirmModal?.deliveryAddress || 'Address not provided'}</p>
-              <p className="text-sm text-gray-600">📍 PIN: {showConfirmModal?.pinCode || 'N/A'}</p>
-            </div>
-
-            {/* Payment Badge */}
-            <div className="mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  showConfirmModal?.paymentMethod === 'COD'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-green-100 text-green-800'
-                }`}
-              >
-                {showConfirmModal?.paymentMethod === 'COD' ? '💵 COD' : '✓ Online Paid'}
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-100 text-indigo-600 uppercase">
+                <i className="fas fa-motorcycle" /> Delivery
               </span>
+              <button
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
+                onClick={() => { logout(); navigate("/auth", { replace: true }); }}
+              >
+                <i className="fas fa-sign-out-alt" /> Logout
+              </button>
             </div>
-
-            {/* OTP Field (FIXED: text input with numeric filtering) */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">OTP (6 digits)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={modalOtp}
-                onChange={(e) => setModalOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center font-mono"
-              />
-            </div>
-
-            {/* Cash Collected Field (FIXED: auto-populate with order total on modal open) */}
-            {showConfirmModal?.paymentMethod === 'COD' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">💳 Cash Collected (₹)</label>
-                <input
-                  type="number"
-                  value={modalCashCollected || showConfirmModal?.totalPrice || ''}
-                  onChange={(e) => setModalCashCollected(e.target.value)}
-                  placeholder={String(showConfirmModal?.totalPrice || '')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Order total: ₹{showConfirmModal?.totalPrice || 'N/A'}
-                </p>
+          </nav>
+          <main className="flex-1 flex items-center justify-center px-4 pt-24">
+            <div className="text-center max-w-md">
+              <div className="text-6xl mb-6">⏳</div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Pending Admin Approval</h1>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Your account has been verified but is awaiting admin review.
+                You'll receive an email at <strong>{profile.email}</strong> once approved.
+              </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left text-sm text-gray-700 mb-6">
+                <strong>What happens next?</strong><br />
+                1. Admin reviews your application 🔍<br />
+                2. Admin assigns your warehouse & pin codes 📦<br />
+                3. You receive an approval email ✉️<br />
+                4. You can then start accepting deliveries 🛵
               </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setModalOtp('');
-                  setModalCashCollected('');
-                  setError('');
-                }}
-                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold transition"
+                className="w-full px-4 py-3 font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
+                onClick={() => { logout(); navigate("/auth", { replace: true }); }}
               >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                ✓ Confirm
+                <i className="fas fa-sign-out-alt" /> Logout
               </button>
             </div>
-          </div>
+          </main>
+          <footer className="bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between text-sm">
+            <div className="font-bold text-gray-900">Ekart</div>
+            <div className="text-gray-500">© 2026 Ekart. All rights reserved.</div>
+          </footer>
         </div>
-      )}
-    </div>
-  );
-}
-
-// Order Card Component (FIXED: defensive checks for optional fields)
-function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
-  return (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-md transition">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h4 className="font-bold text-indigo-600">Order #{order?.id || 'N/A'}</h4>
-          <p className="text-sm text-gray-700 font-medium">{order?.customerName || 'Customer'}</p>
-          <p className="text-sm text-gray-600">{order?.customerPhone || 'N/A'}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-green-600">₹{order?.totalPrice || 'N/A'}</p>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order?.deliveryAddress || 'Address not provided'}</span>
-        </p>
-        {order?.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order?.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order?.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order?.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order?.totalPrice || 'N/A'}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm delivery
-  const confirmDelivery = async () => {
-    if (!modalOtp || modalOtp.length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Delivery Confirmed! ${order.paymentMethod === 'COD' ? `Please submit ₹${modalCashCollected} to your warehouse.` : ''}`);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError(err.response?.data?.error || 'Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash submitted to warehouse for Order ${orderId}`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    localStorage.removeItem('deliveryEmail');
-    navigate('/auth');
-  };
-
-  // Filter orders by status
-  const shippedOrders = orders.filter(o => o.trackingStatus === 'SHIPPED');
-  const outForDeliveryOrders = orders.filter(o => o.trackingStatus === 'OUT_FOR_DELIVERY');
-  const deliveredCodOrders = orders.filter(o => o.trackingStatus === 'DELIVERED' && o.paymentStatus === 'COD_COLLECTED');
+      </>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery App</h1>
-            <p className="text-sm text-gray-600">{deliveryName || 'Delivery Boy'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-            ✓ {successMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="max-w-md mx-auto px-6 py-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-600">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="font-semibold">Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            {/* SECTION 1: My Orders */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold mb-4">📦 My Orders</h2>
-
-              {/* SHIPPED Orders - Mark Picked Up */}
-              {shippedOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-indigo-600">📭 Ready to Pickup ({shippedOrders.length})</h3>
-                  <div className="space-y-4">
-                    {shippedOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => markPickedUp(order.id)}
-                        actionLabel="Mark Picked Up"
-                        actionColor="bg-indigo-600 hover:bg-indigo-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* OUT_FOR_DELIVERY Orders - Confirm Delivery */}
-              {outForDeliveryOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-yellow-600">🚚 Out for Delivery ({outForDeliveryOrders.length})</h3>
-                  <div className="space-y-4">
-                    {outForDeliveryOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => setShowConfirmModal(order)}
-                        actionLabel="Confirm Delivery"
-                        actionColor="bg-yellow-600 hover:bg-yellow-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Orders */}
-              {shippedOrders.length === 0 && outForDeliveryOrders.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p>No orders assigned yet</p>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Submit Cash to Warehouse */}
-            {deliveredCodOrders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">💰 Submit Cash to Warehouse</h2>
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <div className="space-y-4">
-                    {deliveredCodOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-                            <p className="text-sm text-gray-600">{order.customerName}</p>
-                            <p className="text-sm text-gray-600">{order.deliveryAddress}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">₹{order.totalPrice}</p>
-                            <p className="text-xs text-gray-600">COD Collected</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => submitCashToWarehouse(order.id)}
-                          disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                        >
-                          💳 Submit Cash
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">Confirm Delivery</h2>
-
-            {/* Order Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Order ID</p>
-              <p className="text-2xl font-bold text-indigo-600">#{showConfirmModal.id}</p>
-              <p className="text-sm text-gray-700 mt-2">{showConfirmModal.customerName}</p>
-              <p className="text-sm text-gray-700">{showConfirmModal.customerPhone}</p>
-              <p className="text-sm text-gray-600 mt-2">{showConfirmModal.deliveryAddress}</p>
-              <p className="text-sm text-gray-600">📍 PIN: {showConfirmModal.pinCode}</p>
-            </div>
-
-            {/* Payment Badge */}
-            <div className="mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  showConfirmModal.paymentMethod === 'COD'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-green-100 text-green-800'
-                }`}
-              >
-                {showConfirmModal.paymentMethod === 'COD' ? '💵 COD' : '✓ Online Paid'}
-              </span>
-            </div>
-
-            {/* OTP Field (always required) */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">OTP (6 digits)</label>
-              <input
-                type="number"
-                value={modalOtp}
-                onChange={(e) => setModalOtp(e.target.value.slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center"
-              />
-            </div>
-
-            {/* Cash Collected Field (COD only) */}
-            {showConfirmModal.paymentMethod === 'COD' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">💳 Cash Collected (₹)</label>
-                <input
-                  type="number"
-                  value={modalCashCollected}
-                  onChange={(e) => setModalCashCollected(e.target.value)}
-                  placeholder={showConfirmModal.totalPrice}
-                  defaultValue={showConfirmModal.totalPrice}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Order total: ₹{showConfirmModal.totalPrice}
-                </p>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setModalOtp('');
-                  setModalCashCollected('');
-                }}
-                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                ✓ Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Order Card Component
-function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
-  return (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-md transition">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-          <p className="text-sm text-gray-700 font-medium">{order.customerName}</p>
-          <p className="text-sm text-gray-600">{order.customerPhone}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-green-600">₹{order.totalPrice}</p>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order.deliveryAddress}</span>
-        </p>
-        {order.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order.totalPrice}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm delivery
-  const confirmDelivery = async () => {
-    if (!modalOtp || modalOtp.length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Delivery Confirmed! ${order.paymentMethod === 'COD' ? `Please submit ₹${modalCashCollected} to your warehouse.` : ''}`);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError(err.response?.data?.error || 'Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash submitted to warehouse for Order ${orderId}`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    localStorage.removeItem('deliveryEmail');
-    navigate('/auth');
-  };
-
-  // Filter orders by status
-  const shippedOrders = orders.filter(o => o.trackingStatus === 'SHIPPED');
-  const outForDeliveryOrders = orders.filter(o => o.trackingStatus === 'OUT_FOR_DELIVERY');
-  const deliveredCodOrders = orders.filter(o => o.trackingStatus === 'DELIVERED' && o.paymentStatus === 'COD_COLLECTED');
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery App</h1>
-            <p className="text-sm text-gray-600">{deliveryName || 'Delivery Boy'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-            ✓ {successMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="max-w-md mx-auto px-6 py-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-600">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="font-semibold">Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            {/* SECTION 1: My Orders */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold mb-4">📦 My Orders</h2>
-
-              {/* SHIPPED Orders - Mark Picked Up */}
-              {shippedOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-indigo-600">📭 Ready to Pickup ({shippedOrders.length})</h3>
-                  <div className="space-y-4">
-                    {shippedOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => markPickedUp(order.id)}
-                        actionLabel="Mark Picked Up"
-                        actionColor="bg-indigo-600 hover:bg-indigo-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* OUT_FOR_DELIVERY Orders - Confirm Delivery */}
-              {outForDeliveryOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-yellow-600">🚚 Out for Delivery ({outForDeliveryOrders.length})</h3>
-                  <div className="space-y-4">
-                    {outForDeliveryOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => setShowConfirmModal(order)}
-                        actionLabel="Confirm Delivery"
-                        actionColor="bg-yellow-600 hover:bg-yellow-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Orders */}
-              {shippedOrders.length === 0 && outForDeliveryOrders.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p>No orders assigned yet</p>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Submit Cash to Warehouse */}
-            {deliveredCodOrders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">💰 Submit Cash to Warehouse</h2>
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <div className="space-y-4">
-                    {deliveredCodOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-                            <p className="text-sm text-gray-600">{order.customerName}</p>
-                            <p className="text-sm text-gray-600">{order.deliveryAddress}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">₹{order.totalPrice}</p>
-                            <p className="text-xs text-gray-600">COD Collected</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => submitCashToWarehouse(order.id)}
-                          disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                        >
-                          💳 Submit Cash
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">Confirm Delivery</h2>
-
-            {/* Order Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Order ID</p>
-              <p className="text-2xl font-bold text-indigo-600">#{showConfirmModal.id}</p>
-              <p className="text-sm text-gray-700 mt-2">{showConfirmModal.customerName}</p>
-              <p className="text-sm text-gray-700">{showConfirmModal.customerPhone}</p>
-              <p className="text-sm text-gray-600 mt-2">{showConfirmModal.deliveryAddress}</p>
-              <p className="text-sm text-gray-600">📍 PIN: {showConfirmModal.pinCode}</p>
-            </div>
-
-            {/* Payment Badge */}
-            <div className="mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  showConfirmModal.paymentMethod === 'COD'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-green-100 text-green-800'
-                }`}
-              >
-                {showConfirmModal.paymentMethod === 'COD' ? '💵 COD' : '✓ Online Paid'}
-              </span>
-            </div>
-
-            {/* OTP Field (always required) */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">OTP (6 digits)</label>
-              <input
-                type="number"
-                value={modalOtp}
-                onChange={(e) => setModalOtp(e.target.value.slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center"
-              />
-            </div>
-
-            {/* Cash Collected Field (COD only) */}
-            {showConfirmModal.paymentMethod === 'COD' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">💳 Cash Collected (₹)</label>
-                <input
-                  type="number"
-                  value={modalCashCollected}
-                  onChange={(e) => setModalCashCollected(e.target.value)}
-                  placeholder={showConfirmModal.totalPrice}
-                  defaultValue={showConfirmModal.totalPrice}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Order total: ₹{showConfirmModal.totalPrice}
-                </p>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setModalOtp('');
-                  setModalCashCollected('');
-                }}
-                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                ✓ Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Order Card Component
-function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
-  return (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-md transition">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-          <p className="text-sm text-gray-700 font-medium">{order.customerName}</p>
-          <p className="text-sm text-gray-600">{order.customerPhone}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-green-600">₹{order.totalPrice}</p>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order.deliveryAddress}</span>
-        </p>
-        {order.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order.totalPrice}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm delivery
-  const confirmDelivery = async () => {
-    if (!modalOtp || modalOtp.length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Delivery Confirmed! ${order.paymentMethod === 'COD' ? `Please submit ₹${modalCashCollected} to your warehouse.` : ''}`);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError(err.response?.data?.error || 'Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash submitted to warehouse for Order ${orderId}`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    localStorage.removeItem('deliveryEmail');
-    navigate('/auth');
-  };
-
-  // Filter orders by status
-  const shippedOrders = orders.filter(o => o.trackingStatus === 'SHIPPED');
-  const outForDeliveryOrders = orders.filter(o => o.trackingStatus === 'OUT_FOR_DELIVERY');
-  const deliveredCodOrders = orders.filter(o => o.trackingStatus === 'DELIVERED' && o.paymentStatus === 'COD_COLLECTED');
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery App</h1>
-            <p className="text-sm text-gray-600">{deliveryName || 'Delivery Boy'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-            ✓ {successMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="max-w-md mx-auto px-6 py-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-600">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="font-semibold">Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            {/* SECTION 1: My Orders */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold mb-4">📦 My Orders</h2>
-
-              {/* SHIPPED Orders - Mark Picked Up */}
-              {shippedOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-indigo-600">📭 Ready to Pickup ({shippedOrders.length})</h3>
-                  <div className="space-y-4">
-                    {shippedOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => markPickedUp(order.id)}
-                        actionLabel="Mark Picked Up"
-                        actionColor="bg-indigo-600 hover:bg-indigo-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* OUT_FOR_DELIVERY Orders - Confirm Delivery */}
-              {outForDeliveryOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-yellow-600">🚚 Out for Delivery ({outForDeliveryOrders.length})</h3>
-                  <div className="space-y-4">
-                    {outForDeliveryOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => setShowConfirmModal(order)}
-                        actionLabel="Confirm Delivery"
-                        actionColor="bg-yellow-600 hover:bg-yellow-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Orders */}
-              {shippedOrders.length === 0 && outForDeliveryOrders.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p>No orders assigned yet</p>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Submit Cash to Warehouse */}
-            {deliveredCodOrders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">💰 Submit Cash to Warehouse</h2>
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <div className="space-y-4">
-                    {deliveredCodOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-                            <p className="text-sm text-gray-600">{order.customerName}</p>
-                            <p className="text-sm text-gray-600">{order.deliveryAddress}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">₹{order.totalPrice}</p>
-                            <p className="text-xs text-gray-600">COD Collected</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => submitCashToWarehouse(order.id)}
-                          disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                        >
-                          💳 Submit Cash
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">Confirm Delivery</h2>
-
-            {/* Order Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Order ID</p>
-              <p className="text-2xl font-bold text-indigo-600">#{showConfirmModal.id}</p>
-              <p className="text-sm text-gray-700 mt-2">{showConfirmModal.customerName}</p>
-              <p className="text-sm text-gray-700">{showConfirmModal.customerPhone}</p>
-              <p className="text-sm text-gray-600 mt-2">{showConfirmModal.deliveryAddress}</p>
-              <p className="text-sm text-gray-600">📍 PIN: {showConfirmModal.pinCode}</p>
-            </div>
-
-            {/* Payment Badge */}
-            <div className="mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  showConfirmModal.paymentMethod === 'COD'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-green-100 text-green-800'
-                }`}
-              >
-                {showConfirmModal.paymentMethod === 'COD' ? '💵 COD' : '✓ Online Paid'}
-              </span>
-            </div>
-
-            {/* OTP Field (always required) */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">OTP (6 digits)</label>
-              <input
-                type="number"
-                value={modalOtp}
-                onChange={(e) => setModalOtp(e.target.value.slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center"
-              />
-            </div>
-
-            {/* Cash Collected Field (COD only) */}
-            {showConfirmModal.paymentMethod === 'COD' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">💳 Cash Collected (₹)</label>
-                <input
-                  type="number"
-                  value={modalCashCollected}
-                  onChange={(e) => setModalCashCollected(e.target.value)}
-                  placeholder={showConfirmModal.totalPrice}
-                  defaultValue={showConfirmModal.totalPrice}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Order total: ₹{showConfirmModal.totalPrice}
-                </p>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setModalOtp('');
-                  setModalCashCollected('');
-                }}
-                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                ✓ Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Order Card Component
-function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
-  return (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-md transition">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-          <p className="text-sm text-gray-700 font-medium">{order.customerName}</p>
-          <p className="text-sm text-gray-600">{order.customerPhone}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-green-600">₹{order.totalPrice}</p>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order.deliveryAddress}</span>
-        </p>
-        {order.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order.totalPrice}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api/react';
-
-export default function DeliveryApp() {
-  const navigate = useNavigate();
-  
-  // Get delivery token from localStorage
-  const deliveryToken = localStorage.getItem('deliveryToken');
-  const deliveryName = localStorage.getItem('deliveryName');
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!deliveryToken) {
-      navigate('/auth');
-    }
-  }, [deliveryToken, navigate]);
-
-  // State management
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [orders, setOrders] = useState([]);
-
-  // Modal states
-  const [showConfirmModal, setShowConfirmModal] = useState(null);
-  const [modalOtp, setModalOtp] = useState('');
-  const [modalCashCollected, setModalCashCollected] = useState('');
-
-  // Fetch orders on mount
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-          headers: { Authorization: `Bearer ${deliveryToken}` },
-        });
-        setOrders(response.data.orders || []);
-        setError('');
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (deliveryToken) fetchOrders();
-  }, [deliveryToken]);
-
-  // Mark as picked up
-  const markPickedUp = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/pickup`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Order ${orderId} marked as picked up`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error marking picked up:', err);
-      setError('Failed to mark as picked up');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Confirm delivery
-  const confirmDelivery = async () => {
-    if (!modalOtp || modalOtp.length !== 6) {
-      setError('OTP must be 6 digits');
-      return;
-    }
-
-    const order = showConfirmModal;
-    if (order.paymentMethod === 'COD' && (!modalCashCollected || parseFloat(modalCashCollected) <= 0)) {
-      setError('Please enter valid cash amount');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const payload = {
-        otp: modalOtp,
-      };
-      if (order.paymentMethod === 'COD') {
-        payload.cashCollected = parseFloat(modalCashCollected);
-      }
-
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${order.id}/confirm-delivery`,
-        payload,
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-
-      setSuccessMessage(`Delivery Confirmed! ${order.paymentMethod === 'COD' ? `Please submit ₹${modalCashCollected} to your warehouse.` : ''}`);
-      setShowConfirmModal(null);
-      setModalOtp('');
-      setModalCashCollected('');
-
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error confirming delivery:', err);
-      setError(err.response?.data?.error || 'Failed to confirm delivery');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit cash to warehouse
-  const submitCashToWarehouse = async (orderId) => {
-    try {
-      setLoading(true);
-      await axios.post(
-        `${API_BASE_URL}/delivery/orders/${orderId}/submit-cash`,
-        {},
-        { headers: { Authorization: `Bearer ${deliveryToken}` } }
-      );
-      setSuccessMessage(`Cash submitted to warehouse for Order ${orderId}`);
-      // Refresh orders
-      const response = await axios.get(`${API_BASE_URL}/delivery/my-orders`, {
-        headers: { Authorization: `Bearer ${deliveryToken}` },
-      });
-      setOrders(response.data.orders || []);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Error submitting cash:', err);
-      setError('Failed to submit cash');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('deliveryToken');
-    localStorage.removeItem('deliveryId');
-    localStorage.removeItem('deliveryName');
-    localStorage.removeItem('deliveryEmail');
-    navigate('/auth');
-  };
-
-  // Filter orders by status
-  const shippedOrders = orders.filter(o => o.trackingStatus === 'SHIPPED');
-  const outForDeliveryOrders = orders.filter(o => o.trackingStatus === 'OUT_FOR_DELIVERY');
-  const deliveredCodOrders = orders.filter(o => o.trackingStatus === 'DELIVERED' && o.paymentStatus === 'COD_COLLECTED');
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-md mx-auto mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">🛵 Delivery App</h1>
-            <p className="text-sm text-gray-600">{deliveryName || 'Delivery Boy'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-      {successMessage && (
-        <div className="max-w-md mx-auto mt-4 px-6">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-            ✓ {successMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="max-w-md mx-auto px-6 py-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-600">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="font-semibold">Loading orders...</p>
-          </div>
-        ) : (
-          <>
-            {/* SECTION 1: My Orders */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold mb-4">📦 My Orders</h2>
-
-              {/* SHIPPED Orders - Mark Picked Up */}
-              {shippedOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-indigo-600">📭 Ready to Pickup ({shippedOrders.length})</h3>
-                  <div className="space-y-4">
-                    {shippedOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => markPickedUp(order.id)}
-                        actionLabel="Mark Picked Up"
-                        actionColor="bg-indigo-600 hover:bg-indigo-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* OUT_FOR_DELIVERY Orders - Confirm Delivery */}
-              {outForDeliveryOrders.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="text-lg font-bold mb-4 text-yellow-600">🚚 Out for Delivery ({outForDeliveryOrders.length})</h3>
-                  <div className="space-y-4">
-                    {outForDeliveryOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAction={() => setShowConfirmModal(order)}
-                        actionLabel="Confirm Delivery"
-                        actionColor="bg-yellow-600 hover:bg-yellow-700"
-                        loading={loading}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Orders */}
-              {shippedOrders.length === 0 && outForDeliveryOrders.length === 0 && (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p>No orders assigned yet</p>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Submit Cash to Warehouse */}
-            {deliveredCodOrders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">💰 Submit Cash to Warehouse</h2>
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <div className="space-y-4">
-                    {deliveredCodOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-                            <p className="text-sm text-gray-600">{order.customerName}</p>
-                            <p className="text-sm text-gray-600">{order.deliveryAddress}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">₹{order.totalPrice}</p>
-                            <p className="text-xs text-gray-600">COD Collected</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => submitCashToWarehouse(order.id)}
-                          disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                        >
-                          💳 Submit Cash
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Confirm Delivery Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">Confirm Delivery</h2>
-
-            {/* Order Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Order ID</p>
-              <p className="text-2xl font-bold text-indigo-600">#{showConfirmModal.id}</p>
-              <p className="text-sm text-gray-700 mt-2">{showConfirmModal.customerName}</p>
-              <p className="text-sm text-gray-700">{showConfirmModal.customerPhone}</p>
-              <p className="text-sm text-gray-600 mt-2">{showConfirmModal.deliveryAddress}</p>
-              <p className="text-sm text-gray-600">📍 PIN: {showConfirmModal.pinCode}</p>
-            </div>
-
-            {/* Payment Badge */}
-            <div className="mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  showConfirmModal.paymentMethod === 'COD'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-green-100 text-green-800'
-                }`}
-              >
-                {showConfirmModal.paymentMethod === 'COD' ? '💵 COD' : '✓ Online Paid'}
-              </span>
-            </div>
-
-            {/* OTP Field (always required) */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">OTP (6 digits)</label>
-              <input
-                type="number"
-                value={modalOtp}
-                onChange={(e) => setModalOtp(e.target.value.slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center"
-              />
-            </div>
-
-            {/* Cash Collected Field (COD only) */}
-            {showConfirmModal.paymentMethod === 'COD' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">💳 Cash Collected (₹)</label>
-                <input
-                  type="number"
-                  value={modalCashCollected}
-                  onChange={(e) => setModalCashCollected(e.target.value)}
-                  placeholder={showConfirmModal.totalPrice}
-                  defaultValue={showConfirmModal.totalPrice}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Order total: ₹{showConfirmModal.totalPrice}
-                </p>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(null);
-                  setModalOtp('');
-                  setModalCashCollected('');
-                }}
-                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelivery}
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-              >
-                ✓ Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Order Card Component
-function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
-  return (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-md transition">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h4 className="font-bold text-indigo-600">Order #{order.id}</h4>
-          <p className="text-sm text-gray-700 font-medium">{order.customerName}</p>
-          <p className="text-sm text-gray-600">{order.customerPhone}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-green-600">₹{order.totalPrice}</p>
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-sm text-gray-700 flex items-start gap-2">
-          <span className="text-indigo-600 mt-0.5">📍</span>
-          <span>{order.deliveryAddress}</span>
-        </p>
-        {order.pinCode && (
-          <span className="inline-block mt-2 bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-1 rounded">
-            PIN: {order.pinCode}
-          </span>
-        )}
-      </div>
-
-      {/* Payment Badge & COD Amount */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold ${
-            order.paymentMethod === 'COD' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {order.paymentMethod === 'COD' ? '💵 COD' : '✓ Prepaid'}
-        </span>
-        {order.paymentMethod === 'COD' && (
-          <p className="text-xs font-bold text-red-600">To collect: ₹{order.totalPrice}</p>
-        )}
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onAction}
-        disabled={loading}
-        className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition disabled:bg-gray-400 ${actionColor}`}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
+    <>
+      <style>{S}</style>
+      <div className="min-h-screen flex flex-col bg-gray-50">
+
+        {/* Alerts */}
+        <div className="fixed top-20 right-6 z-50 flex flex-col gap-2">
+          {alerts.map((a, i) => (
             <div key={i} className={`dk-animation p-4 rounded-xl border flex items-center gap-3 min-w-72 shadow-lg ${
               a.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
             }`}>
@@ -3077,12 +393,12 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
             <span className="text-sm text-gray-600 font-medium">
               {profile?.name || auth?.email || "Delivery Partner"}
             </span>
-            <button 
+            <button
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition ${
                 togglingAvailable
                   ? "bg-gray-100 border-gray-300 text-gray-500 cursor-wait"
-                  : isAvailable 
-                    ? "bg-green-50 border-green-300 text-green-600 hover:bg-green-100" 
+                  : isAvailable
+                    ? "bg-green-50 border-green-300 text-green-600 hover:bg-green-100"
                     : "bg-red-50 border-red-300 text-red-600 hover:bg-red-100"
               }`}
               onClick={toggleAvailability}
@@ -3096,7 +412,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                   : <><i className="fas fa-circle text-xs" /> ⚫ Offline</>
               }
             </button>
-            <button 
+            <button
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 border border-gray-300 rounded-lg hover:bg-red-50 transition"
               onClick={() => { logout(); navigate("/auth", { replace: true }); }}
             >
@@ -3141,8 +457,8 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                       </div>
                     </div>
                     <div className={`rounded-lg p-3 border font-bold text-center ${
-                      isAvailable 
-                        ? "bg-green-50 border-green-300 text-green-700" 
+                      isAvailable
+                        ? "bg-green-50 border-green-300 text-green-700"
                         : "bg-red-50 border-red-300 text-red-700"
                     }`}>
                       <div className="text-xs text-gray-600 font-bold mb-1">STATUS</div>
@@ -3197,7 +513,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                       <div className="text-xs mt-1">Status: {pendingTransfer.status || "Awaiting Review"}</div>
                     </div>
                   ) : (
-                    <button 
+                    <button
                       className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition flex items-center gap-2 whitespace-nowrap"
                       onClick={openTransferModal}
                     >
@@ -3291,7 +607,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                           <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
                           <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
                         </div>
-                        
+
                         {/* Payment Mode Badge */}
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${
@@ -3303,11 +619,11 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                           </span>
                           {order.isCod && (
                             <span className="text-xs font-bold text-red-600">
-                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
                         </div>
-                        
+
                         <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
                         <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (
@@ -3331,11 +647,14 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                           <a className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-50 text-green-600 rounded text-xs font-semibold hover:bg-green-100 transition" href={waHref(order.customer?.mobile || order.mobile, order.id)} target="_blank" rel="noopener noreferrer">
                             <i className="fab fa-whatsapp text-xs" /> Chat
                           </a>
-                          <button className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-bold transition ${
-                            pickupPhotos[order.id]
-                              ? 'bg-green-600 text-white hover:bg-green-700'
-                              : 'bg-yellow-500 text-white hover:bg-yellow-600'
-                          }`} onClick={() => pickupPhotos[order.id] ? handlePickupWithPhoto(order.id) : openPhotoModal(order.id, 'pickup')}>
+                          <button
+                            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-bold transition ${
+                              pickupPhotos[order.id]
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                            }`}
+                            onClick={() => pickupPhotos[order.id] ? handlePickupWithPhoto(order.id) : openPhotoModal(order.id, 'pickup')}
+                          >
                             <i className={`fas ${pickupPhotos[order.id] ? 'fa-check' : 'fa-camera'} text-xs`} /> {pickupPhotos[order.id] ? 'Picked' : 'Photo'}
                           </button>
                         </div>
@@ -3369,7 +688,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                           <span className="font-bold text-indigo-600 text-sm">Order #{order.id}</span>
                           <span className="text-sm font-bold text-green-600">{fmt(order.amount || order.totalPrice)}</span>
                         </div>
-                        
+
                         {/* Payment Mode Badge */}
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${
@@ -3381,11 +700,11 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                           </span>
                           {order.isCod && (
                             <span className="text-xs font-bold text-red-600">
-                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              To Collect: ₹{Number((order.totalPrice || 0) + (order.deliveryCharge || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
                         </div>
-                        
+
                         <div className="text-sm text-gray-900 font-medium mb-1">{order.customer?.name || order.customerName}</div>
                         <div className="text-xs text-gray-500 mb-2">{order.customer?.mobile || order.mobile}</div>
                         {order.deliveryPinCode && (
@@ -3410,13 +729,13 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                             <i className="fab fa-whatsapp text-xs" /> Chat
                           </a>
                         </div>
-                        
+
                         {/* Photo Capture Section */}
                         <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-2">
                           <label className="text-xs font-bold text-orange-700 flex items-center gap-2 mb-2">
                             <i className="fas fa-camera text-xs" /> 📸 Take Photo Before Delivery
                           </label>
-                          <button 
+                          <button
                             className={`w-full py-2 rounded text-xs font-bold transition flex items-center justify-center gap-2 ${
                               deliveryPhotos[order.id]
                                 ? 'bg-blue-100 text-blue-700 border border-blue-300'
@@ -3424,7 +743,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                             }`}
                             onClick={() => openPhotoModal(order.id, 'delivery')}
                           >
-                            <i className={`fas ${deliveryPhotos[order.id] ? 'fa-check-circle' : 'fa-camera'} text-sm`} /> 
+                            <i className={`fas ${deliveryPhotos[order.id] ? 'fa-check-circle' : 'fa-camera'} text-sm`} />
                             {deliveryPhotos[order.id] ? '✓ Photo Captured' : '📸 Capture Photo'}
                           </button>
                           {!deliveryPhotos[order.id] && (
@@ -3458,7 +777,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                               value={otpMap[order.id] || ""}
                               onChange={e => setOtp(order.id, e.target.value)}
                             />
-                            <button 
+                            <button
                               className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
                                 deliveryPhotos[order.id]
                                   ? 'bg-green-600 text-white hover:bg-green-700'
@@ -3485,10 +804,10 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                                     {fmt((order.totalPrice || 0) + (order.deliveryCharge || 0))}
                                   </span>
                                 </div>
-                                <button 
+                                <button
                                   className="w-full px-3 py-1.5 rounded text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center gap-2"
-                                  onClick={() => setShowCashModal({ 
-                                    orderId: order.id, 
+                                  onClick={() => setShowCashModal({
+                                    orderId: order.id,
                                     amount: (order.totalPrice || 0) + (order.deliveryCharge || 0),
                                     customerName: order.customer?.name || order.customerName
                                   })}
@@ -3541,7 +860,6 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                 </div>
 
               </div>
-
             </>
           )}
         </main>
@@ -3569,9 +887,9 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
               )}
               <div className="mb-4">
                 <label className="block text-xs font-bold text-gray-900 uppercase mb-2 tracking-wider">Transfer to Warehouse *</label>
-                <select 
+                <select
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:border-indigo-600 focus:bg-white outline-none transition"
-                  value={selectedWh} 
+                  value={selectedWh}
                   onChange={e => setSelectedWh(e.target.value)}
                 >
                   <option value="">— Select a warehouse —</option>
@@ -3602,13 +920,13 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
                 <div className="text-xs text-gray-500 mt-1">{transferReason.length}/500</div>
               </div>
               <div className="flex gap-3">
-                <button 
+                <button
                   className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition"
                   onClick={() => setTransferModal(false)}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   className={`flex-1 px-4 py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2 ${
                     selectedWh && warehouseList.length > 0
                       ? "bg-indigo-600 text-white hover:bg-indigo-700"
@@ -3623,7 +941,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
             </div>
           </div>
         )}
-        
+
         {/* ── PAYMENT RECEIVED MODAL ── */}
         {showCashModal && (
           <div className="fixed inset-0 z-50 bg-black bg-opacity-30 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setShowCashModal(null); }}>
@@ -3682,7 +1000,7 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
             </div>
           </div>
         )}
-        
+
         {/* Photo inputs */}
         <input
           ref={cameraInputRef}
@@ -3705,8 +1023,8 @@ function OrderCard({ order, onAction, actionLabel, actionColor, loading }) {
         {toast && (
           <div className="fixed bottom-6 right-6 z-50">
             <div className={`p-4 rounded-xl border flex items-center gap-3 min-w-64 shadow-lg dk-animation ${
-              toast.success 
-                ? "bg-green-50 border-green-200 text-green-700" 
+              toast.success
+                ? "bg-green-50 border-green-200 text-green-700"
                 : "bg-red-50 border-red-200 text-red-700"
             }`}>
               <i className={`fas ${toast.success ? "fa-check-circle" : "fa-exclamation-circle"}`} />
