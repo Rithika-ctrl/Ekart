@@ -384,28 +384,32 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String name = ((String) body.getOrDefault("name", "Vendor")).trim();
             if (email.isEmpty()) {
                 res.put("success", false); res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (vendorRepository.existsByEmail(email)) {
+            // Check only for VERIFIED vendors (not temp pending ones)
+            com.example.ekart.dto.Vendor existing = vendorRepository.findByEmail(email);
+            if (existing != null && existing.isVerified()) {
                 res.put("success", false); res.put("message", "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            com.example.ekart.dto.Vendor temp = new com.example.ekart.dto.Vendor();
-            temp.setName((String) body.getOrDefault("name", "Vendor"));
-            temp.setEmail(email);
-            temp.setPassword(com.example.ekart.helper.AES.encrypt("temp"));
-            temp.setVerified(false);
-            vendorRepository.save(temp);
+            
+            // 🔒 NEW: Use secure OTP service (like delivery boy registration)
             try {
-                // Generate OTP and send it through the existing mail helper
-                String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
-                temp.setOtp(Integer.parseInt(otp));
-                emailSender.send(temp);
+                String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
+                
+                // Send OTP via email
+                com.example.ekart.dto.Vendor tempForEmail = new com.example.ekart.dto.Vendor();
+                tempForEmail.setName(name);
+                tempForEmail.setEmail(email);
+                tempForEmail.setOtp(Integer.parseInt(plainOtp));
+                emailSender.sendVendorOtpSecure(tempForEmail, plainOtp);
             } catch (Exception e) {
                 System.err.println("Vendor register OTP email failed: " + e.getMessage());
             }
+            
             vendorRegisterOtpVerified.remove(email);
             res.put("success", true); res.put("message", "OTP sent to " + email);
             return ResponseEntity.ok(res);
@@ -423,22 +427,30 @@ public class ReactApiController {
         try {
             String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String otpStr = body.getOrDefault("otp", "").toString().trim();
-            com.example.ekart.dto.Vendor temp = vendorRepository.findByEmail(email);
-            if (temp == null) {
-                res.put("success", false); res.put("message", "No pending registration for this email");
+            
+            if (email.isEmpty() || otpStr.isEmpty()) {
+                res.put("success", false); res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
-            // 🔒 NEW: Verify OTP using secure service (hashed comparison)
-            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, otpStr, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
+            
+            // 🔒 Format OTP with leading zeros (e.g., 1234 → "001234")
+            String formattedOtp = String.format("%06d", Integer.parseInt(otpStr));
+            
+            // Verify OTP using secure service (hashed comparison)
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
             
             if (!result.success) {
                 res.put("success", false); res.put("message", result.message);
                 return ResponseEntity.badRequest().body(res);
             }
+            
+            // Mark this email as OTP-verified (for the next registration step)
             vendorRegisterOtpVerified.put(email, Boolean.TRUE);
-            vendorRepository.delete(temp);
-            res.put("success", true); res.put("message", "OTP verified");
+            res.put("success", true); res.put("message", "OTP verified successfully");
             return ResponseEntity.ok(res);
+        } catch (NumberFormatException e) {
+            res.put("success", false); res.put("message", "OTP must be a 6-digit number");
+            return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put("success", false); res.put("message", "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
@@ -1131,14 +1143,23 @@ public class ReactApiController {
             }
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
+                // Generic response — avoids leaking which emails are registered
                 res.put("success", true);
                 res.put("message", "If that email is registered, an OTP has been sent");
                 return ResponseEntity.ok(res);
             }
-            int otp = new java.util.Random().nextInt(100000, 1000000);
-            vendor.setOtp(otp);
-            vendorRepository.save(vendor);
-            emailSender.send(vendor);
+            
+            // 🔒 NEW: Use secure OTP service for password reset
+            try {
+                String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_PASSWORD_RESET);
+                // Send OTP via email
+                vendor.setOtp(Integer.parseInt(plainOtp));
+                emailSender.sendVendorOtpSecure(vendor, plainOtp);
+            } catch (Exception e) {
+                System.err.println("Vendor forgot-password OTP email failed: " + e.getMessage());
+            }
+            
+            // Clear any previously-verified flag for this email so a fresh verify is required
             otpVerified.remove(email);
             res.put("success", true);
             res.put("message", "OTP sent to your registered email");
@@ -1163,23 +1184,33 @@ public class ReactApiController {
                 res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
+            
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 res.put("success", false);
                 res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
-            int otp;
-            try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
+            
+            int otpInt;
+            try { otpInt = Integer.parseInt(otpStr); }
+            catch (NumberFormatException ex) {
                 res.put("success", false);
                 res.put("message", "Invalid OTP format");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (vendor.getOtp() != otp) {
+            
+            // 🔒 Format OTP with leading zeros and verify using secure service
+            String formattedOtp = String.format("%06d", otpInt);
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_PASSWORD_RESET);
+            
+            if (!result.success) {
                 res.put("success", false);
-                res.put("message", "Invalid or expired OTP");
+                res.put("message", result.message);
                 return ResponseEntity.badRequest().body(res);
             }
+            
+            // Mark this email as OTP-verified for password reset
             otpVerified.put(email, "vendor");
             res.put("success", true);
             res.put("message", "OTP verified");
