@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
 
 public interface WarehouseRepository extends JpaRepository<Warehouse, Integer> {
 
@@ -42,4 +43,16 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Integer> {
            "  OR REPLACE(w.servedPinCodes, ' ', '') LIKE CONCAT('%,', :pin)" +
            ")")
     List<Warehouse> findByPinCode(@Param("pin") String pin);
+
+    /**
+     * Check if a warehouse with the given login ID already exists.
+     * Used to ensure uniqueness when generating login IDs.
+     */
+    boolean existsByWarehouseLoginId(String warehouseLoginId);
+
+    /**
+     * Find warehouse by its 8-digit numeric login ID.
+     * Used for warehouse staff authentication.
+     */
+    Optional<Warehouse> findByWarehouseLoginId(String warehouseLoginId);
 }

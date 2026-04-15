@@ -70,6 +70,7 @@ public class SecurityConfig {
 
                 // Role-based React API protection.
                 .requestMatchers("/api/react/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/react/warehouse/**").hasRole("WAREHOUSE")
                 .requestMatchers("/api/react/vendor/**").hasRole("VENDOR")
                 .requestMatchers("/api/react/delivery/**").hasRole("DELIVERY")
 

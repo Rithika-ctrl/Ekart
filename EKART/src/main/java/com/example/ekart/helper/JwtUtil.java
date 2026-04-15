@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import java.security.Key;
 import java.util.Date;
+import java.util.Map;
 
 /**
  * JWT Utility — generates and validates tokens for Flutter/mobile API auth.
@@ -99,6 +100,36 @@ public class JwtUtil {
     /** Extract role from token */
     public String getRole(String token) {
         return (String) getClaims(token).get("role");
+    }
+
+    /** Extract warehouse ID from warehouse-role token */
+    public Integer extractWarehouseId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object wid = claims.get("warehouseId");
+        if (wid == null) return null;
+        return Integer.parseInt(wid.toString());
+    }
+
+    /** Extract role from token (alias for getRole for consistency) */
+    public String extractRole(String token) {
+        Claims claims = extractAllClaims(token);
+        return (String) claims.get("role");
+    }
+
+    /** Extract all claims from token (public version for external use) */
+    public Claims extractAllClaims(String token) {
+        return getClaims(token);
+    }
+
+    /** Generate JWT token for warehouse with extra claims (12 hour expiry) */
+    public String generateWarehouseToken(String warehouseId, Map<String, Object> extraClaims) {
+        return Jwts.builder()
+                .setClaims(extraClaims)
+                .setSubject(warehouseId)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 12)) // 12 hours
+                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .compact();
     }
 
     /** Validate token — returns true if valid and not expired */

@@ -1,6 +1,7 @@
 package com.example.ekart.dto;
 
 import jakarta.persistence.*;
+import java.util.Random;
 
 /**
  * LOCATION: src/main/java/com/example/ekart/dto/Warehouse.java
@@ -64,6 +65,28 @@ public class Warehouse {
     @Column(name = "distance_from_location_km", nullable = true)
     private Double distanceFromLocationKm;
 
+    /** 8-digit numeric login ID, auto-generated when warehouse is created by admin.
+     *  e.g. 12345678. This is used by warehouse staff to log in. */
+    @Column(name = "warehouse_login_id", unique = true, nullable = true, length = 8)
+    private String warehouseLoginId;
+
+    /** 6-digit numeric password, auto-generated when warehouse is created by admin.
+     *  Stored as AES-encrypted string. Plain text is shown to admin once only. */
+    @Column(name = "warehouse_login_password", nullable = true, length = 255)
+    private String warehouseLoginPassword;
+
+    /** Contact email for the warehouse (used to send credentials). */
+    @Column(name = "contact_email", nullable = true, length = 100)
+    private String contactEmail;
+
+    /** Contact phone for the warehouse. */
+    @Column(name = "contact_phone", nullable = true, length = 15)
+    private String contactPhone;
+
+    /** City of the warehouse (display name, may differ from routing city). */
+    @Column(name = "address", nullable = true, length = 300)
+    private String address;
+
     private boolean active = true;
 
     // ── Getters & Setters ─────────────────────────────────────────
@@ -97,6 +120,21 @@ public class Warehouse {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    public String getWarehouseLoginId() { return warehouseLoginId; }
+    public void setWarehouseLoginId(String warehouseLoginId) { this.warehouseLoginId = warehouseLoginId; }
+
+    public String getWarehouseLoginPassword() { return warehouseLoginPassword; }
+    public void setWarehouseLoginPassword(String warehouseLoginPassword) { this.warehouseLoginPassword = warehouseLoginPassword; }
+
+    public String getContactEmail() { return contactEmail; }
+    public void setContactEmail(String contactEmail) { this.contactEmail = contactEmail; }
+
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
 
     /** Returns true if this warehouse serves the given pin code. */
     public boolean serves(String pinCode) {
@@ -135,5 +173,19 @@ public class Warehouse {
         double radiusEarth = 6371;  // km
 
         return radiusEarth * c;
+    }
+
+    /** Generate a random 8-digit numeric string for warehouse login ID. */
+    public static String generateLoginId() {
+        Random rng = new Random();
+        int num = 10000000 + rng.nextInt(90000000);
+        return String.valueOf(num);
+    }
+
+    /** Generate a random 6-digit numeric string for warehouse login password. */
+    public static String generateLoginPassword() {
+        Random rng = new Random();
+        int num = 100000 + rng.nextInt(900000);
+        return String.valueOf(num);
     }
 }

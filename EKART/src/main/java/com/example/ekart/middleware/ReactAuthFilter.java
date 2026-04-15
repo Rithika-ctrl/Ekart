@@ -146,6 +146,14 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         request.setAttribute("react.userId", userId);
         request.setAttribute("react.role",   role);
 
+        // Handle warehouse-specific claims
+        if ("WAREHOUSE".equals(role)) {
+            Integer warehouseId = jwtUtil.extractWarehouseId(token);
+            if (warehouseId != null) {
+                request.setAttribute("warehouseId", warehouseId);
+            }
+        }
+
         // Build Spring Security authentication so role matchers in SecurityConfig
         // enforce authorization at framework level as well.
         UsernamePasswordAuthenticationToken authentication =
@@ -163,8 +171,8 @@ public class ReactAuthFilter extends OncePerRequestFilter {
      * Returns an error message if the identity header doesn't match the token,
      * or null if everything is consistent.
      *
-     * Admin tokens skip the header check because admin endpoints don't use
-     * identity headers — they operate on arbitrary IDs via path variables.
+     * Admin and warehouse tokens skip the header check because they don't use
+     * identity headers — they operate on arbitrary IDs via path variables or warehouse context.
      */
     private String checkSpoofing(HttpServletRequest request, int tokenUserId, String tokenRole) {
         switch (tokenRole) {
@@ -209,6 +217,9 @@ public class ReactAuthFilter extends OncePerRequestFilter {
             }
             case "ADMIN":
                 // Admin token: no identity header to check
+                break;
+            case "WAREHOUSE":
+                // Warehouse token: no identity header to check
                 break;
             default:
                 return "Unknown role in token: " + tokenRole;

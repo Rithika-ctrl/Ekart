@@ -16,6 +16,7 @@ import com.example.ekart.dto.Vendor;
 // import com.example.ekart.dto.Role; // unused
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -642,6 +643,7 @@ public class ReactApiController {
 
     @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
     @Autowired private WarehouseRepository                warehouseRepository;
+    @Autowired private com.example.ekart.service.WarehouseService warehouseService;
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
@@ -739,6 +741,106 @@ public class ReactApiController {
         res.put("success",    true);
         res.put("warehouses", list);
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * POST /api/react/auth/warehouse/login
+     * 
+     * Warehouse staff numeric login (8-digit ID + 6-digit password).
+     * Returns JWT token with role=WAREHOUSE and warehouseId claim.
+     * 
+     * Request Body:
+     *   { "loginId": "12345678", "password": "654321" }
+     *
+     * Response (200 OK):
+     *   {
+     *     "success": true,
+     *     "token": "<JWT_TOKEN_with_role_WAREHOUSE_and_warehouseId>",
+     *     "warehouseId": 45,
+     *     "warehouseName": "Bangalore Hub",
+     *     "city": "Bangalore",
+     *     "warehouseCode": "WH-BLR-12345678",
+     *     "role": "WAREHOUSE"
+     *   }
+     *
+     * Error Responses:
+     *   400: Invalid format (loginId not 8 digits or password not 6 digits)
+     *   401: Invalid credentials (warehouse not found or wrong password)
+     *   403: Warehouse account deactivated
+     *   500: Authentication error
+     */
+    @PostMapping("/auth/warehouse/login")
+    public ResponseEntity<Map<String, Object>> warehouseLogin(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String loginId = (String) body.get("loginId");        // 8-digit number as string
+            String password = (String) body.get("password");      // 6-digit number as string
+
+            if (loginId == null || loginId.isBlank() || password == null || password.isBlank()) {
+                res.put("error", "loginId and password are required");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Validate format: loginId must be 8 digits, password must be 6 digits
+            if (!loginId.matches("\\d{8}")) {
+                res.put("error", "Invalid login ID format — must be 8 digits");
+                return ResponseEntity.badRequest().body(res);
+            }
+            if (!password.matches("\\d{6}")) {
+                res.put("error", "Invalid password format — must be 6 digits");
+                return ResponseEntity.badRequest().body(res);
+            }
+
+            // Find warehouse by login ID
+            java.util.Optional<Warehouse> opt = warehouseRepository.findByWarehouseLoginId(loginId);
+            if (opt.isEmpty()) {
+                res.put("error", "Invalid credentials");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
+            }
+            Warehouse warehouse = opt.get();
+
+            if (!warehouse.isActive()) {
+                res.put("error", "This warehouse account has been deactivated");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(res);
+            }
+
+            // Decrypt stored password and compare
+            String decryptedStoredPassword;
+            try {
+                decryptedStoredPassword = AES.decrypt(warehouse.getWarehouseLoginPassword());
+            } catch (Exception e) {
+                res.put("error", "Authentication error");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+            }
+
+            if (!decryptedStoredPassword.equals(password)) {
+                res.put("error", "Invalid credentials");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
+            }
+
+            // Generate JWT with warehouseId and role=WAREHOUSE
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", "WAREHOUSE");
+            claims.put("warehouseId", warehouse.getId());
+            claims.put("warehouseName", warehouse.getName());
+            claims.put("warehouseCode", warehouse.getWarehouseCode());
+            claims.put("city", warehouse.getCity());
+
+            String token = jwtUtil.generateWarehouseToken(String.valueOf(warehouse.getId()), claims);
+
+            res.put("success", true);
+            res.put("token", token);
+            res.put("warehouseId", warehouse.getId());
+            res.put("warehouseName", warehouse.getName());
+            res.put("city", warehouse.getCity());
+            res.put("warehouseCode", warehouse.getWarehouseCode());
+            res.put("role", "WAREHOUSE");
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            res.put("error", "Login failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+        }
     }
 
     /**
@@ -7394,6 +7496,222 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
         res.put("message", "Deprecation logs cleared");
+        return ResponseEntity.ok(res);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADMIN — WAREHOUSE CREATION WITH AUTO-GENERATED CREDENTIALS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * POST /api/react/admin/warehouse/create
+     * 
+     * Creates a new warehouse with auto-generated numeric login ID and password.
+     * Admin sees credentials once in response (shown in popup modal).
+     * Credentials are also emailed to the warehouse contact address.
+     *
+     * Request Headers:
+     *   Authorization: Bearer <JWT_TOKEN_with_ADMIN_role>
+     *
+     * Request Body (JSON):
+     *   {
+     *     "name": "Bangalore Hub",
+     *     "city": "Bangalore",
+     *     "state": "Karnataka",
+     *     "servedPinCodes": "560001,560002,560003",
+     *     "latitude": 12.9716,
+     *     "longitude": 77.5946,
+     *     "contactEmail": "warehouse@company.com",
+     *     "contactPhone": "+919876543210",
+     *     "address": "123 Main St, Bangalore"
+     *   }
+     *
+     * Response (200 OK):
+     *   {
+     *     "success": true,
+     *     "warehouseId": 45,
+     *     "warehouseName": "Bangalore Hub",
+     *     "warehouseCode": "WH-BLR-12345678",
+     *     "loginId": "12345678",
+     *     "loginPassword": "654321",
+     *     "message": "Warehouse created. Credentials sent to warehouse@company.com. Login ID and Password shown above. Save these immediately — password will not be shown again."
+     *   }
+     *
+     * Error Responses:
+     *   401: No valid JWT token / not authenticated
+     *   403: JWT token does not have ADMIN role
+     *   400: Missing required fields or validation failed
+     *   500: Server error (encryption, email delivery, database save)
+     */
+    @PostMapping("/admin/warehouse/create")
+    public ResponseEntity<Map<String, Object>> adminCreateWarehouse(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new LinkedHashMap<>();
+
+        // 1. Validate JWT token and extract admin role
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            res.put("success", false);
+            res.put("message", "Missing or invalid Authorization header");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        String token = authHeader.substring(7);
+        try {
+            String role = jwtUtil.getRole(token);
+            if (role == null || !role.equals("ADMIN")) {
+                res.put("success", false);
+                res.put("message", "Admin role required");
+                return ResponseEntity.status(403).body(res);
+            }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Invalid JWT token: " + e.getMessage());
+            return ResponseEntity.status(401).body(res);
+        }
+
+        // 2. Extract and validate request body
+        String name = ((String) body.getOrDefault("name", "")).trim();
+        String city = ((String) body.getOrDefault("city", "")).trim();
+        String state = ((String) body.getOrDefault("state", "")).trim();
+        String servedPinCodes = ((String) body.getOrDefault("servedPinCodes", "")).trim();
+        Double latitude = null, longitude = null;
+        
+        try {
+            Object latObj = body.get("latitude");
+            Object lonObj = body.get("longitude");
+            latitude = (latObj instanceof Number) ? ((Number) latObj).doubleValue() : null;
+            longitude = (lonObj instanceof Number) ? ((Number) lonObj).doubleValue() : null;
+        } catch (Exception e) {
+            // Invalid latitude/longitude format
+        }
+
+        String contactEmail = ((String) body.getOrDefault("contactEmail", "")).trim();
+        String contactPhone = ((String) body.getOrDefault("contactPhone", "")).trim();
+        String address = ((String) body.getOrDefault("address", "")).trim();
+
+        // 3. Validate required fields
+        if (name.isEmpty() || city.isEmpty() || state.isEmpty()) {
+            res.put("success", false);
+            res.put("message", "Missing required fields: name, city, state");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        if (contactEmail.isEmpty()) {
+            res.put("success", false);
+            res.put("message", "Contact email is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        // 4. Call WarehouseService to create warehouse with auto-generated credentials
+        try {
+            Map<String, Object> createResult = warehouseService.createWarehouse(
+                    name, city, state, servedPinCodes, latitude, longitude,
+                    contactEmail, contactPhone, address);
+
+            // WarehouseService returns: { success, warehouseId, warehouseName, warehouseCode, 
+            //                             loginId, loginPassword, message }
+            return ResponseEntity.ok(createResult);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Error creating warehouse: " + e.getMessage());
+            System.err.println("Error creating warehouse: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * GET /api/react/admin/warehouse/{warehouseId}/credentials
+     * 
+     * Retrieves warehouse details for admin (without plain-text password).
+     * Password is encrypted and stored in DB, never returned to client after creation.
+     *
+     * Request Headers:
+     *   Authorization: Bearer <JWT_TOKEN_with_ADMIN_role>
+     *
+     * Path Variables:
+     *   warehouseId: Numeric warehouse ID
+     *
+     * Response (200 OK):
+     *   {
+     *     "success": true,
+     *     "warehouse": {
+     *       "id": 45,
+     *       "name": "Bangalore Hub",
+     *       "city": "Bangalore",
+     *       "state": "Karnataka",
+     *       "servedPinCodes": "560001,560002,560003",
+     *       "warehouseCode": "WH-BLR-12345678",
+     *       "warehouseLoginId": "12345678",
+     *       "contactEmail": "warehouse@company.com",
+     *       "contactPhone": "+919876543210",
+     *       "address": "123 Main St, Bangalore",
+     *       "active": true,
+     *       "createdAt": "2024-01-15T10:30:45"
+     *     },
+     *     "message": "Warehouse details retrieved"
+     *   }
+     *
+     * Error Responses:
+     *   401: No valid JWT token / not authenticated
+     *   403: JWT token does not have ADMIN role
+     *   404: Warehouse not found
+     */
+    @GetMapping("/admin/warehouse/{warehouseId}/credentials")
+    public ResponseEntity<Map<String, Object>> getWarehouseCredentials(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable int warehouseId) {
+        Map<String, Object> res = new LinkedHashMap<>();
+
+        // 1. Validate JWT token and extract admin role
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            res.put("success", false);
+            res.put("message", "Missing or invalid Authorization header");
+            return ResponseEntity.status(401).body(res);
+        }
+
+        String token = authHeader.substring(7);
+        try {
+            String role = jwtUtil.getRole(token);
+            if (role == null || !role.equals("ADMIN")) {
+                res.put("success", false);
+                res.put("message", "Admin role required");
+                return ResponseEntity.status(403).body(res);
+            }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", "Invalid JWT token: " + e.getMessage());
+            return ResponseEntity.status(401).body(res);
+        }
+
+        // 2. Query warehouse by ID
+        Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+        if (warehouse == null) {
+            res.put("success", false);
+            res.put("message", "Warehouse not found");
+            return ResponseEntity.status(404).body(res);
+        }
+
+        // 3. Build response with warehouse details (excluding encrypted password)
+        Map<String, Object> warehouseDto = new LinkedHashMap<>();
+        warehouseDto.put("id", warehouse.getId());
+        warehouseDto.put("name", warehouse.getName());
+        warehouseDto.put("city", warehouse.getCity());
+        warehouseDto.put("state", warehouse.getState());
+        warehouseDto.put("servedPinCodes", warehouse.getServedPinCodes());
+        warehouseDto.put("warehouseCode", warehouse.getWarehouseCode());
+        warehouseDto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
+        warehouseDto.put("contactEmail", warehouse.getContactEmail());
+        warehouseDto.put("contactPhone", warehouse.getContactPhone());
+        warehouseDto.put("address", warehouse.getAddress());
+        warehouseDto.put("active", warehouse.isActive());
+        warehouseDto.put("latitude", warehouse.getLatitude());
+        warehouseDto.put("longitude", warehouse.getLongitude());
+
+        res.put("success", true);
+        res.put("warehouse", warehouseDto);
+        res.put("message", "Warehouse credentials retrieved (password is encrypted and not shown)");
         return ResponseEntity.ok(res);
     }
 

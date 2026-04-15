@@ -660,4 +660,28 @@ public class EmailSender {
             System.err.println("Warehouse staff OTP email failed: " + e.getMessage());
         }
     }
+
+    // ===================== SEND WAREHOUSE CREDENTIALS =====================
+    public void sendWarehouseCredentials(String toEmail, String warehouseName, String loginId, String plainPassword, String city) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "EKART Logistics");
+            helper.setTo(toEmail);
+            helper.setSubject("EKART Warehouse Login Credentials - " + warehouseName);
+            String body = "<h2>Warehouse Login Credentials</h2>"
+                + "<p>Your warehouse <b>" + warehouseName + "</b> (" + city + ") has been created on EKART.</p>"
+                + "<p><b>Login ID:</b> <code style='font-size: 18px; font-weight: bold; color: #d97706;'>" + loginId + "</code></p>"
+                + "<p><b>Password:</b> <code style='font-size: 18px; font-weight: bold; color: #d97706;'>" + plainPassword + "</code></p>"
+                + "<p style='background: #f3f4f6; padding: 12px; border-left: 4px solid #d97706; margin: 16px 0;'>"
+                + "Use these numeric credentials to log in at the Warehouse Staff Portal. "
+                + "Please keep these credentials secure and do not share them with anyone.</p>"
+                + "<p style='color: #dc2626; font-weight: 600;'>⚠️ Save these credentials now — the password will not be shown again.</p>"
+                + "<hr/><p style='font-size: 12px; color: #6b7280;'>EKART Logistics Team</p>";
+            helper.setText(body, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Warehouse credentials email send failed: " + e.getMessage());
+        }
+    }
 }
