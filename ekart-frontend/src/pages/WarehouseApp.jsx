@@ -175,7 +175,7 @@ export default function WarehouseApp() {
   const fetchAssignmentQueue = async () => {
     setLoadingAssignment(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/warehouse/assignment-queue`, {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/orders/ready-for-assignment`, {
         headers: { Authorization: `Bearer ${warehouseToken}` },
       });
       setAssignmentQueue(response.data.orders || []);
@@ -209,7 +209,7 @@ export default function WarehouseApp() {
     try {
       setLoading(true);
       await axios.post(
-        `${API_BASE_URL}/warehouse/orders/${selectedOrder.id}/assign-delivery-boy`,
+        `${API_BASE_URL}/warehouse/orders/${selectedOrder.id}/assign-delivery`,
         { deliveryBoyId: selectedDeliveryBoy },
         { headers: { Authorization: `Bearer ${warehouseToken}` } }
       );
@@ -756,6 +756,12 @@ export default function WarehouseApp() {
                   <h3 className="text-xl font-bold mb-4">Assign Delivery Boy</h3>
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-2">Order #{selectedOrder?.id}</p>
+                    {selectedOrder?.address && (
+                      <p className="text-sm text-gray-600 mb-1">Address: {selectedOrder.address}</p>
+                    )}
+                    {selectedOrder?.pinCode && (
+                      <p className="text-sm text-gray-600 mb-2">PIN: {selectedOrder.pinCode}</p>
+                    )}
                     <label className="block text-sm font-semibold mb-2">Select Delivery Boy</label>
                     <select
                       value={selectedDeliveryBoy || ''}

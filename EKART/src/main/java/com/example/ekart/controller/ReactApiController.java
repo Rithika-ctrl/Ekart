@@ -7880,8 +7880,8 @@ public class ReactApiController {
      * TASK 1: Warehouse Receiving Queue
      * GET /api/react/warehouse/receiving-queue
      * 
-     * Warehouse staff sees a queue of PACKED orders assigned to their source warehouse.
-     * Returns list of orders ready to be scanned in and received.
+     * Warehouse staff sees a queue of ALL PACKED orders (from any vendor).
+     * Any warehouse can receive an order - they mark it when they physically receive the parcel.
      * 
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
@@ -7895,9 +7895,9 @@ public class ReactApiController {
                 return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
             }
 
-            // Orders with status PACKED where sourceWarehouseId = this warehouse
-            List<Order> queue = orderRepository.findBySourceWarehouseIdAndTrackingStatus(
-                warehouseId, TrackingStatus.PACKED);
+            // Get ALL PACKED orders (not just assigned to this warehouse)
+            // Any warehouse can receive an order
+            List<Order> queue = orderRepository.findByTrackingStatus(TrackingStatus.PACKED);
 
             List<Map<String, Object>> result = queue.stream()
                 .map(o -> {
@@ -7921,14 +7921,15 @@ public class ReactApiController {
     }
 
     /**
-     * TASK 2: Mark Order as Received + Auto-calculate Routing
+     * TASK 2: Mark Order as Received
      * POST /api/react/warehouse/orders/{orderId}/mark-received
      * 
-     * Warehouse staff marks order as received (PACKED → WAREHOUSE_RECEIVED).
+     * ANY warehouse can mark a PACKED order as received (PACKED → WAREHOUSE_RECEIVED).
+     * When a warehouse receives the parcel, they scan/mark it in the system.
      * System automatically:
-     *   1. Finds destination warehouse based on delivery pin code
-     *   2. Calculates routing path (direct or via intermediate hub)
-     *   3. Saves shipping routing info to order
+     *   1. Sets this warehouse as the receiving warehouse
+     *   2. Finds destination warehouse based on delivery pin code
+     *   3. Calculates routing path (direct or via intermediate hub)
      * 
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
@@ -7950,18 +7951,14 @@ public class ReactApiController {
 
             Order order = orderOpt.get();
 
-            if (order.getSourceWarehouse() == null || order.getSourceWarehouse().getId() != warehouseId) {
-                return ResponseEntity.status(403)
-                    .body(Map.of("error", "This order is not assigned to your warehouse"));
-            }
-
             if (order.getTrackingStatus() != TrackingStatus.PACKED) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Order must be in PACKED status. Current: " + order.getTrackingStatus()));
             }
 
-            // Mark received
+            // Mark received - set this warehouse as the receiving warehouse
             order.setTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
+            order.setSourceWarehouse(warehouseRepository.findById(warehouseId).orElse(null));
 
             // Calculate destination warehouse based on delivery pin code
             String deliveryPin = order.getDeliveryPinCode();
@@ -7994,6 +7991,159 @@ public class ReactApiController {
                 "destinationWarehouse", destinationWarehouse != null ? destinationWarehouse.getName() : "Unknown",
                 "routingPath", routingPath != null ? routingPath : "Direct"
             ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 3: Get Orders Ready for Delivery Assignment
+     * GET /api/react/warehouse/orders/ready-for-assignment
+     * 
+     * Warehouse staff sees WAREHOUSE_RECEIVED orders ready to assign delivery boys.
+     * These orders have been received and are ready for the next delivery leg.
+     * 
+     * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
+     */
+    @GetMapping("/warehouse/orders/ready-for-assignment")
+    public ResponseEntity<?> warehouseOrdersReadyForAssignment(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
+            }
+
+            // Get all WAREHOUSE_RECEIVED orders (ready for delivery assignment)
+            List<Order> orders = orderRepository.findByTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
+
+            List<Map<String, Object>> result = orders.stream()
+                .map(o -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", o.getId());
+                    m.put("status", o.getTrackingStatus());
+                    m.put("pinCode", o.getDeliveryPinCode());
+                    m.put("address", o.getDeliveryAddress());
+                    m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                    m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                    m.put("totalPrice", o.getTotalPrice());
+                    m.put("paymentMethod", o.getPaymentMethod());
+                    m.put("orderDate", o.getOrderDate());
+                    return m;
+                }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of("count", result.size(), "orders", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 4: Assign Delivery Boy to Warehouse-Received Order
+     * POST /api/react/warehouse/orders/{orderId}/assign-delivery
+     * 
+     * Warehouse staff assigns a delivery boy to a WAREHOUSE_RECEIVED order.
+     * Order status transitions: WAREHOUSE_RECEIVED → SHIPPED
+     * Validates: order must be WAREHOUSE_RECEIVED, delivery boy must be approved + active.
+     * 
+     * Body: { deliveryBoyId: int }
+     * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
+     */
+    @PostMapping("/warehouse/orders/{orderId}/assign-delivery")
+    public ResponseEntity<?> warehouseAssignDelivery(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable int orderId,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            }
+
+            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
+            }
+
+            Order order = orderOpt.get();
+
+            if (order.getTrackingStatus() != TrackingStatus.WAREHOUSE_RECEIVED) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Order must be in WAREHOUSE_RECEIVED status. Current: " + order.getTrackingStatus()));
+            }
+
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
+            if (db == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Delivery boy not found"));
+            }
+
+            if (!db.isAdminApproved() || !db.isActive()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Delivery boy is not approved or is inactive"));
+            }
+
+            // Assign delivery boy and mark as SHIPPED
+            order.setDeliveryBoy(db);
+            order.setTrackingStatus(TrackingStatus.SHIPPED);
+            orderRepository.save(order);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "orderId", orderId,
+                "deliveryBoyId", db.getId(),
+                "deliveryBoyName", db.getName(),
+                "newStatus", "SHIPPED",
+                "message", "Order #" + orderId + " assigned to " + db.getName()
+            ));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid deliveryBoyId in request body"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TASK 5: Get Available Delivery Boys for PIN Code
+     * GET /api/react/warehouse/delivery-boys?pinCode={pinCode}
+     * 
+     * Returns approved & active delivery boys that can deliver to the given PIN code.
+     * Used by warehouse assignment modal to populate the dropdown.
+     * 
+     * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
+     */
+    @GetMapping("/warehouse/delivery-boys")
+    public ResponseEntity<?> warehouseGetAvailableDeliveryBoys(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) String pinCode,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
+            }
+
+            // Get all approved and active delivery boys
+            List<DeliveryBoy> allDeliveryBoys = deliveryBoyRepository.findAll().stream()
+                .filter(db -> db.isAdminApproved() && db.isActive())
+                .collect(Collectors.toList());
+
+            List<Map<String, Object>> result = allDeliveryBoys.stream()
+                .map(db -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", db.getId());
+                    m.put("name", db.getName());
+                    m.put("email", db.getEmail());
+                    m.put("mobile", db.getMobile());
+                    m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId() : null);
+                    m.put("warehouseName", db.getWarehouse() != null ? db.getWarehouse().getName() : "");
+                    return m;
+                }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of("deliveryBoys", result));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
@@ -8043,41 +8193,6 @@ public class ReactApiController {
     }
 
     /**
-     * TASK 2: Mark Order as Picked Up (OUT_FOR_DELIVERY)
-     * POST /api/react/delivery/orders/{orderId}/pickup
-     * 
-     * Delivery boy marks order as picked up and ready to deliver.
-     * Status: SHIPPED → OUT_FOR_DELIVERY
-     */
-    @PostMapping("/delivery/orders/{orderId}/pickup")
-    public ResponseEntity<?> deliveryPickup(
-            @RequestHeader("Authorization") String authHeader,
-            @PathVariable int orderId) {
-        try {
-            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
-            Optional<Order> orderOpt = orderRepository.findById(orderId);
-            if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
-            }
-
-            Order order = orderOpt.get();
-            if (order.getFinalDeliveryBoyId() == null || order.getFinalDeliveryBoyId() != deliveryBoyId) {
-                return ResponseEntity.status(403).body(Map.of("error", "Not your order"));
-            }
-            if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
-                return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Order must be in SHIPPED status"));
-            }
-
-            order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
-            orderRepository.save(order);
-            return ResponseEntity.ok(Map.of("success", true, "status", "OUT_FOR_DELIVERY"));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    /**
      * TASK 3: Confirm Delivery (OTP + COD Cash validation)
      * POST /api/react/delivery/orders/{orderId}/confirm-delivery
      * 
@@ -8104,7 +8219,7 @@ public class ReactApiController {
             }
 
             Order order = orderOpt.get();
-            if (order.getFinalDeliveryBoyId() == null || order.getFinalDeliveryBoyId() != deliveryBoyId) {
+            if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != deliveryBoyId) {
                 return ResponseEntity.status(403).body(Map.of("error", "Not your order"));
             }
             if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
@@ -8112,9 +8227,10 @@ public class ReactApiController {
                     .body(Map.of("error", "Order must be OUT_FOR_DELIVERY"));
             }
 
-            // Validate OTP
+            // Validate OTP from DeliveryOtp table
             String enteredOtp = (String) body.get("otp");
-            if (enteredOtp == null || !enteredOtp.equals(order.getDeliveryOtp())) {
+            DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
+            if (deliveryOtp == null || !String.valueOf(deliveryOtp.getOtp()).equals(enteredOtp)) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Incorrect OTP. Please check with the customer."));
             }
