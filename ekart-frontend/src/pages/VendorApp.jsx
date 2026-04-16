@@ -476,7 +476,7 @@ function StoreFront({ profile, products, api, onRefresh, showToast }) {
       setForm({ 
         name: profile.name || "", 
         mobile: profile.mobile ? String(profile.mobile) : "", 
-        description: profile.description || "" 
+        description: profile.description || ""
       });
       setErrors({});
     }

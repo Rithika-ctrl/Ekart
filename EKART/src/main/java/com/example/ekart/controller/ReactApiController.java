@@ -4,7 +4,6 @@ import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.helper.DeliveryRefreshTokenUtil;
-import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
 import com.example.ekart.service.RefundService;
@@ -2609,11 +2608,6 @@ public class ReactApiController {
             address.setCity(body.getOrDefault("city", "").trim());
             address.setState(body.getOrDefault("state", "").trim());
             String postalCode = body.getOrDefault("postalCode", "").trim();
-            if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
-                res.put("success", false);
-                res.put("message", PinCodeValidator.ERROR_MESSAGE);
-                return ResponseEntity.badRequest().body(res);
-            }
             address.setPostalCode(postalCode);
         } else {
             // Legacy flat-text fallback
@@ -3088,13 +3082,6 @@ public class ReactApiController {
         }
 
         // 5. Auto-assign source warehouse based on vendor's city
-        if (vendor.getCity() != null && !vendor.getCity().isEmpty()) {
-            List<Warehouse> cityWarehouses = warehouseRepository.findByCityIgnoreCaseAndActiveTrue(vendor.getCity());
-            if (!cityWarehouses.isEmpty()) {
-                order.setSourceWarehouse(cityWarehouses.get(0));
-            }
-        }
-
         // 6. Update status and persist
         order.setTrackingStatus(TrackingStatus.PACKED);
         orderRepository.save(order);
@@ -6515,8 +6502,7 @@ public class ReactApiController {
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
-    /**
-     * GET /api/flutter/vendor/profile
+    /** GET /api/flutter/vendor/profile
      * Header: X-Vendor-Id
      */
     @GetMapping("/vendor/profile")
@@ -7913,19 +7899,20 @@ public class ReactApiController {
             List<Order> queue = orderRepository.findBySourceWarehouseIdAndTrackingStatus(
                 warehouseId, TrackingStatus.PACKED);
 
-            List<Map<String, Object>> result = queue.stream().map(o -> {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", o.getId());
-                m.put("status", o.getTrackingStatus());
-                m.put("deliveryPinCode", o.getDeliveryPinCode());
-                m.put("deliveryAddress", o.getDeliveryAddress());
-                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
-                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
-                m.put("totalPrice", o.getTotalPrice());
-                m.put("paymentMethod", o.getPaymentMethod());
-                m.put("orderDate", o.getOrderDate());
-                return m;
-            }).collect(Collectors.toList());
+            List<Map<String, Object>> result = queue.stream()
+                .map(o -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", o.getId());
+                    m.put("status", o.getTrackingStatus());
+                    m.put("deliveryPinCode", o.getDeliveryPinCode());
+                    m.put("deliveryAddress", o.getDeliveryAddress());
+                    m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                    m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                    m.put("totalPrice", o.getTotalPrice());
+                    m.put("paymentMethod", o.getPaymentMethod());
+                    m.put("orderDate", o.getOrderDate());
+                    return m;
+                }).collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of("count", result.size(), "orders", result));
         } catch (Exception e) {
