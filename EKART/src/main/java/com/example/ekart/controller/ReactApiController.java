@@ -4830,8 +4830,14 @@ public class ReactApiController {
                 m.put("city",           w.getCity());
                 m.put("state",          w.getState());
                 m.put("warehouseCode",  w.getWarehouseCode());
+                m.put("loginId",        w.getWarehouseLoginId());
+                m.put("contactEmail",   w.getContactEmail());
+                m.put("contactPhone",   w.getContactPhone());
+                m.put("address",        w.getAddress());
                 m.put("servedPinCodes", w.getServedPinCodes());
                 m.put("active",         w.isActive());
+                m.put("latitude",       w.getLatitude());
+                m.put("longitude",      w.getLongitude());
                 list.add(m);
             }
             res.put("success", true);

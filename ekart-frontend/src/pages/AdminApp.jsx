@@ -1996,6 +1996,53 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
     showToast("Copied!");
   };
 
+  // Auto-detect latitude and longitude using browser geolocation or geocoding
+  const autoDetectLocation = async () => {
+    // Option 1: Use browser geolocation for current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setForm(f => ({ ...f, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
+          showToast(`Location detected: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+        },
+        (error) => {
+          // Fallback: Try geocoding the address
+          geocodeAddress();
+        }
+      );
+    } else {
+      // Fallback: Try geocoding the address
+      geocodeAddress();
+    }
+  };
+
+  // Geocode address to lat/lon using OpenStreetMap Nominatim API (free, no key needed)
+  const geocodeAddress = async () => {
+    const addressStr = `${form.address || form.name}, ${form.city}, ${form.state}`;
+    if (!form.city.trim()) {
+      showToast("Enter city to auto-detect location", false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressStr)}`
+      );
+      const results = await response.json();
+      if (results.length > 0) {
+        const { lat, lon } = results[0];
+        setForm(f => ({ ...f, latitude: parseFloat(lat).toFixed(6), longitude: parseFloat(lon).toFixed(6) }));
+        showToast(`Location detected: ${lat}, ${lon}`);
+      } else {
+        showToast("Location not found. Check address and try again.", false);
+      }
+    } catch (err) {
+      console.error("Geocoding error:", err);
+      showToast("Failed to detect location", false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -2036,11 +2083,23 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
             </div>
             <div>
               <label style={as.label}>Latitude</label>
-              <input style={as.inputFull} type="number" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} />
+              <input style={as.inputFull} type="number" step="0.000001" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} />
             </div>
             <div>
               <label style={as.label}>Longitude</label>
-              <input style={as.inputFull} type="number" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} />
+              <input style={as.inputFull} type="number" step="0.000001" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <button 
+                type="button"
+                style={{ ...as.filterBtn, padding: "10px 16px", cursor: "pointer" }} 
+                onClick={autoDetectLocation}
+              >
+                📍 Auto-Detect Location (GPS or Address)
+              </button>
+              <span style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginLeft: 12 }}>
+                Automatically fills latitude & longitude based on device location or warehouse address
+              </span>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
@@ -2098,7 +2157,7 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
             </div>
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Login ID (8-Digit)</p>
-              <p style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", fontFamily: "monospace", background: "#dbeafe", padding: 8, borderRadius: 4 }}>{selectedWarehouse.loginId}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", fontFamily: "monospace", background: "#dbeafe", padding: 8, borderRadius: 4 }}>{selectedWarehouse.loginId || "N/A"}</p>
             </div>
             {selectedWarehouse.warehouseLoginPassword && (
               <div style={{ marginBottom: 16 }}>
@@ -2164,7 +2223,7 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
               <td style={{ padding: 12, fontSize: 13 }}>{w.id}</td>
               <td style={{ padding: 12, fontSize: 13, fontWeight: 600 }}>{w.name}</td>
               <td style={{ padding: 12, fontSize: 13 }}>{w.city}</td>
-              <td style={{ padding: 12, fontSize: 12, fontFamily: "monospace", color: "#2563eb", fontWeight: 600 }}>{w.loginId}</td>
+              <td style={{ padding: 12, fontSize: 12, fontFamily: "monospace", color: "#2563eb", fontWeight: 600 }}>{w.loginId || "N/A"}</td>
               <td style={{ padding: 12, fontSize: 12 }}>
                 <span style={{ background: w.active ? "#d1fae5" : "#fee2e2", color: w.active ? "#065f46" : "#991b1b", padding: "4px 8px", borderRadius: 4 }}>
                   {w.active ? "🟢 Active" : "🔴 Inactive"}
