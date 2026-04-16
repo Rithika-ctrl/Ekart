@@ -20,12 +20,8 @@ import ErrorPage        from "./pages/ErrorPage.jsx";
 import DocumentationPage from "./pages/DocumentationPage.jsx";
 
 // Warehouse Staff Pages
-import WarehouseStaffLoginPage from "./pages/WarehouseStaffLoginPage.jsx";
-import WarehouseDashboard from "./pages/WarehouseDashboard.jsx";
-import AssignDeliveryBoyPage from "./pages/AssignDeliveryBoyPage.jsx";
+import WarehouseApp from "./pages/WarehouseApp.jsx";
 import OrderTrackingPage from "./pages/OrderTrackingPage.jsx";
-import AdminStaffManagementPage from "./pages/AdminStaffManagementPage.jsx";
-import AdminWarehousePage from "./pages/AdminWarehousePage.jsx";
 
 // ─── Auth Context ───────────────────────────────────────────────────────────
 
@@ -432,10 +428,8 @@ export default function App() {
           <Route path="/sop-documentation" element={<DocumentationPage type="sop" />} />
           <Route path="/policy-documentation" element={<DocumentationPage type="policy" />} />
 
-          {/* ── Warehouse Staff (Standalone Auth - Session-based) ──– */}
-          <Route path="/warehouse/login" element={<WarehouseStaffLoginPage />} />
-          <Route path="/warehouse/dashboard" element={<WarehouseDashboard />} />
-          <Route path="/warehouse/assign/:orderId" element={<AssignDeliveryBoyPage />} />
+          {/* ── Warehouse Staff (Consolidated - Login & Dashboard in WarehouseApp) ──– */}
+          <Route path="/warehouse/*" element={<WarehouseApp />} />
 
           {/* ── Order Tracking (Public for customers) ───────────── */}
           <Route path="/track/:orderId" element={<OrderTrackingPage />} />
@@ -466,26 +460,6 @@ export default function App() {
             element={
               <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
                 <AdminApp />
-              </RequireAuth>
-            }
-          />
-
-          {/* ── Admin Staff Management (integrated with Admin app) ─ */}
-          <Route
-            path="/admin/staff-management"
-            element={
-              <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
-                <AdminStaffManagementPage />
-              </RequireAuth>
-            }
-          />
-
-          {/* ── Admin Warehouse Management ────────────────────────── */}
-          <Route
-            path="/admin/warehouses"
-            element={
-              <RequireAuth auth={auth} allowedRoles={["ADMIN"]}>
-                <AdminWarehousePage />
               </RequireAuth>
             }
           />

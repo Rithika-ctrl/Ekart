@@ -44,7 +44,26 @@ export default function AdminApp() {
   const [deprecationReport, setDeprecationReport] = useState(null);
   const [deprecationSummary, setDeprecationSummary] = useState(null);
   const [settlements, setSettlements] = useState([]);
+  const [settlementFilter, setSettlementFilter] = useState('PENDING_ADMIN_APPROVAL');
   const [codStats, setCodStats] = useState(null);
+  const [selectedSettlementId, setSelectedSettlementId] = useState(null);
+  const [reviewSettlement, setReviewSettlement] = useState(null);
+  const [reviewOrders, setReviewOrders] = useState([]);
+  const [reviewVendors, setReviewVendors] = useState([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [staffFormData, setStaffFormData] = useState({ name: '', email: '', mobile: '', warehouse_id: 1, role: 'WAREHOUSE_STAFF' });
+  const [createdStaffCredentials, setCreatedStaffCredentials] = useState(null);
+  const [staffCreateError, setStaffCreateError] = useState('');
+  const [staffCreateLoading, setStaffCreateLoading] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffListLoading, setStaffListLoading] = useState(false);
+  const [staffListError, setStaffListError] = useState('');
+  const [staffActiveTab, setStaffActiveTab] = useState('create');
 
   const api = useCallback(async (path, opts = {}) => {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
@@ -78,7 +97,7 @@ export default function AdminApp() {
   useEffect(() => { if (page === "coupons")   api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || [])); }, [page]);
   useEffect(() => { if (page === "refunds")   api("/admin/refunds").then(d => d.success && setRefunds(d.refunds || [])); }, [page]);
   useEffect(() => { if (page === "reviews")   api("/admin/reviews").then(d => d.success && setReviews(d.reviews || [])); }, [page]);
-  useEffect(() => { if (page === "analytics") api("/admin/analytics").then(d => d.success && setAnalytics(d)); }, [page]);
+  useEffect(() => { if (page === "settlement") { const mockData = [{ id: 501, warehouseId: 7, warehouseName: 'Bengaluru Central', submittedBy: 'Ajay Singh', submittedAt: '2026-04-14 18:00', totalCash: 139098, orderCount: 5, adminCommission: 27819.6, vendorSettlement: 111278.4, status: 'PENDING_ADMIN_APPROVAL', vendorCount: 3 }, { id: 500, warehouseId: 5, warehouseName: 'Nagpur Hub', submittedBy: 'Vikram Patil', submittedAt: '2026-04-14 17:30', totalCash: 95400, orderCount: 4, adminCommission: 19080, vendorSettlement: 76320, status: 'PENDING_ADMIN_APPROVAL', vendorCount: 2 }, { id: 499, warehouseId: 3, warehouseName: 'Jaipur Hub', submittedBy: 'Rajesh Kumar', submittedAt: '2026-04-13 18:00', totalCash: 210500, orderCount: 7, adminCommission: 42100, vendorSettlement: 168400, status: 'APPROVED', approvedAt: '2026-04-14 10:30', approvedBy: 'Admin User', vendorCount: 3 } ]; setSettlements(mockData); setSelectedSettlementId(null); } }, [page]);
   useEffect(() => { if (page === "analytics") api("/admin/spending").then(d => d.success && setSpending(d.customers || [])); }, [page]);
   useEffect(() => { if (page === "warehouse")  api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || [])); }, [page]);
   useEffect(() => { if (page === "categories") api("/admin/categories").then(d => d.success && setAdminCategories(d.categories || [])); }, [page]);
@@ -161,6 +180,231 @@ export default function AdminApp() {
       return () => clearInterval(interval);
     }
   }, [page, auth]);
+
+  useEffect(() => {
+    if (selectedSettlementId) {
+      fetchSettlementDetails(selectedSettlementId);
+    }
+  }, [selectedSettlementId]);
+
+  const fetchSettlementDetails = async (settlementId) => {
+    try {
+      setReviewLoading(true);
+      setReviewError('');
+
+      // Mock settlement data - same as in AdminSettlementReviewPage.jsx
+      const mockSettlement = {
+        id: 501,
+        warehouseId: 7,
+        warehouseName: 'Bengaluru Central',
+        submittedBy: 'Ajay Singh',
+        submittedAt: '2026-04-14 18:00',
+        totalCash: 139098,
+        orderCount: 5,
+        adminCommission: 27819.6,
+        vendorSettlement: 111278.4,
+        status: 'PENDING_ADMIN_APPROVAL',
+        vendorCount: 3,
+      };
+
+      const mockOrders = [
+        {
+          id: 2001,
+          customerName: 'Priya Sharma',
+          amount: 79999,
+          paymentStatus: 'RECEIVED',
+          deliveryBoyName: 'Suresh Kumar',
+          vendorId: 10,
+          vendorName: 'XYZ Electronics',
+        },
+        {
+          id: 2002,
+          customerName: 'Rajesh Kumar',
+          amount: 15500,
+          paymentStatus: 'RECEIVED',
+          deliveryBoyName: 'Suresh Kumar',
+          vendorId: 10,
+          vendorName: 'XYZ Electronics',
+        },
+        {
+          id: 2003,
+          customerName: 'Sneha Patel',
+          amount: 8999,
+          paymentStatus: 'RECEIVED',
+          deliveryBoyName: 'Ravi Kumar',
+          vendorId: 15,
+          vendorName: 'Tech Store',
+        },
+        {
+          id: 2004,
+          customerName: 'Aravind',
+          amount: 12500,
+          paymentStatus: 'RECEIVED',
+          deliveryBoyName: 'Vikram',
+          vendorId: 18,
+          vendorName: 'Electronics Central',
+        },
+        {
+          id: 2005,
+          customerName: 'Deepti Singh',
+          amount: 22100,
+          paymentStatus: 'RECEIVED',
+          deliveryBoyName: 'Suresh Kumar',
+          vendorId: 10,
+          vendorName: 'XYZ Electronics',
+        },
+      ];
+
+      // Calculate vendor splits
+      const vendorMap = {};
+      mockOrders.forEach((order) => {
+        if (!vendorMap[order.vendorId]) {
+          vendorMap[order.vendorId] = {
+            vendorId: order.vendorId,
+            vendorName: order.vendorName,
+            totalAmount: 0,
+            orderCount: 0,
+            orders: [],
+          };
+        }
+        vendorMap[order.vendorId].totalAmount += order.amount;
+        vendorMap[order.vendorId].orderCount += 1;
+        vendorMap[order.vendorId].orders.push(order);
+      });
+
+      const vendorList = Object.values(vendorMap).map((vendor) => ({
+        ...vendor,
+        adminShare: vendor.totalAmount * 0.2,
+        vendorShare: vendor.totalAmount * 0.8,
+      }));
+
+      setReviewSettlement(mockSettlement);
+      setReviewOrders(mockOrders);
+      setReviewVendors(vendorList);
+    } catch (err) {
+      setReviewError('Failed to fetch settlement details: ' + err.message);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const handleSettlementApprove = async (settlementId) => {
+    setApproving(true);
+    try {
+      const response = await api(`/settlement/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ settlement_id: settlementId })
+      });
+
+      if (response?.success || response?.data?.success) {
+        show('✅ Settlement approved successfully!');
+        setTimeout(() => {
+          setSelectedSettlementId(null);
+          setReviewSettlement(null);
+        }, 1500);
+      }
+    } catch (err) {
+      show('Error: ' + (err?.message || 'Failed to approve settlement'));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleSettlementReject = async () => {
+    if (!rejectReason.trim()) {
+      show('Please provide a reason for rejection');
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      const response = await api(`/settlement/reject`, {
+        method: 'POST',
+        body: JSON.stringify({
+          settlement_id: selectedSettlementId,
+          reason: rejectReason,
+        })
+      });
+
+      if (response?.success || response?.data?.success) {
+        show('❌ Settlement rejected. Reason sent to warehouse staff.');
+        setTimeout(() => {
+          setSelectedSettlementId(null);
+          setReviewSettlement(null);
+          setRejectReason('');
+        }, 1500);
+      }
+    } catch (err) {
+      show('Error: ' + (err?.message || 'Failed to reject settlement'));
+    } finally {
+      setRejecting(false);
+      setShowRejectModal(false);
+    }
+  };
+
+  // ── STAFF MANAGEMENT FUNCTIONS ──
+  const loadStaffList = async () => {
+    try {
+      setStaffListLoading(true);
+      const response = await api("/warehouse/staff/list", { method: "GET" });
+      if (response?.success) {
+        setStaffList(response.staff || []);
+      }
+    } catch (error) {
+      console.error('Failed to load staff list:', error);
+      setStaffListError('Failed to load staff list');
+    } finally {
+      setStaffListLoading(false);
+    }
+  };
+
+  const handleStaffFormChange = (e) => {
+    const { name, value } = e.target;
+    setStaffFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setStaffCreateError('');
+    setCreatedStaffCredentials(null);
+
+    if (!staffFormData.name || !staffFormData.email || !staffFormData.mobile) {
+      setStaffCreateError('Please fill all required fields');
+      return;
+    }
+
+    try {
+      setStaffCreateLoading(true);
+      const response = await api("/warehouse/staff/create", {
+        method: "POST",
+        body: JSON.stringify(staffFormData)
+      });
+
+      if (response?.success) {
+        setCreatedStaffCredentials({
+          staff_id: response.staff_id,
+          email: response.email,
+          password: response.password,
+          name: response.name,
+          mobile: response.mobile,
+          role: response.role
+        });
+        setStaffFormData({ name: '', email: '', mobile: '', warehouse_id: 1, role: 'WAREHOUSE_STAFF' });
+        setTimeout(() => loadStaffList(), 1000);
+      }
+    } catch (error) {
+      const errorMsg = error?.message || 'Failed to create staff account';
+      setStaffCreateError(errorMsg);
+    } finally {
+      setStaffCreateLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (page === "staff-management") {
+      loadStaffList();
+    }
+  }, [page]);
   
   useEffect(() => { if (page === "policies") fetchPolicies(); }, [page]);
 
@@ -256,6 +500,7 @@ export default function AdminApp() {
     { key: "delivery",   label: "🛵 Delivery" },
     { key: "warehouse",  label: "🏭 Warehouses" },
     { key: "settlement", label: "💰 COD Settlement" },
+    { key: "staff-management", label: "👔 Staff Management" },
     { key: "categories", label: "🗂️ Categories" },
     { key: "coupons",    label: "🎟️ Coupons" },
     { key: "refunds",    label: `💸 Refunds${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ""}` },
@@ -280,9 +525,6 @@ export default function AdminApp() {
             <button key={t.key} style={{ ...as.navBtn, ...(page === t.key ? as.navBtnActive : {}) }}
               onClick={() => setPage(t.key)}>{t.label}</button>
           ))}
-          <button style={as.navBtn} onClick={() => navigate('/admin/warehouses')} title="Advanced Warehouse Management">
-            🏢 Warehouse Mgmt
-          </button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ color: "#6b7280", fontSize: 13 }}>Admin</span>
@@ -299,7 +541,9 @@ export default function AdminApp() {
           {page === "vendors"    && <VendorsAdmin vendors={vendors} onToggle={toggleVendor} />}
           {page === "delivery"   && <DeliveryAdmin orders={orders} deliveryBoys={deliveryBoys} warehouses={warehouses} packedOrders={packedOrders} shippedOrders={shippedOrders} outOrders={outOrders} onApprove={approveDelivery} onReject={rejectDelivery} onApproveTransfer={approveTransfer} onRejectTransfer={rejectTransfer} onAssign={assignDeliveryBoy} api={api} showToast={show} />}
           {page === "warehouse"  && <WarehouseAdmin warehouses={warehouses} api={api} showToast={show} onRefresh={() => api("/admin/warehouses").then(d => d.success && setWarehouses(d.warehouses || []))} />}
-          {page === "settlement" && <CODSettlementAdmin codStats={codStats} orders={orders} />}
+          {page === "settlement" && !selectedSettlementId && <SettlementAdmin settlements={settlements} filter={settlementFilter} onFilterChange={setSettlementFilter} onSelectSettlement={setSelectedSettlementId} />}
+          {page === "settlement" && selectedSettlementId && <SettlementReviewAdmin settlementId={selectedSettlementId} settlement={reviewSettlement} orders={reviewOrders} vendors={reviewVendors} loading={reviewLoading} error={reviewError} approving={approving} rejecting={rejecting} rejectReason={rejectReason} showRejectModal={showRejectModal} onBack={() => setSelectedSettlementId(null)} onApprove={() => handleSettlementApprove(selectedSettlementId)} onReject={handleSettlementReject} onSetRejectReason={setRejectReason} onSetShowRejectModal={setShowRejectModal} />}
+          {page === "staff-management" && <StaffAdmin formData={staffFormData} onFormChange={handleStaffFormChange} onCreateStaff={handleCreateStaff} createdCredentials={createdStaffCredentials} onClearCredentials={() => setCreatedStaffCredentials(null)} createError={staffCreateError} createLoading={staffCreateLoading} staffList={staffList} staffListLoading={staffListLoading} staffListError={staffListError} activeTab={staffActiveTab} onTabChange={setStaffActiveTab} />}
           {page === "coupons"    && <CouponsAdmin coupons={coupons} api={api} showToast={show} onRefresh={() => api("/admin/coupons").then(d => d.success && setCoupons(d.coupons || []))} />}
           {page === "refunds"    && <RefundsAdmin refunds={refunds} onApprove={approveRefund} onReject={rejectRefund} />}
           {page === "reviews"    && <ReviewsAdmin reviews={reviews} onDelete={deleteReview} api={api} showToast={show} />}
@@ -1687,28 +1931,76 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
 /* ── Warehouse Management ── */
 function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", city: "", state: "", warehouseCode: "", servedPinCodes: "" });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [form, setForm] = useState({ name: "", city: "", state: "", contactEmail: "", contactPhone: "", address: "", servedPinCodes: "", latitude: "", longitude: "" });
+  const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+  const [newCredentials, setNewCredentials] = useState(null);
+  const [newPassword, setNewPassword] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    // Validate required fields
-    if (!form.name.trim()) { showToast("Warehouse name is required", false); return; }
-    if (!form.city.trim()) { showToast("City is required", false); return; }
-    if (!form.state.trim()) { showToast("State is required", false); return; }
-    if (!form.servedPinCodes.trim()) { showToast("PIN codes are required (e.g., 560001,560002,560003)", false); return; }
-    
+    if (!form.name.trim() || !form.city.trim() || !form.state.trim() || !form.servedPinCodes.trim()) {
+      showToast("All fields required", false); return;
+    }
     setSaving(true);
-    const d = await api("/admin/warehouses/add", { method: "POST", body: JSON.stringify(form) });
-    if (d.success) { showToast("Warehouse added!"); setShowForm(false); setForm({ name: "", city: "", state: "", warehouseCode: "", servedPinCodes: "" }); onRefresh(); }
-    else showToast(d.message || "Error", false);
+    const payload = {
+      name: form.name, city: form.city, state: form.state,
+      contactEmail: form.contactEmail, contactPhone: form.contactPhone,
+      address: form.address, servedPinCodes: form.servedPinCodes,
+      latitude: form.latitude ? parseFloat(form.latitude) : null,
+      longitude: form.longitude ? parseFloat(form.longitude) : null
+    };
+    
+    const d = await api("/admin/warehouse/create", { method: "POST", body: JSON.stringify(payload) });
+    if (d.success) {
+      setNewCredentials({
+        name: d.warehouseName, city: d.city,
+        loginId: d.loginId, password: d.loginPassword
+      });
+      setShowForm(false);
+      setShowSuccessModal(true);
+      setForm({ name: "", city: "", state: "", contactEmail: "", contactPhone: "", address: "", servedPinCodes: "", latitude: "", longitude: "" });
+      setTimeout(() => { onRefresh(); }, 1000);
+    } else showToast(d.message || "Error", false);
     setSaving(false);
+  };
+
+  const resetPassword = async () => {
+    if (!selectedWarehouse) return;
+    setSaving(true);
+    const d = await api(`/admin/warehouse/${selectedWarehouse.id}/reset-password`, { method: "POST" });
+    if (d.success) {
+      setNewPassword(d.newPassword);
+      setShowDetailsModal(false);
+      setShowPasswordResetModal(true);
+    } else showToast(d.message || "Error", false);
+    setSaving(false);
+  };
+
+  const toggleActive = async () => {
+    if (!selectedWarehouse) return;
+    setSaving(true);
+    const d = await api(`/admin/warehouse/${selectedWarehouse.id}/toggle-active`, { method: "PUT" });
+    if (d.success) {
+      setSelectedWarehouse({ ...selectedWarehouse, active: d.active });
+      showToast(`Warehouse ${d.active ? 'activated' : 'deactivated'}`);
+      onRefresh();
+    } else showToast(d.message || "Error", false);
+    setSaving(false);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    showToast("Copied!");
   };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={as.pageTitle}>Warehouse Management 🏭</h2>
-        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>+ Add Warehouse</button>
+        <h2 style={as.pageTitle}>🏭 Warehouse Management</h2>
+        <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={() => setShowForm(!showForm)}>+ Create Warehouse</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
@@ -1725,43 +2017,703 @@ function WarehouseAdmin({ warehouses, api, showToast, onRefresh }) {
       </div>
 
       {showForm && (
-        <div style={{ ...as.card, marginBottom: 24 }}>
-          <h3 style={as.cardTitle}>Add New Warehouse</h3>
+        <div style={{ ...as.card, marginBottom: 24, border: "2px solid #2563eb" }}>
+          <h3 style={as.cardTitle}>➕ Create New Warehouse (Auto-Generates 8-Digit ID + 6-Digit Password)</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {[["name","Warehouse Name"],["city","City"],["state","State"],["warehouseCode","Warehouse Code"]].map(([k,l]) => (
+            {[["name","Warehouse Name"],["city","City"],["state","State"],["contactEmail","Email"],["contactPhone","Phone"]].map(([k,l]) => (
               <div key={k}>
                 <label style={as.label}>{l}</label>
                 <input style={as.inputFull} value={form[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
               </div>
             ))}
             <div style={{ gridColumn: "1 / -1" }}>
+              <label style={as.label}>Address</label>
+              <input style={as.inputFull} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
               <label style={as.label}>Served PIN Codes (comma-separated)</label>
               <input style={as.inputFull} value={form.servedPinCodes} onChange={e => setForm(f => ({ ...f, servedPinCodes: e.target.value }))} placeholder="560001, 560002, 560003" />
             </div>
+            <div>
+              <label style={as.label}>Latitude</label>
+              <input style={as.inputFull} type="number" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} />
+            </div>
+            <div>
+              <label style={as.label}>Longitude</label>
+              <input style={as.inputFull} type="number" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} />
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>{saving ? "Saving…" : "Add Warehouse"}</button>
+            <button style={{ ...as.approveBtn, padding: "10px 20px" }} onClick={save} disabled={saving}>{saving ? "Creating…" : "Create Warehouse"}</button>
             <button style={{ ...as.filterBtn }} onClick={() => setShowForm(false)}>Cancel</button>
           </div>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-        {warehouses.map(w => (
-          <div key={w.id} style={{ ...as.card, borderLeft: "4px solid #2563eb" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{w.name}</div>
-            <div style={{ fontSize: 13, color: "rgba(13,13,13,0.55)", marginBottom: 8 }}>{w.city}, {w.state}</div>
-            <div style={{ fontSize: 12, fontFamily: "monospace", background: "#f2f0eb", padding: "4px 8px", borderRadius: 6, display: "inline-block", marginBottom: 8 }}>{w.warehouseCode}</div>
-            {w.servedPinCodes && <div style={{ fontSize: 12, color: "rgba(13,13,13,0.5)" }}>📍 {w.servedPinCodes}</div>}
+      {/* Success Modal - Show ID & Password */}
+      {showSuccessModal && newCredentials && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ ...as.card, width: 400, maxWidth: "90%", padding: 24 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16, color: "#16a34a" }}>✓ Warehouse Created Successfully!</h3>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginBottom: 4 }}>Warehouse</p>
+              <p style={{ fontSize: 16, fontWeight: 700 }}>{newCredentials.name}</p>
+            </div>
+            <div style={{ background: "#dbeafe", padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginBottom: 4 }}>8-Digit Login ID</p>
+              <p style={{ fontSize: 24, fontWeight: 800, color: "#2563eb", fontFamily: "monospace", textAlign: "center" }}>{newCredentials.loginId}</p>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginTop: 8, marginBottom: 4 }}>6-Digit Password</p>
+              <p style={{ fontSize: 24, fontWeight: 800, color: "#dc2626", fontFamily: "monospace", textAlign: "center" }}>{newCredentials.password}</p>
+            </div>
+            <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", padding: 10, borderRadius: 6, marginBottom: 16, fontSize: 12, color: "#92400e" }}>
+              ⚠️ <strong>WARNING:</strong> Save credentials now. Password will NOT be shown again.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.approveBtn, flex: 1, padding: "10px" }} onClick={() => copyToClipboard(`${newCredentials.loginId} / ${newCredentials.password}`)}>📋 Copy</button>
+              <button style={{ ...as.filterBtn, flex: 1, padding: "10px" }} onClick={() => {
+                setShowSuccessModal(false);
+                setNewCredentials(null);
+              }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedWarehouse && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ ...as.card, width: 420, maxWidth: "90%", padding: 24, maxHeight: "80vh", overflow: "auto" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Warehouse Details</h3>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>ID</p>
+              <p style={{ fontSize: 14, fontWeight: 600 }}>{selectedWarehouse.id}</p>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Name</p>
+              <p style={{ fontSize: 14, fontWeight: 600 }}>{selectedWarehouse.name}</p>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Location</p>
+              <p style={{ fontSize: 14, fontWeight: 600 }}>{selectedWarehouse.city}, {selectedWarehouse.state}</p>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Login ID (8-Digit)</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#2563eb", fontFamily: "monospace", background: "#dbeafe", padding: 8, borderRadius: 4 }}>{selectedWarehouse.loginId}</p>
+            </div>
+            {selectedWarehouse.warehouseLoginPassword && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Password</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#dc2626", fontFamily: "monospace" }}>••••••</p>
+              </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>Status</p>
+              <p style={{ fontSize: 12, fontWeight: 600, background: selectedWarehouse.active ? "#d1fae5" : "#fee2e2", color: selectedWarehouse.active ? "#065f46" : "#991b1b", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
+                {selectedWarehouse.active ? "🟢 Active" : "🔴 Inactive"}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button style={{ ...as.approveBtn, flex: 1, padding: "10px" }} onClick={resetPassword} disabled={saving}>🔑 Reset Password</button>
+              <button style={{ background: selectedWarehouse.active ? "#dc2626" : "#16a34a", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", flex: 1, fontWeight: 600 }} onClick={toggleActive} disabled={saving}>
+                {selectedWarehouse.active ? "Deactivate" : "Activate"}
+              </button>
+              <button style={{ ...as.filterBtn, flex: 1, padding: "10px" }} onClick={() => setShowDetailsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {showPasswordResetModal && newPassword && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ ...as.card, width: 400, maxWidth: "90%", padding: 24 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16, color: "#16a34a" }}>✓ Password Reset Successfully!</h3>
+            <div style={{ background: "#dbeafe", padding: 12, borderRadius: 8, marginBottom: 16, textAlign: "center" }}>
+              <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginBottom: 8 }}>New 6-Digit Password</p>
+              <p style={{ fontSize: 28, fontWeight: 800, color: "#dc2626", fontFamily: "monospace" }}>{newPassword}</p>
+            </div>
+            <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", padding: 10, borderRadius: 6, marginBottom: 16, fontSize: 12, color: "#92400e" }}>
+              ⚠️ <strong>WARNING:</strong> Save this password now. It will NOT be shown again.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...as.approveBtn, flex: 1, padding: "10px" }} onClick={() => copyToClipboard(newPassword)}>📋 Copy Password</button>
+              <button style={{ ...as.filterBtn, flex: 1, padding: "10px" }} onClick={() => {
+                setShowPasswordResetModal(false);
+                setNewPassword(null);
+              }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warehouses Table */}
+      <table style={{ width: "100%", borderCollapse: "collapse", background: "white", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <thead style={{ background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" }}>
+          <tr>
+            <th style={{ padding: 12, textAlign: "left", fontSize: 12, fontWeight: 700 }}>ID</th>
+            <th style={{ padding: 12, textAlign: "left", fontSize: 12, fontWeight: 700 }}>Name</th>
+            <th style={{ padding: 12, textAlign: "left", fontSize: 12, fontWeight: 700 }}>City</th>
+            <th style={{ padding: 12, textAlign: "left", fontSize: 12, fontWeight: 700 }}>Login ID</th>
+            <th style={{ padding: 12, textAlign: "left", fontSize: 12, fontWeight: 700 }}>Status</th>
+            <th style={{ padding: 12, textAlign: "center", fontSize: 12, fontWeight: 700 }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {warehouses.map(w => (
+            <tr key={w.id} style={{ borderBottom: "1px solid #e5e7eb", hover: { background: "#f9fafb" } }}>
+              <td style={{ padding: 12, fontSize: 13 }}>{w.id}</td>
+              <td style={{ padding: 12, fontSize: 13, fontWeight: 600 }}>{w.name}</td>
+              <td style={{ padding: 12, fontSize: 13 }}>{w.city}</td>
+              <td style={{ padding: 12, fontSize: 12, fontFamily: "monospace", color: "#2563eb", fontWeight: 600 }}>{w.loginId}</td>
+              <td style={{ padding: 12, fontSize: 12 }}>
+                <span style={{ background: w.active ? "#d1fae5" : "#fee2e2", color: w.active ? "#065f46" : "#991b1b", padding: "4px 8px", borderRadius: 4 }}>
+                  {w.active ? "🟢 Active" : "🔴 Inactive"}
+                </span>
+              </td>
+              <td style={{ padding: 12, textAlign: "center" }}>
+                <button style={{ ...as.approveBtn, padding: "6px 12px", fontSize: 12 }} onClick={() => {
+                  setSelectedWarehouse(w);
+                  setShowDetailsModal(true);
+                }}>View</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {warehouses.length === 0 && <div style={as.empty}>No warehouses yet. Create one!</div>}
+    </div>
+  );
+}
+
+/* ── Settlement Management ── */
+function SettlementAdmin({ settlements, filter, onFilterChange, onSelectSettlement }) {
+  const stats = {
+    pending: settlements.filter(s => s.status === 'PENDING_ADMIN_APPROVAL').length,
+    approved: settlements.filter(s => s.status === 'APPROVED').length,
+    totalPending: settlements.filter(s => s.status === 'PENDING_ADMIN_APPROVAL').reduce((sum, s) => sum + s.totalCash, 0),
+  };
+
+  const filtered = settlements.filter(s => {
+    if (filter === 'ALL') return true;
+    return s.status === filter;
+  });
+
+  return (
+    <div>
+      <h2 style={as.pageTitle}>💰 Settlement Management</h2>
+      
+      {/* Statistics */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { title: "Pending Approvals", value: stats.pending, icon: "⏳", color: "orange" },
+          { title: "Approved", value: stats.approved, icon: "✅", color: "green" },
+          { title: "Pending Amount", value: fmt(stats.totalPending), icon: "💸", color: "red" },
+          { title: "Action Required", value: stats.pending > 0 ? 'YES' : 'NO', icon: stats.pending > 0 ? '🔴' : '🟢', color: stats.pending > 0 ? 'red' : 'green' },
+        ].map(s => (
+          <div key={s.title} style={{ ...as.statCard, borderLeft: `4px solid ${s.color === 'orange' ? '#f97316' : s.color === 'green' ? '#16a34a' : '#dc2626'}` }}>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontSize: 14, color: "rgba(13,13,13,0.6)", marginBottom: 4 }}>{s.title}</div>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>{s.value}</div>
           </div>
         ))}
-        {warehouses.length === 0 && <div style={as.empty}>No warehouses yet</div>}
+      </div>
+
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        {[['PENDING_ADMIN_APPROVAL','⏳ Pending'],['APPROVED','✅ Approved'],['ALL','📋 All']].map(([tab,label]) => (
+          <button key={tab} style={{ ...as.filterBtn, ...(filter === tab ? as.filterBtnActive : {}) }} onClick={() => onFilterChange(tab)}>
+            {label} {tab === 'PENDING_ADMIN_APPROVAL' && `(${stats.pending})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Settlements List */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {filtered.length === 0 ? (
+          <div style={{ ...as.card, textAlign: "center", padding: "40px 20px", color: "rgba(13,13,13,0.4)" }}>📭 No settlements to display</div>
+        ) : (
+          filtered.map(settlement => (
+            <div key={settlement.id} style={{ ...as.card, borderLeft: "4px solid #2563eb", cursor: "pointer", transition: "box-shadow 0.2s" }} onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"} onMouseLeave={e => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)"}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16, marginBottom: 14 }}>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Settlement ID</p>
+                  <p style={{ fontSize: 18, fontWeight: 800 }}>#{settlement.id}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Warehouse</p>
+                  <p style={{ fontWeight: 600 }}>{settlement.warehouseName}</p>
+                  <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)" }}>by {settlement.submittedBy}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Amount</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: "#f97316" }}>₹{settlement.totalCash.toLocaleString('en-IN')}</p>
+                  <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)" }}>{settlement.orderCount} orders</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Commission</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>₹{settlement.adminCommission.toLocaleString('en-IN')}</p>
+                  <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)" }}>20% of total</p>
+                </div>
+              </div>
+              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 12, color: "rgba(13,13,13,0.6)" }}>
+                  <p>Submitted: <strong>{settlement.submittedAt}</strong></p>
+                  {settlement.status === 'APPROVED' && (
+                    <p style={{ color: "#16a34a", marginTop: 4 }}>✅ Approved on {settlement.approvedAt} by {settlement.approvedBy}</p>
+                  )}
+                  <p style={{ marginTop: 4 }}>Affecting <strong>{settlement.vendorCount}</strong> vendors</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...as.badge, background: settlement.status === 'PENDING_ADMIN_APPROVAL' ? '#fed7aa' : '#d1fae5', color: settlement.status === 'PENDING_ADMIN_APPROVAL' ? '#b45309' : '#065f46' }}>
+                    {settlement.status === 'PENDING_ADMIN_APPROVAL' ? '⏳ Pending' : '✅ Approved'}
+                  </span>
+                  {settlement.status === 'PENDING_ADMIN_APPROVAL' && (
+                    <button style={{ ...as.approveBtn, padding: "8px 16px", fontSize: 13 }} onClick={() => onSelectSettlement(settlement.id)}>Review & Approve →</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
-/* ── Coupons ── */
+/* ── Settlement Review (Detailed Approval) ── */
+function SettlementReviewAdmin({ settlementId, settlement, orders, vendors, loading, error, approving, rejecting, rejectReason, showRejectModal, onBack, onApprove, onReject, onSetRejectReason, onSetShowRejectModal }) {
+  if (loading || !settlement) {
+    return (
+      <div style={{ minHeight: "500px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
+          <p style={{ color: "rgba(13,13,13,0.6)", fontWeight: 600 }}>Loading settlement details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      {/* Header */}
+      <button
+        onClick={onBack}
+        style={{ color: "rgba(13,13,13,0.6)", display: "flex", alignItems: "center", gap: 8, marginBottom: 24, background: "none", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600 }}
+      >
+        ← Back to Settlements
+      </button>
+
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: "rgba(13,13,13,0.9)", marginBottom: 8 }}>
+        Review Settlement #{settlementId}
+      </h1>
+
+      {error && (
+        <div style={{ background: "#fee2e2", border: "1px solid #fecaca", color: "#991b1b", padding: 12, borderRadius: 8, marginBottom: 24, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
+        {/* Sidebar */}
+        <div>
+          {/* Main Summary */}
+          <div style={{ ...as.card, borderLeft: "4px solid #2563eb", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: "rgba(13,13,13,0.8)" }}>Summary</h2>
+
+            <div style={{ space: "16px" }}>
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Warehouse</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: "rgba(13,13,13,0.9)" }}>{settlement?.warehouseName}</p>
+                <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)", marginTop: 2 }}>Submitted by: {settlement?.submittedBy}</p>
+              </div>
+
+              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16, marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Total Cash</p>
+                <p style={{ fontSize: 28, fontWeight: 800, color: "#ea580c" }}>₹{settlement?.totalCash?.toLocaleString('en-IN')}</p>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Orders</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(13,13,13,0.9)" }}>{settlement?.orderCount}</p>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Vendors Affected</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(13,13,13,0.9)" }}>{settlement?.vendorCount}</p>
+              </div>
+
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 12, borderRadius: 6, marginBottom: 12 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#15803d", marginBottom: 4 }}>Your Commission (20%)</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a" }}>₹{settlement?.adminCommission?.toLocaleString('en-IN')}</p>
+              </div>
+
+              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: 12, borderRadius: 6 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#1e40af", marginBottom: 4 }}>To Transfer to Vendors (80%)</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "#2563eb" }}>₹{settlement?.vendorSettlement?.toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Verification Checklist */}
+          <div style={as.card}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: "rgba(13,13,13,0.8)" }}>Verification Checklist</h2>
+
+            <div style={{ space: "8px", marginBottom: 16 }}>
+              <CheckItem checked={true} text="All orders have RECEIVED status" />
+              <CheckItem checked={true} text="Math verification passed" />
+              <CheckItem checked={true} text="No duplicate orders" />
+              <CheckItem checked={true} text="All vendors verified" />
+              <CheckItem checked={true} text="Bank accounts on file" />
+            </div>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 12, borderRadius: 6 }}>
+              <p style={{ fontSize: 12, color: "#15803d", fontWeight: 600 }}>✅ All checks passed - Safe to approve</p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+            <button
+              onClick={onApprove}
+              disabled={approving}
+              style={{ background: "#16a34a", color: "#fff", fontWeight: 700, padding: 12, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 14, opacity: approving ? 0.7 : 1, transition: "opacity 0.2s" }}
+            >
+              {approving ? "⏳ Approving..." : "✅ Approve Settlement"}
+            </button>
+
+            <button
+              onClick={() => onSetShowRejectModal(true)}
+              disabled={rejecting || !settlement}
+              style={{ background: "#dc2626", color: "#fff", fontWeight: 700, padding: 12, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 14, opacity: rejecting ? 0.7 : 1, transition: "opacity 0.2s" }}
+            >
+              ❌ Reject
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div>
+          {/* Vendor Breakdown */}
+          <div style={as.card}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: "rgba(13,13,13,0.9)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 24 }}>🏢</span>
+              Vendor Payment Breakdown
+            </h2>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {vendors.map((vendor) => (
+                <div key={vendor.vendorId} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: 12 }}>
+                    <div>
+                      <p style={{ fontWeight: 700, color: "rgba(13,13,13,0.9)", fontSize: 15 }}>{vendor.vendorName}</p>
+                      <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", marginTop: 2 }}>{vendor.orderCount} orders</p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontSize: 20, fontWeight: 800, color: "#2563eb" }}>₹{vendor.totalAmount.toLocaleString('en-IN')}</p>
+                      <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)", marginTop: 2 }}>Total Orders</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ background: "#fee2e2", padding: 12, borderRadius: 6 }}>
+                      <p style={{ fontSize: 11, color: "#991b1b", fontWeight: 600, marginBottom: 4 }}>Admin (20%)</p>
+                      <p style={{ fontSize: 16, fontWeight: 700, color: "#dc2626" }}>₹{vendor.adminShare.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div style={{ background: "#f0fdf4", padding: 12, borderRadius: 6 }}>
+                      <p style={{ fontSize: 11, color: "#15803d", fontWeight: 600, marginBottom: 4 }}>Vendor (80%)</p>
+                      <p style={{ fontSize: 16, fontWeight: 700, color: "#16a34a" }}>₹{vendor.vendorShare.toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e5e7eb" }}>
+                    <details style={{ cursor: "pointer" }}>
+                      <summary style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", userSelect: "none" }}>
+                        View {vendor.orderCount} Orders →
+                      </summary>
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {vendor.orders.map((order) => (
+                          <div key={order.id} style={{ background: "#f3f4f6", padding: 10, borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ fontWeight: 600, color: "rgba(13,13,13,0.9)" }}>Order #{order.id}</span>
+                              <span style={{ color: "#16a34a" }}>✅ RECEIVED</span>
+                            </div>
+                            <p style={{ color: "rgba(13,13,13,0.6)", fontSize: 11 }}>
+                              {order.customerName} - ₹{order.amount.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* All Orders */}
+          <div style={{ ...as.card, marginTop: 20 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: "rgba(13,13,13,0.9)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 24 }}>📦</span>
+              Order Details ({orders.length})
+            </h2>
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                <thead style={{ borderBottom: "2px solid #d1d5db" }}>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Order ID</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Customer</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Vendor</th>
+                    <th style={{ textAlign: "right", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Amount</th>
+                    <th style={{ textAlign: "center", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order.id} style={{ borderBottom: "1px solid #e5e7eb", transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                      <td style={{ padding: 12, fontWeight: 600, color: "#2563eb" }}>#{order.id}</td>
+                      <td style={{ padding: 12, color: "rgba(13,13,13,0.8)" }}>{order.customerName}</td>
+                      <td style={{ padding: 12, color: "rgba(13,13,13,0.8)" }}>{order.vendorName}</td>
+                      <td style={{ padding: 12, textAlign: "right", fontWeight: 600, color: "rgba(13,13,13,0.9)" }}>₹{order.amount.toLocaleString('en-IN')}</td>
+                      <td style={{ padding: 12, textAlign: "center" }}>
+                        <span style={{ background: "#dcfce7", color: "#15803d", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>✅ RECEIVED</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Order Totals */}
+            <div style={{ borderTop: "1px solid #d1d5db", marginTop: 16, paddingTop: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Total Amount</p>
+                  <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(13,13,13,0.9)" }}>₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Admin Commission (20%)</p>
+                  <p style={{ fontSize: 20, fontWeight: 700, color: "#dc2626" }}>₹{(orders.reduce((sum, o) => sum + o.amount, 0) * 0.2).toLocaleString('en-IN')}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: "rgba(13,13,13,0.6)", fontWeight: 600, marginBottom: 4 }}>Vendor Share (80%)</p>
+                  <p style={{ fontSize: 20, fontWeight: 700, color: "#16a34a" }}>₹{(orders.reduce((sum, o) => sum + o.amount, 0) * 0.8).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50 }}>
+          <div style={{ background: "#fff", borderRadius: 8, boxShadow: "0 20px 25px rgba(0,0,0,0.15)", maxWidth: 450, width: "100%", padding: 24 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "rgba(13,13,13,0.9)", marginBottom: 16 }}>Reject Settlement?</h2>
+
+            <textarea
+              value={rejectReason}
+              onChange={(e) => onSetRejectReason(e.target.value)}
+              placeholder="Reason for rejection (will be sent to warehouse staff)..."
+              style={{ width: "100%", padding: 12, border: "1px solid #d1d5db", borderRadius: 6, outline: "none", fontSize: 13, fontFamily: "inherit", resize: "vertical", minHeight: 100 }}
+            />
+
+            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+              <button
+                onClick={() => onSetShowRejectModal(false)}
+                style={{ flex: 1, background: "#d1d5db", color: "rgba(13,13,13,0.9)", fontWeight: 600, padding: 10, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 14 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onReject}
+                disabled={rejecting || !rejectReason.trim()}
+                style={{ flex: 1, background: "#dc2626", color: "#fff", fontWeight: 600, padding: 10, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 14, opacity: rejecting || !rejectReason.trim() ? 0.7 : 1 }}
+              >
+                {rejecting ? "❌ Rejecting..." : "Confirm Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Staff Management ── */
+function StaffAdmin({ formData, onFormChange, onCreateStaff, createdCredentials, onClearCredentials, createError, createLoading, staffList, staffListLoading, staffListError, activeTab, onTabChange }) {
+  const copyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text);
+    alert(`${field} copied to clipboard!`);
+  };
+
+  const printCredentials = () => {
+    if (!createdCredentials) return;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    const htmlContent = `<html><head><title>Warehouse Staff Credentials</title><style>body{font-family:Arial,sans-serif;padding:30px}h1{text-align:center;color:#333;border-bottom:2px solid #333;padding-bottom:15px}table{width:100%;margin:20px 0;border-collapse:collapse}.row{display:grid;grid-template-columns:200px 1fr;gap:20px;margin:15px 0;padding:10px;background:#f5f5f5;border-radius:5px}.label{font-weight:bold;color:#333}.value{font-family:monospace;padding:8px;background:#fff;border:1px solid #ddd}.warning{background:#fff3cd;border:1px solid #ffc107;padding:15px;margin:20px 0;border-radius:5px}.footer{text-align:center;margin-top:30px;color:#666;font-size:12px}</style></head><body><h1>Ekart Warehouse - Staff Credentials</h1><div class="row"><div class="label">Name:</div><div class="value">${createdCredentials.name}</div></div><div class="row"><div class="label">Staff ID:</div><div class="value">${createdCredentials.staff_id}</div></div><div class="row"><div class="label">Email:</div><div class="value">${createdCredentials.email}</div></div><div class="row"><div class="label">Password:</div><div class="value">${createdCredentials.password}</div></div><div class="row"><div class="label">Mobile:</div><div class="value">${createdCredentials.mobile}</div></div><div class="row"><div class="label">Role:</div><div class="value">${createdCredentials.role}</div></div><div class="warning"><strong>⚠️ Important:</strong><br>Keep safe • Change password on first login • Do not share via unsecured channels</div><div class="footer">Generated: ${new Date().toLocaleString()}</div></body></html>`;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const sendCredentialsEmail = () => {
+    if (!createdCredentials) return;
+    const emailBody = `Staff Account Credentials\n\nName: ${createdCredentials.name}\nStaff ID: ${createdCredentials.staff_id}\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.password}\nMobile: ${createdCredentials.mobile}\nRole: ${createdCredentials.role}\n\nLogin URL: http://localhost:3000/warehouse/login\n\nImportant:\n- Change password on first login\n- Keep information secure\n- Do not share with anyone`;
+    window.location.href = `mailto:${createdCredentials.email}?subject=Warehouse Staff Account Credentials&body=${encodeURIComponent(emailBody)}`;
+  };
+
+  return (
+    <div>
+      <h2 style={as.pageTitle}>👔 Warehouse Staff Management</h2>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, borderBottom: "2px solid #e5e7eb", paddingBottom: 0 }}>
+        <button style={{ padding: "12px 16px", fontWeight: 600, borderBottom: activeTab === 'create' ? "3px solid #2563eb" : "3px solid transparent", background: "none", border: "none", cursor: "pointer", color: activeTab === 'create' ? "#2563eb" : "rgba(13,13,13,0.6)" }} onClick={() => onTabChange('create')}>
+          ➕ Create Staff
+        </button>
+        <button style={{ padding: "12px 16px", fontWeight: 600, borderBottom: activeTab === 'list' ? "3px solid #2563eb" : "3px solid transparent", background: "none", border: "none", cursor: "pointer", color: activeTab === 'list' ? "#2563eb" : "rgba(13,13,13,0.6)" }} onClick={() => onTabChange('list')}>
+          📋 Existing Staff
+        </button>
+      </div>
+
+      {/* CREATE TAB */}
+      {activeTab === 'create' && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {/* Form */}
+          <div style={as.card}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Create New Staff</h3>
+            {createError && <div style={{ background: "#fee2e2", color: "#991b1b", padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13 }}>{createError}</div>}
+            <form onSubmit={onCreateStaff} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.7)" }}>Staff Name *</label>
+                <input type="text" name="name" value={formData.name} onChange={onFormChange} placeholder="e.g., John Doe" style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13 }} required />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.7)" }}>Email Address *</label>
+                <input type="email" name="email" value={formData.email} onChange={onFormChange} placeholder="e.g., staff@warehouse.com" style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13 }} required />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.7)" }}>Mobile Number *</label>
+                <input type="tel" name="mobile" value={formData.mobile} onChange={onFormChange} placeholder="e.g., 9876543210" style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13 }} required />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.7)" }}>Warehouse</label>
+                <select name="warehouse_id" value={formData.warehouse_id} onChange={onFormChange} style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13 }}>
+                  <option value="1">Warehouse - Bengaluru</option>
+                  <option value="2">Warehouse - Delhi</option>
+                  <option value="3">Warehouse - Mumbai</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "rgba(13,13,13,0.7)" }}>Role</label>
+                <select name="role" value={formData.role} onChange={onFormChange} style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13 }}>
+                  <option value="WAREHOUSE_STAFF">Warehouse Staff</option>
+                  <option value="WAREHOUSE_MANAGER">Warehouse Manager</option>
+                </select>
+              </div>
+              <button type="submit" disabled={createLoading} style={{ padding: "12px 16px", background: "#2563eb", color: "#fff", fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer", opacity: createLoading ? 0.7 : 1 }}>
+                {createLoading ? "⏳ Creating..." : "✓ Create Staff"}
+              </button>
+            </form>
+          </div>
+
+          {/* Credentials Display */}
+          {createdCredentials && (
+            <div style={{ ...as.card, background: "#f0fdf4", borderLeft: "4px solid #16a34a" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#16a34a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#15803d", margin: 0 }}>Success!</h3>
+                  <p style={{ fontSize: 12, color: "#15803d", margin: "4px 0 0 0" }}>Staff account created</p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                {[
+                  { label: "Staff Name", value: createdCredentials.name, isCopyable: false },
+                  { label: "Staff ID", value: createdCredentials.staff_id, isCopyable: true },
+                  { label: "Email", value: createdCredentials.email, isCopyable: true },
+                  { label: "Password", value: createdCredentials.password, isCopyable: true, isPassword: true },
+                  { label: "Mobile", value: createdCredentials.mobile, isCopyable: false },
+                  { label: "Role", value: createdCredentials.role, isCopyable: false }
+                ].map((item, i) => (
+                  <div key={i} style={{ background: "#fff", padding: 12, borderRadius: 6, display: "flex", justifyContent: "space-between", alignItems: "center", border: item.isPassword ? "1px solid #fcd34d" : "1px solid #bbf7d0", backgroundColor: item.isPassword ? "#fef3c7" : "#fef2f2" }}>
+                    <div>
+                      <p style={{ fontSize: 11, color: "rgba(13,13,13,0.6)", fontWeight: 600, margin: "0 0 4px 0" }}>{item.label}</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace", margin: 0 }}>{item.value}</p>
+                    </div>
+                    {item.isCopyable && <button onClick={() => copyToClipboard(item.value, item.label)} style={{ padding: "6px 12px", background: "#dbeafe", color: "#1e40af", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Copy</button>}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 12, color: "#1e40af" }}>
+                <strong>Note:</strong> Credentials sent to staff email. Keep them safe!
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button onClick={printCredentials} style={{ padding: "10px 16px", background: "#2563eb", color: "#fff", fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer" }}>🖨️ Print Credentials</button>
+                <button onClick={sendCredentialsEmail} style={{ padding: "10px 16px", background: "#16a34a", color: "#fff", fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer" }}>📧 Send via Email</button>
+                <button onClick={onClearCredentials} style={{ padding: "10px 16px", background: "#9ca3af", color: "#fff", fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer" }}>Create Another</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* LIST TAB */}
+      {activeTab === 'list' && (
+        <div style={as.card}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Existing Staff</h3>
+
+          {staffListError && <div style={{ textAlign: "center", color: "#dc2626", padding: 20, fontSize: 13 }}>{staffListError}</div>}
+          {staffListLoading && <div style={{ textAlign: "center", color: "rgba(13,13,13,0.6)", padding: 20, fontSize: 13 }}>Loading staff list...</div>}
+          {!staffListLoading && staffList.length === 0 && <div style={{ textAlign: "center", color: "rgba(13,13,13,0.6)", padding: 20, fontSize: 13 }}>No staff members found</div>}
+
+          {!staffListLoading && staffList.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead style={{ borderBottom: "2px solid #d1d5db" }}>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Name</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Email</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Mobile</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Role</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Status</th>
+                    <th style={{ textAlign: "left", padding: 12, fontWeight: 700, color: "rgba(13,13,13,0.8)" }}>Last Login</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffList.map((staff, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }} onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={e => e.currentTarget.style.background = ""}>
+                      <td style={{ padding: 12, fontWeight: 600, color: "rgba(13,13,13,0.9)" }}>{staff.name}</td>
+                      <td style={{ padding: 12, color: "rgba(13,13,13,0.7)" }}>{staff.email}</td>
+                      <td style={{ padding: 12, color: "rgba(13,13,13,0.7)" }}>{staff.mobile}</td>
+                      <td style={{ padding: 12 }}><span style={{ background: "#dbeafe", color: "#1e40af", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{staff.role}</span></td>
+                      <td style={{ padding: 12 }}><span style={{ background: staff.active ? "#dcfce7" : "#fee2e2", color: staff.active ? "#15803d" : "#991b1b", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{staff.active ? "Active" : "Inactive"}</span></td>
+                      <td style={{ padding: 12, color: "rgba(13,13,13,0.7)", fontSize: 12 }}>{staff.last_login || "Never"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckItem({ checked, text }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <span style={{ fontSize: 14 }}>{checked ? "✅" : "⭕"}</span>
+      <p style={{ color: "rgba(13,13,13,0.7)", fontSize: 13 }}>{text}</p>
+    </div>
+  );
+}
+
+
 function CouponsAdmin({ coupons, api, showToast, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const emptyForm = { code: "", description: "", type: "PERCENT", value: "", minOrderAmount: "0", maxDiscount: "0", usageLimit: "0", expiryDate: "" };

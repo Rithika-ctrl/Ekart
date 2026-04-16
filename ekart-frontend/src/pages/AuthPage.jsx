@@ -10,6 +10,7 @@ const ROLE_HOME = {
   VENDOR:   "/vendor/dashboard",
   ADMIN:    "/admin/overview",
   DELIVERY: "/delivery/dashboard",
+  WAREHOUSE: "/warehouse-dashboard",
 };
 
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
@@ -182,6 +183,8 @@ export default function AuthPage() {
   const [timer, setTimer] = useState(120);
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseId, setWarehouseId] = useState("");
+  const [warehouseLoginId, setWarehouseLoginId] = useState("");
+  const [warehouseLoginPassword, setWarehouseLoginPassword] = useState("");
   // Delivery OTP flow — stores the email after registration so the verify step can use it
   const [deliveryOtpEmail, setDeliveryOtpEmail] = useState("");
   const otpRefs = useRef([]);
@@ -200,6 +203,11 @@ export default function AuthPage() {
       fetch(`${API_BASE}/auth/delivery/warehouses`).then(r => r.json()).then(d => {
         if (d.success) setWarehouses(d.warehouses || []);
       }).catch(() => {});
+    }
+    // Clear warehouse login form when switching roles
+    if (role !== "warehouse") {
+      setWarehouseLoginId("");
+      setWarehouseLoginPassword("");
     }
   }, [role, screen]);
 
@@ -226,15 +234,32 @@ export default function AuthPage() {
   async function handleLogin(e) {
     e.preventDefault(); clear(); setLoading(true);
     try {
-      const data = await post(`/auth/${role}/login`, { email: form.email, password: form.password });
+      let data;
+      if (role === "warehouse") {
+        // Warehouse login uses 8-digit ID and 6-digit password
+        data = await post("/auth/warehouse/login", { 
+          warehouseLoginId, 
+          warehouseLoginPassword 
+        });
+      } else {
+        // Other roles use email and password
+        data = await post(`/auth/${role}/login`, { email: form.email, password: form.password });
+      }
       if (!data.success) { setError(data.message || "Login failed"); setLoading(false); return; }
-      const id = role === "customer" ? (data.customer?.id || data.customerId)
-               : role === "vendor"   ? data.vendorId
-               : role === "delivery" ? data.deliveryBoyId
-               : null;
-      // Handle both 'token' (legacy) and 'accessToken' (new) from backend
-      const token = data.accessToken || data.token || null;
-      const user = { role: role.toUpperCase(), id, email: form.email, name: data.name || form.email, token };
+      
+      let id, token;
+      if (role === "warehouse") {
+        id = data.warehouseId;
+        token = data.accessToken || data.token || null;
+      } else {
+        id = role === "customer" ? (data.customer?.id || data.customerId)
+             : role === "vendor"   ? data.vendorId
+             : role === "delivery" ? data.deliveryBoyId
+             : null;
+        token = data.accessToken || data.token || null;
+      }
+      
+      const user = { role: role.toUpperCase(), id, email: form.email || warehouseLoginId, name: data.name || form.email || warehouseLoginId, token };
       login(user, rememberMe);
       navigate(from ?? ROLE_HOME[user.role] ?? "/", { replace: true });
     } catch { setError("Network error — could not reach the server. Please try again."); }
@@ -402,6 +427,7 @@ export default function AuthPage() {
     { id: "vendor",   label: "🏪 Vendor" },
     { id: "admin",    label: "⚙️ Admin" },
     { id: "delivery", label: "🛵 Delivery" },
+    { id: "warehouse", label: "🏭 Warehouse" },
   ];
 
   // ── Social login SVGs ──────────────────────────────────────────────────────
@@ -513,7 +539,7 @@ export default function AuthPage() {
           )}
 
           {/* Login / Register tabs */}
-          {["login", "register"].includes(screen) && role !== "admin" && (
+          {["login", "register"].includes(screen) && role !== "admin" && role !== "warehouse" && (
             <div className="auth-tabs">
               <button className={`auth-tab${screen === "login" ? " active" : ""}`} onClick={() => { setScreen("login"); clear(); }}>Sign In</button>
               <button className={`auth-tab${screen === "register" ? " active" : ""}`} onClick={() => { setScreen("register"); clear(); }}>Register</button>
@@ -527,16 +553,54 @@ export default function AuthPage() {
           {screen === "login" && (
             <form onSubmit={handleLogin}>
               <div className="auth-title">Welcome back</div>
-              <div className="auth-sub">Sign in to your {role} account</div>
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required />
+              <div className="auth-sub">
+                {role === "warehouse" 
+                  ? "Sign in to your warehouse account" 
+                  : `Sign in to your ${role} account`}
               </div>
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required />
-              </div>
-              {role !== "admin" && role !== "delivery" && (
+              
+              {/* Warehouse login fields */}
+              {role === "warehouse" ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">8-Digit Warehouse ID</label>
+                    <input 
+                      className="form-input" 
+                      type="text" 
+                      placeholder="12345678" 
+                      maxLength="8"
+                      value={warehouseLoginId} 
+                      onChange={e => setWarehouseLoginId(e.target.value.replace(/\D/g, '').slice(0, 8))} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">6-Digit Password</label>
+                    <input 
+                      className="form-input" 
+                      type="password" 
+                      placeholder="••••••" 
+                      maxLength="6"
+                      value={warehouseLoginPassword} 
+                      onChange={e => setWarehouseLoginPassword(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Email</label>
+                    <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={e => set("email", e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Password</label>
+                    <input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e => set("password", e.target.value)} required />
+                  </div>
+                </>
+              )}
+              
+              {role !== "admin" && role !== "delivery" && role !== "warehouse" && (
                 <div style={{ textAlign: "right", marginBottom: 12 }}>
                   <button type="button" className="link-btn" onClick={() => { setScreen("forgot"); clear(); }}>Forgot password?</button>
                 </div>

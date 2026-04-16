@@ -1,35 +1,22 @@
 /**
  * LOCATION: ekart-frontend/src/routes/WarehouseRoutes.jsx
  * 
- * Import these in your App.jsx and add to your <Routes>
+ * Consolidated warehouse routes for integrated WarehouseApp.jsx
+ * All warehouse functionality (login, dashboard, assignment) is now in WarehouseApp
  * 
  * Usage in App.jsx:
  * 
- * import WarehouseStaffLoginPage from './pages/WarehouseStaffLoginPage';
- * import WarehouseDashboard from './pages/WarehouseDashboard';
- * import AssignDeliveryBoyPage from './pages/AssignDeliveryBoyPage';
+ * import WarehouseApp from './pages/WarehouseApp';
  * 
- * Add these routes in your <Routes>:
+ * Add this route in your <Routes>:
  * 
- * <Route path="/warehouse/login" element={<WarehouseStaffLoginPage />} />
- * <Route path="/warehouse/dashboard" element={<WarehouseDashboard />} />
- * <Route path="/warehouse/assign/:orderId" element={<AssignDeliveryBoyPage />} />
+ * <Route path="/warehouse/*" element={<WarehouseApp />} />
  */
 
 export const WarehouseRoutes = [
   {
-    path: '/warehouse/login',
-    component: 'WarehouseStaffLoginPage',
-    description: 'Warehouse staff login page',
-  },
-  {
-    path: '/warehouse/dashboard',
-    component: 'WarehouseDashboard',
-    description: 'Warehouse manager dashboard - view pending orders, delivery boys, stats',
-  },
-  {
-    path: '/warehouse/assign/:orderId',
-    component: 'AssignDeliveryBoyPage',
-    description: 'Manually assign delivery boy to order with load balancing',
+    path: '/warehouse/*',
+    component: 'WarehouseApp',
+    description: 'Consolidated warehouse staff application - login, dashboard, and order assignment',
   },
 ];

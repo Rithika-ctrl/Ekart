@@ -156,11 +156,24 @@ function useActivityTracker(auth) {
 
 /* ── Layout ── */
 import AuthPage from "./AuthPage";
-import RefundReportPage from "./CustomerRefundReport";
 import AddressMap from "../components/AddressMap";
 import AddressForm from "../components/AddressForm";
-import VendorCsvUpload from "./VendorCsvUpload";
 import { RazorpayCheckoutModal } from "../components/RazorpayCheckoutModal";
+
+// ─── Address Management View Colors ────────────────────────────────────────
+const AC = {
+  bg:         "#fafaf8",
+  card:       "#ffffff",
+  border:     "#e8e4dc",
+  primary:    "#0d0d0d",
+  accent:     "#d4a017",
+  accentSoft: "rgba(212,160,23,0.12)",
+  muted:      "rgba(13,13,13,0.45)",
+  green:      "#1db882",
+  red:        "#e84c3c",
+  redBg:      "#fef2f2",
+};
+
 // At the top of CustomerApp.jsx, with the other page imports:
 
 /* ── GuestGate ────────────────────────────────────────────────────
@@ -200,7 +213,199 @@ function GuestGate({ auth, onShowAuth, children, pageName = "this page" }) {
   return children;
 }
 
+/* ─── My Refunds Component (from CustomerRefundReport) ────────────────────── */
+function MyRefunds({ auth, api }) {
+  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState([]);
+  const [filter, setFilter] = useState("ALL");
 
+  const statusColor = {
+    PENDING:  { text: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.3)"  },
+    APPROVED: { text: "#22c55e", bg: "rgba(34,197,94,0.12)",   border: "rgba(34,197,94,0.3)"   },
+    REJECTED: { text: "#ef4444", bg: "rgba(239,68,68,0.12)",   border: "rgba(239,68,68,0.3)"   },
+  };
+
+  useEffect(() => {
+    if (!auth || auth.role === "GUEST") return;
+
+    const loadRefunds = async () => {
+      setLoading(true);
+      try {
+        const d = await apiFetch("/orders", {}, auth);
+        if (!d.success) { setEntries([]); setLoading(false); return; }
+        const orders = d.orders || [];
+        const results = await Promise.all(orders.map(async (o) => {
+          try {
+            const r = await apiFetch(`/refund/status/${o.id}`, {}, auth);
+            if (r && r.success && r.hasRefund) {
+              return {
+                orderId:   o.id,
+                orderDate: o.orderDate,
+                amount:    o.totalPrice || o.amount || 0,
+                status:    r.status,
+                type:      r.type,
+                reason:    r.reason || "",
+                refundId:  r.refundId || null,
+              };
+            }
+          } catch (err) {
+            console.error("Error fetching refund for order", o.id, err);
+          }
+          return null;
+        }));
+        setEntries(
+          results.filter(Boolean).sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+        );
+      } catch (err) {
+        console.error("Error loading refunds:", err);
+        setEntries([]);
+      }
+      setLoading(false);
+    };
+    loadRefunds();
+  }, [auth]);
+
+  const filtered = entries.filter(e => filter === "ALL" || e.status === filter);
+  const counts = {
+    ALL: entries.length,
+    PENDING:  entries.filter(e => e.status === "PENDING").length,
+    APPROVED: entries.filter(e => e.status === "APPROVED").length,
+    REJECTED: entries.filter(e => e.status === "REJECTED").length,
+  };
+
+  return (
+    <div style={{ padding: "20px 24px", background: "#f9fafb", borderRadius: 12, marginTop: 20 }}>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 16 }}>💰 Refund History</h3>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {["ALL", "PENDING", "APPROVED", "REJECTED"].map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: `1px solid ${filter === f ? "#3b82f6" : "#d1d5db"}`,
+              background: filter === f ? "rgba(59, 130, 246, 0.1)" : "#ffffff",
+              color: filter === f ? "#3b82f6" : "#6b7280",
+            }}
+          >
+            {f}{counts[f] > 0 && <span style={{ opacity: 0.7 }}> ({counts[f]})</span>}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div style={{ color: "#6b7280", textAlign: "center", padding: "32px 0" }}>Loading refund history...</div>
+      )}
+      {!loading && filtered.length === 0 && (
+        <div style={{ color: "#6b7280", textAlign: "center", padding: "32px 0" }}>
+          {filter === "ALL" ? "No refund requests found." : `No ${filter.toLowerCase()} refunds.`}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {filtered.map(e => {
+          const sc = statusColor[e.status] || statusColor.PENDING;
+          return (
+            <div key={e.orderId} style={{ borderRadius: 12, border: `1px solid ${sc.border}`, background: sc.bg, overflow: "hidden" }}>
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Order #{e.orderId}</span>
+                    {e.orderDate && (
+                      <span style={{ marginLeft: 10, fontSize: 12, color: "#6b7280" }}>
+                        {new Date(e.orderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, color: sc.text, background: "transparent", border: `1px solid ${sc.text}` }}>
+                    {e.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600 }}>{e.type}</span>
+                  {e.reason && <span> — {e.reason}</span>}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{fmt(e.amount)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function MyAddresses({ auth, api }) {
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!auth || auth.role === "GUEST") return;
+
+    const fetchAddresses = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await apiFetch(`/customer/addresses`, {}, auth);
+        if (response?.success) {
+          setAddresses(response.addresses || []);
+        } else {
+          setError(response?.message || "Failed to load addresses");
+        }
+      } catch (err) {
+        console.error("Error fetching addresses:", err);
+        setError("Network error loading addresses");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAddresses();
+  }, [auth]);
+
+  return (
+    <div style={{ padding: "20px 24px", background: "#f9fafb", borderRadius: 12, marginTop: 20 }}>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 16 }}>📍 My Addresses</h3>
+      
+      {loading && <div style={{ color: "#6b7280", fontSize: 14 }}>Loading addresses...</div>}
+      
+      {error && <div style={{ color: "#d97706", fontSize: 14, padding: 10, background: "#fef3c7", borderRadius: 8 }}>{error}</div>}
+      
+      {!loading && !error && addresses.length === 0 && (
+        <div style={{ color: "#6b7280", fontSize: 14, textAlign: "center", padding: 20 }}>
+          📭 No saved addresses yet
+        </div>
+      )}
+      
+      {!loading && addresses.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+          {addresses.map(addr => (
+            <div key={addr.id} style={{
+              background: "#ffffff", border: `1.5px solid ${addr.isDefault ? "#d4a017" : "#e8e4dc"}`,
+              borderRadius: 10, padding: "14px 16px", position: "relative"
+            }}>
+              {addr.isDefault && (
+                <span style={{
+                  position: "absolute", top: 10, right: 10,
+                  background: "rgba(212,160,23,0.12)", border: "1px solid #d4a017",
+                  color: "#d4a017", fontSize: 10, fontWeight: 700,
+                  padding: "2px 8px", borderRadius: 100
+                }}>DEFAULT</span>
+              )}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#d4a017", marginBottom: 8, textTransform: "uppercase" }}>
+                {addr.label || "Address"}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 4 }}>{addr.addressLine}</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>{addr.city}, {addr.state}</div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>PIN {addr.pinCode} · {addr.country || "India"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Layout({ nav, children, onShowAuth, drawerState, pinState, cartCount, onGoCart, categories, auth }) {
   const { drawerOpen, setDrawerOpen } = drawerState;
