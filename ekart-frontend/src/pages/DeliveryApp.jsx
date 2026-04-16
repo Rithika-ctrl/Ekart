@@ -91,14 +91,11 @@ export default function DeliveryApp() {
           setProfile(profileData);
           setIsAvailable(profileData?.isAvailable || false);
         } else {
-          console.warn("Profile data empty");
           showToast("Profile data incomplete", false);
         }
       } else if (profileResult.status === "rejected") {
-        console.error("Profile load error:", profileResult.reason);
         showToast("❌ Failed to load profile - " + (profileResult.reason?.message || "Unknown error"), false);
       } else {
-        console.error("Profile error:", profileResult.value?.message);
         showToast("❌ " + (profileResult.value?.message || "Failed to load profile"), false);
       }
 
@@ -107,7 +104,6 @@ export default function DeliveryApp() {
         setOutNow(ordersResult.value.outForDelivery || []);
         setDelivered(ordersResult.value.delivered || []);
       } else if (ordersResult.status === "rejected") {
-        console.error("Orders load error:", ordersResult.reason);
         showToast("Failed to load orders", false);
       }
 
@@ -117,7 +113,6 @@ export default function DeliveryApp() {
         setPendingTransfer(null);
       }
     } catch (err) {
-      console.error("Unexpected error in load():", err);
       showToast("An unexpected error occurred", false);
     }
     setLoading(false);
@@ -150,7 +145,6 @@ export default function DeliveryApp() {
         showToast("❌ " + (d?.message || "Failed to update status"), false);
       }
     } catch (err) {
-      console.error("Toggle error:", err);
       showToast("❌ Request failed. Check connection and try again.", false);
     } finally {
       setTogglingAvailable(false);
@@ -208,7 +202,6 @@ export default function DeliveryApp() {
         showToast(d?.message || "❌ Failed to submit request", false);
       }
     } catch (err) {
-      console.error("Transfer error:", err);
       showToast("❌ Request failed. Try again.", false);
     }
   };

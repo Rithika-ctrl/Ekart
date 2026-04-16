@@ -28,6 +28,8 @@ package com.example.ekart.service;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class CashSettlementService {
+
+    private static final Logger log = LoggerFactory.getLogger(CashSettlementService.class);
 
     // Commission split: 20% to admin (platform), 80% to vendor
     public static final double ADMIN_COMMISSION_RATE = 0.20;
@@ -427,9 +431,9 @@ public class CashSettlementService {
     private void logSettlementEvent(CashSettlement settlement, String eventTitle, String eventDescription) {
         try {
             // Log to CashSettlement audit trail (future: add settlement_audit_log table)
-            System.out.println("[SETTLEMENT] " + eventTitle + ": " + eventDescription);
+            log.info("[SETTLEMENT] {}: {}", eventTitle, eventDescription);
         } catch (Exception e) {
-            System.err.println("[CashSettlementService] Failed to log settlement event: " + e.getMessage());
+            log.error("[CashSettlementService] Failed to log settlement event: {}", e.getMessage());
         }
     }
 

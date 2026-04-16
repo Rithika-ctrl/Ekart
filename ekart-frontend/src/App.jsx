@@ -369,7 +369,6 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(THEME_KEY, theme); } catch {}
     applyTheme(theme);
-    console.log('Theme applied:', theme, 'Auth:', auth);
   }, [theme]);
 
   // Listen for auth changes from other tabs

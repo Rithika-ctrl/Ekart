@@ -522,9 +522,6 @@ export default function AuthPage() {
       <style>{S}</style>
       <div className="auth-wrap">
         <div className="auth-card">
-          <div style={{ background: 'red', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '10px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>
-            ✅ AUTH FORM IS LOADING - If you see this red banner, CSS is working
-          </div>
           <span className="auth-logo">e<span>kart</span></span>
 
           {/* Role switcher — only on login/register/forgot */}

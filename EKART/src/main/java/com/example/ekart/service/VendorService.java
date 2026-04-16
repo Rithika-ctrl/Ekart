@@ -18,7 +18,6 @@ import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.http.HttpStatus; // unused
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -44,10 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.dto.SalesReport;
 import com.example.ekart.repository.SalesReportRepository;
 import com.example.ekart.reporting.ReportingService;
-// import java.time.LocalDate; // unused
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
-// import java.util.stream.Collectors; // unused
 
 import com.example.ekart.dto.Item;
 

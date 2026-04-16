@@ -372,8 +372,6 @@ window.EkartSkeleton = {
     }
 })();
 
-console.log('🎨 EkartToast system loaded');
-
 // =============================================================================
 // EKART GLOBAL PAGE LOADER
 // Shows a full-screen loader on every link click, form submit, and navigation.

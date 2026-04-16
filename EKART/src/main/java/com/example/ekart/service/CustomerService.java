@@ -75,9 +75,6 @@ public class CustomerService {
     @Autowired
     private OrderRepository orderRepository;
 
-    // @Autowired
-    // private StockAlertService stockAlertService; // unused
-
     @Autowired
     private EmailSender emailSender;
 

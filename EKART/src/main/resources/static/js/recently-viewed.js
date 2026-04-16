@@ -44,7 +44,7 @@ window.RecentlyViewed = (function() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
         } catch (e) {
-            console.error('[RecentlyViewed] Failed to write localStorage:', e);
+            // localStorage full or disabled
         }
     }
 
@@ -92,7 +92,7 @@ window.RecentlyViewed = (function() {
     async function render(containerId, options = {}) {
         const container = document.querySelector(containerId);
         if (!container) {
-            console.warn('[RecentlyViewed] Container not found:', containerId);
+
             return;
         }
 
@@ -251,9 +251,8 @@ window.RecentlyViewed = (function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ productIds: ids })
             });
-            console.log('[RecentlyViewed] Synced to server');
         } catch (e) {
-            console.error('[RecentlyViewed] Sync failed:', e);
+            // Sync failed silently
         }
     }
 

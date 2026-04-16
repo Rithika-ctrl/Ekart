@@ -53,7 +53,6 @@ export function RazorpayCheckoutModal({
 
     try {
       // Step 1: Create Razorpay order on backend
-      console.log('📝 Creating Razorpay order...', { addressId, deliveryTime });
       
       const checkoutRes = await fetch('/api/react/orders/checkout', {
         method: 'POST',
@@ -68,7 +67,6 @@ export function RazorpayCheckoutModal({
       });
 
       const checkoutData = await checkoutRes.json();
-      console.log('✅ Razorpay order created:', checkoutData);
 
       if (!checkoutData.success) {
         setError(checkoutData.message || 'Failed to create order');
@@ -116,18 +114,14 @@ export function RazorpayCheckoutModal({
       rzp.open();
 
     } catch (err) {
-      console.error('❌ Checkout error:', err);
       setError(err.message || 'Checkout failed');
       setLoading(false);
     }
   };
 
   const handlePaymentSuccess = async (response, checkoutData) => {
-    console.log('💳 Payment completed:', response);
-
     try {
       // Step 3: Verify signature on backend
-      console.log('🔍 Verifying payment signature...');
       
       const callbackRes = await fetch('/api/react/orders/callback', {
         method: 'POST',
@@ -144,17 +138,14 @@ export function RazorpayCheckoutModal({
       });
 
       const callbackData = await callbackRes.json();
-      console.log('✅ Payment verified:', callbackData);
 
       if (!callbackData.success) {
-        console.error('❌ Signature verification failed:', callbackData.message);
         setError('Payment verification failed: ' + callbackData.message);
         setLoading(false);
         return;
       }
 
       // Step 4: Place actual order with payment details
-      console.log('📦 Placing order with payment details...');
       
       if (onPaymentSuccess) {
         await onPaymentSuccess({
@@ -169,7 +160,6 @@ export function RazorpayCheckoutModal({
       onClose();
 
     } catch (err) {
-      console.error('❌ Verification error:', err);
       setError(err.message || 'Payment verification failed');
       setLoading(false);
     }

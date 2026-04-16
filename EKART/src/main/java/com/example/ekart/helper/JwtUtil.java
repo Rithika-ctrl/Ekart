@@ -5,6 +5,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +28,8 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
+
     @Value("${jwt.secret}")
     private String secretValue;
 
@@ -45,7 +49,7 @@ public class JwtUtil {
         // ⚠️ SECURITY CHECK: Warn if using default secret in production
         if ((environment.contains("prod") || environment.contains("production")) && 
             SECRET.equals(DEV_DEFAULT)) {
-            System.err.println("\n" +
+            log.error("\n" +
                 "╔════════════════════════════════════════════════════════════════╗\n" +
                 "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
                 "║                                                                ║\n" +
@@ -65,9 +69,7 @@ public class JwtUtil {
         
         // Warn in development
         if (!environment.contains("prod") && SECRET.equals(DEV_DEFAULT)) {
-            System.out.println("\n" +
-                "⚠️  JWT using development default (not secure). " +
-                "Set JWT_SECRET env var for production.\n");
+            log.warn("⚠️  JWT using development default (not secure). Set JWT_SECRET env var for production.");
         }
     }
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 
 /**
  * OrderTrackingPage.jsx - Visual timeline tracking with warehouse hops

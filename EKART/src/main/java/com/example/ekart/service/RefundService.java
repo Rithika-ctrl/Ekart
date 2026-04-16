@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,7 +14,6 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Refund;
 import com.example.ekart.dto.RefundStatus;
 import com.example.ekart.dto.TrackingStatus;
-// import com.example.ekart.helper.EmailSender; // unused
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.RefundRepository;
 
@@ -23,13 +24,13 @@ import com.example.ekart.repository.RefundRepository;
 @Service
 public class RefundService {
 
+    private static final Logger log = LoggerFactory.getLogger(RefundService.class);
+
     @Autowired
     private RefundRepository refundRepository;
 
     @Autowired
     private OrderRepository orderRepository;
-
-    // private EmailSender emailSender; // unused
 
     // ───────────────────────────────────────────────────────────────────────────
     // QUERY METHODS
@@ -215,13 +216,11 @@ public class RefundService {
     private void sendRefundStatusNotification(Customer customer, Refund refund, boolean approved, String rejectionReason) {
         // Log notification (stub for email - can be expanded later)
         String status = approved ? "APPROVED" : "REJECTED";
-        System.out.println("📬 REFUND NOTIFICATION:");
-        System.out.println("   Customer: " + customer.getName() + " (" + customer.getEmail() + ")");
-        System.out.println("   Order #" + refund.getOrder().getId());
-        System.out.println("   Amount: ₹" + String.format("%.2f", refund.getAmount()));
-        System.out.println("   Status: " + status);
+        log.info("📬 REFUND NOTIFICATION: Customer: {} ({}), Order #{}, Amount: ₹{}, Status: {}", 
+                customer.getName(), customer.getEmail(), refund.getOrder().getId(), 
+                String.format("%.2f", refund.getAmount()), status);
         if (rejectionReason != null) {
-            System.out.println("   Rejection Reason: " + rejectionReason);
+            log.info("   Rejection Reason: {}", rejectionReason);
         }
 
         // TODO: Implement actual email sending using emailSender
@@ -255,7 +254,7 @@ public class RefundService {
             migrated++;
         }
 
-        System.out.println("🔄 Migrated " + migrated + " existing replacement requests to Refund system");
+        log.info("🔄 Migrated {} existing replacement requests to Refund system", migrated);
         return migrated;
     }
 }

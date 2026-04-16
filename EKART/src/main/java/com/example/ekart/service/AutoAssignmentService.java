@@ -103,32 +103,4 @@ public class AutoAssignmentService {
     // 
     // Manual assignment is now handled by WarehouseReceivingService.assignDeliveryBoy()
     // Warehouse staff manually selects delivery boy from list with load information
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered on order PACKED.
-     */
-    @Deprecated
-    public void onOrderPacked(Order order) {
-        System.out.println("[DEPRECATED] onOrderPacked called (Phase 3 — auto-assign disabled)");
-    }
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered when delivery boy comes online.
-     */
-    @Deprecated
-    public void onDeliveryBoyOnline(DeliveryBoy deliveryBoy) {
-        System.out.println("[DEPRECATED] onDeliveryBoyOnline called (Phase 3 — auto-assign disabled)");
-    }
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered when order delivered.
-     */
-    @Deprecated
-    public void onOrderDelivered(DeliveryBoy deliveryBoy) {
-        System.out.println("[DEPRECATED] onOrderDelivered called (Phase 3 — auto-assign disabled)");
-    }
 }

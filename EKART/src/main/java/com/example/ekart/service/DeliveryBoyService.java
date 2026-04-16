@@ -5,6 +5,8 @@ import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import java.util.*;
 @Service
 @Transactional
 public class DeliveryBoyService {
+
+    private static final Logger log = LoggerFactory.getLogger(DeliveryBoyService.class);
 
     @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
     @Autowired private WarehouseRepository                warehouseRepository;
@@ -292,7 +296,7 @@ public class DeliveryBoyService {
         // Previously: if (isAvailable) autoAssignmentService.onDeliveryBoyOnline(db);
         // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
         if (isAvailable) {
-            System.out.println("[DELIVERY BOY] " + db.getName() + " is now online (manual assignment enabled)");
+            log.info("[DELIVERY BOY] {} is now online (manual assignment enabled)", db.getName());
         }
 
         res.put("success", true);
@@ -406,7 +410,7 @@ public class DeliveryBoyService {
         // AUTO-ASSIGN DISABLED (Phase 3)
         // Previously: autoAssignmentService.onOrderDelivered(db);
         // Now: Warehouse staff will manually assign next order for delivery boy
-        System.out.println("[DELIVERY] Order #" + orderId + " delivered by " + db.getName() + " (auto-fill disabled);");
+        log.info("[DELIVERY] Order #{} delivered by {} (auto-fill disabled)", orderId, db.getName());
 
         res.put("success", true);
         res.put("message", "Order #" + orderId + " marked as Delivered!");

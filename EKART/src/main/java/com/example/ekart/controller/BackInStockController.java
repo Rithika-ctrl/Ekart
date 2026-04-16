@@ -1,7 +1,6 @@
 package com.example.ekart.controller;
 
 import com.example.ekart.service.BackInStockService;
-// import jakarta.servlet.http.HttpSession; // unused
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

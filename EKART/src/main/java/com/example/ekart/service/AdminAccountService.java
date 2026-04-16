@@ -1,7 +1,5 @@
 package com.example.ekart.service;
 
-// import java.time.LocalDateTime; // unused
-// import java.util.ArrayList; // unused
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -9,6 +7,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,13 +17,11 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.dto.Wishlist;
 import com.example.ekart.dto.Refund;
-// import com.example.ekart.helper.AES; // unused
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
-// import com.example.ekart.repository.ItemRepository; // unused
 
 import jakarta.transaction.Transactional;
 
@@ -34,6 +32,8 @@ import jakarta.transaction.Transactional;
 @Service
 @Transactional
 public class AdminAccountService {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminAccountService.class);
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -127,8 +127,7 @@ public class AdminAccountService {
         result.put("isActive", customer.isActive());
         
         // Log the action
-        System.out.println("[ADMIN] Account " + customer.getEmail() + " " + 
-                (activate ? "activated" : "deactivated") + " by admin");
+        log.info("[ADMIN] Account {} {} by admin", customer.getEmail(), (activate ? "activated" : "deactivated"));
         
         return result;
     }
@@ -268,7 +267,7 @@ public class AdminAccountService {
             result.put("emailError", e.getMessage());
         }
         
-        System.out.println("[ADMIN] Password reset link generated for: " + customer.getEmail());
+        log.info("[ADMIN] Password reset link generated for: {}", customer.getEmail());
         
         return result;
     }

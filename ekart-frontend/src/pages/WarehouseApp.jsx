@@ -73,7 +73,6 @@ export default function WarehouseApp() {
         setError(response.data.error || 'Login failed');
       }
     } catch (err) {
-      console.error('Login error:', err);
       setError(err.response?.data?.error || 'Failed to login. Check your credentials.');
     } finally {
       setLoading(false);
@@ -93,7 +92,6 @@ export default function WarehouseApp() {
       setReceivingQueue(response.data.orders || []);
       setError('');
     } catch (err) {
-      console.error('Error fetching receiving queue:', err);
       setError('Failed to load receiving queue');
     } finally {
       setLoadingReceiving(false);
@@ -133,7 +131,6 @@ export default function WarehouseApp() {
       setInTransitOrders(response.data.orders || []);
       setError('');
     } catch (err) {
-      console.error('Error fetching in-transit orders:', err);
       setError('Failed to load in-transit orders');
     } finally {
       setLoadingInTransit(false);
@@ -158,7 +155,6 @@ export default function WarehouseApp() {
       fetchInTransitOrders();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      console.error('Error updating order status:', err);
       setError('Failed to update order status');
     } finally {
       setLoading(false);
@@ -182,7 +178,6 @@ export default function WarehouseApp() {
       setAssignmentQueue(response.data.orders || []);
       setError('');
     } catch (err) {
-      console.error('Error fetching assignment queue:', err);
       setError('Failed to load assignment queue');
     } finally {
       setLoadingAssignment(false);
@@ -197,7 +192,6 @@ export default function WarehouseApp() {
       });
       setDeliveryBoys(response.data.deliveryBoys || []);
     } catch (err) {
-      console.error('Error fetching delivery boys:', err);
       setError('Failed to load delivery boys');
     }
   };
@@ -245,7 +239,6 @@ export default function WarehouseApp() {
       setPendingSettlements(response.data.settlements || []);
       setError('');
     } catch (err) {
-      console.error('Error fetching settlements:', err);
       setError('Failed to load settlements');
     } finally {
       setLoadingSettlements(false);
@@ -314,15 +307,12 @@ export default function WarehouseApp() {
   const fetchPendingDeliveryBoys = async () => {
     setLoadingDeliveryBoys(true);
     try {
-      console.log('🔍 Fetching pending delivery boys with token:', warehouseToken?.substring(0, 20) + '...');
       const response = await axios.get(`${API_BASE_URL}/warehouse/delivery-boys/pending`, {
         headers: { Authorization: `Bearer ${warehouseToken}` },
       });
-      console.log('✅ Response:', response.data);
       setPendingDeliveryBoys(response.data.pendingDeliveryBoys || []);
       setError('');
     } catch (err) {
-      console.error('❌ Error fetching pending delivery boys:', err.response?.status, err.response?.data);
       setError('Failed to load pending delivery boys: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoadingDeliveryBoys(false);

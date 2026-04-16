@@ -9,6 +9,8 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ProductRepository;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,8 @@ import java.util.Optional;
 @Service
 @Transactional
 public class BackInStockService {
+
+    private static final Logger log = LoggerFactory.getLogger(BackInStockService.class);
 
     @Autowired private BackInStockRepository backInStockRepository;
     @Autowired private ProductRepository     productRepository;
@@ -185,12 +189,10 @@ public class BackInStockService {
                 sub.setNotifiedAt(LocalDateTime.now());
                 backInStockRepository.save(sub);
             } catch (Exception e) {
-                System.err.println("[BackInStock] Failed to notify customer "
-                        + sub.getCustomer().getEmail() + ": " + e.getMessage());
+                log.error("[BackInStock] Failed to notify customer {}: {}", sub.getCustomer().getEmail(), e.getMessage());
             }
         }
-        System.out.println("[BackInStock] Notified " + subs.size()
-                + " subscriber(s) for product: " + product.getName());
+        log.info("[BackInStock] Notified {} subscriber(s) for product: {}", subs.size(), product.getName());
     }
 
     // ── SUBSCRIBER COUNT (for vendor/admin info) ────────────────────────────

@@ -250,15 +250,47 @@ export default function CODSettlementAdmin({ codStats, orders = [] }) {
   );
 }
 
-// Placeholder handlers - update these to call backend APIs
-function handleApprove(settlementId) {
-  console.log("Approving settlement:", settlementId);
-  // TODO: Call /api/react/admin/settlements/approve/{id}
+// Settlement handlers - approve/reject with API calls
+async function handleApprove(settlementId) {
+  try {
+    const response = await fetch(`/api/react/admin/settlements/approve/${settlementId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+      }
+    });
+    
+    if (response.ok) {
+      showToast('Settlement approved successfully');
+      fetchSettlements(); // Refresh list
+    } else {
+      showToast('Failed to approve settlement');
+    }
+  } catch (error) {
+    showToast('Error approving settlement: ' + error.message);
+  }
 }
 
-function handleReject(settlementId) {
-  console.log("Rejecting settlement:", settlementId);
-  // TODO: Call /api/react/admin/settlements/reject/{id}
+async function handleReject(settlementId) {
+  try {
+    const response = await fetch(`/api/react/admin/settlements/reject/${settlementId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+      }
+    });
+    
+    if (response.ok) {
+      showToast('Settlement rejected successfully');
+      fetchSettlements(); // Refresh list
+    } else {
+      showToast('Failed to reject settlement');
+    }
+  } catch (error) {
+    showToast('Error rejecting settlement: ' + error.message);
+  }
 }
 
 // ── Styles (inherit from AdminApp) ──
