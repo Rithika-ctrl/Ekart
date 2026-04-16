@@ -7992,7 +7992,10 @@ public class ReactApiController {
                 "routingPath", routingPath != null ? routingPath : "Direct"
             ));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName() + ": Unknown error";
+            System.err.println("[ReactApiController] warehouseMarkReceived error for orderId=" + orderId + ": " + errorMsg);
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", errorMsg));
         }
     }
 

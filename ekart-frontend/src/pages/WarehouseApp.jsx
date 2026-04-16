@@ -113,7 +113,8 @@ export default function WarehouseApp() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error marking as received:', err);
-      setError('Failed to mark as received');
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to mark as received';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

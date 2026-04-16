@@ -288,6 +288,12 @@ public class WarehouseRoutingService {
         Warehouse source = sourceOpt.get();
         Warehouse destination = destOpt.get();
 
+        // Check if source/destination have valid coordinates
+        if (source.getLatitude() == null || source.getLongitude() == null ||
+            destination.getLatitude() == null || destination.getLongitude() == null) {
+            return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+        }
+
         double distance = source.calculateDistanceTo(destination);
 
         // Direct route for < 800 km
