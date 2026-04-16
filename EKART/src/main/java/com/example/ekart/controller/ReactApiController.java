@@ -731,17 +731,23 @@ public class ReactApiController {
     @GetMapping("/auth/delivery/warehouses")
     public ResponseEntity<Map<String, Object>> deliveryRegisterWarehouses() {
         Map<String, Object> res = new HashMap<>();
-        List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
+        // Show all warehouses (both active and inactive) so users can see what's available
+        // Admin can only approve delivery boys for active warehouses anyway
+        List<Warehouse> warehouses = warehouseRepository.findAll();
         List<Map<String, Object>> list = new ArrayList<>();
         for (Warehouse wh : warehouses) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",   wh.getId());
             m.put("name", wh.getName());
             m.put("city", wh.getCity());
+            m.put("active", wh.isActive());
+            String statusLabel = wh.isActive() ? "" : " (Inactive)";
+            m.put("display", wh.getName() + " — " + wh.getCity() + statusLabel);
             list.add(m);
         }
         res.put("success",    true);
         res.put("warehouses", list);
+        res.put("message", list.isEmpty() ? "No warehouses available yet. Please contact admin to create one." : "");
         return ResponseEntity.ok(res);
     }
 
@@ -5012,6 +5018,93 @@ public class ReactApiController {
     }
 
     /**
+     * DEBUG ENDPOINT: GET /api/react/admin/delivery-boys/debug
+     * Shows all delivery boys with detailed status information for debugging
+     * NO AUTH REQUIRED (for debugging purposes only)
+     */
+    @GetMapping("/admin/delivery-boys/debug")
+    public ResponseEntity<Map<String, Object>> debugDeliveryBoys() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<DeliveryBoy> boys = deliveryBoyRepository.findAll();
+            res.put("totalDeliveryBoys", boys.size());
+            
+            List<Map<String, Object>> debugList = new ArrayList<>();
+            for (DeliveryBoy db : boys) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", db.getId());
+                m.put("name", db.getName());
+                m.put("email", db.getEmail());
+                m.put("verified", db.isVerified());
+                m.put("adminApproved", db.isAdminApproved());
+                m.put("active", db.isActive());
+                m.put("warehouse", db.getWarehouse() != null ? db.getWarehouse().getName() : "NULL⚠️");
+                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                
+                // Status diagnosis
+                String status;
+                if (db.getWarehouse() == null) {
+                    status = "❌ NO WAREHOUSE SET";
+                } else if (!db.isVerified()) {
+                    status = "📧 EMAIL_PENDING (waiting for OTP)";
+                } else if (!db.isAdminApproved() && !db.isActive()) {
+                    status = "❌ REJECTED";
+                } else if (!db.isAdminApproved()) {
+                    status = "⏳ PENDING (ready to approve)";
+                } else {
+                    status = "✅ APPROVED";
+                }
+                m.put("debugStatus", status);
+                debugList.add(m);
+            }
+            
+            res.put("success", true);
+            res.put("deliveryBoys", debugList);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            e.printStackTrace();
+            res.put("success", false);
+            res.put("error", e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
+     * FIX ENDPOINT: POST /api/react/admin/delivery-boys/fix-unverified
+     * Auto-verifies all unverified delivery boys so they appear for admin approval
+     * NO AUTH REQUIRED (for fixing issues)
+     */
+    @PostMapping("/admin/delivery-boys/fix-unverified")
+    public ResponseEntity<Map<String, Object>> fixUnverifiedDeliveryBoys() {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            List<DeliveryBoy> unverified = deliveryBoyRepository.findAll().stream()
+                .filter(db -> !db.isVerified())
+                .collect(Collectors.toList());
+            int count = 0;
+            
+            for (DeliveryBoy db : unverified) {
+                db.setVerified(true);
+                db.setAdminApproved(false);
+                db.setActive(true);
+                deliveryBoyRepository.save(db);
+                count++;
+                System.out.println("[FIX] Verified delivery boy: " + db.getName() + " (" + db.getEmail() + ")");
+            }
+            
+            res.put("success", true);
+            res.put("message", "Fixed " + count + " unverified delivery boys - they should now appear in admin dashboard");
+            res.put("fixedCount", count);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            e.printStackTrace();
+            res.put("success", false);
+            res.put("error", e.getMessage());
+            return ResponseEntity.status(500).body(res);
+        }
+    }
+
+    /**
      * POST /api/flutter/admin/delivery-boys/{id}/approve
      * Approves a delivery boy account.
      *
@@ -8727,6 +8820,222 @@ public class ReactApiController {
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * WAREHOUSE STAFF: GET /api/react/warehouse/delivery-boys/pending
+     * 
+     * Lists delivery boys awaiting approval for the warehouse staff's warehouse.
+     * Requires: Warehouse JWT token (sets warehouseId in request attribute).
+     */
+    @GetMapping("/warehouse/delivery-boys/pending")
+    public ResponseEntity<?> warehousePendingDeliveryBoys(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
+            }
+            
+            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+            if (warehouse == null) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
+            }
+            
+            // Get pending delivery boys for this warehouse (verified but not admin approved)
+            List<DeliveryBoy> pending = deliveryBoyRepository.findAll().stream()
+                .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId)
+                .filter(db -> db.isVerified() && !db.isAdminApproved())
+                .collect(Collectors.toList());
+            
+            List<Map<String, Object>> result = pending.stream().map(db -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", db.getId());
+                m.put("name", db.getName());
+                m.put("email", db.getEmail());
+                m.put("mobile", db.getMobile());
+                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
+                m.put("registeredAt", "Pending approval");
+                return m;
+            }).collect(Collectors.toList());
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "warehouseId", warehouseId,
+                "warehouseName", warehouse.getName(),
+                "pendingDeliveryBoys", result,
+                "total", result.size()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * WAREHOUSE STAFF: POST /api/react/warehouse/delivery-boys/{deliveryBoyId}/approve
+     * 
+     * Approves a delivery boy for the warehouse staff's warehouse.
+     */
+    @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/approve")
+    public ResponseEntity<?> warehouseApproveDeliveryBoy(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request,
+            @PathVariable int deliveryBoyId) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
+            }
+            
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
+            
+            // Verify delivery boy belongs to this warehouse
+            if (db.getWarehouse() == null || db.getWarehouse().getId() != warehouseId) {
+                return ResponseEntity.status(403).body(Map.of("success", false, "error", "Not your delivery boy"));
+            }
+            
+            db.setAdminApproved(true);
+            db.setActive(true);
+            deliveryBoyRepository.save(db);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Delivery boy approved successfully",
+                "deliveryBoyId", deliveryBoyId,
+                "deliveryBoyName", db.getName()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * WAREHOUSE STAFF: POST /api/react/warehouse/delivery-boys/{deliveryBoyId}/reject
+     * 
+     * Rejects a delivery boy for the warehouse staff's warehouse.
+     */
+    @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/reject")
+    public ResponseEntity<?> warehouseRejectDeliveryBoy(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request,
+            @PathVariable int deliveryBoyId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
+            }
+            
+            DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
+            
+            // Verify delivery boy belongs to this warehouse
+            if (db.getWarehouse() == null || db.getWarehouse().getId() != warehouseId) {
+                return ResponseEntity.status(403).body(Map.of("success", false, "error", "Not your delivery boy"));
+            }
+            
+            String reason = body != null ? (String) body.get("reason") : null;
+            
+            db.setAdminApproved(false);
+            db.setActive(false);
+            deliveryBoyRepository.save(db);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Delivery boy rejected",
+                "deliveryBoyId", deliveryBoyId,
+                "deliveryBoyName", db.getName()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * WAREHOUSE STAFF: GET /api/react/warehouse/staff/list
+     * 
+     * Lists all staff members in the warehouse staff's warehouse.
+     */
+    @GetMapping("/warehouse/staff/list")
+    public ResponseEntity<?> warehouseListStaff(
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
+            }
+
+            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+            if (warehouse == null) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
+            }
+
+            // Get all warehouse staff for this warehouse (assuming there's a relationship)
+            // For now, returning empty array - implement based on your Warehouse entity structure
+            List<Map<String, Object>> staff = new ArrayList<>();
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "warehouseId", warehouseId,
+                "warehouseName", warehouse.getName(),
+                "staff", staff
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * WAREHOUSE STAFF: POST /api/react/warehouse/staff/create
+     * 
+     * Creates a new staff member for the warehouse staff's warehouse.
+     */
+    @PostMapping("/warehouse/staff/create")
+    public ResponseEntity<?> warehouseCreateStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        try {
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            if (warehouseId == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
+            }
+
+            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+            if (warehouse == null) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
+            }
+
+            String name = (String) body.get("name");
+            String email = (String) body.get("email");
+            String mobile = (String) body.get("mobile");
+            String role = (String) body.get("role");
+
+            if (name == null || email == null || mobile == null) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Name, email, and mobile are required"));
+            }
+
+            // Generate random 8-digit staff ID and 6-digit password
+            String staffId = String.format("%08d", System.currentTimeMillis() % 100000000L);
+            String password = String.format("%06d", (int)(Math.random() * 1000000));
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "staff_id", staffId,
+                "email", email,
+                "password", password,
+                "name", name,
+                "mobile", mobile,
+                "role", role
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 

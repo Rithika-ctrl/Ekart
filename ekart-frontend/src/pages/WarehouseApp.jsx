@@ -306,12 +306,153 @@ export default function WarehouseApp() {
     }
   };
 
+  // ─── TAB 5: DELIVERY BOY APPROVALS ────────────────────────────────────────────
+  const [pendingDeliveryBoys, setPendingDeliveryBoys] = useState([]);
+  const [loadingDeliveryBoys, setLoadingDeliveryBoys] = useState(false);
+
+  const fetchPendingDeliveryBoys = async () => {
+    setLoadingDeliveryBoys(true);
+    try {
+      console.log('🔍 Fetching pending delivery boys with token:', warehouseToken?.substring(0, 20) + '...');
+      const response = await axios.get(`${API_BASE_URL}/warehouse/delivery-boys/pending`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      console.log('✅ Response:', response.data);
+      setPendingDeliveryBoys(response.data.pendingDeliveryBoys || []);
+      setError('');
+    } catch (err) {
+      console.error('❌ Error fetching pending delivery boys:', err.response?.status, err.response?.data);
+      setError('Failed to load pending delivery boys: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setLoadingDeliveryBoys(false);
+    }
+  };
+
+  const handleApproveDeliveryBoy = async (deliveryBoyId, deliveryBoyName) => {
+    if (!window.confirm(`Approve delivery boy "${deliveryBoyName}"?`)) return;
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${API_BASE_URL}/warehouse/delivery-boys/${deliveryBoyId}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+
+      if (response.data.success) {
+        setSuccessMessage(`✓ Delivery boy "${deliveryBoyName}" approved successfully`);
+        fetchPendingDeliveryBoys();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      console.error('Error approving delivery boy:', err);
+      setError(err.response?.data?.message || 'Failed to approve delivery boy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectDeliveryBoy = async (deliveryBoyId, deliveryBoyName) => {
+    if (!window.confirm(`Reject delivery boy "${deliveryBoyName}"?`)) return;
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        `${API_BASE_URL}/warehouse/delivery-boys/${deliveryBoyId}/reject`,
+        { reason: 'Rejected by warehouse staff' },
+        { headers: { Authorization: `Bearer ${warehouseToken}` } }
+      );
+
+      if (response.data.success) {
+        setSuccessMessage(`✓ Delivery boy "${deliveryBoyName}" rejected`);
+        fetchPendingDeliveryBoys();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      console.error('Error rejecting delivery boy:', err);
+      setError(err.response?.data?.message || 'Failed to reject delivery boy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── TAB 6: STAFF MANAGEMENT ────────────────────────────────────────────────
+  const [staffFormData, setStaffFormData] = useState({ name: '', email: '', mobile: '', role: 'WAREHOUSE_STAFF' });
+  const [createdStaffCredentials, setCreatedStaffCredentials] = useState(null);
+  const [staffCreateError, setStaffCreateError] = useState('');
+  const [staffCreateLoading, setStaffCreateLoading] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffListLoading, setStaffListLoading] = useState(false);
+  const [staffListError, setStaffListError] = useState('');
+  const [staffActiveTab, setStaffActiveTab] = useState('create');
+
+  const loadStaffList = async () => {
+    try {
+      setStaffListLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/warehouse/staff/list`, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+      if (response.data?.success) {
+        setStaffList(response.data.staff || []);
+      }
+    } catch (error) {
+      console.error('Failed to load staff list:', error);
+      setStaffListError('Failed to load staff list');
+    } finally {
+      setStaffListLoading(false);
+    }
+  };
+
+  const handleStaffFormChange = (e) => {
+    const { name, value } = e.target;
+    setStaffFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setStaffCreateError('');
+    setCreatedStaffCredentials(null);
+
+    if (!staffFormData.name || !staffFormData.email || !staffFormData.mobile) {
+      setStaffCreateError('Please fill all required fields');
+      return;
+    }
+
+    try {
+      setStaffCreateLoading(true);
+      const payload = { ...staffFormData, warehouse_id: warehouseId };
+      const response = await axios.post(`${API_BASE_URL}/warehouse/staff/create`, payload, {
+        headers: { Authorization: `Bearer ${warehouseToken}` },
+      });
+
+      if (response.data?.success) {
+        setCreatedStaffCredentials({
+          staff_id: response.data.staff_id,
+          email: response.data.email,
+          password: response.data.password,
+          name: response.data.name,
+          mobile: response.data.mobile,
+          role: response.data.role
+        });
+        setStaffFormData({ name: '', email: '', mobile: '', role: 'WAREHOUSE_STAFF' });
+        setTimeout(() => loadStaffList(), 1000);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error?.message || 'Failed to create staff account';
+      setStaffCreateError(errorMsg);
+    } finally {
+      setStaffCreateLoading(false);
+    }
+  };
+
   // ─── UTILITY: Fetch data when tab changes ───────────────────────────────────
   useEffect(() => {
     if (activeTab === 'receiving') fetchReceivingQueue();
     else if (activeTab === 'transit') fetchInTransitOrders();
     else if (activeTab === 'assignment') fetchAssignmentQueue();
     else if (activeTab === 'settlements') fetchPendingSettlements();
+    else if (activeTab === 'delivery-boys') fetchPendingDeliveryBoys();
+    else if (activeTab === 'staff-management') loadStaffList();
   }, [activeTab]);
 
   const handleLogout = () => {
@@ -438,6 +579,8 @@ export default function WarehouseApp() {
             { id: 'receiving', label: '📦 Receiving Queue' },
             { id: 'transit', label: '🚚 In-Transit' },
             { id: 'assignment', label: '👤 Assignment' },
+            { id: 'delivery-boys', label: '🧑 Delivery Boy Approval' },
+            { id: 'staff-management', label: '👔 Staff Management' },
             { id: 'settlements', label: '💰 COD Settlement' },
           ].map(tab => (
             <button
@@ -652,7 +795,248 @@ export default function WarehouseApp() {
           </div>
         )}
 
-        {/* TAB 4: COD Settlements */}
+        {/* TAB 5: Delivery Boy Approvals */}
+        {activeTab === 'delivery-boys' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-4">🧑 Delivery Boy Approvals</h2>
+            {loadingDeliveryBoys ? (
+              <p className="text-gray-600">Loading...</p>
+            ) : pendingDeliveryBoys.length === 0 ? (
+              <p className="text-gray-600">No pending delivery boy approvals</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingDeliveryBoys.map((db) => (
+                  <div key={db.id} className="flex items-start justify-between border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex-1">
+                      <p className="font-semibold text-lg">{db.name}</p>
+                      <p className="text-sm text-gray-600">Email: {db.email}</p>
+                      <p className="text-sm text-gray-600">Mobile: {db.mobile}</p>
+                      <p className="text-sm text-gray-600">Code: {db.deliveryBoyCode}</p>
+                      {db.assignedPinCodes && (
+                        <p className="text-sm text-gray-600">PIN Codes: {db.assignedPinCodes}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleApproveDeliveryBoy(db.id, db.name)}
+                        disabled={loading}
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold whitespace-nowrap"
+                      >
+                        ✓ Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectDeliveryBoy(db.id, db.name)}
+                        disabled={loading}
+                        className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition font-semibold whitespace-nowrap"
+                      >
+                        ✗ Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 6: Staff Management */}
+        {activeTab === 'staff-management' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold mb-6">👔 Staff Management</h2>
+
+            {/* Tab Buttons */}
+            <div className="flex gap-4 mb-6 border-b pb-4">
+              <button
+                onClick={() => setStaffActiveTab('create')}
+                className={`px-4 py-2 font-semibold transition ${
+                  staffActiveTab === 'create'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                ➕ Create Staff
+              </button>
+              <button
+                onClick={() => setStaffActiveTab('list')}
+                className={`px-4 py-2 font-semibold transition ${
+                  staffActiveTab === 'list'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                📋 Existing Staff
+              </button>
+            </div>
+
+            {/* Create Staff Tab */}
+            {staffActiveTab === 'create' && (
+              <div className="space-y-6">
+                {staffCreateError && (
+                  <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
+                    {staffCreateError}
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateStaff} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Staff Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={staffFormData.name}
+                      onChange={handleStaffFormChange}
+                      placeholder="e.g., John Doe"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Email Address *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={staffFormData.email}
+                      onChange={handleStaffFormChange}
+                      placeholder="e.g., staff@warehouse.com"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Mobile Number *</label>
+                    <input
+                      type="tel"
+                      name="mobile"
+                      value={staffFormData.mobile}
+                      onChange={handleStaffFormChange}
+                      placeholder="e.g., 9876543210"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Role</label>
+                    <select
+                      name="role"
+                      value={staffFormData.role}
+                      onChange={handleStaffFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="WAREHOUSE_STAFF">Warehouse Staff</option>
+                      <option value="WAREHOUSE_MANAGER">Warehouse Manager</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={staffCreateLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 rounded-lg transition"
+                  >
+                    {staffCreateLoading ? '⏳ Creating...' : '✓ Create Staff'}
+                  </button>
+                </form>
+
+                {/* Created Credentials Display */}
+                {createdStaffCredentials && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-green-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold">✓</div>
+                      <div>
+                        <h3 className="text-lg font-bold text-green-800">Success!</h3>
+                        <p className="text-sm text-green-700">Staff account created</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 mb-4">
+                      {[
+                        { label: 'Staff Name', value: createdStaffCredentials.name },
+                        { label: 'Staff ID', value: createdStaffCredentials.staff_id },
+                        { label: 'Email', value: createdStaffCredentials.email },
+                        { label: 'Password', value: createdStaffCredentials.password },
+                        { label: 'Mobile', value: createdStaffCredentials.mobile },
+                        { label: 'Role', value: createdStaffCredentials.role }
+                      ].map((item, i) => (
+                        <div key={i} className="bg-white p-3 rounded border border-gray-200">
+                          <p className="text-xs text-gray-600 font-semibold mb-1">{item.label}</p>
+                          <p className="font-mono text-sm">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded text-sm mb-4">
+                      <strong>⚠️ Important:</strong> Keep credentials safe. Share securely with staff.
+                    </div>
+
+                    <button
+                      onClick={() => setCreatedStaffCredentials(null)}
+                      className="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 rounded-lg transition"
+                    >
+                      Create Another
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* List Staff Tab */}
+            {staffActiveTab === 'list' && (
+              <div>
+                {staffListError && (
+                  <div className="text-red-600 text-center py-8">{staffListError}</div>
+                )}
+                {staffListLoading && (
+                  <div className="text-gray-600 text-center py-8">Loading staff...</div>
+                )}
+                {!staffListLoading && staffList.length === 0 && (
+                  <div className="text-gray-600 text-center py-8">No staff members found</div>
+                )}
+                {!staffListLoading && staffList.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100 border-b">
+                        <tr>
+                          <th className="text-left px-4 py-3 font-semibold">Name</th>
+                          <th className="text-left px-4 py-3 font-semibold">Email</th>
+                          <th className="text-left px-4 py-3 font-semibold">Mobile</th>
+                          <th className="text-left px-4 py-3 font-semibold">Role</th>
+                          <th className="text-left px-4 py-3 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staffList.map((staff, i) => (
+                          <tr key={i} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3 font-semibold">{staff.name}</td>
+                            <td className="px-4 py-3">{staff.email}</td>
+                            <td className="px-4 py-3">{staff.mobile}</td>
+                            <td className="px-4 py-3">
+                              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-xs font-semibold">
+                                {staff.role}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-3 py-1 rounded text-xs font-semibold ${
+                                staff.active
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {staff.active ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 7: COD Settlements */}
         {activeTab === 'settlements' && (
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4">💰 COD Settlements</h2>

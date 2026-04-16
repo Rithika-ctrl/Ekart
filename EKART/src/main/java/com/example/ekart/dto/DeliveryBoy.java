@@ -44,7 +44,7 @@ public class DeliveryBoy {
     private String confirmPassword;
 
     /** 6-digit OTP for email verification */
-    private int otp;
+    private Integer otp;
 
     /** True once email OTP is verified */
     private boolean verified = false;
@@ -100,8 +100,8 @@ public class DeliveryBoy {
     public String getConfirmPassword() { return confirmPassword; }
     public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
 
-    public int getOtp() { return otp; }
-    public void setOtp(int otp) { this.otp = otp; }
+    public Integer getOtp() { return otp; }
+    public void setOtp(Integer otp) { this.otp = otp; }
 
     public boolean isVerified() { return verified; }
     public void setVerified(boolean verified) { this.verified = verified; }

@@ -679,10 +679,20 @@ export default function AuthPage() {
                 <>
                   <div className="form-group">
                     <label className="form-label">Select Warehouse</label>
-                    <select className="form-input" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
-                      <option value="">Select your warehouse…</option>
-                      {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} — {w.city}</option>)}
-                    </select>
+                    {warehouses.length === 0 ? (
+                      <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 6, padding: "10px 12px", fontSize: 13, color: "#991b1b" }}>
+                        ❌ No warehouses available. Please contact admin to create a warehouse first.
+                      </div>
+                    ) : (
+                      <select className="form-input" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
+                        <option value="">Select your warehouse…</option>
+                        {warehouses.map(w => (
+                          <option key={w.id} value={w.id} style={{ color: w.active ? "inherit" : "#999" }}>
+                            {w.display || (w.name + " — " + w.city)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div style={{ background: "#fffbeb", border: "1.5px solid #f6d860", borderRadius: 8, padding: "9px 13px", fontSize: 12, color: "#92610a", marginBottom: 16, lineHeight: 1.5 }}>
                     ⏳ After registering, your account will be reviewed by an admin before you can log in.
