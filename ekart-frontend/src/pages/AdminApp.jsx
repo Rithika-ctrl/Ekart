@@ -1548,7 +1548,7 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
     return () => clearInterval(interval);
   }, [packedOrders, deliveryBoys]);
 
-  const pendingApprovals = (deliveryBoys || []).filter(d => !d.approved);
+  const pendingApprovals = (deliveryBoys || []).filter(d => d.approvalStatus === "EMAIL_PENDING" || d.approvalStatus === "PENDING" || !d.approved);
   const pendingTransfers = transfers.filter(t => t.status === "PENDING");
   const filtered = filter === "pending" ? pendingApprovals : (deliveryBoys || []);
 
@@ -1770,20 +1770,31 @@ function DeliveryAdmin({ orders, deliveryBoys, warehouses, packedOrders, shipped
               <span style={{ fontSize: 11, color: "rgba(13,13,13,0.4)", fontStyle: "italic" }}>Not set</span>
             ),
             d.warehouse ? d.warehouse.name : "—",
-            <span style={{ ...as.badge, background: d.approved ? "#e8faf2" : "#fef9e7", color: d.approved ? "#16a34a" : "#d97706" }}>{d.approved ? "Active" : "Pending"}</span>,
+            <span style={{ 
+              ...as.badge, 
+              background: d.approvalStatus === "APPROVED" ? "#e8faf2" : d.approvalStatus === "EMAIL_PENDING" ? "#fff3cd" : "#fef9e7", 
+              color: d.approvalStatus === "APPROVED" ? "#16a34a" : d.approvalStatus === "EMAIL_PENDING" ? "#856404" : "#d97706",
+              fontSize: 11
+            }}>
+              {d.approvalStatus === "EMAIL_PENDING" ? "📧 Verify Email" : d.approvalStatus === "PENDING" ? "⏳ Pending Admin" : d.approvalStatus === "APPROVED" ? "✅ Active" : d.approvalStatus === "REJECTED" ? "❌ Rejected" : "—"}
+            </span>,
             <span style={{ ...as.badge, background: d.isAvailable ? "#e8faf2" : "#ffe8e8", color: d.isAvailable ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
               <i className={`fas fa-circle`} style={{ fontSize: "0.6rem", marginRight: "0.4rem" }} />
               {d.isAvailable ? "Online" : "Offline"}
             </span>,
-            !d.approved ? (
+            d.approvalStatus === "EMAIL_PENDING" ? (
+              <span style={{ fontSize: 11, color: "#856404", fontStyle: "italic" }}>📧 Awaiting Email Verification</span>
+            ) : d.approvalStatus === "PENDING" ? (
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={as.approveBtn} onClick={() => onApprove(d.id, "", "")}>✓ Approve</button>
                 <button style={as.rejectBtn} onClick={() => handleReject(d.id, d.name)}>✕ Reject</button>
               </div>
-            ) : (
+            ) : d.approvalStatus === "APPROVED" ? (
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={{...as.approveBtn, fontSize: 11, padding: "4px 8px"}} onClick={() => openEditPinsModal(d)}>📍 Edit Pins</button>
               </div>
+            ) : (
+              <span style={{ fontSize: 11, color: "rgba(13,13,13,0.5)" }}>—</span>
             )
           ])}
           empty="No delivery boys"

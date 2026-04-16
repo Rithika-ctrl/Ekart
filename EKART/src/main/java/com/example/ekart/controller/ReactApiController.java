@@ -4965,15 +4965,16 @@ public class ReactApiController {
                 // Derive a single human-readable status string
                 String status;
                 if (!db.isVerified()) {
-                    status = "UNVERIFIED";
+                    status = "EMAIL_PENDING";  // Waiting for email OTP verification
                 } else if (!db.isAdminApproved() && !db.isActive()) {
                     status = "REJECTED";
                 } else if (!db.isAdminApproved()) {
-                    status = "PENDING";
+                    status = "PENDING";  // Verified but awaiting admin approval
                 } else {
                     status = "APPROVED";
                 }
                 m.put("approvalStatus", status);
+                m.put("statusLabel", getDeliveryBoyStatusLabel(status)); // Human-readable label
 
                 // Warehouse — may be null for pending/unverified boys
                 if (db.getWarehouse() != null) {
@@ -4993,10 +4994,21 @@ public class ReactApiController {
             res.put("deliveryBoys", list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
+            e.printStackTrace();
             res.put("success", false);
             res.put("message", "Failed to load delivery boys: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
+    }
+
+    private String getDeliveryBoyStatusLabel(String status) {
+        return switch(status) {
+            case "EMAIL_PENDING" -> "⏳ Waiting for Email Verification";
+            case "PENDING" -> "⏳ Pending Admin Approval";
+            case "REJECTED" -> "❌ Rejected";
+            case "APPROVED" -> "✅ Approved";
+            default -> status;
+        };
     }
 
     /**
