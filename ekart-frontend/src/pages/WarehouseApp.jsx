@@ -86,7 +86,7 @@ export default function WarehouseApp() {
   const fetchReceivingQueue = async () => {
     setLoadingReceiving(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/warehouse/receiving-queue`, {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/${warehouseId}/receiving-queue`, {
         headers: { Authorization: `Bearer ${warehouseToken}` },
       });
       setReceivingQueue(response.data.orders || []);
@@ -125,13 +125,14 @@ export default function WarehouseApp() {
   const fetchInTransitOrders = async () => {
     setLoadingInTransit(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/warehouse/in-transit`, {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/${warehouseId}/transfer-queue`, {
         headers: { Authorization: `Bearer ${warehouseToken}` },
       });
       setInTransitOrders(response.data.orders || []);
       setError('');
     } catch (err) {
-      setError('Failed to load in-transit orders');
+      console.error('Error fetching transfer queue:', err);
+      setError('Failed to load transfer queue');
     } finally {
       setLoadingInTransit(false);
     }
@@ -141,10 +142,10 @@ export default function WarehouseApp() {
     try {
       setLoading(true);
       const endpoint = action === 'prepare'
-        ? `/warehouse/orders/${orderId}/prepare-for-hub-transit`
+        ? `/warehouse/orders/${orderId}/prepare-transit`
         : action === 'transit'
-        ? `/warehouse/orders/${orderId}/mark-in-hub-transit`
-        : `/warehouse/orders/${orderId}/mark-arrived-at-destination`;
+        ? `/warehouse/orders/${orderId}/mark-in-transit`
+        : `/warehouse/orders/${orderId}/mark-arrived-intermediate`;
 
       await axios.post(
         `${API_BASE_URL}${endpoint}`,
@@ -172,7 +173,7 @@ export default function WarehouseApp() {
   const fetchAssignmentQueue = async () => {
     setLoadingAssignment(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/warehouse/orders/ready-for-assignment`, {
+      const response = await axios.get(`${API_BASE_URL}/warehouse/${warehouseId}/assignment-queue`, {
         headers: { Authorization: `Bearer ${warehouseToken}` },
       });
       setAssignmentQueue(response.data.orders || []);
@@ -204,7 +205,7 @@ export default function WarehouseApp() {
     try {
       setLoading(true);
       await axios.post(
-        `${API_BASE_URL}/warehouse/orders/${selectedOrder.id}/assign-delivery`,
+        `${API_BASE_URL}/warehouse/orders/${selectedOrder.id}/assign-delivery-boy`,
         { deliveryBoyId: selectedDeliveryBoy },
         { headers: { Authorization: `Bearer ${warehouseToken}` } }
       );

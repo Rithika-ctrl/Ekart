@@ -354,11 +354,32 @@ public class WarehouseController {
                     .body(Map.of("error", "Warehouse not found"));
             }
 
+            // Get pending transfer legs from this warehouse
             List<WarehouseTransferLeg> transfers = warehouseTransferService.getPendingOutgoingTransfers(warehouse.get());
+            
+            // Extract unique orders and format for frontend display
+            List<Map<String, Object>> orders = transfers.stream()
+                .map(WarehouseTransferLeg::getOrder)
+                .distinct()
+                .map(order -> {
+                    Map<String, Object> o = new LinkedHashMap<>();
+                    o.put("id", order.getId());
+                    o.put("customerName", order.getCustomer() != null ? order.getCustomer().getName() : "Unknown");
+                    o.put("trackingStatus", order.getTrackingStatus().getDisplayName());
+                    o.put("deliveryPinCode", order.getDeliveryPinCode());
+                    o.put("totalPrice", order.getTotalPrice());
+                    o.put("paymentMethod", order.getPaymentMethod());
+                    o.put("sourceWarehouse", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : "");
+                    o.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : "");
+                    o.put("routingPath", order.getWarehouseRoutingPath());
+                    return o;
+                })
+                .collect(Collectors.toList());
             
             return ResponseEntity.ok(Map.of(
                 "warehouse", warehouse.get().getName(),
-                "pending_count", transfers.size(),
+                "pending_count", orders.size(),
+                "orders", orders,
                 "transfers", transfers
             ));
         } catch (Exception e) {

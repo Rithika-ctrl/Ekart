@@ -645,6 +645,7 @@ public class ReactApiController {
     @Autowired private WarehouseRepository                warehouseRepository;
     @Autowired private com.example.ekart.service.WarehouseService warehouseService;
     @Autowired private com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
+    @Autowired private com.example.ekart.service.WarehouseTransferService warehouseTransferService;
     @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
     @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
     @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
@@ -7982,14 +7983,36 @@ public class ReactApiController {
             String routingPath = warehouseRoutingService.calculateRoutingPath(order);
             order.setWarehouseRoutingPath(routingPath);
 
+            // IMPORTANT: Initiate warehouse transfer if source != destination
+            if (destinationWarehouse != null && 
+                order.getSourceWarehouse() != null &&
+                order.getSourceWarehouse().getId() != destinationWarehouse.getId()) {
+                
+                // Calculate optimal route between warehouses
+                List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
+                    order.getSourceWarehouse(), 
+                    destinationWarehouse
+                );
+                
+                // Create transfer legs for each warehouse hop
+                warehouseTransferService.initiateTransferLegs(order, transferRoute);
+                
+                System.out.println("[ReactApiController] Warehouse transfer initiated for Order #" + orderId + 
+                    ": " + order.getSourceWarehouse().getCity() + " -> " + destinationWarehouse.getCity() +
+                    " via " + (transferRoute.size() - 1) + " leg(s)");
+            }
+
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "orderId", orderId,
-                "newStatus", "WAREHOUSE_RECEIVED",
+                "newStatus", order.getTrackingStatus().toString(),
                 "destinationWarehouse", destinationWarehouse != null ? destinationWarehouse.getName() : "Unknown",
-                "routingPath", routingPath != null ? routingPath : "Direct"
+                "routingPath", routingPath != null ? routingPath : "Direct",
+                "transferInitiated", destinationWarehouse != null && 
+                    order.getSourceWarehouse() != null &&
+                    order.getSourceWarehouse().getId() != destinationWarehouse.getId()
             ));
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName() + ": Unknown error";
