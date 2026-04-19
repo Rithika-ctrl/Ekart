@@ -51,121 +51,10 @@ public class ReactApiController {
     private static final String STRONG_PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
     private static final String STRONG_PASSWORD_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // String constants (S1192 — eliminates duplicate-literal violations)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
+    // Dependencies (constructor-injected — replaces @Autowired field injection)
+    // ═══════════════════════════════════════════════════════
 
-    // JSON response / request body keys
-    private static final String KEY_ADMIN_ID = "adminId";
-    private static final String KEY_ADMIN_NOTE = "adminNote";
-    private static final String KEY_ASSIGNED_PIN_CODES = "assignedPinCodes";
-    private static final String KEY_CURRENT_PASSWORD = "currentPassword";
-    private static final String KEY_DELIVERY_BOY_ID = "deliveryBoyId";
-    private static final String KEY_DELIVERY_BOY_NAME = "deliveryBoyName";
-    private static final String KEY_ESTIMATED_DELIVERY = "estimatedDelivery";
-    private static final String KEY_IMAGE_LINK = "imageLink";
-    private static final String KEY_IS_AVAILABLE = "isAvailable";
-    private static final String KEY_NEW_PASSWORD = "newPassword";
-    private static final String KEY_NEW_STATUS = "newStatus";
-    private static final String KEY_ORDER_ID = "orderId";
-    private static final String KEY_PAYMENT_STATUS = "paymentStatus";
-    private static final String KEY_PRODUCT_ID = "productId";
-    private static final String KEY_RAZORPAY_ORDER_ID = "razorpayOrderId";
-    private static final String KEY_ROUTING_PATH = "routingPath";
-    private static final String KEY_SERVED_PIN_CODES = "servedPinCodes";
-    private static final String KEY_TOTAL_AMOUNT = "totalAmount";
-    private static final String KEY_VENDOR_ID = "vendorId";
-    private static final String KEY_WAREHOUSE_CODE = "warehouseCode";
-    private static final String KEY_WAREHOUSE_ID = "warehouseId";
-    private static final String KEY_WAREHOUSE_NAME = "warehouseName";
-
-    // HTTP header names
-    private static final String HEADER_AUTHORIZATION = "Authorization";
-    private static final String HEADER_CONTENT_DISPOSITION = "Content-Disposition";
-    private static final String HEADER_CUSTOMER_ID = "X-Customer-Id";
-    private static final String HEADER_VENDOR_ID = "X-Vendor-Id";
-
-    // JWT claim keys
-    private static final String CLAIM_ROLE = "react.role";
-    private static final String CLAIM_USER_ID = "react.userId";
-
-    // Role and status string values
-    private static final String ROLE_ADMIN = "ADMIN";
-    private static final String ROLE_DELIVERY_BOY = "delivery_boy";
-    private static final String ROLE_WAREHOUSE = "WAREHOUSE";
-    private static final String STATUS_DELIVERED = "DELIVERED";
-    private static final String STATUS_PAID = "PAID";
-    private static final String STATUS_PENDING = "PENDING";
-    private static final String STATUS_PROCESSING = "PROCESSING";
-    private static final String STATUS_SHIPPED = "SHIPPED";
-    private static final String STATUS_VERIFIED = "VERIFIED";
-
-    // Error and informational messages
-    private static final String ERR_ACCOUNT_NOT_FOUND = "Account not found";
-    private static final String ERR_ADMIN_ID_NOT_IN_TOKEN = "Admin ID not found in token";
-    private static final String ERR_ADMIN_REQUIRED = "Admin access required";
-    private static final String ERR_AUTH_FAILED = "Authentication failed: No valid JWT token";
-    private static final String ERR_BANNER_NOT_FOUND = "Banner not found";
-    private static final String ERR_CUSTOMER_NOT_FOUND = "Customer not found";
-    private static final String ERR_DELIVERY_BOY_NOT_FOUND = "Delivery boy not found";
-    private static final String ERR_DEPRECATION_TRACKING_DISABLED = "Deprecation tracking not enabled";
-    private static final String ERR_EMAIL_OTP_REQUIRED = "Email and OTP are required";
-    private static final String ERR_EMAIL_REQUIRED = "Email is required";
-    private static final String ERR_INVALID_OTP_FORMAT = "Invalid OTP format";
-    private static final String ERR_MISSING_CUSTOMER_HEADER = "Missing X-Customer-Id header";
-    private static final String ERR_NOT_WAREHOUSE = "Not authenticated as warehouse";
-    private static final String ERR_NO_ACCOUNT_FOR_EMAIL = "No account found with this email";
-    private static final String ERR_ORDER_NOT_ASSIGNED = "This order is not assigned to you";
-    private static final String ERR_ORDER_NOT_FOUND = "Order not found";
-    private static final String ERR_PRODUCT_NOT_FOUND = "Product not found";
-    private static final String ERR_UNAUTHORIZED = "Unauthorized";
-    private static final String ERR_VENDOR_NOT_FOUND = "Vendor not found";
-    private static final String ERR_WAREHOUSE_NOT_FOUND = "Warehouse not found";
-    private static final String FMT_OTP = "%06d";
-    private static final String MSG_PASSWORD_CHANGED = "Password changed successfully";
-    private static final String PREFIX_ORDER = "Order #";
-
-
-
-
-    private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
-
-        private static final Map<String, Double> GST_CATEGORY_RATES = Map.ofEntries(
-            Map.entry("groceries", 0.0),
-            Map.entry("fresh produce", 0.0),
-            Map.entry("dairy & eggs", 0.0),
-            Map.entry("meat & seafood", 0.0),
-            Map.entry("baby products", 0.0),
-            Map.entry("books", 0.0),
-            Map.entry("educational", 0.0),
-            Map.entry("snacks", 5.0),
-            Map.entry("beverages", 5.0),
-            Map.entry("health & wellness", 5.0),
-            Map.entry("medicines", 5.0),
-            Map.entry("apparel", 5.0),
-            Map.entry("footwear", 5.0),
-            Map.entry("textiles", 5.0),
-            Map.entry("home & kitchen", 12.0),
-            Map.entry("furniture", 12.0),
-            Map.entry("sports", 12.0),
-            Map.entry("stationery", 12.0),
-            Map.entry("toys & games", 12.0),
-            Map.entry("electronics", 18.0),
-            Map.entry("computers", 18.0),
-            Map.entry("mobile & tablets", 18.0),
-            Map.entry("appliances", 18.0),
-            Map.entry("beauty", 18.0),
-            Map.entry("personal care", 18.0),
-            Map.entry("software", 18.0),
-            Map.entry("services", 18.0),
-            Map.entry("gaming", 28.0),
-            Map.entry("luxury", 28.0),
-            Map.entry("automobile accessories", 28.0)
-        );
-        private static final double DEFAULT_GST_RATE = 18.0;
-
-
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CustomerRepository customerRepository;
     private final VendorRepository vendorRepository;
     private final ProductRepository productRepository;
@@ -203,6 +92,7 @@ public class ReactApiController {
     private final TrackingEventLogRepository trackingEventLogRepository;
     private final BannerRepository bannerRepository;
     private final StockAlertRepository stockAlertRepository;
+    /** Optional — only present when Thymeleaf templates are on the classpath. */
     private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
     public ReactApiController(
@@ -283,9 +173,48 @@ public class ReactApiController {
     }
 
     @Autowired(required = false)
-    public void setDeprecationTracker(com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
+    public void setDeprecationTracker(
+            com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
         this.deprecationTracker = deprecationTracker;
     }
+
+
+
+    private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+        private static final Map<String, Double> GST_CATEGORY_RATES = Map.ofEntries(
+            Map.entry("groceries", 0.0),
+            Map.entry("fresh produce", 0.0),
+            Map.entry("dairy & eggs", 0.0),
+            Map.entry("meat & seafood", 0.0),
+            Map.entry("baby products", 0.0),
+            Map.entry("books", 0.0),
+            Map.entry("educational", 0.0),
+            Map.entry("snacks", 5.0),
+            Map.entry("beverages", 5.0),
+            Map.entry("health & wellness", 5.0),
+            Map.entry("medicines", 5.0),
+            Map.entry("apparel", 5.0),
+            Map.entry("footwear", 5.0),
+            Map.entry("textiles", 5.0),
+            Map.entry("home & kitchen", 12.0),
+            Map.entry("furniture", 12.0),
+            Map.entry("sports", 12.0),
+            Map.entry("stationery", 12.0),
+            Map.entry("toys & games", 12.0),
+            Map.entry("electronics", 18.0),
+            Map.entry("computers", 18.0),
+            Map.entry("mobile & tablets", 18.0),
+            Map.entry("appliances", 18.0),
+            Map.entry("beauty", 18.0),
+            Map.entry("personal care", 18.0),
+            Map.entry("software", 18.0),
+            Map.entry("services", 18.0),
+            Map.entry("gaming", 28.0),
+            Map.entry("luxury", 28.0),
+            Map.entry("automobile accessories", 28.0)
+        );
+        private static final double DEFAULT_GST_RATE = 18.0;
 
     /**
      * In-memory coupon store: customerId → applied Coupon.
@@ -321,11 +250,11 @@ public class ReactApiController {
      * Returns a 403 ResponseEntity when the caller is not ADMIN, null otherwise.
      */
     private ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest request) {
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             Map<String, Object> err = new java.util.HashMap<>();
             err.put("success", false);
-            err.put("message", ERR_ADMIN_REQUIRED);
+            err.put("message", "Admin access required");
             return ResponseEntity.status(403).body(err);
         }
         return null;
@@ -382,7 +311,7 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String name = ((String) body.getOrDefault("name", "Customer")).trim();
             if (email.isEmpty()) {
-                res.put("success", false); res.put("message", ERR_EMAIL_REQUIRED);
+                res.put("success", false); res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             // Check only for VERIFIED customers (not temp pending ones)
@@ -392,7 +321,7 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             // Generate OTP and store in TEMPORARY cache only (not in DB)
-            String otp = String.format(FMT_OTP, new java.util.Random().nextInt(1000000));
+            String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
             registerOtpCache.put(email, new OtpData(otp, name));
             registerOtpVerified.remove(email);
             
@@ -555,7 +484,7 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             String name = ((String) body.getOrDefault("name", "Vendor")).trim();
             if (email.isEmpty()) {
-                res.put("success", false); res.put("message", ERR_EMAIL_REQUIRED);
+                res.put("success", false); res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             // Check only for VERIFIED vendors (not temp pending ones)
@@ -598,12 +527,12 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             
             if (email.isEmpty() || otpStr.isEmpty()) {
-                res.put("success", false); res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put("success", false); res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
             
             // 🔒 Format OTP with leading zeros (e.g., 1234 → "001234")
-            String formattedOtp = String.format(FMT_OTP, Integer.parseInt(otpStr));
+            String formattedOtp = String.format("%06d", Integer.parseInt(otpStr));
             
             // Verify OTP using secure service (hashed comparison)
             com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
@@ -663,7 +592,7 @@ public class ReactApiController {
             vendorRegisterOtpVerified.remove(email);
             res.put("success", true);
             res.put("message", "Registered successfully. Your store is under admin review.");
-            res.put(KEY_VENDOR_ID, v.getId());
+            res.put("vendorId", v.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false); res.put("message", "Registration failed: " + e.getMessage());
@@ -693,7 +622,7 @@ public class ReactApiController {
             }
             String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
             res.put("success", true);
-            res.put(KEY_VENDOR_ID, v.getId());
+            res.put("vendorId", v.getId());
             res.put("name", v.getName());
             res.put("email", v.getEmail());
             res.put("vendorCode", v.getVendorCode());
@@ -711,7 +640,7 @@ public class ReactApiController {
      * Authenticates admin via database-backed credentials with optional 2FA.
      * 
      * If 2FA is NOT enabled:
-     *   Returns: { success: true, adminId, name, email, token, role: ROLE_ADMIN }
+     *   Returns: { success: true, adminId, name, email, token, role: "ADMIN" }
      * 
      * If 2FA IS enabled:
      *   Returns: { success: true, adminId, requires2FA: true, message: "Please provide 2FA code" }
@@ -746,20 +675,20 @@ public class ReactApiController {
         if (authResult.isRequires2FA()) {
             // 2FA is enabled — client must provide TOTP code in next request
             res.put("success", true);
-            res.put(KEY_ADMIN_ID, authResult.getAdminId());
+            res.put("adminId", authResult.getAdminId());
             res.put("requires2FA", true);
             res.put("message", "Please provide 2FA code from your authenticator app");
             return ResponseEntity.ok(res);
         }
         
         // No 2FA — issue token immediately
-        String token = jwtUtil.generateToken(0, email, ROLE_ADMIN);
+        String token = jwtUtil.generateToken(0, email, "ADMIN");
         res.put("success", true);
-        res.put(KEY_ADMIN_ID, authResult.getAdminId());
+        res.put("adminId", authResult.getAdminId());
         res.put("name", authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
         res.put("email", email);
         res.put("token", token);
-        res.put("role", ROLE_ADMIN);
+        res.put("role", "ADMIN");
         return ResponseEntity.ok(res);
     }
 
@@ -777,7 +706,7 @@ public class ReactApiController {
         String totpCode = (String) body.get("totpCode");
         
         try {
-            adminId = ((Number) body.get(KEY_ADMIN_ID)).intValue();
+            adminId = ((Number) body.get("adminId")).intValue();
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", "Invalid adminId");
@@ -801,9 +730,9 @@ public class ReactApiController {
         
         // 2FA verification successful — issue token
         // Note: We fetch email from DB via adminAuthService to include in token
-        String token = jwtUtil.generateToken(0, "admin-" + adminId, ROLE_ADMIN);
+        String token = jwtUtil.generateToken(0, "admin-" + adminId, "ADMIN");
         res.put("success", true);
-        res.put(KEY_ADMIN_ID, adminId);
+        res.put("adminId", adminId);
         res.put("token", token);
         res.put("message", "2FA verification successful");
         return ResponseEntity.ok(res);
@@ -838,7 +767,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
             String decrypted = AES.decrypt(db.getPassword());
@@ -869,7 +798,7 @@ public class ReactApiController {
             String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
 
             res.put("success",       true);
-            res.put(KEY_DELIVERY_BOY_ID, db.getId());
+            res.put("deliveryBoyId", db.getId());
             res.put("name",          db.getName());
             res.put("email",         db.getEmail());
             res.put("accessToken",   token);  // AuthPage reads data.accessToken || data.token
@@ -923,11 +852,11 @@ public class ReactApiController {
      *   {
      *     "success": true,
      *     "token": "<JWT_TOKEN_with_role_WAREHOUSE_and_warehouseId>",
-     *     KEY_WAREHOUSE_ID: 45,
-     *     KEY_WAREHOUSE_NAME: "Bangalore Hub",
+     *     "warehouseId": 45,
+     *     "warehouseName": "Bangalore Hub",
      *     "city": "Bangalore",
-     *     KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
-     *     "role": ROLE_WAREHOUSE
+     *     "warehouseCode": "WH-BLR-12345678",
+     *     "role": "WAREHOUSE"
      *   }
      *
      * Error Responses:
@@ -987,21 +916,21 @@ public class ReactApiController {
 
             // Generate JWT with warehouseId and role=WAREHOUSE
             Map<String, Object> claims = new HashMap<>();
-            claims.put("role", ROLE_WAREHOUSE);
-            claims.put(KEY_WAREHOUSE_ID, warehouse.getId());
-            claims.put(KEY_WAREHOUSE_NAME, warehouse.getName());
-            claims.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
+            claims.put("role", "WAREHOUSE");
+            claims.put("warehouseId", warehouse.getId());
+            claims.put("warehouseName", warehouse.getName());
+            claims.put("warehouseCode", warehouse.getWarehouseCode());
             claims.put("city", warehouse.getCity());
 
             String token = jwtUtil.generateWarehouseToken(String.valueOf(warehouse.getId()), claims);
 
             res.put("success", true);
             res.put("token", token);
-            res.put(KEY_WAREHOUSE_ID, warehouse.getId());
-            res.put(KEY_WAREHOUSE_NAME, warehouse.getName());
+            res.put("warehouseId", warehouse.getId());
+            res.put("warehouseName", warehouse.getName());
             res.put("city", warehouse.getCity());
-            res.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
-            res.put("role", ROLE_WAREHOUSE);
+            res.put("warehouseCode", warehouse.getWarehouseCode());
+            res.put("role", "WAREHOUSE");
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -1028,7 +957,7 @@ public class ReactApiController {
             String confirmPassword = ((String) body.getOrDefault("confirmPassword", "")).trim();
             String mobileStr       = body.getOrDefault("mobile", "").toString().trim();
             int warehouseId;
-            try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
+            try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
             catch (NumberFormatException e) { warehouseId = 0; }
 
             if (name.length() < 3)                    { res.put("success", false); res.put("message", "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
@@ -1075,7 +1004,7 @@ public class ReactApiController {
 
             res.put("success",       true);
             res.put("message",       "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
-            res.put(KEY_DELIVERY_BOY_ID, db.getId());
+            res.put("deliveryBoyId", db.getId());
             res.put("email",         email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -1101,7 +1030,7 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
             int otpInt;
@@ -1115,7 +1044,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
             if (db.isVerified()) {
@@ -1124,7 +1053,7 @@ public class ReactApiController {
                 return ResponseEntity.ok(res);
             }
             // 🔒 Format OTP with leading zeros (e.g., 352410 → "352410")
-            String formattedOtp = String.format(FMT_OTP, otpInt);
+            String formattedOtp = String.format("%06d", otpInt);
             com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
             
             if (!result.success) {
@@ -1164,13 +1093,13 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
             if (db.isVerified()) {
@@ -1285,7 +1214,7 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             Customer customer = customerRepository.findByEmail(email);
@@ -1321,19 +1250,19 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
             Customer customer = customerRepository.findByEmail(email);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
             int otp;
             try { otp = Integer.parseInt(otpStr); } catch (NumberFormatException ex) {
                 res.put("success", false);
-                res.put("message", ERR_INVALID_OTP_FORMAT);
+                res.put("message", "Invalid OTP format");
                 return ResponseEntity.badRequest().body(res);
             }
             if (customer.getOtp() != otp) {
@@ -1360,7 +1289,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String newPassword = (String) body.get(KEY_NEW_PASSWORD);
+            String newPassword = (String) body.get("newPassword");
             if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
                 res.put("success", false);
                 res.put("message", "Email and new password are required");
@@ -1374,7 +1303,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findByEmail(email);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(newPassword)) {
@@ -1407,7 +1336,7 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put("message", "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             Vendor vendor = vendorRepository.findByEmail(email);
@@ -1450,14 +1379,14 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put("success", false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put("message", "Email and OTP are required");
                 return ResponseEntity.badRequest().body(res);
             }
             
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 res.put("success", false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put("message", "No account found with this email");
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -1465,12 +1394,12 @@ public class ReactApiController {
             try { otpInt = Integer.parseInt(otpStr); }
             catch (NumberFormatException ex) {
                 res.put("success", false);
-                res.put("message", ERR_INVALID_OTP_FORMAT);
+                res.put("message", "Invalid OTP format");
                 return ResponseEntity.badRequest().body(res);
             }
             
             // 🔒 Format OTP with leading zeros and verify using secure service
-            String formattedOtp = String.format(FMT_OTP, otpInt);
+            String formattedOtp = String.format("%06d", otpInt);
             com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_PASSWORD_RESET);
             
             if (!result.success) {
@@ -1498,7 +1427,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email       = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
-            String newPassword = (String) body.get(KEY_NEW_PASSWORD);
+            String newPassword = (String) body.get("newPassword");
             if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
                 res.put("success", false);
                 res.put("message", "Email and new password are required");
@@ -1512,7 +1441,7 @@ public class ReactApiController {
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(newPassword)) {
@@ -1612,7 +1541,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || !p.isApproved()) {
-            res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND);
+            res.put("success", false); res.put("message", "Product not found");
             return ResponseEntity.badRequest().body(res);
         }
         Map<String, Object> pm = mapProduct(p);
@@ -1672,11 +1601,11 @@ public class ReactApiController {
 
     /** GET /api/flutter/cart */
     @GetMapping("/cart")
-    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
         if (cart == null) { res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put("count", 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
@@ -1754,16 +1683,16 @@ public class ReactApiController {
      */
     @PostMapping("/cart/coupon")
     public ResponseEntity<Map<String, Object>> applyCoupon(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put("success", false); res.put("message", "Customer not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -1815,10 +1744,10 @@ public class ReactApiController {
      */
     @DeleteMapping("/cart/coupon")
     public ResponseEntity<Map<String, Object>> removeCoupon(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         appliedCoupons.remove(customerId);
@@ -1829,16 +1758,16 @@ public class ReactApiController {
         /** POST /api/flutter/cart/add */
     @PostMapping("/cart/add")
         public ResponseEntity<Map<String, Object>> addToCart(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-                if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+                if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-            int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
+            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+            int productId = Integer.parseInt(body.get("productId").toString());
             Product product = productRepository.findById(productId).orElse(null);
-            if (product == null || !product.isApproved()) { res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (product == null || !product.isApproved()) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
             if (product.getStock() <= 0) { res.put("success", false); res.put("message", "Product out of stock"); return ResponseEntity.badRequest().body(res); }
             Cart cart = customer.getCart();
             if (cart == null) { cart = new Cart(); customer.setCart(cart); }
@@ -1865,9 +1794,9 @@ public class ReactApiController {
     /** DELETE /api/flutter/cart/remove/{productId} */
     @DeleteMapping("/cart/remove/{productId}")
         public ResponseEntity<Map<String, Object>> removeFromCart(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int productId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         List<Item> toRemove = customer.getCart().getItems().stream()
@@ -1887,13 +1816,13 @@ public class ReactApiController {
     /** PUT /api/flutter/cart/update */
     @PutMapping("/cart/update")
         public ResponseEntity<Map<String, Object>> updateCart(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
-        int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
+        int productId = Integer.parseInt(body.get("productId").toString());
         int quantity  = Integer.parseInt(body.get("quantity").toString());
         Cart cart = customer.getCart();
         if (quantity <= 0) {
@@ -1921,14 +1850,14 @@ public class ReactApiController {
     /** POST /api/flutter/orders/place — splits cart by vendor into sub-orders */
     @PostMapping("/orders/place")
     public ResponseEntity<Map<String, Object>> placeOrder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
-                res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+                res.put("success", false); res.put("message", "Customer not found");
                 return ResponseEntity.badRequest().body(res);
             }
             Cart cart = customer.getCart();
@@ -2095,7 +2024,7 @@ public class ReactApiController {
 
             res.put("success",        true);
             res.put("message",        "Order placed successfully");
-            res.put(KEY_ORDER_ID,        firstOrder.getId());
+            res.put("orderId",        firstOrder.getId());
             res.put("subOrderIds",    subOrderIds);
             res.put("totalPrice",     discountedTotal + deliveryCharge);
             res.put("couponDiscount", couponDiscount);
@@ -2127,12 +2056,12 @@ public class ReactApiController {
      */
     @PostMapping("/orders/checkout")
     public ResponseEntity<Map<String, Object>> createRazorpayOrder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put("success", false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2140,7 +2069,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_CUSTOMER_NOT_FOUND);
+                res.put("message", "Customer not found");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -2190,7 +2119,7 @@ public class ReactApiController {
 
             if ((boolean) razorpayOrderDetails.getOrDefault("succeeded", false)) {
                 res.put("success", true);
-                res.put(KEY_RAZORPAY_ORDER_ID, razorpayOrderDetails.get(KEY_RAZORPAY_ORDER_ID));
+                res.put("razorpayOrderId", razorpayOrderDetails.get("razorpayOrderId"));
                 res.put("razorpayKeyId", razorpayOrderDetails.get("razorpayKeyId"));
                 res.put("amount", razorpayOrderDetails.get("amount"));
                 res.put("currency", razorpayOrderDetails.get("currency"));
@@ -2201,7 +2130,7 @@ public class ReactApiController {
                 res.put("subtotal", subtotal);
                 res.put("couponDiscount", couponDiscount);
                 res.put("deliveryCharge", deliveryCharge);
-                res.put(KEY_TOTAL_AMOUNT, totalAmount);
+                res.put("totalAmount", totalAmount);
                 return ResponseEntity.ok(res);
             } else {
                 res.put("success", false);
@@ -2227,17 +2156,17 @@ public class ReactApiController {
      */
     @PostMapping("/orders/callback")
     public ResponseEntity<Map<String, Object>> verifyRazorpayPayment(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put("success", false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
 
         try {
-            String razorpayOrderId = (String) body.get(KEY_RAZORPAY_ORDER_ID);
+            String razorpayOrderId = (String) body.get("razorpayOrderId");
             String razorpayPaymentId = (String) body.get("razorpayPaymentId");
             String signature = (String) body.get("signature");
 
@@ -2258,7 +2187,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_CUSTOMER_NOT_FOUND);
+                res.put("message", "Customer not found");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -2275,7 +2204,7 @@ public class ReactApiController {
             res.put("success", true);
             res.put("message", "Payment verified successfully");
             res.put("razorpayPaymentId", razorpayPaymentId);
-            res.put(KEY_RAZORPAY_ORDER_ID, razorpayOrderId);
+            res.put("razorpayOrderId", razorpayOrderId);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -2287,11 +2216,11 @@ public class ReactApiController {
 
     /** GET /api/flutter/orders */
     @GetMapping("/orders")
-    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
         res.put("success", true);
         res.put("orders", orders.stream().map(this::mapOrder).collect(Collectors.toList()));
@@ -2301,11 +2230,11 @@ public class ReactApiController {
     /** GET /api/flutter/orders/{id} */
     @GetMapping("/orders/{id}")
     public ResponseEntity<Map<String, Object>> getOrder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         res.put("success", true); res.put("order", mapOrder(order));
         return ResponseEntity.ok(res);
     }
@@ -2320,12 +2249,12 @@ public class ReactApiController {
      * {
      *   success         : true,
      *   orderId         : int,
-     *   currentStatus   : STATUS_SHIPPED,
+     *   currentStatus   : "SHIPPED",
      *   currentCity     : "Chennai",
      *   progressPercent : 33,
      *   estimatedDelivery: "2026-03-31T14:00:00"   // omitted when delivered/cancelled
      *   history: [
-     *     { status: STATUS_PROCESSING, location: "Mumbai", description: "Order confirmed",
+     *     { status: "PROCESSING", location: "Mumbai", description: "Order confirmed",
      *       timestamp: "2026-03-29T10:00:00" },
      *     ...
      *   ]
@@ -2333,16 +2262,16 @@ public class ReactApiController {
      */
     @GetMapping("/orders/{id}/track")
     public ResponseEntity<Map<String, Object>> trackOrder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer() == null || order.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("success", false); res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -2360,7 +2289,7 @@ public class ReactApiController {
         }).collect(Collectors.toList());
 
         res.put("success",          true);
-        res.put(KEY_ORDER_ID,          order.getId());
+        res.put("orderId",          order.getId());
         res.put("currentStatus",    status != null ? status.name() : null);
         res.put("currentCity",      order.getCurrentCity());
         res.put("progressPercent",  status != null ? status.getProgressPercent() : 0);
@@ -2370,7 +2299,7 @@ public class ReactApiController {
                 && status != TrackingStatus.DELIVERED
                 && status != TrackingStatus.CANCELLED
                 && status != TrackingStatus.REFUNDED) {
-            res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
+            res.put("estimatedDelivery", order.getOrderDate().plusHours(48).toString());
         }
 
         res.put("history", history);
@@ -2385,20 +2314,20 @@ public class ReactApiController {
      */
     @GetMapping("/customer/orders/{orderId}/tracking")
     public ResponseEntity<Map<String, Object>> customerOrderTracking(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId) {
         try {
             Order order = orderRepository.findById(orderId).orElseThrow(
-                () -> new RuntimeException(ERR_ORDER_NOT_FOUND)
+                () -> new RuntimeException("Order not found")
             );
 
             Map<String, Object> res = new LinkedHashMap<>();
-            res.put(KEY_ORDER_ID, orderId);
+            res.put("orderId", orderId);
             res.put("status", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
             res.put("statusDisplay", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "Unknown");
             res.put("paymentMethod", order.getPaymentMethod());
-            res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
-            res.put(KEY_ROUTING_PATH, order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
+            res.put("paymentStatus", order.getPaymentStatus());
+            res.put("routingPath", order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
             res.put("sourceWarehouse", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : "N/A");
             res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : "N/A");
             res.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : "N/A");
@@ -2413,9 +2342,9 @@ public class ReactApiController {
                 TrackingStatus status = order.getTrackingStatus();
                 if (status != TrackingStatus.DELIVERED && status != TrackingStatus.CANCELLED 
                     && status != TrackingStatus.REFUNDED) {
-                    res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
+                    res.put("estimatedDelivery", order.getOrderDate().plusHours(48).toString());
                 } else {
-                    res.put(KEY_ESTIMATED_DELIVERY, null);
+                    res.put("estimatedDelivery", null);
                 }
             }
             
@@ -2431,11 +2360,11 @@ public class ReactApiController {
     /** POST /api/flutter/orders/{id}/cancel */
     @PostMapping("/orders/{id}/cancel")
     public ResponseEntity<Map<String, Object>> cancelOrder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put("success", false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
         for (Item item : order.getItems()) {
             if (item.getProductId() != null) {
@@ -2455,11 +2384,11 @@ public class ReactApiController {
     /** POST /api/react/orders/{id}/request-replacement */
     @PostMapping("/orders/{id}/request-replacement")
     public ResponseEntity<Map<String, Object>> requestReplacement(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put("success", false); res.put("message", "Can only request replacement for delivered orders"); return ResponseEntity.badRequest().body(res); }
         
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
@@ -2500,7 +2429,7 @@ public class ReactApiController {
      */
     @PostMapping("/orders/{id}/report-issue")
     public ResponseEntity<Map<String, Object>> reportIssue(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id,
             @RequestBody Map<String, String> body,
             HttpServletRequest req) {
@@ -2510,7 +2439,7 @@ public class ReactApiController {
         // ── 1. Auth check ──────────────────────────────────────────────────
         if (customerId == null) {
             res.put("success", false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2518,7 +2447,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -2557,7 +2486,7 @@ public class ReactApiController {
         // ── 6. Respond ─────────────────────────────────────────────────────
         res.put("success", true);
         res.put("message", "Your issue has been reported. Our team will review it shortly.");
-        res.put(KEY_ORDER_ID, id);
+        res.put("orderId", id);
         res.put("reason", reason);
         return ResponseEntity.ok(res);
     }
@@ -2579,14 +2508,14 @@ public class ReactApiController {
      */
     @GetMapping("/orders/{id}/invoice")
     public ResponseEntity<?> downloadOrderInvoice(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id) {
         
         // ── 1. Auth check ──────────────────────────────────────────────────
         if (customerId == null) {
             Map<String, Object> res = new HashMap<>();
             res.put("success", false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2595,7 +2524,7 @@ public class ReactApiController {
         if (order == null || order.getCustomer().getId() != customerId) {
             Map<String, Object> res = new HashMap<>();
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -2614,7 +2543,7 @@ public class ReactApiController {
             String fileName = "Order_" + id + "_Invoice.pdf";
             return ResponseEntity.ok()
                     .header("Content-Type", "application/pdf")
-                    .header(HEADER_CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                    .header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
                     .body(pdfContent);
 
         } catch (Exception e) {
@@ -2635,18 +2564,18 @@ public class ReactApiController {
 
     /** GET /api/flutter/wishlist */
     @GetMapping("/wishlist")
-    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
         List<Map<String, Object>> items = wishlist.stream().map(w -> {
             Map<String, Object> m = new HashMap<>();
             Product p = w.getProduct();
             m.put("wishlistId", w.getId()); m.put("addedAt", w.getAddedAt() != null ? w.getAddedAt().toString() : null);
-            m.put(KEY_PRODUCT_ID, p.getId()); m.put("name", p.getName()); m.put("price", p.getPrice());
-            m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
+            m.put("productId", p.getId()); m.put("name", p.getName()); m.put("price", p.getPrice());
+            m.put("imageLink", p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
             return m;
         }).collect(Collectors.toList());
         res.put("success", true); res.put("count", items.size()); res.put("items", items);
@@ -2655,11 +2584,11 @@ public class ReactApiController {
 
     /** GET /api/flutter/wishlist/ids */
     @GetMapping("/wishlist/ids")
-    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
                 .map(w -> w.getProduct().getId()).collect(Collectors.toList());
         res.put("success", true); res.put("ids", ids);
@@ -2669,16 +2598,16 @@ public class ReactApiController {
     /** POST /api/flutter/wishlist/toggle */
     @PostMapping("/wishlist/toggle")
     public ResponseEntity<Map<String, Object>> toggleWishlist(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        Integer productId = body.get(KEY_PRODUCT_ID);
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        Integer productId = body.get("productId");
         if (productId == null) { res.put("success", false); res.put("message", "productId is required"); return ResponseEntity.badRequest().body(res); }
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
                 .filter(w -> w.getProduct().getId() == productId).collect(Collectors.toList());
         if (!existing.isEmpty()) {
@@ -2698,11 +2627,11 @@ public class ReactApiController {
 
     /** GET /api/flutter/profile */
     @GetMapping("/profile")
-    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", customer.getId()); profile.put("name", customer.getName());
         profile.put("email", customer.getEmail()); profile.put("mobile", customer.getMobile());
@@ -2730,12 +2659,12 @@ public class ReactApiController {
     /** PUT /api/flutter/profile/update */
     @PutMapping("/profile/update")
     public ResponseEntity<Map<String, Object>> updateProfile(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
         if (body.containsKey("mobile")) customer.setMobile(Long.parseLong(body.get("mobile").toString()));
         customerRepository.save(customer);
@@ -2750,12 +2679,12 @@ public class ReactApiController {
      */
     @PostMapping("/profile/address/add")
     public ResponseEntity<Map<String, Object>> addAddress(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
         Address address = new Address();
         address.setCustomer(customer);
@@ -2789,11 +2718,11 @@ public class ReactApiController {
     /** DELETE /api/flutter/profile/address/{id}/delete */
     @DeleteMapping("/profile/address/{id}/delete")
     public ResponseEntity<Map<String, Object>> deleteAddress(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
         customerRepository.save(customer);
         res.put("success", true); res.put("message", "Address deleted");
@@ -2807,17 +2736,17 @@ public class ReactApiController {
     /** POST /api/flutter/reviews/add */
     @PostMapping("/reviews/add")
     public ResponseEntity<Map<String, Object>> addReview(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        int productId = Integer.parseInt(body.get("productId").toString());
         int rating    = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
         if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
             res.put("success", false); res.put("message", "You have already reviewed this product");
             return ResponseEntity.badRequest().body(res);
@@ -2843,16 +2772,16 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> uploadReviewImageFlutter(
             @PathVariable int reviewId,
             @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put("success", false); res.put("message", "Customer not found");
             return ResponseEntity.status(404).body(res);
         }
         Review review = reviewRepository.findById(reviewId).orElse(null);
@@ -2921,11 +2850,11 @@ public class ReactApiController {
 
     /** GET /api/flutter/spending-summary */
     @GetMapping("/spending-summary")
-    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+    public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).collect(Collectors.toList());
         if (delivered.isEmpty()) { res.put("success", true); res.put("hasData", false); return ResponseEntity.ok(res); }
@@ -2962,18 +2891,18 @@ public class ReactApiController {
     /** POST /api/flutter/refund/request  —  body: { orderId, reason, type } */
     @PostMapping("/refund/request")
     public ResponseEntity<Map<String, Object>> requestRefund(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-            int orderId  = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
+            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+            int orderId  = Integer.parseInt(body.get("orderId").toString());
             String reason = (String) body.getOrDefault("reason", "");
             String type   = (String) body.getOrDefault("type", "REFUND");
             Order order = orderRepository.findById(orderId).orElse(null);
-            if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
             if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put("success", false); res.put("message", "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
             Refund refund = new Refund();
             refund.setOrder(order); refund.setCustomer(customer);
@@ -2991,11 +2920,11 @@ public class ReactApiController {
     /** GET /api/flutter/refund/status/{orderId} */
     @GetMapping("/refund/status/{orderId}")
     public ResponseEntity<Map<String, Object>> getRefundStatus(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int orderId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
         if (refunds.isEmpty()) { res.put("success", true); res.put("hasRefund", false); return ResponseEntity.ok(res); }
         Refund latest = refunds.get(refunds.size() - 1);
@@ -3034,16 +2963,16 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> uploadRefundImageFlutter(
             @PathVariable int refundId,
             @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put("success", false); res.put("message", "Customer not found");
             return ResponseEntity.status(404).body(res);
         }
         Refund refund = refundRepository.findById(refundId).orElse(null);
@@ -3115,11 +3044,11 @@ public class ReactApiController {
     @GetMapping("/refund/{refundId}/images")
     public ResponseEntity<Map<String, Object>> getRefundImagesFlutter(
             @PathVariable int refundId,
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId) {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put("success", false); res.put("message", "Missing X-Customer-Id header");
             return ResponseEntity.status(401).body(res);
         }
         Refund refund = refundRepository.findById(refundId).orElse(null);
@@ -3152,10 +3081,10 @@ public class ReactApiController {
 
     /** GET /api/flutter/vendor/products */
     @GetMapping("/vendor/products")
-    public ResponseEntity<Map<String, Object>> getVendorProducts(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+    public ResponseEntity<Map<String, Object>> getVendorProducts(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         res.put("success", true);
         res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
@@ -3165,10 +3094,10 @@ public class ReactApiController {
 
     /** GET /api/flutter/vendor/orders */
     @GetMapping("/vendor/orders")
-    public ResponseEntity<Map<String, Object>> getVendorOrders(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+    public ResponseEntity<Map<String, Object>> getVendorOrders(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).collect(Collectors.toList());
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
         List<Map<String, Object>> vendorOrders = allOrders.stream().map(order -> {
@@ -3198,7 +3127,7 @@ public class ReactApiController {
      */
     @PostMapping("/vendor/orders/{orderId}/mark-packed")
     public ResponseEntity<Map<String, Object>> vendorMarkOrderPacked(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
 
@@ -3206,7 +3135,7 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
             res.put("success", false);
-            res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put("message", "Vendor not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3214,7 +3143,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -3248,8 +3177,8 @@ public class ReactApiController {
 
         res.put("success", true);
         res.put("message", "Order marked as packed");
-        res.put(KEY_ORDER_ID, orderId);
-        res.put(KEY_NEW_STATUS, TrackingStatus.PACKED.name());
+        res.put("orderId", orderId);
+        res.put("newStatus", TrackingStatus.PACKED.name());
         if (order.getSourceWarehouse() != null) {
             res.put("sourceWarehouse", order.getSourceWarehouse().getName());
         }
@@ -3258,10 +3187,10 @@ public class ReactApiController {
 
     /** GET /api/flutter/vendor/stats */
     @GetMapping("/vendor/stats")
-    public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+    public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
         List<Order> orders = orderRepository.findOrdersByVendor(vendor);
@@ -3284,13 +3213,13 @@ public class ReactApiController {
     /** POST /api/react/vendor/products/add — Accepts multipart/form-data */
     @PostMapping(value = "/vendor/products/add", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorAddProduct(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestParam("name") String name,
             @RequestParam("description") String description,
             @RequestParam("price") String price,
             @RequestParam("category") String category,
             @RequestParam("stock") String stock,
-            @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
+            @RequestParam(value = "imageLink", required = false) String imageLink,
             @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
             @RequestParam(value = "mrp", required = false) String mrp,
             @RequestParam(value = "gstRate", required = false) String gstRate,
@@ -3298,7 +3227,7 @@ public class ReactApiController {
             @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         try {
             Product p = new Product();
             p.setName(name);
@@ -3336,7 +3265,7 @@ public class ReactApiController {
             }
             
             productRepository.save(p);
-            res.put("success", true); res.put("message", "Product added. Pending admin approval."); res.put(KEY_PRODUCT_ID, p.getId());
+            res.put("success", true); res.put("message", "Product added. Pending admin approval."); res.put("productId", p.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
@@ -3344,21 +3273,21 @@ public class ReactApiController {
     /** PUT /api/react/vendor/products/{id}/update — Accepts multipart/form-data */
     @PutMapping(value = "/vendor/products/{id}/update", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorUpdateProduct(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @PathVariable int id,
             @RequestParam(value = "name", required = false) String name,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "price", required = false) String price,
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "stock", required = false) String stock,
-            @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
+            @RequestParam(value = "imageLink", required = false) String imageLink,
             @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
             @RequestParam(value = "mrp", required = false) String mrp,
             @RequestParam(value = "gstRate", required = false) String gstRate,
             @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
@@ -3391,10 +3320,10 @@ public class ReactApiController {
     /** DELETE /api/flutter/vendor/products/{id}/delete */
     @DeleteMapping("/vendor/products/{id}/delete")
     public ResponseEntity<Map<String, Object>> vendorDeleteProduct(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId, @PathVariable int id) {
+            @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         productRepository.delete(p);
@@ -3404,10 +3333,10 @@ public class ReactApiController {
 
     /** GET /api/react/vendor/categories — Returns all available product categories for vendor to select from */
     @GetMapping("/vendor/categories")
-    public ResponseEntity<Map<String, Object>> getVendorCategories(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+    public ResponseEntity<Map<String, Object>> getVendorCategories(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         // Return all unique categories from approved products (for reference), or a predefined list
         List<String> categories = productRepository.findByApprovedTrue()
                 .stream().map(Product::getCategory).filter(Objects::nonNull)
@@ -3432,14 +3361,14 @@ public class ReactApiController {
      */
     @PostMapping("/vendor/products/upload-csv")
     public ResponseEntity<Map<String, Object>> vendorUploadCsv(
-            @RequestHeader(value = HEADER_VENDOR_ID, required = false) Integer vendorId,
+            @RequestHeader(value = "X-Vendor-Id", required = false) Integer vendorId,
             @RequestParam("file") MultipartFile file,
             jakarta.servlet.http.HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
         // Allow header to be omitted when the request carries a valid JWT — fall back
-        // to the parsed token subject set by ReactAuthFilter (request attribute CLAIM_USER_ID).
+        // to the parsed token subject set by ReactAuthFilter (request attribute "react.userId").
         if (vendorId == null) {
-            Object attr = request.getAttribute(CLAIM_USER_ID);
+            Object attr = request.getAttribute("react.userId");
             if (attr instanceof Integer) vendorId = (Integer) attr;
             else if (attr instanceof Number) vendorId = ((Number) attr).intValue();
         }
@@ -3536,7 +3465,7 @@ public class ReactApiController {
     @PostMapping(value = "/admin/products/upload-csv", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> adminUploadProductCsv(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = KEY_VENDOR_ID, required = false) Integer vendorId,
+            @RequestParam(value = "vendorId", required = false) Integer vendorId,
             @RequestParam(value = "autoApprove", required = false, defaultValue = "true") boolean autoApprove,
             jakarta.servlet.http.HttpServletRequest request) {
 
@@ -3685,12 +3614,12 @@ public class ReactApiController {
     /** GET /api/flutter/vendor/sales-report?period=weekly|monthly|daily */
     @GetMapping("/vendor/sales-report")
     public ResponseEntity<Map<String, Object>> vendorSalesReport(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestParam(value = "period", defaultValue = "weekly") String period) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
-            res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put("success", false); res.put("message", "Vendor not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3854,7 +3783,7 @@ public class ReactApiController {
         m.put("gstRateResolved", resolvedGstRate);
         m.put("category", p.getCategory()); m.put("stock", p.getStock());
         m.put("stockAlertThreshold", p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
-        m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
+        m.put("imageLink", p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
         m.put("vendorName", p.getVendorName());
@@ -3868,7 +3797,7 @@ public class ReactApiController {
         m.put("id", i.getId()); m.put("name", i.getName()); m.put("description", i.getDescription());
         m.put("price", i.getPrice()); m.put("category", i.getCategory());
         m.put("gstRateResolved", resolvedGstRate);
-        m.put("quantity", i.getQuantity()); m.put(KEY_IMAGE_LINK, i.getImageLink()); m.put(KEY_PRODUCT_ID, i.getProductId());
+        m.put("quantity", i.getQuantity()); m.put("imageLink", i.getImageLink()); m.put("productId", i.getProductId());
         return m;
     }
 
@@ -3980,7 +3909,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Customer c = customerRepository.findById(id).orElse(null);
-        if (c == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (c == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         c.setActive(!c.isActive());
         customerRepository.save(c);
         res.put("success", true); res.put("message", c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
@@ -4022,7 +3951,7 @@ public class ReactApiController {
 
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put("success", false); res.put("message", "Customer not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -4046,7 +3975,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Vendor v = vendorRepository.findById(id).orElse(null);
-        if (v == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (v == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         v.setVerified(!v.isVerified());
         vendorRepository.save(v);
         res.put("success", true); res.put("message", v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
@@ -4073,7 +4002,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
         p.setApproved(true);
         productRepository.save(p);
         res.put("success", true); res.put("message", "Product approved and is now visible to customers");
@@ -4087,7 +4016,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
         p.setApproved(false);
         productRepository.save(p);
         res.put("success", true); res.put("message", "Product rejected / hidden from customers");
@@ -4208,8 +4137,8 @@ public class ReactApiController {
 
         return ResponseEntity.ok()
             .header("Content-Type", "text/csv; charset=UTF-8")
-            .header(HEADER_CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-            .header("Access-Control-Expose-Headers", HEADER_CONTENT_DISPOSITION)
+            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+            .header("Access-Control-Expose-Headers", "Content-Disposition")
             .body(bytes);
     }
 
@@ -4229,7 +4158,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
         res.put("success", true);
@@ -4246,7 +4175,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
         try {
             TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
             order.setTrackingStatus(newStatus);
@@ -4277,7 +4206,7 @@ public class ReactApiController {
         com.example.ekart.dto.Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
             res.put("success", false);
-            res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put("message", "Customer not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -4326,7 +4255,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED) {
@@ -4371,9 +4300,9 @@ public class ReactApiController {
         }
 
         res.put("success", true);
-        res.put("message", PREFIX_ORDER + id + " cancelled successfully");
+        res.put("message", "Order #" + id + " cancelled successfully");
         res.put("reason", reason);
-        res.put(KEY_ORDER_ID, id);
+        res.put("orderId", id);
         return ResponseEntity.ok(res);
     }
 
@@ -4540,7 +4469,7 @@ public class ReactApiController {
      *   // Products per category     { "Electronics": 12, ... }
      *   categoryStats    : Map<String,Long>,
      *
-     *   // Status breakdown          { STATUS_DELIVERED: 40, STATUS_PROCESSING: 5, ... }
+     *   // Status breakdown          { "DELIVERED": 40, "PROCESSING": 5, ... }
      *   statusBreakdown  : Map<String,Long>
      * }
      */
@@ -4551,10 +4480,10 @@ public class ReactApiController {
         if (_guard != null) return _guard;
 
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
 
         // ── Core counts ──────────────────────────────────────────────────────
@@ -4585,9 +4514,9 @@ public class ReactApiController {
             String status = o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "UNKNOWN";
             statusBreakdown.merge(status, 1L, Long::sum);
         }
-        long deliveredOrders  = statusBreakdown.getOrDefault(STATUS_DELIVERED,    0L);
-        long processingOrders = statusBreakdown.getOrDefault(STATUS_PROCESSING,   0L);
-        long shippedOrders    = statusBreakdown.getOrDefault(STATUS_SHIPPED,      0L);
+        long deliveredOrders  = statusBreakdown.getOrDefault("DELIVERED",    0L);
+        long processingOrders = statusBreakdown.getOrDefault("PROCESSING",   0L);
+        long shippedOrders    = statusBreakdown.getOrDefault("SHIPPED",      0L);
         long cancelledOrders  = statusBreakdown.getOrDefault("CANCELLED",    0L);
 
         // ── Daily orders — last 7 days ───────────────────────────────────────
@@ -4786,10 +4715,10 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
         List<Review> all = reviewRepository.findAll();
         // Sort newest first (nulls last)
@@ -4806,7 +4735,7 @@ public class ReactApiController {
             m.put("comment",      r.getComment());
             m.put("customerName", r.getCustomerName());
             m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
-            m.put(KEY_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId()   : null);
+            m.put("productId",    r.getProduct() != null ? r.getProduct().getId()   : null);
             m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
             return m;
         }).collect(Collectors.toList());
@@ -4833,10 +4762,10 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
         if (!reviewRepository.existsById(id)) {
             return ResponseEntity.status(404)
@@ -4853,7 +4782,7 @@ public class ReactApiController {
     /**
      * GET /api/flutter/admin/refunds
      * Returns ALL refunds (pending + processed) so AdminApp can filter client-side.
-     * AdminApp filters by r.status === STATUS_PENDING for the pending badge count.
+     * AdminApp filters by r.status === "PENDING" for the pending badge count.
      */
     @GetMapping("/admin/refunds")
     public ResponseEntity<Map<String, Object>> adminGetRefunds(
@@ -4861,17 +4790,17 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
                 .map(r -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id",              r.getId());
-                    m.put(KEY_ORDER_ID,         r.getOrder() != null ? r.getOrder().getId() : null);
+                    m.put("orderId",         r.getOrder() != null ? r.getOrder().getId() : null);
                     m.put("customerName",    r.getCustomer() != null ? r.getCustomer().getName() : null);
                     m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
                     m.put("amount",          r.getAmount());
@@ -4903,15 +4832,15 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
-        Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
+        Integer adminId = (Integer) request.getAttribute("react.userId");
         if (adminId == null) {
             return ResponseEntity.status(403)
-                .body(Map.of("success", false, "message", ERR_ADMIN_ID_NOT_IN_TOKEN));
+                .body(Map.of("success", false, "message", "Admin ID not found in token"));
         }
         String adminEmail = adminAuthService.getAdminEmailById(adminId);
         Map<String, Object> result = refundService.approveRefund(id, adminEmail);
@@ -4936,15 +4865,15 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
 
-        String role = (String) request.getAttribute(CLAIM_ROLE);
-        if (!ROLE_ADMIN.equals(role)) {
+        String role = (String) request.getAttribute("react.role");
+        if (!"ADMIN".equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of("success", false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of("success", false, "message", "Admin access required"));
         }
-        Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
+        Integer adminId = (Integer) request.getAttribute("react.userId");
         if (adminId == null) {
             return ResponseEntity.status(403)
-                .body(Map.of("success", false, "message", ERR_ADMIN_ID_NOT_IN_TOKEN));
+                .body(Map.of("success", false, "message", "Admin ID not found in token"));
         }
         String adminEmail = adminAuthService.getAdminEmailById(adminId);
         String reason = body.getOrDefault("reason", "").toString().trim();
@@ -4982,12 +4911,12 @@ public class ReactApiController {
                 m.put("name",           w.getName());
                 m.put("city",           w.getCity());
                 m.put("state",          w.getState());
-                m.put(KEY_WAREHOUSE_CODE,  w.getWarehouseCode());
+                m.put("warehouseCode",  w.getWarehouseCode());
                 m.put("loginId",        w.getWarehouseLoginId());
                 m.put("contactEmail",   w.getContactEmail());
                 m.put("contactPhone",   w.getContactPhone());
                 m.put("address",        w.getAddress());
-                m.put(KEY_SERVED_PIN_CODES, w.getServedPinCodes());
+                m.put("servedPinCodes", w.getServedPinCodes());
                 m.put("active",         w.isActive());
                 m.put("latitude",       w.getLatitude());
                 m.put("longitude",      w.getLongitude());
@@ -5012,10 +4941,10 @@ public class ReactApiController {
      * /api/flutter/admin/warehouses/add — that endpoint did not exist.
      *
      * Request body (JSON):
-     *   { "name": "...", "city": "...", "state": "...", KEY_SERVED_PIN_CODES: "..." }
+     *   { "name": "...", "city": "...", "state": "...", "servedPinCodes": "..." }
      *
      * Response:
-     *   { "success": true, "message": "...", KEY_WAREHOUSE_ID: 3, KEY_WAREHOUSE_CODE: "WH-003" }
+     *   { "success": true, "message": "...", "warehouseId": 3, "warehouseCode": "WH-003" }
      */
     @PostMapping("/admin/warehouses/add")
     public ResponseEntity<Map<String, Object>> adminAddWarehouse(
@@ -5028,7 +4957,7 @@ public class ReactApiController {
             String name           = body.getOrDefault("name",           "").toString().trim();
             String city           = body.getOrDefault("city",           "").toString().trim();
             String state          = body.getOrDefault("state",          "").toString().trim();
-            String servedPinCodes = body.getOrDefault(KEY_SERVED_PIN_CODES, "").toString().trim();
+            String servedPinCodes = body.getOrDefault("servedPinCodes", "").toString().trim();
 
             if (name.isEmpty()) {
                 res.put("success", false);
@@ -5067,8 +4996,8 @@ public class ReactApiController {
 
             res.put("success",       true);
             res.put("message",       "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
-            res.put(KEY_WAREHOUSE_ID,   wh.getId());
-            res.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
+            res.put("warehouseId",   wh.getId());
+            res.put("warehouseCode", wh.getWarehouseCode());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put("success", false);
@@ -5088,7 +5017,7 @@ public class ReactApiController {
      * AdminApp needs a flat unfiltered list at /api/flutter/admin/delivery-boys.
      *
      * Approval status field logic (mirrors login flow in FlutterApiController):
-     *   STATUS_PENDING   — verified=true  but adminApproved=false
+     *   "PENDING"   — verified=true  but adminApproved=false
      *   "APPROVED"  — adminApproved=true  and active=true
      *   "REJECTED"  — adminApproved=false and active=false  (admin blocked them)
      *   "UNVERIFIED"— verified=false (email OTP not yet confirmed)
@@ -5111,8 +5040,8 @@ public class ReactApiController {
                 m.put("verified",         db.isVerified());
                 m.put("adminApproved",    db.isAdminApproved());
                 m.put("active",           db.isActive());
-                m.put(KEY_IS_AVAILABLE,      db.isAvailable());
-                m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
+                m.put("isAvailable",      db.isAvailable());
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
                 m.put("approved",         db.isAdminApproved()); // alias read by AdminApp.jsx filter
 
                 // Derive a single human-readable status string
@@ -5122,7 +5051,7 @@ public class ReactApiController {
                 } else if (!db.isAdminApproved() && !db.isActive()) {
                     status = "REJECTED";
                 } else if (!db.isAdminApproved()) {
-                    status = STATUS_PENDING;  // Verified but awaiting admin approval
+                    status = "PENDING";  // Verified but awaiting admin approval
                 } else {
                     status = "APPROVED";
                 }
@@ -5135,7 +5064,7 @@ public class ReactApiController {
                     wh.put("id",            db.getWarehouse().getId());
                     wh.put("name",          db.getWarehouse().getName());
                     wh.put("city",          db.getWarehouse().getCity());
-                    wh.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
+                    wh.put("warehouseCode", db.getWarehouse().getWarehouseCode());
                     m.put("warehouse", wh);
                 } else {
                     m.put("warehouse", null);
@@ -5157,7 +5086,7 @@ public class ReactApiController {
     private String getDeliveryBoyStatusLabel(String status) {
         return switch(status) {
             case "EMAIL_PENDING" -> "⏳ Waiting for Email Verification";
-            case STATUS_PENDING -> "⏳ Pending Admin Approval";
+            case "PENDING" -> "⏳ Pending Admin Approval";
             case "REJECTED" -> "❌ Rejected";
             case "APPROVED" -> "✅ Approved";
             default -> status;
@@ -5263,7 +5192,7 @@ public class ReactApiController {
      *   - Sends approval email
      *
      * Request body (JSON, optional):
-     *   { KEY_ASSIGNED_PIN_CODES: "600001,600002" }  — if admin wants to override
+     *   { "assignedPinCodes": "600001,600002" }  — if admin wants to override
      */
     @PostMapping("/admin/delivery-boys/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveDeliveryBoy(
@@ -5277,7 +5206,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put("message", "Delivery boy not found");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5289,8 +5218,8 @@ public class ReactApiController {
 
             // PIN codes already assigned from warehouse during registration
             // Admin can optionally override them
-            if (body != null && body.containsKey(KEY_ASSIGNED_PIN_CODES)) {
-                String pinCodes = body.get(KEY_ASSIGNED_PIN_CODES).toString().trim();
+            if (body != null && body.containsKey("assignedPinCodes")) {
+                String pinCodes = body.get("assignedPinCodes").toString().trim();
                 if (!pinCodes.isEmpty()) {
                     db.setAssignedPinCodes(pinCodes);
                 }
@@ -5329,7 +5258,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put("message", "Delivery boy not found");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5361,7 +5290,7 @@ public class ReactApiController {
      * This triggers auto-assignment: system finds online delivery boys covering the PIN code
      * and auto-assigns if slots are available.
      *
-     * Request body: { KEY_ORDER_ID: 5 }
+     * Request body: { "orderId": 5 }
      */
     @PostMapping("/admin/delivery/order/pack")
     public ResponseEntity<Map<String, Object>> adminMarkOrderPacked(
@@ -5371,7 +5300,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            Integer orderId = body != null ? (Integer) body.get(KEY_ORDER_ID) : null;
+            Integer orderId = body != null ? (Integer) body.get("orderId") : null;
             if (orderId == null) {
                 res.put("success", false);
                 res.put("message", "Missing orderId");
@@ -5381,7 +5310,7 @@ public class ReactApiController {
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
                 res.put("success", false);
-                res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put("message", "Order not found");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5413,12 +5342,12 @@ public class ReactApiController {
 
             res.put("success", true);
             if (hasDeliveryBoy) {
-                res.put("message", PREFIX_ORDER + orderId + " marked as PACKED and already assigned to "
+                res.put("message", "Order #" + orderId + " marked as PACKED and already assigned to "
                     + refreshed.getDeliveryBoy().getName());
                 res.put("autoAssigned", false);  // Not auto-assigned (Phase 3)
                 res.put("assignedTo", refreshed.getDeliveryBoy().getName());
             } else {
-                res.put("message", PREFIX_ORDER + orderId + " marked as PACKED. Warehouse staff will assign delivery boy.");
+                res.put("message", "Order #" + orderId + " marked as PACKED. Warehouse staff will assign delivery boy.");
                 res.put("autoAssigned", false);
             }
             return ResponseEntity.ok(res);
@@ -5506,7 +5435,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -5552,12 +5481,12 @@ public class ReactApiController {
                 m.put("name",        db.getName());
                 m.put("code",        db.getDeliveryBoyCode());
                 m.put("mobile",      db.getMobile());
-                m.put(KEY_IS_AVAILABLE, db.isAvailable());
+                m.put("isAvailable", db.isAvailable());
                 m.put("warehouse",   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
-                m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
+                m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
                 return m;
             })
-            .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE)))) // online first
+            .sorted(Comparator.comparing(m -> !((Boolean) m.get("isAvailable")))) // online first
             .collect(Collectors.toList());
 
         res.put("success", true);
@@ -5579,12 +5508,12 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         try {
-            int orderId       = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
-            int deliveryBoyId = Integer.parseInt(body.get(KEY_DELIVERY_BOY_ID).toString());
+            int orderId       = Integer.parseInt(body.get("orderId").toString());
+            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
 
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
-                res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put("success", false); res.put("message", "Order not found");
                 return ResponseEntity.status(404).body(res);
             }
             if (order.getTrackingStatus() != TrackingStatus.PACKED) {
@@ -5595,7 +5524,7 @@ public class ReactApiController {
             }
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
             if (db == null) {
-                res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put("success", false); res.put("message", "Delivery boy not found");
                 return ResponseEntity.status(404).body(res);
             }
             if (!db.isAdminApproved() || !db.isActive()) {
@@ -5613,14 +5542,14 @@ public class ReactApiController {
                             order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
 
             res.put("success", true);
-            res.put("message", PREFIX_ORDER + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
-            res.put(KEY_ORDER_ID,         orderId);
-            res.put(KEY_DELIVERY_BOY_ID,   db.getId());
-            res.put(KEY_DELIVERY_BOY_NAME, db.getName());
-            res.put(KEY_NEW_STATUS,       TrackingStatus.SHIPPED.name());
+            res.put("message", "Order #" + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
+            res.put("orderId",         orderId);
+            res.put("deliveryBoyId",   db.getId());
+            res.put("deliveryBoyName", db.getName());
+            res.put("newStatus",       TrackingStatus.SHIPPED.name());
             res.put("isCod",           isCod);
             res.put("paymentMode",     order.getPaymentMode());
-            res.put(KEY_TOTAL_AMOUNT,     order.getTotalPrice() + order.getDeliveryCharge());
+            res.put("totalAmount",     order.getTotalPrice() + order.getDeliveryCharge());
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
             res.put("success", false);
@@ -5645,11 +5574,11 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new HashMap<>();
         try {
-            int orderId = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
+            int orderId = Integer.parseInt(body.get("orderId").toString());
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
                 res.put("success", false);
-                res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put("message", "Order not found");
                 return ResponseEntity.status(404).body(res);
             }
 
@@ -5665,8 +5594,8 @@ public class ReactApiController {
             ));
 
             res.put("success", true);
-            res.put(KEY_ORDER_ID, orderId);
-            res.put(KEY_NEW_STATUS, TrackingStatus.DELIVERED.name());
+            res.put("orderId", orderId);
+            res.put("newStatus", TrackingStatus.DELIVERED.name());
             res.put("message", "Order marked as delivered.");
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
@@ -5695,8 +5624,8 @@ public class ReactApiController {
         
         Map<String, Object> res = new HashMap<>();
         try {
-            String pins = body.get(KEY_ASSIGNED_PIN_CODES) != null 
-                ? body.get(KEY_ASSIGNED_PIN_CODES).toString().trim() 
+            String pins = body.get("assignedPinCodes") != null 
+                ? body.get("assignedPinCodes").toString().trim() 
                 : "";
             
             if (pins.isEmpty()) {
@@ -5708,7 +5637,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put("success", false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put("message", "Delivery boy not found");
                 return ResponseEntity.status(404).body(res);
             }
             
@@ -5784,8 +5713,8 @@ public class ReactApiController {
             for (AutoAssignLog log : logs) {
                 Map<String, Object> l = new HashMap<>();
                 l.put("id", log.getId());
-                l.put(KEY_ORDER_ID, log.getOrderId());
-                l.put(KEY_DELIVERY_BOY_NAME, log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "—");
+                l.put("orderId", log.getOrderId());
+                l.put("deliveryBoyName", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "—");
                 l.put("deliveryBoyCode", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "—");
                 l.put("pinCode", log.getPinCode());
                 l.put("activeOrdersAtAssignment", log.getActiveOrdersAtAssignment());
@@ -5835,7 +5764,7 @@ public class ReactApiController {
                 m.put("id",          r.getId());
                 m.put("status",      r.getStatus().name());
                 m.put("reason",      r.getReason());
-                m.put(KEY_ADMIN_NOTE,   r.getAdminNote());
+                m.put("adminNote",   r.getAdminNote());
                 m.put("requestedAt", r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                 m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
 
@@ -5852,7 +5781,7 @@ public class ReactApiController {
                     cw.put("id",            db.getWarehouse().getId());
                     cw.put("name",          db.getWarehouse().getName());
                     cw.put("city",          db.getWarehouse().getCity());
-                    cw.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
+                    cw.put("warehouseCode", db.getWarehouse().getWarehouseCode());
                     dbMap.put("currentWarehouse", cw);
                 } else {
                     dbMap.put("currentWarehouse", null);
@@ -5865,7 +5794,7 @@ public class ReactApiController {
                 rwMap.put("id",            rw.getId());
                 rwMap.put("name",          rw.getName());
                 rwMap.put("city",          rw.getCity());
-                rwMap.put(KEY_WAREHOUSE_CODE, rw.getWarehouseCode());
+                rwMap.put("warehouseCode", rw.getWarehouseCode());
                 m.put("requestedWarehouse", rwMap);
 
                 list.add(m);
@@ -5892,7 +5821,7 @@ public class ReactApiController {
      *   - Approval email sent (failure is non-fatal)
      *
      * Request body (JSON, optional):
-     *   { KEY_ADMIN_NOTE: "Approved — good coverage needed in north zone" }
+     *   { "adminNote": "Approved — good coverage needed in north zone" }
      */
     @PostMapping("/admin/warehouse-transfers/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveWarehouseTransfer(
@@ -5904,7 +5833,7 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
-                    ? body.getOrDefault(KEY_ADMIN_NOTE, "").toString().trim()
+                    ? body.getOrDefault("adminNote", "").toString().trim()
                     : "";
 
             WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
@@ -5955,7 +5884,7 @@ public class ReactApiController {
      *   - Rejection email sent (failure is non-fatal)
      *
      * Request body (JSON, optional):
-     *   { KEY_ADMIN_NOTE: "Not enough capacity at requested warehouse" }
+     *   { "adminNote": "Not enough capacity at requested warehouse" }
      */
     @PostMapping("/admin/warehouse-transfers/{id}/reject")
     public ResponseEntity<Map<String, Object>> adminRejectWarehouseTransfer(
@@ -5967,7 +5896,7 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
-                    ? body.getOrDefault(KEY_ADMIN_NOTE, "").toString().trim()
+                    ? body.getOrDefault("adminNote", "").toString().trim()
                     : "";
 
             WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
@@ -6017,7 +5946,7 @@ public class ReactApiController {
      *
      * Params:
      *   q    — search string (name or email, case-insensitive substring match)
-     *   type — optional filter: "customer" | "vendor" | ROLE_DELIVERY_BOY
+     *   type — optional filter: "customer" | "vendor" | "delivery_boy"
      *           omit (or any other value) to search all three types
      *
      * Response:
@@ -6070,14 +5999,14 @@ public class ReactApiController {
             }
 
             // ── Delivery Boys ──────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals(ROLE_DELIVERY_BOY)) {
+            if (typeFilter.isEmpty() || typeFilter.equals("delivery_boy")) {
                 for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
                     if (matchesQuery(term, db.getName(), db.getEmail())) {
                         Map<String, Object> m = new LinkedHashMap<>();
                         m.put("id",              db.getId());
                         m.put("name",            db.getName());
                         m.put("email",           db.getEmail());
-                        m.put("type",            ROLE_DELIVERY_BOY);
+                        m.put("type",            "delivery_boy");
                         m.put("deliveryBoyCode", db.getDeliveryBoyCode());
                         m.put("verified",        db.isVerified());
                         m.put("adminApproved",   db.isAdminApproved());
@@ -6207,7 +6136,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
         String title    = body.getOrDefault("title",    "").toString().trim();
         String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
         String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
@@ -6234,7 +6163,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
         b.setActive(!b.isActive());
         bannerRepository.save(b);
         res.put("success", true);
@@ -6254,7 +6183,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
         b.setShowOnHome(!b.isShowOnHome());
         bannerRepository.save(b);
         res.put("success", true);
@@ -6274,7 +6203,7 @@ public class ReactApiController {
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
         b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
         bannerRepository.save(b);
         res.put("success", true);
@@ -6293,7 +6222,7 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
         if (_guard != null) return _guard;
         Map<String, Object> res = new LinkedHashMap<>();
-        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.status(404).body(res); }
         bannerRepository.deleteById(id);
         res.put("success", true);
         res.put("message", "Banner deleted");
@@ -6317,7 +6246,7 @@ public class ReactApiController {
         try {
             if (!customerRepository.existsById(id)) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.status(404).body(res);
             }
             customerRepository.deleteById(id);
@@ -6419,7 +6348,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.status(404).body(res);
             }
             boolean isActive = Boolean.TRUE.equals(body.get("isActive"));
@@ -6452,7 +6381,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.status(404).body(res);
             }
             res.put("success", true);
@@ -6488,7 +6417,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put("success", false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put("message", "Account not found");
                 return ResponseEntity.status(404).body(res);
             }
             // Note: Actual password reset logic would be implemented via email link
@@ -6509,13 +6438,13 @@ public class ReactApiController {
      * Changes the admin password via database-backed AdminAuthService.
      * 
      * Request body (JSON):
-     *   { KEY_CURRENT_PASSWORD: "...", KEY_NEW_PASSWORD: "...", "confirmPassword": "..." }
+     *   { "currentPassword": "...", "newPassword": "...", "confirmPassword": "..." }
      *
      * Header: Authorization: Bearer <admin-jwt-token>
      * The token contains the admin ID which is extracted and used for password change.
      * 
      * Response:
-     *   { "success": true, "message": MSG_PASSWORD_CHANGED }
+     *   { "success": true, "message": "Password changed successfully" }
      *   { "success": false, "message": "Current password is incorrect (or other error)" }
      */
     @PostMapping("/admin/change-password")
@@ -6528,15 +6457,15 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             // Get admin ID from the JWT token (set by ReactAuthFilter)
-            Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
+            Integer adminId = (Integer) request.getAttribute("react.userId");
             if (adminId == null) {
                 res.put("success", false);
-                res.put("message", ERR_ADMIN_ID_NOT_IN_TOKEN);
+                res.put("message", "Admin ID not found in token");
                 return ResponseEntity.status(403).body(res);
             }
             
-            String currentPassword  = body.getOrDefault(KEY_CURRENT_PASSWORD,  "").toString().trim();
-            String newPassword      = body.getOrDefault(KEY_NEW_PASSWORD,      "").toString().trim();
+            String currentPassword  = body.getOrDefault("currentPassword",  "").toString().trim();
+            String newPassword      = body.getOrDefault("newPassword",      "").toString().trim();
             String confirmPassword  = body.getOrDefault("confirmPassword",  "").toString().trim();
 
             // ── Validate inputs ────────────────────────────────────────────
@@ -6596,14 +6525,14 @@ public class ReactApiController {
      */
     @PostMapping("/orders/{id}/reorder")
     public ResponseEntity<Map<String, Object>> reorder(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
 
         Cart cart = customer.getCart();
         if (cart == null) { cart = new Cart(); customer.setCart(cart); }
@@ -6639,14 +6568,14 @@ public class ReactApiController {
      */
     @PutMapping("/profile/change-password")
     public ResponseEntity<Map<String, Object>> changePassword(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put("success", false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put("success", false); res.put("message", "Missing X-Customer-Id header"); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        String current = (String) body.get(KEY_CURRENT_PASSWORD);
-        String newPwd  = (String) body.get(KEY_NEW_PASSWORD);
+        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        String current = (String) body.get("currentPassword");
+        String newPwd  = (String) body.get("newPassword");
         if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
         try {
             if (!AES.decrypt(customer.getPassword()).equals(current)) {
@@ -6656,7 +6585,7 @@ public class ReactApiController {
             if (!isStrongPassword(newPwd)) { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             customer.setPassword(AES.encrypt(newPwd));
             customerRepository.save(customer);
-            res.put("success", true); res.put("message", MSG_PASSWORD_CHANGED);
+            res.put("success", true); res.put("message", "Password changed successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
@@ -6666,10 +6595,10 @@ public class ReactApiController {
      */
     @GetMapping("/vendor/profile")
     public ResponseEntity<Map<String, Object>> getVendorProfile(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+            @RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> v = new HashMap<>();
         v.put("id", vendor.getId()); v.put("name", vendor.getName());
         v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
@@ -6688,11 +6617,11 @@ public class ReactApiController {
      */
     @PutMapping("/vendor/profile/update")
     public ResponseEntity<Map<String, Object>> updateVendorProfile(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name") && !((String) body.get("name")).isBlank())
             vendor.setName((String) body.get("name"));
         if (body.containsKey("mobile"))
@@ -6712,13 +6641,13 @@ public class ReactApiController {
      */
     @PutMapping("/vendor/storefront/update")
     public ResponseEntity<Map<String, Object>> updateVendorStorefront(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
             res.put("success", false);
-            res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put("message", "Vendor not found");
             return ResponseEntity.badRequest().body(res);
         }
         if (body.containsKey("name")) {
@@ -6763,13 +6692,13 @@ public class ReactApiController {
      */
     @PutMapping("/vendor/profile/change-password")
     public ResponseEntity<Map<String, Object>> vendorChangePassword(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        String current = (String) body.get(KEY_CURRENT_PASSWORD);
-        String newPwd  = (String) body.get(KEY_NEW_PASSWORD);
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        String current = (String) body.get("currentPassword");
+        String newPwd  = (String) body.get("newPassword");
         if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
         try {
             if (!AES.decrypt(vendor.getPassword()).equals(current)) {
@@ -6779,7 +6708,7 @@ public class ReactApiController {
             if (!isStrongPassword(newPwd)) { res.put("success", false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             vendor.setPassword(AES.encrypt(newPwd));
             vendorRepository.save(vendor);
-            res.put("success", true); res.put("message", MSG_PASSWORD_CHANGED);
+            res.put("success", true); res.put("message", "Password changed successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
@@ -6798,7 +6727,7 @@ public class ReactApiController {
      */
     @PostMapping("/profile/link-oauth")
     public ResponseEntity<Map<String, Object>> customerLinkOAuth(
-            @RequestHeader(HEADER_CUSTOMER_ID) int customerId,
+            @RequestHeader("X-Customer-Id") int customerId,
             @RequestBody Map<String, Object> body,
             HttpSession session) {
         Map<String, Object> res = new HashMap<>();
@@ -6829,7 +6758,7 @@ public class ReactApiController {
      */
     @DeleteMapping("/profile/unlink-oauth")
     public ResponseEntity<Map<String, Object>> customerUnlinkOAuth(
-            @RequestHeader(HEADER_CUSTOMER_ID) int customerId) {
+            @RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         boolean ok = socialAuthService.unlinkOAuthFromCustomer(customerId);
         if (ok) {
@@ -6851,7 +6780,7 @@ public class ReactApiController {
      */
     @PostMapping("/vendor/profile/link-oauth")
     public ResponseEntity<Map<String, Object>> vendorLinkOAuth(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @RequestBody Map<String, Object> body,
             HttpSession session) {
         Map<String, Object> res = new HashMap<>();
@@ -6881,7 +6810,7 @@ public class ReactApiController {
      */
     @DeleteMapping("/vendor/profile/unlink-oauth")
     public ResponseEntity<Map<String, Object>> vendorUnlinkOAuth(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+            @RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         boolean ok = socialAuthService.unlinkOAuthFromVendor(vendorId);
         if (ok) {
@@ -6900,10 +6829,10 @@ public class ReactApiController {
      */
     @GetMapping("/vendor/stock-alerts")
     public ResponseEntity<Map<String, Object>> getStockAlerts(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId) {
+            @RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
 
         // Keep alert records in sync with current low-stock products for this vendor.
         productRepository.findByVendor(vendor).forEach(stockAlertService::checkStockLevel);
@@ -6919,7 +6848,7 @@ public class ReactApiController {
             Map<String, Object> m = new HashMap<>();
             m.put("id", a.getId());
             m.put("productName", a.getProduct() != null ? a.getProduct().getName() : "Unknown");
-            m.put(KEY_PRODUCT_ID,   a.getProduct() != null ? a.getProduct().getId()   : 0);
+            m.put("productId",   a.getProduct() != null ? a.getProduct().getId()   : 0);
             m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
             m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
                     ? a.getProduct().getStockAlertThreshold() : 10);
@@ -6940,11 +6869,11 @@ public class ReactApiController {
      */
     @PostMapping("/vendor/stock-alerts/{id}/acknowledge")
     public ResponseEntity<Map<String, Object>> acknowledgeAlert(
-            @RequestHeader(HEADER_VENDOR_ID) int vendorId,
+            @RequestHeader("X-Vendor-Id") int vendorId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         StockAlert alert = stockAlertRepository.findById(id).orElse(null);
         if (alert == null || alert.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Alert not found"); return ResponseEntity.badRequest().body(res); }
         alert.setAcknowledged(true);
@@ -6969,7 +6898,7 @@ public class ReactApiController {
      */
     @PostMapping("/assistant/chat")
     public ResponseEntity<Map<String, Object>> assistantChat(
-            @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
+            @RequestHeader(value = "X-Customer-Id", required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
 
         Map<String, Object> res = new HashMap<>();
@@ -7026,15 +6955,15 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token (set by DeliveryJwtInterceptor)
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",               db.getId());
@@ -7042,11 +6971,11 @@ public class ReactApiController {
         profile.put("email",            db.getEmail());
         profile.put("mobile",           db.getMobile());
         profile.put("deliveryBoyCode",  db.getDeliveryBoyCode());
-        profile.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
+        profile.put("assignedPinCodes", db.getAssignedPinCodes());
         profile.put("active",           db.isActive());
         profile.put("adminApproved",    db.isAdminApproved());
         profile.put("approved",         db.isAdminApproved()); // alias read by DeliveryApp.jsx
-        profile.put(KEY_IS_AVAILABLE,      db.isAvailable());    // availability status
+        profile.put("isAvailable",      db.isAvailable());    // availability status
 
         if (db.getWarehouse() != null) {
             Warehouse wh = db.getWarehouse();
@@ -7055,7 +6984,7 @@ public class ReactApiController {
             w.put("name",          wh.getName());
             w.put("city",          wh.getCity());
             w.put("state",         wh.getState());
-            w.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
+            w.put("warehouseCode", wh.getWarehouseCode());
             profile.put("warehouse", w);
         } else {
             profile.put("warehouse", null);
@@ -7080,15 +7009,15 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token (set by DeliveryJwtInterceptor)
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         List<Order> allAssigned = orderRepository.findByDeliveryBoy(db);
 
@@ -7123,20 +7052,20 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put("success", false); res.put("message", "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
@@ -7152,7 +7081,7 @@ public class ReactApiController {
 
         trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.OUT_FOR_DELIVERY,
                 "On the way — " + city,
-                "Parcel picked up by delivery boy " + db.getName(), ROLE_DELIVERY_BOY));
+                "Parcel picked up by delivery boy " + db.getName(), "delivery_boy"));
 
         int otp = new java.util.Random().nextInt(100000, 1000000);
         deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
@@ -7180,20 +7109,20 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.status(404).body(res); }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put("success", false); res.put("message", "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
@@ -7203,7 +7132,7 @@ public class ReactApiController {
 
         int submittedOtp;
         try { submittedOtp = Integer.parseInt(body.getOrDefault("otp", "").toString().trim()); }
-        catch (NumberFormatException e) { res.put("success", false); res.put("message", ERR_INVALID_OTP_FORMAT); return ResponseEntity.badRequest().body(res); }
+        catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid OTP format"); return ResponseEntity.badRequest().body(res); }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
         if (deliveryOtp == null)   { res.put("success", false); res.put("message", "No OTP found for this order"); return ResponseEntity.badRequest().body(res); }
@@ -7220,13 +7149,13 @@ public class ReactApiController {
 
         trackingEventLogRepository.save(new TrackingEventLog(order, TrackingStatus.DELIVERED,
                 "Delivered to customer",
-                "Delivered by " + db.getName() + ". OTP verified at doorstep.", ROLE_DELIVERY_BOY));
+                "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy"));
 
         try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
         catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
 
         res.put("success", true);
-        res.put("message", PREFIX_ORDER + id + " marked as Delivered!");
+        res.put("message", "Order #" + id + " marked as Delivered!");
         return ResponseEntity.ok(res);
     }
     
@@ -7236,29 +7165,29 @@ public class ReactApiController {
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
 
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) {
             res.put("success", false);
-            res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+            res.put("message", "Delivery boy not found");
             return ResponseEntity.status(404).body(res);
         }
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put("message", "Order not found");
             return ResponseEntity.status(404).body(res);
         }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
             res.put("success", false);
-            res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put("message", "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
@@ -7296,15 +7225,15 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
         List<Map<String, Object>> list = new ArrayList<>();
@@ -7314,7 +7243,7 @@ public class ReactApiController {
             m.put("name",          wh.getName());
             m.put("city",          wh.getCity());
             m.put("state",         wh.getState());
-            m.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
+            m.put("warehouseCode", wh.getWarehouseCode());
             list.add(m);
         }
         res.put("success",    true);
@@ -7336,18 +7265,18 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         int warehouseId;
-        try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
+        try { warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString()); }
         catch (NumberFormatException e) { res.put("success", false); res.put("message", "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
 
         if (warehouseId <= 0) { res.put("success", false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
@@ -7362,7 +7291,7 @@ public class ReactApiController {
         }
 
         Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
-        if (requested == null) { res.put("success", false); res.put("message", ERR_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (requested == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
 
         if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
             res.put("success", false); res.put("message", "You are already assigned to this warehouse");
@@ -7395,18 +7324,18 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
-        Boolean isAvailable = body.containsKey(KEY_IS_AVAILABLE) 
-                ? (Boolean) body.get(KEY_IS_AVAILABLE) 
+        Boolean isAvailable = body.containsKey("isAvailable") 
+                ? (Boolean) body.get("isAvailable") 
                 : null;
         if (isAvailable == null) { 
             res.put("success", false); 
@@ -7418,7 +7347,7 @@ public class ReactApiController {
         deliveryBoyRepository.save(db);
 
         res.put("success", true);
-        res.put(KEY_IS_AVAILABLE, db.isAvailable());
+        res.put("isAvailable", db.isAvailable());
         res.put("message", isAvailable ? "You are now Online - Available for deliveries" : "You are now Offline - Not available for deliveries");
         return ResponseEntity.ok(res);
     }
@@ -7434,15 +7363,15 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         
         // Extract delivery ID from JWT token
-        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        Integer deliveryId = (Integer) request.getAttribute("deliveryBoyId");
         if (deliveryId == null) {
             res.put("success", false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put("message", "Authentication failed: No valid JWT token");
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put("success", false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put("success", false); res.put("message", "Delivery boy not found"); return ResponseEntity.status(404).body(res); }
 
         java.util.Optional<WarehouseChangeRequest> pending =
                 warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
@@ -7460,7 +7389,7 @@ public class ReactApiController {
                 whData.put("name", req.getRequestedWarehouse().getName());
                 whData.put("city", req.getRequestedWarehouse().getCity());
                 whData.put("state", req.getRequestedWarehouse().getState());
-                whData.put(KEY_WAREHOUSE_CODE, req.getRequestedWarehouse().getWarehouseCode());
+                whData.put("warehouseCode", req.getRequestedWarehouse().getWarehouseCode());
                 requestData.put("requestedWarehouse", whData);
             }
             res.put("request", requestData);
@@ -7478,7 +7407,7 @@ public class ReactApiController {
         m.put("statusDisplay",   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
         m.put("currentCity",     o.getCurrentCity());
         m.put("deliveryAddress", o.getDeliveryAddress());
-        m.put(KEY_TOTAL_AMOUNT,     o.getAmount());
+        m.put("totalAmount",     o.getAmount());
         m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
         // Customer name for the delivery boy to know who they're delivering to
         m.put("customerName",    o.getCustomer() != null ? o.getCustomer().getName() : null);
@@ -7677,7 +7606,7 @@ public class ReactApiController {
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put("message", "Deprecation tracking not enabled");
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7706,7 +7635,7 @@ public class ReactApiController {
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put("message", "Deprecation tracking not enabled");
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7739,7 +7668,7 @@ public class ReactApiController {
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put("message", "Deprecation tracking not enabled");
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7766,7 +7695,7 @@ public class ReactApiController {
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put("message", "Deprecation tracking not enabled");
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7807,7 +7736,7 @@ public class ReactApiController {
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put("message", "Deprecation tracking not enabled");
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7838,7 +7767,7 @@ public class ReactApiController {
      *     "name": "Bangalore Hub",
      *     "city": "Bangalore",
      *     "state": "Karnataka",
-     *     KEY_SERVED_PIN_CODES: "560001,560002,560003",
+     *     "servedPinCodes": "560001,560002,560003",
      *     "latitude": 12.9716,
      *     "longitude": 77.5946,
      *     "contactEmail": "warehouse@company.com",
@@ -7849,9 +7778,9 @@ public class ReactApiController {
      * Response (200 OK):
      *   {
      *     "success": true,
-     *     KEY_WAREHOUSE_ID: 45,
-     *     KEY_WAREHOUSE_NAME: "Bangalore Hub",
-     *     KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
+     *     "warehouseId": 45,
+     *     "warehouseName": "Bangalore Hub",
+     *     "warehouseCode": "WH-BLR-12345678",
      *     "loginId": "12345678",
      *     "loginPassword": "654321",
      *     "message": "Warehouse created. Credentials sent to warehouse@company.com. Login ID and Password shown above. Save these immediately — password will not be shown again."
@@ -7865,7 +7794,7 @@ public class ReactApiController {
      */
     @PostMapping("/admin/warehouse/create")
     public ResponseEntity<Map<String, Object>> adminCreateWarehouse(
-            @RequestHeader(value = HEADER_AUTHORIZATION, required = false) String authHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
 
@@ -7879,7 +7808,7 @@ public class ReactApiController {
         String token = authHeader.substring(7);
         try {
             String role = jwtUtil.getRole(token);
-            if (role == null || !role.equals(ROLE_ADMIN)) {
+            if (role == null || !role.equals("ADMIN")) {
                 res.put("success", false);
                 res.put("message", "Admin role required");
                 return ResponseEntity.status(403).body(res);
@@ -7894,7 +7823,7 @@ public class ReactApiController {
         String name = ((String) body.getOrDefault("name", "")).trim();
         String city = ((String) body.getOrDefault("city", "")).trim();
         String state = ((String) body.getOrDefault("state", "")).trim();
-        String servedPinCodes = ((String) body.getOrDefault(KEY_SERVED_PIN_CODES, "")).trim();
+        String servedPinCodes = ((String) body.getOrDefault("servedPinCodes", "")).trim();
         Double latitude = null, longitude = null;
         
         try {
@@ -7961,8 +7890,8 @@ public class ReactApiController {
      *       "name": "Bangalore Hub",
      *       "city": "Bangalore",
      *       "state": "Karnataka",
-     *       KEY_SERVED_PIN_CODES: "560001,560002,560003",
-     *       KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
+     *       "servedPinCodes": "560001,560002,560003",
+     *       "warehouseCode": "WH-BLR-12345678",
      *       "warehouseLoginId": "12345678",
      *       "contactEmail": "warehouse@company.com",
      *       "contactPhone": "+919876543210",
@@ -7980,7 +7909,7 @@ public class ReactApiController {
      */
     @GetMapping("/admin/warehouse/{warehouseId}/credentials")
     public ResponseEntity<Map<String, Object>> getWarehouseCredentials(
-            @RequestHeader(value = HEADER_AUTHORIZATION, required = false) String authHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable int warehouseId) {
         Map<String, Object> res = new LinkedHashMap<>();
 
@@ -7994,7 +7923,7 @@ public class ReactApiController {
         String token = authHeader.substring(7);
         try {
             String role = jwtUtil.getRole(token);
-            if (role == null || !role.equals(ROLE_ADMIN)) {
+            if (role == null || !role.equals("ADMIN")) {
                 res.put("success", false);
                 res.put("message", "Admin role required");
                 return ResponseEntity.status(403).body(res);
@@ -8009,7 +7938,7 @@ public class ReactApiController {
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
             res.put("success", false);
-            res.put("message", ERR_WAREHOUSE_NOT_FOUND);
+            res.put("message", "Warehouse not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -8019,8 +7948,8 @@ public class ReactApiController {
         warehouseDto.put("name", warehouse.getName());
         warehouseDto.put("city", warehouse.getCity());
         warehouseDto.put("state", warehouse.getState());
-        warehouseDto.put(KEY_SERVED_PIN_CODES, warehouse.getServedPinCodes());
-        warehouseDto.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
+        warehouseDto.put("servedPinCodes", warehouse.getServedPinCodes());
+        warehouseDto.put("warehouseCode", warehouse.getWarehouseCode());
         warehouseDto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
         warehouseDto.put("contactEmail", warehouse.getContactEmail());
         warehouseDto.put("contactPhone", warehouse.getContactPhone());
@@ -8046,12 +7975,12 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/receiving-queue")
     public ResponseEntity<?> warehouseReceivingQueue(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
             }
 
             // Get ALL PACKED orders (not just assigned to this warehouse)
@@ -8094,18 +8023,18 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/orders/{orderId}/mark-received")
     public ResponseEntity<?> warehouseMarkReceived(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", ERR_UNAUTHORIZED));
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
             }
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("error", ERR_ORDER_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
             }
 
             Order order = orderOpt.get();
@@ -8164,10 +8093,10 @@ public class ReactApiController {
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_ORDER_ID, orderId,
-                KEY_NEW_STATUS, order.getTrackingStatus().toString(),
+                "orderId", orderId,
+                "newStatus", order.getTrackingStatus().toString(),
                 "destinationWarehouse", destinationWarehouse != null ? destinationWarehouse.getName() : "Unknown",
-                KEY_ROUTING_PATH, routingPath != null ? routingPath : "Direct",
+                "routingPath", routingPath != null ? routingPath : "Direct",
                 "transferInitiated", destinationWarehouse != null && 
                     order.getSourceWarehouse() != null &&
                     order.getSourceWarehouse().getId() != destinationWarehouse.getId()
@@ -8191,12 +8120,12 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/orders/ready-for-assignment")
     public ResponseEntity<?> warehouseOrdersReadyForAssignment(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
             }
 
             // Get all WAREHOUSE_RECEIVED orders (ready for delivery assignment)
@@ -8236,21 +8165,21 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/orders/{orderId}/assign-delivery")
     public ResponseEntity<?> warehouseAssignDelivery(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", ERR_UNAUTHORIZED));
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
             }
 
-            int deliveryBoyId = Integer.parseInt(body.get(KEY_DELIVERY_BOY_ID).toString());
+            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("error", ERR_ORDER_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
             }
 
             Order order = orderOpt.get();
@@ -8262,7 +8191,7 @@ public class ReactApiController {
 
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
             if (db == null) {
-                return ResponseEntity.status(404).body(Map.of("error", ERR_DELIVERY_BOY_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("error", "Delivery boy not found"));
             }
 
             if (!db.isAdminApproved() || !db.isActive()) {
@@ -8277,11 +8206,11 @@ public class ReactApiController {
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_ORDER_ID, orderId,
-                KEY_DELIVERY_BOY_ID, db.getId(),
-                KEY_DELIVERY_BOY_NAME, db.getName(),
-                KEY_NEW_STATUS, STATUS_SHIPPED,
-                "message", PREFIX_ORDER + orderId + " assigned to " + db.getName()
+                "orderId", orderId,
+                "deliveryBoyId", db.getId(),
+                "deliveryBoyName", db.getName(),
+                "newStatus", "SHIPPED",
+                "message", "Order #" + orderId + " assigned to " + db.getName()
             ));
         } catch (NumberFormatException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid deliveryBoyId in request body"));
@@ -8301,13 +8230,13 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/delivery-boys")
     public ResponseEntity<?> warehouseGetAvailableDeliveryBoys(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam(required = false) String pinCode,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("error", "Not authenticated as warehouse"));
             }
 
             // Get all approved and active delivery boys
@@ -8322,8 +8251,8 @@ public class ReactApiController {
                     m.put("name", db.getName());
                     m.put("email", db.getEmail());
                     m.put("mobile", db.getMobile());
-                    m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId() : null);
-                    m.put(KEY_WAREHOUSE_NAME, db.getWarehouse() != null ? db.getWarehouse().getName() : "");
+                    m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId() : null);
+                    m.put("warehouseName", db.getWarehouse() != null ? db.getWarehouse().getName() : "");
                     return m;
                 }).collect(Collectors.toList());
 
@@ -8345,7 +8274,7 @@ public class ReactApiController {
      * Used by delivery boy app to show pickup/delivery list.
      */
     @GetMapping("/delivery/my-orders")
-    public ResponseEntity<?> deliveryGetOrders(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<?> deliveryGetOrders(@RequestHeader("Authorization") String authHeader) {
         try {
             // Extract delivery boy ID from JWT
             int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
@@ -8366,7 +8295,7 @@ public class ReactApiController {
                 m.put("customerPhone", o.getCustomer() != null ? o.getCustomer().getMobile() : "");
                 m.put("totalPrice", o.getTotalPrice());
                 m.put("paymentMethod", o.getPaymentMethod());
-                m.put(KEY_ROUTING_PATH, o.getWarehouseRoutingPath());
+                m.put("routingPath", o.getWarehouseRoutingPath());
                 return m;
             }).collect(Collectors.toList());
 
@@ -8392,14 +8321,14 @@ public class ReactApiController {
      */
     @PostMapping("/delivery/orders/{orderId}/confirm-delivery")
     public ResponseEntity<?> deliveryConfirm(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
         try {
             int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("error", ERR_ORDER_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
             }
 
             Order order = orderOpt.get();
@@ -8446,8 +8375,8 @@ public class ReactApiController {
 
             Map<String, Object> res = new LinkedHashMap<>();
             res.put("success", true);
-            res.put(KEY_ORDER_ID, orderId);
-            res.put("status", STATUS_DELIVERED);
+            res.put("orderId", orderId);
+            res.put("status", "DELIVERED");
             if (isCOD) {
                 res.put("message", "Delivery confirmed. Please submit the collected cash to your warehouse.");
                 res.put("cashToSubmit", order.getCodAmount());
@@ -8470,14 +8399,14 @@ public class ReactApiController {
      */
     @PostMapping("/delivery/orders/{orderId}/submit-cash")
     public ResponseEntity<?> deliverySubmitCash(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
         try {
             int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("error", ERR_ORDER_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("error", "Order not found"));
             }
 
             Order order = orderOpt.get();
@@ -8519,8 +8448,8 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/settlements/pending")
     public ResponseEntity<?> warehousePendingSettlements(HttpServletRequest request) {
-        Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
-        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", ERR_UNAUTHORIZED));
+        Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
 
         // Orders where paymentStatus = COD_SUBMITTED_TO_WAREHOUSE and destinationWarehouseId = this warehouse
         List<Order> orders = orderRepository.findByDestinationWarehouseIdAndPaymentStatus(
@@ -8528,10 +8457,10 @@ public class ReactApiController {
 
         List<Map<String, Object>> result = orders.stream().map(o -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put(KEY_ORDER_ID, o.getId());
+            m.put("orderId", o.getId());
             m.put("codAmount", o.getCodAmount());
             m.put("deliveredAt", o.getCodCollectionTimestamp());
-            m.put(KEY_DELIVERY_BOY_ID, o.getFinalDeliveryBoyId());
+            m.put("deliveryBoyId", o.getFinalDeliveryBoyId());
             m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
             return m;
         }).collect(Collectors.toList());
@@ -8557,13 +8486,13 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/settlements/create-and-upload-proof")
     public ResponseEntity<?> createSettlementAndUploadProof(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request,
             @RequestParam("proofImageUrl") String proofImageUrl,
             @RequestParam("orderIds") String orderIdsStr,
             @RequestParam(value = "notes", required = false) String notes) {
-        Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
-        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", ERR_UNAUTHORIZED));
+        Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+        if (warehouseId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
 
         try {
             List<Integer> orderIds = Arrays.stream(orderIdsStr.split(","))
@@ -8633,7 +8562,7 @@ public class ReactApiController {
      * Admin views all pending COD settlement batches with proof photos.
      */
     @GetMapping("/admin/settlements/pending")
-    public ResponseEntity<?> adminPendingSettlements(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<?> adminPendingSettlements(@RequestHeader("Authorization") String authHeader) {
         // Validate admin JWT
         List<CashSettlement> settlements = cashSettlementRepository.findBySettlementStatus("PROOF_UPLOADED");
 
@@ -8641,9 +8570,9 @@ public class ReactApiController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", s.getId());
             m.put("batchNumber", s.getSettlementBatchNumber());
-            m.put(KEY_WAREHOUSE_ID, s.getWarehouse() != null ? s.getWarehouse().getId() : null);
-            m.put(KEY_WAREHOUSE_NAME, s.getWarehouse() != null ? s.getWarehouse().getName() : "");
-            m.put(KEY_TOTAL_AMOUNT, s.getTotalAmountCollected());
+            m.put("warehouseId", s.getWarehouse() != null ? s.getWarehouse().getId() : null);
+            m.put("warehouseName", s.getWarehouse() != null ? s.getWarehouse().getName() : "");
+            m.put("totalAmount", s.getTotalAmountCollected());
             m.put("adminCommission", s.getAdminCommission());
             m.put("vendorPayAmount", s.getVendorPayAmount());
             m.put("status", s.getSettlementStatus());
@@ -8665,7 +8594,7 @@ public class ReactApiController {
      */
     @PostMapping("/admin/settlements/{settlementId}/verify")
     public ResponseEntity<?> adminVerifySettlement(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int settlementId,
             @RequestBody(required = false) Map<String, Object> body) {
         // Extract admin ID from JWT
@@ -8678,7 +8607,7 @@ public class ReactApiController {
             return ResponseEntity.badRequest().body(Map.of("error", "Settlement not in PROOF_UPLOADED status"));
         }
 
-        settlement.setSettlementStatus(STATUS_VERIFIED);
+        settlement.setSettlementStatus("VERIFIED");
         settlement.setVerifiedByAdminId(adminId);
         settlement.setVerifiedAt(LocalDateTime.now());
         cashSettlementRepository.save(settlement);
@@ -8686,14 +8615,14 @@ public class ReactApiController {
         // Update linked orders
         List<Order> orders = orderRepository.findByCashSettlementId(settlementId);
         for (Order o : orders) {
-            o.setPaymentStatus(STATUS_VERIFIED);
+            o.setPaymentStatus("VERIFIED");
             orderRepository.save(o);
         }
 
         return ResponseEntity.ok(Map.of(
             "success", true,
             "settlementId", settlementId,
-            "status", STATUS_VERIFIED,
+            "status", "VERIFIED",
             "adminCommission", settlement.getAdminCommission(),
             "vendorPayAmount", settlement.getVendorPayAmount()
         ));
@@ -8708,7 +8637,7 @@ public class ReactApiController {
      */
     @PostMapping("/admin/settlements/{settlementId}/payout")
     public ResponseEntity<?> adminVendorPayout(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int settlementId,
             @RequestBody Map<String, Object> body) {
         int adminId = jwtUtil.extractAdminId(authHeader.replace("Bearer ", ""));
@@ -8716,18 +8645,18 @@ public class ReactApiController {
         CashSettlement settlement = cashSettlementRepository.findById(settlementId)
             .orElseThrow(() -> new RuntimeException("Settlement not found"));
 
-        if (!STATUS_VERIFIED.equals(settlement.getSettlementStatus())) {
+        if (!"VERIFIED".equals(settlement.getSettlementStatus())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Settlement must be VERIFIED before payout"));
         }
 
-        settlement.setSettlementStatus(STATUS_PAID);
+        settlement.setSettlementStatus("PAID");
         settlement.setPaidToWarehouseAt(LocalDateTime.now());
         cashSettlementRepository.save(settlement);
 
         // Update linked orders
         List<Order> orders = orderRepository.findByCashSettlementId(settlementId);
         for (Order o : orders) {
-            o.setPaymentStatus(STATUS_PAID);
+            o.setPaymentStatus("PAID");
             o.setPaymentVerifiedAt(LocalDateTime.now());
             orderRepository.save(o);
 
@@ -8751,7 +8680,7 @@ public class ReactApiController {
         return ResponseEntity.ok(Map.of(
             "success", true,
             "settlementId", settlementId,
-            "status", STATUS_PAID,
+            "status", "PAID",
             "totalPaid", settlement.getTotalAmountCollected(),
             "adminKept", settlement.getAdminCommission(),
             "vendorReceived", settlement.getVendorPayAmount(),
@@ -8768,9 +8697,9 @@ public class ReactApiController {
      */
     @PostMapping("/admin/online-payments/process-payout/{orderId}")
     public ResponseEntity<?> adminOnlinePaymentPayout(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int orderId) {
-        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException(ERR_ORDER_NOT_FOUND));
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
 
         if (!"RAZORPAY".equalsIgnoreCase(order.getPaymentMethod())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Not an online payment order"));
@@ -8783,7 +8712,7 @@ public class ReactApiController {
         double adminCut = total * 0.20;
         double vendorCut = total * 0.80;
 
-        order.setPaymentStatus(STATUS_PAID);
+        order.setPaymentStatus("PAID");
         order.setPaymentVerifiedAt(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -8801,11 +8730,11 @@ public class ReactApiController {
 
         return ResponseEntity.ok(Map.of(
             "success", true,
-            KEY_ORDER_ID, orderId,
-            KEY_TOTAL_AMOUNT, total,
+            "orderId", orderId,
+            "totalAmount", total,
             "adminKeeps", adminCut,
             "vendorReceives", vendorCut,
-            KEY_PAYMENT_STATUS, STATUS_PAID
+            "paymentStatus", "PAID"
         ));
     }
 
@@ -8822,7 +8751,7 @@ public class ReactApiController {
      */
     @GetMapping("/admin/orders/all")
     public ResponseEntity<?> adminAllOrders(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         try {
@@ -8838,15 +8767,15 @@ public class ReactApiController {
                 m.put("id", o.getId());
                 m.put("status", o.getTrackingStatus());
                 m.put("paymentMethod", o.getPaymentMethod());
-                m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
+                m.put("paymentStatus", o.getPaymentStatus());
                 m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerId", o.getCustomer() != null ? o.getCustomer().getId() : null);
                 m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
-                m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
+                m.put("vendorId", o.getVendor() != null ? o.getVendor().getId() : null);
                 m.put("sourceWarehouse", o.getSourceWarehouse() != null ? o.getSourceWarehouse().getName() : "");
                 m.put("destinationWarehouse", o.getDestinationWarehouse() != null ? o.getDestinationWarehouse().getName() : "");
-                m.put(KEY_ROUTING_PATH, o.getWarehouseRoutingPath());
-                m.put(KEY_DELIVERY_BOY_ID, o.getFinalDeliveryBoyId());
+                m.put("routingPath", o.getWarehouseRoutingPath());
+                m.put("deliveryBoyId", o.getFinalDeliveryBoyId());
                 m.put("totalPrice", o.getTotalPrice());
                 m.put("orderDate", o.getOrderDate());
                 return m;
@@ -8870,7 +8799,7 @@ public class ReactApiController {
      * Lists all warehouses with details. Password NOT returned (use /credentials endpoint).
      */
     @GetMapping("/admin/warehouses/all")
-    public ResponseEntity<?> adminAllWarehouses(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<?> adminAllWarehouses(@RequestHeader("Authorization") String authHeader) {
         try {
             List<Warehouse> warehouses = warehouseRepository.findAll();
             List<Map<String, Object>> result = warehouses.stream().map(wh -> {
@@ -8879,12 +8808,12 @@ public class ReactApiController {
                 m.put("name", wh.getName());
                 m.put("city", wh.getCity());
                 m.put("state", wh.getState());
-                m.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
+                m.put("warehouseCode", wh.getWarehouseCode());
                 m.put("loginId", wh.getWarehouseLoginId());
                 m.put("contactEmail", wh.getContactEmail());
                 m.put("contactPhone", wh.getContactPhone());
                 m.put("address", wh.getAddress());
-                m.put(KEY_SERVED_PIN_CODES, wh.getServedPinCodes());
+                m.put("servedPinCodes", wh.getServedPinCodes());
                 m.put("active", wh.isActive());
                 m.put("latitude", wh.getLatitude());
                 m.put("longitude", wh.getLongitude());
@@ -8904,10 +8833,10 @@ public class ReactApiController {
      */
     @PostMapping("/admin/warehouse/{warehouseId}/reset-password")
     public ResponseEntity<?> adminResetWarehousePassword(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int warehouseId) {
         try {
-            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException(ERR_WAREHOUSE_NOT_FOUND));
+            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException("Warehouse not found"));
 
             String newPlainPassword = Warehouse.generateLoginPassword();
             String encrypted = AES.encrypt(newPlainPassword);
@@ -8929,7 +8858,7 @@ public class ReactApiController {
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_NEW_PASSWORD, newPlainPassword,
+                "newPassword", newPlainPassword,
                 "message", "Password reset. New password emailed to " + wh.getContactEmail()
             ));
         } catch (Exception e) {
@@ -8945,16 +8874,16 @@ public class ReactApiController {
      */
     @PutMapping("/admin/warehouse/{warehouseId}/toggle-active")
     public ResponseEntity<?> adminToggleWarehouseActive(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int warehouseId) {
         try {
-            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException(ERR_WAREHOUSE_NOT_FOUND));
+            Warehouse wh = warehouseRepository.findById(warehouseId).orElseThrow(() -> new RuntimeException("Warehouse not found"));
             wh.setActive(!wh.isActive());
             warehouseRepository.save(wh);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "active", wh.isActive(),
-                KEY_WAREHOUSE_ID, warehouseId,
+                "warehouseId", warehouseId,
                 "message", "Warehouse " + (wh.isActive() ? "activated" : "deactivated")
             ));
         } catch (Exception e) {
@@ -8970,18 +8899,18 @@ public class ReactApiController {
      * Displays: order ID, payment method, vendor info, admin cut (20%), vendor cut (80%).
      */
     @GetMapping("/admin/vendor-payments/pending")
-    public ResponseEntity<?> adminPendingVendorPayments(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<?> adminPendingVendorPayments(@RequestHeader("Authorization") String authHeader) {
         try {
             List<Order> delivered = orderRepository.findByTrackingStatusAndPaymentStatusNot(
-                TrackingStatus.DELIVERED, STATUS_PAID);
+                TrackingStatus.DELIVERED, "PAID");
             
             List<Map<String, Object>> result = delivered.stream().map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put(KEY_ORDER_ID, o.getId());
+                m.put("orderId", o.getId());
                 m.put("paymentMethod", o.getPaymentMethod());
-                m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
+                m.put("paymentStatus", o.getPaymentStatus());
                 m.put("totalPrice", o.getTotalPrice());
-                m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
+                m.put("vendorId", o.getVendor() != null ? o.getVendor().getId() : null);
                 m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put("adminCut20pct", o.getTotalPrice() * 0.20);
                 m.put("vendorGet80pct", o.getTotalPrice() * 0.80);
@@ -9004,7 +8933,7 @@ public class ReactApiController {
      * Lists all delivery boys awaiting admin approval (adminApproved = false, verified = true).
      */
     @GetMapping("/admin/delivery-boys/pending")
-    public ResponseEntity<?> adminPendingDeliveryBoys(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<?> adminPendingDeliveryBoys(@RequestHeader("Authorization") String authHeader) {
         try {
             List<DeliveryBoy> pending = deliveryBoyRepository.findByAdminApprovedFalseAndVerifiedTrue();
             
@@ -9014,9 +8943,9 @@ public class ReactApiController {
                 m.put("name", db.getName());
                 m.put("email", db.getEmail());
                 m.put("mobile", db.getMobile());
-                m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId() : null);
-                m.put(KEY_WAREHOUSE_NAME, db.getWarehouse() != null ? db.getWarehouse().getName() : "");
-                m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
+                m.put("warehouseId", db.getWarehouse() != null ? db.getWarehouse().getId() : null);
+                m.put("warehouseName", db.getWarehouse() != null ? db.getWarehouse().getName() : "");
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
                 m.put("active", db.isActive());
                 m.put("deliveryBoyCode", db.getDeliveryBoyCode());
                 return m;
@@ -9039,12 +8968,12 @@ public class ReactApiController {
      */
     @PostMapping("/admin/delivery-boys/{deliveryBoyId}/approve")
     public ResponseEntity<?> adminApproveDeliveryBoy(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int deliveryBoyId,
             @RequestBody(required = false) Map<String, Object> body) {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
-                .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
             
             db.setAdminApproved(true);
             db.setActive(true);
@@ -9061,7 +8990,7 @@ public class ReactApiController {
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_DELIVERY_BOY_ID, deliveryBoyId,
+                "deliveryBoyId", deliveryBoyId,
                 "message", "Delivery boy approved and activated",
                 "deliveryBoyCode", db.getDeliveryBoyCode()
             ));
@@ -9078,12 +9007,12 @@ public class ReactApiController {
      */
     @PostMapping("/admin/delivery-boys/{deliveryBoyId}/reject")
     public ResponseEntity<?> adminRejectDeliveryBoy(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable int deliveryBoyId,
             @RequestBody(required = false) Map<String, Object> body) {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
-                .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
             
             String reason = body != null ? (String) body.get("reason") : null;
             
@@ -9102,7 +9031,7 @@ public class ReactApiController {
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_DELIVERY_BOY_ID, deliveryBoyId,
+                "deliveryBoyId", deliveryBoyId,
                 "message", "Delivery boy deactivated"
             ));
         } catch (Exception e) {
@@ -9118,17 +9047,17 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/delivery-boys/pending")
     public ResponseEntity<?> warehousePendingDeliveryBoys(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
             }
             
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse == null) {
-                return ResponseEntity.status(404).body(Map.of("success", false, "error", ERR_WAREHOUSE_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
             }
             
             // Get pending delivery boys for this warehouse (verified but not admin approved)
@@ -9144,15 +9073,15 @@ public class ReactApiController {
                 m.put("email", db.getEmail());
                 m.put("mobile", db.getMobile());
                 m.put("deliveryBoyCode", db.getDeliveryBoyCode());
-                m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
+                m.put("assignedPinCodes", db.getAssignedPinCodes());
                 m.put("registeredAt", "Pending approval");
                 return m;
             }).collect(Collectors.toList());
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_WAREHOUSE_ID, warehouseId,
-                KEY_WAREHOUSE_NAME, warehouse.getName(),
+                "warehouseId", warehouseId,
+                "warehouseName", warehouse.getName(),
                 "pendingDeliveryBoys", result,
                 "total", result.size()
             ));
@@ -9169,17 +9098,17 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/approve")
     public ResponseEntity<?> warehouseApproveDeliveryBoy(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request,
             @PathVariable int deliveryBoyId) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
             }
             
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
-                .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
             
             // Verify delivery boy belongs to this warehouse
             if (db.getWarehouse() == null || db.getWarehouse().getId() != warehouseId) {
@@ -9193,8 +9122,8 @@ public class ReactApiController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Delivery boy approved successfully",
-                KEY_DELIVERY_BOY_ID, deliveryBoyId,
-                KEY_DELIVERY_BOY_NAME, db.getName()
+                "deliveryBoyId", deliveryBoyId,
+                "deliveryBoyName", db.getName()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
@@ -9208,18 +9137,18 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/reject")
     public ResponseEntity<?> warehouseRejectDeliveryBoy(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request,
             @PathVariable int deliveryBoyId,
             @RequestBody(required = false) Map<String, Object> body) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
             }
             
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
-                .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
+                .orElseThrow(() -> new RuntimeException("Delivery boy not found"));
             
             // Verify delivery boy belongs to this warehouse
             if (db.getWarehouse() == null || db.getWarehouse().getId() != warehouseId) {
@@ -9235,8 +9164,8 @@ public class ReactApiController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Delivery boy rejected",
-                KEY_DELIVERY_BOY_ID, deliveryBoyId,
-                KEY_DELIVERY_BOY_NAME, db.getName()
+                "deliveryBoyId", deliveryBoyId,
+                "deliveryBoyName", db.getName()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
@@ -9250,17 +9179,17 @@ public class ReactApiController {
      */
     @GetMapping("/warehouse/staff/list")
     public ResponseEntity<?> warehouseListStaff(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
             }
 
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse == null) {
-                return ResponseEntity.status(404).body(Map.of("success", false, "error", ERR_WAREHOUSE_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
             }
 
             // Get all warehouse staff for this warehouse (assuming there's a relationship)
@@ -9269,8 +9198,8 @@ public class ReactApiController {
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                KEY_WAREHOUSE_ID, warehouseId,
-                KEY_WAREHOUSE_NAME, warehouse.getName(),
+                "warehouseId", warehouseId,
+                "warehouseName", warehouse.getName(),
                 "staff", staff
             ));
         } catch (Exception e) {
@@ -9285,18 +9214,18 @@ public class ReactApiController {
      */
     @PostMapping("/warehouse/staff/create")
     public ResponseEntity<?> warehouseCreateStaff(
-            @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
+            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "error", ERR_NOT_WAREHOUSE));
+                return ResponseEntity.status(401).body(Map.of("success", false, "error", "Not authenticated as warehouse"));
             }
 
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse == null) {
-                return ResponseEntity.status(404).body(Map.of("success", false, "error", ERR_WAREHOUSE_NOT_FOUND));
+                return ResponseEntity.status(404).body(Map.of("success", false, "error", "Warehouse not found"));
             }
 
             String name = (String) body.get("name");
@@ -9310,7 +9239,7 @@ public class ReactApiController {
 
             // Generate random 8-digit staff ID and 6-digit password
             String staffId = String.format("%08d", System.currentTimeMillis() % 100000000L);
-            String password = String.format(FMT_OTP, (int)(Math.random() * 1000000));
+            String password = String.format("%06d", (int)(Math.random() * 1000000));
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
