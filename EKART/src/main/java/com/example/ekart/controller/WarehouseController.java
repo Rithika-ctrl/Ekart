@@ -58,29 +58,43 @@ import com.example.ekart.repository.OrderRepository;
 @RequestMapping("/api/warehouse")
 public class WarehouseController {
 
-    @Autowired
-    private WarehouseReceivingService warehouseReceivingService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseReceivingService warehouseReceivingService;
+    private final WarehouseRoutingService warehouseRoutingService;
+    private final WarehouseTransferService warehouseTransferService;
+    private final WarehouseRepository warehouseRepository;
+    private final OrderRepository orderRepository;
+    private final WarehouseTransferLegRepository warehouseTransferLegRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final EmailSender emailSender;
 
-    @Autowired
-    private WarehouseRoutingService warehouseRoutingService;
+    public WarehouseController(
+            WarehouseReceivingService warehouseReceivingService,
+            WarehouseRoutingService warehouseRoutingService,
+            WarehouseTransferService warehouseTransferService,
+            WarehouseRepository warehouseRepository,
+            OrderRepository orderRepository,
+            WarehouseTransferLegRepository warehouseTransferLegRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            EmailSender emailSender) {
+        this.warehouseReceivingService = warehouseReceivingService;
+        this.warehouseRoutingService = warehouseRoutingService;
+        this.warehouseTransferService = warehouseTransferService;
+        this.warehouseRepository = warehouseRepository;
+        this.orderRepository = orderRepository;
+        this.warehouseTransferLegRepository = warehouseTransferLegRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.emailSender = emailSender;
+    }
 
-    @Autowired
-    private WarehouseTransferService warehouseTransferService;
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
 
-    @Autowired
-    private OrderRepository orderRepository;
 
-    @Autowired
-    private WarehouseTransferLegRepository warehouseTransferLegRepository;
 
-    @Autowired
-    private DeliveryBoyRepository deliveryBoyRepository;
 
-    @Autowired
-    private EmailSender emailSender;
+
+
+
 
     // ─────────────────────────────────────────────────────────────
     // RECEIVING QUEUE - Orders to scan in

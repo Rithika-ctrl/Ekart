@@ -28,8 +28,15 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class AdminRefundController {
 
-    @Autowired
-    private RefundService refundService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final RefundService refundService;
+
+    public AdminRefundController(
+            RefundService refundService) {
+        this.refundService = refundService;
+    }
+
+
 
     // ───────────────────────────────────────────────────────────────────────────
     // PAGE ENDPOINT

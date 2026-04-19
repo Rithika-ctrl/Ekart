@@ -44,18 +44,40 @@ public class CashSettlementService {
 
     private static final Logger log = LoggerFactory.getLogger(CashSettlementService.class);
 
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CashSettlementRepository cashSettlementRepository;
+    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
+    private final OrderRepository orderRepository;
+    private final VendorRepository vendorRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final CodPaymentService codPaymentService;
+    private final EmailSender emailSender;
+
+    public CashSettlementService(
+            CashSettlementRepository cashSettlementRepository,
+            SettlementOrderMappingRepository settlementOrderMappingRepository,
+            OrderRepository orderRepository,
+            VendorRepository vendorRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            CodPaymentService codPaymentService,
+            EmailSender emailSender) {
+        this.cashSettlementRepository = cashSettlementRepository;
+        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
+        this.orderRepository = orderRepository;
+        this.vendorRepository = vendorRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.codPaymentService = codPaymentService;
+        this.emailSender = emailSender;
+    }
+
     // Commission split: 20% to admin (platform), 80% to vendor
     public static final double ADMIN_COMMISSION_RATE = 0.20;
     public static final double VENDOR_SHARE_RATE = 0.80;
 
-    @Autowired private CashSettlementRepository          cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private OrderRepository                   orderRepository;
-    @Autowired private VendorRepository                  vendorRepository;
-    @Autowired private WarehouseRepository              warehouseRepository;
-    @Autowired private TrackingEventLogRepository       trackingEventLogRepository;
-    @Autowired private CodPaymentService                codPaymentService;
-    @Autowired private EmailSender                      emailSender;
 
     // ─────────────────────────────────────────────────────────────────────────
     // SETTLEMENT BATCH SUBMISSION (by Warehouse Staff)

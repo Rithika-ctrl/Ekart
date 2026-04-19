@@ -28,8 +28,18 @@ import java.util.stream.Collectors;
 @Service
 public class OrderTrackingService {
 
-    @Autowired private OrderRepository            orderRepository;
-    @Autowired private TrackingEventLogRepository trackingEventLogRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+
+    public OrderTrackingService(
+            OrderRepository orderRepository,
+            TrackingEventLogRepository trackingEventLogRepository) {
+        this.orderRepository = orderRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+    }
+
+
 
     /**
      * Returns real tracking information for an order.

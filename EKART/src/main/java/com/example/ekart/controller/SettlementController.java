@@ -33,10 +33,24 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class SettlementController {
 
-    @Autowired private CashSettlementService cashSettlementService;
-    @Autowired private CashSettlementRepository cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private OrderRepository orderRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CashSettlementService cashSettlementService;
+    private final CashSettlementRepository cashSettlementRepository;
+    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
+    private final OrderRepository orderRepository;
+
+    public SettlementController(
+            CashSettlementService cashSettlementService,
+            CashSettlementRepository cashSettlementRepository,
+            SettlementOrderMappingRepository settlementOrderMappingRepository,
+            OrderRepository orderRepository) {
+        this.cashSettlementService = cashSettlementService;
+        this.cashSettlementRepository = cashSettlementRepository;
+        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
+        this.orderRepository = orderRepository;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // WAREHOUSE STAFF: SUBMIT CASH SETTLEMENT BATCH

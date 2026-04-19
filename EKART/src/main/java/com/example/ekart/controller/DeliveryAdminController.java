@@ -23,8 +23,18 @@ import java.util.LinkedHashMap;
 @Controller
 public class DeliveryAdminController {
 
-    @Autowired private DeliveryAdminService deliveryAdminService;
-    @Autowired private DeliveryBoyService   deliveryBoyService;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final DeliveryAdminService deliveryAdminService;
+    private final DeliveryBoyService deliveryBoyService;
+
+    public DeliveryAdminController(
+            DeliveryAdminService deliveryAdminService,
+            DeliveryBoyService deliveryBoyService) {
+        this.deliveryAdminService = deliveryAdminService;
+        this.deliveryBoyService = deliveryBoyService;
+    }
+
+
 
     // ── Pages ─────────────────────────────────────────────────────
 

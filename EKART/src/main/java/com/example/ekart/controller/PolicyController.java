@@ -18,11 +18,19 @@ public class PolicyController {
 
     private static final Logger logger = LoggerFactory.getLogger(PolicyController.class);
 
-    @Autowired
-    private PolicyRepository policyRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final PolicyRepository policyRepository;
+    private final AuditLogService auditLogService;
 
-    @Autowired
-    private AuditLogService auditLogService;
+    public PolicyController(
+            PolicyRepository policyRepository,
+            AuditLogService auditLogService) {
+        this.policyRepository = policyRepository;
+        this.auditLogService = auditLogService;
+    }
+
+
+
 
     @GetMapping
     public List<Policy> getAllPolicies() {

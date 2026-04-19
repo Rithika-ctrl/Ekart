@@ -24,11 +24,22 @@ public class AdminConfigurationValidator implements ApplicationListener<Applicat
 
     private static final Logger logger = LoggerFactory.getLogger(AdminConfigurationValidator.class);
 
-    @Autowired(required = false)
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final Environment environment;
     private AdminCredentialRepository adminCredentialRepository;
 
-    @Autowired
-    private Environment environment;
+    public AdminConfigurationValidator(
+            Environment environment) {
+        this.environment = environment;
+    }
+
+    @Autowired(required = false)
+    public void setAdminCredentialRepository(AdminCredentialRepository adminCredentialRepository) {
+        this.adminCredentialRepository = adminCredentialRepository;
+    }
+
+
+
 
     @Override
     public void onApplicationEvent(ApplicationContextInitializedEvent event) {

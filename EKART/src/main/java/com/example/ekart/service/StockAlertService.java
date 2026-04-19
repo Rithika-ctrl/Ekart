@@ -21,14 +21,23 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class StockAlertService {
 
-	@Autowired
-	private StockAlertRepository stockAlertRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final StockAlertRepository stockAlertRepository;
+    private final ProductRepository productRepository;
+    private final EmailSender emailSender;
 
-	@Autowired
-	private ProductRepository productRepository;
+    public StockAlertService(
+            StockAlertRepository stockAlertRepository,
+            ProductRepository productRepository,
+            EmailSender emailSender) {
+        this.stockAlertRepository = stockAlertRepository;
+        this.productRepository = productRepository;
+        this.emailSender = emailSender;
+    }
 
-	@Autowired
-	private EmailSender emailSender;
+
+
+
 
 	// 🔥 CHECK AND CREATE ALERT IF STOCK IS LOW
 	public void checkStockLevel(Product product) {

@@ -22,8 +22,15 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class SpendingAnalyticsController {
 
-    @Autowired
-    private SpendingAnalyticsService spendingAnalyticsService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SpendingAnalyticsService spendingAnalyticsService;
+
+    public SpendingAnalyticsController(
+            SpendingAnalyticsService spendingAnalyticsService) {
+        this.spendingAnalyticsService = spendingAnalyticsService;
+    }
+
+
 
     // ───────────────────────────────────────────────────────────────────────────
     // REST API ENDPOINT

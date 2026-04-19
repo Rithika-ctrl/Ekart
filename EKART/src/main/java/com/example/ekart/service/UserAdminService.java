@@ -23,8 +23,15 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class UserAdminService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+
+    public UserAdminService(
+            CustomerRepository customerRepository) {
+        this.customerRepository = customerRepository;
+    }
+
+
 
     /**
      * Load the security/RBAC management page

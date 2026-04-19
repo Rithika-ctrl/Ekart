@@ -11,8 +11,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class CustomerSettingsController {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+
+    public CustomerSettingsController(
+            CustomerRepository customerRepository) {
+        this.customerRepository = customerRepository;
+    }
+
+
 
     @GetMapping("/customer/security-settings")
     public String customerSecuritySettings(HttpSession session, ModelMap map) {

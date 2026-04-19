@@ -28,14 +28,23 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private CustomOAuth2UserService customOAuth2UserService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final ReactAuthFilter reactAuthFilter;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
-    @Autowired
-    private ReactAuthFilter reactAuthFilter;
+    public SecurityConfig(
+            CustomOAuth2UserService customOAuth2UserService,
+            ReactAuthFilter reactAuthFilter,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+        this.customOAuth2UserService = customOAuth2UserService;
+        this.reactAuthFilter = reactAuthFilter;
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+    }
 
-    @Autowired
-    private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+
+
+
 
     /**
      * CHAIN 1 — Handles all REST API requests (/api/react/** and deprecated /api/flutter/**).

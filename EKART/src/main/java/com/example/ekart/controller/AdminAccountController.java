@@ -28,8 +28,15 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class AdminAccountController {
 
-    @Autowired
-    private AdminAccountService adminAccountService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminAccountService adminAccountService;
+
+    public AdminAccountController(
+            AdminAccountService adminAccountService) {
+        this.adminAccountService = adminAccountService;
+    }
+
+
 
     // ==================== PAGE ROUTES ====================
 

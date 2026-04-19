@@ -31,11 +31,19 @@ import java.util.Map;
 @CrossOrigin(origins = "*") // Allow Flutter, web, any origin
 public class AuthApiController {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    public AuthApiController(
+            CustomerRepository customerRepository,
+            JwtUtil jwtUtil) {
+        this.customerRepository = customerRepository;
+        this.jwtUtil = jwtUtil;
+    }
+
+
+
 
     // ── LOGIN ──────────────────────────────────────────────────────────────
     @PostMapping("/login")

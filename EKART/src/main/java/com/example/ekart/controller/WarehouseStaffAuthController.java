@@ -29,7 +29,15 @@ import java.util.Map;
 @RequestMapping("/warehouse")
 public class WarehouseStaffAuthController {
 
-    @Autowired private WarehouseStaffService staffService;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final WarehouseStaffService staffService;
+
+    public WarehouseStaffAuthController(
+            WarehouseStaffService staffService) {
+        this.staffService = staffService;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // AUTHENTICATION

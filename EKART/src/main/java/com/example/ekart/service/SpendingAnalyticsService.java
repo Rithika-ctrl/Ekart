@@ -28,11 +28,19 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class SpendingAnalyticsService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final OrderRepository orderRepository;
+    private final CustomerRepository customerRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    public SpendingAnalyticsService(
+            OrderRepository orderRepository,
+            CustomerRepository customerRepository) {
+        this.orderRepository = orderRepository;
+        this.customerRepository = customerRepository;
+    }
+
+
+
 
     /**
      * Get complete spending summary for the logged-in customer.

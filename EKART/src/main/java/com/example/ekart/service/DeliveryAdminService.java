@@ -30,16 +30,36 @@ import java.util.stream.Collectors;
 @Transactional
 public class DeliveryAdminService {
 
-    @Autowired private OrderRepository            orderRepository;
-    @Autowired private WarehouseRepository        warehouseRepository;
-    @Autowired private DeliveryBoyRepository      deliveryBoyRepository;
-    @Autowired private TrackingEventLogRepository trackingEventLogRepository;
-    @Autowired private AutoAssignLogRepository    autoAssignLogRepository;
-    @Autowired private EmailSender                emailSender;
-    @Autowired private DeliveryBoyService         deliveryBoyService;
 
     // Constants (from removed AutoAssignmentService)
     private static final int MAX_CONCURRENT_ORDERS = 3;
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final AutoAssignLogRepository autoAssignLogRepository;
+    private final EmailSender emailSender;
+    private final DeliveryBoyService deliveryBoyService;
+
+    public DeliveryAdminService(
+            OrderRepository orderRepository,
+            WarehouseRepository warehouseRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            AutoAssignLogRepository autoAssignLogRepository,
+            EmailSender emailSender,
+            DeliveryBoyService deliveryBoyService) {
+        this.orderRepository = orderRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.autoAssignLogRepository = autoAssignLogRepository;
+        this.emailSender = emailSender;
+        this.deliveryBoyService = deliveryBoyService;
+    }
 
     // Count active orders for a delivery boy (replaces autoAssignmentService.countActiveOrders)
     private int countActiveOrders(DeliveryBoy deliveryBoy) {

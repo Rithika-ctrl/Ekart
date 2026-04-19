@@ -35,23 +35,34 @@ public class AdminAccountService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminAccountService.class);
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final OrderRepository orderRepository;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
+    private final EmailSender emailSender;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    public AdminAccountService(
+            CustomerRepository customerRepository,
+            OrderRepository orderRepository,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository,
+            EmailSender emailSender) {
+        this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+        this.emailSender = emailSender;
+    }
 
-    @Autowired
-    private WishlistRepository wishlistRepository;
 
-    @Autowired
-    private RefundRepository refundRepository;
+
+
+
 
     // @Autowired
     // private ItemRepository itemRepository; // unused
 
-    @Autowired
-    private EmailSender emailSender;
 
     /**
      * Get all users with summarized metadata for admin oversight.

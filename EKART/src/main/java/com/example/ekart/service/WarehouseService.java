@@ -25,11 +25,19 @@ import java.util.Map;
 @Transactional
 public class WarehouseService {
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseRepository warehouseRepository;
+    private final EmailSender emailSender;
 
-    @Autowired
-    private EmailSender emailSender;
+    public WarehouseService(
+            WarehouseRepository warehouseRepository,
+            EmailSender emailSender) {
+        this.warehouseRepository = warehouseRepository;
+        this.emailSender = emailSender;
+    }
+
+
+
 
     /**
      * Create a new warehouse with auto-generated login credentials.

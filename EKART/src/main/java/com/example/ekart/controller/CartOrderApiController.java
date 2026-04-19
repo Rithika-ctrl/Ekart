@@ -57,12 +57,30 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class CartOrderApiController {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private OrderRepository    orderRepository;
-    @Autowired private ItemRepository     itemRepository;
-    @Autowired private JwtUtil            jwtUtil;
-    @Autowired private EmailSender        emailSender;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+    private final JwtUtil jwtUtil;
+    private final EmailSender emailSender;
+
+    public CartOrderApiController(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            JwtUtil jwtUtil,
+            EmailSender emailSender) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.jwtUtil = jwtUtil;
+        this.emailSender = emailSender;
+    }
+
+
 
     // ══════════════════════════════════════════════════════════
     //  CART

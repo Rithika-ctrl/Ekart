@@ -26,9 +26,16 @@ import jakarta.servlet.http.HttpSession;
 
 @Controller
 public class WishlistController {
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WishlistService wishlistService;
+
+    public WishlistController(
+            WishlistService wishlistService) {
+        this.wishlistService = wishlistService;
+    }
+
     
-    @Autowired
-    private WishlistService wishlistService;
     
     // ───────────────────────────────────────────────────────────────────────────
     // REST API ENDPOINTS

@@ -22,11 +22,19 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class OAuth2Controller {
 
-    @Autowired
-    private SocialAuthService socialAuthService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SocialAuthService socialAuthService;
+    private final OAuthProviderValidator providerValidator;
 
-    @Autowired
-    private OAuthProviderValidator providerValidator;
+    public OAuth2Controller(
+            SocialAuthService socialAuthService,
+            OAuthProviderValidator providerValidator) {
+        this.socialAuthService = socialAuthService;
+        this.providerValidator = providerValidator;
+    }
+
+
+
 
     /**
      * Initiates OAuth flow by setting the login type before redirecting to provider.

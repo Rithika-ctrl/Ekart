@@ -24,11 +24,19 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class BannerService {
 
-    @Autowired
-    private BannerRepository bannerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final BannerRepository bannerRepository;
+    private final CloudinaryHelper cloudinaryHelper;
 
-    @Autowired
-    private CloudinaryHelper cloudinaryHelper;
+    public BannerService(
+            BannerRepository bannerRepository,
+            CloudinaryHelper cloudinaryHelper) {
+        this.bannerRepository = bannerRepository;
+        this.cloudinaryHelper = cloudinaryHelper;
+    }
+
+
+
 
     /**
      * Get active banners for the pre-login landing page (home.html)

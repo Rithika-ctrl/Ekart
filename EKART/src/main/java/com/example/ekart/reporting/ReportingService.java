@@ -36,11 +36,19 @@ import java.util.Map;
 @Service
 public class ReportingService {
 
-    @Autowired
-    private SalesRecordRepository salesRecordRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SalesRecordRepository salesRecordRepository;
+    private final ProductRepository productRepository;
 
-    @Autowired
-    private ProductRepository productRepository;   // main DB — only used during write to resolve vendor
+    public ReportingService(
+            SalesRecordRepository salesRecordRepository,
+            ProductRepository productRepository) {
+        this.salesRecordRepository = salesRecordRepository;
+        this.productRepository = productRepository;
+    }
+
+
+
 
     // ──────────────────────────────────────────────────────────────
     //  WRITE: Called when an order is placed → saves to reporting DB

@@ -27,8 +27,15 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class DeliveryJwtInterceptor implements HandlerInterceptor {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final JwtUtil jwtUtil;
+
+    public DeliveryJwtInterceptor(
+            JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
+
 
     @Override
     public boolean preHandle(HttpServletRequest request,

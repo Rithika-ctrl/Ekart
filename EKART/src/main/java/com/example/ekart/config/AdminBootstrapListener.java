@@ -27,11 +27,19 @@ public class AdminBootstrapListener implements ApplicationListener<ApplicationRe
 
     private static final Logger logger = LoggerFactory.getLogger(AdminBootstrapListener.class);
 
-    @Autowired
-    private AdminBootstrapService adminBootstrapService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminBootstrapService adminBootstrapService;
+    private final Environment environment;
 
-    @Autowired
-    private Environment environment;
+    public AdminBootstrapListener(
+            AdminBootstrapService adminBootstrapService,
+            Environment environment) {
+        this.adminBootstrapService = adminBootstrapService;
+        this.environment = environment;
+    }
+
+
+
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {

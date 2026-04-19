@@ -18,8 +18,15 @@ import java.util.Map;
 @RequestMapping("/api/notify-me")
 public class BackInStockController {
 
-    @Autowired
-    private BackInStockService backInStockService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final BackInStockService backInStockService;
+
+    public BackInStockController(
+            BackInStockService backInStockService) {
+        this.backInStockService = backInStockService;
+    }
+
+
 
     /** Subscribe the logged-in customer to back-in-stock alerts for a product */
     @PostMapping("/{productId}")

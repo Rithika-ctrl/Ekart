@@ -25,8 +25,15 @@ import java.util.Random;
 @Transactional
 public class OtpService {
 
-    @Autowired
-    private AuthenticationOtpRepository otpRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AuthenticationOtpRepository otpRepository;
+
+    public OtpService(
+            AuthenticationOtpRepository otpRepository) {
+        this.otpRepository = otpRepository;
+    }
+
+
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final Random random = new Random();

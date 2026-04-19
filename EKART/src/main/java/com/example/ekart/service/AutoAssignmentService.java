@@ -39,14 +39,30 @@ import java.util.stream.Collectors;
 @Transactional
 public class AutoAssignmentService {
 
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final AutoAssignLogRepository autoAssignLogRepository;
+    private final EmailSender emailSender;
+
+    public AutoAssignmentService(
+            OrderRepository orderRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            AutoAssignLogRepository autoAssignLogRepository,
+            EmailSender emailSender) {
+        this.orderRepository = orderRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.autoAssignLogRepository = autoAssignLogRepository;
+        this.emailSender = emailSender;
+    }
+
+
     /** Maximum number of concurrent active orders per delivery boy */
     public static final int MAX_CONCURRENT_ORDERS = 3;
 
-    @Autowired private OrderRepository            orderRepository;
-    @Autowired private DeliveryBoyRepository      deliveryBoyRepository;
-    @Autowired private TrackingEventLogRepository trackingEventLogRepository;
-    @Autowired private AutoAssignLogRepository    autoAssignLogRepository;
-    @Autowired private EmailSender                emailSender;
 
     // ─────────────────────────────────────────────────────────────────────────
     // LOAD BALANCING HELPER — used by manual assignment

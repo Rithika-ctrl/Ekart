@@ -23,12 +23,30 @@ import com.example.ekart.deprecation.ThymeleafDeprecationInterceptor;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Autowired private AuthGuard                  authGuard;
-    @Autowired private IndiaOnlyInterceptor        indiaOnlyInterceptor;
-    @Autowired private DeliveryBoyAuthGuard        deliveryBoyAuthGuard;
-    @Autowired private DeliveryJwtInterceptor      deliveryJwtInterceptor; // FIX: was missing
-    @Autowired(required = false)
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final AuthGuard authGuard;
+    private final IndiaOnlyInterceptor indiaOnlyInterceptor;
+    private final DeliveryBoyAuthGuard deliveryBoyAuthGuard;
+    private final DeliveryJwtInterceptor deliveryJwtInterceptor;
     private ThymeleafDeprecationInterceptor deprecationInterceptor;
+
+    public WebMvcConfig(
+            AuthGuard authGuard,
+            IndiaOnlyInterceptor indiaOnlyInterceptor,
+            DeliveryBoyAuthGuard deliveryBoyAuthGuard,
+            DeliveryJwtInterceptor deliveryJwtInterceptor) {
+        this.authGuard = authGuard;
+        this.indiaOnlyInterceptor = indiaOnlyInterceptor;
+        this.deliveryBoyAuthGuard = deliveryBoyAuthGuard;
+        this.deliveryJwtInterceptor = deliveryJwtInterceptor;
+    }
+
+    @Autowired(required = false)
+    public void setDeprecationInterceptor(ThymeleafDeprecationInterceptor deprecationInterceptor) {
+        this.deprecationInterceptor = deprecationInterceptor;
+    }
+
+
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

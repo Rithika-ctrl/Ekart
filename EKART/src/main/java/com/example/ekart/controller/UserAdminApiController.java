@@ -31,8 +31,15 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/admin")
 public class UserAdminApiController {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+
+    public UserAdminApiController(
+            CustomerRepository customerRepository) {
+        this.customerRepository = customerRepository;
+    }
+
+
 
     /**
      * GET /api/admin/users - Fetch all registered users

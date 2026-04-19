@@ -43,20 +43,31 @@ public class CustomerImageUploadController {
 
     private static final int MAX_IMAGES_PER_ENTITY = 5;
 
-    @Autowired
-    private CloudinaryHelper cloudinaryHelper;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CloudinaryHelper cloudinaryHelper;
+    private final ReviewRepository reviewRepository;
+    private final ReviewImageRepository reviewImageRepository;
+    private final RefundRepository refundRepository;
+    private final RefundImageRepository refundImageRepository;
 
-    @Autowired
-    private ReviewRepository reviewRepository;
+    public CustomerImageUploadController(
+            CloudinaryHelper cloudinaryHelper,
+            ReviewRepository reviewRepository,
+            ReviewImageRepository reviewImageRepository,
+            RefundRepository refundRepository,
+            RefundImageRepository refundImageRepository) {
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.reviewRepository = reviewRepository;
+        this.reviewImageRepository = reviewImageRepository;
+        this.refundRepository = refundRepository;
+        this.refundImageRepository = refundImageRepository;
+    }
 
-    @Autowired
-    private ReviewImageRepository reviewImageRepository;
 
-    @Autowired
-    private RefundRepository refundRepository;       // your existing Refund JPA repo
 
-    @Autowired
-    private RefundImageRepository refundImageRepository;
+
+
+
 
     // @Autowired
     // private ProductRepository productRepository; // unused

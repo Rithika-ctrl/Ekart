@@ -18,11 +18,27 @@ import java.util.*;
 @RequestMapping("/admin/test-data")
 public class TestDataController {
 
-    @Autowired private VendorRepository vendorRepository;
-    @Autowired private ProductRepository productRepository;
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private OrderRepository orderRepository;
-    @Autowired private ItemRepository itemRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final VendorRepository vendorRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+
+    public TestDataController(
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository) {
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+    }
+
+
 
     @GetMapping("/load")
     public ResponseEntity<Map<String, String>> loadTestData() {

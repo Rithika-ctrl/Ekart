@@ -25,8 +25,15 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/orders")
 public class ReorderApiController {
 
-    @Autowired
-    private ReorderService reorderService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ReorderService reorderService;
+
+    public ReorderApiController(
+            ReorderService reorderService) {
+        this.reorderService = reorderService;
+    }
+
+
 
     /**
      * POST /api/orders/:id/reorder

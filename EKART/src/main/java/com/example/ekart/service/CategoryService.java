@@ -11,8 +11,15 @@ import java.util.List;
 @Service
 public class CategoryService {
 
-    @Autowired
-    private CategoryRepository categoryRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CategoryRepository categoryRepository;
+
+    public CategoryService(
+            CategoryRepository categoryRepository) {
+        this.categoryRepository = categoryRepository;
+    }
+
+
 
     /** All parent categories with their sub-categories eagerly loaded */
     @Cacheable("categories-parent")

@@ -23,11 +23,19 @@ import jakarta.mail.internet.MimeMessage;
 @Component
 public class EmailSender {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine;
 
-    @Autowired
-    private TemplateEngine templateEngine;
+    public EmailSender(
+            JavaMailSender mailSender,
+            TemplateEngine templateEngine) {
+        this.mailSender = mailSender;
+        this.templateEngine = templateEngine;
+    }
+
+
+
 
     @Value("${spring.mail.username}")
     private String fromEmail;

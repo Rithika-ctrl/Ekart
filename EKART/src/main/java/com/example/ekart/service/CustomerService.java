@@ -63,51 +63,72 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Transactional
 public class CustomerService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final ItemRepository itemRepository;
+    private final OrderRepository orderRepository;
+    private final EmailSender emailSender;
+    private final ReviewRepository reviewRepository;
+    private final AddressRepository addressRepository;
+    private final SearchService searchService;
+    private final BannerService bannerService;
+    private final CategoryService categoryService;
+    private final ReportingService reportingService;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+    public CustomerService(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            ItemRepository itemRepository,
+            OrderRepository orderRepository,
+            EmailSender emailSender,
+            ReviewRepository reviewRepository,
+            AddressRepository addressRepository,
+            SearchService searchService,
+            BannerService bannerService,
+            CategoryService categoryService,
+            ReportingService reportingService,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.itemRepository = itemRepository;
+        this.orderRepository = orderRepository;
+        this.emailSender = emailSender;
+        this.reviewRepository = reviewRepository;
+        this.addressRepository = addressRepository;
+        this.searchService = searchService;
+        this.bannerService = bannerService;
+        this.categoryService = categoryService;
+        this.reportingService = reportingService;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+    }
 
-    @Autowired
-    private ItemRepository itemRepository;
 
-    @Autowired
-    private OrderRepository orderRepository;
 
-    @Autowired
-    private EmailSender emailSender;
 
-	@Autowired
-	private ReviewRepository reviewRepository;
 
-	@Autowired
-	private AddressRepository addressRepository;
 
-    @Autowired
-    private SearchService searchService;
 
-    @Autowired
-    private BannerService bannerService;
 
-    @Autowired
-    private CategoryService categoryService;
 
-    @Autowired
-    private ReportingService reportingService;
 
-    @Autowired
-    private WishlistRepository wishlistRepository;
 
-    @Autowired
-    private RefundRepository refundRepository;
+
+
+
 
     // ── NEW: for delivery system ──────────────────────────────────
-    @Autowired
-    private WarehouseRepository warehouseRepository;
 
-    @Autowired
-    private TrackingEventLogRepository trackingEventLogRepository;
     // ─────────────────────────────────────────────────────────────
 
     /** Razorpay publishable key — injected from application.properties: razorpay.key.id */

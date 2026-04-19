@@ -33,17 +33,27 @@ import com.example.ekart.repository.WarehouseTransferLegRepository;
 @Transactional
 public class WarehouseTransferService {
 
-    @Autowired
-    private WarehouseTransferLegRepository warehouseTransferLegRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseTransferLegRepository warehouseTransferLegRepository;
+    private final OrderRepository orderRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final OrderTrackingService orderTrackingService;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    public WarehouseTransferService(
+            WarehouseTransferLegRepository warehouseTransferLegRepository,
+            OrderRepository orderRepository,
+            WarehouseRepository warehouseRepository,
+            OrderTrackingService orderTrackingService) {
+        this.warehouseTransferLegRepository = warehouseTransferLegRepository;
+        this.orderRepository = orderRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.orderTrackingService = orderTrackingService;
+    }
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
 
-    @Autowired
-    private OrderTrackingService orderTrackingService;
+
+
+
 
     /**
      * Initiates warehouse transfer legs based on the routing path.

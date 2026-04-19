@@ -23,14 +23,36 @@ public class DeliveryBoyService {
 
     private static final Logger log = LoggerFactory.getLogger(DeliveryBoyService.class);
 
-    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
-    @Autowired private WarehouseRepository                warehouseRepository;
-    @Autowired private OrderRepository                    orderRepository;
-    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
-    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
-    @Autowired private EmailSender                        emailSender;
-    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-    @Autowired private OtpService                         otpService;
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final OrderRepository orderRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final DeliveryOtpRepository deliveryOtpRepository;
+    private final EmailSender emailSender;
+    private final WarehouseChangeRequestRepository warehouseChangeRequestRepository;
+    private final OtpService otpService;
+
+    public DeliveryBoyService(
+            DeliveryBoyRepository deliveryBoyRepository,
+            WarehouseRepository warehouseRepository,
+            OrderRepository orderRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            DeliveryOtpRepository deliveryOtpRepository,
+            EmailSender emailSender,
+            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
+            OtpService otpService) {
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.orderRepository = orderRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.deliveryOtpRepository = deliveryOtpRepository;
+        this.emailSender = emailSender;
+        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
+        this.otpService = otpService;
+    }
 
     @Autowired @Lazy private AutoAssignmentService autoAssignmentService;
 

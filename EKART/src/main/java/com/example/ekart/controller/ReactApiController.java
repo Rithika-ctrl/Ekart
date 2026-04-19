@@ -51,33 +51,6 @@ public class ReactApiController {
     private static final String STRONG_PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
     private static final String STRONG_PASSWORD_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
 
-    @Autowired private CustomerRepository  customerRepository;
-    @Autowired private VendorRepository    vendorRepository;
-    @Autowired private ProductRepository   productRepository;
-    @Autowired private OrderRepository     orderRepository;
-    @Autowired private ItemRepository      itemRepository;
-    @Autowired private WishlistRepository  wishlistRepository;
-    @Autowired private ReviewRepository      reviewRepository;
-    @Autowired private ReviewImageRepository reviewImageRepository;
-    @Autowired private RefundRepository      refundRepository;
-    @Autowired private RefundImageRepository  refundImageRepository;
-    @Autowired private AutoAssignLogRepository autoAssignLogRepository;
-    @Autowired private CashSettlementRepository cashSettlementRepository;
-    @Autowired private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
-    @Autowired private CouponRepository    couponRepository;
-    @Autowired private AiAssistantService  aiAssistantService;
-    @Autowired private RefundService        refundService;
-    @Autowired private SocialAuthService    socialAuthService;
-    @Autowired private OAuthProviderValidator oAuthProviderValidator;
-    @Autowired private com.example.ekart.service.StockAlertService stockAlertService;
-    @Autowired private com.example.ekart.service.AutoAssignmentService autoAssignmentService;
-    @Autowired private com.example.ekart.service.OtpService otpService;
-    @Autowired private AdminAuthService adminAuthService;
-    @Autowired private com.example.ekart.helper.EmailSender emailSender;
-    @Autowired private com.example.ekart.service.RazorpayService razorpayService;
-    @Autowired private com.example.ekart.service.InvoiceService invoiceService;
-    @Autowired(required = false)
-    private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
     private static final DateTimeFormatter CHAT_DATE_FMT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -115,6 +88,129 @@ public class ReactApiController {
         );
         private static final double DEFAULT_GST_RATE = 18.0;
 
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+    private final WishlistRepository wishlistRepository;
+    private final ReviewRepository reviewRepository;
+    private final ReviewImageRepository reviewImageRepository;
+    private final RefundRepository refundRepository;
+    private final RefundImageRepository refundImageRepository;
+    private final AutoAssignLogRepository autoAssignLogRepository;
+    private final CashSettlementRepository cashSettlementRepository;
+    private final com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
+    private final CouponRepository couponRepository;
+    private final AiAssistantService aiAssistantService;
+    private final RefundService refundService;
+    private final SocialAuthService socialAuthService;
+    private final OAuthProviderValidator oAuthProviderValidator;
+    private final com.example.ekart.service.StockAlertService stockAlertService;
+    private final com.example.ekart.service.AutoAssignmentService autoAssignmentService;
+    private final com.example.ekart.service.OtpService otpService;
+    private final AdminAuthService adminAuthService;
+    private final com.example.ekart.helper.EmailSender emailSender;
+    private final com.example.ekart.service.RazorpayService razorpayService;
+    private final com.example.ekart.service.InvoiceService invoiceService;
+    private final JwtUtil jwtUtil;
+    private final DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final com.example.ekart.service.WarehouseService warehouseService;
+    private final com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
+    private final com.example.ekart.service.WarehouseTransferService warehouseTransferService;
+    private final DeliveryOtpRepository deliveryOtpRepository;
+    private final WarehouseChangeRequestRepository warehouseChangeRequestRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final BannerRepository bannerRepository;
+    private final StockAlertRepository stockAlertRepository;
+    private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
+
+    public ReactApiController(
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            WishlistRepository wishlistRepository,
+            ReviewRepository reviewRepository,
+            ReviewImageRepository reviewImageRepository,
+            RefundRepository refundRepository,
+            RefundImageRepository refundImageRepository,
+            AutoAssignLogRepository autoAssignLogRepository,
+            CashSettlementRepository cashSettlementRepository,
+            com.example.ekart.helper.CloudinaryHelper cloudinaryHelper,
+            CouponRepository couponRepository,
+            AiAssistantService aiAssistantService,
+            RefundService refundService,
+            SocialAuthService socialAuthService,
+            OAuthProviderValidator oAuthProviderValidator,
+            com.example.ekart.service.StockAlertService stockAlertService,
+            com.example.ekart.service.AutoAssignmentService autoAssignmentService,
+            com.example.ekart.service.OtpService otpService,
+            AdminAuthService adminAuthService,
+            com.example.ekart.helper.EmailSender emailSender,
+            com.example.ekart.service.RazorpayService razorpayService,
+            com.example.ekart.service.InvoiceService invoiceService,
+            JwtUtil jwtUtil,
+            DeliveryRefreshTokenUtil deliveryRefreshTokenUtil,
+            DeliveryBoyRepository deliveryBoyRepository,
+            WarehouseRepository warehouseRepository,
+            com.example.ekart.service.WarehouseService warehouseService,
+            com.example.ekart.service.WarehouseRoutingService warehouseRoutingService,
+            com.example.ekart.service.WarehouseTransferService warehouseTransferService,
+            DeliveryOtpRepository deliveryOtpRepository,
+            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            BannerRepository bannerRepository,
+            StockAlertRepository stockAlertRepository) {
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.reviewRepository = reviewRepository;
+        this.reviewImageRepository = reviewImageRepository;
+        this.refundRepository = refundRepository;
+        this.refundImageRepository = refundImageRepository;
+        this.autoAssignLogRepository = autoAssignLogRepository;
+        this.cashSettlementRepository = cashSettlementRepository;
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.couponRepository = couponRepository;
+        this.aiAssistantService = aiAssistantService;
+        this.refundService = refundService;
+        this.socialAuthService = socialAuthService;
+        this.oAuthProviderValidator = oAuthProviderValidator;
+        this.stockAlertService = stockAlertService;
+        this.autoAssignmentService = autoAssignmentService;
+        this.otpService = otpService;
+        this.adminAuthService = adminAuthService;
+        this.emailSender = emailSender;
+        this.razorpayService = razorpayService;
+        this.invoiceService = invoiceService;
+        this.jwtUtil = jwtUtil;
+        this.deliveryRefreshTokenUtil = deliveryRefreshTokenUtil;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.warehouseService = warehouseService;
+        this.warehouseRoutingService = warehouseRoutingService;
+        this.warehouseTransferService = warehouseTransferService;
+        this.deliveryOtpRepository = deliveryOtpRepository;
+        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.bannerRepository = bannerRepository;
+        this.stockAlertRepository = stockAlertRepository;
+    }
+
+    @Autowired(required = false)
+    public void setDeprecationTracker(com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
+        this.deprecationTracker = deprecationTracker;
+    }
+
     /**
      * In-memory coupon store: customerId → applied Coupon.
      * Cleared on coupon removal or successful order placement.
@@ -131,11 +227,7 @@ public class ReactApiController {
     private final java.util.concurrent.ConcurrentHashMap<String, String> otpVerified =
             new java.util.concurrent.ConcurrentHashMap<>();
     
-        @Autowired
-    private JwtUtil jwtUtil;
 
-    @Autowired
-    private DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
 
     // Admin credentials are now database-backed via AdminAuthService.
     // See AdminCredential entity and AdminAuthService for implementation.
@@ -641,15 +733,6 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
-    @Autowired private WarehouseRepository                warehouseRepository;
-    @Autowired private com.example.ekart.service.WarehouseService warehouseService;
-    @Autowired private com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
-    @Autowired private com.example.ekart.service.WarehouseTransferService warehouseTransferService;
-    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
-    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
-    @Autowired private BannerRepository                   bannerRepository;
 
     /**
      * POST /api/flutter/auth/delivery/login
@@ -6429,7 +6512,6 @@ public class ReactApiController {
     // Stock Alerts
     // ═══════════════════════════════════════════════════════
 
-    @Autowired private StockAlertRepository stockAlertRepository;
 
     /**
      * POST /api/flutter/orders/{id}/reorder

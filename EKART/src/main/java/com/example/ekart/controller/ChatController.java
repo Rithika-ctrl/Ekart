@@ -27,14 +27,30 @@ import java.util.stream.Collectors;
 @RestController
 public class ChatController {
 
-    @Autowired private AiAssistantService aiAssistantService;
-    @Autowired private OrderRepository    orderRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private RefundRepository   refundRepository;
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final AiAssistantService aiAssistantService;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final RefundRepository refundRepository;
+
+    public ChatController(
+            AiAssistantService aiAssistantService,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            RefundRepository refundRepository) {
+        this.aiAssistantService = aiAssistantService;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.refundRepository = refundRepository;
+    }
 
     // ── POST /chat ────────────────────────────────────────────────────────────
 

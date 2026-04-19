@@ -28,13 +28,20 @@ import java.util.Optional;
 @Transactional
 public class AdminBootstrapService {
 
-    @Autowired
-    private AdminCredentialRepository adminCredentialRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final int MAX_PASSWORD_LENGTH = 128;
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminCredentialRepository adminCredentialRepository;
+
+    public AdminBootstrapService(
+            AdminCredentialRepository adminCredentialRepository) {
+        this.adminCredentialRepository = adminCredentialRepository;
+    }
+
 
     /**
      * Create initial admin account from environment variables.

@@ -12,8 +12,15 @@ import java.util.stream.Collectors;
 @Service
 public class SearchService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+
+    public SearchService(
+            ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+
 
     /**
      * Returns up to 8 product suggestions matching the query,

@@ -55,8 +55,6 @@ import java.util.Set;
 @Component
 public class ReactAuthFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtUtil jwtUtil;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -69,6 +67,15 @@ public class ReactAuthFilter extends OncePerRequestFilter {
             "/products",       // GET product list, detail, categories, reviews — read-only catalogue
             "/assistant/chat"  // AI chat — works for guests
     );
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    public void setJwtUtil(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
 
     // ── Helper: is this path an admin path? ──────────────────────────────────
     private boolean isAdminPath(String sub) {

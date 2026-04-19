@@ -16,14 +16,23 @@ import java.util.Optional;
 @Service
 public class MobileApiReadService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final WishlistRepository wishlistRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private WishlistRepository wishlistRepository;
+    public MobileApiReadService(
+            CustomerRepository customerRepository,
+            WishlistRepository wishlistRepository,
+            OrderRepository orderRepository) {
+        this.customerRepository = customerRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.orderRepository = orderRepository;
+    }
 
-    @Autowired
-    private OrderRepository orderRepository;
+
+
+
 
     @Transactional(readOnly = true)
     public Customer findCustomerWithAddresses(int customerId) {

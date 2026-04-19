@@ -39,14 +39,34 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class ProfileWishlistApiController {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private WishlistRepository wishlistRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final WishlistRepository wishlistRepository;
+    private final ReviewRepository reviewRepository;
+    private final JwtUtil jwtUtil;
+    private final CloudinaryHelper cloudinaryHelper;
+    private final MobileApiReadService mobileApiReadService;
+
+    public ProfileWishlistApiController(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            WishlistRepository wishlistRepository,
+            ReviewRepository reviewRepository,
+            JwtUtil jwtUtil,
+            CloudinaryHelper cloudinaryHelper,
+            MobileApiReadService mobileApiReadService) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.reviewRepository = reviewRepository;
+        this.jwtUtil = jwtUtil;
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.mobileApiReadService = mobileApiReadService;
+    }
+
+
     // @Autowired private AddressRepository  addressRepository; // unused
-    @Autowired private ReviewRepository   reviewRepository;
-    @Autowired private JwtUtil            jwtUtil;
-    @Autowired private CloudinaryHelper   cloudinaryHelper;
-    @Autowired private MobileApiReadService mobileApiReadService;
 
     // ══════════════════════════════════════════════════════════
     //  PROFILE

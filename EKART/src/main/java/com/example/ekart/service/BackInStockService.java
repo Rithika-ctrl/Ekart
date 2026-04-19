@@ -26,11 +26,27 @@ public class BackInStockService {
 
     private static final Logger log = LoggerFactory.getLogger(BackInStockService.class);
 
-    @Autowired private BackInStockRepository backInStockRepository;
-    @Autowired private ProductRepository     productRepository;
-    @Autowired private CustomerRepository    customerRepository;
-    @Autowired private EmailSender           emailSender;
-    @Autowired private com.example.ekart.helper.JwtUtil jwtUtil;
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final BackInStockRepository backInStockRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final EmailSender emailSender;
+    private final com.example.ekart.helper.JwtUtil jwtUtil;
+
+    public BackInStockService(
+            BackInStockRepository backInStockRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            EmailSender emailSender,
+            com.example.ekart.helper.JwtUtil jwtUtil) {
+        this.backInStockRepository = backInStockRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.emailSender = emailSender;
+        this.jwtUtil = jwtUtil;
+    }
 
     // ── SUBSCRIBE ──────────────────────────────────────────────────────────
     /**

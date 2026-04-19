@@ -39,20 +39,29 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    @Autowired
-    private SocialAuthService socialAuthService;
 
-    @Autowired
-    private CustomerRepository customerRepository;
 
-    @Autowired
-    private JwtUtil jwtUtil;
 
     /**
      * React dev-server origin for the flutter OAuth callback redirect.
      * In production, change this to wherever the React build is served.
      */
     private static final String REACT_ORIGIN = "http://localhost:3000";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SocialAuthService socialAuthService;
+    private final CustomerRepository customerRepository;
+    private final JwtUtil jwtUtil;
+
+    public OAuth2LoginSuccessHandler(
+            SocialAuthService socialAuthService,
+            CustomerRepository customerRepository,
+            JwtUtil jwtUtil) {
+        this.socialAuthService = socialAuthService;
+        this.customerRepository = customerRepository;
+        this.jwtUtil = jwtUtil;
+    }
+
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,

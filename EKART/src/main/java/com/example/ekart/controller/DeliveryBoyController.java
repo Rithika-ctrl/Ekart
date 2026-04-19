@@ -22,8 +22,15 @@ import java.util.Map;
 @Controller
 public class DeliveryBoyController {
 
-    @Autowired
-    private DeliveryBoyService deliveryBoyService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final DeliveryBoyService deliveryBoyService;
+
+    public DeliveryBoyController(
+            DeliveryBoyService deliveryBoyService) {
+        this.deliveryBoyService = deliveryBoyService;
+    }
+
+
 
     // ── Auth ──────────────────────────────────────────────────────
 

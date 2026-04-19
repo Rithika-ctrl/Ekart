@@ -21,15 +21,24 @@ import jakarta.servlet.http.HttpSession;
 @Service
 @Transactional
 public class WishlistService {
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WishlistRepository wishlistRepository;
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+
+    public WishlistService(
+            WishlistRepository wishlistRepository,
+            CustomerRepository customerRepository,
+            ProductRepository productRepository) {
+        this.wishlistRepository = wishlistRepository;
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+    }
+
     
-    @Autowired
-    private WishlistRepository wishlistRepository;
     
-    @Autowired
-    private CustomerRepository customerRepository;
     
-    @Autowired
-    private ProductRepository productRepository;
     
     /**
      * Toggle a product in the customer's wishlist.

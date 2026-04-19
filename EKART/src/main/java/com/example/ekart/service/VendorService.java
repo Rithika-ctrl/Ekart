@@ -53,44 +53,62 @@ import com.example.ekart.dto.Item;
 @Transactional
 public class VendorService {
 
-	@Autowired
-	private VendorRepository vendorRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final VendorRepository vendorRepository;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+    private final CloudinaryHelper cloudinaryHelper;
+    private final StockAlertService stockAlertService;
+    private final com.example.ekart.service.BackInStockService backInStockService;
+    private final EmailSender emailSender;
+    private final ItemRepository itemRepository;
+    private final SalesReportRepository salesReportRepository;
+    private final ReportingService reportingService;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final OtpService otpService;
 
-	@Autowired
-	private OrderRepository orderRepository;
+    public VendorService(
+            VendorRepository vendorRepository,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CloudinaryHelper cloudinaryHelper,
+            StockAlertService stockAlertService,
+            com.example.ekart.service.BackInStockService backInStockService,
+            EmailSender emailSender,
+            ItemRepository itemRepository,
+            SalesReportRepository salesReportRepository,
+            ReportingService reportingService,
+            TrackingEventLogRepository trackingEventLogRepository,
+            OtpService otpService) {
+        this.vendorRepository = vendorRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.stockAlertService = stockAlertService;
+        this.backInStockService = backInStockService;
+        this.emailSender = emailSender;
+        this.itemRepository = itemRepository;
+        this.salesReportRepository = salesReportRepository;
+        this.reportingService = reportingService;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.otpService = otpService;
+    }
 
-	@Autowired
-	private ProductRepository productRepository;
 
-	@Autowired
-	private CloudinaryHelper cloudinaryHelper;
 
-	@Autowired
-	private StockAlertService stockAlertService;
 
-	@Autowired
-	private com.example.ekart.service.BackInStockService backInStockService;
 
-	@Autowired
-	private EmailSender emailSender;
 
-	@Autowired
-	private ItemRepository itemRepository;
 
-	@Autowired
-    private SalesReportRepository salesReportRepository;
 
-    @Autowired
-    private ReportingService reportingService;
+
+
+
 
     // ── NEW: for delivery system ──────────────────────────────────
-    @Autowired
-    private TrackingEventLogRepository trackingEventLogRepository;
     // ─────────────────────────────────────────────────────────────
 
     // ── NEW: OTP Service (secure OTP management) ──────────────────
-    @Autowired
-    private OtpService otpService;
     // ─────────────────────────────────────────────────────────────
 
 	// ---------------- REGISTER ----------------

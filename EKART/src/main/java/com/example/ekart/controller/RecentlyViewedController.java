@@ -38,11 +38,19 @@ public class RecentlyViewedController {
 
     private static final int MAX_RECENTLY_VIEWED = 10;
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    public RecentlyViewedController(
+            ProductRepository productRepository,
+            CustomerRepository customerRepository) {
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+    }
+
+
+
 
     /**
      * Get products by IDs (for recently viewed bar rendering).

@@ -32,9 +32,21 @@ import java.util.Optional;
 @RestController
 public class CartWebController {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private ItemRepository     itemRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final ItemRepository itemRepository;
+
+    public CartWebController(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            ItemRepository itemRepository) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.itemRepository = itemRepository;
+    }
+
+
 
     @PostMapping("/api/cart/add-web")
     @Transactional

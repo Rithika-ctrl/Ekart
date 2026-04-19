@@ -12,8 +12,15 @@ import java.util.Map;
 @RequestMapping("/api/search")
 public class SearchController {
 
-    @Autowired
-    private SearchService searchService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SearchService searchService;
+
+    public SearchController(
+            SearchService searchService) {
+        this.searchService = searchService;
+    }
+
+
 
     @GetMapping("/suggestions")
     public ResponseEntity<List<SearchSuggestionDTO>> getSuggestions(

@@ -33,17 +33,27 @@ import com.example.ekart.repository.WarehouseRepository;
 @Transactional
 public class WarehouseReceivingService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final OrderRepository orderRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final OrderTrackingService orderTrackingService;
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    public WarehouseReceivingService(
+            OrderRepository orderRepository,
+            WarehouseRepository warehouseRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            OrderTrackingService orderTrackingService) {
+        this.orderRepository = orderRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.orderTrackingService = orderTrackingService;
+    }
 
-    @Autowired
-    private DeliveryBoyRepository deliveryBoyRepository;
 
-    @Autowired
-    private OrderTrackingService orderTrackingService;
+
+
+
 
     /**
      * Marks an order as received at warehouse.

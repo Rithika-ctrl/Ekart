@@ -30,11 +30,19 @@ public class AdminInitCommandRunner implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminInitCommandRunner.class);
 
-    @Autowired
-    private AdminBootstrapService adminBootstrapService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminBootstrapService adminBootstrapService;
+    private final Environment environment;
 
-    @Autowired
-    private Environment environment;
+    public AdminInitCommandRunner(
+            AdminBootstrapService adminBootstrapService,
+            Environment environment) {
+        this.adminBootstrapService = adminBootstrapService;
+        this.environment = environment;
+    }
+
+
+
 
     @Override
     public void run(String... args) throws Exception {

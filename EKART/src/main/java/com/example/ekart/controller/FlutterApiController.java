@@ -61,25 +61,72 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class FlutterApiController {
 
-    @Autowired private CustomerRepository          customerRepository;
-    @Autowired private VendorRepository            vendorRepository;
-    @Autowired private ProductRepository           productRepository;
-    @Autowired private OrderRepository             orderRepository;
-    @Autowired private ItemRepository              itemRepository;
-    @Autowired private WishlistRepository          wishlistRepository;
-    @Autowired private ReviewRepository            reviewRepository;
-    @Autowired private RefundRepository            refundRepository;
-    @Autowired private StockAlertRepository        stockAlertRepository;
-    @Autowired private BannerRepository            bannerRepository;
-    @Autowired private BackInStockRepository       backInStockRepository;
-    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
-    @Autowired private WarehouseRepository                warehouseRepository;
-    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
-    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
-    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-    @Autowired private EmailSender                        emailSender;
-    @Autowired private AdminAuthService                   adminAuthService;
-    @Autowired private MobileApiReadService               mobileApiReadService;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+    private final WishlistRepository wishlistRepository;
+    private final ReviewRepository reviewRepository;
+    private final RefundRepository refundRepository;
+    private final StockAlertRepository stockAlertRepository;
+    private final BannerRepository bannerRepository;
+    private final BackInStockRepository backInStockRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final DeliveryOtpRepository deliveryOtpRepository;
+    private final WarehouseChangeRequestRepository warehouseChangeRequestRepository;
+    private final EmailSender emailSender;
+    private final AdminAuthService adminAuthService;
+    private final MobileApiReadService mobileApiReadService;
+    private final com.example.ekart.service.AdminAccountService adminAccountService;
+
+    public FlutterApiController(
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            WishlistRepository wishlistRepository,
+            ReviewRepository reviewRepository,
+            RefundRepository refundRepository,
+            StockAlertRepository stockAlertRepository,
+            BannerRepository bannerRepository,
+            BackInStockRepository backInStockRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            DeliveryOtpRepository deliveryOtpRepository,
+            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
+            EmailSender emailSender,
+            AdminAuthService adminAuthService,
+            MobileApiReadService mobileApiReadService,
+            com.example.ekart.service.AdminAccountService adminAccountService) {
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.reviewRepository = reviewRepository;
+        this.refundRepository = refundRepository;
+        this.stockAlertRepository = stockAlertRepository;
+        this.bannerRepository = bannerRepository;
+        this.backInStockRepository = backInStockRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.deliveryOtpRepository = deliveryOtpRepository;
+        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
+        this.emailSender = emailSender;
+        this.adminAuthService = adminAuthService;
+        this.mobileApiReadService = mobileApiReadService;
+        this.adminAccountService = adminAccountService;
+    }
+
+
 
     // Admin credentials are now database-backed via AdminAuthService.
     // See AdminCredential entity and AdminAuthService for implementation.
@@ -1967,7 +2014,6 @@ public class FlutterApiController {
     // ADMIN — ACCOUNTS (search, stats, profile, toggle, delete, reset-pwd)
     // ═══════════════════════════════════════════════════════════════════════
 
-    @Autowired private com.example.ekart.service.AdminAccountService adminAccountService;
 
     /** GET /api/flutter/admin/accounts?search=... */
     @GetMapping("/admin/accounts")

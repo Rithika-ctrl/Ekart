@@ -34,12 +34,30 @@ import java.util.stream.Collectors;
 @Transactional
 public class CodPaymentService {
 
-    @Autowired private OrderRepository                orderRepository;
-    @Autowired private TrackingEventLogRepository     trackingEventLogRepository;
-    @Autowired private CashSettlementRepository       cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private DeliveryBoyRepository         deliveryBoyRepository;
-    @Autowired private EmailSender                   emailSender;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final CashSettlementRepository cashSettlementRepository;
+    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final EmailSender emailSender;
+
+    public CodPaymentService(
+            OrderRepository orderRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            CashSettlementRepository cashSettlementRepository,
+            SettlementOrderMappingRepository settlementOrderMappingRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            EmailSender emailSender) {
+        this.orderRepository = orderRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.cashSettlementRepository = cashSettlementRepository;
+        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.emailSender = emailSender;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // COD ORDER INITIALIZATION

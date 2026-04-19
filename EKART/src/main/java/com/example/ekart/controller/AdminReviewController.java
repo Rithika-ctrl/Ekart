@@ -14,8 +14,15 @@ import java.util.stream.Collectors;
 @Controller
 public class AdminReviewController {
 
-    @Autowired
-    private ReviewRepository reviewRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ReviewRepository reviewRepository;
+
+    public AdminReviewController(
+            ReviewRepository reviewRepository) {
+        this.reviewRepository = reviewRepository;
+    }
+
+
 
     /**
      * GET /admin/reviews

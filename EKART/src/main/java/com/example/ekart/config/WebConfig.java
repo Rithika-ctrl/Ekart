@@ -22,8 +22,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Autowired
-    private DeprecationInterceptor deprecationInterceptor;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final DeprecationInterceptor deprecationInterceptor;
+
+    public WebConfig(
+            DeprecationInterceptor deprecationInterceptor) {
+        this.deprecationInterceptor = deprecationInterceptor;
+    }
+
+
 
     /**
      * Register all interceptors with Spring MVC.

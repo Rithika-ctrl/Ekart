@@ -30,26 +30,39 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminService {
 
-	@Autowired
-	private AdminAuthService adminAuthService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminAuthService adminAuthService;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final OrderRepository orderRepository;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
 
-	@Autowired
-	private ProductRepository productRepository;
+    public AdminService(
+            AdminAuthService adminAuthService,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            OrderRepository orderRepository,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository) {
+        this.adminAuthService = adminAuthService;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.orderRepository = orderRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+    }
 
-	@Autowired
-	private CustomerRepository customerRepository;
 
-	@Autowired
-	private VendorRepository vendorRepository;
 
-	@Autowired
-	private OrderRepository orderRepository;
 
-	@Autowired
-	private WishlistRepository wishlistRepository;
 
-	@Autowired
-	private RefundRepository refundRepository;
+
+
+
 
 	// private ItemRepository itemRepository; // unused
 

@@ -26,11 +26,19 @@ public class RefundService {
 
     private static final Logger log = LoggerFactory.getLogger(RefundService.class);
 
-    @Autowired
-    private RefundRepository refundRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final RefundRepository refundRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    public RefundService(
+            RefundRepository refundRepository,
+            OrderRepository orderRepository) {
+        this.refundRepository = refundRepository;
+        this.orderRepository = orderRepository;
+    }
+
+
+
 
     // ───────────────────────────────────────────────────────────────────────────
     // QUERY METHODS

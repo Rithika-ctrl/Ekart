@@ -14,13 +14,20 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
 
-    @Autowired(required = false)
-    private ThymeleafDeprecationTracker tracker;
 
     // Skip tracking for these routes
     private static final String[] SKIP_PATTERNS = {
         "/api/", "/assets/", "/js/", "/css/", "/images/", "/static/"
     };
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private ThymeleafDeprecationTracker tracker;
+
+    @Autowired(required = false)
+    public void setTracker(ThymeleafDeprecationTracker tracker) {
+        this.tracker = tracker;
+    }
+
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {

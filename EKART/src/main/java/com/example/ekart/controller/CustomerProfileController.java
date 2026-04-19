@@ -15,8 +15,18 @@ import org.springframework.web.multipart.MultipartFile;
 @Controller
 public class CustomerProfileController {
 
-    @Autowired private CloudinaryHelper cloudinaryHelper;
-    @Autowired private CustomerRepository customerRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CloudinaryHelper cloudinaryHelper;
+    private final CustomerRepository customerRepository;
+
+    public CustomerProfileController(
+            CloudinaryHelper cloudinaryHelper,
+            CustomerRepository customerRepository) {
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.customerRepository = customerRepository;
+    }
+
+
 
     /**
      * GET /customer/profile  (also accepts legacy typo URL /customer/proflie)

@@ -13,8 +13,15 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/user-activity")
 public class UserActivityController {
-    @Autowired
-    private UserActivityRepository userActivityRepository;
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final UserActivityRepository userActivityRepository;
+
+    public UserActivityController(
+            UserActivityRepository userActivityRepository) {
+        this.userActivityRepository = userActivityRepository;
+    }
+
 
     @PostMapping("/batch")
     public ResponseEntity<?> logBatch(@RequestBody List<Map<String, Object>> activities) {

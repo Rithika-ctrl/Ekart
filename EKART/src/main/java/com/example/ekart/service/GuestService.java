@@ -15,8 +15,15 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class GuestService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+
+    public GuestService(
+            ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+
 
     // ── Start a guest session ──────────────────────────────────────────────────
     public String startGuestSession(HttpSession session) {

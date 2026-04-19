@@ -26,11 +26,19 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class SocialAuthService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
 
-    @Autowired
-    private VendorRepository vendorRepository;
+    public SocialAuthService(
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository) {
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+    }
+
+
+
 
     /**
      * Process OAuth authentication for a customer.

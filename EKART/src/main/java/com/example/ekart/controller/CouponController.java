@@ -20,8 +20,15 @@ import java.util.Optional;
 @Controller
 public class CouponController {
 
-    @Autowired
-    private CouponRepository couponRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CouponRepository couponRepository;
+
+    public CouponController(
+            CouponRepository couponRepository) {
+        this.couponRepository = couponRepository;
+    }
+
+
 
     // ── ADMIN: View all coupons ──────────────────────────────────────
     @GetMapping("/admin/coupons")

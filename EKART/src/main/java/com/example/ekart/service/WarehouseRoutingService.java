@@ -35,8 +35,15 @@ import com.example.ekart.repository.WarehouseRepository;
 @Transactional
 public class WarehouseRoutingService {
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseRepository warehouseRepository;
+
+    public WarehouseRoutingService(
+            WarehouseRepository warehouseRepository) {
+        this.warehouseRepository = warehouseRepository;
+    }
+
+
 
     /**
      * Calculates the optimal warehouse route from source to destination.

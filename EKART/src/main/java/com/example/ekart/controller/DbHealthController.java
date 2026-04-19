@@ -15,8 +15,15 @@ import java.util.Map;
 @RestController
 public class DbHealthController {
 
-    @Autowired
-    private DataSource dataSource;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final DataSource dataSource;
+
+    public DbHealthController(
+            DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+
 
     @GetMapping("/health/db")
     public ResponseEntity<Map<String, Object>> dbHealth() {

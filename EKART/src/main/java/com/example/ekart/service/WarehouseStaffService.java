@@ -29,9 +29,21 @@ import java.util.*;
 @Transactional
 public class WarehouseStaffService {
 
-    @Autowired private WarehouseStaffRepository staffRepository;
-    @Autowired private WarehouseRepository warehouseRepository;
-    @Autowired private EmailSender emailSender;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final WarehouseStaffRepository staffRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final EmailSender emailSender;
+
+    public WarehouseStaffService(
+            WarehouseStaffRepository staffRepository,
+            WarehouseRepository warehouseRepository,
+            EmailSender emailSender) {
+        this.staffRepository = staffRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.emailSender = emailSender;
+    }
+
+
 
     private final Random random = new Random();
 

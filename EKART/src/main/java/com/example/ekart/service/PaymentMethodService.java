@@ -27,8 +27,18 @@ import java.util.*;
 @Transactional
 public class PaymentMethodService {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private WarehouseRepository warehouseRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final WarehouseRepository warehouseRepository;
+
+    public PaymentMethodService(
+            CustomerRepository customerRepository,
+            WarehouseRepository warehouseRepository) {
+        this.customerRepository = customerRepository;
+        this.warehouseRepository = warehouseRepository;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // PAYMENT METHOD VALIDATION

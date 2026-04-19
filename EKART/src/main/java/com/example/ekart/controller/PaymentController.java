@@ -32,10 +32,24 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class PaymentController {
 
-    @Autowired private PaymentMethodService paymentMethodService;
-    @Autowired private CodPaymentService codPaymentService;
-    @Autowired private OrderRepository orderRepository;
-    @Autowired private CustomerRepository customerRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final PaymentMethodService paymentMethodService;
+    private final CodPaymentService codPaymentService;
+    private final OrderRepository orderRepository;
+    private final CustomerRepository customerRepository;
+
+    public PaymentController(
+            PaymentMethodService paymentMethodService,
+            CodPaymentService codPaymentService,
+            OrderRepository orderRepository,
+            CustomerRepository customerRepository) {
+        this.paymentMethodService = paymentMethodService;
+        this.codPaymentService = codPaymentService;
+        this.orderRepository = orderRepository;
+        this.customerRepository = customerRepository;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // PAYMENT METHOD SELECTION

@@ -31,11 +31,19 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class ProductApiController {
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+    private final ReviewRepository reviewRepository;
 
-    @Autowired
-    private ReviewRepository reviewRepository;
+    public ProductApiController(
+            ProductRepository productRepository,
+            ReviewRepository reviewRepository) {
+        this.productRepository = productRepository;
+        this.reviewRepository = reviewRepository;
+    }
+
+
+
 
     // ── GET ALL / SEARCH / FILTER ──────────────────────────────────────────
     @GetMapping

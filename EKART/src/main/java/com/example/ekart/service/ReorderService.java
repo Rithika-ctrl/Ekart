@@ -30,17 +30,27 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class ReorderService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final ItemRepository itemRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+    public ReorderService(
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            ItemRepository itemRepository) {
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.itemRepository = itemRepository;
+    }
 
-    @Autowired
-    private CustomerRepository customerRepository;
 
-    @Autowired
-    private ItemRepository itemRepository;
+
+
+
 
     /**
      * Response DTO for reorder API
