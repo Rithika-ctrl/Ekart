@@ -1,7 +1,6 @@
 package com.example.ekart.middleware;
 
 import com.example.ekart.helper.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;

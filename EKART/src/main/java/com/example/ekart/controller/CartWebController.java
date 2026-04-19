@@ -1,4 +1,5 @@
 package com.example.ekart.controller;
+import java.util.Optional;
 
 import com.example.ekart.dto.Cart;
 import com.example.ekart.dto.Customer;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * REST endpoint for session-based (web) add-to-cart with quantity selection.

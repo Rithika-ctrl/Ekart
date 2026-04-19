@@ -1,5 +1,7 @@
 package com.example.ekart.controller;
+import com.example.ekart.dto.Address;
 
+import java.time.LocalDateTime;
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/controller/PaymentController.java
 //
@@ -18,7 +20,6 @@ package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.service.*;
-import com.example.ekart.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,18 +36,12 @@ public class PaymentController {
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final PaymentMethodService paymentMethodService;
     private final CodPaymentService codPaymentService;
-    private final OrderRepository orderRepository;
-    private final CustomerRepository customerRepository;
 
     public PaymentController(
             PaymentMethodService paymentMethodService,
-            CodPaymentService codPaymentService,
-            OrderRepository orderRepository,
-            CustomerRepository customerRepository) {
+            CodPaymentService codPaymentService) {
         this.paymentMethodService = paymentMethodService;
         this.codPaymentService = codPaymentService;
-        this.orderRepository = orderRepository;
-        this.customerRepository = customerRepository;
     }
 
 
@@ -426,3 +421,6 @@ public class PaymentController {
         }
     }
 }
+
+
+

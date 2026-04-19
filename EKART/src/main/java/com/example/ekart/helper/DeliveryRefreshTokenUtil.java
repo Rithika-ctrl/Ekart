@@ -1,11 +1,12 @@
 package com.example.ekart.helper;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.Random;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -54,11 +55,13 @@ public class DeliveryRefreshTokenUtil {
 
         if ((environment.contains("prod") || environment.contains("production")) &&
             SECRET.equals(DEV_DEFAULT)) {
-            System.err.println("\n" +
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
-                "║ Delivery token refresh tokens cannot be securely signed.        ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝\n");
+            System.err.println("""
+
+                ╔════════════════════════════════════════════════════════════════╗
+                ║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║
+                ║ Delivery token refresh tokens cannot be securely signed.        ║
+                ╚════════════════════════════════════════════════════════════════╝
+                """);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
                 "random value in production. Generate with: openssl rand -base64 32"
@@ -227,3 +230,5 @@ public class DeliveryRefreshTokenUtil {
         public long getExpiresIn() { return expiresIn; }
     }
 }
+
+

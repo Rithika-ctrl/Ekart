@@ -1,4 +1,7 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import java.util.Random;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
@@ -14,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.ModelMap;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -225,7 +227,7 @@ public class DeliveryBoyService {
         deliveryBoyRepository.save(db);
 
         try { emailSender.sendDeliveryBoyRejected(db, reason); }
-        catch (Exception e) { System.err.println("Rejection email failed: " + e.getMessage()); }
+        catch (Exception e) { log.warn("Rejection email failed", e); }
 
         res.put("success", true);
         res.put("message", db.getName() + " rejected and deactivated");
@@ -432,7 +434,7 @@ public class DeliveryBoyService {
         // AUTO-ASSIGN DISABLED (Phase 3)
         // Previously: autoAssignmentService.onOrderDelivered(db);
         // Now: Warehouse staff will manually assign next order for delivery boy
-        log.info("[DELIVERY] Order #{} delivered by {} (auto-fill disabled)", orderId, db.getName());
+        log.info("[DELIVERY] Order #{} delivered by delivery_boy_id={} (auto-fill disabled)", orderId, db.getId());
 
         res.put("success", true);
         res.put("message", "Order #" + orderId + " marked as Delivered!");
@@ -696,3 +698,4 @@ public class DeliveryBoyService {
         return (DeliveryBoy) session.getAttribute("deliveryBoy");
     }
 }
+

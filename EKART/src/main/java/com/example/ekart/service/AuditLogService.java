@@ -1,9 +1,9 @@
 package com.example.ekart.service;
+import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
 
 @Service
 public class AuditLogService {
@@ -14,3 +14,4 @@ public class AuditLogService {
         log.info("[AUDIT] POLICY {} : '{}' by admin {} at {}", action, policyTitle, adminId, LocalDateTime.now());
     }
 }
+

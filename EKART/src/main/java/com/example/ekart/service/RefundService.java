@@ -1,12 +1,11 @@
 package com.example.ekart.service;
-
 import java.time.LocalDateTime;
+
 import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.ekart.dto.Customer;
@@ -224,11 +223,10 @@ public class RefundService {
     private void sendRefundStatusNotification(Customer customer, Refund refund, boolean approved, String rejectionReason) {
         // Log notification (stub for email - can be expanded later)
         String status = approved ? "APPROVED" : "REJECTED";
-        log.info("📬 REFUND NOTIFICATION: Customer: {} ({}), Order #{}, Amount: ₹{}, Status: {}", 
-                customer.getName(), customer.getEmail(), refund.getOrder().getId(), 
-                String.format("%.2f", refund.getAmount()), status);
+        log.info("📬 REFUND NOTIFICATION: customerId={}, orderId={}, amount=₹{}, status={}",
+            customer.getId(), refund.getOrder().getId(), String.format("%.2f", refund.getAmount()), status);
         if (rejectionReason != null) {
-            log.info("   Rejection Reason: {}", rejectionReason);
+            log.info("   Rejection reason provided (content omitted)");
         }
 
         // TODO: Implement actual email sending using emailSender
@@ -266,3 +264,4 @@ public class RefundService {
         return migrated;
     }
 }
+

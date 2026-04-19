@@ -1,13 +1,12 @@
 package com.example.ekart.service;
+import java.util.stream.Collectors;
 
 import com.example.ekart.controller.SearchSuggestionDTO;
 import com.example.ekart.dto.Product;
 import com.example.ekart.repository.ProductRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class SearchService {

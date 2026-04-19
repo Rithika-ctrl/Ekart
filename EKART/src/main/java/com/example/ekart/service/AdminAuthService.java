@@ -1,9 +1,9 @@
 package com.example.ekart.service;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.example.ekart.dto.AuthenticationResult;
 import com.example.ekart.dto.VerificationResult;
 import com.example.ekart.dto.PasswordChangeResult;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -69,3 +69,4 @@ public class AdminAuthService {
         return envAdminEmail;
     }
 }
+

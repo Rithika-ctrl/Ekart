@@ -1,4 +1,6 @@
 package com.example.ekart.controller;
+import java.util.Random;
+import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -6,11 +8,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,6 +55,9 @@ import com.example.ekart.repository.OrderRepository;
 @RestController
 @RequestMapping("/api/warehouse")
 public class WarehouseController {
+
+    private static final String ORDERS_KEY = "orders";
+    private static final String ROUTING_PATH_KEY = "routingPath";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseReceivingService warehouseReceivingService;
@@ -121,7 +122,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "warehouse", warehouse.get().getName(),
                 "queue_count", receivingQueue.size(),
-                "orders", receivingQueue
+                ORDERS_KEY, receivingQueue
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -189,7 +190,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "warehouse", warehouse.get().getName(),
                 "queue_count", prepQueue.size(),
-                "orders", prepQueue
+                ORDERS_KEY, prepQueue
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -255,7 +256,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "warehouse", warehouse.get().getName(),
                 "queue_count", assignQueue.size(),
-                "orders", assignQueue
+                ORDERS_KEY, assignQueue
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -385,15 +386,15 @@ public class WarehouseController {
                     o.put("paymentMethod", order.getPaymentMethod());
                     o.put("sourceWarehouse", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : "");
                     o.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : "");
-                    o.put("routingPath", order.getWarehouseRoutingPath());
+                    o.put(ROUTING_PATH_KEY, order.getWarehouseRoutingPath());
                     return o;
                 })
-                .collect(Collectors.toList());
+                .toList();
             
             return ResponseEntity.ok(Map.of(
                 "warehouse", warehouse.get().getName(),
                 "pending_count", orders.size(),
-                "orders", orders,
+                ORDERS_KEY, orders,
                 "transfers", transfers
             ));
         } catch (Exception e) {
@@ -648,7 +649,7 @@ public class WarehouseController {
                 "success", true,
                 "status", "IN_HUB_TRANSIT",
                 "orderId", orderId,
-                "routingPath", order.getWarehouseRoutingPath()
+                ROUTING_PATH_KEY, order.getWarehouseRoutingPath()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -746,13 +747,13 @@ public class WarehouseController {
                 m.put("customerEmail", o.getCustomer() != null ? o.getCustomer().getEmail() : "");
                 m.put("totalPrice", o.getTotalPrice());
                 m.put("paymentMethod", o.getPaymentMethod());
-                m.put("routingPath", o.getWarehouseRoutingPath());
+                m.put(ROUTING_PATH_KEY, o.getWarehouseRoutingPath());
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
 
             return ResponseEntity.ok(Map.of(
                 "count", result.size(),
-                "orders", result
+                ORDERS_KEY, result
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -790,7 +791,7 @@ public class WarehouseController {
             if (wh.getServedPinCodes() != null && 
                 !Arrays.asList(wh.getServedPinCodes().split(",")).stream()
                     .map(String::trim)
-                    .collect(Collectors.toList())
+                    .toList()
                     .contains(pinCode.trim())) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Pin code " + pinCode + " is not served by this warehouse"));
@@ -804,7 +805,7 @@ public class WarehouseController {
                 .filter(b -> b.getAssignedPinCodes() != null &&
                     Arrays.asList(b.getAssignedPinCodes().split(",")).stream()
                         .map(String::trim)
-                        .collect(Collectors.toList())
+                        .toList()
                         .contains(pinCode.trim()))
                 .map(b -> {
                     Map<String, Object> m = new LinkedHashMap<>();
@@ -814,7 +815,7 @@ public class WarehouseController {
                     m.put("assignedPinCodes", b.getAssignedPinCodes());
                     return m;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
             return ResponseEntity.ok(Map.of(
                 "pinCode", pinCode,
@@ -913,3 +914,4 @@ public class WarehouseController {
         }
     }
 }
+

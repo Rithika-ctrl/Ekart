@@ -1,14 +1,14 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import java.util.Random;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.AuthenticationOtp;
 import com.example.ekart.repository.AuthenticationOtpRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Random;
 
 /**
  * OTP Service for secure OTP generation, storage, and verification.
@@ -168,3 +168,5 @@ public class OtpService {
         }
     }
 }
+
+

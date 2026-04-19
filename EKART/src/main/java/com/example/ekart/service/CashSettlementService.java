@@ -1,4 +1,7 @@
 package com.example.ekart.service;
+import java.util.stream.Collectors;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/service/CashSettlementService.java
@@ -34,9 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -469,3 +470,5 @@ public class CashSettlementService {
         return String.format("₹%,.2f", amount);
     }
 }
+
+

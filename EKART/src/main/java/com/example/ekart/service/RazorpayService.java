@@ -1,14 +1,12 @@
 package com.example.ekart.service;
 
+import java.util.HashMap;
+import java.util.Map;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.security.MessageDigest;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * RazorpayService — Handles Razorpay payment order creation and signature verification

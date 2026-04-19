@@ -8,7 +8,6 @@ package com.example.ekart.config;
 // ================================================================
 
 import com.example.ekart.service.CustomOAuth2UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;

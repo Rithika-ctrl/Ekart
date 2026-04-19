@@ -25,15 +25,11 @@ package com.example.ekart.service;
 // ================================================================
 
 import com.example.ekart.dto.*;
-import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -41,22 +37,9 @@ public class AutoAssignmentService {
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final OrderRepository orderRepository;
-    private final DeliveryBoyRepository deliveryBoyRepository;
-    private final TrackingEventLogRepository trackingEventLogRepository;
-    private final AutoAssignLogRepository autoAssignLogRepository;
-    private final EmailSender emailSender;
 
-    public AutoAssignmentService(
-            OrderRepository orderRepository,
-            DeliveryBoyRepository deliveryBoyRepository,
-            TrackingEventLogRepository trackingEventLogRepository,
-            AutoAssignLogRepository autoAssignLogRepository,
-            EmailSender emailSender) {
+    public AutoAssignmentService(OrderRepository orderRepository) {
         this.orderRepository = orderRepository;
-        this.deliveryBoyRepository = deliveryBoyRepository;
-        this.trackingEventLogRepository = trackingEventLogRepository;
-        this.autoAssignLogRepository = autoAssignLogRepository;
-        this.emailSender = emailSender;
     }
 
 

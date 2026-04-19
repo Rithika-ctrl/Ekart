@@ -1,17 +1,16 @@
 package com.example.ekart.reporting;
 
+import java.time.LocalDateTime;
 import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Product;
 import com.example.ekart.repository.ProductRepository;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;

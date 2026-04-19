@@ -1,15 +1,14 @@
 package com.example.ekart.controller;
+import java.util.stream.Collectors;
 
 import com.example.ekart.dto.Review;
 import com.example.ekart.repository.ReviewRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Controller
 public class AdminReviewController {

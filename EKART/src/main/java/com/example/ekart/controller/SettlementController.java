@@ -1,4 +1,5 @@
 package com.example.ekart.controller;
+import java.util.stream.Collectors;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/controller/SettlementController.java
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -481,3 +481,4 @@ public class SettlementController {
         }
     }
 }
+

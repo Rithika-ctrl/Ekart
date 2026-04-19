@@ -40,6 +40,34 @@ function gstRateForCategory(category) {
   return key !== undefined ? GST_CATEGORY_RATES[key] : DEFAULT_GST_RATE;
 }
 
+function normalizeGstRate(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
+
+// Priority order:
+// 1) explicit client override (for UI-driven manual tax edits)
+// 2) backend-resolved rate (authoritative default from API)
+// 3) product rate
+// 4) category fallback
+function resolveItemGstRate(item) {
+  const clientOverride = normalizeGstRate(
+    item?.gstRateClient ?? item?.clientGstRate ?? item?.gstRateOverride
+  );
+  if (clientOverride != null) return clientOverride;
+
+  const backendResolved = normalizeGstRate(item?.gstRateResolved);
+  if (backendResolved != null) return backendResolved;
+
+  const productRate = normalizeGstRate(item?.gstRate);
+  if (productRate != null) return productRate;
+
+  return gstRateForCategory(item?.category);
+}
+
 /**
  * Given cart items (each with unitPrice/price, quantity, category, gstRate?),
  * compute per-slab GST breakdown and total GST amount.
@@ -50,7 +78,7 @@ function computeCartGst(items = []) {
   let totalGst = 0;
 
   items.forEach(item => {
-    const rate = item.gstRate != null ? Number(item.gstRate) : gstRateForCategory(item.category);
+    const rate = resolveItemGstRate(item);
     const lineTotal = (item.unitPrice || item.price || 0) * (item.quantity || 1);
     const gst = rate > 0 ? Math.round((lineTotal * rate / (100 + rate)) * 100) / 100 : 0;
     const taxable = lineTotal - gst;
@@ -900,6 +928,7 @@ export default function CustomerApp() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState({ items: [], total: 0, itemCount: 0, subtotal: 0, deliveryCharge: 0 });
+  const [clientGstOverrides, setClientGstOverrides] = useState({}); // { [productId]: rate }
   const [orders, setOrders] = useState([]);
   const [wishlistIds, setWishlistIds] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -988,6 +1017,31 @@ export default function CustomerApp() {
 
   const api = useCallback((path, opts) => apiFetch(path, opts, auth), [auth]);
   const showToast = m => setToast(m);
+
+  const setClientGstOverride = useCallback((productId, rate) => {
+    if (productId == null) return;
+    const key = String(productId);
+    setClientGstOverrides(prev => {
+      const next = { ...prev };
+      if (rate == null || rate === "") {
+        delete next[key];
+      } else {
+        const n = Number(rate);
+        if (!Number.isFinite(n)) return prev;
+        next[key] = Math.max(0, Math.min(100, n));
+      }
+      return next;
+    });
+  }, []);
+
+  const cartWithClientGst = {
+    ...cart,
+    items: (cart.items || []).map(item => {
+      const key = String(item.productId ?? item.id ?? "");
+      const override = key ? clientGstOverrides[key] : undefined;
+      return override == null ? item : { ...item, gstRateClient: override };
+    }),
+  };
 
   const setCheckoutStep = (step) => {
     const base = "/shop/cart";
@@ -1108,16 +1162,25 @@ export default function CustomerApp() {
     }
   }, [page, checkoutStep, addressPage, paymentPage]);
 
-  const addToCart = async (productId) => {
+  const addToCart = async (productId, quantity = 1) => {
     if (auth?.role === "GUEST" || !auth) { showToast("Sign in to add items to cart"); return; }
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
     setCartLoading(l => ({ ...l, [productId]: true }));
-    const d = await api("/cart/add", { method: "POST", body: JSON.stringify({ productId }) });
-    if (d.success) {
-      showToast("Added to cart ✓");
-      loadCart();
-      track("ADD_TO_CART", { productId });
+    let failedMessage = null;
+    for (let i = 0; i < qty; i++) {
+      const d = await api("/cart/add", { method: "POST", body: JSON.stringify({ productId }) });
+      if (!d?.success) {
+        failedMessage = d?.message || "Failed to add";
+        break;
+      }
     }
-    else showToast(d.message || "Failed to add");
+    if (!failedMessage) {
+      showToast(qty > 1 ? `Added ${qty} to cart ✓` : "Added to cart ✓");
+      loadCart();
+      track("ADD_TO_CART", { productId, quantity: qty });
+    } else {
+      showToast(failedMessage);
+    }
     setCartLoading(l => ({ ...l, [productId]: false }));
   };
 
@@ -1396,9 +1459,10 @@ export default function CustomerApp() {
               <div style={{ color: "#6b7280" }}>Loading your cart...</div>
             </div>
           ) : (
-            <CartPage cart={cart} onRemove={removeFromCart} onUpdateQty={updateCartQty}
+            <CartPage cart={cartWithClientGst} onRemove={removeFromCart} onUpdateQty={updateCartQty}
               onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
-              onCheckout={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} profile={profile} />
+              onCheckout={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} profile={profile}
+              onSetItemGstOverride={setClientGstOverride} />
           )}
         </GuestGate>
       )}
@@ -1418,7 +1482,7 @@ export default function CustomerApp() {
               onBack={() => { setCheckoutStep(""); window.scrollTo(0, 0); }}
               onContinue={(addrId) => { setSelectedAddressId(addrId); setCheckoutStep("payment"); window.scrollTo(0, 0); }}
               showToast={showToast}
-              cart={cart}
+              cart={cartWithClientGst}
             />
           )}
         </GuestGate>
@@ -1432,7 +1496,7 @@ export default function CustomerApp() {
               <div style={{ color: "#6b7280" }}>Loading payment details...</div>
             </div>
           ) : (
-            <PaymentPage cart={cart} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
+            <PaymentPage cart={cartWithClientGst} profile={profile} selectedAddressId={selectedAddressId} showToast={showToast}
               onPlaceOrder={placeOrder} onBack={() => { setCheckoutStep("address"); window.scrollTo(0, 0); }} />
           )}
         </GuestGate>
@@ -2517,20 +2581,7 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
 
   // Cart add with qty
   const handleAddToCart = () => {
-    // The existing onAddToCart only takes productId; we call the web endpoint directly for qty support
-    const productId = p.id;
-    const quantity = qty;
-    const headers = { "Content-Type": "application/json" };
-    if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
-    else if (auth) headers["X-Customer-Id"] = auth.id;
-    fetch("/api/cart/add-web", { method: "POST", headers, body: JSON.stringify({ productId, quantity }) })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) setToast(d.message || `Added ${quantity} to cart!`);
-        else if (d.redirect) window.location.href = d.redirect;
-        else onAddToCart(p.id); // fallback to parent handler
-      })
-      .catch(() => onAddToCart(p.id));
+    onAddToCart(p.id, qty);
   };
 
   // ─── Styles (dark glass theme matching HTML) ────────────────────────────────
@@ -3008,9 +3059,10 @@ function ProductDetailPage({ product: p, onBack, onAddToCart, onToggleWishlist, 
 
 
 /* ── Cart Page ── */
-function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, onCheckout, profile }) {
+function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, onCheckout, profile, onSetItemGstOverride }) {
   const [couponCode, setCouponCode] = useState("");
   const [removeConfirm, setRemoveConfirm] = useState(null);
+  const [manualTaxMode, setManualTaxMode] = useState(false);
 
   // Read home PIN for restriction previews
   const homePin = (localStorage.getItem("ekart_delivery_pin") || "").replace(/\D/g, "").slice(0, 6);
@@ -3019,6 +3071,29 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
   return (
     <div>
       <h2 style={cs.pageTitle}>Your Cart 🛒</h2>
+
+      {/* ── Client-side GST override controls ── */}
+      <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => setManualTaxMode(v => !v)}
+          style={{
+            border: "1px solid rgba(99,102,241,0.35)",
+            background: manualTaxMode ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
+            color: manualTaxMode ? "#c7d2fe" : "#9ca3af",
+            borderRadius: 8,
+            padding: "6px 10px",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          {manualTaxMode ? "🧾 Manual GST: ON" : "🧾 Manual GST: OFF"}
+        </button>
+        <span style={{ color: "#6b7280", fontSize: 12 }}>
+          Client override is optional. Default stays backend GST.
+        </span>
+      </div>
 
       {/* ── PIN restriction banner ── */}
       {pinRestrictedItems.length > 0 && (
@@ -3068,6 +3143,47 @@ function CartPage({ cart, onRemove, onUpdateQty, onApplyCoupon, onRemoveCoupon, 
                     <span style={cs.qtyNum}>{item.quantity}</span>
                     <button style={cs.qtyBtn} onClick={() => onUpdateQty(item.productId, item.quantity + 1)}>+</button>
                   </div>
+                  {manualTaxMode && (
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ color: "#94a3b8", fontSize: 12 }}>GST %</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={item.gstRateClient ?? ""}
+                        onChange={(e) => onSetItemGstOverride?.(item.productId, e.target.value)}
+                        placeholder={String(item.gstRateResolved ?? item.gstRate ?? "")}
+                        style={{
+                          width: 90,
+                          borderRadius: 7,
+                          border: "1px solid rgba(255,255,255,0.16)",
+                          background: "rgba(255,255,255,0.04)",
+                          color: "#e5e7eb",
+                          padding: "4px 8px",
+                          fontSize: 12
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onSetItemGstOverride?.(item.productId, "")}
+                        style={{
+                          border: "1px solid rgba(255,255,255,0.16)",
+                          borderRadius: 7,
+                          background: "transparent",
+                          color: "#9ca3af",
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          cursor: "pointer"
+                        }}
+                      >
+                        Reset
+                      </button>
+                      {item.gstRateClient != null && (
+                        <span style={{ color: "#a5b4fc", fontSize: 11, fontWeight: 700 }}>Client override active</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div style={cs.cartItemTotal}>
                   <div style={cs.lineTotal}>{fmt((item.unitPrice || item.price) * item.quantity)}</div>
@@ -3661,6 +3777,7 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
   const deliveryPin = (chosenAddr?.postalCode || "").replace(/\D/g, "").slice(0, 6);
   const pinRestrictedItems = getPinRestrictedItems(cart.items, deliveryPin);
   const pinBlocked = pinRestrictedItems.length > 0;
+  const hasClientTaxOverride = (cart.items || []).some(i => i.gstRateClient != null);
 
   // ── Handle Online Payment — open Razorpay checkout modal ──
   const handleOnlinePay = () => {
@@ -3817,6 +3934,11 @@ function PaymentPage({ cart, profile, selectedAddressId, onPlaceOrder, onBack, s
           {/* Detailed Price Breakdown */}
           <div style={cs.paySection}>
             <h3 style={cs.paySectionTitle}>🧾 Price Breakdown</h3>
+            {hasClientTaxOverride && (
+              <div style={{ marginBottom: 8, fontSize: 12, color: "#a5b4fc" }}>
+                Client GST override applied for one or more items.
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "#e5e7eb" }}>
               <span style={{ color: "#9ca3af" }}>Cart Subtotal</span>
               <span>{fmt(subtotal)}</span>

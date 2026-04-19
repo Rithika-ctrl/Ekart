@@ -1,13 +1,12 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.AdminCredential;
 import com.example.ekart.repository.AdminCredentialRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 /**
  * Secure bootstrap service for initial admin account creation.
@@ -217,3 +216,5 @@ public class AdminBootstrapService {
         }
     }
 }
+
+

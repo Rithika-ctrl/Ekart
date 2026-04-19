@@ -1,7 +1,7 @@
 package com.example.ekart.reporting;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 /**
  * REPORTING ENTITY (Main PostgreSQL DB)

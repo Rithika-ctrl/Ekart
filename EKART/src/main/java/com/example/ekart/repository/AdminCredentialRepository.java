@@ -1,9 +1,10 @@
 package com.example.ekart.repository;
+import com.example.ekart.dto.Address;
 
+import java.util.Optional;
 import com.example.ekart.dto.AdminCredential;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
 
 @Repository
 public interface AdminCredentialRepository extends JpaRepository<AdminCredential, Integer> {
@@ -18,3 +19,4 @@ public interface AdminCredentialRepository extends JpaRepository<AdminCredential
      */
     boolean existsByEmail(String email);
 }
+

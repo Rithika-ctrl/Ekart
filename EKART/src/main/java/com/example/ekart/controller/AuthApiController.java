@@ -8,7 +8,6 @@ import com.example.ekart.dto.Customer;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.CustomerRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

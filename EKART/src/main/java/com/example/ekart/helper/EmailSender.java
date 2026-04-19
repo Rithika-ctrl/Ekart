@@ -1,9 +1,9 @@
 package com.example.ekart.helper;
+import com.example.ekart.dto.Address;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -48,6 +48,7 @@ public class EmailSender {
 
     /** Secure OTP sender - displays OTP as 6-digit formatted string */
     @Async
+    @SuppressWarnings("deprecation")
     public void sendVendorOtpSecure(Vendor vendor, String plainOtp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -745,3 +746,4 @@ public class EmailSender {
         }
     }
 }
+

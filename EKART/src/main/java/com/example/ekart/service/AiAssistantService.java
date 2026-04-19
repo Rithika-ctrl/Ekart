@@ -1,8 +1,10 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -234,296 +236,256 @@ public class AiAssistantService {
     private String localReply(String msg, String role, String userName, String ctx) {
         String m = msg.toLowerCase().trim();
 
-        // ─── ROLE-SPECIFIC CROSS-QUESTION REDIRECTS ──────────────────────────
-        // If someone asks a question meant for a different role, explain the boundary.
-
-        // Vendor/Admin asking customer-only questions
-        if (!role.equals("customer") && !role.equals("guest")) {
-            if (any(m, "my cart","what's in my cart","view cart","add to cart","basket")) {
-                return "vendor".equals(role)
-                    ? "🛒 The cart is a customer feature for shopping. As a vendor, you manage products and fulfil orders — not add items to a cart. Check **Vendor Orders** to see what customers have ordered from you."
-                    : "🛒 Cart management is a customer feature. As an admin, you manage the platform — not individual carts.";
-            }
-            if (any(m, "wishlist","favourite","saved item")) {
-                return "vendor".equals(role)
-                    ? "❤️ Wishlist is a customer feature for saving products they want to buy. As a vendor, focus on your product listings and stock management."
-                    : "❤️ Wishlists are a customer feature — admins manage the platform, not personal shopping lists.";
-            }
-            if (any(m, "track my order","where is my order","when will my order arrive")) {
-                return "vendor".equals(role)
-                    ? "📦 Order tracking for purchases is a customer feature. As a vendor, you can view orders placed for YOUR products under **Vendor Orders**, and mark them as Packed."
-                    : "📦 Customer order tracking is a customer feature. As an admin, view all orders from the admin dashboard.";
-            }
-            if (any(m, "checkout","cash on delivery","cod","razorpay","place order","buy now")) {
-                return "vendor".equals(role)
-                    ? "💳 Checkout and payment is a customer feature for purchasing. As a vendor, you receive payments when customers place orders for your products."
-                    : "💳 The checkout flow is for customers. Admin manages the platform and refunds, not purchases.";
-            }
+        // Handle redirects for cross-role questions
+        String redirectResult = handleCrossRoleRedirects(m, role);
+        if (redirectResult != null) {
+            return redirectResult;
         }
 
-        // Customer/Guest asking vendor-only questions
+        // Delegate to role-specific handler
+        return getHandlerForRole(role).handleMessage(m, userName, ctx);
+    }
+
+    // ─── CROSS-ROLE REDIRECT HANDLER ──────────────────────────────────────
+    private String handleCrossRoleRedirects(String msg, String role) {
+        String redirect = handleCustomerFeatureBoundary(msg, role);
+        if (redirect != null) return redirect;
+
+        redirect = handleVendorFeatureBoundary(msg, role);
+        if (redirect != null) return redirect;
+
+        return handleAdminFeatureBoundary(msg, role);
+    }
+
+    private String handleCustomerFeatureBoundary(String msg, String role) {
         if (role.equals("customer") || role.equals("guest")) {
-            if (any(m, "add product","new product","list product","upload product","edit product","delete product")) {
-                return "📦 Adding and managing products is a **vendor** feature. As a customer, you browse and buy products. If you want to sell on Ekart, register as a vendor!";
+            return null;
+        }
+        if (any(msg, "my cart", "what's in my cart", "view cart", "add to cart", "basket")) {
+            return "vendor".equals(role)
+                ? "🛒 The cart is a customer feature for shopping. As a vendor, you manage products and fulfil orders — not add items to a cart. Check **Vendor Orders** to see what customers have ordered from you."
+                : "🛒 Cart management is a customer feature. As an admin, you manage the platform — not individual carts.";
+        }
+        if (any(msg, "wishlist", "favourite", "saved item")) {
+            return "vendor".equals(role)
+                ? "❤️ Wishlist is a customer feature for saving products they want to buy. As a vendor, focus on your product listings and stock management."
+                : "❤️ Wishlists are a customer feature — admins manage the platform, not personal shopping lists.";
+        }
+        if (any(msg, "track my order", "where is my order", "when will my order arrive")) {
+            return "vendor".equals(role)
+                ? "📦 Order tracking for purchases is a customer feature. As a vendor, you can view orders placed for YOUR products under **Vendor Orders**, and mark them as Packed."
+                : "📦 Customer order tracking is a customer feature. As an admin, view all orders from the admin dashboard.";
+        }
+        if (any(msg, "checkout", "cash on delivery", "cod", "razorpay", "place order", "buy now")) {
+            return "vendor".equals(role)
+                ? "💳 Checkout and payment is a customer feature for purchasing. As a vendor, you receive payments when customers place orders for your products."
+                : "💳 The checkout flow is for customers. Admin manages the platform and refunds, not purchases.";
+        }
+        return null;
+    }
+
+    private String handleVendorFeatureBoundary(String msg, String role) {
+        if (!role.equals("customer") && !role.equals("guest")) {
+            return null;
+        }
+        if (any(msg, "add product", "new product", "list product", "upload product", "edit product", "delete product")) {
+            return "📦 Adding and managing products is a **vendor** feature. As a customer, you browse and buy products. If you want to sell on Ekart, register as a vendor!";
+        }
+        if (any(msg, "sales report", "vendor report", "my revenue", "vendor analytics", "vendor order")) {
+            return "📊 Sales reports are a **vendor** feature. As a customer, you can view your spending analytics from the **Spending** section in the navbar.";
+        }
+        if (any(msg, "stock alert", "inventory", "manage stock", "stock threshold")) {
+            return "📉 Stock management is a **vendor** feature. As a customer, you'll see 'Out of Stock' on unavailable products. Enable back-in-stock alerts from the product page!";
+        }
+        return null;
+    }
+
+    private String handleAdminFeatureBoundary(String msg, String role) {
+        if (role.equals("admin")) {
+            return null;
+        }
+        if (any(msg, "approve product", "approve vendor", "ban user", "admin panel", "manage user", "admin refund", "user role")) {
+            return role.equals("customer")
+                ? "🔧 Product and user management is an **admin** feature. As a customer, you can browse approved products and manage your own account."
+                : "🔧 Admin functions like user management and approvals are restricted to Ekart admins. As a vendor, contact admin if you need help with your account.";
+        }
+        return null;
+    }
+
+    // ─── HANDLER FACTORY ──────────────────────────────────────────────────────
+    private MessageHandler getHandlerForRole(String role) {
+        return switch (role) {
+            case "customer" -> new CustomerMessageHandler();
+            case "vendor" -> new VendorMessageHandler();
+            case "admin" -> new AdminMessageHandler();
+            default -> new GuestMessageHandler();
+        };
+    }
+
+    // ─── MESSAGE HANDLER INTERFACE ────────────────────────────────────────────
+    private interface MessageHandler {
+        String handleMessage(String msg, String userName, String ctx);
+    }
+
+    // ─── CUSTOMER MESSAGE HANDLER ─────────────────────────────────────────────
+    private class CustomerMessageHandler implements MessageHandler {
+        @Override
+        public String handleMessage(String msg, String userName, String ctx) {
+            if (any(msg, "hello", "hi", "hey", "good morning", "good evening", "namaste", "howdy", "hii", "helo")) {
+                return "👋 Hi " + userName + "! I can see your orders, cart, and account details. Ask me anything specific — like 'show my orders' or 'what's in my cart'!";
             }
-            if (any(m, "sales report","vendor report","my revenue","vendor analytics","vendor order")) {
-                return "📊 Sales reports are a **vendor** feature. As a customer, you can view your spending analytics from the **Spending** section in the navbar.";
+            if (any(msg, "my order", "all order", "show order", "list order", "order list", "order history", "what orders", "recent order")) {
+                return extractOrderBlock(ctx, userName);
             }
-            if (any(m, "stock alert","inventory","manage stock","stock threshold")) {
-                return "📉 Stock management is a **vendor** feature. As a customer, you'll see 'Out of Stock' on unavailable products. Enable back-in-stock alerts from the product page!";
+            if (any(msg, "track", "order status", "where is", "delivery status", "shipment status", "has my order", "is my order")) {
+                String orders = extractOrderBlock(ctx, userName);
+                return orders + "\n\nFor live tracking, go to **Track Orders** in the navbar — each order shows the full delivery timeline.";
             }
-        }
-
-        // Customer/Vendor asking admin-only questions
-        if (!role.equals("admin")) {
-            if (any(m, "approve product","approve vendor","ban user","admin panel","manage user","admin refund","user role")) {
-                return role.equals("customer")
-                    ? "🔧 Product and user management is an **admin** feature. As a customer, you can browse approved products and manage your own account."
-                    : "🔧 Admin functions like user management and approvals are restricted to Ekart admins. As a vendor, contact admin if you need help with your account.";
+            if (any(msg, "cart", "my cart", "what's in", "basket")) {
+                return extractCartBlock(ctx);
             }
-        }
-
-        // ─── GREETINGS ────────────────────────────────────────────────────────
-        if (any(m, "hello","hi","hey","good morning","good evening","namaste","howdy","hii","helo")) {
-            switch (role) {
-                case "customer": return "👋 Hi " + userName + "! I can see your orders, cart, and account details. Ask me anything specific — like 'show my orders' or 'what's in my cart'!";
-                case "vendor":   return "👋 Hello " + userName + "! I can see your products and customer orders. Try asking 'show my products' or 'any low stock alerts'!";
-                case "admin":    return "👋 Hi Admin! I have live platform data. Ask me about pending approvals, refunds, or platform stats.";
-                default:         return "👋 Welcome to Ekart! Register or login to get started. How can I help?";
+            if (any(msg, "refund", "my refund", "pending refund", "money back", "reimbursement")) {
+                return extractRefundBlock(ctx);
             }
-        }
-
-        // ─── CUSTOMER: ORDERS ────────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "my order","all order","show order","list order","order list","order history","what orders","recent order")) {
-            return extractOrderBlock(ctx, userName);
-        }
-
-        // ─── CUSTOMER: ORDER TRACKING ────────────────────────────────────────
-        if (role.equals("customer") && any(m, "track","order status","where is","delivery status","shipment status","has my order","is my order")) {
-            String orders = extractOrderBlock(ctx, userName);
-            return orders + "\n\nFor live tracking, go to **Track Orders** in the navbar — each order shows the full delivery timeline.";
-        }
-
-        // ─── CUSTOMER: CART ──────────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "cart","my cart","what's in","basket")) {
-            return extractCartBlock(ctx);
-        }
-
-        // ─── CUSTOMER: REFUNDS ───────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "refund","my refund","pending refund","money back","reimbursement")) {
-            return extractRefundBlock(ctx);
-        }
-
-        // ─── CUSTOMER: CANCEL ORDER ──────────────────────────────────────────
-        if (role.equals("customer") && any(m, "cancel order","cancel my order","how to cancel")) {
-            return "❌ To cancel an order: go to **View Orders** → find the order → click **Cancel**. You'll get a cancellation email and stock is restored. Refund (if paid online) takes 5–7 business days.";
-        }
-
-        // ─── CUSTOMER: RETURN / REPLACEMENT ─────────────────────────────────
-        if (role.equals("customer") && any(m, "return","replacement","replace","damaged","broken","defective","wrong item")) {
-            return "🔄 Returns and replacements are available within **7 days** of delivery.\n\n" +
-                   "1. Go to **View Orders**\n" +
-                   "2. Select the order\n" +
-                   "3. Click **Report Issue** or **Request Replacement**\n\n" +
-                   "Refunds are credited within 5–7 business days after approval.";
-        }
-
-        // ─── CUSTOMER: DELIVERY CHARGE ───────────────────────────────────────
-        if (role.equals("customer") && any(m, "delivery charge","shipping","free delivery","delivery fee","delivery cost")) {
-            String cartInfo = "";
-            if (ctx != null && ctx.contains("CART (")) {
-                cartInfo = " Based on your current cart, check if your total exceeds ₹500 to qualify for free delivery.";
+            if (any(msg, "cancel order", "cancel my order", "how to cancel")) {
+                return "❌ To cancel an order: go to **View Orders** → find the order → click **Cancel**. You'll get a cancellation email and stock is restored. Refund (if paid online) takes 5–7 business days.";
             }
-            return "🚚 Orders above **₹500** get FREE delivery. Below ₹500, a ₹40 delivery charge applies." + cartInfo;
-        }
-
-        // ─── CUSTOMER: PAYMENT ───────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "payment","pay","checkout","cod","cash on delivery","razorpay","upi","online payment","net banking")) {
-            return "💳 Ekart supports:\n" +
-                   "• **Razorpay** — UPI, Debit/Credit cards, Net banking\n" +
-                   "• **Cash on Delivery (COD)**\n\n" +
-                   "Free delivery on orders above ₹500, else ₹40. Proceed to checkout from your cart.";
-        }
-
-        // ─── CUSTOMER: WISHLIST ──────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "wishlist","favourite","saved","save product","heart")) {
-            return "❤️ Click the **heart icon** on any product to save it to your Wishlist. Access your wishlist from the navbar. You can move items from wishlist directly to cart!";
-        }
-
-        // ─── CUSTOMER: REVIEWS ───────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "review","rating","feedback","comment","star")) {
-            return "⭐ Go to **View Products** or the product detail page, scroll to the reviews section, and submit your rating (1–5 stars) and comment. Your feedback helps other shoppers!";
-        }
-
-        // ─── CUSTOMER: ADDRESS ───────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "address","delivery address","add address","change address","shipping address")) {
-            if (ctx != null && ctx.contains("SAVED ADDRESSES")) {
-                int si = ctx.indexOf("SAVED ADDRESSES");
-                String addrSection = ctx.substring(si, Math.min(si + 300, ctx.length()));
-                return "📍 Your saved addresses:\n" + addrSection + "\n\nManage addresses from **My Profile → Addresses**.";
+            if (any(msg, "return", "replacement", "replace", "damaged", "broken", "defective", "wrong item")) {
+                return "🔄 Returns and replacements are available within **7 days** of delivery.\n\n1. Go to **View Orders**\n2. Select the order\n3. Click **Report Issue** or **Request Replacement**\n\nRefunds are credited within 5–7 business days after approval.";
             }
-            return "📍 Manage your delivery addresses from **My Profile → Addresses**. You can save multiple addresses and choose one at checkout.";
-        }
-
-        // ─── CUSTOMER: HELP ──────────────────────────────────────────────────
-        if (role.equals("customer") && any(m, "help","what can you do","options","features")) {
-            return "I can help you with:\n" +
-                   "📦 Show your orders & tracking status\n" +
-                   "🛒 View your cart contents\n" +
-                   "💰 Check pending refunds\n" +
-                   "💳 Payment and delivery info\n" +
-                   "🔄 Return and replacement process\n" +
-                   "❤️ Wishlist management\n\n" +
-                   "Just ask naturally — like 'show my orders' or 'what's in my cart'!";
-        }
-
-        // ─── VENDOR: PRODUCTS ────────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "my product","product list","all product","show product","my listing","my item","product status")) {
-            return extractVendorProductBlock(ctx);
-        }
-
-        // ─── VENDOR: LOW STOCK ───────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "low stock","stock alert","out of stock","stock warning","inventory","stock level")) {
-            String prods = extractVendorProductBlock(ctx);
-            if (ctx != null && ctx.contains("LOW STOCK ALERT")) {
-                return prods;
+            if (any(msg, "delivery charge", "shipping", "free delivery", "delivery fee", "delivery cost")) {
+                String cartInfo = "";
+                if (ctx != null && ctx.contains("CART (")) {
+                    cartInfo = " Based on your current cart, check if your total exceeds ₹500 to qualify for free delivery.";
+                }
+                return "🚚 Orders above **₹500** get FREE delivery. Below ₹500, a ₹40 delivery charge applies." + cartInfo;
             }
-            return "📉 Good news — no low stock alerts right now!\n\n" + prods + "\n\nSet stock alert thresholds per product from **Manage Products** to get notified when stock runs low.";
-        }
-
-        // ─── VENDOR: PENDING APPROVAL ────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "pending","approval","awaiting","not live","not approved","under review")) {
-            return extractVendorProductBlock(ctx);
-        }
-
-        // ─── VENDOR: ORDERS ──────────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "my order","customer order","order","order status","recent order","new order")) {
-            return extractVendorOrderBlock(ctx);
-        }
-
-        // ─── VENDOR: REVENUE / SALES ─────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "revenue","sales","earning","income","how much","total","money","report","analytics","performance")) {
-            return extractVendorOrderBlock(ctx);
-        }
-
-        // ─── VENDOR: ADD PRODUCT ─────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "add product","new product","list product","upload product","create product")) {
-            return "📦 To add a new product:\n" +
-                   "1. Go to **Add Product** from your vendor dashboard\n" +
-                   "2. Fill in: name, price, MRP, description, category, stock quantity\n" +
-                   "3. Upload product images (and optional video)\n" +
-                   "4. Set a stock alert threshold\n" +
-                   "5. Submit — your product goes live after **admin approval**\n\n" +
-                   "Products marked [PENDING] are awaiting admin review.";
-        }
-
-        // ─── VENDOR: DELIVERY / SHIPPING ─────────────────────────────────────
-        if (role.equals("vendor") && any(m, "delivery","shipping","dispatch","fulfill","pack","packed")) {
-            return "🚚 When a customer orders your product:\n" +
-                   "1. The order appears in your **Vendor Orders** page with status: Processing\n" +
-                   "2. Pack the item and click **Mark as Packed**\n" +
-                   "3. The delivery team picks it up from the warehouse\n" +
-                   "4. Ekart handles the rest — Shipped → Out for Delivery → Delivered\n\n" +
-                   "Free delivery is provided to customers on orders above ₹500.";
-        }
-
-        // ─── VENDOR: SALES REPORT ────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "sales report","report","chart","graph","weekly","monthly","daily")) {
-            return "📊 Your **Sales Report** (vendor dashboard) shows:\n" +
-                   "• Daily / Weekly / Monthly revenue charts\n" +
-                   "• Total orders, items sold, average order value\n" +
-                   "• Top-performing products\n" +
-                   "• Live data — updates with every new order\n\n" +
-                   "Use the Sync button to backfill historical data.";
-        }
-
-        // ─── VENDOR: PAYMENT / SETTLEMENT ────────────────────────────────────
-        if (role.equals("vendor") && any(m, "payment","pay","settle","payout","earning","razorpay")) {
-            return "💰 Vendor payments are settled after order delivery and confirmation. Check your **Sales Report** for revenue breakdown. Contact Ekart admin for specific payout queries.";
-        }
-
-        // ─── VENDOR: HELP ────────────────────────────────────────────────────
-        if (role.equals("vendor") && any(m, "help","what can you do","options","features")) {
-            return "I can help you with:\n" +
-                   "📦 View your product listings & stock status\n" +
-                   "📉 Low stock and inventory alerts\n" +
-                   "🛒 Customer orders for your products\n" +
-                   "📊 Revenue and sales summary\n" +
-                   "➕ How to add or edit products\n\n" +
-                   "Try asking: 'show my products' or 'do I have any low stock?'";
-        }
-
-        // ─── ADMIN: PENDING APPROVALS ────────────────────────────────────────
-        if (role.equals("admin") && any(m, "pending","approval","approve","pending product","unapproved","waiting")) {
-            return extractAdminApprovalBlock(ctx);
-        }
-
-        // ─── ADMIN: REFUNDS ──────────────────────────────────────────────────
-        if (role.equals("admin") && any(m, "refund","pending refund","refund request","money back","process refund")) {
-            return extractAdminRefundBlock(ctx);
-        }
-
-        // ─── ADMIN: STATS / OVERVIEW ─────────────────────────────────────────
-        if (role.equals("admin") && any(m, "stats","overview","dashboard","platform","total","how many","customer count","order count","summary")) {
-            return extractAdminStatsBlock(ctx);
-        }
-
-        // ─── ADMIN: ORDERS ───────────────────────────────────────────────────
-        if (role.equals("admin") && any(m, "order","all order","recent order","order status","processing order","delivered order")) {
-            return extractAdminStatsBlock(ctx);
-        }
-
-        // ─── ADMIN: USER MANAGEMENT ──────────────────────────────────────────
-        if (role.equals("admin") && any(m, "user","customer","vendor","manage","ban","role","permission","account")) {
-            return "👥 User management is in the **Admin Panel → User Management** section.\n\n" +
-                   "You can:\n" +
-                   "• Search customers and vendors by email\n" +
-                   "• Change user roles (CUSTOMER / ORDER_MANAGER / ADMIN)\n" +
-                   "• Suspend or reactivate accounts\n" +
-                   "• Delete accounts if needed\n\n" +
-                   extractAdminStatsBlock(ctx);
-        }
-
-        // ─── ADMIN: HELP ─────────────────────────────────────────────────────
-        if (role.equals("admin") && any(m, "help","what can you do","options","features")) {
-            return "I can help you with:\n" +
-                   "✅ Pending product approvals (with vendor names)\n" +
-                   "💰 Pending refund requests\n" +
-                   "📊 Live platform stats (orders, customers, revenue)\n" +
-                   "👥 User management guidance\n\n" +
-                   "Try: 'show pending approvals' or 'any pending refunds?'";
-        }
-
-        // ─── SHARED: PASSWORD (all roles) ────────────────────────────────────
-        if (any(m, "password","forgot password","reset password","change password")) {
-            switch (role) {
-                case "customer": return "🔑 Click **Forgot Password** on the customer login page. An OTP is sent to your email. New password must be 8+ chars with uppercase, lowercase, number, and special character.";
-                case "vendor":   return "🔑 Click **Forgot Password** on the vendor login page. An OTP is sent to your registered vendor email.";
-                case "admin":    return "🔑 Admin password can be changed from **Admin → Security Settings**. Contact the system administrator if locked out.";
-                default:         return "🔑 Use **Forgot Password** on the login page to reset via OTP sent to your email.";
+            if (any(msg, "payment", "pay", "checkout", "cod", "cash on delivery", "razorpay", "upi", "online payment", "net banking")) {
+                return "💳 Ekart supports:\n• **Razorpay** — UPI, Debit/Credit cards, Net banking\n• **Cash on Delivery (COD)**\n\nFree delivery on orders above ₹500, else ₹40. Proceed to checkout from your cart.";
             }
+            if (any(msg, "wishlist", "favourite", "saved", "save product", "heart")) {
+                return "❤️ Click the **heart icon** on any product to save it to your Wishlist. Access your wishlist from the navbar. You can move items from wishlist directly to cart!";
+            }
+            if (any(msg, "review", "rating", "feedback", "comment", "star")) {
+                return "⭐ Go to **View Products** or the product detail page, scroll to the reviews section, and submit your rating (1–5 stars) and comment. Your feedback helps other shoppers!";
+            }
+            if (any(msg, "address", "delivery address", "add address", "change address", "shipping address")) {
+                if (ctx != null && ctx.contains("SAVED ADDRESSES")) {
+                    int si = ctx.indexOf("SAVED ADDRESSES");
+                    String addrSection = ctx.substring(si, Math.min(si + 300, ctx.length()));
+                    return "📍 Your saved addresses:\n" + addrSection + "\n\nManage addresses from **My Profile → Addresses**.";
+                }
+                return "📍 Manage your delivery addresses from **My Profile → Addresses**. You can save multiple addresses and choose one at checkout.";
+            }
+            if (any(msg, "help", "what can you do", "options", "features")) {
+                return "I can help you with:\n📦 Show your orders & tracking status\n🛒 View your cart contents\n💰 Check pending refunds\n💳 Payment and delivery info\n🔄 Return and replacement process\n❤️ Wishlist management\n\nJust ask naturally — like 'show my orders' or 'what's in my cart'!";
+            }
+            return "😊 I can help with your orders, cart, payments, delivery, and returns. Try asking: 'show my orders' or 'what's in my cart'?";
         }
+    }
 
-        // ─── GUEST: BROWSE ───────────────────────────────────────────────────
-        if (role.equals("guest") && any(m, "product","browse","search","shop","buy","price")) {
-            return "🛍️ You can browse all products without logging in! Use the search bar or category filters on the home page to find what you need.\n\n**Register for free** to add items to cart, place orders, track deliveries, and more.";
+    // ─── VENDOR MESSAGE HANDLER ───────────────────────────────────────────────
+    private class VendorMessageHandler implements MessageHandler {
+        @Override
+        public String handleMessage(String msg, String userName, String ctx) {
+            if (any(msg, "hello", "hi", "hey", "good morning", "good evening", "namaste", "howdy", "hii", "helo")) {
+                return "👋 Hello " + userName + "! I can see your products and customer orders. Try asking 'show my products' or 'any low stock alerts'!";
+            }
+            if (any(msg, "my product", "product list", "all product", "show product", "my listing", "my item", "product status")) {
+                return extractVendorProductBlock(ctx);
+            }
+            if (any(msg, "low stock", "stock alert", "out of stock", "stock warning", "inventory", "stock level")) {
+                String prods = extractVendorProductBlock(ctx);
+                if (ctx != null && ctx.contains("LOW STOCK ALERT")) {
+                    return prods;
+                }
+                return "📉 Good news — no low stock alerts right now!\n\n" + prods + "\n\nSet stock alert thresholds per product from **Manage Products** to get notified when stock runs low.";
+            }
+            if (any(msg, "pending", "approval", "awaiting", "not live", "not approved", "under review")) {
+                return extractVendorProductBlock(ctx);
+            }
+            if (any(msg, "my order", "customer order", "order", "order status", "recent order", "new order")) {
+                return extractVendorOrderBlock(ctx);
+            }
+            if (any(msg, "revenue", "sales", "earning", "income", "how much", "total", "money", "report", "analytics", "performance")) {
+                return extractVendorOrderBlock(ctx);
+            }
+            if (any(msg, "add product", "new product", "list product", "upload product", "create product")) {
+                return "📦 To add a new product:\n1. Go to **Add Product** from your vendor dashboard\n2. Fill in: name, price, MRP, description, category, stock quantity\n3. Upload product images (and optional video)\n4. Set a stock alert threshold\n5. Submit — your product goes live after **admin approval**\n\nProducts marked [PENDING] are awaiting admin review.";
+            }
+            if (any(msg, "delivery", "shipping", "dispatch", "fulfill", "pack", "packed")) {
+                return "🚚 When a customer orders your product:\n1. The order appears in your **Vendor Orders** page with status: Processing\n2. Pack the item and click **Mark as Packed**\n3. The delivery team picks it up from the warehouse\n4. Ekart handles the rest — Shipped → Out for Delivery → Delivered\n\nFree delivery is provided to customers on orders above ₹500.";
+            }
+            if (any(msg, "sales report", "report", "chart", "graph", "weekly", "monthly", "daily")) {
+                return "📊 Your **Sales Report** (vendor dashboard) shows:\n• Daily / Weekly / Monthly revenue charts\n• Total orders, items sold, average order value\n• Top-performing products\n• Live data — updates with every new order\n\nUse the Sync button to backfill historical data.";
+            }
+            if (any(msg, "payment", "pay", "settle", "payout", "earning", "razorpay")) {
+                return "💰 Vendor payments are settled after order delivery and confirmation. Check your **Sales Report** for revenue breakdown. Contact Ekart admin for specific payout queries.";
+            }
+            if (any(msg, "help", "what can you do", "options", "features")) {
+                return "I can help you with:\n📦 View your product listings & stock status\n📉 Low stock and inventory alerts\n🛒 Customer orders for your products\n📊 Revenue and sales summary\n➕ How to add or edit products\n\nTry asking: 'show my products' or 'do I have any low stock?'";
+            }
+            return "😊 I can help with your products, orders, stock, and sales. Try asking: 'show my products' or 'any new customer orders'?";
         }
+    }
 
-        if (role.equals("guest") && any(m, "register","sign up","create account","join")) {
-            return "📝 Click **Register** on the home page. You'll need to verify your email with an OTP before logging in. Registration is free and takes under a minute!";
+    // ─── ADMIN MESSAGE HANDLER ────────────────────────────────────────────────
+    private class AdminMessageHandler implements MessageHandler {
+        @Override
+        public String handleMessage(String msg, String userName, String ctx) {
+            if (any(msg, "hello", "hi", "hey", "good morning", "good evening", "namaste", "howdy", "hii", "helo")) {
+                return "👋 Hi Admin! I have live platform data. Ask me about pending approvals, refunds, or platform stats.";
+            }
+            if (any(msg, "pending", "approval", "approve", "pending product", "unapproved", "waiting")) {
+                return extractAdminApprovalBlock(ctx);
+            }
+            if (any(msg, "refund", "pending refund", "refund request", "money back", "process refund")) {
+                return extractAdminRefundBlock(ctx);
+            }
+            if (any(msg, "stats", "overview", "dashboard", "platform", "total", "how many", "customer count", "order count", "summary")) {
+                return extractAdminStatsBlock(ctx);
+            }
+            if (any(msg, "order", "all order", "recent order", "order status", "processing order", "delivered order")) {
+                return extractAdminStatsBlock(ctx);
+            }
+            if (any(msg, "user", "customer", "vendor", "manage", "ban", "role", "permission", "account")) {
+                return "👥 User management is in the **Admin Panel → User Management** section.\n\nYou can:\n• Search customers and vendors by email\n• Change user roles (CUSTOMER / ORDER_MANAGER / ADMIN)\n• Suspend or reactivate accounts\n• Delete accounts if needed\n\n" + extractAdminStatsBlock(ctx);
+            }
+            if (any(msg, "help", "what can you do", "options", "features")) {
+                return "I can help you with:\n✅ Pending product approvals (with vendor names)\n💰 Pending refund requests\n📊 Live platform stats (orders, customers, revenue)\n👥 User management guidance\n\nTry: 'show pending approvals' or 'any pending refunds?'";
+            }
+            return "😊 I can help with platform management. Try asking: 'any pending approvals?' or 'show platform stats'.";
         }
+    }
 
-        // ─── DEFAULT (role-specific) ─────────────────────────────────────────
-        switch (role) {
-            case "customer":
-                return "😊 I can help with your orders, cart, payments, delivery, and returns. Try asking: 'show my orders' or 'what's in my cart'?";
-            case "vendor":
-                return "😊 I can help with your products, orders, stock, and sales. Try asking: 'show my products' or 'any new customer orders'?";
-            case "admin":
-                return "😊 I can help with platform management. Try asking: 'any pending approvals?' or 'show platform stats'.";
-            default:
-                return "😊 Browse products freely or **register** to access your full Ekart experience — orders, cart, tracking, and more!";
+    // ─── GUEST MESSAGE HANDLER ────────────────────────────────────────────────
+    private class GuestMessageHandler implements MessageHandler {
+        @Override
+        public String handleMessage(String msg, String userName, String ctx) {
+            if (any(msg, "hello", "hi", "hey", "good morning", "good evening", "namaste", "howdy", "hii", "helo")) {
+                return "👋 Welcome to Ekart! Register or login to get started. How can I help?";
+            }
+            if (any(msg, "product", "browse", "search", "shop", "buy", "price")) {
+                return "🛍️ You can browse all products without logging in! Use the search bar or category filters on the home page to find what you need.\n\n**Register for free** to add items to cart, place orders, track deliveries, and more.";
+            }
+            if (any(msg, "register", "sign up", "create account", "join")) {
+                return "📝 Click **Register** on the home page. You'll need to verify your email with an OTP before logging in. Registration is free and takes under a minute!";
+            }
+            return "😊 Browse products freely or **register** to access your full Ekart experience — orders, cart, tracking, and more!";
         }
+    }
+
+    // ─── SHARED PASSWORD HANDLER ──────────────────────────────────────────────
+    private String handleSharedPassword(String msg, String role) {
+        if (any(msg, "password", "forgot password", "reset password", "change password")) {
+            return switch (role) {
+                case "customer" -> "🔑 Click **Forgot Password** on the customer login page. An OTP is sent to your email. New password must be 8+ chars with uppercase, lowercase, number, and special character.";
+                case "vendor" -> "🔑 Click **Forgot Password** on the vendor login page. An OTP is sent to your registered vendor email.";
+                case "admin" -> "🔑 Admin password can be changed from **Admin → Security Settings**. Contact the system administrator if locked out.";
+                default -> "🔑 Use **Forgot Password** on the login page to reset via OTP sent to your email.";
+            };
+        }
+        return null;
     }
 
     // ── Context extraction helpers ────────────────────────────────────────────
@@ -678,3 +640,5 @@ public class AiAssistantService {
                 + "\"";
     }
 }
+
+

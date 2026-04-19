@@ -1,4 +1,5 @@
 package com.example.ekart.dto;
+import java.time.LocalDateTime;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/dto/AutoAssignLog.java
@@ -10,7 +11,6 @@ package com.example.ekart.dto;
 // ================================================================
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "auto_assign_log", indexes = {

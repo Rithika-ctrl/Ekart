@@ -1,14 +1,13 @@
 package com.example.ekart.service;
+import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +33,8 @@ import com.example.ekart.repository.WarehouseRepository;
 @Service
 @Transactional
 public class WarehouseRoutingService {
+
+    private static final String HUB_ROUTE_SEPARATOR = " Hub → ";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseRepository warehouseRepository;
@@ -298,14 +299,14 @@ public class WarehouseRoutingService {
         // Check if source/destination have valid coordinates
         if (source.getLatitude() == null || source.getLongitude() == null ||
             destination.getLatitude() == null || destination.getLongitude() == null) {
-            return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+            return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
         }
 
         double distance = source.calculateDistanceTo(destination);
 
         // Direct route for < 800 km
         if (distance < 800) {
-            return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+            return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
         }
 
         // Find intermediate hub: warehouse closest to midpoint
@@ -341,9 +342,10 @@ public class WarehouseRoutingService {
         if (bestHub != null) {
             // Save intermediate warehouse ID for tracking
             order.setIntermediateWarehouseIds(String.valueOf(bestHub.getId()));
-            return source.getCity() + " Hub → " + bestHub.getCity() + " Hub → " + destination.getCity() + " Hub";
+            return source.getCity() + HUB_ROUTE_SEPARATOR + bestHub.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
         }
 
-        return source.getCity() + " Hub → " + destination.getCity() + " Hub";
+        return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
     }
 }
+

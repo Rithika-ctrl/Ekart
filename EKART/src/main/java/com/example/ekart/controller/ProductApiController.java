@@ -1,16 +1,15 @@
 package com.example.ekart.controller;
+import java.util.stream.Collectors;
 
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Review;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 // import jakarta.servlet.http.HttpSession; // unused
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ✅ REST API — Products

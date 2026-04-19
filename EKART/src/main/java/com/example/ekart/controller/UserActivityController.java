@@ -1,14 +1,12 @@
 package com.example.ekart.controller;
 
-import com.example.ekart.dto.UserActivity;
-import com.example.ekart.repository.UserActivityRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import com.example.ekart.dto.UserActivity;
+import com.example.ekart.repository.UserActivityRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/user-activity")

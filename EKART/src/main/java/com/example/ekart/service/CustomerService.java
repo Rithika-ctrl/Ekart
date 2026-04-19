@@ -1,4 +1,6 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import java.util.Random;
 
 // ================================================================
 // LOCATION: src/main/java/com/example/ekart/service/CustomerService.java
@@ -15,9 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 
-import com.example.ekart.dto.Address;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -141,6 +141,7 @@ public class CustomerService {
         return "customer-register.html";
     }
 
+    @SuppressWarnings("deprecation")
     public String registration(Customer customer, BindingResult result, HttpSession session) {
 
         if (!customer.getPassword().equals(customer.getConfirmPassword()))
@@ -231,6 +232,7 @@ public class CustomerService {
         return "customer-forgot-password.html";
     }
 
+    @SuppressWarnings("deprecation")
     public String sendResetOtp(String email, HttpSession session) {
         Customer customer = customerRepository.findByEmail(email);
         if (customer == null) {
@@ -1275,3 +1277,5 @@ public class CustomerService {
         return "redirect:/customer/address";
     }
 }
+
+

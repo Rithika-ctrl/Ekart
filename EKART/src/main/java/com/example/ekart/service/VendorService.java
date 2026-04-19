@@ -1,4 +1,5 @@
 package com.example.ekart.service;
+import java.util.Random;
 
 // ================================================================
 // LOCATION: src/main/java/com/example/ekart/service/VendorService.java
@@ -14,7 +15,6 @@ import com.example.ekart.helper.PinCodeValidator;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +35,6 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.VendorRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
-import com.example.ekart.repository.AuthenticationOtpRepository;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;

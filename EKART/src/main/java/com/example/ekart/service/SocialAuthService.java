@@ -2,7 +2,6 @@ package com.example.ekart.service;
 
 import java.util.ArrayList;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.ekart.dto.Cart;
@@ -183,7 +182,6 @@ public class SocialAuthService {
         customer.setVerified(true);  // OAuth users are auto-verified
         customer.setPassword(null);   // No password for OAuth-only users
         customer.setMobile(0);        // Can be updated later in profile
-        customer.setOtp(0);
         
         // Initialize cart (required by existing system)
         Cart cart = new Cart();
@@ -203,7 +201,6 @@ public class SocialAuthService {
         vendor.setVerified(true);  // OAuth users are auto-verified
         vendor.setPassword(null);   // No password for OAuth-only users
         vendor.setMobile(0);        // Can be updated later in profile
-        vendor.setOtp(0);
 
         return vendorRepository.save(vendor);
     }

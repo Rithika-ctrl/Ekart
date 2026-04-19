@@ -1,7 +1,7 @@
 package com.example.ekart.repository;
+import java.util.Optional;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -83,3 +83,4 @@ public interface SettlementOrderMappingRepository extends JpaRepository<Settleme
            "ORDER BY som.createdAt DESC")
     List<SettlementOrderMapping> findBySettlementId(@Param("settlementId") int settlementId);
 }
+

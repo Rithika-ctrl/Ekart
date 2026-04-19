@@ -1,4 +1,9 @@
 package com.example.ekart.controller;
+import com.example.ekart.dto.Address;
+import java.util.stream.Collectors;
+import java.util.Random;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.*;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,9 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ⚠️  DEPRECATED: Flutter REST API Controller for Ekart Mobile App.
@@ -2454,3 +2457,4 @@ public class FlutterApiController {
         return ResponseEntity.ok(res);
     }
 }
+

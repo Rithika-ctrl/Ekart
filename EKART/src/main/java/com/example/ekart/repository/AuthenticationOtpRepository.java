@@ -1,13 +1,13 @@
 package com.example.ekart.repository;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.AuthenticationOtp;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface AuthenticationOtpRepository extends JpaRepository<AuthenticationOtp, Integer> {
@@ -51,3 +51,4 @@ public interface AuthenticationOtpRepository extends JpaRepository<Authenticatio
            "AND o.used = true AND o.usedAt >= :since")
     int countUsedInPeriod(@Param("email") String email, @Param("since") LocalDateTime since);
 }
+
