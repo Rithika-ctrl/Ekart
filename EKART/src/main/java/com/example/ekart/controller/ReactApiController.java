@@ -93,6 +93,7 @@ public class ReactApiController {
     private static final String KEY_COUNT = "count";
     private static final String KEY_CUSTOMER_NAME = "customerName";
     private static final String KEY_ORDERS = "orders";
+    private static final String KEY_TOTAL = "total";
 
     // HTTP header names
     private static final String HEADER_AUTHORIZATION = "Authorization";
@@ -1700,7 +1701,7 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
-        if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put(KEY_COUNT, 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
+        if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put(KEY_TOTAL, 0.0); res.put("subtotal", 0.0); res.put(KEY_COUNT, 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
         double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
 
@@ -1729,7 +1730,7 @@ public class ReactApiController {
         res.put("subtotal",      subtotal);           // pre-discount subtotal (for "add ₹X for free delivery" hint)
         res.put("couponDiscount",couponDiscount);      // already set above, re-affirm here for clarity
         res.put("deliveryCharge",deliveryCharge);      // 0 when free, 40 otherwise
-        res.put("total",         total);               // discounted subtotal + delivery
+        res.put(KEY_TOTAL,         total);               // discounted subtotal + delivery
         res.put(KEY_COUNT,         items.size());
         return ResponseEntity.ok(res);
     }
@@ -7742,7 +7743,7 @@ public class ReactApiController {
         }
 
         res.put(KEY_SUCCESS, true);
-        res.put("total", logs.size());
+        res.put(KEY_TOTAL, logs.size());
         res.put("logs", logs.stream().limit(limit).toList());
         return ResponseEntity.ok(res);
     }
@@ -8878,7 +8879,7 @@ public class ReactApiController {
             }).collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of(
-                "total", allOrders.size(),
+                KEY_TOTAL, allOrders.size(),
                 "page", page,
                 "size", size,
                 KEY_ORDERS, result
@@ -9014,7 +9015,7 @@ public class ReactApiController {
             }).collect(Collectors.toList());
             
             return ResponseEntity.ok(Map.of(
-                "total", result.size(),
+                KEY_TOTAL, result.size(),
                 "pendingPayments", result
             ));
         } catch (Exception e) {
@@ -9048,7 +9049,7 @@ public class ReactApiController {
             }).collect(Collectors.toList());
             
             return ResponseEntity.ok(Map.of(
-                "total", result.size(),
+                KEY_TOTAL, result.size(),
                 "pending", result
             ));
         } catch (Exception e) {
@@ -9179,7 +9180,7 @@ public class ReactApiController {
                 KEY_WAREHOUSE_ID, warehouseId,
                 KEY_WAREHOUSE_NAME, warehouse.getName(),
                 "pendingDeliveryBoys", result,
-                "total", result.size()
+                KEY_TOTAL, result.size()
             ));
         } catch (Exception e) {
             e.printStackTrace();
