@@ -60,6 +60,8 @@ public class WarehouseController {
     private static final String ROUTING_PATH_KEY = "routingPath";
     private static final String CURRENT_STATUS_KEY = "current_status";
     private static final String ORDER_ID_KEY = "orderId";
+    private static final String DELIVERY_BOY_ID_KEY = "deliveryBoyId";
+    private static final Random RANDOM = new Random();
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseReceivingService warehouseReceivingService;
@@ -771,7 +773,7 @@ public class WarehouseController {
      * Warehouse staff uses this to select which boy to assign for delivery.
      */
     @GetMapping("/delivery-boys")
-    public ResponseEntity<Object> getDeliveryBoysForPinCode(
+    public ResponseEntity<Map<String, Object>> getDeliveryBoysForPinCode(
             @RequestParam String pinCode,
             HttpServletRequest request) {
         try {
@@ -863,12 +865,12 @@ public class WarehouseController {
                                  CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
-            if (body.get("deliveryBoyId") == null) {
+            if (body.get(DELIVERY_BOY_ID_KEY) == null) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "deliveryBoyId is required"));
             }
 
-            int deliveryBoyId = Integer.parseInt(body.get("deliveryBoyId").toString());
+            int deliveryBoyId = Integer.parseInt(body.get(DELIVERY_BOY_ID_KEY).toString());
 
             Optional<DeliveryBoy> boyOpt = deliveryBoyRepository.findById(deliveryBoyId);
             if (boyOpt.isEmpty()) {
@@ -884,35 +886,42 @@ public class WarehouseController {
             order.setTrackingStatus(TrackingStatus.SHIPPED);
 
             // Generate 6-digit OTP for delivery confirmation
-            String otp = String.format("%06d", new Random().nextInt(1000000));
+            String otp = String.format("%06d", RANDOM.nextInt(1000000));
             order.setDeliveryOtp(otp);
             order.setDeliveryOtpVerified(false);
 
             orderRepository.save(order);
 
-            // Send OTP to customer via email (async)
-            try {
-                if (order.getCustomer() != null) {
-                    String customerEmail = order.getCustomer().getEmail();
-                    String customerName = order.getCustomer().getName();
-                    emailSender.sendDeliveryOtp(customerEmail, customerName, otp, order.getId());
-                }
-            } catch (Exception e) {
-                System.err.println("Failed to send OTP email: " + e.getMessage());
-                // Don't fail the request if email sending fails
-            }
+            sendDeliveryOtpEmail(order, otp);
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 ORDER_ID_KEY, orderId,
                 "deliveryBoyName", boy.getName(),
-                "deliveryBoyId", boy.getId(),
+                DELIVERY_BOY_ID_KEY, boy.getId(),
                 "status", "SHIPPED",
                 "message", "Delivery OTP sent to customer email"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Sends the delivery OTP email to the customer.
+     * Extracted to avoid nested try blocks (SonarQube S1141).
+     */
+    private void sendDeliveryOtpEmail(Order order, String otp) {
+        try {
+            if (order.getCustomer() != null) {
+                String customerEmail = order.getCustomer().getEmail();
+                String customerName = order.getCustomer().getName();
+                emailSender.sendDeliveryOtp(customerEmail, customerName, otp, order.getId());
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to send OTP email: " + e.getMessage());
+            // Don't fail the request if email sending fails
         }
     }
 }
