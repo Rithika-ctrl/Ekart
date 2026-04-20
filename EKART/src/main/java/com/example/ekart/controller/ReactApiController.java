@@ -89,6 +89,9 @@ public class ReactApiController {
     private static final String KEY_WAREHOUSE_CODE = "warehouseCode";
     private static final String KEY_WAREHOUSE_ID = "warehouseId";
     private static final String KEY_WAREHOUSE_NAME = "warehouseName";
+    private static final String KEY_COUNT = "count";
+    private static final String KEY_CUSTOMER_NAME = "customerName";
+    private static final String KEY_ORDERS = "orders";
 
     // HTTP header names
     private static final String HEADER_AUTHORIZATION = "Authorization";
@@ -1619,7 +1622,7 @@ public class ReactApiController {
         }
 
         res.put(KEY_SUCCESS,  true);
-        res.put("count",    products.size());
+        res.put(KEY_COUNT,    products.size());
         res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
         return ResponseEntity.ok(res);
     }
@@ -1642,7 +1645,7 @@ public class ReactApiController {
             m.put("id", r.getId());
             m.put("rating", r.getRating());
             m.put("comment", r.getComment());
-            m.put("customerName", r.getCustomerName());
+            m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
         }).collect(Collectors.toList()));
         pm.put("avgRating", Math.round(avg * 10.0) / 10.0);
@@ -1664,7 +1667,7 @@ public class ReactApiController {
             m.put("id", r.getId());
             m.put("rating", r.getRating());
             m.put("comment", r.getComment());
-            m.put("customerName", r.getCustomerName());
+            m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
         }).collect(Collectors.toList()));
         res.put("avgRating", Math.round(avg * 10.0) / 10.0);
@@ -1696,7 +1699,7 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
-        if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put("count", 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
+        if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put("total", 0.0); res.put("subtotal", 0.0); res.put(KEY_COUNT, 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
         double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
 
@@ -1726,7 +1729,7 @@ public class ReactApiController {
         res.put("couponDiscount",couponDiscount);      // already set above, re-affirm here for clarity
         res.put("deliveryCharge",deliveryCharge);      // 0 when free, 40 otherwise
         res.put("total",         total);               // discounted subtotal + delivery
-        res.put("count",         items.size());
+        res.put(KEY_COUNT,         items.size());
         return ResponseEntity.ok(res);
     }
 
@@ -2214,7 +2217,7 @@ public class ReactApiController {
                 res.put("currency", razorpayOrderDetails.get("currency"));
                 res.put("customerEmail", customer.getEmail());
                 res.put("customerPhone", String.valueOf(customer.getMobile()));
-                res.put("customerName", customer.getName());
+                res.put(KEY_CUSTOMER_NAME, customer.getName());
                 res.put("tempOrderId", tempOrderId);
                 res.put("subtotal", subtotal);
                 res.put("couponDiscount", couponDiscount);
@@ -2312,7 +2315,7 @@ public class ReactApiController {
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
         res.put(KEY_SUCCESS, true);
-        res.put("orders", orders.stream().map(this::mapOrder).collect(Collectors.toList()));
+        res.put(KEY_ORDERS, orders.stream().map(this::mapOrder).collect(Collectors.toList()));
         return ResponseEntity.ok(res);
     }
 
@@ -2667,7 +2670,7 @@ public class ReactApiController {
             m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
             return m;
         }).collect(Collectors.toList());
-        res.put(KEY_SUCCESS, true); res.put("count", items.size()); res.put("items", items);
+        res.put(KEY_SUCCESS, true); res.put(KEY_COUNT, items.size()); res.put("items", items);
         return ResponseEntity.ok(res);
     }
 
@@ -3160,7 +3163,7 @@ public class ReactApiController {
         }
         res.put(KEY_SUCCESS, true);
         res.put("images", data);
-        res.put("count", data.size());
+        res.put(KEY_COUNT, data.size());
         return ResponseEntity.ok(res);
     }
 
@@ -3177,7 +3180,7 @@ public class ReactApiController {
         List<Product> products = productRepository.findByVendor(vendor);
         res.put(KEY_SUCCESS, true);
         res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
-        res.put("count", products.size());
+        res.put(KEY_COUNT, products.size());
         return ResponseEntity.ok(res);
     }
 
@@ -3199,7 +3202,7 @@ public class ReactApiController {
             o.put("vendorTotal", vendorTotal);
             return o;
         }).collect(Collectors.toList());
-        res.put(KEY_SUCCESS, true); res.put("orders", vendorOrders);
+        res.put(KEY_SUCCESS, true); res.put(KEY_ORDERS, vendorOrders);
         return ResponseEntity.ok(res);
     }
 
@@ -3935,7 +3938,7 @@ public class ReactApiController {
         m.put("items", o.getItems().stream().map(this::mapItem).collect(Collectors.toList()));
         // Customer — name + mobile for admin/delivery views
         if (o.getCustomer() != null) {
-            m.put("customerName", o.getCustomer().getName());
+            m.put(KEY_CUSTOMER_NAME, o.getCustomer().getName());
             Map<String, Object> cust = new HashMap<>();
             cust.put("id",     o.getCustomer().getId());
             cust.put("name",   o.getCustomer().getName());
@@ -4149,7 +4152,7 @@ public class ReactApiController {
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
                 .limit(200) // cap at 200 most recent orders for admin view
                 .map(this::mapOrder).collect(Collectors.toList());
-        res.put(KEY_SUCCESS, true); res.put("orders", orders);
+        res.put(KEY_SUCCESS, true); res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
     }
 
@@ -4316,7 +4319,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS,   true);
         res.put("addresses", addresses);
-        res.put("count",     addresses.size());
+        res.put(KEY_COUNT,     addresses.size());
         return ResponseEntity.ok(res);
     }
 
@@ -4822,7 +4825,7 @@ public class ReactApiController {
             m.put("id",           r.getId());
             m.put("rating",       r.getRating());
             m.put("comment",      r.getComment());
-            m.put("customerName", r.getCustomerName());
+            m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
             m.put(KEY_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId()   : null);
             m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
@@ -4831,7 +4834,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         res.put(KEY_SUCCESS, true);
         res.put("reviews", list);
-        res.put("count",   list.size());
+        res.put(KEY_COUNT,   list.size());
         return ResponseEntity.ok(res);
     }
 
@@ -4890,7 +4893,7 @@ public class ReactApiController {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id",              r.getId());
                     m.put(KEY_ORDER_ID,         r.getOrder() != null ? r.getOrder().getId() : null);
-                    m.put("customerName",    r.getCustomer() != null ? r.getCustomer().getName() : null);
+                    m.put(KEY_CUSTOMER_NAME,    r.getCustomer() != null ? r.getCustomer().getName() : null);
                     m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
                     m.put("amount",          r.getAmount());
                     m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
@@ -5465,7 +5468,7 @@ public class ReactApiController {
             .map(this::mapOrder)
             .collect(Collectors.toList());
         res.put(KEY_SUCCESS, true);
-        res.put("orders", orders);
+        res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
     }
 
@@ -5481,7 +5484,7 @@ public class ReactApiController {
             .map(this::mapOrder)
             .collect(Collectors.toList());
         res.put(KEY_SUCCESS, true);
-        res.put("orders", orders);
+        res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
     }
 
@@ -5497,7 +5500,7 @@ public class ReactApiController {
             .map(this::mapOrder)
             .collect(Collectors.toList());
         res.put(KEY_SUCCESS, true);
-        res.put("orders", orders);
+        res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
     }
 
@@ -6108,7 +6111,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true);
             res.put("query",   q);
             res.put("type",    type);
-            res.put("count",   results.size());
+            res.put(KEY_COUNT,   results.size());
             res.put("users",   results);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -6384,7 +6387,7 @@ public class ReactApiController {
             }
             res.put(KEY_SUCCESS, true);
             res.put("accounts", data);
-            res.put("count", data.size());
+            res.put(KEY_COUNT, data.size());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
@@ -7499,7 +7502,7 @@ public class ReactApiController {
         m.put(KEY_TOTAL_AMOUNT,     o.getAmount());
         m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
         // Customer name for the delivery boy to know who they're delivering to
-        m.put("customerName",    o.getCustomer() != null ? o.getCustomer().getName() : null);
+        m.put(KEY_CUSTOMER_NAME,    o.getCustomer() != null ? o.getCustomer().getName() : null);
         // Item count summary
         m.put("itemCount",       o.getItems() != null ? o.getItems().size() : 0);
         // Payment mode and COD info — needed for delivery boy to know payment method and collect cash if COD
@@ -8084,14 +8087,14 @@ public class ReactApiController {
                     m.put("deliveryPinCode", o.getDeliveryPinCode());
                     m.put("deliveryAddress", o.getDeliveryAddress());
                     m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
-                    m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                    m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                     m.put("totalPrice", o.getTotalPrice());
                     m.put("paymentMethod", o.getPaymentMethod());
                     m.put("orderDate", o.getOrderDate());
                     return m;
                 }).collect(Collectors.toList());
 
-            return ResponseEntity.ok(Map.of("count", result.size(), "orders", result));
+            return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), KEY_ORDERS, result));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
         }
@@ -8231,14 +8234,14 @@ public class ReactApiController {
                     m.put("pinCode", o.getDeliveryPinCode());
                     m.put("address", o.getDeliveryAddress());
                     m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
-                    m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                    m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                     m.put("totalPrice", o.getTotalPrice());
                     m.put("paymentMethod", o.getPaymentMethod());
                     m.put("orderDate", o.getOrderDate());
                     return m;
                 }).collect(Collectors.toList());
 
-            return ResponseEntity.ok(Map.of("count", result.size(), "orders", result));
+            return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), KEY_ORDERS, result));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
         }
@@ -8383,7 +8386,7 @@ public class ReactApiController {
                 m.put("statusDisplay", o.getTrackingStatus().getDisplayName());
                 m.put("deliveryAddress", o.getDeliveryAddress());
                 m.put("deliveryPinCode", o.getDeliveryPinCode());
-                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerPhone", o.getCustomer() != null ? o.getCustomer().getMobile() : "");
                 m.put("totalPrice", o.getTotalPrice());
                 m.put("paymentMethod", o.getPaymentMethod());
@@ -8553,7 +8556,7 @@ public class ReactApiController {
             m.put("codAmount", o.getCodAmount());
             m.put("deliveredAt", o.getCodCollectionTimestamp());
             m.put(KEY_DELIVERY_BOY_ID, o.getFinalDeliveryBoyId());
-            m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+            m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
             return m;
         }).collect(Collectors.toList());
 
@@ -8675,7 +8678,7 @@ public class ReactApiController {
             return m;
         }).collect(Collectors.toList());
 
-        return ResponseEntity.ok(Map.of("count", result.size(), "settlements", result));
+        return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), "settlements", result));
     }
 
     /**
@@ -8860,7 +8863,7 @@ public class ReactApiController {
                 m.put("status", o.getTrackingStatus());
                 m.put("paymentMethod", o.getPaymentMethod());
                 m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
-                m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
+                m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerId", o.getCustomer() != null ? o.getCustomer().getId() : null);
                 m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
@@ -8877,7 +8880,7 @@ public class ReactApiController {
                 "total", allOrders.size(),
                 "page", page,
                 "size", size,
-                "orders", result
+                KEY_ORDERS, result
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -9348,4 +9351,3 @@ public class ReactApiController {
     }
 
 }
-
