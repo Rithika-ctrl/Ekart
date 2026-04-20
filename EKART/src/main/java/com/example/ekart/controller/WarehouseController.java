@@ -58,6 +58,8 @@ public class WarehouseController {
 
     private static final String ORDERS_KEY = "orders";
     private static final String ROUTING_PATH_KEY = "routingPath";
+    private static final String CURRENT_STATUS_KEY = "current_status";
+    private static final String ORDER_ID_KEY = "orderId";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseReceivingService warehouseReceivingService;
@@ -594,7 +596,7 @@ public class WarehouseController {
             if (order.getTrackingStatus() != TrackingStatus.WAREHOUSE_RECEIVED) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Order must be WAREHOUSE_RECEIVED", 
-                                 "current_status", order.getTrackingStatus()));
+                                 CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
             order.setTrackingStatus(TrackingStatus.PREPARED_FOR_HUB_TRANSIT);
@@ -603,7 +605,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "status", "PREPARED_FOR_HUB_TRANSIT",
-                "orderId", orderId
+                ORDER_ID_KEY, orderId
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -639,7 +641,7 @@ public class WarehouseController {
             if (order.getTrackingStatus() != TrackingStatus.PREPARED_FOR_HUB_TRANSIT) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Order must be PREPARED_FOR_HUB_TRANSIT",
-                                 "current_status", order.getTrackingStatus()));
+                                 CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
             order.setTrackingStatus(TrackingStatus.IN_HUB_TRANSIT);
@@ -648,7 +650,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "status", "IN_HUB_TRANSIT",
-                "orderId", orderId,
+                ORDER_ID_KEY, orderId,
                 ROUTING_PATH_KEY, order.getWarehouseRoutingPath()
             ));
         } catch (Exception e) {
@@ -686,7 +688,7 @@ public class WarehouseController {
             if (order.getTrackingStatus() != TrackingStatus.IN_HUB_TRANSIT) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Order must be IN_HUB_TRANSIT",
-                                 "current_status", order.getTrackingStatus()));
+                                 CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
             // Check if this warehouse is the final destination
@@ -699,7 +701,7 @@ public class WarehouseController {
                 return ResponseEntity.ok(Map.of(
                     "success", true,
                     "status", "ARRIVED_AT_DESTINATION_HUB",
-                    "orderId", orderId,
+                    ORDER_ID_KEY, orderId,
                     "message", "Order ready for delivery assignment"
                 ));
             } else {
@@ -708,7 +710,7 @@ public class WarehouseController {
                 return ResponseEntity.ok(Map.of(
                     "success", true,
                     "status", "ARRIVED_AT_INTERMEDIATE_HUB",
-                    "orderId", orderId,
+                    ORDER_ID_KEY, orderId,
                     "message", "Mark for continued transit to destination"
                 ));
             }
@@ -858,7 +860,7 @@ public class WarehouseController {
             if (order.getTrackingStatus() != TrackingStatus.ARRIVED_AT_DESTINATION_HUB) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Order not ready for delivery boy assignment",
-                                 "current_status", order.getTrackingStatus()));
+                                 CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
             if (body.get("deliveryBoyId") == null) {
@@ -902,7 +904,7 @@ public class WarehouseController {
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "orderId", orderId,
+                ORDER_ID_KEY, orderId,
                 "deliveryBoyName", boy.getName(),
                 "deliveryBoyId", boy.getId(),
                 "status", "SHIPPED",
@@ -914,4 +916,3 @@ public class WarehouseController {
         }
     }
 }
-
