@@ -95,6 +95,7 @@ public class ReactApiController {
     private static final String KEY_CONTACT_EMAIL = "contactEmail";
     private static final String KEY_CONTACT_PHONE = "contactPhone";
     private static final String KEY_CURRENT_PASSWORD = "currentPassword";
+    private static final String KEY_DELIVERY_ADDRESS = "deliveryAddress";
     private static final String KEY_DELIVERY_BOY_CODE = "deliveryBoyCode";
     private static final String KEY_DELIVERY_BOY_ID = "deliveryBoyId";
     private static final String KEY_DELIVERY_BOY_NAME = "deliveryBoyName";
@@ -2565,7 +2566,7 @@ public class ReactApiController {
             res.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : "N/A");
             res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : "N/A");
             res.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : "N/A");
-            res.put("deliveryAddress", order.getDeliveryAddress());
+            res.put(KEY_DELIVERY_ADDRESS, order.getDeliveryAddress());
             res.put("totalPrice", order.getAmount());
             res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
             
@@ -4076,7 +4077,7 @@ public class ReactApiController {
         m.put("orderDate", o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested", o.isReplacementRequested());
         m.put("deliveryPinCode", o.getDeliveryPinCode());
-        m.put("deliveryAddress", o.getDeliveryAddress());
+        m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
         m.put("items", o.getItems().stream().map(this::mapItem).toList());
         // Customer — name + mobile for admin/delivery views
         if (o.getCustomer() != null) {
@@ -7640,7 +7641,7 @@ public class ReactApiController {
         m.put("status",          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
         m.put(KEY_STATUS_DISPLAY,   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
         m.put("currentCity",     o.getCurrentCity());
-        m.put("deliveryAddress", o.getDeliveryAddress());
+        m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
         m.put(KEY_TOTAL_AMOUNT,     o.getAmount());
         m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
         // Customer name for the delivery boy to know who they're delivering to
@@ -8226,7 +8227,7 @@ public class ReactApiController {
                     m.put("id", o.getId());
                     m.put("status", o.getTrackingStatus());
                     m.put("deliveryPinCode", o.getDeliveryPinCode());
-                    m.put("deliveryAddress", o.getDeliveryAddress());
+                    m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
                     m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                     m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                     m.put("totalPrice", o.getTotalPrice());
@@ -8525,7 +8526,7 @@ public class ReactApiController {
                 m.put("id", o.getId());
                 m.put("status", o.getTrackingStatus());
                 m.put(KEY_STATUS_DISPLAY, o.getTrackingStatus().getDisplayName());
-                m.put("deliveryAddress", o.getDeliveryAddress());
+                m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
                 m.put("deliveryPinCode", o.getDeliveryPinCode());
                 m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerPhone", o.getCustomer() != null ? o.getCustomer().getMobile() : "");
