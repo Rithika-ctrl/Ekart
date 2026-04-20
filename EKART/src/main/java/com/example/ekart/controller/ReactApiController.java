@@ -124,6 +124,7 @@ public class ReactApiController {
     private static final String KEY_TOTAL_AMOUNT = "totalAmount";
     private static final String KEY_VENDOR_ID = "vendorId";
     private static final String KEY_VENDOR_NAME = "vendorName";
+    private static final String KEY_VENDOR_PAY_AMOUNT = "vendorPayAmount";
     private static final String KEY_WAREHOUSE_CODE = "warehouseCode";
     private static final String KEY_WAREHOUSE_ID = "warehouseId";
     private static final String KEY_WAREHOUSE_NAME = "warehouseName";
@@ -8782,7 +8783,7 @@ public class ReactApiController {
                 "batchNumber", batchNum,
                 "totalCash", totalCash,
                 KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
-                "vendorPayAmount", settlement.getVendorPayAmount(),
+                KEY_VENDOR_PAY_AMOUNT, settlement.getVendorPayAmount(),
                 "status", STATUS_PROOF_UPLOADED,
                 "message", "Settlement submitted to admin for verification"
             ));
@@ -8814,7 +8815,7 @@ public class ReactApiController {
             m.put(KEY_WAREHOUSE_NAME, s.getWarehouse() != null ? s.getWarehouse().getName() : "");
             m.put(KEY_TOTAL_AMOUNT, s.getTotalAmountCollected());
             m.put(KEY_ADMIN_COMMISSION, s.getAdminCommission());
-            m.put("vendorPayAmount", s.getVendorPayAmount());
+            m.put(KEY_VENDOR_PAY_AMOUNT, s.getVendorPayAmount());
             m.put("status", s.getSettlementStatus());
             m.put("proofPhotoUrl", s.getProofPhotoUrl());
             m.put("submittedAt", s.getSubmittedAt());
@@ -8864,7 +8865,7 @@ public class ReactApiController {
             KEY_SETTLEMENT_ID, settlementId,
             "status", STATUS_VERIFIED,
             KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
-            "vendorPayAmount", settlement.getVendorPayAmount()
+            KEY_VENDOR_PAY_AMOUNT, settlement.getVendorPayAmount()
         ));
     }
 
@@ -8880,7 +8881,6 @@ public class ReactApiController {
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int settlementId,
             @RequestBody Map<String, Object> body) {
-        int adminId = jwtUtil.extractAdminId(authHeader.replace("Bearer ", ""));
 
         CashSettlement settlement = cashSettlementRepository.findById(settlementId)
             .orElseThrow(() -> new RuntimeException("Settlement not found"));
