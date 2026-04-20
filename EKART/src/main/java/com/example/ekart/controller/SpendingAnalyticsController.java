@@ -42,7 +42,7 @@ public class SpendingAnalyticsController {
      */
     @GetMapping("/api/account/spending-summary")
     @ResponseBody
-    public ResponseEntity<?> getSpendingSummary(HttpSession session) {
+    public ResponseEntity<Object> getSpendingSummary(HttpSession session) {
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(

@@ -22,7 +22,7 @@ public class UserActivityController {
 
 
     @PostMapping("/batch")
-    public ResponseEntity<?> logBatch(@RequestBody List<Map<String, Object>> activities) {
+    public ResponseEntity<Object> logBatch(@RequestBody List<Map<String, Object>> activities) {
         int saved = 0;
         for (Map<String, Object> act : activities) {
             try {

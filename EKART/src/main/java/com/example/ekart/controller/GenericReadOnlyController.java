@@ -18,23 +18,23 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class GenericReadOnlyController {
 
-    private final Map<String, JpaRepository<?, ?>> repositories;
+    private final Map<String, JpaRepository> repositories;
 
     @Autowired
-    public GenericReadOnlyController(Map<String, JpaRepository<?, ?>> repositories) {
+    public GenericReadOnlyController(Map<String, JpaRepository> repositories) {
         this.repositories = repositories;
     }
 
-    private JpaRepository<?, ?> findRepo(String name) {
+    private JpaRepository findRepo(String name) {
         String lower = name.toLowerCase();
-        for (Map.Entry<String, JpaRepository<?, ?>> e : repositories.entrySet()) {
+        for (Map.Entry<String, JpaRepository> e : repositories.entrySet()) {
             String key = e.getKey().toLowerCase();
             if (key.equals(lower) || key.equals(lower + "repository") || key.equals(lower + "repo")) {
                 return e.getValue();
             }
             // try interface simple name (proxy classes may implement repository interface)
             try {
-                Class<?>[] interfaces = e.getValue().getClass().getInterfaces();
+                Class[] interfaces = e.getValue().getClass().getInterfaces();
                 if (interfaces != null && interfaces.length > 0) {
                     String iface = interfaces[0].getSimpleName().toLowerCase();
                     if (iface.equals(lower) || iface.equals(lower + "repository")) return e.getValue();
@@ -46,21 +46,21 @@ public class GenericReadOnlyController {
     }
 
     @GetMapping("/{entity}")
-    public ResponseEntity<?> list(@PathVariable String entity) {
-        JpaRepository<?, ?> repo = findRepo(entity);
+    public ResponseEntity<Object> list(@PathVariable String entity) {
+        JpaRepository repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         return ResponseEntity.ok(repo.findAll());
     }
 
     @GetMapping("/{entity}/{id}")
     @SuppressWarnings("ALL")
-    public ResponseEntity<?> getOne(@PathVariable String entity, @PathVariable String id) {
-        JpaRepository<?, ?> repo = findRepo(entity);
+    public ResponseEntity<Object> getOne(@PathVariable String entity, @PathVariable String id) {
+        JpaRepository repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         Object key = parseId(id);
         try {
             // Use raw type to avoid generic type mismatch warnings
-            @SuppressWarnings("rawtypes")  
+            @SuppressWarnings("rawtypes")
             JpaRepository rawRepo = repo;
             //noinspection unchecked
             @SuppressWarnings("unchecked")

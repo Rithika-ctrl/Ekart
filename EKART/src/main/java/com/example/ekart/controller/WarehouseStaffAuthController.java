@@ -55,7 +55,7 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, Object> request, HttpSession session) {
+    public ResponseEntity<Object> login(@RequestBody Map<String, Object> request, HttpSession session) {
         String email = (String) request.get("email");
         String password = (String) request.get("password");
 
@@ -98,7 +98,7 @@ public class WarehouseStaffAuthController {
      * Clear staff session.
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
+    public ResponseEntity<Object> logout(HttpSession session) {
         staffService.clearStaffSession(session);
         return ResponseEntity.ok(Map.of(
             "success", true,
@@ -117,7 +117,7 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Object> verifyOtp(@RequestBody Map<String, Object> request) {
         Integer staffId = ((Number) request.get("staff_id")).intValue();
         Integer otp = ((Number) request.get("otp")).intValue();
 
@@ -154,7 +154,7 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request, HttpSession session) {
+    public ResponseEntity<Object> changePassword(@RequestBody Map<String, String> request, HttpSession session) {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -195,7 +195,7 @@ public class WarehouseStaffAuthController {
      * Get current staff session info and dashboard data.
      */
     @GetMapping("/dashboard")
-    public ResponseEntity<?> getDashboard(HttpSession session) {
+    public ResponseEntity<Object> getDashboard(HttpSession session) {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -231,7 +231,7 @@ public class WarehouseStaffAuthController {
      * - warehouse_id (required)
      */
     @GetMapping("/staff/list")
-    public ResponseEntity<?> getStaffList(@RequestParam int warehouse_id, HttpSession session) {
+    public ResponseEntity<Object> getStaffList(@RequestParam int warehouse_id, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -287,7 +287,7 @@ public class WarehouseStaffAuthController {
      * Response includes: staff_id, email, password (plain text), name
      */
     @PostMapping("/staff/create")
-    public ResponseEntity<?> createStaff(@RequestBody Map<String, Object> request, HttpSession session) {
+    public ResponseEntity<Object> createStaff(@RequestBody Map<String, Object> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -348,7 +348,7 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/staff/deactivate")
-    public ResponseEntity<?> deactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
+    public ResponseEntity<Object> deactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -388,7 +388,7 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/staff/reactivate")
-    public ResponseEntity<?> reactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
+    public ResponseEntity<Object> reactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

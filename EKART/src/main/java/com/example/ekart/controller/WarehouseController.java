@@ -109,7 +109,7 @@ public class WarehouseController {
      * @return List of orders in receiving queue
      */
     @GetMapping("/{warehouseId}/receiving-queue")
-    public ResponseEntity<?> getReceivingQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Object> getReceivingQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -140,7 +140,7 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/receive")
-    public ResponseEntity<?> markOrderReceived(
+    public ResponseEntity<Object> markOrderReceived(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestParam(required = false) String description) {
@@ -177,7 +177,7 @@ public class WarehouseController {
      * @return List of orders in preparation queue
      */
     @GetMapping("/{warehouseId}/preparation-queue")
-    public ResponseEntity<?> getPreparationQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Object> getPreparationQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -208,7 +208,7 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/prepare")
-    public ResponseEntity<?> markOrderPrepared(
+    public ResponseEntity<Object> markOrderPrepared(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestParam(required = false) String description) {
@@ -243,7 +243,7 @@ public class WarehouseController {
      * @return List of orders in assignment queue
      */
     @GetMapping("/{warehouseId}/assignment-queue")
-    public ResponseEntity<?> getAssignmentQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Object> getAssignmentQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -272,7 +272,7 @@ public class WarehouseController {
      * @return List of available delivery boys with current load
      */
     @GetMapping("/{warehouseId}/available-delivery-boys")
-    public ResponseEntity<?> getAvailableDeliveryBoys(@PathVariable int warehouseId) {
+    public ResponseEntity<Object> getAvailableDeliveryBoys(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -318,7 +318,7 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/assign-delivery-boy")
-    public ResponseEntity<?> assignDeliveryBoy(
+    public ResponseEntity<Object> assignDeliveryBoy(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> request) {
@@ -361,7 +361,7 @@ public class WarehouseController {
      * @return List of pending transfer legs
      */
     @GetMapping("/{warehouseId}/transfer-queue")
-    public ResponseEntity<?> getTransferQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Object> getTransferQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -411,7 +411,7 @@ public class WarehouseController {
      * @return Transfer leg details
      */
     @GetMapping("/transfer-leg/{legId}")
-    public ResponseEntity<?> getTransferLegDetails(@PathVariable int legId) {
+    public ResponseEntity<Object> getTransferLegDetails(@PathVariable int legId) {
         try {
             Optional<WarehouseTransferLeg> legOpt = warehouseTransferLegRepository.findById(legId);
             
@@ -439,7 +439,7 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-in-transit")
-    public ResponseEntity<?> markTransferLegInTransit(
+    public ResponseEntity<Object> markTransferLegInTransit(
             @PathVariable int legId,
             @RequestBody(required = false) Map<String, String> request) {
         try {
@@ -472,7 +472,7 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-arrived")
-    public ResponseEntity<?> markTransferLegArrived(
+    public ResponseEntity<Object> markTransferLegArrived(
             @PathVariable int legId,
             @RequestBody(required = false) Map<String, String> request) {
         try {
@@ -506,7 +506,7 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-received")
-    public ResponseEntity<?> markTransferLegReceived(
+    public ResponseEntity<Object> markTransferLegReceived(
             @PathVariable int legId,
             @RequestBody Map<String, Object> request) {
         try {
@@ -541,7 +541,7 @@ public class WarehouseController {
      * @return List of transfer legs with details
      */
     @GetMapping("/order/{orderId}/transfer-legs")
-    public ResponseEntity<?> getOrderTransferLegs(@PathVariable int orderId) {
+    public ResponseEntity<Object> getOrderTransferLegs(@PathVariable int orderId) {
         try {
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
@@ -574,7 +574,7 @@ public class WarehouseController {
      * PREPARED_FOR_HUB_TRANSIT so it can be dispatched to next hub.
      */
     @PostMapping("/orders/{orderId}/prepare-transit")
-    public ResponseEntity<?> prepareForTransit(
+    public ResponseEntity<Object> prepareForTransit(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -619,7 +619,7 @@ public class WarehouseController {
      * Status changes: PREPARED_FOR_HUB_TRANSIT → IN_HUB_TRANSIT
      */
     @PostMapping("/orders/{orderId}/mark-in-transit")
-    public ResponseEntity<?> markInTransit(
+    public ResponseEntity<Object> markInTransit(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -666,7 +666,7 @@ public class WarehouseController {
      * - Final destination → ARRIVED_AT_DESTINATION_HUB (ready for delivery assignment)
      */
     @PostMapping("/orders/{orderId}/mark-arrived-intermediate")
-    public ResponseEntity<?> markArrivedIntermediate(
+    public ResponseEntity<Object> markArrivedIntermediate(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -726,7 +726,7 @@ public class WarehouseController {
      * Only returns orders with status ARRIVED_AT_DESTINATION_HUB.
      */
     @GetMapping("/assignment-queue")
-    public ResponseEntity<?> warehouseAssignmentQueue(HttpServletRequest request) {
+    public ResponseEntity<Object> warehouseAssignmentQueue(HttpServletRequest request) {
         try {
             Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
@@ -769,7 +769,7 @@ public class WarehouseController {
      * Warehouse staff uses this to select which boy to assign for delivery.
      */
     @GetMapping("/delivery-boys")
-    public ResponseEntity<?> getDeliveryBoysForPinCode(
+    public ResponseEntity<Object> getDeliveryBoysForPinCode(
             @RequestParam String pinCode,
             HttpServletRequest request) {
         try {
@@ -837,7 +837,7 @@ public class WarehouseController {
      * Request body: { "deliveryBoyId": 5 }
      */
     @PostMapping("/orders/{orderId}/assign-delivery-boy")
-    public ResponseEntity<?> assignDeliveryBoy(
+    public ResponseEntity<Object> assignDeliveryBoy(
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {

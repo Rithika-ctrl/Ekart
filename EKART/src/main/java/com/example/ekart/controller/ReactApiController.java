@@ -55,6 +55,31 @@ public class ReactApiController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReactApiController.class);
 
+    private static String sanitizeForLog(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replaceAll("[\\r\\n\\t]", " ")
+                .replaceAll("\\p{Cntrl}", " ")
+                .trim()
+                .replaceAll("\\s{2,}", " ");
+    }
+
+    private static String maskEmailForLog(String email) {
+        String sanitizedEmail = sanitizeForLog(email);
+        int atIndex = sanitizedEmail.indexOf('@');
+        if (atIndex <= 0) {
+            return sanitizedEmail;
+        }
+        String localPart = sanitizedEmail.substring(0, atIndex);
+        String domainPart = sanitizedEmail.substring(atIndex);
+        if (localPart.length() <= 2) {
+            return "**" + domainPart;
+        }
+        return localPart.charAt(0) + "***" + localPart.charAt(localPart.length() - 1) + domainPart;
+    }
+
     private static final String STRONG_PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
     private static final String STRONG_PASSWORD_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
 
@@ -65,8 +90,12 @@ public class ReactApiController {
     // JSON response / request body keys
     private static final String KEY_ADMIN_ID = "adminId";
     private static final String KEY_ADMIN_NOTE = "adminNote";
+    private static final String KEY_ADMIN_APPROVED = "adminApproved";
     private static final String KEY_ASSIGNED_PIN_CODES = "assignedPinCodes";
+    private static final String KEY_CONTACT_EMAIL = "contactEmail";
+    private static final String KEY_CONTACT_PHONE = "contactPhone";
     private static final String KEY_CURRENT_PASSWORD = "currentPassword";
+    private static final String KEY_DELIVERY_BOY_CODE = "deliveryBoyCode";
     private static final String KEY_DELIVERY_BOY_ID = "deliveryBoyId";
     private static final String KEY_DELIVERY_BOY_NAME = "deliveryBoyName";
     private static final String KEY_EMAIL = "email";
@@ -75,6 +104,8 @@ public class ReactApiController {
     private static final String KEY_ESTIMATED_DELIVERY = "estimatedDelivery";
     private static final String KEY_IMAGE_LINK = "imageLink";
     private static final String KEY_IS_AVAILABLE = "isAvailable";
+    private static final String KEY_LATITUDE = "latitude";
+    private static final String KEY_LOGIN_ID = "loginId";
     private static final String KEY_MOBILE = "mobile";
     private static final String KEY_NEW_PASSWORD = "newPassword";
     private static final String KEY_NEW_STATUS = "newStatus";
@@ -421,7 +452,7 @@ public class ReactApiController {
                 tempForEmail.setOtp(Integer.parseInt(otp));
                 emailSender.send(tempForEmail);
             } catch (Exception e) {
-                System.err.println("Customer register OTP email failed: " + e.getMessage());
+                LOGGER.error("Customer register OTP email failed", e);
             }
             res.put(KEY_SUCCESS, true);
             res.put("message", "OTP sent to " + email);
@@ -594,7 +625,7 @@ public class ReactApiController {
                 tempForEmail.setOtp(Integer.parseInt(plainOtp));
                 emailSender.sendVendorOtpSecure(tempForEmail, plainOtp);
             } catch (Exception e) {
-                System.err.println("Vendor register OTP email failed: " + e.getMessage());
+                LOGGER.error("Vendor register OTP email failed", e);
             }
             
             vendorRegisterOtpVerified.remove(email);
@@ -946,7 +977,7 @@ public class ReactApiController {
      *     KEY_WAREHOUSE_NAME: "Bangalore Hub",
      *     "city": "Bangalore",
      *     KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
-     *     "role": ROLE_WAREHOUSE
+                LOGGER.error("Vendor register OTP email failed", e);
      *   }
      *
      * Error Responses:
@@ -959,7 +990,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> warehouseLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String loginId = (String) body.get("loginId");        // 8-digit number as string
+            String loginId = (String) body.get(KEY_LOGIN_ID);        // 8-digit number as string
             String password = (String) body.get("password");      // 6-digit number as string
 
             if (loginId == null || loginId.isBlank() || password == null || password.isBlank()) {
@@ -1090,7 +1121,7 @@ public class ReactApiController {
                 String plainOtp = otpService.generateAndStoreOtp(db.getEmail(), com.example.ekart.service.OtpService.PURPOSE_DELIVERY_REGISTER);
                 emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
             }
-            catch (Exception e) { System.err.println("Delivery boy OTP email failed: " + e.getMessage()); }
+            catch (Exception e) { LOGGER.error("Delivery boy OTP email failed", e); }
 
             res.put(KEY_SUCCESS,       true);
             res.put("message",       "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
@@ -1157,7 +1188,7 @@ public class ReactApiController {
 
             // Notify admin via email that a new delivery boy needs approval
             try { emailSender.sendDeliveryBoyPendingAlert(db); }
-            catch (Exception e) { System.err.println("Admin pending-alert email failed: " + e.getMessage()); }
+            catch (Exception e) { LOGGER.error("Admin pending-alert email failed", e); }
 
             res.put(KEY_SUCCESS, true);
             res.put("message", "Email verified! Your account is pending admin approval. You will be notified by email once approved.");
@@ -1200,7 +1231,7 @@ public class ReactApiController {
             try {
                 emailSender.sendDeliveryBoyOtp(db);
             } catch (Exception e) { 
-                System.err.println("OTP resend failed: " + e.getMessage()); 
+                LOGGER.error("OTP resend failed", e);
             }
 
             res.put(KEY_SUCCESS, true);
@@ -1447,7 +1478,7 @@ public class ReactApiController {
                 vendor.setOtp(Integer.parseInt(plainOtp));
                 emailSender.sendVendorOtpSecure(vendor, plainOtp);
             } catch (Exception e) {
-                System.err.println("Vendor forgot-password OTP email failed: " + e.getMessage());
+                LOGGER.error("Vendor forgot-password OTP email failed", e);
             }
             
             // Clear any previously-verified flag for this email so a fresh verify is required
@@ -1581,7 +1612,7 @@ public class ReactApiController {
             found.addAll(productRepository.findByCategoryContainingIgnoreCase(search));
             products = found.stream()
                     .filter(Product::isApproved)
-                    .collect(Collectors.toList());
+                    .toList();
         } else if (category != null && !category.isBlank()) {
             products = productRepository.findByCategoryAndApprovedTrue(category);
         } else {
@@ -1592,19 +1623,19 @@ public class ReactApiController {
         if (pinCode != null && !pinCode.isBlank()) {
             products = products.stream()
                     .filter(p -> p.isDeliverableTo(pinCode))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // 3. Apply price range filters (in-memory — avoids extra repo methods)
         if (minPrice != null) {
             products = products.stream()
                     .filter(p -> p.getPrice() >= minPrice)
-                    .collect(Collectors.toList());
+                    .toList();
         }
         if (maxPrice != null) {
             products = products.stream()
                     .filter(p -> p.getPrice() <= maxPrice)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // 4. Sort
@@ -1625,7 +1656,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS,  true);
         res.put(KEY_COUNT,    products.size());
-        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
+        res.put("products", products.stream().map(this::mapProduct).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -1649,7 +1680,7 @@ public class ReactApiController {
             m.put("comment", r.getComment());
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
-        }).collect(Collectors.toList()));
+        }).toList());
         pm.put("avgRating", Math.round(avg * 10.0) / 10.0);
         pm.put("reviewCount", reviews.size());
         res.put(KEY_SUCCESS, true);
@@ -1671,7 +1702,7 @@ public class ReactApiController {
             m.put("comment", r.getComment());
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
-        }).collect(Collectors.toList()));
+        }).toList());
         res.put("avgRating", Math.round(avg * 10.0) / 10.0);
         res.put("reviewCount", reviews.size());
         return ResponseEntity.ok(res);
@@ -1683,7 +1714,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         List<String> categories = productRepository.findByApprovedTrue()
                 .stream().map(Product::getCategory).filter(Objects::nonNull)
-                .distinct().sorted().collect(Collectors.toList());
+                .distinct().sorted().toList();
         res.put(KEY_SUCCESS, true);
         res.put("categories", categories);
         return ResponseEntity.ok(res);
@@ -1702,7 +1733,7 @@ public class ReactApiController {
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
         if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put(KEY_TOTAL, 0.0); res.put("subtotal", 0.0); res.put(KEY_COUNT, 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
-        List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
+        List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).toList();
         double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
 
         // Attach any currently-applied coupon so the frontend can restore UI state
@@ -1760,7 +1791,7 @@ public class ReactApiController {
                     m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
                     return m;
                 })
-                .collect(Collectors.toList());
+                .toList();
         res.put(KEY_SUCCESS, true);
         res.put("coupons", list);
         return ResponseEntity.ok(res);
@@ -1895,7 +1926,7 @@ public class ReactApiController {
             if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
         List<Item> toRemove = customer.getCart().getItems().stream()
             .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-            .collect(java.util.stream.Collectors.toList());
+            .toList();
         if (toRemove.isEmpty()) {
             res.put(KEY_SUCCESS, false); res.put("message", "Item not found in cart");
             return ResponseEntity.status(404).body(res);
@@ -1922,7 +1953,7 @@ public class ReactApiController {
         if (quantity <= 0) {
             List<Item> toRemove = cart.getItems().stream()
                 .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
             cart.getItems().removeAll(toRemove);
             customerRepository.save(customer);
             itemRepository.deleteAll(toRemove);
@@ -1947,18 +1978,16 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) {
+            res.put(KEY_SUCCESS, false);
+            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            return ResponseEntity.status(401).body(res);
+        }
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
-                return ResponseEntity.badRequest().body(res);
-            }
+            ResponseEntity<Map<String, Object>> customerError = validateCustomerAndCart(customer, res);
+            if (customerError != null) return customerError;
             Cart cart = customer.getCart();
-            if (cart == null || cart.getItems().isEmpty()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Cart is empty");
-                return ResponseEntity.badRequest().body(res);
-            }
 
             String paymentMode    = (String) body.getOrDefault("paymentMode", "COD");
             String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
@@ -1967,150 +1996,33 @@ public class ReactApiController {
             // ── Coupon — resolve discount from in-memory store ───────────────
             Coupon appliedCoupon = appliedCoupons.get(customerId);
 
-            // ── Validate stock for all items first ──────────────
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product == null || product.getStock() < cartItem.getQuantity()) {
-                    res.put(KEY_SUCCESS, false);
-                    res.put("message", "Insufficient stock for: " + cartItem.getName());
-                    return ResponseEntity.badRequest().body(res);
-                }
-            }
+            ResponseEntity<Map<String, Object>> stockError = validateStock(cart.getItems(), res);
+            if (stockError != null) return stockError;
 
-            // ── Group cart items by vendor ───────────────────────
-            Map<Integer, List<Item>>   vendorItems = new LinkedHashMap<>();
-            Map<Integer, Vendor>       vendorMap   = new LinkedHashMap<>();
+            VendorGrouping grouping = groupCartItemsByVendor(cart.getItems());
+            CouponApplication couponApplication = applyCouponToGrandTotal(appliedCoupon, grouping.grandTotal);
+            deductStock(cart.getItems());
 
-            double grandTotal = 0;
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                int vKey = (product != null && product.getVendor() != null)
-                           ? product.getVendor().getId() : 0;
-                if (product != null && product.getVendor() != null)
-                    vendorMap.put(vKey, product.getVendor());
-                vendorItems.computeIfAbsent(vKey, k -> new ArrayList<>()).add(cartItem);
-                grandTotal += cartItem.getPrice() * cartItem.getQuantity();
-            }
+            DeliveryLocation deliveryLocation = resolveDeliveryLocation(customer, body);
 
-            // Apply coupon discount to grandTotal (validate again in case cart changed)
-            double couponDiscount = 0;
-            String appliedCouponCode = "";
-            if (appliedCoupon != null && appliedCoupon.isValid()
-                    && grandTotal >= appliedCoupon.getMinOrderAmount()) {
-                couponDiscount   = appliedCoupon.calculateDiscount(grandTotal);
-                appliedCouponCode = appliedCoupon.getCode();
-            }
-            double discountedTotal = Math.max(0, grandTotal - couponDiscount);
-
-            // ── Deduct stock ────────────────────────────────────
-            for (Item cartItem : cart.getItems()) {
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null) {
-                    product.setStock(product.getStock() - cartItem.getQuantity());
-                    productRepository.save(product);
-                    // Check if stock alert needs to be created or updated
-                    stockAlertService.checkStockLevel(product);
-                }
-            }
-
-            // ── Resolve delivery PIN and warehouse from address ────────────────
-            String deliveryPin   = "";
-            Warehouse warehouse  = null;
-            Object addressIdObj  = body.get("addressId");
-            if (addressIdObj != null) {
-                try {
-                    Integer addressId = Integer.parseInt(addressIdObj.toString());
-                    Address addr = null;
-                    for (Address a : customer.getAddresses()) {
-                        if (a.getId() == addressId) { addr = a; break; }
-                    }
-                    if (addr != null && addr.getPostalCode() != null) {
-                        deliveryPin = addr.getPostalCode().replaceAll("\\D", "").substring(0, Math.min(6, addr.getPostalCode().replaceAll("\\D", "").length()));
-                        // Find warehouse that serves this PIN
-                        for (Warehouse wh : warehouseRepository.findAll()) {
-                            if (wh.serves(deliveryPin)) {
-                                warehouse = wh;
-                                break;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // If address resolution fails, continue without warehouse
-                }
-            }
-
-            boolean multiVendor = vendorItems.size() > 1;
-            Integer parentId    = null;
-            Order   firstOrder  = null;
-            List<Integer> subOrderIds = new ArrayList<>();
-
-            for (Map.Entry<Integer, List<Item>> entry : vendorItems.entrySet()) {
-                int vKey              = entry.getKey();
-                List<Item> group      = entry.getValue();
-                Vendor vendor         = vendorMap.get(vKey);
-
-                double subTotal = 0;
-                for (Item ci : group) subTotal += ci.getPrice() * ci.getQuantity();
-                // Pro-rate the coupon discount across vendor sub-orders by their share of grandTotal
-                double subDiscount = (grandTotal > 0) ? couponDiscount * (subTotal / grandTotal) : 0;
-                double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
-
-                List<Item> orderItems = new ArrayList<>();
-                for (Item cartItem : group) {
-                    Item oi = new Item();
-                    oi.setName(cartItem.getName());
-                    oi.setDescription(cartItem.getDescription());
-                    oi.setPrice(cartItem.getPrice());
-                    oi.setCategory(cartItem.getCategory());
-                    oi.setQuantity(cartItem.getQuantity());
-                    oi.setImageLink(cartItem.getImageLink());
-                    oi.setProductId(cartItem.getProductId());
-                    orderItems.add(oi);
-                }
-
-                Order subOrder = new Order();
-                subOrder.setCustomer(customer);
-                subOrder.setItems(orderItems);
-                subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
-                subOrder.setDeliveryCharge(subDelivery);
-                subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
-                subOrder.setPaymentMode(paymentMode);
-                subOrder.setDeliveryTime(deliveryTime);
-                subOrder.setDateTime(LocalDateTime.now());
-                subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-                subOrder.setReplacementRequested(false);
-                subOrder.setCurrentCity((String) body.getOrDefault("city", ""));
-                subOrder.setDeliveryPinCode(deliveryPin);
-                if (warehouse != null) {
-                    subOrder.setWarehouse(warehouse);
-                }
-                if (vendor != null) {
-                    subOrder.setVendor(vendor);
-                }
-
-                orderRepository.save(subOrder);
-
-                if (firstOrder == null) {
-                    firstOrder = subOrder;
-                    if (multiVendor) {
-                        parentId = subOrder.getId();
-                        subOrder.setParentOrderId(parentId);
-                        orderRepository.save(subOrder);
-                    }
-                } else {
-                    subOrder.setParentOrderId(parentId);
-                    orderRepository.save(subOrder);
-                }
-
-                subOrderIds.add(subOrder.getId());
-            }
+            SubOrderResult subOrderResult = createSubOrders(
+                customer,
+                grouping,
+                couponApplication.couponDiscount,
+                deliveryCharge,
+                paymentMode,
+                deliveryTime,
+                (String) body.getOrDefault("city", ""),
+                deliveryLocation.deliveryPin,
+                deliveryLocation.warehouse
+            );
 
             // Clear cart
             cart.getItems().clear();
             customerRepository.save(customer);
 
             // Increment coupon usedCount and clear from in-memory store
-            if (appliedCoupon != null && !appliedCouponCode.isEmpty()) {
+            if (appliedCoupon != null && !couponApplication.appliedCouponCode.isEmpty()) {
                 appliedCoupon.setUsedCount(appliedCoupon.getUsedCount() + 1);
                 couponRepository.save(appliedCoupon);
                 appliedCoupons.remove(customerId);
@@ -2118,11 +2030,11 @@ public class ReactApiController {
 
             res.put(KEY_SUCCESS,        true);
             res.put("message",        "Order placed successfully");
-            res.put(KEY_ORDER_ID,        firstOrder.getId());
-            res.put("subOrderIds",    subOrderIds);
-            res.put("totalPrice",     discountedTotal + deliveryCharge);
-            res.put("couponDiscount", couponDiscount);
-            res.put("couponCode",     appliedCouponCode);
+            res.put(KEY_ORDER_ID,        subOrderResult.firstOrder.getId());
+            res.put("subOrderIds",    subOrderResult.subOrderIds);
+            res.put("totalPrice",     couponApplication.discountedTotal + deliveryCharge);
+            res.put("couponDiscount", couponApplication.couponDiscount);
+            res.put("couponCode",     couponApplication.appliedCouponCode);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -2130,6 +2042,230 @@ public class ReactApiController {
             res.put("message", e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
+    }
+
+    private ResponseEntity<Map<String, Object>> validateCustomerAndCart(Customer customer, Map<String, Object> res) {
+        if (customer == null) {
+            res.put(KEY_SUCCESS, false);
+            res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            return ResponseEntity.badRequest().body(res);
+        }
+        Cart cart = customer.getCart();
+        if (cart == null || cart.getItems().isEmpty()) {
+            res.put(KEY_SUCCESS, false);
+            res.put("message", "Cart is empty");
+            return ResponseEntity.badRequest().body(res);
+        }
+        return null;
+    }
+
+    private ResponseEntity<Map<String, Object>> validateStock(List<Item> cartItems, Map<String, Object> res) {
+        for (Item cartItem : cartItems) {
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product == null || product.getStock() < cartItem.getQuantity()) {
+                res.put(KEY_SUCCESS, false);
+                res.put("message", "Insufficient stock for: " + cartItem.getName());
+                return ResponseEntity.badRequest().body(res);
+            }
+        }
+        return null;
+    }
+
+    private static class VendorGrouping {
+        final Map<Integer, List<Item>> vendorItems;
+        final Map<Integer, Vendor> vendorMap;
+        final double grandTotal;
+
+        VendorGrouping(Map<Integer, List<Item>> vendorItems, Map<Integer, Vendor> vendorMap, double grandTotal) {
+            this.vendorItems = vendorItems;
+            this.vendorMap = vendorMap;
+            this.grandTotal = grandTotal;
+        }
+    }
+
+    private VendorGrouping groupCartItemsByVendor(List<Item> cartItems) {
+        Map<Integer, List<Item>> vendorItems = new LinkedHashMap<>();
+        Map<Integer, Vendor> vendorMap = new LinkedHashMap<>();
+        double grandTotal = 0;
+
+        for (Item cartItem : cartItems) {
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            int vendorKey = (product != null && product.getVendor() != null) ? product.getVendor().getId() : 0;
+            if (product != null && product.getVendor() != null) {
+                vendorMap.put(vendorKey, product.getVendor());
+            }
+            vendorItems.computeIfAbsent(vendorKey, k -> new ArrayList<>()).add(cartItem);
+            grandTotal += cartItem.getPrice() * cartItem.getQuantity();
+        }
+
+        return new VendorGrouping(vendorItems, vendorMap, grandTotal);
+    }
+
+    private static class CouponApplication {
+        final double couponDiscount;
+        final String appliedCouponCode;
+        final double discountedTotal;
+
+        CouponApplication(double couponDiscount, String appliedCouponCode, double discountedTotal) {
+            this.couponDiscount = couponDiscount;
+            this.appliedCouponCode = appliedCouponCode;
+            this.discountedTotal = discountedTotal;
+        }
+    }
+
+    private CouponApplication applyCouponToGrandTotal(Coupon appliedCoupon, double grandTotal) {
+        double couponDiscount = 0;
+        String appliedCouponCode = "";
+        if (appliedCoupon != null && appliedCoupon.isValid() && grandTotal >= appliedCoupon.getMinOrderAmount()) {
+            couponDiscount = appliedCoupon.calculateDiscount(grandTotal);
+            appliedCouponCode = appliedCoupon.getCode();
+        }
+        double discountedTotal = Math.max(0, grandTotal - couponDiscount);
+        return new CouponApplication(couponDiscount, appliedCouponCode, discountedTotal);
+    }
+
+    private void deductStock(List<Item> cartItems) {
+        for (Item cartItem : cartItems) {
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null) {
+                product.setStock(product.getStock() - cartItem.getQuantity());
+                productRepository.save(product);
+                stockAlertService.checkStockLevel(product);
+            }
+        }
+    }
+
+    private static class DeliveryLocation {
+        final String deliveryPin;
+        final Warehouse warehouse;
+
+        DeliveryLocation(String deliveryPin, Warehouse warehouse) {
+            this.deliveryPin = deliveryPin;
+            this.warehouse = warehouse;
+        }
+    }
+
+    private DeliveryLocation resolveDeliveryLocation(Customer customer, Map<String, Object> body) {
+        String deliveryPin = "";
+        Warehouse warehouse = null;
+        Object addressIdObj = body.get("addressId");
+
+        if (addressIdObj != null) {
+            try {
+                Integer addressId = Integer.parseInt(addressIdObj.toString());
+                Address selectedAddress = null;
+                for (Address address : customer.getAddresses()) {
+                    if (address.getId() == addressId) {
+                        selectedAddress = address;
+                        break;
+                    }
+                }
+                if (selectedAddress != null && selectedAddress.getPostalCode() != null) {
+                    String digitsOnlyPin = selectedAddress.getPostalCode().replaceAll("\\D", "");
+                    deliveryPin = digitsOnlyPin.substring(0, Math.min(6, digitsOnlyPin.length()));
+                    for (Warehouse candidate : warehouseRepository.findAll()) {
+                        if (candidate.serves(deliveryPin)) {
+                            warehouse = candidate;
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+                // Keep empty pin and null warehouse if address resolution fails.
+            }
+        }
+
+        return new DeliveryLocation(deliveryPin, warehouse);
+    }
+
+    private static class SubOrderResult {
+        final Order firstOrder;
+        final List<Integer> subOrderIds;
+
+        SubOrderResult(Order firstOrder, List<Integer> subOrderIds) {
+            this.firstOrder = firstOrder;
+            this.subOrderIds = subOrderIds;
+        }
+    }
+
+    private SubOrderResult createSubOrders(
+            Customer customer,
+            VendorGrouping grouping,
+            double couponDiscount,
+            double deliveryCharge,
+            String paymentMode,
+            String deliveryTime,
+            String city,
+            String deliveryPin,
+            Warehouse warehouse) {
+        boolean multiVendor = grouping.vendorItems.size() > 1;
+        Integer parentId = null;
+        Order firstOrder = null;
+        List<Integer> subOrderIds = new ArrayList<>();
+
+        for (Map.Entry<Integer, List<Item>> entry : grouping.vendorItems.entrySet()) {
+            int vendorKey = entry.getKey();
+            List<Item> groupedItems = entry.getValue();
+            Vendor vendor = grouping.vendorMap.get(vendorKey);
+
+            double subTotal = 0;
+            for (Item item : groupedItems) {
+                subTotal += item.getPrice() * item.getQuantity();
+            }
+            double subDiscount = (grouping.grandTotal > 0) ? couponDiscount * (subTotal / grouping.grandTotal) : 0;
+            double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
+
+            List<Item> orderItems = new ArrayList<>();
+            for (Item cartItem : groupedItems) {
+                Item orderItem = new Item();
+                orderItem.setName(cartItem.getName());
+                orderItem.setDescription(cartItem.getDescription());
+                orderItem.setPrice(cartItem.getPrice());
+                orderItem.setCategory(cartItem.getCategory());
+                orderItem.setQuantity(cartItem.getQuantity());
+                orderItem.setImageLink(cartItem.getImageLink());
+                orderItem.setProductId(cartItem.getProductId());
+                orderItems.add(orderItem);
+            }
+
+            Order subOrder = new Order();
+            subOrder.setCustomer(customer);
+            subOrder.setItems(orderItems);
+            subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
+            subOrder.setDeliveryCharge(subDelivery);
+            subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
+            subOrder.setPaymentMode(paymentMode);
+            subOrder.setDeliveryTime(deliveryTime);
+            subOrder.setDateTime(LocalDateTime.now());
+            subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+            subOrder.setReplacementRequested(false);
+            subOrder.setCurrentCity(city);
+            subOrder.setDeliveryPinCode(deliveryPin);
+            if (warehouse != null) {
+                subOrder.setWarehouse(warehouse);
+            }
+            if (vendor != null) {
+                subOrder.setVendor(vendor);
+            }
+
+            orderRepository.save(subOrder);
+
+            if (firstOrder == null) {
+                firstOrder = subOrder;
+                if (multiVendor) {
+                    parentId = subOrder.getId();
+                    subOrder.setParentOrderId(parentId);
+                    orderRepository.save(subOrder);
+                }
+            } else {
+                subOrder.setParentOrderId(parentId);
+                orderRepository.save(subOrder);
+            }
+
+            subOrderIds.add(subOrder.getId());
+        }
+
+        return new SubOrderResult(firstOrder, subOrderIds);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -2317,7 +2453,7 @@ public class ReactApiController {
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
         res.put(KEY_SUCCESS, true);
-        res.put(KEY_ORDERS, orders.stream().map(this::mapOrder).collect(Collectors.toList()));
+        res.put(KEY_ORDERS, orders.stream().map(this::mapOrder).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -2380,7 +2516,7 @@ public class ReactApiController {
             ev.put("description", e.getDescription());
             ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
             return ev;
-        }).collect(Collectors.toList());
+        }).toList();
 
         res.put(KEY_SUCCESS,          true);
         res.put(KEY_ORDER_ID,          order.getId());
@@ -2558,11 +2694,14 @@ public class ReactApiController {
         // ── 4. Structured audit log (searchable without a DB table) ────────
         String customerEmail = order.getCustomer().getEmail();
         String adminEmail = adminAuthService.getPrimaryAdminEmail();
-        System.out.printf(
-            "[DISPUTE] orderId=%d customerId=%d customerEmail=%s reason=\"%s\" description=\"%s\" ip=%s at=%s%n",
-            id, customerId, customerEmail, reason,
-            description != null ? description : "",
-            req.getRemoteAddr(),
+        LOGGER.info(
+            "[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
+            id,
+            customerId,
+            maskEmailForLog(customerEmail),
+            sanitizeForLog(reason),
+            sanitizeForLog(description != null ? description : ""),
+            sanitizeForLog(req.getRemoteAddr()),
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         );
 
@@ -2574,7 +2713,7 @@ public class ReactApiController {
                 id, customerId, customerEmail, reason, description
             );
         } catch (Exception e) {
-            System.err.println("[DISPUTE] Admin email dispatch failed: " + e.getMessage());
+            LOGGER.error("[DISPUTE] Admin email dispatch failed", e);
         }
 
         // ── 6. Respond ─────────────────────────────────────────────────────
@@ -2641,8 +2780,7 @@ public class ReactApiController {
                     .body(pdfContent);
 
         } catch (Exception e) {
-            System.err.println("[INVOICE] PDF generation failed for order " + id + ": " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.error("[INVOICE] PDF generation failed for order {}", id, e);
 
             Map<String, Object> res = new HashMap<>();
             res.put(KEY_SUCCESS, false);
@@ -2671,7 +2809,7 @@ public class ReactApiController {
             m.put(KEY_PRODUCT_ID, p.getId()); m.put("name", p.getName()); m.put("price", p.getPrice());
             m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true); res.put(KEY_COUNT, items.size()); res.put("items", items);
         return ResponseEntity.ok(res);
     }
@@ -2684,7 +2822,7 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
-                .map(w -> w.getProduct().getId()).collect(Collectors.toList());
+                .map(w -> w.getProduct().getId()).toList();
         res.put(KEY_SUCCESS, true); res.put("ids", ids);
         return ResponseEntity.ok(res);
     }
@@ -2703,7 +2841,7 @@ public class ReactApiController {
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
-                .filter(w -> w.getProduct().getId() == productId).collect(Collectors.toList());
+                .filter(w -> w.getProduct().getId() == productId).toList();
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
             res.put(KEY_SUCCESS, true); res.put("wishlisted", false); res.put("message", "Removed from wishlist");
@@ -2745,7 +2883,7 @@ public class ReactApiController {
             // legacy fallback
             am.put("details",       a.getDetails()       != null ? a.getDetails()       : "");
             return am;
-        }).collect(Collectors.toList()));
+        }).toList());
         res.put(KEY_SUCCESS, true); res.put("profile", profile);
         return ResponseEntity.ok(res);
     }
@@ -2950,7 +3088,7 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
-                .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).collect(Collectors.toList());
+                .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).toList();
         if (delivered.isEmpty()) { res.put(KEY_SUCCESS, true); res.put("hasData", false); return ResponseEntity.ok(res); }
         double totalSpent = delivered.stream().mapToDouble(Order::getAmount).sum();
         int totalOrders   = delivered.size();
@@ -3181,7 +3319,7 @@ public class ReactApiController {
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         res.put(KEY_SUCCESS, true);
-        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
+        res.put("products", products.stream().map(this::mapProduct).toList());
         res.put(KEY_COUNT, products.size());
         return ResponseEntity.ok(res);
     }
@@ -3192,18 +3330,18 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).collect(Collectors.toList());
+        List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).toList();
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
         List<Map<String, Object>> vendorOrders = allOrders.stream().map(order -> {
             Map<String, Object> o = mapOrder(order);
             List<Map<String, Object>> vendorItems = order.getItems().stream()
                     .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                    .map(this::mapItem).collect(Collectors.toList());
+                    .map(this::mapItem).toList();
             o.put("items", vendorItems);
             double vendorTotal = vendorItems.stream().mapToDouble(i -> (double) i.get("price") * (int) i.get("quantity")).sum();
             o.put("vendorTotal", vendorTotal);
             return o;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true); res.put(KEY_ORDERS, vendorOrders);
         return ResponseEntity.ok(res);
     }
@@ -3245,7 +3383,7 @@ public class ReactApiController {
         List<Integer> vendorProductIds = productRepository.findByVendor(vendor)
                 .stream()
                 .map(Product::getId)
-                .collect(Collectors.toList());
+                .toList();
 
         boolean hasVendorItem = order.getItems().stream()
                 .anyMatch(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()));
@@ -3286,7 +3424,7 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
-        List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        List<Integer> productIds = products.stream().map(Product::getId).toList();
         List<Order> orders = orderRepository.findOrdersByVendor(vendor);
         double totalRevenue = orders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
                 .flatMap(o -> o.getItems().stream())
@@ -3434,13 +3572,13 @@ public class ReactApiController {
         // Return all unique categories from approved products (for reference), or a predefined list
         List<String> categories = productRepository.findByApprovedTrue()
                 .stream().map(Product::getCategory).filter(Objects::nonNull)
-                .distinct().sorted().collect(Collectors.toList());
+                .distinct().sorted().toList();
         // Fallback categories if no products exist
         if (categories.isEmpty()) {
             categories = java.util.Arrays.asList("Electronics", "Fashion", "Home & Kitchen", "Sports", "Beauty", "Books", "Toys", "Food & Groceries");
         }
         res.put(KEY_SUCCESS, true);
-        res.put("categories", categories.stream().map(c -> java.util.Map.of("name", c)).collect(Collectors.toList()));
+        res.put("categories", categories.stream().map(c -> java.util.Map.of("name", c)).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -3718,7 +3856,7 @@ public class ReactApiController {
         }
 
         List<Product> products = productRepository.findByVendor(vendor);
-        List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        List<Integer> productIds = products.stream().map(Product::getId).toList();
 
         // ── Determine date window based on period ────────────────────────────
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
@@ -3754,7 +3892,7 @@ public class ReactApiController {
         List<Order> windowOrders = orderRepository.findOrdersByVendorAndDateRange(vendor, windowStart, now)
                 .stream()
                 .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-                .collect(Collectors.toList());
+                .toList();
 
         // All-time orders for totals
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
@@ -3840,7 +3978,7 @@ public class ReactApiController {
                     m.put("unitsSold", units);
                     m.put("revenue",   Math.round(units * p.getPrice() * 100.0) / 100.0);
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
         String topProduct = topProducts.isEmpty() ? "—" : (String) topProducts.get(0).get("name");
 
@@ -3937,7 +4075,7 @@ public class ReactApiController {
         m.put("replacementRequested", o.isReplacementRequested());
         m.put("deliveryPinCode", o.getDeliveryPinCode());
         m.put("deliveryAddress", o.getDeliveryAddress());
-        m.put("items", o.getItems().stream().map(this::mapItem).collect(Collectors.toList()));
+        m.put("items", o.getItems().stream().map(this::mapItem).toList());
         // Customer — name + mobile for admin/delivery views
         if (o.getCustomer() != null) {
             m.put(KEY_CUSTOMER_NAME, o.getCustomer().getName());
@@ -3984,14 +4122,14 @@ public class ReactApiController {
             m.put(KEY_MOBILE, c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
             m.put("role", c.getRole() != null ? c.getRole().name() : "CUSTOMER");
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", v.getId()); m.put("name", v.getName()); m.put(KEY_EMAIL, v.getEmail());
             m.put(KEY_MOBILE, v.getMobile()); m.put("vendorCode", v.getVendorCode());
             m.put("active", v.isVerified()); m.put("verified", v.isVerified());
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true); res.put("customers", customers); res.put("vendors", vendors);
         return ResponseEntity.ok(res);
     }
@@ -4084,7 +4222,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> products = productRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
-                .map(this::mapProduct).collect(Collectors.toList());
+                .map(this::mapProduct).toList();
         res.put(KEY_SUCCESS, true); res.put("products", products);
         return ResponseEntity.ok(res);
     }
@@ -4129,7 +4267,7 @@ public class ReactApiController {
         List<Product> pending = productRepository.findAll()
                 .stream()
                 .filter(p -> !p.isApproved())
-                .collect(Collectors.toList());
+                .toList();
         if (pending.isEmpty()) {
             res.put(KEY_SUCCESS, true);
             res.put("approvedCount", 0);
@@ -4153,7 +4291,7 @@ public class ReactApiController {
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
                 .limit(200) // cap at 200 most recent orders for admin view
-                .map(this::mapOrder).collect(Collectors.toList());
+                .map(this::mapOrder).toList();
         res.put(KEY_SUCCESS, true); res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
     }
@@ -4173,7 +4311,7 @@ public class ReactApiController {
 
         List<Order> orders = orderRepository.findAll().stream()
             .sorted(Comparator.comparingInt(Order::getId).reversed())
-            .collect(Collectors.toList());
+            .toList();
 
         // Apply same filters as the admin orders list
         if (q != null && !q.isBlank()) {
@@ -4184,14 +4322,14 @@ public class ReactApiController {
                 (o.getCustomer() != null && o.getCustomer().getEmail() != null
                     && o.getCustomer().getEmail().toLowerCase().contains(lq)) ||
                 String.valueOf(o.getId()).contains(lq)
-            ).collect(Collectors.toList());
+            ).toList();
         }
         if (status != null && !status.isBlank()) {
             try {
                 TrackingStatus ts = TrackingStatus.valueOf(status.toUpperCase());
                 orders = orders.stream()
                     .filter(o -> o.getTrackingStatus() == ts)
-                    .collect(Collectors.toList());
+                    .toList();
             } catch (IllegalArgumentException ignored) {}
         }
 
@@ -4317,7 +4455,7 @@ public class ReactApiController {
                 m.put("details",       a.getDetails());
                 m.put("formatted",     a.getFormattedAddress());
                 return m;
-              }).collect(java.util.stream.Collectors.toList());
+              }).toList();
 
         res.put(KEY_SUCCESS,   true);
         res.put("addresses", addresses);
@@ -4381,15 +4519,15 @@ public class ReactApiController {
         orderRepository.save(order);
 
         // Audit log
-        System.out.printf("[ADMIN-CANCEL] orderId=%d reason=\"%s\" at=%s%n",
-    id, reason, java.time.LocalDateTime.now());
+        LOGGER.info("[ADMIN-CANCEL] orderId={} reason=\"{}\" at={}",
+    id, sanitizeForLog(reason), java.time.LocalDateTime.now());
 
         // Send cancellation email to customer (fire-and-forget — never fails the response)
         if (order.getCustomer() != null) {
             try {
                 emailSender.sendOrderCancellation(order.getCustomer(), order.getTotalPrice(), id, order.getItems());
             } catch (Exception e) {
-                System.err.println("[ADMIN-CANCEL] Email failed for order #" + id + ": " + e.getMessage());
+                LOGGER.error("[ADMIN-CANCEL] Email failed for order #{}", id, e);
             }
         }
 
@@ -4412,7 +4550,7 @@ public class ReactApiController {
             m.put(KEY_MOBILE, v.getMobile()); m.put("vendorCode", v.getVendorCode());
             m.put("active", v.isVerified()); m.put("verified", v.isVerified());
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true); res.put("vendors", vendors);
         return ResponseEntity.ok(res);
     }
@@ -4442,7 +4580,7 @@ public class ReactApiController {
             m.put("active",         c.isActive());
             m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true);
         res.put("coupons", list);
         return ResponseEntity.ok(res);
@@ -4670,7 +4808,7 @@ public class ReactApiController {
                         m.put("price",    p.getPrice());
                     });
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
         // ── Category distribution ────────────────────────────────────────────
         Map<String, Long> categoryStats = productRepository.findAll().stream()
@@ -4730,7 +4868,7 @@ public class ReactApiController {
         for (Customer customer : allCustomers) {
             List<Order> delivered = orderRepository.findByCustomer(customer).stream()
                     .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
-                    .collect(Collectors.toList());
+                    .toList();
 
             Map<String, Object> entry = new HashMap<>();
             entry.put("id",    customer.getId());
@@ -4832,7 +4970,7 @@ public class ReactApiController {
             m.put(KEY_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId()   : null);
             m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         Map<String, Object> res = new HashMap<>();
         res.put(KEY_SUCCESS, true);
         res.put("reviews", list);
@@ -4907,7 +5045,7 @@ public class ReactApiController {
                     m.put("processedBy",     r.getProcessedBy());
                     m.put("rejectionReason", r.getRejectionReason());
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
         res.put(KEY_SUCCESS, true);
         res.put("refunds", list);
         return ResponseEntity.ok(res);
@@ -5006,13 +5144,13 @@ public class ReactApiController {
                 m.put("city",           w.getCity());
                 m.put("state",          w.getState());
                 m.put(KEY_WAREHOUSE_CODE,  w.getWarehouseCode());
-                m.put("loginId",        w.getWarehouseLoginId());
-                m.put("contactEmail",   w.getContactEmail());
-                m.put("contactPhone",   w.getContactPhone());
+                m.put(KEY_LOGIN_ID,        w.getWarehouseLoginId());
+                m.put(KEY_CONTACT_EMAIL,   w.getContactEmail());
+                m.put(KEY_CONTACT_PHONE,   w.getContactPhone());
                 m.put("address",        w.getAddress());
                 m.put(KEY_SERVED_PIN_CODES, w.getServedPinCodes());
                 m.put("active",         w.isActive());
-                m.put("latitude",       w.getLatitude());
+                m.put(KEY_LATITUDE,       w.getLatitude());
                 m.put("longitude",      w.getLongitude());
                 list.add(m);
             }
@@ -5130,9 +5268,9 @@ public class ReactApiController {
                 m.put("name",             db.getName());
                 m.put(KEY_EMAIL,            db.getEmail());
                 m.put(KEY_MOBILE,           db.getMobile());
-                m.put("deliveryBoyCode",  db.getDeliveryBoyCode());
+                m.put(KEY_DELIVERY_BOY_CODE,  db.getDeliveryBoyCode());
                 m.put("verified",         db.isVerified());
-                m.put("adminApproved",    db.isAdminApproved());
+                m.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
                 m.put("active",           db.isActive());
                 m.put(KEY_IS_AVAILABLE,      db.isAvailable());
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
@@ -5206,10 +5344,10 @@ public class ReactApiController {
                 m.put("name", db.getName());
                 m.put(KEY_EMAIL, db.getEmail());
                 m.put("verified", db.isVerified());
-                m.put("adminApproved", db.isAdminApproved());
+                m.put(KEY_ADMIN_APPROVED, db.isAdminApproved());
                 m.put("active", db.isActive());
                 m.put("warehouse", db.getWarehouse() != null ? db.getWarehouse().getName() : "NULL⚠️");
-                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 
                 // Status diagnosis
                 String status;
@@ -5250,7 +5388,7 @@ public class ReactApiController {
         try {
             List<DeliveryBoy> unverified = deliveryBoyRepository.findAll().stream()
                 .filter(db -> !db.isVerified())
-                .collect(Collectors.toList());
+                .toList();
             int count = 0;
             
             for (DeliveryBoy db : unverified) {
@@ -5259,7 +5397,7 @@ public class ReactApiController {
                 db.setActive(true);
                 deliveryBoyRepository.save(db);
                 count++;
-                System.out.println("[FIX] Verified delivery boy: " + db.getName() + " (" + db.getEmail() + ")");
+                LOGGER.info("[FIX] Verified delivery boy: {} ({})", sanitizeForLog(db.getName()), maskEmailForLog(db.getEmail()));
             }
             
             res.put(KEY_SUCCESS, true);
@@ -5267,7 +5405,7 @@ public class ReactApiController {
             res.put("fixedCount", count);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("[FIX] Failed to verify unverified delivery boys", e);
             res.put(KEY_SUCCESS, false);
             res.put(KEY_ERROR, e.getMessage());
             return ResponseEntity.status(500).body(res);
@@ -5324,7 +5462,7 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
 
             try { emailSender.sendDeliveryBoyApproved(db); }
-            catch (Exception e) { System.err.println("Approval email failed: " + e.getMessage()); }
+            catch (Exception e) { LOGGER.error("Approval email failed", e); }
 
             res.put(KEY_SUCCESS, true);
             res.put("message", db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
@@ -5365,7 +5503,7 @@ public class ReactApiController {
             // Previously: if (newStatus) autoAssignmentService.onDeliveryBoyOnline(db);
             // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
             if (newStatus) {
-                System.out.println("[API] Delivery boy " + db.getName() + " is now online (manual assignment enabled)");
+                LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
             }
 
             res.put(KEY_SUCCESS, true);
@@ -5428,7 +5566,7 @@ public class ReactApiController {
             // AUTO-ASSIGN DISABLED (Phase 3)
             // Previously: autoAssignmentService.onOrderPacked(order);
             // Now: Warehouse staff manually assigns delivery boy via WarehouseReceivingService
-            System.out.println("[API] Order #" + orderId + " marked as PACKED (manual assignment enabled)");
+            LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", orderId);
 
             // Re-fetch for response (delivery boy will be null until manual assignment)
             Order refreshed = orderRepository.findById(orderId).orElse(order);
@@ -5468,7 +5606,7 @@ public class ReactApiController {
             .filter(o -> o.getTrackingStatus() == TrackingStatus.PACKED)
             .sorted(Comparator.comparingInt(Order::getId).reversed())
             .map(this::mapOrder)
-            .collect(Collectors.toList());
+            .toList();
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
@@ -5484,7 +5622,7 @@ public class ReactApiController {
             .filter(o -> o.getTrackingStatus() == TrackingStatus.SHIPPED)
             .sorted(Comparator.comparingInt(Order::getId).reversed())
             .map(this::mapOrder)
-            .collect(Collectors.toList());
+            .toList();
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
@@ -5500,7 +5638,7 @@ public class ReactApiController {
             .filter(o -> o.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY)
             .sorted(Comparator.comparingInt(Order::getId).reversed())
             .map(this::mapOrder)
-            .collect(Collectors.toList());
+            .toList();
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ORDERS, orders);
         return ResponseEntity.ok(res);
@@ -5581,7 +5719,7 @@ public class ReactApiController {
                 return m;
             })
             .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE)))) // online first
-            .collect(Collectors.toList());
+            .toList();
 
         res.put(KEY_SUCCESS, true);
         res.put("deliveryBoys", boys);
@@ -5760,7 +5898,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         List<DeliveryBoy> boys = deliveryBoyRepository.findAll().stream()
             .filter(b -> b.isAdminApproved())
-            .collect(Collectors.toList());
+            .toList();
         
         List<Map<String, Object>> load = new ArrayList<>();
         for (DeliveryBoy b : boys) {
@@ -5801,7 +5939,7 @@ public class ReactApiController {
             List<AutoAssignLog> logs = autoAssignLogRepository.findAll().stream()
                 .sorted((a, b) -> b.getAssignedAt().compareTo(a.getAssignedAt()))
                 .limit(50)
-                .collect(Collectors.toList());
+                .toList();
             
             List<Map<String, Object>> logList = new ArrayList<>();
             for (AutoAssignLog log : logs) {
@@ -5809,7 +5947,7 @@ public class ReactApiController {
                 l.put("id", log.getId());
                 l.put(KEY_ORDER_ID, log.getOrderId());
                 l.put(KEY_DELIVERY_BOY_NAME, log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "—");
-                l.put("deliveryBoyCode", log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "—");
+                l.put(KEY_DELIVERY_BOY_CODE, log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "—");
                 l.put("pinCode", log.getPinCode());
                 l.put("activeOrdersAtAssignment", log.getActiveOrdersAtAssignment());
                 l.put("maxConcurrent", 3);
@@ -5868,7 +6006,7 @@ public class ReactApiController {
                 dbMap.put("id",              db.getId());
                 dbMap.put("name",            db.getName());
                 dbMap.put(KEY_EMAIL,           db.getEmail());
-                dbMap.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                dbMap.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 // Current warehouse (where they are now)
                 if (db.getWarehouse() != null) {
                     Map<String, Object> cw = new LinkedHashMap<>();
@@ -5956,7 +6094,7 @@ public class ReactApiController {
             warehouseChangeRequestRepository.save(req);
 
             try { emailSender.sendWarehouseChangeApproved(db, newWarehouse, adminNote); }
-            catch (Exception e) { System.err.println("Warehouse change approval email failed: " + e.getMessage()); }
+            catch (Exception e) { LOGGER.error("Warehouse change approval email failed", e); }
 
             res.put(KEY_SUCCESS, true);
             res.put("message", db.getName() + " has been transferred to " + newWarehouse.getName());
@@ -6012,7 +6150,7 @@ public class ReactApiController {
 
             DeliveryBoy db = req.getDeliveryBoy();
             try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
-            catch (Exception e) { System.err.println("Warehouse change rejection email failed: " + e.getMessage()); }
+            catch (Exception e) { LOGGER.error("Warehouse change rejection email failed", e); }
 
             res.put(KEY_SUCCESS, true);
             res.put("message", "Warehouse transfer request rejected");
@@ -6101,9 +6239,9 @@ public class ReactApiController {
                         m.put("name",            db.getName());
                         m.put(KEY_EMAIL,           db.getEmail());
                         m.put("type",            ROLE_DELIVERY_BOY);
-                        m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                        m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                         m.put("verified",        db.isVerified());
-                        m.put("adminApproved",   db.isAdminApproved());
+                        m.put(KEY_ADMIN_APPROVED,   db.isAdminApproved());
                         m.put("active",          db.isActive());
                         results.add(m);
                     }
@@ -6950,7 +7088,7 @@ public class ReactApiController {
             m.put("acknowledged", a.isAcknowledged());
             m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         res.put(KEY_SUCCESS, true);
         res.put("alerts", alertMaps);
         res.put("unacknowledgedCount", unacknowledged);
@@ -7064,10 +7202,10 @@ public class ReactApiController {
         profile.put("name",             db.getName());
         profile.put(KEY_EMAIL,            db.getEmail());
         profile.put(KEY_MOBILE,           db.getMobile());
-        profile.put("deliveryBoyCode",  db.getDeliveryBoyCode());
+        profile.put(KEY_DELIVERY_BOY_CODE,  db.getDeliveryBoyCode());
         profile.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
         profile.put("active",           db.isActive());
-        profile.put("adminApproved",    db.isAdminApproved());
+        profile.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
         profile.put("approved",         db.isAdminApproved()); // alias read by DeliveryApp.jsx
         profile.put(KEY_IS_AVAILABLE,      db.isAvailable());    // availability status
 
@@ -7182,7 +7320,7 @@ public class ReactApiController {
         deliveryOtpRepository.save(new DeliveryOtp(order, otp));
 
         try { emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId()); }
-        catch (Exception e) { System.err.println("Delivery OTP email failed: " + e.getMessage()); }
+        catch (Exception e) { LOGGER.error("Delivery OTP email failed", e); }
 
         res.put(KEY_SUCCESS, true);
         res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
@@ -7246,7 +7384,7 @@ public class ReactApiController {
                 "Delivered by " + db.getName() + ". OTP verified at doorstep.", ROLE_DELIVERY_BOY));
 
         try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
-        catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
+        catch (Exception e) { LOGGER.error("Delivery confirmation email failed", e); }
 
         res.put(KEY_SUCCESS, true);
         res.put("message", PREFIX_ORDER + id + " marked as Delivered!");
@@ -7558,7 +7696,7 @@ public class ReactApiController {
                 if (b.getOrderDate() == null) return -1;
                 return b.getOrderDate().compareTo(a.getOrderDate());
             });
-            List<Order> recent = orders.stream().limit(10).collect(Collectors.toList());
+            List<Order> recent = orders.stream().limit(10).toList();
             ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
                .append(recent.size()).append("):\n");
             for (Order o : recent) {
@@ -7568,8 +7706,8 @@ public class ReactApiController {
                    .append(" | Items: ");
                 if (o.getItems() != null && !o.getItems().isEmpty()) {
                     ctx.append(o.getItems().stream()
-                            .map(i -> i.getName() + " ×" + i.getQuantity())
-                            .collect(Collectors.joining(", ")));
+                                .map(i -> i.getName() + " ×" + i.getQuantity())
+                                .collect(Collectors.joining(", ")));
                 }
                 if (o.getOrderDate() != null)
                     ctx.append(" | Placed: ").append(o.getOrderDate().format(CHAT_DATE_FMT));
@@ -7584,8 +7722,8 @@ public class ReactApiController {
 
         // Pending refunds
         List<Refund> pendingRefunds = refundRepository.findByCustomer(c).stream()
-                .filter(r -> r.getStatus() == RefundStatus.PENDING)
-                .collect(Collectors.toList());
+            .filter(r -> r.getStatus() == RefundStatus.PENDING)
+            .toList();
         if (!pendingRefunds.isEmpty()) {
             ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
             for (Refund r : pendingRefunds) {
@@ -7921,7 +8059,7 @@ public class ReactApiController {
         Double latitude = null, longitude = null;
         
         try {
-            Object latObj = body.get("latitude");
+            Object latObj = body.get(KEY_LATITUDE);
             Object lonObj = body.get("longitude");
             latitude = (latObj instanceof Number) ? ((Number) latObj).doubleValue() : null;
             longitude = (lonObj instanceof Number) ? ((Number) lonObj).doubleValue() : null;
@@ -7929,8 +8067,8 @@ public class ReactApiController {
             // Invalid latitude/longitude format
         }
 
-        String contactEmail = ((String) body.getOrDefault("contactEmail", "")).trim();
-        String contactPhone = ((String) body.getOrDefault("contactPhone", "")).trim();
+        String contactEmail = ((String) body.getOrDefault(KEY_CONTACT_EMAIL, "")).trim();
+        String contactPhone = ((String) body.getOrDefault(KEY_CONTACT_PHONE, "")).trim();
         String address = ((String) body.getOrDefault("address", "")).trim();
 
         // 3. Validate required fields
@@ -7958,8 +8096,7 @@ public class ReactApiController {
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
             res.put("message", "Error creating warehouse: " + e.getMessage());
-            System.err.println("Error creating warehouse: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.error("Error creating warehouse", e);
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -8045,11 +8182,11 @@ public class ReactApiController {
         warehouseDto.put(KEY_SERVED_PIN_CODES, warehouse.getServedPinCodes());
         warehouseDto.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
         warehouseDto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
-        warehouseDto.put("contactEmail", warehouse.getContactEmail());
-        warehouseDto.put("contactPhone", warehouse.getContactPhone());
+        warehouseDto.put(KEY_CONTACT_EMAIL, warehouse.getContactEmail());
+        warehouseDto.put(KEY_CONTACT_PHONE, warehouse.getContactPhone());
         warehouseDto.put("address", warehouse.getAddress());
         warehouseDto.put("active", warehouse.isActive());
-        warehouseDto.put("latitude", warehouse.getLatitude());
+        warehouseDto.put(KEY_LATITUDE, warehouse.getLatitude());
         warehouseDto.put("longitude", warehouse.getLongitude());
 
         res.put(KEY_SUCCESS, true);
@@ -8094,7 +8231,7 @@ public class ReactApiController {
                     m.put("paymentMethod", o.getPaymentMethod());
                     m.put("orderDate", o.getOrderDate());
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
             return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), KEY_ORDERS, result));
         } catch (Exception e) {
@@ -8241,7 +8378,7 @@ public class ReactApiController {
                     m.put("paymentMethod", o.getPaymentMethod());
                     m.put("orderDate", o.getOrderDate());
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
             return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), KEY_ORDERS, result));
         } catch (Exception e) {
@@ -8339,7 +8476,7 @@ public class ReactApiController {
             // Get all approved and active delivery boys
             List<DeliveryBoy> allDeliveryBoys = deliveryBoyRepository.findAll().stream()
                 .filter(db -> db.isAdminApproved() && db.isActive())
-                .collect(Collectors.toList());
+                .toList();
 
             List<Map<String, Object>> result = allDeliveryBoys.stream()
                 .map(db -> {
@@ -8351,7 +8488,7 @@ public class ReactApiController {
                     m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId() : null);
                     m.put(KEY_WAREHOUSE_NAME, db.getWarehouse() != null ? db.getWarehouse().getName() : "");
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
             return ResponseEntity.ok(Map.of("deliveryBoys", result));
         } catch (Exception e) {
@@ -8394,7 +8531,7 @@ public class ReactApiController {
                 m.put("paymentMethod", o.getPaymentMethod());
                 m.put(KEY_ROUTING_PATH, o.getWarehouseRoutingPath());
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -8560,7 +8697,7 @@ public class ReactApiController {
             m.put(KEY_DELIVERY_BOY_ID, o.getFinalDeliveryBoyId());
             m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
 
         double totalPending = result.stream()
             .mapToDouble(m -> (double) m.getOrDefault("codAmount", 0.0)).sum();
@@ -8594,7 +8731,7 @@ public class ReactApiController {
         try {
             List<Integer> orderIds = Arrays.stream(orderIdsStr.split(","))
                 .map(s -> Integer.parseInt(s.trim()))
-                .collect(Collectors.toList());
+                .toList();
 
             double totalCash = 0;
             List<Order> orders = new ArrayList<>();
@@ -8677,8 +8814,8 @@ public class ReactApiController {
             m.put("submittedAt", s.getSubmittedAt());
             m.put("orderCount", s.getOrderCount());
             m.put("notes", s.getNotes());
-            return m;
-        }).collect(Collectors.toList());
+                return m;
+            }).toList();
 
         return ResponseEntity.ok(Map.of(KEY_COUNT, result.size(), "settlements", result));
     }
@@ -8770,7 +8907,7 @@ public class ReactApiController {
                     );
                 }
             } catch (Exception e) {
-                System.err.println("Failed to send vendor payment email: " + e.getMessage());
+                LOGGER.error("Failed to send vendor payment email", e);
             }
         }
 
@@ -8822,7 +8959,7 @@ public class ReactApiController {
                 );
             }
         } catch (Exception e) { 
-            System.err.println("Vendor payment email failed: " + e.getMessage()); 
+            LOGGER.error("Vendor payment email failed", e);
         }
 
         return ResponseEntity.ok(Map.of(
@@ -8876,7 +9013,7 @@ public class ReactApiController {
                 m.put("totalPrice", o.getTotalPrice());
                 m.put("orderDate", o.getOrderDate());
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
 
             return ResponseEntity.ok(Map.of(
                 KEY_TOTAL, allOrders.size(),
@@ -8906,16 +9043,16 @@ public class ReactApiController {
                 m.put("city", wh.getCity());
                 m.put("state", wh.getState());
                 m.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
-                m.put("loginId", wh.getWarehouseLoginId());
-                m.put("contactEmail", wh.getContactEmail());
-                m.put("contactPhone", wh.getContactPhone());
+                m.put(KEY_LOGIN_ID, wh.getWarehouseLoginId());
+                m.put(KEY_CONTACT_EMAIL, wh.getContactEmail());
+                m.put(KEY_CONTACT_PHONE, wh.getContactPhone());
                 m.put("address", wh.getAddress());
                 m.put(KEY_SERVED_PIN_CODES, wh.getServedPinCodes());
                 m.put("active", wh.isActive());
-                m.put("latitude", wh.getLatitude());
+                m.put(KEY_LATITUDE, wh.getLatitude());
                 m.put("longitude", wh.getLongitude());
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -8949,7 +9086,7 @@ public class ReactApiController {
                         wh.getWarehouseLoginId(), newPlainPassword, wh.getCity()
                     ); 
                 } catch (Exception e) { 
-                    System.err.println("Failed to send credentials email: " + e.getMessage()); 
+                    LOGGER.error("Failed to send credentials email", e);
                 }
             }
 
@@ -9012,7 +9149,7 @@ public class ReactApiController {
                 m.put("adminCut20pct", o.getTotalPrice() * 0.20);
                 m.put("vendorGet80pct", o.getTotalPrice() * 0.80);
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
             
             return ResponseEntity.ok(Map.of(
                 KEY_TOTAL, result.size(),
@@ -9044,9 +9181,9 @@ public class ReactApiController {
                 m.put(KEY_WAREHOUSE_NAME, db.getWarehouse() != null ? db.getWarehouse().getName() : "");
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
                 m.put("active", db.isActive());
-                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
             
             return ResponseEntity.ok(Map.of(
                 KEY_TOTAL, result.size(),
@@ -9082,14 +9219,14 @@ public class ReactApiController {
                     emailSender.sendDeliveryBoyApproved(db);
                 }
             } catch (Exception e) {
-                System.err.println("Failed to send approval email: " + e.getMessage());
+                LOGGER.error("Failed to send approval email", e);
             }
             
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
                 KEY_DELIVERY_BOY_ID, deliveryBoyId,
                 "message", "Delivery boy approved and activated",
-                "deliveryBoyCode", db.getDeliveryBoyCode()
+                KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -9110,7 +9247,6 @@ public class ReactApiController {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
                 .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
-            
             String reason = body != null ? (String) body.get("reason") : null;
             
             db.setAdminApproved(false);
@@ -9123,7 +9259,7 @@ public class ReactApiController {
                     emailSender.sendDeliveryBoyRejected(db, reason);
                 }
             } catch (Exception e) {
-                System.err.println("Failed to send rejection email: " + e.getMessage());
+                LOGGER.error("Failed to send rejection email", e);
             }
             
             return ResponseEntity.ok(Map.of(
@@ -9161,7 +9297,7 @@ public class ReactApiController {
             List<DeliveryBoy> pending = deliveryBoyRepository.findAll().stream()
                 .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId)
                 .filter(db -> db.isVerified() && !db.isAdminApproved())
-                .collect(Collectors.toList());
+                .toList();
             
             List<Map<String, Object>> result = pending.stream().map(db -> {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -9169,11 +9305,11 @@ public class ReactApiController {
                 m.put("name", db.getName());
                 m.put(KEY_EMAIL, db.getEmail());
                 m.put(KEY_MOBILE, db.getMobile());
-                m.put("deliveryBoyCode", db.getDeliveryBoyCode());
+                m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
                 m.put("registeredAt", "Pending approval");
                 return m;
-            }).collect(Collectors.toList());
+            }).toList();
             
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
@@ -9336,7 +9472,7 @@ public class ReactApiController {
 
             // Generate random 8-digit staff ID and 6-digit password
             String staffId = String.format("%08d", System.currentTimeMillis() % 100000000L);
-            String password = String.format(FMT_OTP, (int)(Math.random() * 1000000));
+            String password = String.format(FMT_OTP, new java.util.Random().nextInt(1000000));
 
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,

@@ -76,7 +76,7 @@ public class AdminRefundController {
      */
     @GetMapping("/api/admin/refunds")
     @ResponseBody
-    public ResponseEntity<?> getPendingRefunds(HttpSession session) {
+    public ResponseEntity<Object> getPendingRefunds(HttpSession session) {
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(Map.of(
                 "success", false,
@@ -105,7 +105,7 @@ public class AdminRefundController {
      */
     @PutMapping("/api/admin/refunds/{id}/status")
     @ResponseBody
-    public ResponseEntity<?> updateRefundStatus(
+    public ResponseEntity<Object> updateRefundStatus(
             @PathVariable("id") int refundId,
             @RequestBody Map<String, String> payload,
             HttpSession session) {
@@ -154,7 +154,7 @@ public class AdminRefundController {
      */
     @GetMapping("/api/admin/refunds/history")
     @ResponseBody
-    public ResponseEntity<?> getRefundHistory(HttpSession session) {
+    public ResponseEntity<Object> getRefundHistory(HttpSession session) {
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(Map.of(
                 "success", false,

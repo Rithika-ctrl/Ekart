@@ -83,7 +83,7 @@ public class WishlistController {
      */
     @GetMapping("/api/wishlist")
     @ResponseBody
-    public ResponseEntity<?> getWishlist(HttpSession session) {
+    public ResponseEntity<Object> getWishlist(HttpSession session) {
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
@@ -122,7 +122,7 @@ public class WishlistController {
      */
     @GetMapping("/api/wishlist/ids")
     @ResponseBody
-    public ResponseEntity<?> getWishlistIds(HttpSession session) {
+    public ResponseEntity<Object> getWishlistIds(HttpSession session) {
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(

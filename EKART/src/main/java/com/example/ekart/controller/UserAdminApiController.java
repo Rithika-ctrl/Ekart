@@ -44,7 +44,7 @@ public class UserAdminApiController {
      * GET /api/admin/users - Fetch all registered users
      */
     @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers(HttpSession session) {
+    public ResponseEntity<Object> getAllUsers(HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("error", "Admin access required"));
@@ -71,7 +71,7 @@ public class UserAdminApiController {
      * GET /api/admin/users/search - Search users by name or email
      */
     @GetMapping("/users/search")
-    public ResponseEntity<?> searchUsers(@RequestParam String query, HttpSession session) {
+    public ResponseEntity<Object> searchUsers(@RequestParam String query, HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("error", "Admin access required"));
@@ -102,7 +102,7 @@ public class UserAdminApiController {
      * PATCH /api/admin/users/:id/role - Update a user's role
      */
     @PatchMapping("/users/{id}/role")
-    public ResponseEntity<?> updateUserRole(@PathVariable int id, 
+    public ResponseEntity<Object> updateUserRole(@PathVariable int id, 
                                             @RequestBody Map<String, String> body,
                                             HttpSession session) {
         if (!isAdmin(session)) {
