@@ -10,7 +10,7 @@ const ROLE_HOME = {
   VENDOR:   "/vendor/dashboard",
   ADMIN:    "/admin/overview",
   DELIVERY: "/delivery/dashboard",
-  WAREHOUSE: "/warehouse-dashboard",
+  WAREHOUSE: "/warehouse",
 };
 
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
@@ -238,8 +238,8 @@ export default function AuthPage() {
       if (role === "warehouse") {
         // Warehouse login uses 8-digit ID and 6-digit password
         data = await post("/auth/warehouse/login", { 
-          warehouseLoginId, 
-          warehouseLoginPassword 
+          loginId: warehouseLoginId, 
+          password: warehouseLoginPassword 
         });
       } else {
         // Other roles use email and password
