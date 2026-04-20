@@ -113,8 +113,11 @@ public class ReactApiController {
     private static final String KEY_NEW_PASSWORD = "newPassword";
     private static final String KEY_NEW_STATUS = "newStatus";
     private static final String KEY_ORDER_ID = "orderId";
+    private static final String KEY_ADMIN_COMMISSION = "adminCommission";
     private static final String KEY_PAYMENT_STATUS = "paymentStatus";
     private static final String KEY_PRODUCT_ID = "productId";
+    private static final String STATUS_PROOF_UPLOADED = "PROOF_UPLOADED";
+    private static final String KEY_SETTLEMENT_ID = "settlementId";
     private static final String KEY_RAZORPAY_ORDER_ID = "razorpayOrderId";
     private static final String KEY_ROUTING_PATH = "routingPath";
     private static final String KEY_SERVED_PIN_CODES = "servedPinCodes";
@@ -8754,7 +8757,7 @@ public class ReactApiController {
             settlement.setTotalAmountCollected(totalCash);
             settlement.setAdminCommission(totalCash * 0.20);
             settlement.setVendorPayAmount(totalCash * 0.80);
-            settlement.setSettlementStatus("PROOF_UPLOADED");
+            settlement.setSettlementStatus(STATUS_PROOF_UPLOADED);
             settlement.setProofPhotoUrl(proofImageUrl);
             settlement.setSubmittedAt(LocalDateTime.now());
             settlement.setOrderCount(orders.size());
@@ -8768,19 +8771,19 @@ public class ReactApiController {
 
             // Update each order's payment status and link to settlement
             for (Order o : orders) {
-                o.setPaymentStatus("PROOF_UPLOADED");
+                o.setPaymentStatus(STATUS_PROOF_UPLOADED);
                 o.setCashSettlementId(saved.getId());
                 orderRepository.save(o);
             }
 
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
-                "settlementId", saved.getId(),
+                KEY_SETTLEMENT_ID, saved.getId(),
                 "batchNumber", batchNum,
                 "totalCash", totalCash,
-                "adminCommission", settlement.getAdminCommission(),
+                KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
                 "vendorPayAmount", settlement.getVendorPayAmount(),
-                "status", "PROOF_UPLOADED",
+                "status", STATUS_PROOF_UPLOADED,
                 "message", "Settlement submitted to admin for verification"
             ));
         } catch (Exception e) {
@@ -8801,7 +8804,7 @@ public class ReactApiController {
     @GetMapping("/admin/settlements/pending")
     public ResponseEntity<Object> adminPendingSettlements(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         // Validate admin JWT
-        List<CashSettlement> settlements = cashSettlementRepository.findBySettlementStatus("PROOF_UPLOADED");
+        List<CashSettlement> settlements = cashSettlementRepository.findBySettlementStatus(STATUS_PROOF_UPLOADED);
 
         List<Map<String, Object>> result = settlements.stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -8810,7 +8813,7 @@ public class ReactApiController {
             m.put(KEY_WAREHOUSE_ID, s.getWarehouse() != null ? s.getWarehouse().getId() : null);
             m.put(KEY_WAREHOUSE_NAME, s.getWarehouse() != null ? s.getWarehouse().getName() : "");
             m.put(KEY_TOTAL_AMOUNT, s.getTotalAmountCollected());
-            m.put("adminCommission", s.getAdminCommission());
+            m.put(KEY_ADMIN_COMMISSION, s.getAdminCommission());
             m.put("vendorPayAmount", s.getVendorPayAmount());
             m.put("status", s.getSettlementStatus());
             m.put("proofPhotoUrl", s.getProofPhotoUrl());
@@ -8840,7 +8843,7 @@ public class ReactApiController {
         CashSettlement settlement = cashSettlementRepository.findById(settlementId)
             .orElseThrow(() -> new RuntimeException("Settlement not found"));
 
-        if (!"PROOF_UPLOADED".equals(settlement.getSettlementStatus())) {
+        if (!STATUS_PROOF_UPLOADED.equals(settlement.getSettlementStatus())) {
             return ResponseEntity.badRequest().body(Map.of(KEY_ERROR, "Settlement not in PROOF_UPLOADED status"));
         }
 
@@ -8858,9 +8861,9 @@ public class ReactApiController {
 
         return ResponseEntity.ok(Map.of(
             KEY_SUCCESS, true,
-            "settlementId", settlementId,
+            KEY_SETTLEMENT_ID, settlementId,
             "status", STATUS_VERIFIED,
-            "adminCommission", settlement.getAdminCommission(),
+            KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
             "vendorPayAmount", settlement.getVendorPayAmount()
         ));
     }
@@ -8916,7 +8919,7 @@ public class ReactApiController {
 
         return ResponseEntity.ok(Map.of(
             KEY_SUCCESS, true,
-            "settlementId", settlementId,
+            KEY_SETTLEMENT_ID, settlementId,
             "status", STATUS_PAID,
             "totalPaid", settlement.getTotalAmountCollected(),
             "adminKept", settlement.getAdminCommission(),
