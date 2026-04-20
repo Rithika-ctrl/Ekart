@@ -53,6 +53,18 @@ public class SettlementController {
     // String constants to avoid duplications (fixes S1192)
     private static final String KEY_SUCCESS = "success";
     private static final String KEY_MESSAGE = "message";
+    private static final String KEY_SETTLEMENT_ID = "settlementId";
+    private static final String KEY_ADMIN_COMMISSION = "adminCommission";
+    private static final String KEY_VENDOR_SHARE = "vendorShare";
+    private static final String KEY_STATUS = "status";
+    private static final String KEY_ORDER_COUNT = "orderCount";
+    private static final String KEY_TOTAL_AMOUNT = "totalAmount";
+    private static final String KEY_TOTAL_CASH_COLLECTED = "totalCashCollected";
+    private static final String KEY_SUBMITTED_AT = "submittedAt";
+    private static final String KEY_SUBMITTED_BY_STAFF_ID = "submittedByStaffId";
+    private static final String KEY_WAREHOUSE_ID = "warehouseId";
+    private static final String KEY_SETTLEMENTS = "settlements";
+    private static final String KEY_COUNT = "count";
 
 
 
@@ -99,7 +111,7 @@ public class SettlementController {
             if (orderIds == null || orderIds.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Order list cannot be empty");
-                return ResponseEntity.ok(res);
+                return ResponseEntity.badRequest().body(res);
             }
 
             // Submit batch
@@ -108,12 +120,12 @@ public class SettlementController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Settlement batch submitted");
-            res.put("settlementId", settlement.getId());
-            res.put("orderCount", settlement.getOrderCount());
-            res.put("totalAmount", settlement.getTotalCashCollected());
-            res.put("adminCommission", settlement.getAdminCommission());
-            res.put("vendorShare", settlement.getVendorShare());
-            res.put("status", settlement.getSettlementStatus());
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_ORDER_COUNT, settlement.getOrderCount());
+            res.put(KEY_TOTAL_AMOUNT, settlement.getTotalCashCollected());
+            res.put(KEY_ADMIN_COMMISSION, settlement.getAdminCommission());
+            res.put(KEY_VENDOR_SHARE, settlement.getVendorShare());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
 
             return ResponseEntity.ok(res);
 
@@ -164,22 +176,22 @@ public class SettlementController {
             List<Map<String, Object>> settlementList = settlements.stream()
                     .map(s -> {
                         Map<String, Object> settlement = new LinkedHashMap<>();
-                        settlement.put("settlementId", s.getId());
-                        settlement.put("warehouseId", s.getWarehouseId());
-                        settlement.put("submittedAt", s.getSubmittedAt());
-                        settlement.put("submittedByStaffId", s.getSubmittedByStaffId());
-                        settlement.put("orderCount", s.getOrderCount());
-                        settlement.put("totalCashCollected", s.getTotalCashCollected());
-                        settlement.put("adminCommission", s.getAdminCommission());
-                        settlement.put("vendorShare", s.getVendorShare());
-                        settlement.put("status", s.getSettlementStatus());
+                        settlement.put(KEY_SETTLEMENT_ID, s.getId());
+                        settlement.put(KEY_WAREHOUSE_ID, s.getWarehouseId());
+                        settlement.put(KEY_SUBMITTED_AT, s.getSubmittedAt());
+                        settlement.put(KEY_SUBMITTED_BY_STAFF_ID, s.getSubmittedByStaffId());
+                        settlement.put(KEY_ORDER_COUNT, s.getOrderCount());
+                        settlement.put(KEY_TOTAL_CASH_COLLECTED, s.getTotalCashCollected());
+                        settlement.put(KEY_ADMIN_COMMISSION, s.getAdminCommission());
+                        settlement.put(KEY_VENDOR_SHARE, s.getVendorShare());
+                        settlement.put(KEY_STATUS, s.getSettlementStatus());
                         return settlement;
                     })
                     .collect(Collectors.toList());
 
             res.put(KEY_SUCCESS, true);
-            res.put("count", settlementList.size());
-            res.put("settlements", settlementList);
+            res.put(KEY_COUNT, settlementList.size());
+            res.put(KEY_SETTLEMENTS, settlementList);
 
             return ResponseEntity.ok(res);
 
@@ -223,7 +235,7 @@ public class SettlementController {
             if (details == null) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Settlement not found");
-                return ResponseEntity.ok(res);
+                return ResponseEntity.status(404).body(res);
             }
 
             res.put(KEY_SUCCESS, true);
@@ -277,10 +289,10 @@ public class SettlementController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Settlement approved");
-            res.put("settlementId", settlement.getId());
-            res.put("status", settlement.getSettlementStatus());
-            res.put("adminCommission", settlement.getAdminCommission());
-            res.put("vendorShare", settlement.getVendorShare());
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
+            res.put(KEY_ADMIN_COMMISSION, settlement.getAdminCommission());
+            res.put(KEY_VENDOR_SHARE, settlement.getVendorShare());
             res.put("approvedAt", settlement.getApprovedAt());
 
             return ResponseEntity.ok(res);
@@ -325,8 +337,8 @@ public class SettlementController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Settlement rejected");
-            res.put("settlementId", settlement.getId());
-            res.put("status", settlement.getSettlementStatus());
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
 
             return ResponseEntity.ok(res);
 
@@ -417,7 +429,7 @@ public class SettlementController {
             double totalPayout = cashSettlementService.calculateTotalVendorPayout(vendor.getId());
 
             res.put(KEY_SUCCESS, true);
-            res.put("settlements", history);
+            res.put(KEY_SETTLEMENTS, history);
             res.put("totalPayout", totalPayout);
 
             return ResponseEntity.ok(res);

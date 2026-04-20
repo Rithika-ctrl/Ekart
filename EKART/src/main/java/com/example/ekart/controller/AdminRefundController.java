@@ -89,7 +89,7 @@ public class AdminRefundController {
         // Convert to serializable format
         List<Map<String, Object>> refundsData = pendingRefunds.stream()
                 .map(this::refundToMap)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(Map.of(
             "success", true,
@@ -166,7 +166,7 @@ public class AdminRefundController {
 
         List<Map<String, Object>> refundsData = processedRefunds.stream()
                 .map(this::refundToMap)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(Map.of(
             "success", true,
