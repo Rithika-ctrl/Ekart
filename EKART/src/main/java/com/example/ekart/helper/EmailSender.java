@@ -1,9 +1,13 @@
 package com.example.ekart.helper;
 import com.example.ekart.dto.Address;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -23,15 +27,24 @@ import jakarta.mail.internet.MimeMessage;
 @Component
 public class EmailSender {
 
+    private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    private EmailSender self;
 
     public EmailSender(
             JavaMailSender mailSender,
             TemplateEngine templateEngine) {
         this.mailSender = mailSender;
         this.templateEngine = templateEngine;
+    }
+
+    @Autowired
+    @Lazy
+    public void setSelf(EmailSender self) {
+        this.self = self;
     }
 
 
@@ -69,7 +82,7 @@ public class EmailSender {
                 // Fall back to existing otp value if parsing fails
             }
         } catch (Exception e) {
-            System.err.println("Vendor OTP email failed: " + e.getMessage());
+            logger.error("Vendor OTP email failed: ", e);
         }
     }
 
@@ -89,7 +102,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Customer OTP email failed: " + e.getMessage());
+            logger.error("Customer OTP email failed: ", e);
         }
     }
 
@@ -114,7 +127,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Order confirmation email failed: " + e.getMessage());
+            logger.error("Order confirmation email failed: ", e);
         }
     }
 
@@ -140,7 +153,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("COD order confirmation email failed: " + e.getMessage());
+            logger.error("COD order confirmation email failed: ", e);
         }
     }
     @Async
@@ -161,7 +174,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Stock alert email failed: " + e.getMessage());
+            logger.error("Stock alert email failed: ", e);
         }
     }
 
@@ -183,7 +196,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Replacement email failed: " + e.getMessage());
+            logger.error("Replacement email failed: ", e);
         }
     }
 
@@ -205,7 +218,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Cancellation email failed: " + e.getMessage());
+            logger.error("Cancellation email failed: ", e);
         }
     }
 
@@ -229,7 +242,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Back-in-stock email failed for " + customer.getEmail() + ": " + e.getMessage());
+            logger.error("Back-in-stock email failed for {}", customer.getEmail(), e);
         }
     }
 
@@ -248,7 +261,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Password reset email failed: " + e.getMessage());
+            logger.error("Password reset email failed: ", e);
             throw new RuntimeException("Email sending failed: " + e.getMessage());
         }
     }
@@ -281,14 +294,14 @@ public class EmailSender {
                 // Fall back to existing otp value if parsing fails
             }
         } catch (Exception e) {
-            System.err.println("Delivery boy OTP email failed: " + e.getMessage());
+            logger.error("Delivery boy OTP email failed: ", e);
         }
     }
 
     // ===================== SEND DOORSTEP OTP TO CUSTOMER =====================
     @Async
     public void sendDeliveryOtp(Customer customer, int otp, int orderId) {
-        this.sendDeliveryOtp(customer.getEmail(), customer.getName(), String.format("%06d", otp), orderId);
+        self.sendDeliveryOtp(customer.getEmail(), customer.getName(), String.format("%06d", otp), orderId);
     }
 
     /**
@@ -317,7 +330,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Delivery OTP email failed: " + e.getMessage());
+            logger.error("Delivery OTP email failed: ", e);
         }
     }
 
@@ -340,7 +353,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Shipped email failed: " + e.getMessage());
+            logger.error("Shipped email failed: ", e);
         }
     }
 
@@ -362,7 +375,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Delivery confirmation email failed: " + e.getMessage());
+            logger.error("Delivery confirmation email failed: ", e);
         }
     }
 
@@ -392,7 +405,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Admin pending alert email failed: " + e.getMessage());
+            logger.error("Admin pending alert email failed: ", e);
         }
     }
 
@@ -425,7 +438,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Approval email failed: " + e.getMessage());
+            logger.error("Approval email failed: ", e);
         }
     }
 
@@ -457,7 +470,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Rejection email failed: " + e.getMessage());
+            logger.error("Rejection email failed: ", e);
         }
     }
 
@@ -493,7 +506,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Warehouse change approved email failed: " + e.getMessage());
+            logger.error("Warehouse change approved email failed: ", e);
         }
     }
 
@@ -524,7 +537,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Warehouse change rejected email failed: " + e.getMessage());
+            logger.error("Warehouse change rejected email failed: ", e);
         }
     }
 
@@ -573,7 +586,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Dispute notification email failed: " + e.getMessage());
+            logger.error("Dispute notification email failed: ", e);
         }
     }
 
@@ -630,7 +643,7 @@ public class EmailSender {
             helper.setText(body, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("sendAutoAssignNotification failed: " + e.getMessage());
+            logger.error("sendAutoAssignNotification failed: ", e);
         }
     }
 
@@ -657,7 +670,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Warehouse staff credentials email failed: " + e.getMessage());
+            logger.error("Warehouse staff credentials email failed: ", e);
         }
     }
 
@@ -681,7 +694,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Warehouse staff OTP email failed: " + e.getMessage());
+            logger.error("Warehouse staff OTP email failed: ", e);
         }
     }
 
@@ -705,7 +718,7 @@ public class EmailSender {
             helper.setText(body, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Warehouse credentials email send failed: " + e.getMessage());
+            logger.error("Warehouse credentials email send failed: ", e);
         }
     }
 
@@ -742,8 +755,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println("Vendor payment confirmation email failed: " + e.getMessage());
+            logger.error("Vendor payment confirmation email failed: ", e);
         }
     }
 }
-

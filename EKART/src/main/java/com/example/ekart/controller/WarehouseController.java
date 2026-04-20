@@ -9,6 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,6 +58,7 @@ import com.example.ekart.repository.OrderRepository;
 @RequestMapping("/api/warehouse")
 public class WarehouseController {
 
+    private static final Logger logger = LoggerFactory.getLogger(WarehouseController.class);
     private static final String ORDERS_KEY = "orders";
     private static final String ROUTING_PATH_KEY = "routingPath";
     private static final String CURRENT_STATUS_KEY = "current_status";
@@ -920,7 +923,7 @@ public class WarehouseController {
                 emailSender.sendDeliveryOtp(customerEmail, customerName, otp, order.getId());
             }
         } catch (Exception e) {
-            System.err.println("Failed to send OTP email: " + e.getMessage());
+            logger.error("Failed to send OTP email: ", e);
             // Don't fail the request if email sending fails
         }
     }
