@@ -154,6 +154,9 @@ public class ReactApiController {
     private static final String STATUS_SHIPPED = "SHIPPED";
     private static final String STATUS_VERIFIED = "VERIFIED";
 
+    private static final String KEY_TOKEN = "token";
+    private static final String ERR_LOGIN_FAILED = "Login failed: ";
+
     // Error and informational messages
     private static final String ERR_ACCOUNT_NOT_FOUND = "Account not found";
     private static final String ERR_ADMIN_ID_NOT_IN_TOKEN = "Admin ID not found in token";
@@ -579,10 +582,10 @@ public class ReactApiController {
             res.put("name", c.getName());
             res.put(KEY_EMAIL, c.getEmail());
             res.put(KEY_MOBILE, c.getMobile());
-            res.put("token", token);
+            res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Login failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put("message", ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -753,10 +756,10 @@ public class ReactApiController {
             res.put("name", v.getName());
             res.put(KEY_EMAIL, v.getEmail());
             res.put("vendorCode", v.getVendorCode());
-            res.put("token", token);
+            res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Login failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put("message", ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -814,7 +817,7 @@ public class ReactApiController {
         res.put(KEY_ADMIN_ID, authResult.getAdminId());
         res.put("name", authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
         res.put(KEY_EMAIL, email);
-        res.put("token", token);
+        res.put(KEY_TOKEN, token);
         res.put("role", ROLE_ADMIN);
         return ResponseEntity.ok(res);
     }
@@ -860,7 +863,7 @@ public class ReactApiController {
         String token = jwtUtil.generateToken(0, "admin-" + adminId, ROLE_ADMIN);
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ADMIN_ID, adminId);
-        res.put("token", token);
+        res.put(KEY_TOKEN, token);
         res.put("message", "2FA verification successful");
         return ResponseEntity.ok(res);
     }
@@ -930,12 +933,12 @@ public class ReactApiController {
             res.put("name",          db.getName());
             res.put(KEY_EMAIL,         db.getEmail());
             res.put("accessToken",   token);  // AuthPage reads data.accessToken || data.token
-            res.put("token",         token);  // legacy fallback
+            res.put(KEY_TOKEN,         token);  // legacy fallback
             res.put("approved",      db.isAdminApproved());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Login failed: " + e.getMessage());
+            res.put("message", ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1053,7 +1056,7 @@ public class ReactApiController {
             String token = jwtUtil.generateWarehouseToken(String.valueOf(warehouse.getId()), claims);
 
             res.put(KEY_SUCCESS, true);
-            res.put("token", token);
+            res.put(KEY_TOKEN, token);
             res.put(KEY_WAREHOUSE_ID, warehouse.getId());
             res.put(KEY_WAREHOUSE_NAME, warehouse.getName());
             res.put("city", warehouse.getCity());
@@ -1062,7 +1065,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put(KEY_ERROR, "Login failed: " + e.getMessage());
+            res.put(KEY_ERROR, ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
         }
     }

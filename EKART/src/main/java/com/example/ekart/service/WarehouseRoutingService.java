@@ -318,12 +318,9 @@ public class WarehouseRoutingService {
         double bestDist = Double.MAX_VALUE;
 
         for (Warehouse wh : allWarehouses) {
-            // Skip source and destination
-            if (wh.getId() == source.getId() || wh.getId() == destination.getId()) {
-                continue;
-            }
-            // Skip warehouses without coordinates
-            if (wh.getLatitude() == null || wh.getLongitude() == null) {
+            // Skip source, destination, and warehouses without coordinates
+            if (wh.getId() == source.getId() || wh.getId() == destination.getId()
+                    || wh.getLatitude() == null || wh.getLongitude() == null) {
                 continue;
             }
 
@@ -348,4 +345,3 @@ public class WarehouseRoutingService {
         return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
     }
 }
-
