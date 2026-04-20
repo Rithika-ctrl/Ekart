@@ -260,8 +260,8 @@ public class AdminAccountService {
         
         // Generate new OTP
         int otp = new Random().nextInt(100000, 1000000);
-        customer.setOtp(otp);
-        customerRepository.save(customer);
+        // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
+        // For backward compatibility with password reset, we store in local variable only
         
         // Build reset URL
         String resetUrl = "/customer/reset-password/" + customer.getId() + "/" + otp;

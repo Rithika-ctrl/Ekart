@@ -454,13 +454,29 @@ import java.util.*;
 @RequestMapping("/api/flutter")
 @CrossOrigin(origins = "*")
 public class FlutterAdminApiController {
- 
-    @Autowired private CouponRepository       couponRepository;
-    @Autowired private RefundRepository       refundRepository;
-    @Autowired private OrderRepository        orderRepository;
-    @Autowired private ProductRepository      productRepository;
-    @Autowired private VendorRepository       vendorRepository;
-    @Autowired private DeliveryBoyRepository  deliveryBoyRepository;
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CouponRepository couponRepository;
+    private final RefundRepository refundRepository;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+    private final VendorRepository vendorRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+
+    public FlutterAdminApiController(
+            CouponRepository couponRepository,
+            RefundRepository refundRepository,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            VendorRepository vendorRepository,
+            DeliveryBoyRepository deliveryBoyRepository) {
+        this.couponRepository = couponRepository;
+        this.refundRepository = refundRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.vendorRepository = vendorRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+    }
  
     // ═══════════════════════════════════════════════════════════════
     // ADMIN — COUPON MANAGEMENT
