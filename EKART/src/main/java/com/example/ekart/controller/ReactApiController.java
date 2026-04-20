@@ -105,6 +105,7 @@ public class ReactApiController {
     private static final String KEY_IMAGE_LINK = "imageLink";
     private static final String KEY_IS_AVAILABLE = "isAvailable";
     private static final String KEY_LATITUDE = "latitude";
+    private static final String KEY_LONGITUDE = "longitude";
     private static final String KEY_LOGIN_ID = "loginId";
     private static final String KEY_MOBILE = "mobile";
     private static final String KEY_NEW_PASSWORD = "newPassword";
@@ -5151,7 +5152,7 @@ public class ReactApiController {
                 m.put(KEY_SERVED_PIN_CODES, w.getServedPinCodes());
                 m.put("active",         w.isActive());
                 m.put(KEY_LATITUDE,       w.getLatitude());
-                m.put("longitude",      w.getLongitude());
+                m.put(KEY_LONGITUDE,      w.getLongitude());
                 list.add(m);
             }
             res.put(KEY_SUCCESS, true);
@@ -8060,7 +8061,7 @@ public class ReactApiController {
         
         try {
             Object latObj = body.get(KEY_LATITUDE);
-            Object lonObj = body.get("longitude");
+            Object lonObj = body.get(KEY_LONGITUDE);
             latitude = (latObj instanceof Number) ? ((Number) latObj).doubleValue() : null;
             longitude = (lonObj instanceof Number) ? ((Number) lonObj).doubleValue() : null;
         } catch (Exception e) {
@@ -8187,7 +8188,7 @@ public class ReactApiController {
         warehouseDto.put("address", warehouse.getAddress());
         warehouseDto.put("active", warehouse.isActive());
         warehouseDto.put(KEY_LATITUDE, warehouse.getLatitude());
-        warehouseDto.put("longitude", warehouse.getLongitude());
+        warehouseDto.put(KEY_LONGITUDE, warehouse.getLongitude());
 
         res.put(KEY_SUCCESS, true);
         res.put("warehouse", warehouseDto);
@@ -9050,7 +9051,7 @@ public class ReactApiController {
                 m.put(KEY_SERVED_PIN_CODES, wh.getServedPinCodes());
                 m.put("active", wh.isActive());
                 m.put(KEY_LATITUDE, wh.getLatitude());
-                m.put("longitude", wh.getLongitude());
+                m.put(KEY_LONGITUDE, wh.getLongitude());
                 return m;
             }).toList();
             return ResponseEntity.ok(result);
