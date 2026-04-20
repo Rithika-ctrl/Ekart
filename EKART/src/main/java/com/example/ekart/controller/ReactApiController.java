@@ -86,6 +86,7 @@ public class ReactApiController {
     private static final String KEY_SERVED_PIN_CODES = "servedPinCodes";
     private static final String KEY_TOTAL_AMOUNT = "totalAmount";
     private static final String KEY_VENDOR_ID = "vendorId";
+    private static final String KEY_VENDOR_NAME = "vendorName";
     private static final String KEY_WAREHOUSE_CODE = "warehouseCode";
     private static final String KEY_WAREHOUSE_ID = "warehouseId";
     private static final String KEY_WAREHOUSE_NAME = "warehouseName";
@@ -3878,7 +3879,7 @@ public class ReactApiController {
         m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
-        m.put("vendorName", p.getVendorName());
+        m.put(KEY_VENDOR_NAME, p.getVendorName());
         m.put("isRestricted", p.isRestrictedByPinCode());
         return m;
     }
@@ -8086,7 +8087,7 @@ public class ReactApiController {
                     m.put("status", o.getTrackingStatus());
                     m.put("deliveryPinCode", o.getDeliveryPinCode());
                     m.put("deliveryAddress", o.getDeliveryAddress());
-                    m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                    m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                     m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                     m.put("totalPrice", o.getTotalPrice());
                     m.put("paymentMethod", o.getPaymentMethod());
@@ -8233,7 +8234,7 @@ public class ReactApiController {
                     m.put("status", o.getTrackingStatus());
                     m.put("pinCode", o.getDeliveryPinCode());
                     m.put("address", o.getDeliveryAddress());
-                    m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                    m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                     m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                     m.put("totalPrice", o.getTotalPrice());
                     m.put("paymentMethod", o.getPaymentMethod());
@@ -8865,7 +8866,7 @@ public class ReactApiController {
                 m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
                 m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerId", o.getCustomer() != null ? o.getCustomer().getId() : null);
-                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
                 m.put("sourceWarehouse", o.getSourceWarehouse() != null ? o.getSourceWarehouse().getName() : "");
                 m.put("destinationWarehouse", o.getDestinationWarehouse() != null ? o.getDestinationWarehouse().getName() : "");
@@ -9006,7 +9007,7 @@ public class ReactApiController {
                 m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
                 m.put("totalPrice", o.getTotalPrice());
                 m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
-                m.put("vendorName", o.getVendor() != null ? o.getVendor().getName() : "");
+                m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put("adminCut20pct", o.getTotalPrice() * 0.20);
                 m.put("vendorGet80pct", o.getTotalPrice() * 0.80);
                 return m;
