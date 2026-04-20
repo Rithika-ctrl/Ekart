@@ -10,6 +10,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.io.IOException;
+
 /**
  * AuthGuard Interceptor for Role-Based Access Control (RBAC).
  * 
@@ -25,8 +27,8 @@ import jakarta.servlet.http.HttpSession;
 public class AuthGuard implements HandlerInterceptor {
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) 
-            throws Exception {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws IOException {
         
         String path = request.getRequestURI();
         HttpSession session = request.getSession(false);

@@ -10,7 +10,6 @@ import com.example.ekart.repository.*;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -27,7 +26,7 @@ public class DeliveryBoyService {
 
 
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    // ── Dependencies (constructor injection) ─────────────────────────────────
     private final DeliveryBoyRepository deliveryBoyRepository;
     private final WarehouseRepository warehouseRepository;
     private final OrderRepository orderRepository;
@@ -36,6 +35,8 @@ public class DeliveryBoyService {
     private final EmailSender emailSender;
     private final WarehouseChangeRequestRepository warehouseChangeRequestRepository;
     private final OtpService otpService;
+    // @Lazy breaks the circular dependency: DeliveryBoyService ↔ AutoAssignmentService
+    private final AutoAssignmentService autoAssignmentService;
 
     public DeliveryBoyService(
             DeliveryBoyRepository deliveryBoyRepository,
@@ -45,7 +46,8 @@ public class DeliveryBoyService {
             DeliveryOtpRepository deliveryOtpRepository,
             EmailSender emailSender,
             WarehouseChangeRequestRepository warehouseChangeRequestRepository,
-            OtpService otpService) {
+            OtpService otpService,
+            @Lazy AutoAssignmentService autoAssignmentService) {
         this.deliveryBoyRepository = deliveryBoyRepository;
         this.warehouseRepository = warehouseRepository;
         this.orderRepository = orderRepository;
@@ -54,9 +56,8 @@ public class DeliveryBoyService {
         this.emailSender = emailSender;
         this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
         this.otpService = otpService;
+        this.autoAssignmentService = autoAssignmentService;
     }
-
-    @Autowired @Lazy private AutoAssignmentService autoAssignmentService;
 
     // ── SELF REGISTRATION ─────────────────────────────────────────
 
@@ -698,4 +699,3 @@ public class DeliveryBoyService {
         return (DeliveryBoy) session.getAttribute("deliveryBoy");
     }
 }
-

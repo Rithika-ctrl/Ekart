@@ -6,6 +6,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.IOException;
+
 /**
  * JWT Token Interceptor for Delivery Boy REST API endpoints.
  *
@@ -39,7 +41,7 @@ public class DeliveryJwtInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
-                             Object handler) throws Exception {
+                             Object handler) throws IOException {
 
         // ReactAuthFilter already validated the token and set react.userId / react.role.
         // We just read those attributes and re-expose them as deliveryBoyId for the
@@ -80,7 +82,7 @@ public class DeliveryJwtInterceptor implements HandlerInterceptor {
     }
 
     private void rejectJson(HttpServletResponse response, int status, String message)
-            throws java.io.IOException {
+            throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
         response.getWriter().write(

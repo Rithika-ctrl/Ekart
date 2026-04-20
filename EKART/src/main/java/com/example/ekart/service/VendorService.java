@@ -52,13 +52,35 @@ import com.example.ekart.dto.Item;
 @Transactional
 public class VendorService {
 
+    /**
+     * Groups all VendorService dependencies into a single injectable object,
+     * keeping the constructor parameter count within the S107 limit of 7.
+     * {@code @Component} lets Spring discover and populate this record via
+     * its canonical constructor — no manual @Bean factory needed.
+     */
+    @org.springframework.stereotype.Component
+    public record Dependencies(
+            VendorRepository vendorRepository,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CloudinaryHelper cloudinaryHelper,
+            StockAlertService stockAlertService,
+            BackInStockService backInStockService,
+            EmailSender emailSender,
+            ItemRepository itemRepository,
+            SalesReportRepository salesReportRepository,
+            ReportingService reportingService,
+            TrackingEventLogRepository trackingEventLogRepository,
+            OtpService otpService
+    ) {}
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final VendorRepository vendorRepository;
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final CloudinaryHelper cloudinaryHelper;
     private final StockAlertService stockAlertService;
-    private final com.example.ekart.service.BackInStockService backInStockService;
+    private final BackInStockService backInStockService;
     private final EmailSender emailSender;
     private final ItemRepository itemRepository;
     private final SalesReportRepository salesReportRepository;
@@ -66,31 +88,19 @@ public class VendorService {
     private final TrackingEventLogRepository trackingEventLogRepository;
     private final OtpService otpService;
 
-    public VendorService(
-            VendorRepository vendorRepository,
-            OrderRepository orderRepository,
-            ProductRepository productRepository,
-            CloudinaryHelper cloudinaryHelper,
-            StockAlertService stockAlertService,
-            com.example.ekart.service.BackInStockService backInStockService,
-            EmailSender emailSender,
-            ItemRepository itemRepository,
-            SalesReportRepository salesReportRepository,
-            ReportingService reportingService,
-            TrackingEventLogRepository trackingEventLogRepository,
-            OtpService otpService) {
-        this.vendorRepository = vendorRepository;
-        this.orderRepository = orderRepository;
-        this.productRepository = productRepository;
-        this.cloudinaryHelper = cloudinaryHelper;
-        this.stockAlertService = stockAlertService;
-        this.backInStockService = backInStockService;
-        this.emailSender = emailSender;
-        this.itemRepository = itemRepository;
-        this.salesReportRepository = salesReportRepository;
-        this.reportingService = reportingService;
-        this.trackingEventLogRepository = trackingEventLogRepository;
-        this.otpService = otpService;
+    public VendorService(Dependencies deps) {
+        this.vendorRepository             = deps.vendorRepository();
+        this.orderRepository              = deps.orderRepository();
+        this.productRepository            = deps.productRepository();
+        this.cloudinaryHelper             = deps.cloudinaryHelper();
+        this.stockAlertService            = deps.stockAlertService();
+        this.backInStockService           = deps.backInStockService();
+        this.emailSender                  = deps.emailSender();
+        this.itemRepository               = deps.itemRepository();
+        this.salesReportRepository        = deps.salesReportRepository();
+        this.reportingService             = deps.reportingService();
+        this.trackingEventLogRepository   = deps.trackingEventLogRepository();
+        this.otpService                   = deps.otpService();
     }
 
 
