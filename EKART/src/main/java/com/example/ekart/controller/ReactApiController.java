@@ -823,7 +823,18 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/react/auth/admin/verify-2fa
+     * Sends OTP email to delivery boy, swallowing exceptions so the caller
+     * is not interrupted. Extracted to avoid nested try blocks (SonarQube S1141).
+     */
+    private void trySendDeliveryBoyOtp(DeliveryBoy db) {
+        try {
+            emailSender.sendDeliveryBoyOtp(db);
+        } catch (Exception ignored) {
+            // Non-critical: login flow must not fail due to email errors
+        }
+    }
+
+    /**
      * Body: { adminId, totpCode }
      * Verifies 6-digit TOTP code from authenticator app.
      * Returns: { success: true, token, name, email } on success
@@ -912,7 +923,7 @@ public class ReactApiController {
                 int otp = new java.util.Random().nextInt(100000, 1000000);
                 db.setOtp(otp);
                 deliveryBoyRepository.save(db);
-                try { emailSender.sendDeliveryBoyOtp(db); } catch (Exception ignored) {}
+                trySendDeliveryBoyOtp(db);
                 res.put(KEY_SUCCESS, false);
                 res.put("message", "Please verify your email first — OTP resent to " + email);
                 return ResponseEntity.status(403).body(res);
@@ -3906,9 +3917,6 @@ public class ReactApiController {
 
         // All-time orders for totals
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
-        // List<Order> activeOrders = allOrders.stream() // unused
-        //         .filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-        //         .collect(Collectors.toList());
 
         // ── Revenue and order count for the window ───────────────────────────
         double totalRevenue = windowOrders.stream()
@@ -8066,13 +8074,14 @@ public class ReactApiController {
         String city = ((String) body.getOrDefault("city", "")).trim();
         String state = ((String) body.getOrDefault("state", "")).trim();
         String servedPinCodes = ((String) body.getOrDefault(KEY_SERVED_PIN_CODES, "")).trim();
-        Double latitude = null, longitude = null;
+        Double latitude = null;
+        Double longitude = null;
         
         try {
             Object latObj = body.get(KEY_LATITUDE);
             Object lonObj = body.get(KEY_LONGITUDE);
-            latitude = (latObj instanceof Number) ? ((Number) latObj).doubleValue() : null;
-            longitude = (lonObj instanceof Number) ? ((Number) lonObj).doubleValue() : null;
+            latitude = (latObj instanceof Number latNum) ? latNum.doubleValue() : null;
+            longitude = (lonObj instanceof Number lonNum) ? lonNum.doubleValue() : null;
         } catch (Exception e) {
             // Invalid latitude/longitude format
         }
