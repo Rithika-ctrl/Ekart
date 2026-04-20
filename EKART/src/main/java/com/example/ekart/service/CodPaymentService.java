@@ -2,6 +2,8 @@ package com.example.ekart.service;
 import com.example.ekart.dto.Address;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/service/CodPaymentService.java
@@ -34,6 +36,8 @@ import java.util.*;
 @Service
 @Transactional
 public class CodPaymentService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CodPaymentService.class);
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final OrderRepository orderRepository;
@@ -104,7 +108,7 @@ public class CodPaymentService {
         try {
             emailSender.sendCodOrderConfirmation(order.getCustomer(), order);
         } catch (Exception e) {
-            System.err.println("[CodPaymentService] COD confirmation email failed: " + e.getMessage());
+            LOGGER.error("COD confirmation email failed: {}", e.getMessage(), e);
         }
 
         return order;
@@ -400,7 +404,7 @@ public class CodPaymentService {
             );
             trackingEventLogRepository.save(log);
         } catch (Exception e) {
-            System.err.println("[CodPaymentService] Failed to log COD event: " + e.getMessage());
+            LOGGER.error("Failed to log COD event: {}", e.getMessage(), e);
         }
     }
 

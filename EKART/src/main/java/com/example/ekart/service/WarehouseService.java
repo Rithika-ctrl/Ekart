@@ -1,5 +1,7 @@
 package com.example.ekart.service;
 import com.example.ekart.dto.Address;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.helper.AES;
@@ -24,6 +26,8 @@ import java.util.Map;
 @Service
 @Transactional
 public class WarehouseService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(WarehouseService.class);
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseRepository warehouseRepository;
@@ -115,7 +119,7 @@ public class WarehouseService {
                 emailSender.sendWarehouseCredentials(contactEmail, name, loginId, plainPassword, city);
             } catch (Exception e) {
                 // Log but don't fail the creation
-                System.err.println("[WarehouseService] Failed to send warehouse credentials email: " + e.getMessage());
+                LOGGER.error("Failed to send warehouse credentials email: {}", e.getMessage(), e);
             }
         }
 

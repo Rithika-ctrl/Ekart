@@ -1,6 +1,8 @@
 package com.example.ekart.service;
 import com.example.ekart.dto.Address;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // ================================================================
 // LOCATION: src/main/java/com/example/ekart/service/CustomerService.java
@@ -62,6 +64,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 @Transactional
 public class CustomerService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomerService.class);
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final CustomerRepository customerRepository;
@@ -167,7 +171,7 @@ public class CustomerService {
         try {
             emailSender.send(customer);
         } catch (Exception e) {
-            System.err.println("Customer OTP email failed: " + e.getMessage());
+            LOGGER.error("Customer OTP email failed: {}", e.getMessage(), e);
         }
 
         session.setAttribute("success", "OTP Sent Successfully to your email");
@@ -971,7 +975,7 @@ public class CustomerService {
                         Order saved = orderRepository.findById(finalSubOrder.getId()).orElse(finalSubOrder);
                         reportingService.recordOrder(saved);
                     } catch (Exception e) {
-                        System.err.println("[ReportingService] recordOrder failed: " + e.getMessage());
+                        LOGGER.error("recordOrder failed: {}", e.getMessage(), e);
                     }
                 }
             });
@@ -994,7 +998,7 @@ public class CustomerService {
                     customer, subtotal + deliveryFee,
                     firstOrder.getId(), paymentMode, deliverySlot, allItems);
         } catch (Exception e) {
-            System.err.println("Order confirmation email failed (non-fatal): " + e.getMessage());
+            LOGGER.error("Order confirmation email failed (non-fatal): {}", e.getMessage(), e);
         }
 
         // ── 8. CLEAR CART ────────────────────────────────────────
@@ -1128,7 +1132,7 @@ public class CustomerService {
         try {
             emailSender.sendOrderCancellation(sessionCustomer, amount, orderId, orderItems);
         } catch (Exception e) {
-            System.err.println("Cancellation email failed to send.");
+            LOGGER.error("Cancellation email failed to send: {}", e.getMessage(), e);
         }
 
         orderRepository.delete(order);
@@ -1169,7 +1173,7 @@ public class CustomerService {
             emailSender.sendReplacementRequest(sessionCustomer, order.getAmount(),
                     order.getId(), order.getItems());
         } catch (Exception e) {
-            System.err.println("Replacement email failed: " + e.getMessage());
+            LOGGER.error("Replacement email failed: {}", e.getMessage(), e);
         }
 
         session.setAttribute("success", "Replacement requested for Order #" + orderId + ". Our team will contact you shortly.");

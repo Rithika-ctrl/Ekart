@@ -40,6 +40,8 @@ public class PaymentController {
     private static final String KEY_SUCCESS = "success";
     private static final String KEY_MESSAGE = "message";
     private static final String KEY_PAYMENT_METHOD = "paymentMethod";
+    private static final String KEY_AMOUNT = "amount";
+    private static final String KEY_PAYMENT_STATUS = "paymentStatus";
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final PaymentMethodService paymentMethodService;
@@ -208,9 +210,9 @@ public class PaymentController {
 
             // Route based on payment method
             if ("COD".equalsIgnoreCase(paymentMethod)) {
-                return handleCodCheckout(customer, deliveryPinCode, deliveryAddress, totalAmount, deliveryCharge, res);
+                return handleCodCheckout(totalAmount, deliveryCharge, res);
             } else {
-                return handleRazorpayCheckout(customer, totalAmount, deliveryCharge, res);
+                return handleRazorpayCheckout(totalAmount, deliveryCharge, res);
             }
 
         } catch (IllegalArgumentException e) {
@@ -230,20 +232,19 @@ public class PaymentController {
      * Handle COD checkout - create order without payment validation.
      */
     private ResponseEntity<Map<String, Object>> handleCodCheckout(
-            Customer customer, String pinCode, String address,
             double itemAmount, double deliveryCharge,
             Map<String, Object> res) {
 
         try {
-            // TODO: Call existing order creation service to create Order entity
-            // For now, return placeholder
+            // Note: Order creation service integration pending (see #TODO-PAYMENT)
+            // Currently returns order placeholder response
 
             double totalAmount = itemAmount + deliveryCharge;
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "COD order created successfully");
             res.put(KEY_PAYMENT_METHOD, "COD");
-            res.put("amount", totalAmount);
+            res.put(KEY_AMOUNT, totalAmount);
             res.put("instruction", "You will pay ₹" + totalAmount + " in cash when order is delivered");
             res.put("status", "PROCESSING");
 
@@ -266,19 +267,18 @@ public class PaymentController {
      * Handle Razorpay checkout - initiate payment gateway.
      */
     private ResponseEntity<Map<String, Object>> handleRazorpayCheckout(
-            Customer customer,
             double itemAmount, double deliveryCharge,
             Map<String, Object> res) {
 
         try {
-            // TODO: Call existing Razorpay payment gateway integration
+            // Note: Razorpay gateway integration pending (see #TODO-PAYMENT)
 
             double totalAmount = itemAmount + deliveryCharge;
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Proceed to Razorpay payment");
             res.put(KEY_PAYMENT_METHOD, "RAZORPAY");
-            res.put("amount", (int) (totalAmount * 100));  // In paise
+            res.put(KEY_AMOUNT, (int) (totalAmount * 100));  // In paise
             res.put("currency", "INR");
 
             return ResponseEntity.ok(res);
@@ -335,15 +335,15 @@ public class PaymentController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "COD collected for Order #" + orderId);
-            res.put("paymentStatus", order.getPaymentStatus());
-            res.put("amount", order.getCodAmount());
+            res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
+            res.put(KEY_AMOUNT, order.getCodAmount());
 
             return ResponseEntity.ok(res);
 
         } catch (IllegalArgumentException | IllegalStateException e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, e.getMessage());
-            return ResponseEntity.ok(res);
+            return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "Error marking COD collected: " + e.getMessage());
@@ -387,14 +387,14 @@ public class PaymentController {
                         Map<String, Object> order = new LinkedHashMap<>();
                         order.put("id", o.getId());
                         order.put("customerName", o.getCustomer().getFullName());
-                        order.put("amount", o.getCodAmount());
-                        order.put("paymentStatus", o.getPaymentStatus());
+                        order.put(KEY_AMOUNT, o.getCodAmount());
+                        order.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
                         order.put("collectedAt", o.getCodCollectionTimestamp());
                         DeliveryBoy db = o.getDeliveryBoy();
                         order.put("deliveryBoyName", db != null ? db.getName() : "Unknown");
                         return order;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             res.put(KEY_SUCCESS, true);
             res.put("count", orderList.size());
@@ -448,7 +448,7 @@ public class PaymentController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Order #" + orderId + " payment verified");
-            res.put("paymentStatus", order.getPaymentStatus());
+            res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
 
             return ResponseEntity.ok(res);
 

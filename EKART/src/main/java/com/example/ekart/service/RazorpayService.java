@@ -2,6 +2,8 @@ package com.example.ekart.service;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import org.json.JSONObject;
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class RazorpayService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RazorpayService.class);
 
     @Value("${RAZORPAY_KEY_ID:#{null}}")
     private String razorpayKeyId;
@@ -104,7 +108,7 @@ public class RazorpayService {
             String computed_signature = hmacSHA256(payload, razorpayKeySecret);
             return computed_signature.equals(signature);
         } catch (Exception e) {
-            System.err.println("Signature verification failed: " + e.getMessage());
+            LOGGER.error("Signature verification failed: {}", e.getMessage(), e);
             return false;
         }
     }

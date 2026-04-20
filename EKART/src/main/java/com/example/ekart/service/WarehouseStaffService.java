@@ -2,6 +2,8 @@ package com.example.ekart.service;
 import java.util.Random;
 import java.util.Optional;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
@@ -30,6 +32,8 @@ import java.util.*;
 @Service
 @Transactional
 public class WarehouseStaffService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(WarehouseStaffService.class);
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final WarehouseStaffRepository staffRepository;
@@ -99,7 +103,7 @@ public class WarehouseStaffService {
         try {
             emailSender.sendWarehouseStaffCredentials(staff, plainPassword);
         } catch (Exception e) {
-            System.err.println("[WarehouseStaffService] Credentials email failed: " + e.getMessage());
+            LOGGER.error("Credentials email failed: {}", e.getMessage(), e);
         }
 
         // Return both staff and plain password

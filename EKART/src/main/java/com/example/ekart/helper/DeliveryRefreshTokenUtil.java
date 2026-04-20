@@ -1,6 +1,8 @@
 package com.example.ekart.helper;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.Jwts;
@@ -35,6 +37,8 @@ import java.util.Date;
 @Component
 public class DeliveryRefreshTokenUtil {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeliveryRefreshTokenUtil.class);
+
     @Value("${jwt.secret}")
     private String secretValue;
 
@@ -55,7 +59,7 @@ public class DeliveryRefreshTokenUtil {
 
         if ((environment.contains("prod") || environment.contains("production")) &&
             SECRET.equals(DEV_DEFAULT)) {
-            System.err.println("""
+            LOGGER.error("""
 
                 ╔════════════════════════════════════════════════════════════════╗
                 ║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║

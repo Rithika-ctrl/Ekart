@@ -130,7 +130,7 @@ public class DeliveryBoyService {
             String plainOtp = otpService.generateAndStoreOtp(db.getEmail(), OtpService.PURPOSE_DELIVERY_REGISTER);
             emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
         } catch (Exception e) { 
-            System.err.println("Delivery boy OTP email failed: " + e.getMessage());
+            log.error("Delivery boy OTP email failed: {}", e.getMessage(), e);
         }
 
         session.setAttribute("success", "OTP sent to " + email + ". Verify your email to continue.");
@@ -160,7 +160,7 @@ public class DeliveryBoyService {
 
             if (!db.isAdminApproved()) {
                 try { emailSender.sendDeliveryBoyPendingAlert(db); }
-                catch (Exception e) { System.err.println("Admin alert email failed: " + e.getMessage()); }
+                catch (Exception e) { log.error("Admin alert email failed: {}", e.getMessage(), e); }
                 return "redirect:/delivery/pending";
             }
 
@@ -202,7 +202,7 @@ public class DeliveryBoyService {
         deliveryBoyRepository.save(db);
 
         try { emailSender.sendDeliveryBoyApproved(db); }
-        catch (Exception e) { System.err.println("Approval email failed: " + e.getMessage()); }
+        catch (Exception e) { log.error("Approval email failed: {}", e.getMessage(), e); }
 
         res.put("success", true);
         res.put("message", db.getName() + " approved successfully");
@@ -371,7 +371,7 @@ public class DeliveryBoyService {
         deliveryOtpRepository.save(new DeliveryOtp(order, otp));
 
         try { emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId()); }
-        catch (Exception e) { System.err.println("Delivery OTP email failed: " + e.getMessage()); }
+        catch (Exception e) { log.error("Delivery OTP email failed: {}", e.getMessage(), e); }
 
         res.put("success", true);
         res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
@@ -430,7 +430,7 @@ public class DeliveryBoyService {
                 "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy");
 
         try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
-        catch (Exception e) { System.err.println("Delivery confirmation email failed: " + e.getMessage()); }
+        catch (Exception e) { log.error("Delivery confirmation email failed: {}", e.getMessage(), e); }
 
         // AUTO-ASSIGN DISABLED (Phase 3)
         // Previously: autoAssignmentService.onOrderDelivered(db);
@@ -524,7 +524,7 @@ public class DeliveryBoyService {
         try { 
             emailSender.sendWarehouseChangeApproved(db, req.getRequestedWarehouse(), "Approved by Admin"); 
         }
-        catch (Exception e) { System.err.println("Warehouse change approval email failed: " + e.getMessage()); }
+        catch (Exception e) { log.error("Warehouse change approval email failed: {}", e.getMessage(), e); }
 
         res.put("success", true);
         res.put("message", "Warehouse change approved for " + db.getName());
@@ -553,7 +553,7 @@ public class DeliveryBoyService {
 
         DeliveryBoy db = req.getDeliveryBoy();
         try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
-        catch (Exception e) { System.err.println("Warehouse change rejection email failed: " + e.getMessage()); }
+        catch (Exception e) { log.error("Warehouse change rejection email failed: {}", e.getMessage(), e); }
 
         res.put("success", true);
         res.put("message", "Warehouse change request rejected");

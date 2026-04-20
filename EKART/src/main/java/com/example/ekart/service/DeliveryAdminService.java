@@ -1,6 +1,8 @@
 package com.example.ekart.service;
 import java.util.stream.Collectors;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // ================================================================
 // DeliveryAdminService.java
@@ -31,6 +33,7 @@ import java.util.LinkedHashSet;
 @Transactional
 public class DeliveryAdminService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeliveryAdminService.class);
 
     // Constants (from removed AutoAssignmentService)
     private static final int MAX_CONCURRENT_ORDERS = 3;
@@ -222,7 +225,7 @@ public class DeliveryAdminService {
         deliveryBoyRepository.save(db);
 
         try { emailSender.sendDeliveryBoyOtp(db); } catch (Exception e) {
-            System.err.println("Delivery boy OTP email failed: " + e.getMessage());
+            LOGGER.error("Delivery boy OTP email failed: {}", e.getMessage(), e);
         }
 
         res.put("success", true);
@@ -280,7 +283,7 @@ public class DeliveryAdminService {
             order, TrackingStatus.SHIPPED, city, note, "admin"));
 
         try { emailSender.sendShippedEmail(order.getCustomer(), order, db.getName()); }
-        catch (Exception e) { System.err.println("Shipped email failed: " + e.getMessage()); }
+        catch (Exception e) { LOGGER.error("Shipped email failed: {}", e.getMessage(), e); }
 
         res.put("success", true);
         res.put("message", "Order #" + orderId + " assigned to " + db.getName()

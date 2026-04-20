@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -34,6 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class IndiaOnlyInterceptor implements HandlerInterceptor {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IndiaOnlyInterceptor.class);
 
     // Simple in-memory IP → isIndia cache (resets on restart — fine for a project)
     private static final ConcurrentHashMap<String, Boolean> IP_CACHE = new ConcurrentHashMap<>();
@@ -160,7 +164,7 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
                 return !body.contains("\"countryCode\":\"") || body.contains("\"countryCode\":\"IN\"");
             }
         } catch (IOException e) {
-            System.err.println("[IndiaOnlyInterceptor] IP lookup failed for " + ip + ": " + e.getMessage());
+            LOGGER.error("IP lookup failed for {}: {}", ip, e.getMessage(), e);
             return true; // fail-open on any error
         }
     }
