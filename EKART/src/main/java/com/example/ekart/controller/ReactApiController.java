@@ -2600,7 +2600,7 @@ public class ReactApiController {
      * - Returns PDF as attachment with Content-Disposition header
      */
     @GetMapping("/orders/{id}/invoice")
-    public ResponseEntity<?> downloadOrderInvoice(
+    public ResponseEntity<Object> downloadOrderInvoice(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @PathVariable int id) {
         
@@ -8067,7 +8067,7 @@ public class ReactApiController {
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
     @GetMapping("/warehouse/receiving-queue")
-    public ResponseEntity<?> warehouseReceivingQueue(
+    public ResponseEntity<Object> warehouseReceivingQueue(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request) {
         try {
@@ -8115,7 +8115,7 @@ public class ReactApiController {
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
     @PostMapping("/warehouse/orders/{orderId}/mark-received")
-    public ResponseEntity<?> warehouseMarkReceived(
+    public ResponseEntity<Object> warehouseMarkReceived(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int orderId,
             HttpServletRequest request) {
@@ -8215,7 +8215,7 @@ public class ReactApiController {
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
     @GetMapping("/warehouse/orders/ready-for-assignment")
-    public ResponseEntity<?> warehouseOrdersReadyForAssignment(
+    public ResponseEntity<Object> warehouseOrdersReadyForAssignment(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request) {
         try {
@@ -8260,7 +8260,7 @@ public class ReactApiController {
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
     @PostMapping("/warehouse/orders/{orderId}/assign-delivery")
-    public ResponseEntity<?> warehouseAssignDelivery(
+    public ResponseEntity<Object> warehouseAssignDelivery(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body,
@@ -8325,7 +8325,7 @@ public class ReactApiController {
      * Requires: Authentication via warehouse JWT (warehouseId in request attribute)
      */
     @GetMapping("/warehouse/delivery-boys")
-    public ResponseEntity<?> warehouseGetAvailableDeliveryBoys(
+    public ResponseEntity<Object> warehouseGetAvailableDeliveryBoys(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @RequestParam(required = false) String pinCode,
             HttpServletRequest request) {
@@ -8370,7 +8370,7 @@ public class ReactApiController {
      * Used by delivery boy app to show pickup/delivery list.
      */
     @GetMapping("/delivery/my-orders")
-    public ResponseEntity<?> deliveryGetOrders(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<Object> deliveryGetOrders(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         try {
             // Extract delivery boy ID from JWT
             int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
@@ -8416,7 +8416,7 @@ public class ReactApiController {
      * }
      */
     @PostMapping("/delivery/orders/{orderId}/confirm-delivery")
-    public ResponseEntity<?> deliveryConfirm(
+    public ResponseEntity<Object> deliveryConfirm(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
@@ -8494,7 +8494,7 @@ public class ReactApiController {
      * Status remains DELIVERED, paymentStatus: COD_COLLECTED → COD_SUBMITTED_TO_WAREHOUSE
      */
     @PostMapping("/delivery/orders/{orderId}/submit-cash")
-    public ResponseEntity<?> deliverySubmitCash(
+    public ResponseEntity<Object> deliverySubmitCash(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
@@ -8543,7 +8543,7 @@ public class ReactApiController {
      * (paymentStatus = COD_SUBMITTED_TO_WAREHOUSE).
      */
     @GetMapping("/warehouse/settlements/pending")
-    public ResponseEntity<?> warehousePendingSettlements(HttpServletRequest request) {
+    public ResponseEntity<Object> warehousePendingSettlements(HttpServletRequest request) {
         Integer warehouseId = (Integer) request.getAttribute(KEY_WAREHOUSE_ID);
         if (warehouseId == null) return ResponseEntity.status(401).body(Map.of(KEY_ERROR, ERR_UNAUTHORIZED));
 
@@ -8581,7 +8581,7 @@ public class ReactApiController {
      * - notes: Optional notes (e.g., "Deposited to HDFC account")
      */
     @PostMapping("/warehouse/settlements/create-and-upload-proof")
-    public ResponseEntity<?> createSettlementAndUploadProof(
+    public ResponseEntity<Object> createSettlementAndUploadProof(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request,
             @RequestParam("proofImageUrl") String proofImageUrl,
@@ -8658,7 +8658,7 @@ public class ReactApiController {
      * Admin views all pending COD settlement batches with proof photos.
      */
     @GetMapping("/admin/settlements/pending")
-    public ResponseEntity<?> adminPendingSettlements(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<Object> adminPendingSettlements(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         // Validate admin JWT
         List<CashSettlement> settlements = cashSettlementRepository.findBySettlementStatus("PROOF_UPLOADED");
 
@@ -8689,7 +8689,7 @@ public class ReactApiController {
      * Admin verifies the proof photo and marks settlement as VERIFIED.
      */
     @PostMapping("/admin/settlements/{settlementId}/verify")
-    public ResponseEntity<?> adminVerifySettlement(
+    public ResponseEntity<Object> adminVerifySettlement(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int settlementId,
             @RequestBody(required = false) Map<String, Object> body) {
@@ -8732,7 +8732,7 @@ public class ReactApiController {
      * Triggers vendor payment confirmation emails.
      */
     @PostMapping("/admin/settlements/{settlementId}/payout")
-    public ResponseEntity<?> adminVendorPayout(
+    public ResponseEntity<Object> adminVendorPayout(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int settlementId,
             @RequestBody Map<String, Object> body) {
@@ -8792,7 +8792,7 @@ public class ReactApiController {
      * Admin processes payout: keeps 20%, sends 80% to vendor.
      */
     @PostMapping("/admin/online-payments/process-payout/{orderId}")
-    public ResponseEntity<?> adminOnlinePaymentPayout(
+    public ResponseEntity<Object> adminOnlinePaymentPayout(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException(ERR_ORDER_NOT_FOUND));
@@ -8846,7 +8846,7 @@ public class ReactApiController {
      * Includes: id, status, paymentMethod, paymentStatus, customer, vendor, warehouses, delivery boy, routing
      */
     @GetMapping("/admin/orders/all")
-    public ResponseEntity<?> adminAllOrders(
+    public ResponseEntity<Object> adminAllOrders(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -8895,7 +8895,7 @@ public class ReactApiController {
      * Lists all warehouses with details. Password NOT returned (use /credentials endpoint).
      */
     @GetMapping("/admin/warehouses/all")
-    public ResponseEntity<?> adminAllWarehouses(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<Object> adminAllWarehouses(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         try {
             List<Warehouse> warehouses = warehouseRepository.findAll();
             List<Map<String, Object>> result = warehouses.stream().map(wh -> {
@@ -8928,7 +8928,7 @@ public class ReactApiController {
      * Generates new password, encrypts, saves, and emails to warehouse contact.
      */
     @PostMapping("/admin/warehouse/{warehouseId}/reset-password")
-    public ResponseEntity<?> adminResetWarehousePassword(
+    public ResponseEntity<Object> adminResetWarehousePassword(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int warehouseId) {
         try {
@@ -8969,7 +8969,7 @@ public class ReactApiController {
      * Activates or deactivates a warehouse.
      */
     @PutMapping("/admin/warehouse/{warehouseId}/toggle-active")
-    public ResponseEntity<?> adminToggleWarehouseActive(
+    public ResponseEntity<Object> adminToggleWarehouseActive(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int warehouseId) {
         try {
@@ -8995,7 +8995,7 @@ public class ReactApiController {
      * Displays: order ID, payment method, vendor info, admin cut (20%), vendor cut (80%).
      */
     @GetMapping("/admin/vendor-payments/pending")
-    public ResponseEntity<?> adminPendingVendorPayments(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<Object> adminPendingVendorPayments(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         try {
             List<Order> delivered = orderRepository.findByTrackingStatusAndPaymentStatusNot(
                 TrackingStatus.DELIVERED, STATUS_PAID);
@@ -9029,7 +9029,7 @@ public class ReactApiController {
      * Lists all delivery boys awaiting admin approval (adminApproved = false, verified = true).
      */
     @GetMapping("/admin/delivery-boys/pending")
-    public ResponseEntity<?> adminPendingDeliveryBoys(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
+    public ResponseEntity<Object> adminPendingDeliveryBoys(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         try {
             List<DeliveryBoy> pending = deliveryBoyRepository.findByAdminApprovedFalseAndVerifiedTrue();
             
@@ -9063,7 +9063,7 @@ public class ReactApiController {
      * Approves a pending delivery boy and activates their account.
      */
     @PostMapping("/admin/delivery-boys/{deliveryBoyId}/approve")
-    public ResponseEntity<?> adminApproveDeliveryBoy(
+    public ResponseEntity<Object> adminApproveDeliveryBoy(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int deliveryBoyId,
             @RequestBody(required = false) Map<String, Object> body) {
@@ -9102,7 +9102,7 @@ public class ReactApiController {
      * Rejects a pending delivery boy or deactivates an approved one.
      */
     @PostMapping("/admin/delivery-boys/{deliveryBoyId}/reject")
-    public ResponseEntity<?> adminRejectDeliveryBoy(
+    public ResponseEntity<Object> adminRejectDeliveryBoy(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @PathVariable int deliveryBoyId,
             @RequestBody(required = false) Map<String, Object> body) {
@@ -9142,7 +9142,7 @@ public class ReactApiController {
      * Requires: Warehouse JWT token (sets warehouseId in request attribute).
      */
     @GetMapping("/warehouse/delivery-boys/pending")
-    public ResponseEntity<?> warehousePendingDeliveryBoys(
+    public ResponseEntity<Object> warehousePendingDeliveryBoys(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request) {
         try {
@@ -9193,7 +9193,7 @@ public class ReactApiController {
      * Approves a delivery boy for the warehouse staff's warehouse.
      */
     @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/approve")
-    public ResponseEntity<?> warehouseApproveDeliveryBoy(
+    public ResponseEntity<Object> warehouseApproveDeliveryBoy(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request,
             @PathVariable int deliveryBoyId) {
@@ -9232,7 +9232,7 @@ public class ReactApiController {
      * Rejects a delivery boy for the warehouse staff's warehouse.
      */
     @PostMapping("/warehouse/delivery-boys/{deliveryBoyId}/reject")
-    public ResponseEntity<?> warehouseRejectDeliveryBoy(
+    public ResponseEntity<Object> warehouseRejectDeliveryBoy(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request,
             @PathVariable int deliveryBoyId,
@@ -9274,7 +9274,7 @@ public class ReactApiController {
      * Lists all staff members in the warehouse staff's warehouse.
      */
     @GetMapping("/warehouse/staff/list")
-    public ResponseEntity<?> warehouseListStaff(
+    public ResponseEntity<Object> warehouseListStaff(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             HttpServletRequest request) {
         try {
@@ -9309,7 +9309,7 @@ public class ReactApiController {
      * Creates a new staff member for the warehouse staff's warehouse.
      */
     @PostMapping("/warehouse/staff/create")
-    public ResponseEntity<?> warehouseCreateStaff(
+    public ResponseEntity<Object> warehouseCreateStaff(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
