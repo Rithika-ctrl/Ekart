@@ -84,6 +84,19 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         return sub.startsWith("/admin/") || sub.equals("/admin");
     }
 
+    /** Returns true if the path is a public (no-auth) endpoint. */
+    private boolean isPublicPath(String sub) {
+        if (isAdminPath(sub)) {
+            return false;
+        }
+        for (String prefix : PUBLIC_PREFIXES) {
+            if (sub.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // This filter only applies to /api/flutter/**
@@ -102,13 +115,9 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         // Admin paths are explicitly EXCLUDED from the public list even if
         // something in PUBLIC_PREFIXES accidentally matched — the isAdminPath()
         // check below runs first for admin paths.
-        if (!isAdminPath(sub)) {
-            for (String prefix : PUBLIC_PREFIXES) {
-                if (sub.startsWith(prefix)) {
-                    chain.doFilter(request, response);
-                    return;
-                }
-            }
+        if (isPublicPath(sub)) {
+            chain.doFilter(request, response);
+            return;
         }
 
         // ── All other endpoints (including ALL admin/**) require a valid Bearer JWT ──

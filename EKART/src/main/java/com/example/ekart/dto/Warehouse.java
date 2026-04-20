@@ -17,6 +17,8 @@ import jakarta.persistence.*;
 @Table(name = "warehouse")
 public class Warehouse {
 
+    private static final Random RANDOM = new Random();
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
@@ -178,17 +180,13 @@ public class Warehouse {
 
     /** Generate a random 8-digit numeric string for warehouse login ID. */
     public static String generateLoginId() {
-        Random rng = new Random();
-        int num = 10000000 + rng.nextInt(90000000);
+        int num = 10000000 + RANDOM.nextInt(90000000);
         return String.valueOf(num);
     }
 
     /** Generate a random 6-digit numeric string for warehouse login password. */
     public static String generateLoginPassword() {
-        Random rng = new Random();
-        int num = 100000 + rng.nextInt(900000);
+        int num = 100000 + RANDOM.nextInt(900000);
         return String.valueOf(num);
     }
 }
-
-
