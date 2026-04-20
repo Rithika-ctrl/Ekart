@@ -59,11 +59,17 @@ import com.example.ekart.repository.OrderRepository;
 public class WarehouseController {
 
     private static final Logger logger = LoggerFactory.getLogger(WarehouseController.class);
+    private static final String WAREHOUSE_KEY = "warehouse";
+    private static final String QUEUE_COUNT_KEY = "queue_count";
+    private static final String ORDER_KEY = "order";
     private static final String ORDERS_KEY = "orders";
     private static final String ROUTING_PATH_KEY = "routingPath";
     private static final String CURRENT_STATUS_KEY = "current_status";
     private static final String ORDER_ID_KEY = "orderId";
     private static final String DELIVERY_BOY_ID_KEY = "deliveryBoyId";
+    private static final String WAREHOUSE_STAFF_ID_KEY = "warehouse_staff_id";
+    private static final String TRANSFER_LEG_KEY = "transfer_leg";
+    private static final String DESCRIPTION_KEY = "description";
     private static final Random RANDOM = new Random();
 
     // ── Injected dependencies ────────────────────────────────────────────────
@@ -116,7 +122,7 @@ public class WarehouseController {
      * @return List of orders in receiving queue
      */
     @GetMapping("/{warehouseId}/receiving-queue")
-    public ResponseEntity<Object> getReceivingQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Map<String, Object>> getReceivingQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -127,8 +133,8 @@ public class WarehouseController {
             List<Order> receivingQueue = warehouseReceivingService.getReceivingQueue(warehouseId);
             
             return ResponseEntity.ok(Map.of(
-                "warehouse", warehouse.get().getName(),
-                "queue_count", receivingQueue.size(),
+                WAREHOUSE_KEY, warehouse.get().getName(),
+                QUEUE_COUNT_KEY, receivingQueue.size(),
                 ORDERS_KEY, receivingQueue
             ));
         } catch (Exception e) {
@@ -147,7 +153,7 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/receive")
-    public ResponseEntity<Object> markOrderReceived(
+    public ResponseEntity<Map<String, Object>> markOrderReceived(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestParam(required = false) String description) {
@@ -164,7 +170,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Order marked as received",
-                "order", updated
+                ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -184,7 +190,7 @@ public class WarehouseController {
      * @return List of orders in preparation queue
      */
     @GetMapping("/{warehouseId}/preparation-queue")
-    public ResponseEntity<Object> getPreparationQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Map<String, Object>> getPreparationQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -195,8 +201,8 @@ public class WarehouseController {
             List<Order> prepQueue = warehouseReceivingService.getOrdersAwaitingPreparation(warehouseId);
             
             return ResponseEntity.ok(Map.of(
-                "warehouse", warehouse.get().getName(),
-                "queue_count", prepQueue.size(),
+                WAREHOUSE_KEY, warehouse.get().getName(),
+                QUEUE_COUNT_KEY, prepQueue.size(),
                 ORDERS_KEY, prepQueue
             ));
         } catch (Exception e) {
@@ -215,7 +221,7 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/prepare")
-    public ResponseEntity<Object> markOrderPrepared(
+    public ResponseEntity<Map<String, Object>> markOrderPrepared(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestParam(required = false) String description) {
@@ -230,7 +236,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Order prepared for delivery",
-                "order", updated
+                ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -250,7 +256,7 @@ public class WarehouseController {
      * @return List of orders in assignment queue
      */
     @GetMapping("/{warehouseId}/assignment-queue")
-    public ResponseEntity<Object> getAssignmentQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Map<String, Object>> getAssignmentQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -279,7 +285,7 @@ public class WarehouseController {
      * @return List of available delivery boys with current load
      */
     @GetMapping("/{warehouseId}/available-delivery-boys")
-    public ResponseEntity<Object> getAvailableDeliveryBoys(@PathVariable int warehouseId) {
+    public ResponseEntity<Map<String, Object>> getAvailableDeliveryBoys(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -325,14 +331,14 @@ public class WarehouseController {
      * @return Updated order or error
      */
     @PostMapping("/{warehouseId}/order/{orderId}/assign-delivery-boy")
-    public ResponseEntity<Object> assignDeliveryBoy(
+    public ResponseEntity<Map<String, Object>> assignDeliveryBoy(
             @PathVariable int warehouseId,
             @PathVariable int orderId,
             @RequestBody Map<String, Object> request) {
         try {
             Integer deliveryBoyId = ((Number) request.get("delivery_boy_id")).intValue();
-            Integer staffId = request.get("warehouse_staff_id") != null 
-                ? ((Number) request.get("warehouse_staff_id")).intValue() 
+            Integer staffId = request.get(WAREHOUSE_STAFF_ID_KEY) != null 
+                ? ((Number) request.get(WAREHOUSE_STAFF_ID_KEY)).intValue() 
                 : null;
             String notes = (String) request.get("notes");
 
@@ -348,7 +354,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Delivery boy assigned successfully",
-                "order", updated
+                ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -368,7 +374,7 @@ public class WarehouseController {
      * @return List of pending transfer legs
      */
     @GetMapping("/{warehouseId}/transfer-queue")
-    public ResponseEntity<Object> getTransferQueue(@PathVariable int warehouseId) {
+    public ResponseEntity<Map<String, Object>> getTransferQueue(@PathVariable int warehouseId) {
         try {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
@@ -418,7 +424,7 @@ public class WarehouseController {
      * @return Transfer leg details
      */
     @GetMapping("/transfer-leg/{legId}")
-    public ResponseEntity<Object> getTransferLegDetails(@PathVariable int legId) {
+    public ResponseEntity<Map<String, Object>> getTransferLegDetails(@PathVariable int legId) {
         try {
             Optional<WarehouseTransferLeg> legOpt = warehouseTransferLegRepository.findById(legId);
             
@@ -429,7 +435,7 @@ public class WarehouseController {
 
             return ResponseEntity.ok(Map.of(
                 "status", "success",
-                "transfer_leg", legOpt.get()
+                TRANSFER_LEG_KEY, legOpt.get()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -446,11 +452,11 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-in-transit")
-    public ResponseEntity<Object> markTransferLegInTransit(
+    public ResponseEntity<Map<String, Object>> markTransferLegInTransit(
             @PathVariable int legId,
             @RequestBody(required = false) Map<String, String> request) {
         try {
-            String description = request != null ? request.get("description") : null;
+            String description = request != null ? request.get(DESCRIPTION_KEY) : null;
             
             WarehouseTransferLeg updated = warehouseTransferService.markLegInTransit(legId, description);
 
@@ -462,7 +468,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Transfer leg marked as in-transit",
-                "transfer_leg", updated
+                TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -479,11 +485,11 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-arrived")
-    public ResponseEntity<Object> markTransferLegArrived(
+    public ResponseEntity<Map<String, Object>> markTransferLegArrived(
             @PathVariable int legId,
             @RequestBody(required = false) Map<String, String> request) {
         try {
-            String description = request != null ? request.get("description") : null;
+            String description = request != null ? request.get(DESCRIPTION_KEY) : null;
             
             WarehouseTransferLeg updated = warehouseTransferService.markLegArrived(legId, description);
 
@@ -495,7 +501,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Transfer leg marked as arrived",
-                "transfer_leg", updated
+                TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -513,14 +519,14 @@ public class WarehouseController {
      * @return Updated transfer leg
      */
     @PostMapping("/transfer-leg/{legId}/mark-received")
-    public ResponseEntity<Object> markTransferLegReceived(
+    public ResponseEntity<Map<String, Object>> markTransferLegReceived(
             @PathVariable int legId,
             @RequestBody Map<String, Object> request) {
         try {
-            Integer staffId = request.get("warehouse_staff_id") != null 
-                ? ((Number) request.get("warehouse_staff_id")).intValue() 
+            Integer staffId = request.get(WAREHOUSE_STAFF_ID_KEY) != null 
+                ? ((Number) request.get(WAREHOUSE_STAFF_ID_KEY)).intValue() 
                 : null;
-            String description = (String) request.get("description");
+            String description = (String) request.get(DESCRIPTION_KEY);
             
             WarehouseTransferLeg updated = warehouseTransferService.markLegReceived(legId, staffId, description);
 
@@ -532,7 +538,7 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Transfer leg marked as received",
-                "transfer_leg", updated
+                TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -548,7 +554,7 @@ public class WarehouseController {
      * @return List of transfer legs with details
      */
     @GetMapping("/order/{orderId}/transfer-legs")
-    public ResponseEntity<Object> getOrderTransferLegs(@PathVariable int orderId) {
+    public ResponseEntity<Map<String, Object>> getOrderTransferLegs(@PathVariable int orderId) {
         try {
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
@@ -581,7 +587,7 @@ public class WarehouseController {
      * PREPARED_FOR_HUB_TRANSIT so it can be dispatched to next hub.
      */
     @PostMapping("/orders/{orderId}/prepare-transit")
-    public ResponseEntity<Object> prepareForTransit(
+    public ResponseEntity<Map<String, Object>> prepareForTransit(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -626,7 +632,7 @@ public class WarehouseController {
      * Status changes: PREPARED_FOR_HUB_TRANSIT → IN_HUB_TRANSIT
      */
     @PostMapping("/orders/{orderId}/mark-in-transit")
-    public ResponseEntity<Object> markInTransit(
+    public ResponseEntity<Map<String, Object>> markInTransit(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -673,7 +679,7 @@ public class WarehouseController {
      * - Final destination → ARRIVED_AT_DESTINATION_HUB (ready for delivery assignment)
      */
     @PostMapping("/orders/{orderId}/mark-arrived-intermediate")
-    public ResponseEntity<Object> markArrivedIntermediate(
+    public ResponseEntity<Map<String, Object>> markArrivedIntermediate(
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
@@ -733,7 +739,7 @@ public class WarehouseController {
      * Only returns orders with status ARRIVED_AT_DESTINATION_HUB.
      */
     @GetMapping("/assignment-queue")
-    public ResponseEntity<Object> warehouseAssignmentQueue(HttpServletRequest request) {
+    public ResponseEntity<Map<String, Object>> warehouseAssignmentQueue(HttpServletRequest request) {
         try {
             Integer warehouseId = (Integer) request.getAttribute("warehouseId");
             if (warehouseId == null) {
@@ -844,7 +850,7 @@ public class WarehouseController {
      * Request body: { "deliveryBoyId": 5 }
      */
     @PostMapping("/orders/{orderId}/assign-delivery-boy")
-    public ResponseEntity<Object> assignDeliveryBoy(
+    public ResponseEntity<Map<String, Object>> assignDeliveryBoy(
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
