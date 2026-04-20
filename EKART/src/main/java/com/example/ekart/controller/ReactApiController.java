@@ -100,6 +100,7 @@ public class ReactApiController {
     private static final String KEY_DELIVERY_BOY_NAME = "deliveryBoyName";
     private static final String KEY_EMAIL = "email";
     private static final String KEY_ERROR = "error";
+    private static final String KEY_STATUS_DISPLAY = "statusDisplay";
     private static final String KEY_SUCCESS = "success";
     private static final String KEY_ESTIMATED_DELIVERY = "estimatedDelivery";
     private static final String KEY_IMAGE_LINK = "imageLink";
@@ -2555,7 +2556,7 @@ public class ReactApiController {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_ORDER_ID, orderId);
             res.put("status", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
-            res.put("statusDisplay", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "Unknown");
+            res.put(KEY_STATUS_DISPLAY, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "Unknown");
             res.put("paymentMethod", order.getPaymentMethod());
             res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
             res.put(KEY_ROUTING_PATH, order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
@@ -5040,7 +5041,7 @@ public class ReactApiController {
                     m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
                     m.put("reason",          r.getReason());
                     m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
-                    m.put("statusDisplay",   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
+                    m.put(KEY_STATUS_DISPLAY,   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
                     m.put("requestedAt",     r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                     m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
                     m.put("processedBy",     r.getProcessedBy());
@@ -7637,7 +7638,7 @@ public class ReactApiController {
         Map<String, Object> m = new HashMap<>();
         m.put("id",              o.getId());
         m.put("status",          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
-        m.put("statusDisplay",   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
+        m.put(KEY_STATUS_DISPLAY,   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
         m.put("currentCity",     o.getCurrentCity());
         m.put("deliveryAddress", o.getDeliveryAddress());
         m.put(KEY_TOTAL_AMOUNT,     o.getAmount());
@@ -8523,7 +8524,7 @@ public class ReactApiController {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", o.getId());
                 m.put("status", o.getTrackingStatus());
-                m.put("statusDisplay", o.getTrackingStatus().getDisplayName());
+                m.put(KEY_STATUS_DISPLAY, o.getTrackingStatus().getDisplayName());
                 m.put("deliveryAddress", o.getDeliveryAddress());
                 m.put("deliveryPinCode", o.getDeliveryPinCode());
                 m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
