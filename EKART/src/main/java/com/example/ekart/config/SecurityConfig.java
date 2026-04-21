@@ -8,6 +8,7 @@ package com.example.ekart.config;
 // ================================================================
 
 import com.example.ekart.service.CustomOAuth2UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -27,23 +28,14 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // ── Injected dependencies ────────────────────────────────────────────────
-    private final CustomOAuth2UserService customOAuth2UserService;
-    private final ReactAuthFilter reactAuthFilter;
-    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    @Autowired
+    private CustomOAuth2UserService customOAuth2UserService;
 
-    public SecurityConfig(
-            CustomOAuth2UserService customOAuth2UserService,
-            ReactAuthFilter reactAuthFilter,
-            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
-        this.customOAuth2UserService = customOAuth2UserService;
-        this.reactAuthFilter = reactAuthFilter;
-        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
-    }
+    @Autowired
+    private ReactAuthFilter reactAuthFilter;
 
-
-
-
+    @Autowired
+    private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     /**
      * CHAIN 1 — Handles all REST API requests (/api/react/** and deprecated /api/flutter/**).
@@ -59,13 +51,19 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain reactApiFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/react/**", "/api/flutter/**")
+            .securityMatcher("/api/react/**", "/api/flutter/**", "/api/search/**", "/api/geocode/**", "/api/check-pincode")
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Deprecated Flutter API remains explicit for compatibility.
                 .requestMatchers("/api/flutter/**").permitAll()
+
+                // Search endpoints — public (used by Flutter and React without auth).
+                .requestMatchers("/api/search/**").permitAll()
+
+                // Geocoding + PIN check — public (Flutter PIN detection, no auth needed).
+                .requestMatchers("/api/geocode/**", "/api/check-pincode").permitAll()
 
                 // React public endpoints.
                 .requestMatchers(
@@ -78,7 +76,6 @@ public class SecurityConfig {
 
                 // Role-based React API protection.
                 .requestMatchers("/api/react/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/react/warehouse/**").hasRole("WAREHOUSE")
                 .requestMatchers("/api/react/vendor/**").hasRole("VENDOR")
                 .requestMatchers("/api/react/delivery/**").hasRole("DELIVERY")
 
