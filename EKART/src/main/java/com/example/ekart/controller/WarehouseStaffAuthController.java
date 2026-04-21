@@ -3,13 +3,11 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.WarehouseStaff;
 import com.example.ekart.service.WarehouseStaffService;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -209,7 +207,7 @@ public class WarehouseStaffAuthController {
         }
 
         try {
-            Map<String, Object> dashboard = new LinkedHashMap<>();
+            var dashboard = new LinkedHashMap<String, Object>();
             dashboard.put(STAFF_ID_KEY, staff.getId());
             dashboard.put("staff_name", staff.getName());
             dashboard.put("email", staff.getEmail());
@@ -251,7 +249,7 @@ public class WarehouseStaffAuthController {
         }
 
         try {
-            List<WarehouseStaff> staffList = staffService.getActiveStaffByWarehouse(warehouse_id);
+            var staffList = staffService.getActiveStaffByWarehouse(warehouse_id);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put(SUCCESS_KEY, true);

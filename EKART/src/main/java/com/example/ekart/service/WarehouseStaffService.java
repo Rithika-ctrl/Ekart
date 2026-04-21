@@ -11,7 +11,6 @@ import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.WarehouseStaffRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -336,7 +335,7 @@ public class WarehouseStaffService {
      * @param staffId Staff ID
      */
     public void deactivateStaff(int staffId) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setActive(false);
             staffRepository.save(staff);
@@ -349,7 +348,7 @@ public class WarehouseStaffService {
      * @param staffId Staff ID
      */
     public void reactivateStaff(int staffId) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setActive(true);
             staffRepository.save(staff);
@@ -363,7 +362,7 @@ public class WarehouseStaffService {
      * @param newRole New role (WAREHOUSE_STAFF or WAREHOUSE_MANAGER)
      */
     public void updateStaffRole(int staffId, String newRole) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setRole(newRole);
             staff.setUpdatedAt(LocalDateTime.now());
