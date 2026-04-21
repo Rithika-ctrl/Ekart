@@ -1,5 +1,4 @@
 package com.example.ekart.service;
-import java.util.Random;
 
 // ================================================================
 // LOCATION: src/main/java/com/example/ekart/service/VendorService.java
@@ -16,7 +15,8 @@ import com.example.ekart.helper.PinCodeValidator;
 import java.io.IOException;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
@@ -51,6 +51,13 @@ import com.example.ekart.dto.Item;
 @Service
 @Transactional
 public class VendorService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(VendorService.class);
+
+	private static final String REDIRECT_VENDOR_LOGIN = "redirect:/vendor/login";
+	private static final String REDIRECT_VENDOR_HOME = "redirect:/vendor/home";
+	private static final String REDIRECT_VENDOR_STOREFRONT = "redirect:/vendor/store-front";
+	private static final String LOGIN_FIRST = "Login First";
 
     /**
      * Groups all VendorService dependencies into a single injectable object,
@@ -160,7 +167,7 @@ public class VendorService {
 			// Send plain OTP to email (never stored in plain text)
 			emailSender.sendVendorOtpSecure(vendor, plainOtp);
 		} catch (Exception e) {
-			System.err.println("Vendor OTP email failed: " + e.getMessage());
+			LOGGER.warn("Vendor OTP email failed: {}", e.getMessage(), e);
 		}
 
 		session.setAttribute("success", "OTP Sent Successfully to your email");
@@ -199,12 +206,12 @@ public class VendorService {
 
 		if (vendor == null) {
 			session.setAttribute("failure", "Invalid Email");
-			return "redirect:/vendor/login";
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		if (!AES.decrypt(vendor.getPassword()).equals(password)) {
 			session.setAttribute("failure", "Invalid Password");
-			return "redirect:/vendor/login";
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		if (!vendor.isVerified()) {
@@ -214,7 +221,7 @@ public class VendorService {
 				String plainOtp = otpService.resendOtp(vendor.getEmail(), OtpService.PURPOSE_VENDOR_REGISTER);
 				emailSender.sendVendorOtpSecure(vendor, plainOtp);
 			} catch (Exception e) {
-				System.err.println("Vendor OTP resend email failed: " + e.getMessage());
+				LOGGER.warn("Vendor OTP resend email failed: {}", e.getMessage(), e);
 			}
 
 			session.setAttribute("success", "OTP Sent to your email. Please verify first.");
@@ -223,7 +230,7 @@ public class VendorService {
 
 		session.setAttribute("vendor", vendor);
 		session.setAttribute("success", "Login Successful");
-		return "redirect:/vendor/home";
+		return REDIRECT_VENDOR_HOME;
 	}
 
 	public String loadForgotPasswordPage() {
@@ -242,7 +249,7 @@ public class VendorService {
 			String plainOtp = otpService.generateAndStoreOtp(vendor.getEmail(), OtpService.PURPOSE_PASSWORD_RESET);
 			emailSender.sendVendorOtpSecure(vendor, plainOtp);
 		} catch (Exception e) {
-			System.err.println("Vendor password reset OTP email failed: " + e.getMessage());
+			LOGGER.warn("Vendor password reset OTP email failed: {}", e.getMessage(), e);
 		}
 
 		session.setAttribute("success", "OTP sent to your registered email");
@@ -284,7 +291,7 @@ public class VendorService {
 		vendorRepository.save(vendor);
 
 		session.setAttribute("success", "Password reset successful. Please login");
-		return "redirect:/vendor/login";
+		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	// ---------------- HOME ----------------
@@ -292,14 +299,14 @@ public class VendorService {
 		if (session.getAttribute("vendor") != null)
 			return "vendor-home.html";
 
-		session.setAttribute("failure", "Login First");
-		return "redirect:/vendor/login";
+		session.setAttribute("failure", LOGIN_FIRST);
+		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	public String loadHome(HttpSession session, ModelMap map) {
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -313,8 +320,8 @@ public class VendorService {
 	public String loadStoreFront(HttpSession session, ModelMap map) {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
@@ -334,19 +341,19 @@ public class VendorService {
 	public String updateStoreFront(String name, long mobile, HttpSession session) {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		String updatedName = name == null ? "" : name.trim();
 		if (updatedName.length() < 5 || updatedName.length() > 30) {
 			session.setAttribute("failure", "Name must be between 5 and 30 characters");
-			return "redirect:/vendor/store-front";
+			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
 		if (mobile < 6000000000L || mobile > 9999999999L) {
 			session.setAttribute("failure", "Enter a valid mobile number");
-			return "redirect:/vendor/store-front";
+			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
 		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
@@ -355,7 +362,7 @@ public class VendorService {
 		Vendor existingMobileVendor = vendorRepository.findByMobile(mobile);
 		if (existingMobileVendor != null && existingMobileVendor.getId() != vendor.getId()) {
 			session.setAttribute("failure", "Mobile number already exists");
-			return "redirect:/vendor/store-front";
+			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
 		vendor.setName(updatedName);
@@ -364,7 +371,7 @@ public class VendorService {
 		session.setAttribute("vendor", vendor);
 
 		session.setAttribute("success", "Vendor profile updated successfully");
-		return "redirect:/vendor/store-front";
+		return REDIRECT_VENDOR_STOREFRONT;
 	}
 
 	// ---------------- ADD PRODUCT ----------------
@@ -372,15 +379,15 @@ public class VendorService {
 		if (session.getAttribute("vendor") != null)
 			return "add-product.html";
 
-		session.setAttribute("failure", "Login First");
-		return "redirect:/vendor/login";
+		session.setAttribute("failure", LOGIN_FIRST);
+		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	public String laodAddProduct(Product product, HttpSession session) throws IOException {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -409,13 +416,13 @@ public class VendorService {
 				try {
 					product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
 				} catch (Exception videoEx) {
-					System.err.println("Video upload failed (skipped): " + videoEx.getMessage());
+					LOGGER.warn("Video upload failed (skipped): {}", videoEx.getMessage(), videoEx);
 					session.setAttribute("warning", "Product saved but video upload failed. You can add a video later by editing the product.");
 				}
 			}
 
 		} catch (Exception e) {
-			System.err.println("Cloudinary upload error: " + e.getMessage());
+			LOGGER.error("Cloudinary upload error: {}", e.getMessage(), e);
 			session.setAttribute("failure", "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
 			return "redirect:/add-product";
 		}
@@ -424,15 +431,15 @@ public class VendorService {
 		stockAlertService.checkStockLevel(product);
 
 		session.setAttribute("success", "Product added successfully! Waiting for admin approval.");
-		return "redirect:/vendor/home";
+		return REDIRECT_VENDOR_HOME;
 	}
 
 	// ---------------- MANAGE PRODUCTS ----------------
 	public String manageProducts(HttpSession session, ModelMap map) {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -445,8 +452,8 @@ public class VendorService {
 	// ---------------- DELETE PRODUCT ----------------
 	public String delete(int id, HttpSession session) {
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -472,8 +479,8 @@ public class VendorService {
 	public String editProduct(int id, ModelMap map, HttpSession session) {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -492,8 +499,8 @@ public class VendorService {
 	public String updateProduct(Product product, HttpSession session) throws IOException {
 
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
@@ -565,8 +572,8 @@ public class VendorService {
 	public String loadVendorOrders(HttpSession session, ModelMap map) {
 		Vendor vendor = (Vendor) session.getAttribute("vendor");
 		if (vendor == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/vendor/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
@@ -606,7 +613,7 @@ public class VendorService {
 		try {
 			Vendor vendor = (Vendor) session.getAttribute("vendor");
 			if (vendor == null) {
-				res.put("success", false); res.put("message", "Login first");
+				res.put("success", false); res.put("message", LOGIN_FIRST);
 				return ResponseEntity.status(401).body(res);
 			}
 
@@ -631,7 +638,7 @@ public class VendorService {
 					city = order.getCurrentCity();
 				}
 			} catch (Exception lazyEx) {
-				System.err.println("[VendorService] Warehouse lazy load (non-fatal): " + lazyEx.getMessage());
+				LOGGER.warn("[VendorService] Warehouse lazy load (non-fatal): {}", lazyEx.getMessage(), lazyEx);
 			}
 
 			order.setTrackingStatus(TrackingStatus.PACKED);
@@ -647,7 +654,7 @@ public class VendorService {
 				);
 				trackingEventLogRepository.save(log);
 			} catch (Exception logEx) {
-				System.err.println("[VendorService] TrackingEventLog save (non-fatal): " + logEx.getMessage());
+				LOGGER.warn("[VendorService] TrackingEventLog save (non-fatal): {}", logEx.getMessage(), logEx);
 			}
 
 			res.put("success", true);
@@ -655,7 +662,7 @@ public class VendorService {
 			return ResponseEntity.ok(res);
 
 		} catch (Exception e) {
-			System.err.println("[VendorService] markOrderReady error: " + e.getMessage());
+			LOGGER.error("[VendorService] markOrderReady error: {}", e.getMessage(), e);
 			res.put("success", false);
 			res.put("message", "Server error: " + e.getMessage());
 			return ResponseEntity.ok(res);
@@ -667,8 +674,8 @@ public class VendorService {
     public String loadSalesReport(HttpSession session, org.springframework.ui.ModelMap map) {
         Vendor vendor = (Vendor) session.getAttribute("vendor");
         if (vendor == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/vendor/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_VENDOR_LOGIN;
         }
 
         int vendorId = vendor.getId();
@@ -774,7 +781,7 @@ public class VendorService {
 
             salesReportRepository.save(report);
         } catch (Exception e) {
-            System.err.println("Failed to save SalesReport: " + e.getMessage());
+			LOGGER.warn("Failed to save SalesReport: {}", e.getMessage(), e);
         }
     }
 
@@ -825,7 +832,7 @@ public class VendorService {
                 reportingService.recordOrder(order);
                 synced++;
             } catch (Exception e) {
-                System.err.println("[Sync] Failed order " + order.getId() + ": " + e.getMessage());
+				LOGGER.warn("[Sync] Failed order {}: {}", order.getId(), e.getMessage(), e);
             }
         }
 

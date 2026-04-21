@@ -1,5 +1,4 @@
 package com.example.ekart.controller;
-import java.util.stream.Collectors;
 
 import com.example.ekart.dto.Review;
 import com.example.ekart.repository.ReviewRepository;
@@ -59,7 +58,7 @@ public class AdminReviewController {
                 int starFilter = Integer.parseInt(filter);
                 filtered = filtered.stream()
                         .filter(r -> r.getRating() == starFilter)
-                        .collect(Collectors.toList());
+                        .toList();
             } catch (NumberFormatException ignored) {}
         }
 
@@ -70,7 +69,7 @@ public class AdminReviewController {
                     .filter(r -> (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q))
                               || (r.getComment() != null && r.getComment().toLowerCase().contains(q))
                               || (r.getProduct() != null && r.getProduct().getName().toLowerCase().contains(q)))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // ── Sort newest first ─────────────────────────────────────────
@@ -163,7 +162,7 @@ public class AdminReviewController {
             List<Review> toDelete = reviewRepository.findAll().stream()
                     .filter(r -> r.getProduct() != null
                               && r.getProduct().getName().equalsIgnoreCase(productName))
-                    .collect(Collectors.toList());
+                    .toList();
             reviewRepository.deleteAll(toDelete);
             session.setAttribute("success", "Deleted " + toDelete.size() + " reviews for \"" + productName + "\"");
         } catch (Exception e) {
@@ -172,3 +171,4 @@ public class AdminReviewController {
         return "redirect:/admin/reviews";
     }
 }
+

@@ -1,5 +1,4 @@
 package com.example.ekart.controller;
-import java.util.stream.Collectors;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/controller/SettlementController.java
@@ -21,7 +20,6 @@ import java.util.stream.Collectors;
 import com.example.ekart.dto.*;
 import com.example.ekart.service.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -187,7 +185,7 @@ public class SettlementController {
                         settlement.put(KEY_STATUS, s.getSettlementStatus());
                         return settlement;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_COUNT, settlementList.size());
@@ -497,4 +495,5 @@ public class SettlementController {
         }
     }
 }
+
 

@@ -71,7 +71,7 @@ public class RecentlyViewedController {
                     .map(Integer::parseInt)
                     .distinct()
                     .limit(MAX_RECENTLY_VIEWED)
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (productIds.isEmpty()) {
                 return ResponseEntity.ok(new ArrayList<>());
@@ -89,7 +89,7 @@ public class RecentlyViewedController {
                             p.getPrice(),
                             p.getImageLink(),
                             p.getStock()))
-                    .collect(Collectors.toList());
+                    .toList();
 
             return ResponseEntity.ok(summaries);
 
@@ -122,7 +122,7 @@ public class RecentlyViewedController {
             Set<Integer> uniqueIds = new LinkedHashSet<>(productIds);
             List<Integer> limitedIds = uniqueIds.stream()
                     .limit(MAX_RECENTLY_VIEWED)
-                    .collect(Collectors.toList());
+                    .toList();
 
             // Store as comma-separated string in customer profile
             String idsString = limitedIds.stream()
@@ -167,7 +167,7 @@ public class RecentlyViewedController {
                             .map(String::trim)
                             .filter(s -> !s.isEmpty())
                             .map(Integer::parseInt)
-                            .collect(Collectors.toList());
+                            .toList();
                     return ResponseEntity.ok(Map.of("productIds", productIds));
                 }
             }
@@ -217,5 +217,6 @@ public class RecentlyViewedController {
         public void setProductIds(List<Integer> productIds) { this.productIds = productIds; }
     }
 }
+
 
 

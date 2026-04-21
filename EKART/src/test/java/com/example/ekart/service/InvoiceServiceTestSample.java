@@ -9,6 +9,8 @@ import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Order;
 import com.example.ekart.dto.TrackingStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * InvoiceServiceTestSample.java - Sample Invoice PDF Generator
@@ -25,6 +27,8 @@ import com.example.ekart.dto.TrackingStatus;
  */
 public class InvoiceServiceTestSample {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(InvoiceServiceTestSample.class);
+
     public static void main(String[] args) throws Exception {
         generateSampleInvoice();
     }
@@ -33,9 +37,9 @@ public class InvoiceServiceTestSample {
      * Generates a sample DELIVERED order invoice and saves as PDF.
      */
     private static void generateSampleInvoice() throws Exception {
-        System.out.println("\n" + "=".repeat(70));
-        System.out.println("🔄 Generating sample invoice PDF...");
-        System.out.println("=".repeat(70));
+        LOGGER.info("\n{}", "=".repeat(70));
+        LOGGER.info("🔄 Generating sample invoice PDF...");
+        LOGGER.info("{}", "=".repeat(70));
 
         try {
             // ─── Create Sample Customer ────────────────────────
@@ -85,38 +89,37 @@ public class InvoiceServiceTestSample {
             }
 
             // ─── Success Output ────────────────────────────────
-            System.out.println("\n✅ SUCCESS! Sample invoice PDF generated!");
-            System.out.println("-".repeat(70));
-            System.out.println("📄 File Location: " + new java.io.File(filePath).getAbsolutePath());
-            System.out.println("📊 Invoice Number: " + order.getId());
-            System.out.println("👤 Customer Name: " + customer.getName());
-            System.out.println("📧 Email: " + customer.getEmail());
-            System.out.println("📦 Items Count: " + items.size());
-            System.out.println("💰 Subtotal: ₹" + String.format("%.2f", order.getAmount()));
-            System.out.println("🏷️  GST Amount: ₹" + String.format("%.2f", order.getGstAmount()));
-            System.out.println("🚚 Delivery Charge: ₹" + String.format("%.2f", order.getDeliveryCharge()));
-            System.out.println("💳 Total Amount: ₹" + String.format("%.2f", order.getTotalPrice()));
-            System.out.println("📅 Order Date: " + order.getOrderDate());
-            System.out.println("🔄 Status: " + order.getTrackingStatus());
-            System.out.println("-".repeat(70));
-            System.out.println("\n✓ You can now open the PDF file at:");
-            System.out.println("  " + new java.io.File(filePath).getAbsolutePath());
-            System.out.println("\n✓ The invoice includes:");
-            System.out.println("  • Professional EKART branding");
-            System.out.println("  • Invoice number and date");
-            System.out.println("  • Customer and delivery address");
-            System.out.println("  • Item-wise breakdown with quantities and prices");
-            System.out.println("  • GST calculations per category");
-            System.out.println("  • Payment method and order status");
-            System.out.println("  • Order totals with delivery charges");
-            System.out.println("=".repeat(70) + "\n");
+            LOGGER.info("\n✅ SUCCESS! Sample invoice PDF generated!");
+            LOGGER.info("{}", "-".repeat(70));
+            LOGGER.info("📄 File Location: {}", new java.io.File(filePath).getAbsolutePath());
+            LOGGER.info("📊 Invoice Number: {}", order.getId());
+            LOGGER.info("👤 Customer Name: {}", customer.getName());
+            LOGGER.info("📧 Email: {}", customer.getEmail());
+            LOGGER.info("📦 Items Count: {}", items.size());
+            LOGGER.info("💰 Subtotal: ₹{}", String.format("%.2f", order.getAmount()));
+            LOGGER.info("🏷️  GST Amount: ₹{}", String.format("%.2f", order.getGstAmount()));
+            LOGGER.info("🚚 Delivery Charge: ₹{}", String.format("%.2f", order.getDeliveryCharge()));
+            LOGGER.info("💳 Total Amount: ₹{}", String.format("%.2f", order.getTotalPrice()));
+            LOGGER.info("📅 Order Date: {}", order.getOrderDate());
+            LOGGER.info("🔄 Status: {}", order.getTrackingStatus());
+            LOGGER.info("{}", "-".repeat(70));
+            LOGGER.info("\n✓ You can now open the PDF file at:");
+            LOGGER.info("  {}", new java.io.File(filePath).getAbsolutePath());
+            LOGGER.info("\n✓ The invoice includes:");
+            LOGGER.info("  • Professional EKART branding");
+            LOGGER.info("  • Invoice number and date");
+            LOGGER.info("  • Customer and delivery address");
+            LOGGER.info("  • Item-wise breakdown with quantities and prices");
+            LOGGER.info("  • GST calculations per category");
+            LOGGER.info("  • Payment method and order status");
+            LOGGER.info("  • Order totals with delivery charges");
+            LOGGER.info("{}\n", "=".repeat(70));
 
         } catch (Exception e) {
-            System.err.println("\n❌ ERROR! Failed to generate invoice:");
-            System.err.println("Message: " + e.getMessage());
-            System.err.println("\nStack Trace:");
-            e.printStackTrace();
-            System.err.println("=".repeat(70) + "\n");
+            LOGGER.error("\n❌ ERROR! Failed to generate invoice:");
+            LOGGER.error("Message: {}", e.getMessage());
+            LOGGER.error("\nStack Trace:", e);
+            LOGGER.error("{}\n", "=".repeat(70));
             throw e;
         }
     }

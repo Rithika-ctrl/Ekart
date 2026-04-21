@@ -1,7 +1,6 @@
 package com.example.ekart.controller;
 import com.example.ekart.dto.Address;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -10,7 +9,6 @@ import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -159,7 +157,7 @@ public class ChatController {
                         if (b.getOrderDate() == null) return -1;
                         return b.getOrderDate().compareTo(a.getOrderDate());
                     });
-                    List<Order> recent = orders.stream().limit(10).collect(Collectors.toList());
+                    List<Order> recent = orders.stream().limit(10).toList();
                     ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
                        .append(recent.size()).append("):\n");
                     for (Order o : recent) {
@@ -187,7 +185,7 @@ public class ChatController {
                 List<Refund> refunds = refundRepository.findByCustomer(c);
                 List<Refund> pendingRefunds = refunds.stream()
                         .filter(r -> r.getStatus() == RefundStatus.PENDING)
-                        .collect(Collectors.toList());
+                        .toList();
                 if (!pendingRefunds.isEmpty()) {
                     ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
                     for (Refund r : pendingRefunds) {
@@ -233,10 +231,10 @@ public class ChatController {
                     // Show low-stock products first
                     List<Product> lowStock = products.stream()
                             .filter(p -> p.getStock() <= (p.getStockAlertThreshold() != null ? p.getStockAlertThreshold() : 10))
-                            .collect(Collectors.toList());
+                            .toList();
                     if (!lowStock.isEmpty()) {
                         ctx.append("  LOW STOCK ALERT (").append(lowStock.size()).append(" products):\n");
-                        for (Product p : lowStock.stream().limit(5).collect(Collectors.toList())) {
+                        for (Product p : lowStock.stream().limit(5).toList()) {
                             ctx.append("    - ").append(p.getName())
                                .append(" | Stock: ").append(p.getStock())
                                .append(" | ₹").append(String.format("%.0f", p.getPrice())).append("\n");
@@ -244,7 +242,7 @@ public class ChatController {
                     }
                     // Recent products
                     ctx.append("  RECENT PRODUCTS (up to 10):\n");
-                    for (Product p : products.stream().limit(10).collect(Collectors.toList())) {
+                    for (Product p : products.stream().limit(10).toList()) {
                         ctx.append("    - [").append(p.isApproved() ? "LIVE" : "PENDING").append("] ")
                            .append(p.getName())
                            .append(" | ₹").append(String.format("%.0f", p.getPrice()))
@@ -273,7 +271,7 @@ public class ChatController {
                        .append(pendingOrders).append(" pending | Total revenue: ₹")
                        .append(String.format("%.0f", totalRevenue)).append("\n");
                     ctx.append("  RECENT ORDERS (last 5):\n");
-                    for (Order o : vendorOrders.stream().limit(5).collect(Collectors.toList())) {
+                    for (Order o : vendorOrders.stream().limit(5).toList()) {
                         ctx.append("    Order #").append(o.getId())
                            .append(" | ₹").append(String.format("%.0f", o.getAmount()))
                            .append(" | ").append(o.getTrackingStatus().getDisplayName());
@@ -350,3 +348,4 @@ public class ChatController {
         return ctx.toString();
     }
 }
+

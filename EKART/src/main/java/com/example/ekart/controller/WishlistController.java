@@ -1,5 +1,4 @@
 package com.example.ekart.controller;
-import java.util.stream.Collectors;
 
 import java.util.HashMap;
 import java.util.List;
@@ -107,7 +106,7 @@ public class WishlistController {
                 item.put("category", p.getCategory());
                 return item;
             })
-            .collect(Collectors.toList());
+            .toList();
         
         return ResponseEntity.ok(Map.of(
             "success", true,
@@ -188,4 +187,5 @@ public class WishlistController {
         return "wishlist.html";
     }
 }
+
 

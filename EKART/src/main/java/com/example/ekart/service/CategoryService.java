@@ -39,6 +39,6 @@ public class CategoryService {
                 );
                 return parentCompare != 0 ? parentCompare : Integer.compare(a.getDisplayOrder(), b.getDisplayOrder());
             })
-            .collect(java.util.stream.Collectors.toList());
+            .toList();
     }
 }

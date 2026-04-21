@@ -1,8 +1,9 @@
 package com.example.ekart.controller;
-import com.example.ekart.dto.Address;
 
 import com.example.ekart.helper.PinCodeValidator;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +35,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/geocode")
 public class GeocodingController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GeocodingController.class);
 
     private static final int CONNECT_TIMEOUT = 4000; // 4 seconds
     private static final int READ_TIMEOUT    = 5000; // 5 seconds
@@ -177,7 +180,7 @@ public class GeocodingController {
                 return ResponseEntity.ok(res);
             }
         } catch (Exception e) {
-            System.err.println("[Geocoding] Nominatim failed: " + e.getMessage());
+            LOGGER.warn("[Geocoding] Nominatim failed: {}", e.getMessage(), e);
         }
 
         // ── Stage 2: BigDataCloud (free, no key) ──────────────────────────────
@@ -209,7 +212,7 @@ public class GeocodingController {
                 return ResponseEntity.ok(res);
             }
         } catch (Exception e) {
-            System.err.println("[Geocoding] BigDataCloud failed: " + e.getMessage());
+            LOGGER.warn("[Geocoding] BigDataCloud failed: {}", e.getMessage(), e);
         }
 
         // ── All APIs failed ───────────────────────────────────────────────────

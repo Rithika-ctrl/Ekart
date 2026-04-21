@@ -1,5 +1,4 @@
 package com.example.ekart.service;
-import java.util.stream.Collectors;
 
 import com.example.ekart.controller.SearchSuggestionDTO;
 import com.example.ekart.dto.Product;
@@ -34,7 +33,7 @@ public class SearchService {
                           || (p.getCategory() != null && p.getCategory().toLowerCase().contains(q)))
                 .limit(8)
                 .map(p -> new SearchSuggestionDTO(p.getName(), p.getCategory(), p.getImageLink(), 0L))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -120,3 +119,4 @@ public class SearchService {
         return dp[m][n];
     }
 }
+

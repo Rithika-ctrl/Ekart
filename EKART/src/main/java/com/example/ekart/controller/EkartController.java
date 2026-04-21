@@ -1,6 +1,4 @@
 package com.example.ekart.controller;
-import com.example.ekart.dto.Address;
-import java.util.Optional;
 
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
@@ -813,7 +811,7 @@ public class EkartController {
             res.put("success", false); res.put("message", "Unauthorized"); return res;
         }
         java.util.List<com.example.ekart.dto.Product> pending = productRepository.findAll()
-                .stream().filter(p -> !p.isApproved()).collect(java.util.stream.Collectors.toList());
+                .stream().filter(p -> !p.isApproved()).toList();
         pending.forEach(p -> p.setApproved(true));
         productRepository.saveAll(pending);
         res.put("success", true);
@@ -899,7 +897,7 @@ public class EkartController {
             List<com.example.ekart.dto.Order> delivered = orderRepository.findByCustomer(c)
                     .stream()
                     .filter(o -> o.getTrackingStatus() == com.example.ekart.dto.TrackingStatus.DELIVERED)
-                    .collect(java.util.stream.Collectors.toList());
+                    .toList();
 
             double totalSpent = delivered.stream()
                     .mapToDouble(com.example.ekart.dto.Order::getAmount).sum();
@@ -1035,4 +1033,5 @@ public class EkartController {
         return stockAlertService.acknowledgeAlert(id, session);
     }
 }
+
 

@@ -1,5 +1,4 @@
 package com.example.ekart.controller;
-import java.util.stream.Collectors;
 
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Review;
@@ -61,7 +60,7 @@ public class ProductApiController {
             found.addAll(productRepository.findByCategoryContainingIgnoreCase(q));
             products = found.stream()
                     .filter(Product::isApproved)
-                    .collect(Collectors.toList());
+                    .toList();
         } else if (!cat.isBlank()) {
             products = productRepository.findByCategoryAndApprovedTrue(cat);
         } else {
@@ -72,7 +71,7 @@ public class ProductApiController {
         res.put("count", products.size());
         res.put("products", products.stream()
                 .map(this::buildProductMap)
-                .collect(Collectors.toList()));
+                .toList());
         return ResponseEntity.ok(res);
     }
 
@@ -102,7 +101,7 @@ public class ProductApiController {
         // Add reviews
         List<Review> reviews = reviewRepository.findAll().stream()
                 .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+                .toList();
 
         double avgRating = reviews.stream()
                 .mapToInt(Review::getRating)
@@ -115,7 +114,7 @@ public class ProductApiController {
             rv.put("comment",      r.getComment());
             rv.put("customerName", r.getCustomerName());
             return rv;
-        }).collect(Collectors.toList()));
+        }).toList());
 
         p.put("avgRating",    Math.round(avgRating * 10.0) / 10.0);
         p.put("reviewCount",  reviews.size());
@@ -142,7 +141,7 @@ public class ProductApiController {
                 .filter(c -> c != null && !c.isBlank())
                 .distinct()
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
 
         res.put("success",    true);
         res.put("categories", categories);
@@ -166,3 +165,4 @@ public class ProductApiController {
         return m;
     }
 }
+

@@ -42,6 +42,22 @@ public class WarehouseStaffAuthController {
     private static final String WAREHOUSE_ID_KEY = "warehouse_id";
     private static final String ERROR_KEY = "error";
     private static final String SUCCESS_KEY = "success";
+    private static final String MESSAGE_KEY = "message";
+    private static final String STAFF_NAME_KEY = "staff_name";
+    private static final String ROLE_KEY = "role";
+    private static final String LAST_LOGIN_KEY = "last_login";
+    private static final String DATA_KEY = "data";
+    private static final String TOTAL_KEY = "total";
+    private static final String STAFF_KEY = "staff";
+    private static final String NAME_KEY = "name";
+    private static final String ID_KEY = "id";
+    private static final String VERIFIED_KEY = "verified";
+    private static final String ACTIVE_KEY = "active";
+    private static final String WAREHOUSE_NAME_KEY = "warehouse_name";
+    private static final String IS_MANAGER_KEY = "is_manager";
+    private static final String CREDENTIALS_SENT_TO_EMAIL_KEY = "credentials_sent_to_email";
+    private static final String NOT_LOGGED_IN_MESSAGE = "Not logged in";
+    private static final String STAFF_ID_REQUIRED_MESSAGE = "Staff ID is required";
 
     // ─────────────────────────────────────────────────────────────────────────
     // AUTHENTICATION
@@ -82,11 +98,11 @@ public class WarehouseStaffAuthController {
             // Response
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "message", "Login successful",
+                MESSAGE_KEY, "Login successful",
                 STAFF_ID_KEY, staff.getId(),
-                "staff_name", staff.getName(),
+                STAFF_NAME_KEY, staff.getName(),
                 WAREHOUSE_ID_KEY, staff.getWarehouseId(),
-                "role", staff.getRole()
+                ROLE_KEY, staff.getRole()
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -106,7 +122,7 @@ public class WarehouseStaffAuthController {
         staffService.clearStaffSession(session);
         return ResponseEntity.ok(Map.of(
             SUCCESS_KEY, true,
-            "message", "Logout successful"
+            MESSAGE_KEY, "Logout successful"
         ));
     }
 
@@ -139,7 +155,7 @@ public class WarehouseStaffAuthController {
 
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "message", "Email verified successfully. You can now login."
+                MESSAGE_KEY, "Email verified successfully. You can now login."
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -162,7 +178,7 @@ public class WarehouseStaffAuthController {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         String oldPassword = request.get("old_password");
@@ -182,7 +198,7 @@ public class WarehouseStaffAuthController {
 
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "message", "Password updated successfully"
+                MESSAGE_KEY, "Password updated successfully"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -203,23 +219,23 @@ public class WarehouseStaffAuthController {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         try {
             var dashboard = new LinkedHashMap<String, Object>();
             dashboard.put(STAFF_ID_KEY, staff.getId());
-            dashboard.put("staff_name", staff.getName());
-            dashboard.put("email", staff.getEmail());
+            dashboard.put(STAFF_NAME_KEY, staff.getName());
+            dashboard.put(EMAIL_KEY, staff.getEmail());
             dashboard.put(WAREHOUSE_ID_KEY, staff.getWarehouseId());
-            dashboard.put("warehouse_name", staff.getWarehouse().getName());
-            dashboard.put("role", staff.getRole());
-            dashboard.put("is_manager", staff.isManager());
-            dashboard.put("last_login", staff.getLastLogin());
+            dashboard.put(WAREHOUSE_NAME_KEY, staff.getWarehouse().getName());
+            dashboard.put(ROLE_KEY, staff.getRole());
+            dashboard.put(IS_MANAGER_KEY, staff.isManager());
+            dashboard.put(LAST_LOGIN_KEY, staff.getLastLogin());
 
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "data", dashboard
+                DATA_KEY, dashboard
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -239,7 +255,7 @@ public class WarehouseStaffAuthController {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         // Only managers can view staff list
@@ -253,17 +269,17 @@ public class WarehouseStaffAuthController {
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put(SUCCESS_KEY, true);
-            response.put("total", staffList.size());
-            response.put("staff", staffList.stream()
+            response.put(TOTAL_KEY, staffList.size());
+            response.put(STAFF_KEY, staffList.stream()
                 .map(s -> Map.of(
-                    "id", s.getId(),
-                    "name", s.getName(),
-                    "email", s.getEmail(),
+                    ID_KEY, s.getId(),
+                    NAME_KEY, s.getName(),
+                    EMAIL_KEY, s.getEmail(),
                     MOBILE_KEY, s.getMobile(),
-                    "role", s.getRole(),
-                    "verified", s.isVerified(),
-                    "active", s.isActive(),
-                    "last_login", s.getLastLogin() != null ? s.getLastLogin().toString() : "Never"
+                    ROLE_KEY, s.getRole(),
+                    VERIFIED_KEY, s.isVerified(),
+                    ACTIVE_KEY, s.isActive(),
+                    LAST_LOGIN_KEY, s.getLastLogin() != null ? s.getLastLogin().toString() : "Never"
                 ))
                 .toList());
 
@@ -295,7 +311,7 @@ public class WarehouseStaffAuthController {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         // Only managers can create staff
@@ -304,7 +320,7 @@ public class WarehouseStaffAuthController {
                 .body(Map.of(ERROR_KEY, "Only warehouse managers can create staff"));
         }
 
-        String name = (String) request.get("name");
+        String name = (String) request.get(NAME_KEY);
         String email = (String) request.get(EMAIL_KEY);
         String mobile = (String) request.get(MOBILE_KEY);
         Integer warehouseId = ((Number) request.get(WAREHOUSE_ID_KEY)).intValue();
@@ -323,14 +339,14 @@ public class WarehouseStaffAuthController {
             // Return credentials to admin (plain password for display)
             Map<String, Object> response = new LinkedHashMap<>();
             response.put(SUCCESS_KEY, true);
-            response.put("message", "Staff account created successfully");
+            response.put(MESSAGE_KEY, "Staff account created successfully");
             response.put(STAFF_ID_KEY, newStaff.getId());
             response.put(EMAIL_KEY, newStaff.getEmail());
             response.put(PASSWORD_KEY, plainPassword);  // Plain text password
-            response.put("name", newStaff.getName());
+            response.put(NAME_KEY, newStaff.getName());
             response.put(MOBILE_KEY, newStaff.getMobile());
-            response.put("role", newStaff.getRole());
-            response.put("credentials_sent_to_email", true);
+            response.put(ROLE_KEY, newStaff.getRole());
+            response.put(CREDENTIALS_SENT_TO_EMAIL_KEY, true);
 
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -356,7 +372,7 @@ public class WarehouseStaffAuthController {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         if (!currentStaff.isManager()) {
@@ -367,14 +383,14 @@ public class WarehouseStaffAuthController {
         Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Staff ID is required"));
+                .body(Map.of(ERROR_KEY, STAFF_ID_REQUIRED_MESSAGE));
         }
 
         try {
             staffService.deactivateStaff(staffId);
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "message", "Staff account deactivated"
+                MESSAGE_KEY, "Staff account deactivated"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -396,7 +412,7 @@ public class WarehouseStaffAuthController {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of(ERROR_KEY, "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         if (!currentStaff.isManager()) {
@@ -407,14 +423,14 @@ public class WarehouseStaffAuthController {
         Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Staff ID is required"));
+                .body(Map.of(ERROR_KEY, STAFF_ID_REQUIRED_MESSAGE));
         }
 
         try {
             staffService.reactivateStaff(staffId);
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
-                "message", "Staff account reactivated"
+                MESSAGE_KEY, "Staff account reactivated"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

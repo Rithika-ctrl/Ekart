@@ -28,6 +28,9 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminService {
 
+	private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+	private static final String LOGIN_FIRST = "Login First";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final AdminAuthService adminAuthService;
     private final ProductRepository productRepository;
@@ -89,7 +92,7 @@ public class AdminService {
 		
 		if (!authResult.isSuccess()) {
 			session.setAttribute("failure", authResult.getMessage());
-			return "redirect:/admin/login";
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Check if 2FA is required
@@ -115,16 +118,16 @@ public class AdminService {
 		if (session.getAttribute("admin") != null)
 			return "admin-home.html";
 
-		session.setAttribute("failure", "Login First");
-		return "redirect:/admin/login";
+		session.setAttribute("failure", LOGIN_FIRST);
+		return REDIRECT_ADMIN_LOGIN;
 	}
 
 	// ---------------- APPROVE PRODUCTS ----------------
 	public String approveProducts(HttpSession session, ModelMap map) {
 
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// 🔥 show all products (approved + unapproved)
@@ -143,8 +146,8 @@ public class AdminService {
 	public String changeStatus(int id, HttpSession session) {
 
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Product product = productRepository.findById(id).orElse(null);
@@ -165,8 +168,8 @@ public class AdminService {
 	// 🔥 SEARCH USERS/VENDORS
 	public String searchUsers(HttpSession session, org.springframework.ui.ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		java.util.List<Customer> customers = customerRepository.findAll();
@@ -208,8 +211,8 @@ public class AdminService {
 	@Transactional
 	public String deleteCustomer(int id, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Customer customer = customerRepository.findById(id).orElse(null);
@@ -241,8 +244,8 @@ public class AdminService {
 	@Transactional
 	public String deleteVendor(int id, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Vendor vendor = vendorRepository.findById(id).orElse(null);
@@ -255,7 +258,7 @@ public class AdminService {
 		//    Products remain on platform but become unowned — admin can then delete them separately
 		List<Product> products = productRepository.findAll().stream()
 				.filter(p -> p.getVendor() != null && p.getVendor().getId() == vendor.getId())
-				.collect(java.util.stream.Collectors.toList());
+				.toList();
 		for (Product p : products) {
 			p.setVendor(null);
 			p.setApproved(false);
@@ -272,8 +275,8 @@ public class AdminService {
 	// ============ REFUND MANAGEMENT ============
 	public String refundManagement(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Get all orders with replacement/refund requests
@@ -296,8 +299,8 @@ public class AdminService {
 
 	public String processRefund(int orderId, String action, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Order order = orderRepository.findById(orderId).orElse(null);
@@ -327,8 +330,8 @@ public class AdminService {
 	// ============ CONTENT MANAGEMENT ============
 	public String contentManagement(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("bannerTitle", bannerTitle);
@@ -343,8 +346,8 @@ public class AdminService {
 
 	public String updateBanner(String title, String subtitle, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 		// Update instance fields (survives current session; restart resets to .properties defaults)
 		this.bannerTitle = (title != null && !title.isBlank()) ? title : this.bannerTitle;
@@ -356,8 +359,8 @@ public class AdminService {
 	// ============ SECURITY SETTINGS ============
 	public String securitySettings(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("adminEmail", adminEmail);
@@ -370,8 +373,8 @@ public class AdminService {
 	public String updateAdminPassword(String currentPassword, String newPassword, 
 									   String confirmPassword, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		if (!newPassword.equals(confirmPassword)) {
@@ -388,7 +391,7 @@ public class AdminService {
 		Integer adminId = (Integer) session.getAttribute("adminId");
 		if (adminId == null) {
 			session.setAttribute("failure", "Admin ID not found. Please login again.");
-			return "redirect:/admin/login";
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Use AdminAuthService to change password (validates current password via BCrypt)
@@ -407,8 +410,8 @@ public class AdminService {
 	// ============ ANALYTICS & REPORTS ============
 	public String analytics(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Gather platform statistics
@@ -477,3 +480,4 @@ public class AdminService {
 		return "analytics.html";
 	}
 }
+

@@ -1,12 +1,10 @@
 package com.example.ekart.service;
-import java.util.stream.Collectors;
 import java.util.Optional;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -90,7 +88,7 @@ public class OrderTrackingService {
                         e.getStatus(),
                         e.getCity(),
                         e.getDescription()))
-                .collect(Collectors.toList());
+                .toList();
 
         response.setHistory(history);
         return response;
@@ -153,5 +151,6 @@ public class OrderTrackingService {
         trackingEventLogRepository.save(event);
     }
 }
+
 
 

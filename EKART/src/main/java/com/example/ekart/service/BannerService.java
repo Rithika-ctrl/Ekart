@@ -23,6 +23,10 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class BannerService {
 
+    private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+    private static final String REDIRECT_ADMIN_CONTENT = "redirect:/admin/content";
+    private static final String LOGIN_FIRST = "Login First";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final BannerRepository bannerRepository;
     private final CloudinaryHelper cloudinaryHelper;
@@ -71,8 +75,8 @@ public class BannerService {
      */
     public String loadContentPage(HttpSession session, ModelMap map) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         map.put("banners", getAllBanners());
@@ -86,16 +90,16 @@ public class BannerService {
      */
     public String addBannerWithUpload(String title, MultipartFile imageFile, String linkUrl, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
         if (title == null || title.trim().isEmpty()) {
             session.setAttribute("failure", "Banner title is required");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
         if (imageFile == null || imageFile.isEmpty()) {
             session.setAttribute("failure", "Please select an image file");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
         try {
             String imageUrl = cloudinaryHelper.saveBannerToCloudinary(imageFile);
@@ -110,7 +114,7 @@ public class BannerService {
         } catch (Exception e) {
             session.setAttribute("failure", "Image upload failed: " + e.getMessage());
         }
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -118,18 +122,18 @@ public class BannerService {
      */
     public String addBanner(String title, String imageUrl, String linkUrl, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         if (title == null || title.trim().isEmpty()) {
             session.setAttribute("failure", "Banner title is required");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
 
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
             session.setAttribute("failure", "Image URL is required");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
 
         Banner banner = new Banner();
@@ -141,7 +145,7 @@ public class BannerService {
 
         bannerRepository.save(banner);
         session.setAttribute("success", "Banner added successfully");
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -149,14 +153,14 @@ public class BannerService {
      */
     public String toggleBanner(int id, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
             session.setAttribute("failure", "Banner not found");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
 
         Banner banner = optBanner.get();
@@ -165,7 +169,7 @@ public class BannerService {
 
         String status = banner.isActive() ? "activated" : "deactivated";
         session.setAttribute("success", "Banner \"" + banner.getTitle() + "\" " + status);
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -173,19 +177,19 @@ public class BannerService {
      */
     public String deleteBanner(int id, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
             session.setAttribute("failure", "Banner not found");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
 
         bannerRepository.deleteById(id);
         session.setAttribute("success", "Banner deleted successfully");
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -193,14 +197,14 @@ public class BannerService {
      */
     public String toggleShowOnHome(int id, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
         bannerRepository.findById(id).ifPresent(b -> {
             b.setShowOnHome(!b.isShowOnHome());
             bannerRepository.save(b);
         });
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -208,14 +212,14 @@ public class BannerService {
      */
     public String toggleShowOnCustomerHome(int id, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
         bannerRepository.findById(id).ifPresent(b -> {
             b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
             bannerRepository.save(b);
         });
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 
     /**
@@ -223,14 +227,14 @@ public class BannerService {
      */
     public String updateBanner(int id, String title, String imageUrl, String linkUrl, HttpSession session) {
         if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/admin/login";
+            session.setAttribute("failure", LOGIN_FIRST);
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
             session.setAttribute("failure", "Banner not found");
-            return "redirect:/admin/content";
+            return REDIRECT_ADMIN_CONTENT;
         }
 
         Banner banner = optBanner.get();
@@ -244,6 +248,7 @@ public class BannerService {
 
         bannerRepository.save(banner);
         session.setAttribute("success", "Banner updated successfully");
-        return "redirect:/admin/content";
+        return REDIRECT_ADMIN_CONTENT;
     }
 }
+

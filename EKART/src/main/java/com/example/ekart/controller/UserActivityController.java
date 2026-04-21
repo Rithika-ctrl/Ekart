@@ -3,6 +3,8 @@ package com.example.ekart.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ekart.dto.UserActivity;
 import com.example.ekart.repository.UserActivityRepository;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/user-activity")
 public class UserActivityController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserActivityController.class);
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final UserActivityRepository userActivityRepository;
@@ -39,7 +43,7 @@ public class UserActivityController {
                 saved++;
             } catch (Exception e) {
                 // Log and skip bad entry — don't fail the whole batch
-                System.err.println("[UserActivityController] Skipping bad activity entry: " + e.getMessage());
+                LOGGER.warn("[UserActivityController] Skipping bad activity entry: {}", e.getMessage(), e);
             }
         }
         return ResponseEntity.ok().body("Logged " + saved + " of " + activities.size() + " entries");

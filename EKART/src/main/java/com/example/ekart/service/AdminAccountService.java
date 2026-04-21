@@ -1,7 +1,5 @@
 package com.example.ekart.service;
-import java.util.stream.Collectors;
 import java.util.Random;
-import java.util.Optional;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,7 +8,6 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.ekart.dto.Customer;
@@ -72,7 +69,7 @@ public class AdminAccountService {
         List<Customer> customers = customerRepository.findAll();
         return customers.stream()
                 .map(this::customerToMetadataMap)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -85,7 +82,7 @@ public class AdminAccountService {
         List<Customer> customers = customerRepository.searchByNameOrEmail(query.trim());
         return customers.stream()
                 .map(this::customerToMetadataMap)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -179,7 +176,7 @@ public class AdminAccountService {
         List<Map<String, Object>> recentOrders = allOrders.stream()
                 .limit(10)
                 .map(this::orderToMap)
-                .collect(Collectors.toList());
+                .toList();
         profile.put("recentOrders", recentOrders);
         profile.put("totalOrders", allOrders.size());
         
@@ -194,7 +191,7 @@ public class AdminAccountService {
                     item.put("addedAt", w.getAddedAt());
                     return item;
                 })
-                .collect(Collectors.toList());
+                .toList();
         profile.put("wishlistItems", wishlistItems);
         profile.put("wishlistCount", wishlists.size());
         
@@ -225,7 +222,7 @@ public class AdminAccountService {
                 m.put("details",       a.getDetails());
                 m.put("formatted",     a.getFormattedAddress());
                 return m;
-              }).collect(Collectors.toList());
+              }).toList();
         profile.put("addresses", addresses);
 
         return profile;
@@ -336,4 +333,5 @@ public class AdminAccountService {
         return result;
     }
 }
+
 

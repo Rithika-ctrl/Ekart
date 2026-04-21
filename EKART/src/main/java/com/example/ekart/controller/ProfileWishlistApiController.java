@@ -1,6 +1,5 @@
 package com.example.ekart.controller;
 import com.example.ekart.dto.Address;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 
 import com.example.ekart.dto.*;
@@ -9,7 +8,6 @@ import com.example.ekart.repository.*;
 import com.example.ekart.helper.CloudinaryHelper;
 import com.example.ekart.service.MobileApiReadService;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -100,7 +98,7 @@ public class ProfileWishlistApiController {
             am.put("id",      a.getId());
             am.put("details", a.getDetails());
             return am;
-        }).collect(Collectors.toList()));
+        }).toList());
 
         res.put("success", true);
         res.put("profile", profile);
@@ -189,7 +187,7 @@ public class ProfileWishlistApiController {
             m.put("category",    p.getCategory());
             m.put("inStock",     p.getStock() > 0);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
 
         res.put("success", true);
         res.put("count",   items.size());
@@ -225,7 +223,7 @@ public class ProfileWishlistApiController {
         // Check if already wishlisted
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
                 .filter(w -> w.getProduct().getId() == productId)
-                .collect(Collectors.toList());
+                .toList();
 
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
@@ -319,7 +317,7 @@ public class ProfileWishlistApiController {
 
         List<Integer> ids = mobileApiReadService.findWishlistWithProducts(customer).stream()
                 .map(w -> w.getProduct().getId())
-                .collect(Collectors.toList());
+                .toList();
 
         res.put("success", true);
         res.put("ids",     ids);
@@ -389,4 +387,5 @@ public class ProfileWishlistApiController {
         return ResponseEntity.status(401).body(res);
     }
 }
+
 

@@ -1,14 +1,12 @@
 package com.example.ekart.service;
 
 import java.time.LocalDateTime;
-import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -64,7 +62,7 @@ public class SpendingAnalyticsService {
         // Filter only DELIVERED orders for spending calculation
         List<Order> deliveredOrders = allOrders.stream()
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
-                .collect(Collectors.toList());
+                .toList();
 
         SpendingSummary summary = new SpendingSummary();
 
@@ -186,4 +184,5 @@ public class SpendingAnalyticsService {
         public void setCategorySpending(Map<String, Double> categorySpending) { this.categorySpending = categorySpending; }
     }
 }
+
 

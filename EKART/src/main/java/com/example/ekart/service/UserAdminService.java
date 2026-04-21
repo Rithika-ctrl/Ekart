@@ -1,5 +1,4 @@
 package com.example.ekart.service;
-import java.util.stream.Collectors;
 import java.util.Optional;
 
 import java.util.List;
@@ -122,7 +121,7 @@ public class UserAdminService {
                 (c.getName() != null && c.getName().toLowerCase().contains(searchQuery)) ||
                 (c.getEmail() != null && c.getEmail().toLowerCase().contains(searchQuery))
             )
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /**
@@ -146,5 +145,6 @@ public class UserAdminService {
         return customerRepository.findById(id).orElse(null);
     }
 }
+
 
 

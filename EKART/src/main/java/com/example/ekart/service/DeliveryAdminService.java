@@ -1,5 +1,4 @@
 package com.example.ekart.service;
-import java.util.stream.Collectors;
 import java.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +20,6 @@ import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
@@ -102,12 +100,12 @@ public class DeliveryAdminService {
         // Unassigned packed orders (waiting for auto or manual assignment)
         List<Order> unassignedPacked = packedOrders.stream()
                 .filter(o -> o.getDeliveryBoy() == null)
-                .collect(Collectors.toList());
+                .toList();
 
         // Packed orders already auto/manually assigned (awaiting pickup)
         List<Order> assignedPacked = packedOrders.stream()
                 .filter(o -> o.getDeliveryBoy() != null)
-                .collect(Collectors.toList());
+                .toList();
 
         map.put("packedOrders",       packedOrders);
         map.put("unassignedPacked",   unassignedPacked);
@@ -422,7 +420,7 @@ public class DeliveryAdminService {
         if (boys.isEmpty()) {
             boys = deliveryBoyRepository.findByActiveTrue().stream()
                     .filter(b -> b.isVerified() && b.isAdminApproved())
-                    .collect(java.util.stream.Collectors.toList());
+                    .toList();
         }
 
         List<EligibleDeliveryBoyItem> data = new ArrayList<>();
@@ -521,4 +519,5 @@ public class DeliveryAdminService {
         return session.getAttribute("admin") != null;
     }
 }
+
 

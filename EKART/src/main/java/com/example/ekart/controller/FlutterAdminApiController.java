@@ -56,7 +56,7 @@
 //     public ResponseEntity<Map<String, Object>> adminGetCoupons() {
 //         Map<String, Object> res = new HashMap<>();
 //         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc()
-//                 .stream().map(this::mapCoupon).collect(Collectors.toList());
+//                 .stream().map(this::mapCoupon).toList();
 //         res.put("success", true);
 //         res.put("coupons", list);
 //         return ResponseEntity.ok(res);
@@ -158,7 +158,7 @@
 //     public ResponseEntity<Map<String, Object>> adminGetRefunds() {
 //         Map<String, Object> res = new HashMap<>();
 //         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc()
-//                 .stream().map(this::mapRefund).collect(Collectors.toList());
+//                 .stream().map(this::mapRefund).toList();
 //         res.put("success", true);
 //         res.put("refunds", list);
 //         return ResponseEntity.ok(res);
@@ -237,14 +237,14 @@
 //         // Pending: verified by OTP but not yet admin-approved
 //         List<Map<String, Object>> pending = deliveryBoyRepository
 //                 .findByAdminApprovedFalseAndVerifiedTrue()
-//                 .stream().map(this::mapDeliveryBoy).collect(Collectors.toList());
+//                 .stream().map(this::mapDeliveryBoy).toList();
 
 //         // Active: approved + active
 //         List<Map<String, Object>> active = deliveryBoyRepository.findByActiveTrue()
 //                 .stream()
 //                 .filter(DeliveryBoy::isAdminApproved)
 //                 .map(this::mapDeliveryBoy)
-//                 .collect(Collectors.toList());
+//                 .toList();
 
 //         // Orders awaiting delivery assignment (PACKED or SHIPPED without assigned boy)
 //         List<Map<String, Object>> unassignedOrders = orderRepository.findAll()
@@ -263,7 +263,7 @@
 //                         m.put("customerEmail", o.getCustomer().getEmail());
 //                     }
 //                     return m;
-//                 }).collect(Collectors.toList());
+//                 }).toList();
 
 //         res.put("success", true);
 //         res.put("pendingApproval", pending);
@@ -284,7 +284,7 @@
 //     public ResponseEntity<Map<String, Object>> adminApproveAllProducts() {
 //         Map<String, Object> res = new HashMap<>();
 //         List<Product> pending = productRepository.findAll()
-//                 .stream().filter(p -> !p.isApproved()).collect(Collectors.toList());
+//                 .stream().filter(p -> !p.isApproved()).toList();
 //         pending.forEach(p -> p.setApproved(true));
 //         productRepository.saveAll(pending);
 //         res.put("success", true);
@@ -415,8 +415,6 @@
 
 
 package com.example.ekart.controller;
-import java.util.stream.Collectors;
-import java.util.Optional;
 import java.time.LocalDateTime;
  
 /**
@@ -442,7 +440,6 @@ import java.time.LocalDateTime;
  
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 // import org.springframework.format.annotation.DateTimeFormat; // unused
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -490,7 +487,7 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminGetCoupons() {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc()
-                .stream().map(this::mapCoupon).collect(Collectors.toList());
+                .stream().map(this::mapCoupon).toList();
         res.put("success", true);
         res.put("coupons", list);
         return ResponseEntity.ok(res);
@@ -592,7 +589,7 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminGetRefunds() {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc()
-                .stream().map(this::mapRefund).collect(Collectors.toList());
+                .stream().map(this::mapRefund).toList();
         res.put("success", true);
         res.put("refunds", list);
         return ResponseEntity.ok(res);
@@ -671,14 +668,14 @@ public class FlutterAdminApiController {
         // Pending: verified by OTP but not yet admin-approved
         List<Map<String, Object>> pending = deliveryBoyRepository
                 .findByAdminApprovedFalseAndVerifiedTrue()
-                .stream().map(this::mapDeliveryBoy).collect(Collectors.toList());
+                .stream().map(this::mapDeliveryBoy).toList();
  
         // Active: approved + active
         List<Map<String, Object>> active = deliveryBoyRepository.findByActiveTrue()
                 .stream()
                 .filter(DeliveryBoy::isAdminApproved)
                 .map(this::mapDeliveryBoy)
-                .collect(Collectors.toList());
+                .toList();
  
         // Orders awaiting delivery assignment (PACKED or SHIPPED without assigned boy)
         List<Map<String, Object>> unassignedOrders = orderRepository.findAll()
@@ -697,7 +694,7 @@ public class FlutterAdminApiController {
                         m.put("customerEmail", o.getCustomer().getEmail());
                     }
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
  
         res.put("success", true);
         res.put("pendingApproval", pending);
@@ -718,7 +715,7 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminApproveAllProducts() {
         Map<String, Object> res = new HashMap<>();
         List<Product> pending = productRepository.findAll()
-                .stream().filter(p -> !p.isApproved()).collect(Collectors.toList());
+                .stream().filter(p -> !p.isApproved()).toList();
         pending.forEach(p -> p.setApproved(true));
         productRepository.saveAll(pending);
         res.put("success", true);
@@ -961,4 +958,5 @@ public class FlutterAdminApiController {
         catch (NumberFormatException e) { return 0; }
     }
 }
+
 

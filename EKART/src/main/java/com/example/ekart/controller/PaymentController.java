@@ -1,7 +1,4 @@
 package com.example.ekart.controller;
-import com.example.ekart.dto.Address;
-
-import java.time.LocalDateTime;
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/controller/PaymentController.java
 //
@@ -22,13 +19,11 @@ import com.example.ekart.dto.*;
 import com.example.ekart.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -189,7 +184,6 @@ public class PaymentController {
             // Extract payload
             String paymentMethod = (String) payload.get(KEY_PAYMENT_METHOD);
             String deliveryPinCode = (String) payload.get("deliveryPinCode");
-            String deliveryAddress = (String) payload.get("deliveryAddress");
             double totalAmount = ((Number) payload.getOrDefault("totalAmount", 0)).doubleValue();
             double deliveryCharge = ((Number) payload.getOrDefault("deliveryCharge", 0)).doubleValue();
 

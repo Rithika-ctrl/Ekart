@@ -2,14 +2,14 @@ package com.example.ekart.controller;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +56,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @CrossOrigin(origins = "*")
 public class CartOrderApiController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CartOrderApiController.class);
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CustomerRepository customerRepository;
@@ -105,7 +107,7 @@ public class CartOrderApiController {
         double total          = subtotal + deliveryCharge;
 
         res.put("success",        true);
-        res.put("items",          items.stream().map(this::buildItemMap).collect(Collectors.toList()));
+        res.put("items",          items.stream().map(this::buildItemMap).toList());
         res.put("itemCount",      items.size());
         res.put("subtotal",       subtotal);
         res.put("deliveryCharge", deliveryCharge);
@@ -368,7 +370,7 @@ public class CartOrderApiController {
 
         res.put("success", true);
         res.put("count",   orders.size());
-        res.put("orders",  orders.stream().map(this::buildOrderMap).collect(Collectors.toList()));
+        res.put("orders",  orders.stream().map(this::buildOrderMap).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -437,8 +439,8 @@ public class CartOrderApiController {
                 new java.util.ArrayList<>(order.getItems())
             );
         } catch (Exception e) {
-            System.err.println("[CartOrderApi] Cancellation email failed for order #"
-                + order.getId() + ": " + e.getMessage());
+            LOGGER.warn("[CartOrderApi] Cancellation email failed for order #{}: {}",
+                order.getId(), e.getMessage(), e);
         }
 
         res.put("success", true);
@@ -489,7 +491,7 @@ public class CartOrderApiController {
         m.put("trackingStatus", o.getTrackingStatus().name());
         m.put("currentCity",    o.getCurrentCity());
         m.put("replacementReq", o.isReplacementRequested());
-        m.put("items",          o.getItems().stream().map(this::buildItemMap).collect(Collectors.toList()));
+        m.put("items",          o.getItems().stream().map(this::buildItemMap).toList());
         return m;
     }
 }

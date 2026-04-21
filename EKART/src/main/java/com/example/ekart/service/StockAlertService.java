@@ -3,6 +3,8 @@ package com.example.ekart.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -19,6 +21,8 @@ import jakarta.transaction.Transactional;
 @Service
 @Transactional
 public class StockAlertService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(StockAlertService.class);
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final StockAlertRepository stockAlertRepository;
@@ -102,7 +106,7 @@ public class StockAlertService {
 			alert.setEmailSent(true);
 			stockAlertRepository.save(alert);
 		} catch (Exception e) {
-			System.err.println("Failed to send stock alert email: " + e.getMessage());
+			LOGGER.warn("Failed to send stock alert email: {}", e.getMessage(), e);
 		}
 	}
 

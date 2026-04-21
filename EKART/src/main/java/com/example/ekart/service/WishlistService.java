@@ -95,7 +95,7 @@ public class WishlistService {
         List<Wishlist> wishlistItems = wishlistRepository.findByCustomer(customer);
         return wishlistItems.stream()
                 .map(Wishlist::getProduct)
-                .collect(Collectors.toList());
+                .toList();
     }
     
     /**
@@ -217,5 +217,6 @@ public class WishlistService {
         public String getMessage() { return message; }
     }
 }
+
 
 
