@@ -1,6 +1,5 @@
 package com.example.ekart.service;
 import com.example.ekart.dto.Address;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +37,8 @@ import java.util.*;
 public class CodPaymentService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CodPaymentService.class);
+    private static final String STATUS_COLLECTED = "COLLECTED";
+    private static final String STATUS_VERIFIED = "VERIFIED";
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final OrderRepository orderRepository;
@@ -157,7 +158,7 @@ public class CodPaymentService {
         // Update payment fields
         order.setCodCollectedBy(deliveryBoyId);
         order.setCodCollectionTimestamp(LocalDateTime.now());
-        order.setPaymentStatus("COLLECTED");
+        order.setPaymentStatus(STATUS_COLLECTED);
 
         order = orderRepository.save(order);
 
@@ -224,12 +225,12 @@ public class CodPaymentService {
             throw new IllegalStateException("Order is not a COD order");
         }
 
-        if (!order.getPaymentStatus().equals("COLLECTED")) {
-            throw new IllegalStateException("Cannot verify COD order with payment_status = " + order.getPaymentStatus() + ". Expected COLLECTED.");
+        if (!order.getPaymentStatus().equals(STATUS_COLLECTED)) {
+            throw new IllegalStateException("Cannot verify COD order with payment_status = " + order.getPaymentStatus() + ". Expected " + STATUS_COLLECTED + ".");
         }
 
         // Mark as verified
-        order.setPaymentStatus("VERIFIED");
+        order.setPaymentStatus(STATUS_VERIFIED);
         order.setPaymentVerifiedAt(LocalDateTime.now());
 
         order = orderRepository.save(order);
@@ -265,7 +266,7 @@ public class CodPaymentService {
         logCodEvent(order, "COD Payment Rejected",
             "Reason: " + (rejectionReason != null ? rejectionReason : "Not specified"));
 
-        // TODO: Notify delivery boy to collect again or take back
+        // TODO: Implement notification system to alert delivery boy about rejected payment and next steps (collect again or return)
 
         return order;
     }
@@ -285,7 +286,7 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals(paymentStatus))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -295,7 +296,7 @@ public class CodPaymentService {
      * @return List of COD orders with paymentStatus = COLLECTED
      */
     public List<Order> getCodOrdersReadyForVerification() {
-        return getCodOrdersByPaymentStatus("COLLECTED");
+        return getCodOrdersByPaymentStatus(STATUS_COLLECTED);
     }
 
     /**
@@ -308,9 +309,9 @@ public class CodPaymentService {
         List<Order> allOrders = orderRepository.findAll();
         return allOrders.stream()
                 .filter(this::isCodOrder)
-                .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals("VERIFIED"))
+                .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals(STATUS_VERIFIED))
                 .filter(o -> o.getCashSettlementId() == null)  // Not yet settled
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -324,7 +325,7 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> o.getVendor() != null && o.getVendor().getId() == vendorId)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -335,7 +336,7 @@ public class CodPaymentService {
      */
     public double getUnsettledCodAmountForVendor(int vendorId) {
         return getCodOrdersForVendor(vendorId).stream()
-                .filter(o -> "VERIFIED".equals(o.getPaymentStatus()))
+                .filter(o -> STATUS_VERIFIED.equals(o.getPaymentStatus()))
                 .filter(o -> o.getCashSettlementId() == null)
                 .mapToDouble(o -> o.getCodAmount() != null ? o.getCodAmount() : 0)
                 .sum();
@@ -417,7 +418,7 @@ public class CodPaymentService {
     public double calculateTotalCodRevenue() {
         List<Order> allCodOrders = getOrdersByCodStatus(null);
         return allCodOrders.stream()
-                .filter(o -> "COLLECTED".equals(o.getPaymentStatus()) || "VERIFIED".equals(o.getPaymentStatus()) || "SETTLED".equals(o.getPaymentStatus()))
+                .filter(o -> STATUS_COLLECTED.equals(o.getPaymentStatus()) || STATUS_VERIFIED.equals(o.getPaymentStatus()) || "SETTLED".equals(o.getPaymentStatus()))
                 .mapToDouble(o -> o.getCodAmount() != null ? o.getCodAmount() : 0)
                 .sum();
     }
@@ -431,7 +432,7 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> paymentStatus == null || (o.getPaymentStatus() != null && o.getPaymentStatus().equals(paymentStatus)))
-                .collect(Collectors.toList());
+                .toList();
     }
 }
 
