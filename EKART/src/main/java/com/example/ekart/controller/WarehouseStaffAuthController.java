@@ -39,6 +39,7 @@ public class WarehouseStaffAuthController {
 
     private static final String EMAIL_KEY = "email";
     private static final String PASSWORD_KEY = "password";
+    private static final String MOBILE_KEY = "mobile";
     private static final String STAFF_ID_KEY = "staff_id";
     private static final String WAREHOUSE_ID_KEY = "warehouse_id";
     private static final String ERROR_KEY = "error";
@@ -260,7 +261,7 @@ public class WarehouseStaffAuthController {
                     "id", s.getId(),
                     "name", s.getName(),
                     "email", s.getEmail(),
-                    "mobile", s.getMobile(),
+                    MOBILE_KEY, s.getMobile(),
                     "role", s.getRole(),
                     "verified", s.isVerified(),
                     "active", s.isActive(),
@@ -307,7 +308,7 @@ public class WarehouseStaffAuthController {
 
         String name = (String) request.get("name");
         String email = (String) request.get(EMAIL_KEY);
-        String mobile = (String) request.get("mobile");
+        String mobile = (String) request.get(MOBILE_KEY);
         Integer warehouseId = ((Number) request.get(WAREHOUSE_ID_KEY)).intValue();
         String role = (String) request.get("role");
 
@@ -329,7 +330,7 @@ public class WarehouseStaffAuthController {
             response.put(EMAIL_KEY, newStaff.getEmail());
             response.put(PASSWORD_KEY, plainPassword);  // Plain text password
             response.put("name", newStaff.getName());
-            response.put("mobile", newStaff.getMobile());
+            response.put(MOBILE_KEY, newStaff.getMobile());
             response.put("role", newStaff.getRole());
             response.put("credentials_sent_to_email", true);
 

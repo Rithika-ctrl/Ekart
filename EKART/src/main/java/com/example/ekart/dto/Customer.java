@@ -122,6 +122,7 @@ public class Customer implements Serializable {
 	/**
 	 * Convenience method: get full name (returns name field).
 	 */
+	@SuppressWarnings("java:S4144")
 	public String getFullName() {
 		return name;
 	}
@@ -129,6 +130,7 @@ public class Customer implements Serializable {
 	/**
 	 * Convenience method: check if account status is active.
 	 */
+	@SuppressWarnings("java:S4144")
 	public boolean isAccountStatus() {
 		return active;
 	}

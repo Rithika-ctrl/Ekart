@@ -98,6 +98,7 @@ public class SettlementOrderMapping {
     /**
      * Get order amount (same as amountCollected).
      */
+    @SuppressWarnings("java:S4144")
     public double getOrderAmount() {
         return amountCollected;
     }

@@ -153,6 +153,7 @@ public class CashSettlement {
     /**
      * Convenience getter: get notes (alias for getDescription).
      */
+    @SuppressWarnings("java:S4144")
     public String getNotes() { return description; }
 
     /**
@@ -186,6 +187,7 @@ public class CashSettlement {
     /**
      * Convenience method: get approved by admin ID (same as verifiedByAdminId)
      */
+    @SuppressWarnings("java:S4144")
     public Integer getApprovedByAdminId() {
         return verifiedByAdminId;
     }
@@ -200,6 +202,7 @@ public class CashSettlement {
     /**
      * Convenience method: get total cash collected (same as totalAmountCollected)
      */
+    @SuppressWarnings("java:S4144")
     public double getTotalCashCollected() {
         return totalAmountCollected;
     }
@@ -207,6 +210,7 @@ public class CashSettlement {
     /**
      * Convenience method: get vendor share (same as vendorPayAmount)
      */
+    @SuppressWarnings("java:S4144")
     public double getVendorShare() {
         return vendorPayAmount;
     }

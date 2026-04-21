@@ -28,6 +28,8 @@ import jakarta.mail.internet.MimeMessage;
 public class EmailSender {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
+    private static final String EKART_SENDER = "Ekart";
+    private static final String OTP_EMAIL_TEMPLATE = "otp-email.html";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final JavaMailSender mailSender;
@@ -66,13 +68,13 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(vendor.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
             Context context = new Context();
             context.setVariable("name", vendor.getName());
             context.setVariable("otp", plainOtp);  // 🔒 Use plainOtp String (6-digit formatted)
-            String html = templateEngine.process("otp-email.html", context);
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
             // Update the integer otp in DB as well
@@ -92,13 +94,13 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart");
             Context context = new Context();
             context.setVariable("name", customer.getName());
             context.setVariable("otp", String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
-            String html = templateEngine.process("otp-email.html", context);
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
@@ -113,7 +115,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Confirmed - Order #" + orderId);
             Context context = new Context();
@@ -137,7 +139,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("COD Order Confirmed - Order #" + order.getId());
             Context context = new Context();
@@ -184,7 +186,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("Replacement Requested - Order #" + orderId);
             Context context = new Context();
@@ -206,7 +208,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("Order Cancelled - Order #" + orderId);
             Context context = new Context();
@@ -228,9 +230,9 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
-            helper.setSubject("Back in Stock: " + product.getName() + " - Ekart");
+            helper.setSubject("Back in Stock: " + product.getName() + " - " + EKART_SENDER);
             Context context = new Context();
             context.setVariable("customerName", customer.getName());
             context.setVariable("productName", product.getName());
@@ -251,13 +253,13 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
-            helper.setSubject("Password Reset - Ekart");
+            helper.setSubject("Password Reset - " + EKART_SENDER);
             Context context = new Context();
             context.setVariable("name", customer.getName());
             context.setVariable("otp", String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
-            String html = templateEngine.process("otp-email.html", context);
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
@@ -278,13 +280,13 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(db.getEmail());
             helper.setSubject("OTP for Email Verification - Ekart Delivery");
             Context context = new Context();
             context.setVariable("name", db.getName());
             context.setVariable("otp", plainOtp);  // 🔒 Use plainOtp String (6-digit formatted)
-            String html = templateEngine.process("otp-email.html", context);
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
             // Update the integer otp in DB as well
@@ -319,7 +321,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(toEmail);
             helper.setSubject("Your Delivery OTP - Order #" + orderId + " - Ekart");
             Context context = new Context();
@@ -340,7 +342,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("Your Order #" + order.getId() + " is On Its Way! - Ekart");
             Context context = new Context();
@@ -363,7 +365,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
             helper.setSubject("Order #" + order.getId() + " Delivered! - Ekart");
             Context context = new Context();
@@ -385,7 +387,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(fromEmail); 
             helper.setSubject("New Delivery Boy Pending Approval — " + db.getName());
 
@@ -415,7 +417,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(db.getEmail());
             helper.setSubject("Your Ekart Delivery Account is Approved! 🎉");
 
@@ -448,7 +450,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(db.getEmail());
             helper.setSubject("Update on Your Ekart Delivery Application");
 
@@ -480,7 +482,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(db.getEmail());
             helper.setSubject("Warehouse Transfer Approved — Ekart");
 
@@ -516,7 +518,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(db.getEmail());
             helper.setSubject("Warehouse Transfer Request Update — Ekart");
 
@@ -550,7 +552,7 @@ public class EmailSender {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail, "Ekart");
+            helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(adminEmail);
             helper.setSubject("⚠️ Order Dispute Raised — Order #" + orderId);
 
@@ -690,7 +692,7 @@ public class EmailSender {
             Context context = new Context();
             context.setVariable("name", staff.getName());
             context.setVariable("otp", plainOtp);  // 6-digit formatted string
-            String html = templateEngine.process("otp-email.html", context);
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
         } catch (Exception e) {
