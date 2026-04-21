@@ -28,6 +28,9 @@ import java.util.*;
 @Transactional
 public class PaymentMethodService {
 
+    // ── Constants ──
+    private static final String PAYMENT_METHOD_RAZORPAY = "RAZORPAY";
+
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CustomerRepository customerRepository;
     private final WarehouseRepository warehouseRepository;
@@ -59,7 +62,7 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 // Razorpay always available
                 return true;
 
@@ -87,7 +90,7 @@ public class PaymentMethodService {
         List<String> methods = new ArrayList<>();
 
         // Always offer Razorpay
-        methods.add("RAZORPAY");
+        methods.add(PAYMENT_METHOD_RAZORPAY);
 
         // Conditionally offer COD
         if (isCodAvailableForPinCode(deliveryPinCode) && isCodAvailableForCustomer(customer)) {
@@ -104,7 +107,7 @@ public class PaymentMethodService {
      * @return Default payment method (RAZORPAY)
      */
     public String getDefaultPaymentMethod(Customer customer) {
-        return "RAZORPAY";  // Default to prepaid
+        return PAYMENT_METHOD_RAZORPAY;  // Default to prepaid
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -179,7 +182,7 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "Online Payment (Razorpay)";
             case "COD":
                 return "Cash On Delivery";
@@ -200,7 +203,7 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "Pay securely online using credit card, debit card, or digital wallet. Payment is processed immediately.";
             case "COD":
                 return "Pay in cash when your order is delivered. Our delivery partner will collect payment at your doorstep.";
@@ -221,7 +224,7 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "credit-card";
             case "COD":
                 return "cash";
@@ -241,7 +244,7 @@ public class PaymentMethodService {
             return "Payment method is required";
         }
 
-        if (!paymentMethod.toUpperCase().matches("RAZORPAY|COD")) {
+        if (!paymentMethod.toUpperCase().matches(PAYMENT_METHOD_RAZORPAY + "|COD")) {
             return "Invalid payment method: " + paymentMethod;
         }
 

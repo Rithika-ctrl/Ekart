@@ -73,9 +73,6 @@ public class WarehouseRoutingService {
         route.add(sourceWarehouse);
         Warehouse currentWarehouse = sourceWarehouse;
 
-        // Calculate distance from source to destination
-        double totalDistance = currentWarehouse.calculateDistanceTo(destinationWarehouse);
-
         // Use greedy algorithm: always pick nearest warehouse that's still closer to destination
         Set<Integer> visited = new HashSet<>();
         visited.add(currentWarehouse.getId());
@@ -85,44 +82,16 @@ public class WarehouseRoutingService {
         int hopCount = 0;
 
         while (hopCount < maxHops && currentWarehouse.getId() != destinationWarehouse.getId()) {
-            // Get all warehouses that could be intermediate hubs
-            List<Warehouse> allWarehouses = warehouseRepository.findAll();
-            List<Warehouse> candidates = new ArrayList<>();
-
-            // Filter: warehouse must be closer to destination than current position
-            for (Warehouse wh : allWarehouses) {
-                if (visited.contains(wh.getId())) {
-                    continue;
-                }
-                if (wh.isActive() && hasValidCoordinates(wh)) {
-                    double distToDest = wh.calculateDistanceTo(destinationWarehouse);
-                    double currentDistToDest = currentWarehouse.calculateDistanceTo(destinationWarehouse);
-
-                    // Warehouse must be moving us closer to destination (at least 10% closer)
-                    if (distToDest < currentDistToDest * 0.9) {
-                        candidates.add(wh);
-                    }
-                }
-            }
-
-            if (candidates.isEmpty()) {
-                // No intermediate hub found; go directly to destination
+            Warehouse nextHub = findNextHub(currentWarehouse, destinationWarehouse, visited);
+            
+            if (nextHub == null) {
                 break;
             }
-
-            // Pick the closest candidate (nearest-hub principle)
-            Warehouse nextHub = candidates.stream()
-                .min(Comparator.comparingDouble(currentWarehouse::calculateDistanceTo))
-                .orElse(null);
-
-            if (nextHub != null) {
-                route.add(nextHub);
-                visited.add(nextHub.getId());
-                currentWarehouse = nextHub;
-                hopCount++;
-            } else {
-                break;
-            }
+            
+            route.add(nextHub);
+            visited.add(nextHub.getId());
+            currentWarehouse = nextHub;
+            hopCount++;
         }
 
         // Add destination if not already there
@@ -131,6 +100,45 @@ public class WarehouseRoutingService {
         }
 
         return route;
+    }
+
+    /**
+     * Finds the next optimal hub for routing.
+     * Extracted helper method to reduce cognitive complexity of calculateOptimalRoute.
+     *
+     * @param currentWarehouse Current warehouse position
+     * @param destinationWarehouse Target destination
+     * @param visited Set of already-visited warehouse IDs
+     * @return Next hub warehouse, or null if none found
+     */
+    private Warehouse findNextHub(Warehouse currentWarehouse, Warehouse destinationWarehouse, Set<Integer> visited) {
+        List<Warehouse> allWarehouses = warehouseRepository.findAll();
+        List<Warehouse> candidates = new ArrayList<>();
+
+        // Filter: warehouse must be closer to destination than current position
+        for (Warehouse wh : allWarehouses) {
+            if (visited.contains(wh.getId())) {
+                continue;
+            }
+            if (wh.isActive() && hasValidCoordinates(wh)) {
+                double distToDest = wh.calculateDistanceTo(destinationWarehouse);
+                double currentDistToDest = currentWarehouse.calculateDistanceTo(destinationWarehouse);
+
+                // Warehouse must be moving us closer to destination (at least 10% closer)
+                if (distToDest < currentDistToDest * 0.9) {
+                    candidates.add(wh);
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        // Pick the closest candidate (nearest-hub principle)
+        return candidates.stream()
+            .min(Comparator.comparingDouble(currentWarehouse::calculateDistanceTo))
+            .orElse(null);
     }
 
     /**

@@ -32,6 +32,9 @@ import com.example.ekart.repository.WarehouseRepository;
 @Transactional
 public class WarehouseReceivingService {
 
+    // ── Constants ──
+    private static final String UNKNOWN_VALUE = "Unknown";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final OrderRepository orderRepository;
     private final WarehouseRepository warehouseRepository;
@@ -140,7 +143,7 @@ public class WarehouseReceivingService {
 
         // Log tracking event
         Warehouse warehouse = order.getWarehouse();
-        String city = warehouse != null ? warehouse.getCity() : "Unknown";
+        String city = warehouse != null ? warehouse.getCity() : UNKNOWN_VALUE;
         
         orderTrackingService.logOrderStatusChange(
             orderId,
@@ -192,12 +195,9 @@ public class WarehouseReceivingService {
 
         // Verify delivery boy serves the warehouse's city
         Warehouse warehouse = order.getWarehouse();
-        if (warehouse != null && !deliveryBoy.getAssignedPinCodes().contains(warehouse.getServedPinCodes())) {
-            // Check if delivery boy's warehouse matches
-            if (deliveryBoy.getWarehouse() == null || 
-                deliveryBoy.getWarehouse().getId() != warehouse.getId()) {
-                return null;
-            }
+        if (warehouse != null && !deliveryBoy.getAssignedPinCodes().contains(warehouse.getServedPinCodes()) &&
+            (deliveryBoy.getWarehouse() == null || deliveryBoy.getWarehouse().getId() != warehouse.getId())) {
+            return null;
         }
 
         // Update order with assignment
@@ -210,14 +210,14 @@ public class WarehouseReceivingService {
         Order updated = orderRepository.save(order);
 
         // Log tracking event
-        String city = warehouse != null ? warehouse.getCity() : "Unknown";
+        String city = warehouse != null ? warehouse.getCity() : UNKNOWN_VALUE;
         
         orderTrackingService.logOrderStatusChange(
             orderId,
             "OUT_FOR_DELIVERY",
             city,
             "Delivery assigned to " + deliveryBoy.getName() + 
-            " (Staff: " + (warehouseStaffId != null ? warehouseStaffId : "Unknown") + ")"
+            " (Staff: " + (warehouseStaffId != null ? warehouseStaffId : UNKNOWN_VALUE) + ")"
         );
 
         return updated;
@@ -283,7 +283,6 @@ public class WarehouseReceivingService {
             return List.of();
         }
 
-        Warehouse warehouse = whOpt.get();
         List<DeliveryBoy> allBoys = deliveryBoyRepository.findAll();
 
         return allBoys.stream()
