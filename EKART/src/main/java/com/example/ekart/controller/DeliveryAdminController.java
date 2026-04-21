@@ -10,6 +10,15 @@ package com.example.ekart.controller;
 
 import com.example.ekart.service.DeliveryAdminService;
 import com.example.ekart.service.DeliveryBoyService;
+import com.example.ekart.dto.DeliveryAssignmentResponse;
+import com.example.ekart.dto.AutoAssignLogResponse;
+import com.example.ekart.dto.DeliveryBoyLoadResponse;
+import com.example.ekart.dto.EligibleDeliveryBoysResponse;
+import com.example.ekart.dto.WarehouseDeliveryBoysResponse;
+import com.example.ekart.dto.DeliveryBoyPinsUpdateResponse;
+import com.example.ekart.dto.VerifyDeliveryBoysResponse;
+import com.example.ekart.dto.OperationResponse;
+import com.example.ekart.dto.AdminEntityCreateResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -52,7 +61,7 @@ public class DeliveryAdminController {
 
     @PostMapping("/admin/delivery/warehouse")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> addWarehouse(
+    public ResponseEntity<AdminEntityCreateResponse> addWarehouse(
             @RequestParam String name, @RequestParam String city,
             @RequestParam String state, @RequestParam String servedPinCodes,
             HttpSession session) {
@@ -63,7 +72,7 @@ public class DeliveryAdminController {
 
     @PostMapping("/admin/delivery/boy/register")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> registerDeliveryBoy(
+    public ResponseEntity<AdminEntityCreateResponse> registerDeliveryBoy(
             @RequestParam String name, @RequestParam String email,
             @RequestParam long mobile, @RequestParam String password,
             @RequestParam String confirmPassword, @RequestParam int warehouseId,
@@ -94,14 +103,14 @@ public class DeliveryAdminController {
 
     @GetMapping("/admin/delivery/boys/for-order/{orderId}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getEligibleDeliveryBoys(
+    public ResponseEntity<EligibleDeliveryBoysResponse> getEligibleDeliveryBoys(
             @PathVariable int orderId, HttpSession session) {
         return deliveryAdminService.getEligibleDeliveryBoys(orderId, session);
     }
 
     @GetMapping("/admin/delivery/boys/{warehouseId}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getDeliveryBoysByWarehouse(
+    public ResponseEntity<WarehouseDeliveryBoysResponse> getDeliveryBoysByWarehouse(
             @PathVariable int warehouseId, HttpSession session) {
         return deliveryAdminService.getDeliveryBoysByWarehouse(warehouseId, session);
     }
@@ -115,7 +124,7 @@ public class DeliveryAdminController {
      */
     @PostMapping("/admin/delivery/assign")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> assignDeliveryBoy(
+    public ResponseEntity<DeliveryAssignmentResponse> assignDeliveryBoy(
             @RequestParam int orderId, @RequestParam int deliveryBoyId,
             HttpSession session) {
         return deliveryAdminService.assignDeliveryBoy(orderId, deliveryBoyId, session);
@@ -128,12 +137,11 @@ public class DeliveryAdminController {
      */
     @PostMapping("/admin/delivery/order/pack")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> markOrderPacked(
+    public ResponseEntity<OperationResponse> markOrderPacked(
             @RequestParam int orderId, HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
-        res.put("success", false);
-        res.put("message", "Admins cannot mark orders as packed. Only vendors can do this through their vendor panel.");
-        return ResponseEntity.status(403).body(res);
+        return ResponseEntity.status(403).body(new OperationResponse(
+                false,
+                "Admins cannot mark orders as packed. Only vendors can do this through their vendor panel."));
     }
 
     // ── Auto-Assign Monitoring (Admin) ────────────────────────────
@@ -144,7 +152,7 @@ public class DeliveryAdminController {
      */
     @GetMapping("/admin/delivery/auto-assign/logs")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getAutoAssignLogs(HttpSession session) {
+    public ResponseEntity<AutoAssignLogResponse> getAutoAssignLogs(HttpSession session) {
         return deliveryAdminService.getAutoAssignLogs(session);
     }
 
@@ -155,7 +163,7 @@ public class DeliveryAdminController {
      */
     @GetMapping("/admin/delivery/boys/load")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getDeliveryBoyLoad(HttpSession session) {
+    public ResponseEntity<DeliveryBoyLoadResponse> getDeliveryBoyLoad(HttpSession session) {
         return deliveryAdminService.getDeliveryBoyLoad(session);
     }
 
@@ -187,7 +195,7 @@ public class DeliveryAdminController {
      */
     @PostMapping("/admin/delivery/boy/{id}/pins")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> updateDeliveryBoyPins(
+    public ResponseEntity<DeliveryBoyPinsUpdateResponse> updateDeliveryBoyPins(
             @PathVariable int id,
             @RequestParam String assignedPinCodes,
             HttpSession session) {
@@ -201,7 +209,7 @@ public class DeliveryAdminController {
      */
     @PostMapping("/admin/delivery/verify-all")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> verifyAllDeliveryBoys(HttpSession session) {
+    public ResponseEntity<VerifyDeliveryBoysResponse> verifyAllDeliveryBoys(HttpSession session) {
         return deliveryAdminService.verifyAllDeliveryBoys(session);
     }
 }

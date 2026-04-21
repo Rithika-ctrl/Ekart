@@ -135,17 +135,14 @@ public class DeliveryAdminService {
 
     // ── Add Warehouse ────────────────────────────────────────────
 
-    public ResponseEntity<Map<String, Object>> addWarehouse(String name, String city,
-                                                              String state, String servedPinCodes,
-                                                              HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<AdminEntityCreateResponse> addWarehouse(String name, String city,
+                                                                  String state, String servedPinCodes,
+                                                                  HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure("Unauthorized"));
         }
         if (name == null || name.isBlank()) {
-            res.put("success", false); res.put("message", "Warehouse name is required");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Warehouse name is required"));
         }
 
         Warehouse wh = new Warehouse();
@@ -158,52 +155,42 @@ public class DeliveryAdminService {
         wh.setWarehouseCode(String.format("WH-%03d", wh.getId()));
         warehouseRepository.save(wh);
 
-        res.put("success", true);
-        res.put("message", "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
-        res.put("warehouseId", wh.getId());
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(AdminEntityCreateResponse.warehouseSuccess(
+            "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")", wh.getId()));
     }
 
     // ── Admin creates delivery boy (immediately approved) ─────────
 
-    public ResponseEntity<Map<String, Object>> registerDeliveryBoy(
+    public ResponseEntity<AdminEntityCreateResponse> registerDeliveryBoy(
             String name, String email, long mobile,
             String password, String confirmPassword,
             int warehouseId, String assignedPinCodes,
             HttpSession session) {
-
-        Map<String, Object> res = new LinkedHashMap<>();
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure("Unauthorized"));
         }
 
         if (name == null || name.trim().length() < 3) {
-            res.put("success", false); res.put("message", "Name must be at least 3 characters");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Name must be at least 3 characters"));
         }
         if (email == null || !email.contains("@")) {
-            res.put("success", false); res.put("message", "Enter a valid email");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Enter a valid email"));
         }
         if (deliveryBoyRepository.existsByEmail(email)) {
-            res.put("success", false); res.put("message", "Email already registered");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Email already registered"));
         }
         if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
-            res.put("success", false); res.put("message", "Passwords do not match");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Passwords do not match"));
         }
         String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (password == null || !password.matches(passwordRegex)) {
-            res.put("success", false); res.put("message", "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure(
+                    "Password must be at least 8 characters and include uppercase, lowercase, number and special character"));
         }
 
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
-            res.put("success", false); res.put("message", "Warehouse not found");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Warehouse not found"));
         }
 
         DeliveryBoy db = new DeliveryBoy();
@@ -228,41 +215,37 @@ public class DeliveryAdminService {
             LOGGER.error("Delivery boy OTP email failed: {}", e.getMessage(), e);
         }
 
-        res.put("success", true);
-        res.put("message", "Delivery boy registered. OTP sent to " + email);
-        res.put("deliveryBoyId", db.getId());
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(AdminEntityCreateResponse.deliveryBoySuccess(
+            "Delivery boy registered. OTP sent to " + email, db.getId()));
     }
 
     // ── Assign delivery boy to order (MANUAL OVERRIDE by admin) ──
     //   Admin can manually assign regardless of auto-assign state.
     //   Cap check is advisory — admin can override.
 
-    public ResponseEntity<Map<String, Object>> assignDeliveryBoy(int orderId,
-                                                                    int deliveryBoyId,
-                                                                    HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<DeliveryAssignmentResponse> assignDeliveryBoy(int orderId,
+                                                                       int deliveryBoyId,
+                                                                       HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403)
+                    .body(DeliveryAssignmentResponse.failure("Unauthorized"));
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest()
+                    .body(DeliveryAssignmentResponse.failure("Order not found"));
         }
         if (order.getTrackingStatus() != TrackingStatus.PACKED) {
-            res.put("success", false);
-            res.put("message", "Order must be PACKED before assigning. Current: "
-                    + order.getTrackingStatus().getDisplayName());
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(DeliveryAssignmentResponse.failure(
+                    "Order must be PACKED before assigning. Current: "
+                            + order.getTrackingStatus().getDisplayName()));
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null || !db.isActive() || !db.isVerified() || !db.isAdminApproved()) {
-            res.put("success", false); res.put("message", "Delivery boy not found or not active");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(
+                    DeliveryAssignmentResponse.failure("Delivery boy not found or not active"));
         }
 
         int activeCount = countActiveOrders(db);
@@ -285,11 +268,9 @@ public class DeliveryAdminService {
         try { emailSender.sendShippedEmail(order.getCustomer(), order, db.getName()); }
         catch (Exception e) { LOGGER.error("Shipped email failed: {}", e.getMessage(), e); }
 
-        res.put("success", true);
-        res.put("message", "Order #" + orderId + " assigned to " + db.getName()
-            + (overCap ? " (note: over 3-order cap)" : ""));
-        res.put("wasOverCap", overCap);
-        return ResponseEntity.ok(res);
+        String message = "Order #" + orderId + " assigned to " + db.getName()
+                + (overCap ? " (note: over 3-order cap)" : "");
+        return ResponseEntity.ok(DeliveryAssignmentResponse.success(message, overCap));
     }
 
     // ── Admin marks order as PACKED (triggers auto-assign) ────────
@@ -328,83 +309,68 @@ public class DeliveryAdminService {
 
     // ── Admin API: Get auto-assign logs ───────────────────────────
 
-    public ResponseEntity<Map<String, Object>> getAutoAssignLogs(HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<AutoAssignLogResponse> getAutoAssignLogs(HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(AutoAssignLogResponse.failure("Unauthorized"));
         }
 
         List<AutoAssignLog> logs = autoAssignLogRepository.findTop50ByOrderByAssignedAtDesc();
-        List<Map<String, Object>> data = new ArrayList<>();
+        List<AutoAssignLogItem> data = new ArrayList<>();
         for (AutoAssignLog log : logs) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",                           log.getId());
-            m.put("orderId",                      log.getOrderId());
-            m.put("deliveryBoyName",              log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A");
-            m.put("deliveryBoyCode",              log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A");
-            m.put("pinCode",                      log.getPinCode());
-            m.put("assignedAt",                   log.getAssignedAt() != null ? log.getAssignedAt().toString() : null);
-            m.put("activeOrdersAtAssignment",     log.getActiveOrdersAtAssignment());
-            m.put("maxConcurrent",                MAX_CONCURRENT_ORDERS);
-            data.add(m);
+            data.add(new AutoAssignLogItem(
+                    log.getId(),
+                    log.getOrderId(),
+                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A",
+                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A",
+                    log.getPinCode(),
+                    log.getAssignedAt() != null ? log.getAssignedAt().toString() : null,
+                    log.getActiveOrdersAtAssignment(),
+                    MAX_CONCURRENT_ORDERS));
         }
 
-        res.put("success", true);
-        res.put("logs", data);
-        res.put("maxConcurrent", MAX_CONCURRENT_ORDERS);
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(AutoAssignLogResponse.success(data, MAX_CONCURRENT_ORDERS));
     }
 
     // ── Admin API: Get delivery boy load (active orders count) ────
 
-    public ResponseEntity<Map<String, Object>> getDeliveryBoyLoad(HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<DeliveryBoyLoadResponse> getDeliveryBoyLoad(HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(DeliveryBoyLoadResponse.failure("Unauthorized"));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByActiveTrue();
-        List<Map<String, Object>> data = new ArrayList<>();
+        List<DeliveryBoyLoadItem> data = new ArrayList<>();
         for (DeliveryBoy db : boys) {
             if (!db.isVerified() || !db.isAdminApproved()) continue;
             int active = countActiveOrders(db);
             int maxConcurrent = MAX_CONCURRENT_ORDERS;
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",           db.getId());
-            m.put("name",         db.getName());
-            m.put("code",         db.getDeliveryBoyCode());
-            m.put("isOnline",     db.isAvailable());
-            m.put("activeOrders", active);
-            m.put("slots",        maxConcurrent - active);
-            m.put("maxConcurrent", maxConcurrent);
-            m.put("atCap",        active >= maxConcurrent);
-            m.put("pins",         db.getAssignedPinCodes());
-            m.put("warehouse",    db.getWarehouse() != null ? db.getWarehouse().getName() : "—");
-            data.add(m);
+            data.add(new DeliveryBoyLoadItem(
+                    db.getId(),
+                    db.getName(),
+                    db.getDeliveryBoyCode(),
+                    db.isAvailable(),
+                    active,
+                    maxConcurrent - active,
+                    maxConcurrent,
+                    active >= maxConcurrent,
+                    db.getAssignedPinCodes(),
+                    db.getWarehouse() != null ? db.getWarehouse().getName() : "—"));
         }
 
-        res.put("success", true);
-        res.put("deliveryBoys", data);
-        res.put("maxConcurrent", MAX_CONCURRENT_ORDERS);
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(DeliveryBoyLoadResponse.success(data, MAX_CONCURRENT_ORDERS));
     }
 
     // ── Get ELIGIBLE delivery boys for an order ─────────────────;
 
-    public ResponseEntity<Map<String, Object>> getEligibleDeliveryBoys(int orderId,
-                                                                         HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<EligibleDeliveryBoysResponse> getEligibleDeliveryBoys(int orderId,
+                                                                                HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(EligibleDeliveryBoysResponse.failure("Unauthorized"));
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(EligibleDeliveryBoysResponse.failure("Order not found"));
         }
 
         String pin = order.getDeliveryPinCode();
@@ -459,80 +425,66 @@ public class DeliveryAdminService {
                     .collect(java.util.stream.Collectors.toList());
         }
 
-        List<Map<String, Object>> data = new ArrayList<>();
+        List<EligibleDeliveryBoyItem> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
             int active = countActiveOrders(b);
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",           b.getId());
-            m.put("name",         b.getName());
-            m.put("code",         b.getDeliveryBoyCode());
-            m.put("pins",         b.getAssignedPinCodes() != null ? b.getAssignedPinCodes() : "");
-            m.put("warehouse",    b.getWarehouse() != null ? b.getWarehouse().getName() : "—");
-            m.put("isAvailable",  b.isAvailable());
-            m.put("activeOrders", active);
-            m.put("slots",        MAX_CONCURRENT_ORDERS - active);
-            m.put("atCap",        active >= MAX_CONCURRENT_ORDERS);
-            data.add(m);
+            data.add(new EligibleDeliveryBoyItem(
+                    b.getId(),
+                    b.getName(),
+                    b.getDeliveryBoyCode(),
+                    b.getAssignedPinCodes() != null ? b.getAssignedPinCodes() : "",
+                    b.getWarehouse() != null ? b.getWarehouse().getName() : "—",
+                    b.isAvailable(),
+                    active,
+                    MAX_CONCURRENT_ORDERS - active,
+                    active >= MAX_CONCURRENT_ORDERS));
         }
 
-        res.put("success", true);
-        res.put("deliveryBoys", data);
-        res.put("orderPin", pin != null ? pin : "N/A");
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : "N/A"));
     }
 
     // ── Get delivery boys for a warehouse (AJAX dropdown) ─────────
 
-    public ResponseEntity<Map<String, Object>> getDeliveryBoysByWarehouse(
+    public ResponseEntity<WarehouseDeliveryBoysResponse> getDeliveryBoysByWarehouse(
             int warehouseId, HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(WarehouseDeliveryBoysResponse.failure("Unauthorized"));
         }
 
         Warehouse wh = warehouseRepository.findById(warehouseId).orElse(null);
         if (wh == null) {
-            res.put("success", false); res.put("message", "Warehouse not found");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(WarehouseDeliveryBoysResponse.failure("Warehouse not found"));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByWarehouse(wh);
-        List<Map<String, Object>> data = new ArrayList<>();
+        List<WarehouseDeliveryBoyItem> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
             int active = countActiveOrders(b);
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",           b.getId());
-            m.put("name",         b.getName());
-            m.put("code",         b.getDeliveryBoyCode());
-            m.put("pins",         b.getAssignedPinCodes());
-            m.put("isAvailable",  b.isAvailable());
-            m.put("activeOrders", active);
-            m.put("atCap",        active >= MAX_CONCURRENT_ORDERS);
-            data.add(m);
+            data.add(new WarehouseDeliveryBoyItem(
+                    b.getId(),
+                    b.getName(),
+                    b.getDeliveryBoyCode(),
+                    b.getAssignedPinCodes(),
+                    b.isAvailable(),
+                    active,
+                    active >= MAX_CONCURRENT_ORDERS));
         }
-        res.put("success", true);
-        res.put("deliveryBoys", data);
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(WarehouseDeliveryBoysResponse.success(data));
     }
 
     // ── Update Delivery Boy PIN Codes ────────────────────────────
 
-    public ResponseEntity<Map<String, Object>> updateDeliveryBoyPinCodes(
+    public ResponseEntity<DeliveryBoyPinsUpdateResponse> updateDeliveryBoyPinCodes(
             int deliveryBoyId, String assignedPinCodes, HttpSession session) {
-
-        Map<String, Object> res = new LinkedHashMap<>();
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(new DeliveryBoyPinsUpdateResponse(false, "Unauthorized", null, null));
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null) {
-            res.put("success", false); res.put("message", "Delivery boy not found");
-            return ResponseEntity.badRequest().body(res);
+            return ResponseEntity.badRequest().body(new DeliveryBoyPinsUpdateResponse(false, "Delivery boy not found", null, null));
         }
 
         // Update PIN codes
@@ -540,20 +492,15 @@ public class DeliveryAdminService {
         db.setAssignedPinCodes(pins);
         deliveryBoyRepository.save(db);
 
-        res.put("success", true);
-        res.put("message", "PIN codes updated for " + db.getName());
-        res.put("oldPins", assignedPinCodes);
-        res.put("newPins", pins);
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(new DeliveryBoyPinsUpdateResponse(true,
+            "PIN codes updated for " + db.getName(), assignedPinCodes, pins));
     }
 
     // ── Verify all delivery boys (make them eligible for assignment) ─
 
-    public ResponseEntity<Map<String, Object>> verifyAllDeliveryBoys(HttpSession session) {
-        Map<String, Object> res = new LinkedHashMap<>();
+    public ResponseEntity<VerifyDeliveryBoysResponse> verifyAllDeliveryBoys(HttpSession session) {
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
-            return ResponseEntity.status(403).body(res);
+            return ResponseEntity.status(403).body(new VerifyDeliveryBoysResponse(false, "Unauthorized", 0));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByActiveTrue();
@@ -566,10 +513,8 @@ public class DeliveryAdminService {
             }
         }
 
-        res.put("success", true);
-        res.put("message", "Verified " + updated + " delivery boys for assignment eligibility");
-        res.put("updated", updated);
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(new VerifyDeliveryBoysResponse(true,
+            "Verified " + updated + " delivery boys for assignment eligibility", updated));
     }
 
     private boolean isAdmin(HttpSession session) {

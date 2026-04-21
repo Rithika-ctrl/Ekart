@@ -44,7 +44,7 @@ public class AdminInitCommandRunner implements CommandLineRunner {
 
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         // Check if --init-admin flag is present
         boolean initAdminRequested = false;
         for (String arg : args) {

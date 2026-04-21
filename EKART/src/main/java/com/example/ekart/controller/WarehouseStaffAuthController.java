@@ -39,6 +39,8 @@ public class WarehouseStaffAuthController {
 
     private static final String EMAIL_KEY = "email";
     private static final String PASSWORD_KEY = "password";
+    private static final String STAFF_ID_KEY = "staff_id";
+    private static final String WAREHOUSE_ID_KEY = "warehouse_id";
     private static final String ERROR_KEY = "error";
     private static final String SUCCESS_KEY = "success";
 
@@ -82,9 +84,9 @@ public class WarehouseStaffAuthController {
             return ResponseEntity.ok(Map.of(
                 SUCCESS_KEY, true,
                 "message", "Login successful",
-                "staff_id", staff.getId(),
+                STAFF_ID_KEY, staff.getId(),
                 "staff_name", staff.getName(),
-                "warehouse_id", staff.getWarehouseId(),
+                WAREHOUSE_ID_KEY, staff.getWarehouseId(),
                 "role", staff.getRole()
             ));
         } catch (IllegalStateException e) {
@@ -121,7 +123,7 @@ public class WarehouseStaffAuthController {
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody Map<String, Object> request) {
-        Integer staffId = ((Number) request.get("staff_id")).intValue();
+        Integer staffId = ((Number) request.get(STAFF_ID_KEY)).intValue();
         Integer otp = ((Number) request.get("otp")).intValue();
 
         if (staffId == null || otp == null) {
@@ -207,10 +209,10 @@ public class WarehouseStaffAuthController {
 
         try {
             Map<String, Object> dashboard = new LinkedHashMap<>();
-            dashboard.put("staff_id", staff.getId());
+            dashboard.put(STAFF_ID_KEY, staff.getId());
             dashboard.put("staff_name", staff.getName());
             dashboard.put("email", staff.getEmail());
-            dashboard.put("warehouse_id", staff.getWarehouseId());
+            dashboard.put(WAREHOUSE_ID_KEY, staff.getWarehouseId());
             dashboard.put("warehouse_name", staff.getWarehouse().getName());
             dashboard.put("role", staff.getRole());
             dashboard.put("is_manager", staff.isManager());
@@ -306,7 +308,7 @@ public class WarehouseStaffAuthController {
         String name = (String) request.get("name");
         String email = (String) request.get(EMAIL_KEY);
         String mobile = (String) request.get("mobile");
-        Integer warehouseId = ((Number) request.get("warehouse_id")).intValue();
+        Integer warehouseId = ((Number) request.get(WAREHOUSE_ID_KEY)).intValue();
         String role = (String) request.get("role");
 
         if (name == null || email == null || mobile == null || warehouseId == null) {
@@ -323,7 +325,7 @@ public class WarehouseStaffAuthController {
             Map<String, Object> response = new LinkedHashMap<>();
             response.put(SUCCESS_KEY, true);
             response.put("message", "Staff account created successfully");
-            response.put("staff_id", newStaff.getId());
+            response.put(STAFF_ID_KEY, newStaff.getId());
             response.put(EMAIL_KEY, newStaff.getEmail());
             response.put(PASSWORD_KEY, plainPassword);  // Plain text password
             response.put("name", newStaff.getName());
@@ -363,7 +365,7 @@ public class WarehouseStaffAuthController {
                 .body(Map.of(ERROR_KEY, "Only warehouse managers can deactivate staff"));
         }
 
-        Integer staffId = request.get("staff_id");
+        Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "Staff ID is required"));
@@ -403,7 +405,7 @@ public class WarehouseStaffAuthController {
                 .body(Map.of(ERROR_KEY, "Only warehouse managers can reactivate staff"));
         }
 
-        Integer staffId = request.get("staff_id");
+        Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "Staff ID is required"));
