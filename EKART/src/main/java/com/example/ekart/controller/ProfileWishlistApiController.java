@@ -38,6 +38,9 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 public class ProfileWishlistApiController {
 
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_MESSAGE = "message";
+
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
@@ -100,7 +103,7 @@ public class ProfileWishlistApiController {
             return am;
         }).toList());
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("profile", profile);
         return ResponseEntity.ok(res);
     }
@@ -123,8 +126,8 @@ public class ProfileWishlistApiController {
 
         customerRepository.save(customer);
 
-        res.put("success", true);
-        res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -141,8 +144,8 @@ public class ProfileWishlistApiController {
 
         String details = body.get("address");
         if (details == null || details.isBlank()) {
-            res.put("success", false);
-            res.put("message", "Address cannot be empty");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Address cannot be empty");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -154,8 +157,8 @@ public class ProfileWishlistApiController {
         customer.getAddresses().add(address);
         customerRepository.save(customer);
 
-        res.put("success", true);
-        res.put("message", "Address added");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Address added");
         return ResponseEntity.ok(res);
     }
 
@@ -189,7 +192,7 @@ public class ProfileWishlistApiController {
             return m;
         }).toList();
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("count",   items.size());
         res.put("items",   items);
         return ResponseEntity.ok(res);
@@ -208,15 +211,15 @@ public class ProfileWishlistApiController {
 
         Integer productId = body.get("productId");
         if (productId == null) {
-            res.put("success", false);
-            res.put("message", "productId is required");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "productId is required");
             return ResponseEntity.badRequest().body(res);
         }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Product not found");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -227,18 +230,18 @@ public class ProfileWishlistApiController {
 
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
-            res.put("success",     true);
+            res.put(KEY_SUCCESS,     true);
             res.put("wishlisted",  false);
-            res.put("message",     "Removed from wishlist");
+            res.put(KEY_MESSAGE,     "Removed from wishlist");
         } else {
             Wishlist w = new Wishlist();
             w.setCustomer(customer);
             w.setProduct(product);
             w.setAddedAt(LocalDateTime.now());
             wishlistRepository.save(w);
-            res.put("success",     true);
+            res.put(KEY_SUCCESS,     true);
             res.put("wishlisted",  true);
-            res.put("message",     "Added to wishlist");
+            res.put(KEY_MESSAGE,     "Added to wishlist");
         }
 
         return ResponseEntity.ok(res);
@@ -258,8 +261,8 @@ public class ProfileWishlistApiController {
         if (customer == null) return unauthorized(res);
 
         if (file == null || file.isEmpty()) {
-            res.put("success", false);
-            res.put("message", "No file uploaded");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "No file uploaded");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -270,13 +273,13 @@ public class ProfileWishlistApiController {
                 db.setProfileImage(url);
                 customerRepository.save(db);
             }
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.put("profileImage", url);
-            res.put("message", "Profile photo updated");
+            res.put(KEY_MESSAGE, "Profile photo updated");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Upload failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Upload failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -296,12 +299,12 @@ public class ProfileWishlistApiController {
                 db.setProfileImage(null);
                 customerRepository.save(db);
             }
-            res.put("success", true);
-            res.put("message", "Profile photo removed");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Profile photo removed");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to remove photo: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Failed to remove photo: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -319,7 +322,7 @@ public class ProfileWishlistApiController {
                 .map(w -> w.getProduct().getId())
                 .toList();
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("ids",     ids);
         return ResponseEntity.ok(res);
     }
@@ -345,14 +348,14 @@ public class ProfileWishlistApiController {
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Product not found");
             return ResponseEntity.status(404).body(res);
         }
 
         if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
-            res.put("success", false);
-            res.put("message", "You have already reviewed this product");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "You have already reviewed this product");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -365,8 +368,8 @@ public class ProfileWishlistApiController {
         review.setCustomer(customer);
         reviewRepository.save(review);
 
-        res.put("success", true);
-        res.put("message", "Review added successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Review added successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -382,10 +385,8 @@ public class ProfileWishlistApiController {
     }
 
     private ResponseEntity<Map<String, Object>> unauthorized(Map<String, Object> res) {
-        res.put("success", false);
-        res.put("message", "Unauthorized. Please login.");
+        res.put(KEY_SUCCESS, false);
+        res.put(KEY_MESSAGE, "Unauthorized. Please login.");
         return ResponseEntity.status(401).body(res);
     }
 }
-
-

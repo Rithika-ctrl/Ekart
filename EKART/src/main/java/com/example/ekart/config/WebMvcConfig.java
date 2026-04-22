@@ -8,7 +8,6 @@ package com.example.ekart.config;
 //     toggle (and other JWT-protected delivery endpoints) work correctly.
 // ================================================================
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -28,21 +27,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final IndiaOnlyInterceptor indiaOnlyInterceptor;
     private final DeliveryBoyAuthGuard deliveryBoyAuthGuard;
     private final DeliveryJwtInterceptor deliveryJwtInterceptor;
-    private ThymeleafDeprecationInterceptor deprecationInterceptor;
+    private final ThymeleafDeprecationInterceptor deprecationInterceptor;
 
     public WebMvcConfig(
             AuthGuard authGuard,
             IndiaOnlyInterceptor indiaOnlyInterceptor,
             DeliveryBoyAuthGuard deliveryBoyAuthGuard,
-            DeliveryJwtInterceptor deliveryJwtInterceptor) {
+            DeliveryJwtInterceptor deliveryJwtInterceptor,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            ThymeleafDeprecationInterceptor deprecationInterceptor) {
         this.authGuard = authGuard;
         this.indiaOnlyInterceptor = indiaOnlyInterceptor;
         this.deliveryBoyAuthGuard = deliveryBoyAuthGuard;
         this.deliveryJwtInterceptor = deliveryJwtInterceptor;
-    }
-
-    @Autowired(required = false)
-    public void setDeprecationInterceptor(ThymeleafDeprecationInterceptor deprecationInterceptor) {
         this.deprecationInterceptor = deprecationInterceptor;
     }
 

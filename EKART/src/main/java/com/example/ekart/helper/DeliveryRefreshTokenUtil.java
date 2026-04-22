@@ -219,9 +219,9 @@ public class DeliveryRefreshTokenUtil {
      * DTO for returning token pair from login.
      */
     public static class DeliveryTokenPair {
-        public String accessToken;
-        public String refreshToken;
-        public long expiresIn; // milliseconds
+        private String accessToken;
+        private String refreshToken;
+        private long expiresIn; // milliseconds
 
         public DeliveryTokenPair(String accessToken, String refreshToken) {
             this.accessToken = accessToken;
@@ -234,5 +234,3 @@ public class DeliveryRefreshTokenUtil {
         public long getExpiresIn() { return expiresIn; }
     }
 }
-
-

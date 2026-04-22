@@ -6,7 +6,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -55,7 +54,6 @@ import java.util.Set;
 @Component
 public class ReactAuthFilter extends OncePerRequestFilter {
 
-
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
@@ -69,13 +67,11 @@ public class ReactAuthFilter extends OncePerRequestFilter {
     );
 
     // ── Injected dependencies ────────────────────────────────────────────────
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    public void setJwtUtil(JwtUtil jwtUtil) {
+    public ReactAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
-
 
     // ── Helper: is this path an admin path? ──────────────────────────────────
     private boolean isAdminPath(String sub) {

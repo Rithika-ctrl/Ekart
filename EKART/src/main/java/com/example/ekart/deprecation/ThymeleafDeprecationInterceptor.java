@@ -1,7 +1,6 @@
 package com.example.ekart.deprecation;
 
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,10 +20,11 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
     };
 
     // ── Injected dependencies ────────────────────────────────────────────────
-    private ThymeleafDeprecationTracker tracker;
+    private final ThymeleafDeprecationTracker tracker;
 
-    @Autowired(required = false)
-    public void setTracker(ThymeleafDeprecationTracker tracker) {
+    public ThymeleafDeprecationInterceptor(
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            ThymeleafDeprecationTracker tracker) {
         this.tracker = tracker;
     }
 

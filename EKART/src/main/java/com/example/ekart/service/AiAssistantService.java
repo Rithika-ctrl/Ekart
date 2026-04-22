@@ -1,7 +1,6 @@
 package com.example.ekart.service;
 import com.example.ekart.dto.Address;
 import org.springframework.beans.factory.annotation.Value;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
