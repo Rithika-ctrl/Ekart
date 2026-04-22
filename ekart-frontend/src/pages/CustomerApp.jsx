@@ -4901,6 +4901,309 @@ function CouponsPage({ coupons, showToast }) {
   );
 }
 
+/* ── Refund Report Page ── */
+function RefundReportPage({ api, onSelectOrder }) {
+  const { auth } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [refunds, setRefunds] = useState([]);
+  const [filter, setFilter] = useState("ALL");
+
+  const statusColor = {
+    PENDING:  { text: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "#f59e0b",  label: "Pending Review" },
+    APPROVED: { text: "#22c55e", bg: "rgba(34,197,94,0.12)",   border: "#22c55e",  label: "Approved" },
+    REJECTED: { text: "#ef4444", bg: "rgba(239,68,68,0.12)",   border: "#ef4444",  label: "Rejected" },
+  };
+
+  useEffect(() => {
+    if (!auth || auth.role === "GUEST") {
+      setLoading(false);
+      setRefunds([]);
+      return;
+    }
+
+    const loadRefunds = async () => {
+      setLoading(true);
+      try {
+        // Fetch all orders first
+        const ordersRes = await api("/orders");
+        if (!ordersRes.success) {
+          setRefunds([]);
+          setLoading(false);
+          return;
+        }
+
+        const orders = ordersRes.orders || [];
+        const refundPromises = orders.map(async (order) => {
+          try {
+            const refundRes = await api(`/refund/status/${order.id}`);
+            if (refundRes && refundRes.success && refundRes.hasRefund) {
+              return {
+                orderId: order.id,
+                orderDate: order.orderDate,
+                amount: order.totalPrice || order.amount || 0,
+                status: refundRes.status || "PENDING",
+                type: refundRes.type || "REFUND",
+                reason: refundRes.reason || "",
+                refundId: refundRes.refundId || null,
+                rejectionReason: refundRes.rejectionReason || "",
+              };
+            }
+          } catch (err) {
+            console.error("Error fetching refund for order", order.id, err);
+          }
+          return null;
+        });
+
+        const results = await Promise.all(refundPromises);
+        const validRefunds = results
+          .filter(Boolean)
+          .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+        
+        setRefunds(validRefunds);
+      } catch (err) {
+        console.error("Error loading refunds:", err);
+        setRefunds([]);
+      }
+      setLoading(false);
+    };
+
+    loadRefunds();
+  }, [auth]);
+
+  const filtered = refunds.filter(r => filter === "ALL" || r.status === filter);
+  const counts = {
+    ALL: refunds.length,
+    PENDING: refunds.filter(r => r.status === "PENDING").length,
+    APPROVED: refunds.filter(r => r.status === "APPROVED").length,
+    REJECTED: refunds.filter(r => r.status === "REJECTED").length,
+  };
+
+  return (
+    <div>
+      <h2 style={cs.pageTitle}>Refund Requests 🧾</h2>
+
+      {/* Status filter tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        {["ALL", "PENDING", "APPROVED", "REJECTED"].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              border: filter === status ? `2px solid #6366f1` : "1.5px solid #d1d5db",
+              background: filter === status ? "rgba(99,102,241,0.1)" : "#ffffff",
+              color: filter === status ? "#6366f1" : "#6b7280",
+              transition: "all 0.2s",
+            }}
+          >
+            {status} {counts[status] > 0 && `(${counts[status]})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Loading state */}
+      {loading && (
+        <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280" }}>
+          <div style={{ fontSize: 24, marginBottom: 12 }}>⏳</div>
+          <div>Loading your refund requests...</div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && filtered.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+            {filter === "ALL" 
+              ? "No refund requests yet" 
+              : `No ${filter.toLowerCase()} refunds`}
+          </div>
+          <div style={{ fontSize: 14 }}>
+            {filter === "ALL" 
+              ? "Your refund requests will appear here"
+              : "Try selecting a different status"}
+          </div>
+        </div>
+      )}
+
+      {/* Refunds list */}
+      {!loading && filtered.length > 0 && (
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+          {filtered.map((refund) => {
+            const sc = statusColor[refund.status] || statusColor.PENDING;
+            const formatDate = (dateStr) => {
+              try {
+                return new Date(dateStr).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric"
+                });
+              } catch {
+                return dateStr;
+              }
+            };
+
+            return (
+              <div
+                key={refund.orderId}
+                style={{
+                  background: "#ffffff",
+                  border: `1.5px solid ${sc.border}`,
+                  borderRadius: 12,
+                  padding: "18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                  transition: "all 0.2s",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                {/* Header: Order number and status badge */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+                      Order #{refund.orderId}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                      📅 {formatDate(refund.orderDate)}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: sc.text,
+                      background: sc.bg,
+                      border: `1px solid ${sc.border}`,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {sc.label}
+                  </span>
+                </div>
+
+                {/* Refund type and reason */}
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#6366f1", marginBottom: 4, textTransform: "uppercase" }}>
+                    {refund.type === "REPLACEMENT" ? "🔄 Replacement Request" : "💰 Refund Request"}
+                  </div>
+                  {refund.reason && (
+                    <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                      {refund.reason}
+                    </div>
+                  )}
+                </div>
+
+                {/* Amount */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280", fontSize: 13 }}>Amount:</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: "#6366f1" }}>
+                    ₹{refund.amount?.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                  </span>
+                </div>
+
+                {/* Rejection reason if rejected */}
+                {refund.status === "REJECTED" && refund.rejectionReason && (
+                  <div
+                    style={{
+                      background: "rgba(239,68,68,0.06)",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase" }}>
+                      ✗ Rejection Reason
+                    </div>
+                    <div style={{ fontSize: 12, color: "#374151" }}>
+                      {refund.rejectionReason}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action button */}
+                {refund.status === "APPROVED" && (
+                  <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, textAlign: "center", padding: "8px", background: "rgba(34,197,94,0.06)", borderRadius: 8 }}>
+                    ✓ Refund has been processed to your account
+                  </div>
+                )}
+
+                <button
+                  onClick={() => onSelectOrder?.({ id: refund.orderId })}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: 8,
+                    border: "1.5px solid #6366f1",
+                    background: "rgba(99,102,241,0.08)",
+                    color: "#6366f1",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(99,102,241,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(99,102,241,0.08)";
+                  }}
+                >
+                  📍 View Order Details →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Info banner */}
+      {!loading && (
+        <div
+          style={{
+            marginTop: 28,
+            background: "rgba(99,102,241,0.06)",
+            border: "1px solid rgba(99,102,241,0.2)",
+            borderRadius: 12,
+            padding: "16px 18px",
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-start",
+          }}
+        >
+          <span style={{ fontSize: 20, flexShrink: 0 }}>ℹ️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1", marginBottom: 4 }}>
+              About Refunds
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+              <li>Refunds are typically processed within 5-7 business days</li>
+              <li>For rejected refunds, please review the reason and contact support if you disagree</li>
+              <li>You can request replacements for defective items</li>
+              <li>All refunds are credited to your original payment method</li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Spending Page ── */
 function SpendingPage({ data, orders, onLoadOrders }) {
   useEffect(() => { if (!orders || orders.length === 0) onLoadOrders(); }, []);
