@@ -1,5 +1,5 @@
 package com.example.ekart.deprecation;
-import com.example.ekart.dto.Address;
+
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
@@ -15,19 +15,64 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ThymeleafDeprecationTracker {
 
     public static class RouteAccessLog {
-        public String route;
-        public String userRole;
-        public AtomicLong accessCount = new AtomicLong(0);
-        public LocalDateTime firstAccess;
-        public LocalDateTime lastAccess;
-        public String lastReferer;
-        public Set<String> userIds = new HashSet<>();
+
+        // FIX S1104: Make fields private and provide public getters (and setters where mutability is needed)
+        private String route;
+        private String userRole;
+        private AtomicLong accessCount = new AtomicLong(0);
+        private LocalDateTime firstAccess;
+        private LocalDateTime lastAccess;
+        private String lastReferer;
+        private Set<String> userIds = new HashSet<>();
 
         public RouteAccessLog(String route, String userRole) {
             this.route = route;
             this.userRole = userRole;
             this.firstAccess = LocalDateTime.now();
             this.lastAccess = LocalDateTime.now();
+        }
+
+        // --- Accessors for route ---
+        public String getRoute() {
+            return route;
+        }
+
+        // --- Accessors for userRole ---
+        public String getUserRole() {
+            return userRole;
+        }
+
+        // --- Accessors for accessCount ---
+        public AtomicLong getAccessCount() {
+            return accessCount;
+        }
+
+        // --- Accessors for firstAccess ---
+        public LocalDateTime getFirstAccess() {
+            return firstAccess;
+        }
+
+        // --- Accessors for lastAccess ---
+        public LocalDateTime getLastAccess() {
+            return lastAccess;
+        }
+
+        public void setLastAccess(LocalDateTime lastAccess) {
+            this.lastAccess = lastAccess;
+        }
+
+        // --- Accessors for lastReferer ---
+        public String getLastReferer() {
+            return lastReferer;
+        }
+
+        public void setLastReferer(String lastReferer) {
+            this.lastReferer = lastReferer;
+        }
+
+        // --- Accessor for userIds ---
+        public Set<String> getUserIds() {
+            return userIds;
         }
 
         public Map<String, Object> toMap() {
@@ -42,6 +87,10 @@ public class ThymeleafDeprecationTracker {
             );
         }
     }
+
+    // FIX S1192: Define constants for duplicate string literals
+    private static final String REACT_ORDERS_API   = "/api/react/orders";
+    private static final String REACT_PRODUCTS_API = "/api/react/products";
 
     private final Map<String, RouteAccessLog> accessLogs = new ConcurrentHashMap<>();
     private final Map<String, String> routeReplacements = new ConcurrentHashMap<>();
@@ -59,16 +108,16 @@ public class ThymeleafDeprecationTracker {
         routeReplacements.put("/customer/login", "/api/react/auth/login");
         routeReplacements.put("/customer/home", "/api/react/customer");
         routeReplacements.put("/customer/address", "/api/react/customer/addresses");
-        routeReplacements.put("/customer/view-products", "/api/react/products");
-        routeReplacements.put("/view-products", "/api/react/products");
+        routeReplacements.put("/customer/view-products", REACT_PRODUCTS_API);
+        routeReplacements.put("/view-products", REACT_PRODUCTS_API);
         routeReplacements.put("/view-cart", "/api/react/cart");
         routeReplacements.put("/customer/view-cart", "/api/react/cart");
-        routeReplacements.put("/search-products", "/api/react/products/search");
-        routeReplacements.put("/payment", "/api/react/orders/checkout");
-        routeReplacements.put("/view-orders", "/api/react/orders");
-        routeReplacements.put("/customer/order-history", "/api/react/orders");
-        routeReplacements.put("/customer/track-orders", "/api/react/orders");
-        routeReplacements.put("/track/{orderId}", "/api/react/orders/{orderId}/track");
+        routeReplacements.put("/search-products", REACT_PRODUCTS_API + "/search");
+        routeReplacements.put("/payment", REACT_ORDERS_API + "/checkout");
+        routeReplacements.put("/view-orders", REACT_ORDERS_API);
+        routeReplacements.put("/customer/order-history", REACT_ORDERS_API);
+        routeReplacements.put("/customer/track-orders", REACT_ORDERS_API);
+        routeReplacements.put("/track/{orderId}", REACT_ORDERS_API + "/{orderId}/track");
 
         // Vendor routes mappings
         routeReplacements.put("/vendor/register", "/api/react/auth/vendor/register");
@@ -98,10 +147,10 @@ public class ThymeleafDeprecationTracker {
         String key = route + "::" + (userRole != null ? userRole : "GUEST");
 
         RouteAccessLog log = accessLogs.computeIfAbsent(key, k -> new RouteAccessLog(route, userRole));
-        log.accessCount.incrementAndGet();
-        log.lastAccess = LocalDateTime.now();
-        if (userId != null) log.userIds.add(userId);
-        if (referer != null && !referer.isEmpty()) log.lastReferer = referer;
+        log.getAccessCount().incrementAndGet();
+        log.setLastAccess(LocalDateTime.now());
+        if (userId != null) log.getUserIds().add(userId);
+        if (referer != null && !referer.isEmpty()) log.setLastReferer(referer);
     }
 
     /**
@@ -116,7 +165,7 @@ public class ThymeleafDeprecationTracker {
      */
     public List<Map<String, Object>> getAllAccessLogs() {
         return accessLogs.values().stream()
-            .sorted((a, b) -> Long.compare(b.accessCount.get(), a.accessCount.get()))
+            .sorted((a, b) -> Long.compare(b.getAccessCount().get(), a.getAccessCount().get()))
             .map(RouteAccessLog::toMap)
             .toList();
     }
@@ -126,7 +175,7 @@ public class ThymeleafDeprecationTracker {
      */
     public Map<String, Object> getRouteStats(String route) {
         return accessLogs.entrySet().stream()
-            .filter(e -> e.getValue().route.equals(route))
+            .filter(e -> e.getValue().getRoute().equals(route))
             .findFirst()
             .map(e -> e.getValue().toMap())
             .orElse(null);
@@ -136,9 +185,9 @@ public class ThymeleafDeprecationTracker {
      * Get summary statistics
      */
     public Map<String, Object> getSummaryStats() {
-        long totalAccesses = accessLogs.values().stream().mapToLong(l -> l.accessCount.get()).sum();
-        long uniqueRoutes = accessLogs.values().stream().map(l -> l.route).distinct().count();
-        long uniqueUsers = accessLogs.values().stream().flatMap(l -> l.userIds.stream()).distinct().count();
+        long totalAccesses = accessLogs.values().stream().mapToLong(l -> l.getAccessCount().get()).sum();
+        long uniqueRoutes = accessLogs.values().stream().map(RouteAccessLog::getRoute).distinct().count();
+        long uniqueUsers = accessLogs.values().stream().flatMap(l -> l.getUserIds().stream()).distinct().count();
 
         return Map.of(
             "totalAccesses", totalAccesses,
@@ -156,7 +205,7 @@ public class ThymeleafDeprecationTracker {
         Map<String, List<Map<String, Object>>> byCategory = new HashMap<>();
 
         accessLogs.values().forEach(log -> {
-            String category = categorizeRoute(log.route);
+            String category = categorizeRoute(log.getRoute());
             byCategory.computeIfAbsent(category, k -> new ArrayList<>()).add(log.toMap());
         });
 
@@ -182,5 +231,3 @@ public class ThymeleafDeprecationTracker {
         accessLogs.clear();
     }
 }
-
-

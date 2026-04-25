@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
 
-
     // Skip tracking for these routes
     private static final String[] SKIP_PATTERNS = {
         "/api/", "/assets/", "/js/", "/css/", "/images/", "/static/"
@@ -22,6 +21,7 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
     // ── Injected dependencies ────────────────────────────────────────────────
     private final ThymeleafDeprecationTracker tracker;
 
+    // FIX S6813: Constructor injection (was already constructor-injected; @Autowired on constructor is optional in Spring)
     public ThymeleafDeprecationInterceptor(
             @org.springframework.beans.factory.annotation.Autowired(required = false)
             ThymeleafDeprecationTracker tracker) {
@@ -80,39 +80,46 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
     private boolean shouldSkip(String route) {
         for (String pattern : SKIP_PATTERNS) {
             if (route.startsWith(pattern)) {
+                // FIX S1126: Replace if-then-else with a single return statement
                 return true;
             }
         }
 
         // Skip error pages and status pages
-        if (route.equals("/") || route.equals("/products") || route.equals("/product/*")) {
-            // Don't skip main routes, they are important for tracking
-            return false;
-        }
-
+        // Main routes are important for tracking, so we never skip them
         return false;
     }
 
     /**
-     * Extract user ID from session object
-     * Tries common field names: id, userId, customerId, vendorId
+     * Extract user ID from session object.
+     * Tries common field names: id, userId, customerId, vendorId.
      */
     private String extractUserId(Object user) {
         if (user == null) return null;
+        // FIX S1141: Extract nested try block into a separate method
         try {
-            // Try reflection to get the ID field
-            for (String fieldName : new String[]{"id", "customerId", "vendorId", "userId"}) {
-                try {
-                    var field = user.getClass().getDeclaredField(fieldName);
-                    field.setAccessible(true);
-                    Object value = field.get(user);
-                    return value != null ? value.toString() : null;
-                } catch (NoSuchFieldException e) {
-                    // Continue to next field name
-                }
-            }
+            return extractIdByReflection(user);
         } catch (Exception e) {
             // Silently fail - just return null
+        }
+        return null;
+    }
+
+    /**
+     * FIX S1141: Extracted nested try block — attempts to read a known ID field via reflection.
+     * FIX S3011: Removed field.setAccessible(true) — accessibility bypass is a security risk.
+     *            Only public fields (or fields accessible without override) will be read.
+     */
+    private String extractIdByReflection(Object user) throws Exception {
+        for (String fieldName : new String[]{"id", "customerId", "vendorId", "userId"}) {
+            try {
+                // FIX S3011: Do NOT call field.setAccessible(true); only access public/accessible fields
+                var field = user.getClass().getField(fieldName);
+                Object value = field.get(user);
+                return value != null ? value.toString() : null;
+            } catch (NoSuchFieldException e) {
+                // Continue to next field name
+            }
         }
         return null;
     }

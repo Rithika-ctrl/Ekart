@@ -106,6 +106,7 @@ public class ReactApiController {
     private static final String KEY_ESTIMATED_DELIVERY = "estimatedDelivery";
     private static final String KEY_IMAGE_LINK = "imageLink";
     private static final String KEY_IS_AVAILABLE = "isAvailable";
+    private static final String KEY_IS_ACTIVE = "isActive";
     private static final String KEY_LATITUDE = "latitude";
     private static final String KEY_LONGITUDE = "longitude";
     private static final String KEY_LOGIN_ID = "loginId";
@@ -145,6 +146,7 @@ public class ReactApiController {
 
     // Role and status string values
     private static final String ROLE_ADMIN = "ADMIN";
+    private static final String ROLE_CUSTOMER = "CUSTOMER";
     private static final String ROLE_DELIVERY_BOY = "delivery_boy";
     private static final String ROLE_WAREHOUSE = "WAREHOUSE";
     private static final String STATUS_DELIVERED = "DELIVERED";
@@ -181,6 +183,13 @@ public class ReactApiController {
     private static final String FMT_OTP = "%06d";
     private static final String MSG_PASSWORD_CHANGED = "Password changed successfully";
     private static final String PREFIX_ORDER = "Order #";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_CREATED_AT = "createdAt";
+    private static final String KEY_SUBTOTAL = "subtotal";
+    private static final String KEY_COUPON_DISCOUNT = "couponDiscount";
+    private static final String KEY_DELIVERY_TIME = "deliveryTime";
+    private static final String KEY_ADDRESSES = "addresses";
+    private static final String KEY_AMOUNT = "amount";
 
 
 
@@ -260,7 +269,7 @@ public class ReactApiController {
     private final TrackingEventLogRepository trackingEventLogRepository;
     private final BannerRepository bannerRepository;
     private final StockAlertRepository stockAlertRepository;
-    private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
+    private final com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 
     public ReactApiController(
             CustomerRepository customerRepository,
@@ -299,7 +308,8 @@ public class ReactApiController {
             WarehouseChangeRequestRepository warehouseChangeRequestRepository,
             TrackingEventLogRepository trackingEventLogRepository,
             BannerRepository bannerRepository,
-            StockAlertRepository stockAlertRepository) {
+            StockAlertRepository stockAlertRepository,
+            @org.springframework.lang.Nullable com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
         this.customerRepository = customerRepository;
         this.vendorRepository = vendorRepository;
         this.productRepository = productRepository;
@@ -337,14 +347,9 @@ public class ReactApiController {
         this.trackingEventLogRepository = trackingEventLogRepository;
         this.bannerRepository = bannerRepository;
         this.stockAlertRepository = stockAlertRepository;
-    }
-
-    @Autowired(required = false)
-    public void setDeprecationTracker(com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
         this.deprecationTracker = deprecationTracker;
     }
-
-    /**
+/**
      * In-memory coupon store: customerId → applied Coupon.
      * Cleared on coupon removal or successful order placement.
      * ConcurrentHashMap keeps concurrent requests safe without a DB column.
@@ -382,7 +387,7 @@ public class ReactApiController {
         if (!ROLE_ADMIN.equals(role)) {
             Map<String, Object> err = new java.util.HashMap<>();
             err.put(KEY_SUCCESS, false);
-            err.put("message", ERR_ADMIN_REQUIRED);
+            err.put(KEY_MESSAGE, ERR_ADMIN_REQUIRED);
             return ResponseEntity.status(403).body(err);
         }
         return null;
@@ -440,13 +445,13 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String name = ((String) body.getOrDefault("name", "Customer")).trim();
             if (email.isEmpty()) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_EMAIL_REQUIRED);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             // Check only for VERIFIED customers (not temp pending ones)
             com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
             // Generate OTP and store in TEMPORARY cache only (not in DB)
@@ -465,10 +470,10 @@ public class ReactApiController {
                 LOGGER.error("Customer register OTP email failed", e);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP sent to " + email);
+            res.put(KEY_MESSAGE, "OTP sent to " + email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -485,25 +490,25 @@ public class ReactApiController {
             // Get OTP from temporary cache (not from DB)
             OtpData otpData = registerOtpCache.get(email);
             if (otpData == null) {
-                res.put(KEY_SUCCESS, false); res.put("message", "No pending OTP. Please request a new one.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No pending OTP. Please request a new one.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (otpData.isExpired()) {
                 registerOtpCache.remove(email);
-                res.put(KEY_SUCCESS, false); res.put("message", "OTP expired. Please request a new one.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP expired. Please request a new one.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!otpData.otp.equals(otpStr)) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Invalid OTP");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid OTP");
                 return ResponseEntity.badRequest().body(res);
             }
             
             // Mark email as verified in registration map
             registerOtpVerified.put(email, Boolean.TRUE);
-            res.put(KEY_SUCCESS, true); res.put("message", "OTP verified successfully");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP verified successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Verification failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -517,18 +522,18 @@ public class ReactApiController {
             String password = ((String) body.getOrDefault("password", "")).trim();
             if (!Boolean.TRUE.equals(registerOtpVerified.get(email))) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email not verified. Please complete OTP verification first.");
+                res.put(KEY_MESSAGE, "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(password)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email already registered. Please login instead.");
+                res.put(KEY_MESSAGE, "Email already registered. Please login instead.");
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -548,12 +553,12 @@ public class ReactApiController {
             registerOtpCache.remove(email);
             
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Registered successfully");
+            res.put(KEY_MESSAGE, "Registered successfully");
             res.put("customerId", c.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -569,14 +574,14 @@ public class ReactApiController {
             String password = (String) body.get("password");
             Customer c = customerRepository.findByEmail(email);
             if (c == null || !AES.decrypt(c.getPassword()).equals(password)) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Invalid email or password");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!c.isActive()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Account suspended. Contact support.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Account suspended. Contact support.");
                 return ResponseEntity.badRequest().body(res);
             }
-            String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
+            String token = jwtUtil.generateToken(c.getId(), c.getEmail(), ROLE_CUSTOMER);
             res.put(KEY_SUCCESS, true);
             res.put("customerId", c.getId());
             res.put("name", c.getName());
@@ -585,7 +590,7 @@ public class ReactApiController {
             res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_LOGIN_FAILED + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -614,13 +619,13 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String name = ((String) body.getOrDefault("name", "Vendor")).trim();
             if (email.isEmpty()) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_EMAIL_REQUIRED);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             // Check only for VERIFIED vendors (not temp pending ones)
             com.example.ekart.dto.Vendor existing = vendorRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -639,10 +644,10 @@ public class ReactApiController {
             }
             
             vendorRegisterOtpVerified.remove(email);
-            res.put(KEY_SUCCESS, true); res.put("message", "OTP sent to " + email);
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP sent to " + email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -657,7 +662,7 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             
             if (email.isEmpty() || otpStr.isEmpty()) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -668,19 +673,19 @@ public class ReactApiController {
             com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
             
             if (!result.success) {
-                res.put(KEY_SUCCESS, false); res.put("message", result.message);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, result.message);
                 return ResponseEntity.badRequest().body(res);
             }
             
             // Mark this email as OTP-verified (for the next registration step)
             vendorRegisterOtpVerified.put(email, Boolean.TRUE);
-            res.put(KEY_SUCCESS, true); res.put("message", "OTP verified successfully");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP verified successfully");
             return ResponseEntity.ok(res);
         } catch (NumberFormatException e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "OTP must be a 6-digit number");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP must be a 6-digit number");
             return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Verification failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -694,18 +699,18 @@ public class ReactApiController {
             String password = ((String) body.getOrDefault("password", "")).trim();
             if (!Boolean.TRUE.equals(vendorRegisterOtpVerified.get(email))) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email not verified. Please complete OTP verification first.");
+                res.put(KEY_MESSAGE, "Email not verified. Please complete OTP verification first.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(password)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             com.example.ekart.dto.Vendor existing = vendorRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email already registered. Please login instead.");
+                res.put(KEY_MESSAGE, "Email already registered. Please login instead.");
                 return ResponseEntity.badRequest().body(res);
             }
             // Reuse unverified vendor or create new
@@ -721,11 +726,11 @@ public class ReactApiController {
             vendorRepository.save(v);
             vendorRegisterOtpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Registered successfully. Your store is under admin review.");
+            res.put(KEY_MESSAGE, "Registered successfully. Your store is under admin review.");
             res.put(KEY_VENDOR_ID, v.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -747,7 +752,7 @@ public class ReactApiController {
             String password = (String) body.get("password");
             Vendor v = vendorRepository.findByEmail(email);
             if (v == null || !AES.decrypt(v.getPassword()).equals(password)) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Invalid email or password");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
             String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
@@ -759,7 +764,7 @@ public class ReactApiController {
             res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_LOGIN_FAILED + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -787,7 +792,7 @@ public class ReactApiController {
         String password = (String) body.get("password");
         if (email == null || password == null) {
             res.put(KEY_SUCCESS, false); 
-            res.put("message", "Email and password are required");
+            res.put(KEY_MESSAGE, "Email and password are required");
             return ResponseEntity.badRequest().body(res);
         }
         
@@ -797,7 +802,7 @@ public class ReactApiController {
         if (!authResult.isSuccess()) {
             // Authentication failed
             res.put(KEY_SUCCESS, false);
-            res.put("message", authResult.getMessage());
+            res.put(KEY_MESSAGE, authResult.getMessage());
             return ResponseEntity.status(401).body(res);
         }
         
@@ -807,7 +812,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true);
             res.put(KEY_ADMIN_ID, authResult.getAdminId());
             res.put("requires2FA", true);
-            res.put("message", "Please provide 2FA code from your authenticator app");
+            res.put(KEY_MESSAGE, "Please provide 2FA code from your authenticator app");
             return ResponseEntity.ok(res);
         }
         
@@ -850,13 +855,13 @@ public class ReactApiController {
             adminId = ((Number) body.get(KEY_ADMIN_ID)).intValue();
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Invalid adminId");
+            res.put(KEY_MESSAGE, "Invalid adminId");
             return ResponseEntity.badRequest().body(res);
         }
         
         if (totpCode == null || totpCode.isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "2FA code is required");
+            res.put(KEY_MESSAGE, "2FA code is required");
             return ResponseEntity.badRequest().body(res);
         }
         
@@ -865,7 +870,7 @@ public class ReactApiController {
         
         if (!verifyResult.isSuccess()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", verifyResult.getMessage());
+            res.put(KEY_MESSAGE, verifyResult.getMessage());
             return ResponseEntity.status(401).body(res);
         }
         
@@ -875,7 +880,7 @@ public class ReactApiController {
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ADMIN_ID, adminId);
         res.put(KEY_TOKEN, token);
-        res.put("message", "2FA verification successful");
+        res.put(KEY_MESSAGE, "2FA verification successful");
         return ResponseEntity.ok(res);
     }
 
@@ -903,19 +908,19 @@ public class ReactApiController {
             String password = ((String) body.getOrDefault("password", "")).trim();
             if (email.isEmpty() || password.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email and password are required");
+                res.put(KEY_MESSAGE, "Email and password are required");
                 return ResponseEntity.badRequest().body(res);
             }
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put(KEY_MESSAGE, ERR_NO_ACCOUNT_FOR_EMAIL);
                 return ResponseEntity.badRequest().body(res);
             }
             String decrypted = AES.decrypt(db.getPassword());
             if (decrypted == null || !decrypted.equals(password)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Wrong password");
+                res.put(KEY_MESSAGE, "Wrong password");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!db.isVerified()) {
@@ -928,12 +933,12 @@ public class ReactApiController {
                 tempDb.setOtp(otp);  // Temporary for email template only, not persisted
                 trySendDeliveryBoyOtp(tempDb);
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Please verify your email first — OTP resent to " + email);
+                res.put(KEY_MESSAGE, "Please verify your email first — OTP resent to " + email);
                 return ResponseEntity.status(403).body(res);
             }
             if (!db.isActive()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Your account has been deactivated. Contact admin.");
+                res.put(KEY_MESSAGE, "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
             // FIX: Use JwtUtil with role="DELIVERY" so ReactAuthFilter accepts the token.
@@ -952,7 +957,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_LOGIN_FAILED + e.getMessage());
+            res.put(KEY_MESSAGE, ERR_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -980,7 +985,7 @@ public class ReactApiController {
         }
         res.put(KEY_SUCCESS,    true);
         res.put("warehouses", list);
-        res.put("message", list.isEmpty() ? "No warehouses available yet. Please contact admin to create one." : "");
+        res.put(KEY_MESSAGE, list.isEmpty() ? "No warehouses available yet. Please contact admin to create one." : "");
         return ResponseEntity.ok(res);
     }
 
@@ -1105,21 +1110,21 @@ public class ReactApiController {
             try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
             catch (NumberFormatException e) { warehouseId = 0; }
 
-            if (name.length() < 3)                    { res.put(KEY_SUCCESS, false); res.put("message", "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
-            if (!email.contains("@"))                  { res.put(KEY_SUCCESS, false); res.put("message", "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
+            if (name.length() < 3)                    { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Name must be at least 3 characters"); return ResponseEntity.badRequest().body(res); }
+            if (!email.contains("@"))                  { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Enter a valid email address"); return ResponseEntity.badRequest().body(res); }
             // Allow re-registration if email exists but NOT verified
             DeliveryBoy existingDb = deliveryBoyRepository.findByEmail(email);
-            if (existingDb != null && existingDb.isVerified()) { res.put(KEY_SUCCESS, false); res.put("message", "This email is already verified. Please login instead."); return ResponseEntity.badRequest().body(res); }
-            if (!password.equals(confirmPassword))     { res.put(KEY_SUCCESS, false); res.put("message", "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
-            if (!isStrongPassword(password))           { res.put(KEY_SUCCESS, false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
-            if (warehouseId <= 0)                      { res.put(KEY_SUCCESS, false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
+            if (existingDb != null && existingDb.isVerified()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This email is already verified. Please login instead."); return ResponseEntity.badRequest().body(res); }
+            if (!password.equals(confirmPassword))     { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(password))           { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (warehouseId <= 0)                      { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
 
             long mobile;
             try { mobile = Long.parseLong(mobileStr); }
-            catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put("message", "Enter a valid 10-digit mobile number"); return ResponseEntity.badRequest().body(res); }
+            catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Enter a valid 10-digit mobile number"); return ResponseEntity.badRequest().body(res); }
 
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
-            if (warehouse == null) { res.put(KEY_SUCCESS, false); res.put("message", "Selected warehouse not found"); return ResponseEntity.badRequest().body(res); }
+            if (warehouse == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Selected warehouse not found"); return ResponseEntity.badRequest().body(res); }
 
             // Use existing account if email exists but not verified, otherwise create new
             DeliveryBoy db = existingDb != null ? existingDb : new DeliveryBoy();
@@ -1148,13 +1153,13 @@ public class ReactApiController {
             catch (Exception e) { LOGGER.error("Delivery boy OTP email failed", e); }
 
             res.put(KEY_SUCCESS,       true);
-            res.put("message",       "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
+            res.put(KEY_MESSAGE,       "Account created! Check your email for a verification OTP. Once verified, your account will be reviewed by admin before you can log in.");
             res.put(KEY_DELIVERY_BOY_ID, db.getId());
             res.put(KEY_EMAIL,         email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1175,26 +1180,26 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             int otpInt;
             try { otpInt = Integer.parseInt(otpStr); }
             catch (NumberFormatException e) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "OTP must be a 6-digit number");
+                res.put(KEY_MESSAGE, "OTP must be a 6-digit number");
                 return ResponseEntity.badRequest().body(res);
             }
 
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put(KEY_MESSAGE, ERR_NO_ACCOUNT_FOR_EMAIL);
                 return ResponseEntity.badRequest().body(res);
             }
             if (db.isVerified()) {
                 res.put(KEY_SUCCESS, true);
-                res.put("message", "Email already verified. Awaiting admin approval.");
+                res.put(KEY_MESSAGE, "Email already verified. Awaiting admin approval.");
                 return ResponseEntity.ok(res);
             }
             // 🔒 Format OTP with leading zeros (e.g., 352410 → "352410")
@@ -1203,7 +1208,7 @@ public class ReactApiController {
             
             if (!result.success) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", result.message);
+                res.put(KEY_MESSAGE, result.message);
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -1215,11 +1220,11 @@ public class ReactApiController {
             catch (Exception e) { LOGGER.error("Admin pending-alert email failed", e); }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Email verified! Your account is pending admin approval. You will be notified by email once approved.");
+            res.put(KEY_MESSAGE, "Email verified! Your account is pending admin approval. You will be notified by email once approved.");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "OTP verification failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "OTP verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1250,28 +1255,28 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put(KEY_MESSAGE, ERR_NO_ACCOUNT_FOR_EMAIL);
                 return ResponseEntity.badRequest().body(res);
             }
             if (db.isVerified()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email is already verified");
+                res.put(KEY_MESSAGE, "Email is already verified");
                 return ResponseEntity.ok(res);
             }
             sendDeliveryBoyOtpSafely(db);
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", "A new OTP has been sent to " + email);
+            res.put(KEY_MESSAGE, "A new OTP has been sent to " + email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Resend failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Resend failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1300,14 +1305,14 @@ public class ReactApiController {
             String refreshToken = ((String) body.getOrDefault("refreshToken", "")).trim();
             if (refreshToken.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Refresh token is required");
+                res.put(KEY_MESSAGE, "Refresh token is required");
                 return ResponseEntity.badRequest().body(res);
             }
 
             // Validate refresh token
             if (!deliveryRefreshTokenUtil.isValidRefreshToken(refreshToken)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Invalid or expired refresh token. Please login again.");
+                res.put(KEY_MESSAGE, "Invalid or expired refresh token. Please login again.");
                 return ResponseEntity.status(401).body(res);
             }
 
@@ -1319,7 +1324,7 @@ public class ReactApiController {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
             if (db == null || !db.isActive() || !db.isVerified()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Account is no longer valid. Please login again.");
+                res.put(KEY_MESSAGE, "Account is no longer valid. Please login again.");
                 return ResponseEntity.status(403).body(res);
             }
 
@@ -1334,11 +1339,11 @@ public class ReactApiController {
 
         } catch (io.jsonwebtoken.JwtException e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Token validation failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Token validation failed: " + e.getMessage());
             return ResponseEntity.status(401).body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Token refresh failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Token refresh failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1368,14 +1373,14 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             Customer customer = customerRepository.findByEmail(email);
             if (customer == null) {
                 // Generic response — avoids leaking which emails are registered
                 res.put(KEY_SUCCESS, true);
-                res.put("message", "If that email is registered, an OTP has been sent");
+                res.put(KEY_MESSAGE, "If that email is registered, an OTP has been sent");
                 return ResponseEntity.ok(res);
             }
             int otp = new java.util.Random().nextInt(100000, 1000000);
@@ -1389,11 +1394,11 @@ public class ReactApiController {
             // Clear any previously-verified flag for this email so a fresh verify is required
             otpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP sent to your registered email");
+            res.put(KEY_MESSAGE, "OTP sent to your registered email");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1422,34 +1427,34 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             Customer customer = customerRepository.findByEmail(email);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put(KEY_MESSAGE, ERR_NO_ACCOUNT_FOR_EMAIL);
                 return ResponseEntity.badRequest().body(res);
             }
             int otp = parseOtpString(otpStr);
             if (otp == -1) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_INVALID_OTP_FORMAT);
+                res.put(KEY_MESSAGE, ERR_INVALID_OTP_FORMAT);
                 return ResponseEntity.badRequest().body(res);
             }
             if (customer.getOtp() != otp) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Invalid or expired OTP");
+                res.put(KEY_MESSAGE, "Invalid or expired OTP");
                 return ResponseEntity.badRequest().body(res);
             }
             // Mark this email as OTP-verified so reset-password can proceed
             otpVerified.put(email, "customer");
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP verified");
+            res.put(KEY_MESSAGE, "OTP verified");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Verification failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1465,23 +1470,23 @@ public class ReactApiController {
             String newPassword = (String) body.get(KEY_NEW_PASSWORD);
             if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email and new password are required");
+                res.put(KEY_MESSAGE, "Email and new password are required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!otpVerified.containsKey(email)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "OTP not verified — please complete the OTP step first");
+                res.put(KEY_MESSAGE, "OTP not verified — please complete the OTP step first");
                 return ResponseEntity.badRequest().body(res);
             }
             Customer customer = customerRepository.findByEmail(email);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             customer.setPassword(AES.encrypt(newPassword));
@@ -1489,11 +1494,11 @@ public class ReactApiController {
             customerRepository.save(customer);
             otpVerified.remove(email);   // consume the verified flag — one use only
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Password reset successfully. Please log in.");
+            res.put(KEY_MESSAGE, "Password reset successfully. Please log in.");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Reset failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Reset failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1527,14 +1532,14 @@ public class ReactApiController {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             if (email.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 // Generic response — avoids leaking which emails are registered
                 res.put(KEY_SUCCESS, true);
-                res.put("message", "If that email is registered, an OTP has been sent");
+                res.put(KEY_MESSAGE, "If that email is registered, an OTP has been sent");
                 return ResponseEntity.ok(res);
             }
             
@@ -1544,11 +1549,11 @@ public class ReactApiController {
             // Clear any previously-verified flag for this email so a fresh verify is required
             otpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP sent to your registered email");
+            res.put(KEY_MESSAGE, "OTP sent to your registered email");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1563,14 +1568,14 @@ public class ReactApiController {
             String otpStr = body.getOrDefault("otp", "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_EMAIL_OTP_REQUIRED);
+                res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_NO_ACCOUNT_FOR_EMAIL);
+                res.put(KEY_MESSAGE, ERR_NO_ACCOUNT_FOR_EMAIL);
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -1578,7 +1583,7 @@ public class ReactApiController {
             try { otpInt = Integer.parseInt(otpStr); }
             catch (NumberFormatException ex) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_INVALID_OTP_FORMAT);
+                res.put(KEY_MESSAGE, ERR_INVALID_OTP_FORMAT);
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -1588,18 +1593,18 @@ public class ReactApiController {
             
             if (!result.success) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", result.message);
+                res.put(KEY_MESSAGE, result.message);
                 return ResponseEntity.badRequest().body(res);
             }
             
             // Mark this email as OTP-verified for password reset
             otpVerified.put(email, "vendor");
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP verified");
+            res.put(KEY_MESSAGE, "OTP verified");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Verification failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1615,23 +1620,23 @@ public class ReactApiController {
             String newPassword = (String) body.get(KEY_NEW_PASSWORD);
             if (email.isEmpty() || newPassword == null || newPassword.isBlank()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Email and new password are required");
+                res.put(KEY_MESSAGE, "Email and new password are required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!otpVerified.containsKey(email)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "OTP not verified — please complete the OTP step first");
+                res.put(KEY_MESSAGE, "OTP not verified — please complete the OTP step first");
                 return ResponseEntity.badRequest().body(res);
             }
             Vendor vendor = vendorRepository.findByEmail(email);
             if (vendor == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             vendor.setPassword(AES.encrypt(newPassword));
@@ -1639,11 +1644,11 @@ public class ReactApiController {
             vendorRepository.save(vendor);
             otpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Password reset successfully. Please log in.");
+            res.put(KEY_MESSAGE, "Password reset successfully. Please log in.");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Reset failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Reset failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1726,7 +1731,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || !p.isApproved()) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         Map<String, Object> pm = mapProduct(p);
@@ -1788,42 +1793,84 @@ public class ReactApiController {
     @GetMapping("/cart")
     public ResponseEntity<Map<String, Object>> getCart(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
+            return ResponseEntity.status(401).body(res);
+        }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
+            return ResponseEntity.badRequest().body(res);
+        }
         Cart cart = customer.getCart();
-        if (cart == null) { res.put(KEY_SUCCESS, true); res.put("items", new ArrayList<>()); res.put(KEY_TOTAL, 0.0); res.put("subtotal", 0.0); res.put(KEY_COUNT, 0); res.put("couponApplied", false); res.put("couponCode", ""); res.put("couponDiscount", 0.0); return ResponseEntity.ok(res); }
+        if (cart == null) {
+            return buildEmptyCartResponse();
+        }
         List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).toList();
         double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
 
-        // Attach any currently-applied coupon so the frontend can restore UI state
-        Coupon applied = appliedCoupons.get(customerId);
-        double couponDiscount = 0;
-        if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
-            couponDiscount = applied.calculateDiscount(subtotal);
-            res.put("couponApplied",  true);
-            res.put("couponCode",     applied.getCode());
-            res.put("couponDiscount", couponDiscount);
-        } else {
-            if (applied != null) appliedCoupons.remove(customerId); // expired/invalid since applied
-            res.put("couponApplied",  false);
-            res.put("couponCode",     "");
-            res.put("couponDiscount", 0.0);
-        }
-
+        double couponDiscount = resolveCouponDiscount(customerId, subtotal, res);
         double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-        double deliveryCharge     = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
-        double total              = discountedSubtotal + deliveryCharge;
+        double deliveryCharge = calculateDeliveryCharge(discountedSubtotal);
+        double total = discountedSubtotal + deliveryCharge;
 
         res.put(KEY_SUCCESS,       true);
-        res.put("items",         items);
-        res.put("itemCount",     items.size());
-        res.put("subtotal",      subtotal);           // pre-discount subtotal (for "add ₹X for free delivery" hint)
-        res.put("couponDiscount",couponDiscount);      // already set above, re-affirm here for clarity
-        res.put("deliveryCharge",deliveryCharge);      // 0 when free, 40 otherwise
-        res.put(KEY_TOTAL,         total);               // discounted subtotal + delivery
+        res.put("items",           items);
+        res.put("itemCount",       items.size());
+        res.put(KEY_SUBTOTAL,        subtotal);
+        res.put(KEY_COUPON_DISCOUNT,  couponDiscount);
+        res.put("deliveryCharge",  deliveryCharge);
+        res.put(KEY_TOTAL,         total);
         res.put(KEY_COUNT,         items.size());
         return ResponseEntity.ok(res);
+    }
+
+    /** Returns an empty-cart 200 response when the customer has no active cart. */
+    private ResponseEntity<Map<String, Object>> buildEmptyCartResponse() {
+        Map<String, Object> res = new HashMap<>();
+        res.put(KEY_SUCCESS,       true);
+        res.put("items",           new ArrayList<>());
+        res.put(KEY_TOTAL,         0.0);
+        res.put(KEY_SUBTOTAL,        0.0);
+        res.put(KEY_COUNT,         0);
+        res.put("couponApplied",   false);
+        res.put("couponCode",      "");
+        res.put(KEY_COUPON_DISCOUNT,  0.0);
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Validates the currently-applied coupon for the customer and writes
+     * couponApplied / couponCode / couponDiscount into {@code res}.
+     * Returns the resolved discount amount (0 if coupon is absent or invalid).
+     */
+    private double resolveCouponDiscount(Integer customerId, double subtotal, Map<String, Object> res) {
+        Coupon applied = appliedCoupons.get(customerId);
+        if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
+            double discount = applied.calculateDiscount(subtotal);
+            res.put("couponApplied",  true);
+            res.put("couponCode",     applied.getCode());
+            res.put(KEY_COUPON_DISCOUNT, discount);
+            return discount;
+        }
+        if (applied != null) {
+            appliedCoupons.remove(customerId); // expired / invalid since it was applied
+        }
+        res.put("couponApplied",  false);
+        res.put("couponCode",     "");
+        res.put(KEY_COUPON_DISCOUNT, 0.0);
+        return 0;
+    }
+
+    /**
+     * Returns the delivery charge for a given discounted subtotal.
+     * Free (₹0) when subtotal ≥ ₹500 or subtotal is zero; ₹40 otherwise.
+     */
+    private double calculateDeliveryCharge(double discountedSubtotal) {
+        if (discountedSubtotal == 0 || discountedSubtotal >= 500) {
+            return 0.0;
+        }
+        return 40.0;
     }
 
     // ── COUPON ENDPOINTS ──────────────────────────────────────────────────────
@@ -1872,29 +1919,29 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
 
         String code = body.get("code") instanceof String s ? s.toUpperCase().trim() : "";
         if (code.isEmpty()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Coupon code is required");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code is required");
             return ResponseEntity.badRequest().body(res);
         }
 
         // Look up the coupon
         Coupon coupon = couponRepository.findByCode(code).orElse(null);
         if (coupon == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Invalid coupon code");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid coupon code");
             return ResponseEntity.ok(res);
         }
         if (!coupon.isValid()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "This coupon has expired or reached its usage limit");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This coupon has expired or reached its usage limit");
             return ResponseEntity.ok(res);
         }
 
@@ -1905,7 +1952,7 @@ public class ReactApiController {
 
         if (subtotal < coupon.getMinOrderAmount()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
+            res.put(KEY_MESSAGE, "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
             return ResponseEntity.ok(res);
         }
 
@@ -1919,7 +1966,7 @@ public class ReactApiController {
         res.put("description",  coupon.getDescription());
         res.put("discount",     discount);
         res.put("typeLabel",    coupon.getTypeLabel());
-        res.put("message",      coupon.getDescription() + " — saving ₹" + (int) discount);
+        res.put(KEY_MESSAGE,      coupon.getDescription() + " — saving ₹" + (int) discount);
         return ResponseEntity.ok(res);
     }
 
@@ -1932,11 +1979,11 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         appliedCoupons.remove(customerId);
-        res.put(KEY_SUCCESS, true); res.put("message", "Coupon removed");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Coupon removed");
         return ResponseEntity.ok(res);
     }
 
@@ -1947,20 +1994,20 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-                if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+                if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
             int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
             Product product = productRepository.findById(productId).orElse(null);
-            if (product == null || !product.isApproved()) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-            if (product.getStock() <= 0) { res.put(KEY_SUCCESS, false); res.put("message", "Product out of stock"); return ResponseEntity.badRequest().body(res); }
+            if (product == null || !product.isApproved()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (product.getStock() <= 0) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product out of stock"); return ResponseEntity.badRequest().body(res); }
             Cart cart = customer.getCart();
             if (cart == null) { cart = new Cart(); customer.setCart(cart); }
             Optional<Item> existing = cart.getItems().stream()
                     .filter(i -> i.getProductId() != null && i.getProductId() == productId).findFirst();
             if (existing.isPresent()) {
                 Item item = existing.get();
-                if (item.getQuantity() >= product.getStock()) { res.put(KEY_SUCCESS, false); res.put("message", "Max stock reached"); return ResponseEntity.badRequest().body(res); }
+                if (item.getQuantity() >= product.getStock()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Max stock reached"); return ResponseEntity.badRequest().body(res); }
                 item.setQuantity(item.getQuantity() + 1);
             } else {
                 Item item = new Item();
@@ -1971,9 +2018,9 @@ public class ReactApiController {
                 cart.getItems().add(item);
             }
             customerRepository.save(customer);
-            res.put(KEY_SUCCESS, true); res.put("message", "Added to cart");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Added to cart");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** DELETE /api/flutter/cart/remove/{productId} */
@@ -1981,20 +2028,20 @@ public class ReactApiController {
         public ResponseEntity<Map<String, Object>> removeFromCart(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+            if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart not found"); return ResponseEntity.badRequest().body(res); }
         List<Item> toRemove = customer.getCart().getItems().stream()
             .filter(i -> i.getProductId() != null && i.getProductId() == productId)
             .toList();
         if (toRemove.isEmpty()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Item not found in cart");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Item not found in cart");
             return ResponseEntity.status(404).body(res);
         }
         customer.getCart().getItems().removeAll(toRemove);
         customerRepository.save(customer);
         itemRepository.deleteAll(toRemove);  // explicit delete — ensures DB row is gone even without orphanRemoval
-        res.put(KEY_SUCCESS, true); res.put("message", "Removed from cart");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Removed from cart");
         return ResponseEntity.ok(res);
     }
 
@@ -2004,9 +2051,9 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+            if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
         int quantity  = Integer.parseInt(body.get("quantity").toString());
         Cart cart = customer.getCart();
@@ -2023,7 +2070,7 @@ public class ReactApiController {
                 .findFirst().ifPresent(i -> i.setQuantity(quantity));
             customerRepository.save(customer);
         }
-        res.put(KEY_SUCCESS, true); res.put("message", "Cart updated");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Cart updated");
         return ResponseEntity.ok(res);
     }
 
@@ -2040,7 +2087,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         try {
@@ -2050,7 +2097,7 @@ public class ReactApiController {
             Cart cart = customer.getCart();
 
             String paymentMode    = (String) body.getOrDefault("paymentMode", "COD");
-            String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
+            String deliveryTime   = (String) body.getOrDefault(KEY_DELIVERY_TIME, "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
             // ── Coupon — resolve discount from in-memory store ───────────────
@@ -2089,17 +2136,17 @@ public class ReactApiController {
             }
 
             res.put(KEY_SUCCESS,        true);
-            res.put("message",        "Order placed successfully");
+            res.put(KEY_MESSAGE,        "Order placed successfully");
             res.put(KEY_ORDER_ID,        subOrderResult.firstOrder.getId());
             res.put("subOrderIds",    subOrderResult.subOrderIds);
             res.put("totalPrice",     couponApplication.discountedTotal + deliveryCharge);
-            res.put("couponDiscount", couponApplication.couponDiscount);
+            res.put(KEY_COUPON_DISCOUNT, couponApplication.couponDiscount);
             res.put("couponCode",     couponApplication.appliedCouponCode);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", e.getMessage());
+            res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -2107,13 +2154,13 @@ public class ReactApiController {
     private ResponseEntity<Map<String, Object>> validateCustomerAndCart(Customer customer, Map<String, Object> res) {
         if (customer == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         Cart cart = customer.getCart();
         if (cart == null || cart.getItems().isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Cart is empty");
+            res.put(KEY_MESSAGE, "Cart is empty");
             return ResponseEntity.badRequest().body(res);
         }
         return null;
@@ -2124,7 +2171,7 @@ public class ReactApiController {
             Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
             if (product == null || product.getStock() < cartItem.getQuantity()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Insufficient stock for: " + cartItem.getName());
+                res.put(KEY_MESSAGE, "Insufficient stock for: " + cartItem.getName());
                 return ResponseEntity.badRequest().body(res);
             }
         }
@@ -2351,7 +2398,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2359,14 +2406,14 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_CUSTOMER_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
 
             Cart cart = customer.getCart();
             if (cart == null || cart.getItems().isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Cart is empty");
+                res.put(KEY_MESSAGE, "Cart is empty");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -2376,7 +2423,7 @@ public class ReactApiController {
                 subtotal += cartItem.getPrice() * cartItem.getQuantity();
             }
 
-            double deliveryCharge = "EXPRESS".equals(body.get("deliveryTime")) ? 50.0 : 0.0;
+            double deliveryCharge = "EXPRESS".equals(body.get(KEY_DELIVERY_TIME)) ? 50.0 : 0.0;
             
             // Apply coupon if exists
             Coupon appliedCoupon = appliedCoupons.get(customerId);
@@ -2411,26 +2458,26 @@ public class ReactApiController {
                 res.put(KEY_SUCCESS, true);
                 res.put(KEY_RAZORPAY_ORDER_ID, razorpayOrderDetails.get(KEY_RAZORPAY_ORDER_ID));
                 res.put("razorpayKeyId", razorpayOrderDetails.get("razorpayKeyId"));
-                res.put("amount", razorpayOrderDetails.get("amount"));
+                res.put(KEY_AMOUNT, razorpayOrderDetails.get(KEY_AMOUNT));
                 res.put("currency", razorpayOrderDetails.get("currency"));
                 res.put("customerEmail", customer.getEmail());
                 res.put("customerPhone", String.valueOf(customer.getMobile()));
                 res.put(KEY_CUSTOMER_NAME, customer.getName());
                 res.put("tempOrderId", tempOrderId);
-                res.put("subtotal", subtotal);
-                res.put("couponDiscount", couponDiscount);
+                res.put(KEY_SUBTOTAL, subtotal);
+                res.put(KEY_COUPON_DISCOUNT, couponDiscount);
                 res.put("deliveryCharge", deliveryCharge);
                 res.put(KEY_TOTAL_AMOUNT, totalAmount);
                 return ResponseEntity.ok(res);
             } else {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", razorpayOrderDetails.getOrDefault("message", "Failed to create Razorpay order"));
+                res.put(KEY_MESSAGE, razorpayOrderDetails.getOrDefault("message", "Failed to create Razorpay order"));
                 return ResponseEntity.status(500).body(res);
             }
 
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Checkout error: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Checkout error: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -2451,7 +2498,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2462,7 +2509,7 @@ public class ReactApiController {
 
             if (razorpayOrderId == null || razorpayPaymentId == null || signature == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Missing payment verification details");
+                res.put(KEY_MESSAGE, "Missing payment verification details");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -2470,14 +2517,14 @@ public class ReactApiController {
             boolean isValid = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, signature);
             if (!isValid) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Payment verification failed. Invalid signature.");
+                res.put(KEY_MESSAGE, "Payment verification failed. Invalid signature.");
                 return ResponseEntity.badRequest().body(res);
             }
 
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_CUSTOMER_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -2492,14 +2539,14 @@ public class ReactApiController {
             }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Payment verified successfully");
+            res.put(KEY_MESSAGE, "Payment verified successfully");
             res.put("razorpayPaymentId", razorpayPaymentId);
             res.put(KEY_RAZORPAY_ORDER_ID, razorpayOrderId);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Verification error: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Verification error: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -2508,9 +2555,9 @@ public class ReactApiController {
     @GetMapping("/orders")
     public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ORDERS, orders.stream().map(this::mapOrder).toList());
@@ -2522,9 +2569,9 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getOrder(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         res.put(KEY_SUCCESS, true); res.put("order", mapOrder(order));
         return ResponseEntity.ok(res);
     }
@@ -2556,44 +2603,57 @@ public class ReactApiController {
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer() == null || order.getCustomer().getId() != customerId) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
         TrackingStatus status = order.getTrackingStatus();
+        List<Map<String, Object>> history = buildTrackingHistory(order);
 
-        // Real event log — rows inserted by actual workflow actions (vendor packed, delivery boy picked up, etc.)
-        List<TrackingEventLog> events = trackingEventLogRepository.findByOrderOrderByEventTimeAsc(order);
-        List<Map<String, Object>> history = events.stream().map(e -> {
-            Map<String, Object> ev = new HashMap<>();
-            ev.put("status",      e.getStatus() != null ? e.getStatus().name() : null);
-            ev.put("location",    e.getCity());
-            ev.put("description", e.getDescription());
-            ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
-            return ev;
-        }).toList();
+        res.put(KEY_SUCCESS,         true);
+        res.put(KEY_ORDER_ID,        order.getId());
+        res.put("currentStatus",     status != null ? status.name() : null);
+        res.put("currentCity",       order.getCurrentCity());
+        res.put("progressPercent",   status != null ? status.getProgressPercent() : 0);
+        putEstimatedDeliveryIfInTransit(res, order, status);
+        res.put("history",           history);
+        return ResponseEntity.ok(res);
+    }
 
-        res.put(KEY_SUCCESS,          true);
-        res.put(KEY_ORDER_ID,          order.getId());
-        res.put("currentStatus",    status != null ? status.name() : null);
-        res.put("currentCity",      order.getCurrentCity());
-        res.put("progressPercent",  status != null ? status.getProgressPercent() : 0);
+    /** Maps tracking event log rows to the JSON shape expected by the client. */
+    private List<Map<String, Object>> buildTrackingHistory(Order order) {
+        return trackingEventLogRepository.findByOrderOrderByEventTimeAsc(order)
+                .stream()
+                .map(e -> {
+                    Map<String, Object> ev = new HashMap<>();
+                    ev.put("status",      e.getStatus() != null ? e.getStatus().name() : null);
+                    ev.put("location",    e.getCity());
+                    ev.put("description", e.getDescription());
+                    ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
+                    return ev;
+                })
+                .toList();
+    }
 
-        // Estimated delivery: only meaningful when order is still in transit
-        if (order.getOrderDate() != null && status != null
-                && status != TrackingStatus.DELIVERED
-                && status != TrackingStatus.CANCELLED
-                && status != TrackingStatus.REFUNDED) {
+    /**
+     * Adds KEY_ESTIMATED_DELIVERY (+48 h from order date) to {@code res}
+     * only when the order is still in transit (not delivered / cancelled / refunded).
+     */
+    private void putEstimatedDeliveryIfInTransit(Map<String, Object> res, Order order, TrackingStatus status) {
+        if (order.getOrderDate() == null || status == null) {
+            return;
+        }
+        boolean isTerminal = status == TrackingStatus.DELIVERED
+                || status == TrackingStatus.CANCELLED
+                || status == TrackingStatus.REFUNDED;
+        if (!isTerminal) {
             res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
         }
-
-        res.put("history", history);
-        return ResponseEntity.ok(res);
     }
 
     /**
@@ -2642,7 +2702,7 @@ public class ReactApiController {
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put(KEY_SUCCESS, false);
-            error.put("message", "Order not found or fetch failed");
+            error.put(KEY_MESSAGE, "Order not found or fetch failed");
             return ResponseEntity.status(404).body(error);
         }
     }
@@ -2652,10 +2712,10 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> cancelOrder(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put(KEY_SUCCESS, false); res.put("message", "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cannot cancel this order"); return ResponseEntity.badRequest().body(res); }
         for (Item item : order.getItems()) {
             if (item.getProductId() != null) {
                 productRepository.findById(item.getProductId()).ifPresent(p -> { 
@@ -2667,7 +2727,7 @@ public class ReactApiController {
             }
         }
         order.setTrackingStatus(TrackingStatus.CANCELLED); orderRepository.save(order);
-        res.put(KEY_SUCCESS, true); res.put("message", "Order cancelled");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Order cancelled");
         return ResponseEntity.ok(res);
     }
 
@@ -2676,26 +2736,61 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> requestReplacement(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
+            return ResponseEntity.status(401).body(res);
+        }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put(KEY_SUCCESS, false); res.put("message", "Can only request replacement for delivered orders"); return ResponseEntity.badRequest().body(res); }
-        
-        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
-        if (order.getOrderDate() == null || order.getOrderDate().isBefore(cutoff)) { res.put(KEY_SUCCESS, false); res.put("message", "Replacement window has expired (7 days only)"); return ResponseEntity.badRequest().body(res); }
-        if (order.isReplacementRequested()) { res.put(KEY_SUCCESS, false); res.put("message", "Replacement already requested for this order"); return ResponseEntity.badRequest().body(res); }
-        
+        if (order == null || order.getCustomer().getId() != customerId) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        ResponseEntity<Map<String, Object>> validationError = validateReplacementEligibility(order, res);
+        if (validationError != null) {
+            return validationError;
+        }
+
         order.setReplacementRequested(true);
         orderRepository.save(order);
-        
+        sendReplacementEmailSilently(order);
+
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Replacement requested successfully");
+        return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Validates that an order is eligible for replacement.
+     * Returns a 400 error response if it is not eligible, or {@code null} if all checks pass.
+     */
+    private ResponseEntity<Map<String, Object>> validateReplacementEligibility(Order order, Map<String, Object> res) {
+        if (order.getTrackingStatus() != TrackingStatus.DELIVERED) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Can only request replacement for delivered orders");
+            return ResponseEntity.badRequest().body(res);
+        }
+        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
+        if (order.getOrderDate() == null || order.getOrderDate().isBefore(cutoff)) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Replacement window has expired (7 days only)");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (order.isReplacementRequested()) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Replacement already requested for this order");
+            return ResponseEntity.badRequest().body(res);
+        }
+        return null;
+    }
+
+    /** Sends the replacement email in a fire-and-forget manner; logs but does not propagate failures. */
+    private void sendReplacementEmailSilently(Order order) {
         try {
             emailSender.sendReplacementRequest(order.getCustomer(), order.getAmount(), order.getId(), order.getItems());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("Replacement email failed for order {}: {}", order.getId(), e.getMessage());
         }
-        
-        res.put(KEY_SUCCESS, true); res.put("message", "Replacement requested successfully");
-        return ResponseEntity.ok(res);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -2729,7 +2824,7 @@ public class ReactApiController {
         // ── 1. Auth check ──────────────────────────────────────────────────
         if (customerId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2737,7 +2832,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -2747,7 +2842,7 @@ public class ReactApiController {
 
         if (reason == null || reason.isBlank()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "reason is required");
+            res.put(KEY_MESSAGE, "reason is required");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -2778,7 +2873,7 @@ public class ReactApiController {
 
         // ── 6. Respond ─────────────────────────────────────────────────────
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Your issue has been reported. Our team will review it shortly.");
+        res.put(KEY_MESSAGE, "Your issue has been reported. Our team will review it shortly.");
         res.put(KEY_ORDER_ID, id);
         res.put("reason", reason);
         return ResponseEntity.ok(res);
@@ -2808,7 +2903,7 @@ public class ReactApiController {
         if (customerId == null) {
             Map<String, Object> res = new HashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
 
@@ -2817,14 +2912,14 @@ public class ReactApiController {
         if (order == null || order.getCustomer().getId() != customerId) {
             Map<String, Object> res = new HashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
         if (order.getTrackingStatus() != TrackingStatus.DELIVERED) {
             Map<String, Object> res = new HashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Invoice is only available for delivered orders");
+            res.put(KEY_MESSAGE, "Invoice is only available for delivered orders");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -2844,7 +2939,7 @@ public class ReactApiController {
 
             Map<String, Object> res = new HashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to generate invoice PDF");
+            res.put(KEY_MESSAGE, "Failed to generate invoice PDF");
             res.put(KEY_ERROR, e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
@@ -2858,9 +2953,9 @@ public class ReactApiController {
     @GetMapping("/wishlist")
     public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
         List<Map<String, Object>> items = wishlist.stream().map(w -> {
             Map<String, Object> m = new HashMap<>();
@@ -2878,9 +2973,9 @@ public class ReactApiController {
     @GetMapping("/wishlist/ids")
     public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
                 .map(w -> w.getProduct().getId()).toList();
         res.put(KEY_SUCCESS, true); res.put("ids", ids);
@@ -2893,22 +2988,22 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Integer productId = body.get(KEY_PRODUCT_ID);
-        if (productId == null) { res.put(KEY_SUCCESS, false); res.put("message", "productId is required"); return ResponseEntity.badRequest().body(res); }
+        if (productId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "productId is required"); return ResponseEntity.badRequest().body(res); }
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
                 .filter(w -> w.getProduct().getId() == productId).toList();
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
-            res.put(KEY_SUCCESS, true); res.put("wishlisted", false); res.put("message", "Removed from wishlist");
+            res.put(KEY_SUCCESS, true); res.put("wishlisted", false); res.put(KEY_MESSAGE, "Removed from wishlist");
         } else {
             Wishlist w = new Wishlist(); w.setCustomer(customer); w.setProduct(product); w.setAddedAt(LocalDateTime.now());
             wishlistRepository.save(w);
-            res.put(KEY_SUCCESS, true); res.put("wishlisted", true); res.put("message", "Added to wishlist");
+            res.put(KEY_SUCCESS, true); res.put("wishlisted", true); res.put(KEY_MESSAGE, "Added to wishlist");
         }
         return ResponseEntity.ok(res);
     }
@@ -2921,9 +3016,9 @@ public class ReactApiController {
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", customer.getId()); profile.put("name", customer.getName());
         profile.put(KEY_EMAIL, customer.getEmail()); profile.put(KEY_MOBILE, customer.getMobile());
@@ -2931,7 +3026,7 @@ public class ReactApiController {
         profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
         profile.put("provider",  customer.getProvider()  != null ? customer.getProvider() : "local");
         profile.put("password",  customer.getPassword() != null); // boolean: true if password is set
-        profile.put("addresses", customer.getAddresses().stream().map(a -> {
+        profile.put(KEY_ADDRESSES, customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
             am.put("id",            a.getId());
             am.put("formattedAddress", a.getFormattedAddress());
@@ -2954,13 +3049,13 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
         if (body.containsKey(KEY_MOBILE)) customer.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
         customerRepository.save(customer);
-        res.put(KEY_SUCCESS, true); res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -2974,9 +3069,9 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
 
         Address address = new Address();
         address.setCustomer(customer);
@@ -2994,7 +3089,7 @@ public class ReactApiController {
             // Legacy flat-text fallback
             String details = body.get("address");
             if (details == null || details.isBlank()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Address cannot be empty");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Address cannot be empty");
                 return ResponseEntity.badRequest().body(res);
             }
             address.setDetails(details.trim());
@@ -3002,7 +3097,7 @@ public class ReactApiController {
 
         customer.getAddresses().add(address);
         customerRepository.save(customer);
-        res.put(KEY_SUCCESS, true); res.put("message", "Address added");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Address added");
         res.put("addressId", address.getId());
         return ResponseEntity.ok(res);
     }
@@ -3012,12 +3107,12 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> deleteAddress(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
         customerRepository.save(customer);
-        res.put(KEY_SUCCESS, true); res.put("message", "Address deleted");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Address deleted");
         return ResponseEntity.ok(res);
     }
 
@@ -3031,16 +3126,16 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
         int rating    = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
-            res.put(KEY_SUCCESS, false); res.put("message", "You have already reviewed this product");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You have already reviewed this product");
             return ResponseEntity.badRequest().body(res);
         }
         int safeRating = Math.max(1, Math.min(5, rating));
@@ -3048,7 +3143,7 @@ public class ReactApiController {
         review.setProduct(product); review.setRating(safeRating); review.setComment(comment);
         review.setCustomer(customer);
         reviewRepository.save(review);
-        res.put(KEY_SUCCESS, true); res.put("message", "Review added successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Review added successfully");
         res.put("reviewId", review.getId());
         return ResponseEntity.ok(res);
     }
@@ -3068,29 +3163,29 @@ public class ReactApiController {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         Review review = reviewRepository.findById(reviewId).orElse(null);
         if (review == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Review not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Review not found");
             return ResponseEntity.status(404).body(res);
         }
         // Ownership: enforce using immutable customer FK, not display name
         if (review.getCustomer() == null || review.getCustomer().getId() != customer.getId()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "You can only add photos to your own reviews");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You can only add photos to your own reviews");
             return ResponseEntity.status(403).body(res);
         }
 
         long existing = reviewImageRepository.countByReviewId(reviewId);
         int slots = (int) (5 - existing);
         if (slots <= 0) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Maximum 5 photos already uploaded for this review");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Maximum 5 photos already uploaded for this review");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3124,7 +3219,7 @@ public class ReactApiController {
 
         if (uploaded == 0 && !errors.isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", String.join("; ", errors));
+            res.put(KEY_MESSAGE, String.join("; ", errors));
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3132,7 +3227,7 @@ public class ReactApiController {
         res.put("uploaded", uploaded);
         res.put("urls", urls);
         if (!errors.isEmpty()) res.put("warnings", errors);
-        res.put("message", uploaded + " photo(s) added to your review");
+        res.put(KEY_MESSAGE, uploaded + " photo(s) added to your review");
         return ResponseEntity.ok(res);
     }
 
@@ -3144,9 +3239,9 @@ public class ReactApiController {
     @GetMapping("/spending-summary")
     public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).toList();
         if (delivered.isEmpty()) { res.put(KEY_SUCCESS, true); res.put("hasData", false); return ResponseEntity.ok(res); }
@@ -3187,15 +3282,15 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+            if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
             int orderId  = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
             String reason = (String) body.getOrDefault("reason", "");
             String type   = (String) body.getOrDefault("type", "REFUND");
             Order order = orderRepository.findById(orderId).orElse(null);
-            if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-            if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put(KEY_SUCCESS, false); res.put("message", "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
+            if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
             Refund refund = new Refund();
             refund.setOrder(order); refund.setCustomer(customer);
             // Prepend type (REFUND/REPLACEMENT) to reason so it's stored without a separate column
@@ -3203,10 +3298,10 @@ public class ReactApiController {
             refund.setStatus(RefundStatus.PENDING);
             refund.setAmount(order.getTotalPrice());
             refundRepository.save(refund);
-            res.put(KEY_SUCCESS, true); res.put("message", "Refund request submitted");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Refund request submitted");
             res.put("refundId", refund.getId());
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** GET /api/flutter/refund/status/{orderId} */
@@ -3214,9 +3309,9 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getRefundStatus(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
         if (refunds.isEmpty()) { res.put(KEY_SUCCESS, true); res.put("hasRefund", false); return ResponseEntity.ok(res); }
         Refund latest = refunds.get(refunds.size() - 1);
@@ -3259,28 +3354,28 @@ public class ReactApiController {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         Refund refund = refundRepository.findById(refundId).orElse(null);
         if (refund == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Refund not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Refund not found");
             return ResponseEntity.status(404).body(res);
         }
         if (refund.getCustomer().getId() != customerId) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Access denied");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Access denied");
             return ResponseEntity.status(403).body(res);
         }
 
         long existing = refundImageRepository.countByRefundId(refundId);
         int slots = (int) (5 - existing);
         if (slots <= 0) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Maximum 5 evidence images already uploaded");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Maximum 5 evidence images already uploaded");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3316,7 +3411,7 @@ public class ReactApiController {
 
         if (uploaded == 0 && !errors.isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", String.join("; ", errors));
+            res.put(KEY_MESSAGE, String.join("; ", errors));
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3324,7 +3419,7 @@ public class ReactApiController {
         res.put("uploaded", uploaded);
         res.put("urls", uploadedUrls);
         if (!errors.isEmpty()) res.put("warnings", errors);
-        res.put("message", uploaded + " image(s) uploaded successfully");
+        res.put(KEY_MESSAGE, uploaded + " image(s) uploaded successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -3340,16 +3435,16 @@ public class ReactApiController {
 
         Map<String, Object> res = new HashMap<>();
         if (customerId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER);
             return ResponseEntity.status(401).body(res);
         }
         Refund refund = refundRepository.findById(refundId).orElse(null);
         if (refund == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Refund not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Refund not found");
             return ResponseEntity.status(404).body(res);
         }
         if (refund.getCustomer().getId() != customerId) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Access denied");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Access denied");
             return ResponseEntity.status(403).body(res);
         }
 
@@ -3376,7 +3471,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getVendorProducts(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         res.put(KEY_SUCCESS, true);
         res.put("products", products.stream().map(this::mapProduct).toList());
@@ -3389,7 +3484,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getVendorOrders(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).toList();
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
         List<Map<String, Object>> vendorOrders = allOrders.stream().map(order -> {
@@ -3427,7 +3522,7 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3435,7 +3530,7 @@ public class ReactApiController {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -3450,7 +3545,7 @@ public class ReactApiController {
 
         if (!hasVendorItem) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "This order does not contain any of your products");
+            res.put(KEY_MESSAGE, "This order does not contain any of your products");
             return ResponseEntity.status(403).body(res);
         }
 
@@ -3458,7 +3553,7 @@ public class ReactApiController {
         TrackingStatus current = order.getTrackingStatus();
         if (current != null && current.getStepIndex() > TrackingStatus.PACKED.getStepIndex()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Order is already " + current.getDisplayName() + " — cannot revert to Packed");
+            res.put(KEY_MESSAGE, "Order is already " + current.getDisplayName() + " — cannot revert to Packed");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3468,7 +3563,7 @@ public class ReactApiController {
         orderRepository.save(order);
 
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Order marked as packed");
+        res.put(KEY_MESSAGE, "Order marked as packed");
         res.put(KEY_ORDER_ID, orderId);
         res.put(KEY_NEW_STATUS, TrackingStatus.PACKED.name());
         if (order.getSourceWarehouse() != null) {
@@ -3482,7 +3577,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         List<Integer> productIds = products.stream().map(Product::getId).toList();
         List<Order> orders = orderRepository.findOrdersByVendor(vendor);
@@ -3519,7 +3614,7 @@ public class ReactApiController {
             @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
             Product p = new Product();
             p.setName(name);
@@ -3557,9 +3652,9 @@ public class ReactApiController {
             }
             
             productRepository.save(p);
-            res.put(KEY_SUCCESS, true); res.put("message", "Product added. Pending admin approval."); res.put(KEY_PRODUCT_ID, p.getId());
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product added. Pending admin approval."); res.put(KEY_PRODUCT_ID, p.getId());
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** PUT /api/react/vendor/products/{id}/update — Accepts multipart/form-data */
@@ -3579,9 +3674,9 @@ public class ReactApiController {
             @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
+        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
             if (name != null &&!name.isBlank()) p.setName(name);
             if (description != null && !description.isBlank()) p.setDescription(description);
@@ -3604,9 +3699,9 @@ public class ReactApiController {
             if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
             
             productRepository.save(p);
-            res.put(KEY_SUCCESS, true); res.put("message", "Product updated successfully.");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** DELETE /api/flutter/vendor/products/{id}/delete */
@@ -3615,11 +3710,11 @@ public class ReactApiController {
             @RequestHeader(HEADER_VENDOR_ID) int vendorId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
+        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         productRepository.delete(p);
-        res.put(KEY_SUCCESS, true); res.put("message", "Product deleted.");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product deleted.");
         return ResponseEntity.ok(res);
     }
 
@@ -3628,7 +3723,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getVendorCategories(@RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         // Return all unique categories from approved products (for reference), or a predefined list
         List<String> categories = productRepository.findByApprovedTrue()
                 .stream().map(Product::getCategory).filter(Objects::nonNull)
@@ -3665,18 +3760,18 @@ public class ReactApiController {
             else if (attr instanceof Number) vendorId = ((Number) attr).intValue();
         }
         if (vendorId == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Vendor id header missing or unauthenticated");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor id header missing or unauthenticated");
             return ResponseEntity.status(401).body(res);
         }
 
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", "Vendor not found (id=" + vendorId + ")"); return ResponseEntity.badRequest().body(res); }
-        if (file == null || file.isEmpty()) { res.put(KEY_SUCCESS, false); res.put("message", "No file uploaded"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found (id=" + vendorId + ")"); return ResponseEntity.badRequest().body(res); }
+        if (file == null || file.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No file uploaded"); return ResponseEntity.badRequest().body(res); }
 
         int created = 0, updated = 0; List<String> errors = new ArrayList<>();
         try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
             String header = reader.readLine();
-            if (header == null) { res.put(KEY_SUCCESS, false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
+            if (header == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Empty file"); return ResponseEntity.badRequest().body(res); }
             String[] cols = parseCsvLine(header);
             Map<String, Integer> idx = new HashMap<>();
             for (int i = 0; i < cols.length; i++) idx.put(normalizeCsvHeader(cols[i]), i);
@@ -3734,13 +3829,13 @@ public class ReactApiController {
                     if (errors.size() > 50) break;
                 }
             }
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", "Failed to process file: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to process file: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
 
         res.put(KEY_SUCCESS, true); 
         res.put("created", created); 
         res.put("updated", updated); 
         res.put("errors", errors);
-        res.put("message", String.format("Processed %d products: %d created, %d updated, %d errors", 
+        res.put(KEY_MESSAGE, String.format("Processed %d products: %d created, %d updated, %d errors", 
                 created + updated + errors.size(), created, updated, errors.size()));
         return ResponseEntity.ok(res);
     }
@@ -3766,7 +3861,7 @@ public class ReactApiController {
 
         Map<String, Object> res = new HashMap<>();
         if (file == null || file.isEmpty()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "No file uploaded");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No file uploaded");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -3774,7 +3869,7 @@ public class ReactApiController {
         if (vendorId != null) {
             vendor = vendorRepository.findById(vendorId).orElse(null);
             if (vendor == null) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Vendor id " + vendorId + " not found");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor id " + vendorId + " not found");
                 return ResponseEntity.badRequest().body(res);
             }
         }
@@ -3782,7 +3877,7 @@ public class ReactApiController {
         int created = 0, updated = 0; List<String> errors = new ArrayList<>();
         try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
             String headerLine = reader.readLine();
-            if (headerLine == null) { res.put(KEY_SUCCESS, false); res.put("message", "Empty file"); return ResponseEntity.badRequest().body(res); }
+            if (headerLine == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Empty file"); return ResponseEntity.badRequest().body(res); }
             String[] cols = parseCsvLine(headerLine);
             Map<String, Integer> idx = new HashMap<>();
             for (int i = 0; i < cols.length; i++) idx.put(cols[i].trim().toLowerCase().replace(" ", "").replace("_", ""), i);
@@ -3847,7 +3942,7 @@ public class ReactApiController {
                 }
             }
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Failed to process file: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to process file: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
 
@@ -3855,7 +3950,7 @@ public class ReactApiController {
         res.put("created", created);
         res.put("updated", updated);
         res.put("errors", errors);
-        res.put("message", "Import complete: " + created + " created, " + updated + " updated" +
+        res.put(KEY_MESSAGE, "Import complete: " + created + " created, " + updated + " updated" +
             (errors.isEmpty() ? "" : ", " + errors.size() + " row error(s)"));
         return ResponseEntity.ok(res);
     }
@@ -3911,7 +4006,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -4123,9 +4218,9 @@ public class ReactApiController {
 
     private Map<String, Object> mapOrder(Order o) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id", o.getId()); m.put("amount", o.getAmount()); m.put("deliveryCharge", o.getDeliveryCharge());
+        m.put("id", o.getId()); m.put(KEY_AMOUNT, o.getAmount()); m.put("deliveryCharge", o.getDeliveryCharge());
         m.put("totalPrice", o.getTotalPrice()); m.put("paymentMode", o.getPaymentMode());
-        m.put("deliveryTime", o.getDeliveryTime()); m.put("trackingStatus", o.getTrackingStatus().name());
+        m.put(KEY_DELIVERY_TIME, o.getDeliveryTime()); m.put("trackingStatus", o.getTrackingStatus().name());
         m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
         m.put("currentCity", o.getCurrentCity());
         m.put("orderDate", o.getOrderDate() != null ? o.getOrderDate().toString() : null);
@@ -4170,14 +4265,14 @@ public class ReactApiController {
     /** GET /api/flutter/admin/users — returns all customers + vendors */
     @GetMapping("/admin/users")
     public ResponseEntity<Map<String, Object>> adminGetUsers(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", c.getId()); m.put("name", c.getName()); m.put(KEY_EMAIL, c.getEmail());
             m.put(KEY_MOBILE, c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
-            m.put("role", c.getRole() != null ? c.getRole().name() : "CUSTOMER");
+            m.put("role", c.getRole() != null ? c.getRole().name() : ROLE_CUSTOMER);
             return m;
         }).toList();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
@@ -4194,14 +4289,14 @@ public class ReactApiController {
     /** POST /api/flutter/admin/customers/{id}/toggle-active */
     @PostMapping("/admin/customers/{id}/toggle-active")
     public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Customer c = customerRepository.findById(id).orElse(null);
-        if (c == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (c == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         c.setActive(!c.isActive());
         customerRepository.save(c);
-        res.put(KEY_SUCCESS, true); res.put("message", c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
         return ResponseEntity.ok(res);
     }
 
@@ -4220,13 +4315,13 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
 
         String newRoleStr = body.get("role");
         if (newRoleStr == null || newRoleStr.isBlank()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "role is required");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "role is required");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -4234,13 +4329,13 @@ public class ReactApiController {
         try {
             newRole = com.example.ekart.dto.Role.valueOf(newRoleStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Invalid role: " + newRoleStr);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid role: " + newRoleStr);
             return ResponseEntity.badRequest().body(res);
         }
 
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -4249,7 +4344,7 @@ public class ReactApiController {
         customerRepository.save(customer);
 
         res.put(KEY_SUCCESS,  true);
-        res.put("message",  "Role updated successfully");
+        res.put(KEY_MESSAGE,  "Role updated successfully");
         res.put("userId",   id);
         res.put("oldRole",  oldRole != null ? oldRole.name() : null);
         res.put("newRole",  newRole.name());
@@ -4260,22 +4355,22 @@ public class ReactApiController {
     /** POST /api/flutter/admin/vendors/{id}/toggle-active */
     @PostMapping("/admin/vendors/{id}/toggle-active")
     public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Vendor v = vendorRepository.findById(id).orElse(null);
-        if (v == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (v == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         v.setVerified(!v.isVerified());
         vendorRepository.save(v);
-        res.put(KEY_SUCCESS, true); res.put("message", v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
         return ResponseEntity.ok(res);
     }
 
     /** GET /api/flutter/admin/products — returns all products with approval status */
     @GetMapping("/admin/products")
     public ResponseEntity<Map<String, Object>> adminGetProducts(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> products = productRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
@@ -4287,28 +4382,28 @@ public class ReactApiController {
     /** POST /api/flutter/admin/products/{id}/approve */
     @PostMapping("/admin/products/{id}/approve")
     public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         p.setApproved(true);
         productRepository.save(p);
-        res.put(KEY_SUCCESS, true); res.put("message", "Product approved and is now visible to customers");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product approved and is now visible to customers");
         return ResponseEntity.ok(res);
     }
 
     /** POST /api/flutter/admin/products/{id}/reject */
     @PostMapping("/admin/products/{id}/reject")
     public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         p.setApproved(false);
         productRepository.save(p);
-        res.put(KEY_SUCCESS, true); res.put("message", "Product rejected / hidden from customers");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product rejected / hidden from customers");
         return ResponseEntity.ok(res);
     }
 
@@ -4318,8 +4413,8 @@ public class ReactApiController {
      */
     @PostMapping("/admin/products/approve-all")
     public ResponseEntity<Map<String, Object>> adminApproveAllProducts(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Product> pending = productRepository.findAll()
                 .stream()
@@ -4328,22 +4423,22 @@ public class ReactApiController {
         if (pending.isEmpty()) {
             res.put(KEY_SUCCESS, true);
             res.put("approvedCount", 0);
-            res.put("message", "No pending products to approve");
+            res.put(KEY_MESSAGE, "No pending products to approve");
             return ResponseEntity.ok(res);
         }
         pending.forEach(p -> p.setApproved(true));
         productRepository.saveAll(pending);
         res.put(KEY_SUCCESS, true);
         res.put("approvedCount", pending.size());
-        res.put("message", "Approved " + pending.size() + " product" + (pending.size() == 1 ? "" : "s"));
+        res.put(KEY_MESSAGE, "Approved " + pending.size() + " product" + (pending.size() == 1 ? "" : "s"));
         return ResponseEntity.ok(res);
     }
 
     /** GET /api/flutter/admin/orders — all orders with customer info */
     @GetMapping("/admin/orders")
     public ResponseEntity<Map<String, Object>> adminGetOrders(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
@@ -4363,8 +4458,8 @@ public class ReactApiController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String status,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return ResponseEntity.status(401).build();
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return ResponseEntity.status(401).build();
 
         List<Order> orders = orderRepository.findAll().stream()
             .sorted(Comparator.comparingInt(Order::getId).reversed())
@@ -4441,13 +4536,13 @@ public class ReactApiController {
     @GetMapping("/admin/orders/{id}")
     public ResponseEntity<Map<String, Object>> adminGetOrderById(
             @PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         res.put(KEY_SUCCESS, true);
@@ -4460,18 +4555,18 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminUpdateOrderStatus(
             @PathVariable int id, @RequestBody Map<String, String> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
             TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
             order.setTrackingStatus(newStatus);
             orderRepository.save(order);
-            res.put(KEY_SUCCESS, true); res.put("message", "Order status updated to " + newStatus.getDisplayName());
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Order status updated to " + newStatus.getDisplayName());
         } catch (IllegalArgumentException e) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Invalid status: " + body.get("status"));
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid status: " + body.get("status"));
             return ResponseEntity.badRequest().body(res);
         }
         return ResponseEntity.ok(res);
@@ -4488,14 +4583,14 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getCustomerAddresses(
             @PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
 
         com.example.ekart.dto.Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_CUSTOMER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -4515,7 +4610,7 @@ public class ReactApiController {
               }).toList();
 
         res.put(KEY_SUCCESS,   true);
-        res.put("addresses", addresses);
+        res.put(KEY_ADDRESSES, addresses);
         res.put(KEY_COUNT,     addresses.size());
         return ResponseEntity.ok(res);
     }
@@ -4537,24 +4632,24 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody(required = false) Map<String, String> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Cannot cancel an already-delivered order");
+            res.put(KEY_MESSAGE, "Cannot cancel an already-delivered order");
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getTrackingStatus() == TrackingStatus.CANCELLED) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Order is already cancelled");
+            res.put(KEY_MESSAGE, "Order is already cancelled");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -4589,7 +4684,7 @@ public class ReactApiController {
         }
 
         res.put(KEY_SUCCESS, true);
-        res.put("message", PREFIX_ORDER + id + " cancelled successfully");
+        res.put(KEY_MESSAGE, PREFIX_ORDER + id + " cancelled successfully");
         res.put("reason", reason);
         res.put(KEY_ORDER_ID, id);
         return ResponseEntity.ok(res);
@@ -4598,8 +4693,8 @@ public class ReactApiController {
     /** GET /api/flutter/admin/vendors — vendor list (alias of user list vendor section) */
     @GetMapping("/admin/vendors")
     public ResponseEntity<Map<String, Object>> adminGetVendors(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
@@ -4619,8 +4714,8 @@ public class ReactApiController {
     /** GET /api/flutter/admin/coupons — all coupons with stats */
     @GetMapping("/admin/coupons")
     public ResponseEntity<Map<String, Object>> adminGetCoupons(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
@@ -4652,18 +4747,18 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminCreateCoupon(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         String code = body.getOrDefault("code", "").toString().toUpperCase().trim();
-        if (code.isEmpty()) { res.put(KEY_SUCCESS, false); res.put("message", "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
+        if (code.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
         if (couponRepository.findByCode(code).isPresent()) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Coupon code '" + code + "' already exists");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code '" + code + "' already exists");
             return ResponseEntity.badRequest().body(res);
         }
         double value;
         try { value = Double.parseDouble(body.getOrDefault("value", "0").toString()); }
-        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put("message", "Invalid discount value"); return ResponseEntity.badRequest().body(res); }
+        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid discount value"); return ResponseEntity.badRequest().body(res); }
 
         Coupon coupon = new Coupon();
         coupon.setCode(code);
@@ -4684,7 +4779,7 @@ public class ReactApiController {
 
         couponRepository.save(coupon);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Coupon '" + coupon.getCode() + "' created successfully");
+        res.put(KEY_MESSAGE, "Coupon '" + coupon.getCode() + "' created successfully");
         res.put("id", coupon.getId());
         return ResponseEntity.ok(res);
     }
@@ -4692,15 +4787,15 @@ public class ReactApiController {
     /** POST /api/flutter/admin/coupons/{id}/toggle — flip active flag */
     @PostMapping("/admin/coupons/{id}/toggle")
     public ResponseEntity<Map<String, Object>> adminToggleCoupon(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Coupon coupon = couponRepository.findById(id).orElse(null);
-        if (coupon == null) { res.put(KEY_SUCCESS, false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
+        if (coupon == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon not found"); return ResponseEntity.status(404).body(res); }
         coupon.setActive(!coupon.isActive());
         couponRepository.save(coupon);
         res.put(KEY_SUCCESS, true);
-        res.put("message", coupon.isActive() ? "Coupon enabled" : "Coupon disabled");
+        res.put(KEY_MESSAGE, coupon.isActive() ? "Coupon enabled" : "Coupon disabled");
         res.put("active", coupon.isActive());
         return ResponseEntity.ok(res);
     }
@@ -4708,13 +4803,13 @@ public class ReactApiController {
     /** DELETE /api/flutter/admin/coupons/{id}/delete */
     @DeleteMapping("/admin/coupons/{id}/delete")
     public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
-        if (!couponRepository.existsById(id)) { res.put(KEY_SUCCESS, false); res.put("message", "Coupon not found"); return ResponseEntity.status(404).body(res); }
+        if (!couponRepository.existsById(id)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon not found"); return ResponseEntity.status(404).body(res); }
         couponRepository.deleteById(id);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Coupon deleted");
+        res.put(KEY_MESSAGE, "Coupon deleted");
         return ResponseEntity.ok(res);
     }
 
@@ -4765,8 +4860,8 @@ public class ReactApiController {
     @GetMapping("/admin/analytics")
     public ResponseEntity<Map<String, Object>> adminGetAnalytics(
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
@@ -4915,8 +5010,8 @@ public class ReactApiController {
     @GetMapping("/admin/spending")
     public ResponseEntity<Map<String, Object>> adminGetUserSpending(
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         List<Customer> allCustomers = customerRepository.findAll();
         List<Map<String, Object>> spendingList = new java.util.ArrayList<>();
@@ -5001,8 +5096,8 @@ public class ReactApiController {
     @GetMapping("/admin/reviews")
     public ResponseEntity<Map<String, Object>> adminGetReviews(
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
@@ -5025,7 +5120,7 @@ public class ReactApiController {
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
             m.put(KEY_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId()   : null);
-            m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
+            m.put(KEY_CREATED_AT,    r.getCreatedAt() != null ? r.getCreatedAt().toString() : null);
             return m;
         }).toList();
         Map<String, Object> res = new HashMap<>();
@@ -5048,8 +5143,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminDeleteReview(
             @PathVariable int id,
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
@@ -5076,8 +5171,8 @@ public class ReactApiController {
     @GetMapping("/admin/refunds")
     public ResponseEntity<Map<String, Object>> adminGetRefunds(
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
@@ -5092,7 +5187,7 @@ public class ReactApiController {
                     m.put(KEY_ORDER_ID,         r.getOrder() != null ? r.getOrder().getId() : null);
                     m.put(KEY_CUSTOMER_NAME,    r.getCustomer() != null ? r.getCustomer().getName() : null);
                     m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
-                    m.put("amount",          r.getAmount());
+                    m.put(KEY_AMOUNT,          r.getAmount());
                     m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
                     m.put("reason",          r.getReason());
                     m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
@@ -5118,8 +5213,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminApproveRefund(
             @PathVariable int id,
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
@@ -5151,8 +5246,8 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody Map<String, Object> body,
             jakarta.servlet.http.HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
@@ -5188,8 +5283,8 @@ public class ReactApiController {
      */
     @GetMapping("/admin/warehouses")
     public ResponseEntity<Map<String, Object>> adminGetWarehouses(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<Warehouse> warehouses = warehouseRepository.findAll();
@@ -5216,7 +5311,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load warehouses: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load warehouses: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5239,8 +5334,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminAddWarehouse(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String name           = body.getOrDefault("name",           "").toString().trim();
@@ -5250,22 +5345,22 @@ public class ReactApiController {
 
             if (name.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Warehouse name is required");
+                res.put(KEY_MESSAGE, "Warehouse name is required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (city.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "City is required");
+                res.put(KEY_MESSAGE, "City is required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (state.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "State is required");
+                res.put(KEY_MESSAGE, "State is required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (servedPinCodes.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "PIN codes are required (e.g., 560001,560002,560003)");
+                res.put(KEY_MESSAGE, "PIN codes are required (e.g., 560001,560002,560003)");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5284,13 +5379,13 @@ public class ReactApiController {
             warehouseRepository.save(wh);
 
             res.put(KEY_SUCCESS,       true);
-            res.put("message",       "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
+            res.put(KEY_MESSAGE,       "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")");
             res.put(KEY_WAREHOUSE_ID,   wh.getId());
             res.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to add warehouse: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to add warehouse: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5313,8 +5408,8 @@ public class ReactApiController {
      */
     @GetMapping("/admin/delivery-boys")
     public ResponseEntity<Map<String, Object>> adminGetDeliveryBoys(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<DeliveryBoy> boys = deliveryBoyRepository.findAll();
@@ -5367,7 +5462,7 @@ public class ReactApiController {
         } catch (Exception e) {
             e.printStackTrace();
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load delivery boys: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load delivery boys: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5458,7 +5553,7 @@ public class ReactApiController {
             }
             
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Fixed " + count + " unverified delivery boys - they should now appear in admin dashboard");
+            res.put(KEY_MESSAGE, "Fixed " + count + " unverified delivery boys - they should now appear in admin dashboard");
             res.put("fixedCount", count);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -5488,20 +5583,20 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody(required = false) Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
 
             if (db.getWarehouse() == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "No warehouse selected by this delivery boy during registration");
+                res.put(KEY_MESSAGE, "No warehouse selected by this delivery boy during registration");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5522,11 +5617,11 @@ public class ReactApiController {
             catch (Exception e) { LOGGER.error("Approval email failed", e); }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
+            res.put(KEY_MESSAGE, db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to approve delivery boy: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to approve delivery boy: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5540,14 +5635,14 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> toggleDeliveryBoyAvailability(
             @PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5564,11 +5659,11 @@ public class ReactApiController {
             }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", db.getName() + " is now " + (newStatus ? "Online" : "Offline"));
+            res.put(KEY_MESSAGE, db.getName() + " is now " + (newStatus ? "Online" : "Offline"));
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to update availability: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to update availability: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5585,27 +5680,27 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminMarkOrderPacked(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             Integer orderId = body != null ? (Integer) body.get(KEY_ORDER_ID) : null;
             if (orderId == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Missing orderId");
+                res.put(KEY_MESSAGE, "Missing orderId");
                 return ResponseEntity.badRequest().body(res);
             }
 
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
 
             if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Order must be PROCESSING to mark as Packed. Current: " 
+                res.put(KEY_MESSAGE, "Order must be PROCESSING to mark as Packed. Current: " 
                     + order.getTrackingStatus().getDisplayName());
                 return ResponseEntity.badRequest().body(res);
             }
@@ -5631,18 +5726,18 @@ public class ReactApiController {
 
             res.put(KEY_SUCCESS, true);
             if (hasDeliveryBoy) {
-                res.put("message", PREFIX_ORDER + orderId + " marked as PACKED and already assigned to "
+                res.put(KEY_MESSAGE, PREFIX_ORDER + orderId + " marked as PACKED and already assigned to "
                     + refreshed.getDeliveryBoy().getName());
                 res.put("autoAssigned", false);  // Not auto-assigned (Phase 3)
                 res.put("assignedTo", refreshed.getDeliveryBoy().getName());
             } else {
-                res.put("message", PREFIX_ORDER + orderId + " marked as PACKED. Warehouse staff will assign delivery boy.");
+                res.put(KEY_MESSAGE, PREFIX_ORDER + orderId + " marked as PACKED. Warehouse staff will assign delivery boy.");
                 res.put("autoAssigned", false);
             }
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to mark order as packed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to mark order as packed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5656,8 +5751,8 @@ public class ReactApiController {
     /** GET /api/react/admin/orders/packed — orders with status=PACKED, awaiting delivery assignment */
     @GetMapping("/admin/orders/packed")
     public ResponseEntity<Map<String, Object>> adminGetPackedOrders(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
             .filter(o -> o.getTrackingStatus() == TrackingStatus.PACKED)
@@ -5672,8 +5767,8 @@ public class ReactApiController {
     /** GET /api/react/admin/orders/shipped — orders with status=SHIPPED (assigned, in transit) */
     @GetMapping("/admin/orders/shipped")
     public ResponseEntity<Map<String, Object>> adminGetShippedOrders(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
             .filter(o -> o.getTrackingStatus() == TrackingStatus.SHIPPED)
@@ -5688,8 +5783,8 @@ public class ReactApiController {
     /** GET /api/react/admin/orders/out-for-delivery — orders with status=OUT_FOR_DELIVERY */
     @GetMapping("/admin/orders/out-for-delivery")
     public ResponseEntity<Map<String, Object>> adminGetOutForDeliveryOrders(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
             .filter(o -> o.getTrackingStatus() == TrackingStatus.OUT_FOR_DELIVERY)
@@ -5718,13 +5813,13 @@ public class ReactApiController {
     @GetMapping("/admin/delivery/boys/for-order/{orderId}")
     public ResponseEntity<Map<String, Object>> adminGetEligibleDeliveryBoys(
             @PathVariable int orderId, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -5793,8 +5888,8 @@ public class ReactApiController {
     @PostMapping("/admin/delivery/assign")
     public ResponseEntity<Map<String, Object>> adminAssignDeliveryBoy(
             @RequestBody Map<String, Object> body, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         try {
             int orderId       = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
@@ -5802,22 +5897,22 @@ public class ReactApiController {
 
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             if (order.getTrackingStatus() != TrackingStatus.PACKED) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Order must be in PACKED status to assign a delivery boy (current: "
+                res.put(KEY_MESSAGE, "Order must be in PACKED status to assign a delivery boy (current: "
                     + order.getTrackingStatus().name() + ")");
                 return ResponseEntity.badRequest().body(res);
             }
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
             if (db == null) {
-                res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             if (!db.isAdminApproved() || !db.isActive()) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Delivery boy is not approved or is inactive");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delivery boy is not approved or is inactive");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -5831,7 +5926,7 @@ public class ReactApiController {
                             order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", PREFIX_ORDER + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
+            res.put(KEY_MESSAGE, PREFIX_ORDER + orderId + " assigned to " + db.getName() + " and marked SHIPPED");
             res.put(KEY_ORDER_ID,         orderId);
             res.put(KEY_DELIVERY_BOY_ID,   db.getId());
             res.put(KEY_DELIVERY_BOY_NAME, db.getName());
@@ -5842,11 +5937,11 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Missing or invalid orderId / deliveryBoyId in request body");
+            res.put(KEY_MESSAGE, "Missing or invalid orderId / deliveryBoyId in request body");
             return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Assignment failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Assignment failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5859,15 +5954,15 @@ public class ReactApiController {
     @PostMapping("/admin/delivery/confirm")
     public ResponseEntity<Map<String, Object>> confirmDelivery(
             @RequestBody Map<String, Object> body, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
         try {
             int orderId = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ORDER_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
 
@@ -5885,15 +5980,15 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true);
             res.put(KEY_ORDER_ID, orderId);
             res.put(KEY_NEW_STATUS, TrackingStatus.DELIVERED.name());
-            res.put("message", "Order marked as delivered.");
+            res.put(KEY_MESSAGE, "Order marked as delivered.");
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Missing or invalid orderId in request body");
+            res.put(KEY_MESSAGE, "Missing or invalid orderId in request body");
             return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Delivery confirmation failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Delivery confirmation failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5908,8 +6003,8 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new HashMap<>();
         try {
@@ -5919,14 +6014,14 @@ public class ReactApiController {
             
             if (pins.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "PIN codes cannot be empty");
+                res.put(KEY_MESSAGE, "PIN codes cannot be empty");
                 return ResponseEntity.badRequest().body(res);
             }
             
             DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
             if (db == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             
@@ -5934,14 +6029,14 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
             
             res.put(KEY_SUCCESS, true);
-            res.put("message", "PIN codes updated for " + db.getName());
+            res.put(KEY_MESSAGE, "PIN codes updated for " + db.getName());
             res.put("id", id);
             res.put("name", db.getName());
             res.put("newPins", pins);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Update failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Update failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -5949,8 +6044,8 @@ public class ReactApiController {
     /** GET /api/react/admin/delivery/boys/load — Delivery Boy Load Board */
     @GetMapping("/admin/delivery/boys/load")
     public ResponseEntity<Map<String, Object>> adminDeliveryBoysLoad(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new HashMap<>();
         List<DeliveryBoy> boys = deliveryBoyRepository.findAll().stream()
@@ -5988,8 +6083,8 @@ public class ReactApiController {
     /** GET /api/react/admin/delivery/auto-assign/logs — Auto-Assignment Event Log (last 50) */
     @GetMapping("/admin/delivery/auto-assign/logs")
     public ResponseEntity<Map<String, Object>> adminAutoAssignLogs(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new HashMap<>();
         try {
@@ -6016,7 +6111,7 @@ public class ReactApiController {
             res.put("logs", logList);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load auto-assign logs: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load auto-assign logs: " + e.getMessage());
         }
         return ResponseEntity.ok(res);
     }
@@ -6026,8 +6121,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminGetWarehouseTransfers(
             @RequestParam(required = false) String status,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<WarehouseChangeRequest> requests;
@@ -6037,7 +6132,7 @@ public class ReactApiController {
                     requests = warehouseChangeRequestRepository.findByStatusOrderByRequestedAtDesc(s);
                 } catch (IllegalArgumentException ex) {
                     res.put(KEY_SUCCESS, false);
-                    res.put("message", "Invalid status value. Use PENDING, APPROVED, or REJECTED");
+                    res.put(KEY_MESSAGE, "Invalid status value. Use PENDING, APPROVED, or REJECTED");
                     return ResponseEntity.badRequest().body(res);
                 }
             } else {
@@ -6094,7 +6189,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load warehouse transfers: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load warehouse transfers: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6117,8 +6212,8 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody(required = false) Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
@@ -6128,12 +6223,12 @@ public class ReactApiController {
             WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
             if (req == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Transfer request not found");
+                res.put(KEY_MESSAGE, "Transfer request not found");
                 return ResponseEntity.badRequest().body(res);
             }
             if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Request already resolved");
+                res.put(KEY_MESSAGE, "Request already resolved");
                 return ResponseEntity.ok(res);
             }
 
@@ -6154,11 +6249,11 @@ public class ReactApiController {
             catch (Exception e) { LOGGER.error("Warehouse change approval email failed", e); }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", db.getName() + " has been transferred to " + newWarehouse.getName());
+            res.put(KEY_MESSAGE, db.getName() + " has been transferred to " + newWarehouse.getName());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to approve warehouse transfer: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to approve warehouse transfer: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6180,8 +6275,8 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody(required = false) Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String adminNote = (body != null)
@@ -6191,12 +6286,12 @@ public class ReactApiController {
             WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
             if (req == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Transfer request not found");
+                res.put(KEY_MESSAGE, "Transfer request not found");
                 return ResponseEntity.badRequest().body(res);
             }
             if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Request already resolved");
+                res.put(KEY_MESSAGE, "Request already resolved");
                 return ResponseEntity.ok(res);
             }
 
@@ -6210,11 +6305,11 @@ public class ReactApiController {
             catch (Exception e) { LOGGER.error("Warehouse change rejection email failed", e); }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Warehouse transfer request rejected");
+            res.put(KEY_MESSAGE, "Warehouse transfer request rejected");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to reject warehouse transfer: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to reject warehouse transfer: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6246,8 +6341,8 @@ public class ReactApiController {
             @RequestParam(name = "q", defaultValue = "") String q,
             @RequestParam(name = "type", defaultValue = "") String type,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String term = q.toLowerCase().trim();
@@ -6313,7 +6408,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Search failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Search failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6352,8 +6447,8 @@ public class ReactApiController {
      */
     @GetMapping("/admin/banners")
     public ResponseEntity<Map<String, Object>> adminGetBanners(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             List<Banner> banners = bannerRepository.findAllByOrderByDisplayOrderAsc();
@@ -6375,7 +6470,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6389,14 +6484,14 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminAddBanner(
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         String title    = body.getOrDefault("title",    "").toString().trim();
         String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
         String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
-        if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
-        if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
+        if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Title is required");     return ResponseEntity.badRequest().body(res); }
+        if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Image URL is required"); return ResponseEntity.badRequest().body(res); }
         Banner b = new Banner();
         b.setTitle(title);
         b.setImageUrl(imageUrl);
@@ -6407,7 +6502,7 @@ public class ReactApiController {
         b.setDisplayOrder(0);
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Banner added");
+        res.put(KEY_MESSAGE, "Banner added");
         return ResponseEntity.ok(res);
     }
 
@@ -6421,22 +6516,22 @@ public class ReactApiController {
             @org.springframework.web.bind.annotation.PathVariable int id,
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         String title    = body.getOrDefault("title",    "").toString().trim();
         String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
         String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
-        if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put("message", "Title is required");     return ResponseEntity.badRequest().body(res); }
-        if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put("message", "Image URL is required"); return ResponseEntity.badRequest().body(res); }
+        if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Title is required");     return ResponseEntity.badRequest().body(res); }
+        if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Image URL is required"); return ResponseEntity.badRequest().body(res); }
         b.setTitle(title);
         b.setImageUrl(imageUrl);
         b.setLinkUrl(linkUrl.isEmpty() ? null : linkUrl);
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Banner updated");
+        res.put(KEY_MESSAGE, "Banner updated");
         return ResponseEntity.ok(res);
     }
 
@@ -6448,11 +6543,11 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminToggleBanner(
             @org.springframework.web.bind.annotation.PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         b.setActive(!b.isActive());
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
@@ -6468,11 +6563,11 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminToggleBannerHome(
             @org.springframework.web.bind.annotation.PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         b.setShowOnHome(!b.isShowOnHome());
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
@@ -6488,11 +6583,11 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminToggleBannerCustomerHome(
             @org.springframework.web.bind.annotation.PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
@@ -6508,13 +6603,13 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminDeleteBanner(
             @org.springframework.web.bind.annotation.PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
-        if (!bannerRepository.existsById(id)) { res.put(KEY_SUCCESS, false); res.put("message", ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (!bannerRepository.existsById(id)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         bannerRepository.deleteById(id);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Banner deleted");
+        res.put(KEY_MESSAGE, "Banner deleted");
         return ResponseEntity.ok(res);
     }
 
@@ -6529,22 +6624,22 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminDeleteAccount(
             @org.springframework.web.bind.annotation.PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             if (!customerRepository.existsById(id)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             customerRepository.deleteById(id);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Account deleted");
+            res.put(KEY_MESSAGE, "Account deleted");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Delete failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Delete failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6558,8 +6653,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminGetAllAccounts(
             @RequestParam(required = false) String search,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
@@ -6577,9 +6672,9 @@ public class ReactApiController {
                 m.put("name", c.getName());
                 m.put(KEY_EMAIL, c.getEmail());
                 m.put(KEY_MOBILE, c.getMobile());
-                m.put("isActive", c.isActive());
-                m.put("role", c.getRole() != null ? c.getRole() : "CUSTOMER");
-                m.put("createdAt", c.getLastLogin() != null ? c.getLastLogin().toString() : null);
+                m.put(KEY_IS_ACTIVE, c.isActive());
+                m.put("role", c.getRole() != null ? c.getRole() : ROLE_CUSTOMER);
+                m.put(KEY_CREATED_AT, c.getLastLogin() != null ? c.getLastLogin().toString() : null);
                 data.add(m);
             }
             res.put(KEY_SUCCESS, true);
@@ -6588,7 +6683,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to fetch accounts: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to fetch accounts: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6599,8 +6694,8 @@ public class ReactApiController {
      */
     @GetMapping("/admin/accounts/stats")
     public ResponseEntity<Map<String, Object>> adminGetAccountStats(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
@@ -6615,7 +6710,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to fetch stats: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to fetch stats: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6629,27 +6724,27 @@ public class ReactApiController {
             @PathVariable int id,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
-            boolean isActive = Boolean.TRUE.equals(body.get("isActive"));
+            boolean isActive = Boolean.TRUE.equals(body.get(KEY_IS_ACTIVE));
             customer.setActive(isActive);
             customerRepository.save(customer);
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Account status updated to " + (isActive ? "active" : "inactive"));
-            res.put("isActive", isActive);
+            res.put(KEY_MESSAGE, "Account status updated to " + (isActive ? "active" : "inactive"));
+            res.put(KEY_IS_ACTIVE, isActive);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to update status: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to update status: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6662,15 +6757,15 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminGetAccountProfile(
             @PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             res.put(KEY_SUCCESS, true);
@@ -6678,14 +6773,14 @@ public class ReactApiController {
             res.put("name", customer.getName());
             res.put(KEY_EMAIL, customer.getEmail());
             res.put(KEY_MOBILE, customer.getMobile());
-            res.put("isActive", customer.isActive());
-            res.put("role", customer.getRole() != null ? customer.getRole() : "CUSTOMER");
-            res.put("createdAt", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
-            res.put("addresses", customer.getAddresses() != null ? customer.getAddresses().size() : 0);
+            res.put(KEY_IS_ACTIVE, customer.isActive());
+            res.put("role", customer.getRole() != null ? customer.getRole() : ROLE_CUSTOMER);
+            res.put(KEY_CREATED_AT, customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
+            res.put(KEY_ADDRESSES, customer.getAddresses() != null ? customer.getAddresses().size() : 0);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to fetch profile: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to fetch profile: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6698,26 +6793,26 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminResetAccountPassword(
             @PathVariable int id,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             Customer customer = customerRepository.findById(id).orElse(null);
             if (customer == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ACCOUNT_NOT_FOUND);
+                res.put(KEY_MESSAGE, ERR_ACCOUNT_NOT_FOUND);
                 return ResponseEntity.status(404).body(res);
             }
             // Note: Actual password reset logic would be implemented via email link
             // For now, just mark that a reset was requested
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Password reset email would be sent to " + customer.getEmail());
+            res.put(KEY_MESSAGE, "Password reset email would be sent to " + customer.getEmail());
             res.put(KEY_EMAIL, customer.getEmail());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to reset password: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to reset password: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6740,8 +6835,8 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminChangePassword(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
         
         Map<String, Object> res = new LinkedHashMap<>();
         try {
@@ -6749,7 +6844,7 @@ public class ReactApiController {
             Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
             if (adminId == null) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", ERR_ADMIN_ID_NOT_IN_TOKEN);
+                res.put(KEY_MESSAGE, ERR_ADMIN_ID_NOT_IN_TOKEN);
                 return ResponseEntity.status(403).body(res);
             }
             
@@ -6760,24 +6855,24 @@ public class ReactApiController {
             // ── Validate inputs ────────────────────────────────────────────
             if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "All password fields are required");
+                res.put(KEY_MESSAGE, "All password fields are required");
                 return ResponseEntity.badRequest().body(res);
             }
             
             if (!newPassword.equals(confirmPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "New passwords do not match");
+                res.put(KEY_MESSAGE, "New passwords do not match");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             
             if (newPassword.equals(currentPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "New password must be different from the current password");
+                res.put(KEY_MESSAGE, "New password must be different from the current password");
                 return ResponseEntity.badRequest().body(res);
             }
 
@@ -6787,16 +6882,16 @@ public class ReactApiController {
 
             if (!changeResult.isSuccess()) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", changeResult.getMessage());
+                res.put(KEY_MESSAGE, changeResult.getMessage());
                 return ResponseEntity.status(401).body(res);
             }
 
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Admin password updated successfully");
+            res.put(KEY_MESSAGE, "Admin password updated successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to change password: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to change password: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6817,11 +6912,11 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
 
         Cart cart = customer.getCart();
         if (cart == null) { cart = new Cart(); customer.setCart(cart); }
@@ -6846,7 +6941,7 @@ public class ReactApiController {
         res.put(KEY_SUCCESS, true);
         res.put("addedCount", addedCount);
         res.put("outOfStockItems", outOfStock);
-        res.put("message", addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
+        res.put(KEY_MESSAGE, addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
         return ResponseEntity.ok(res);
     }
 
@@ -6860,23 +6955,23 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
+        if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         String current = (String) body.get(KEY_CURRENT_PASSWORD);
         String newPwd  = (String) body.get(KEY_NEW_PASSWORD);
-        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Both passwords required"); return ResponseEntity.badRequest().body(res); }
         try {
             if (!AES.decrypt(customer.getPassword()).equals(current)) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Current password is incorrect");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             customer.setPassword(AES.encrypt(newPwd));
             customerRepository.save(customer);
-            res.put(KEY_SUCCESS, true); res.put("message", MSG_PASSWORD_CHANGED);
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** GET /api/flutter/vendor/profile
@@ -6887,7 +6982,7 @@ public class ReactApiController {
             @RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> v = new HashMap<>();
         v.put("id", vendor.getId()); v.put("name", vendor.getName());
         v.put(KEY_EMAIL, vendor.getEmail()); v.put(KEY_MOBILE, vendor.getMobile());
@@ -6910,13 +7005,13 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name") && !((String) body.get("name")).isBlank())
             vendor.setName((String) body.get("name"));
         if (body.containsKey(KEY_MOBILE))
             try { vendor.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString())); } catch (Exception ignored) {}
         vendorRepository.save(vendor);
-        res.put(KEY_SUCCESS, true); res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -6936,7 +7031,7 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_VENDOR_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (body.containsKey("name")) {
@@ -6948,19 +7043,19 @@ public class ReactApiController {
                 long mobile = Long.parseLong(body.get(KEY_MOBILE).toString().trim());
                 if (mobile < 6000000000L || mobile > 9999999999L) {
                     res.put(KEY_SUCCESS, false);
-                    res.put("message", "Enter a valid 10-digit mobile number");
+                    res.put(KEY_MESSAGE, "Enter a valid 10-digit mobile number");
                     return ResponseEntity.badRequest().body(res);
                 }
                 Vendor existing = vendorRepository.findByMobile(mobile);
                 if (existing != null && existing.getId() != vendorId) {
                     res.put(KEY_SUCCESS, false);
-                    res.put("message", "Mobile number already in use by another vendor");
+                    res.put(KEY_MESSAGE, "Mobile number already in use by another vendor");
                     return ResponseEntity.badRequest().body(res);
                 }
                 vendor.setMobile(mobile);
             } catch (NumberFormatException e) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Invalid mobile number format");
+                res.put(KEY_MESSAGE, "Invalid mobile number format");
                 return ResponseEntity.badRequest().body(res);
             }
         }
@@ -6970,7 +7065,7 @@ public class ReactApiController {
         }
         vendorRepository.save(vendor);
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Storefront updated successfully");
+        res.put(KEY_MESSAGE, "Storefront updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -6985,21 +7080,21 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         String current = (String) body.get(KEY_CURRENT_PASSWORD);
         String newPwd  = (String) body.get(KEY_NEW_PASSWORD);
-        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Both passwords required"); return ResponseEntity.badRequest().body(res); }
         try {
             if (!AES.decrypt(vendor.getPassword()).equals(current)) {
-                res.put(KEY_SUCCESS, false); res.put("message", "Current password is incorrect");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put("message", STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
             vendor.setPassword(AES.encrypt(newPwd));
             vendorRepository.save(vendor);
-            res.put(KEY_SUCCESS, true); res.put("message", MSG_PASSWORD_CHANGED);
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -7023,12 +7118,12 @@ public class ReactApiController {
         String provider = (String) body.get("provider");
         if (provider == null || provider.isBlank()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "provider required");
+            res.put(KEY_MESSAGE, "provider required");
             return ResponseEntity.badRequest().body(res);
         }
         if (!oAuthProviderValidator.isProviderAllowed(provider, "customer")) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
+            res.put(KEY_MESSAGE, oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
             return ResponseEntity.badRequest().body(res);
         }
         // Store link mode so OAuth2LoginSuccessHandler knows to link, not login
@@ -7052,10 +7147,10 @@ public class ReactApiController {
         boolean ok = socialAuthService.unlinkOAuthFromCustomer(customerId);
         if (ok) {
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Social account unlinked successfully");
+            res.put(KEY_MESSAGE, "Social account unlinked successfully");
         } else {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Cannot unlink — set a password first, or account not found");
+            res.put(KEY_MESSAGE, "Cannot unlink — set a password first, or account not found");
         }
         return ResponseEntity.ok(res);
     }
@@ -7076,12 +7171,12 @@ public class ReactApiController {
         String provider = (String) body.get("provider");
         if (provider == null || provider.isBlank()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "provider required");
+            res.put(KEY_MESSAGE, "provider required");
             return ResponseEntity.badRequest().body(res);
         }
         if (!oAuthProviderValidator.isProviderAllowed(provider, "vendor")) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
+            res.put(KEY_MESSAGE, oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
             return ResponseEntity.badRequest().body(res);
         }
         session.setAttribute("oauth_login_type",    "flutter-link-vendor");
@@ -7104,10 +7199,10 @@ public class ReactApiController {
         boolean ok = socialAuthService.unlinkOAuthFromVendor(vendorId);
         if (ok) {
             res.put(KEY_SUCCESS, true);
-            res.put("message", "Social account unlinked successfully");
+            res.put(KEY_MESSAGE, "Social account unlinked successfully");
         } else {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Cannot unlink — set a password first, or account not found");
+            res.put(KEY_MESSAGE, "Cannot unlink — set a password first, or account not found");
         }
         return ResponseEntity.ok(res);
     }
@@ -7121,7 +7216,7 @@ public class ReactApiController {
             @RequestHeader(HEADER_VENDOR_ID) int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
 
         // Keep alert records in sync with current low-stock products for this vendor.
         productRepository.findByVendor(vendor).forEach(stockAlertService::checkStockLevel);
@@ -7141,7 +7236,7 @@ public class ReactApiController {
             m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
             m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
                     ? a.getProduct().getStockAlertThreshold() : 10);
-            m.put("message",      a.getMessage());
+            m.put(KEY_MESSAGE,      a.getMessage());
             m.put("acknowledged", a.isAcknowledged());
             m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
             return m;
@@ -7162,12 +7257,12 @@ public class ReactApiController {
             @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         StockAlert alert = stockAlertRepository.findById(id).orElse(null);
-        if (alert == null || alert.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put("message", "Alert not found"); return ResponseEntity.badRequest().body(res); }
+        if (alert == null || alert.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Alert not found"); return ResponseEntity.badRequest().body(res); }
         alert.setAcknowledged(true);
         stockAlertRepository.save(alert);
-        res.put(KEY_SUCCESS, true); res.put("message", "Alert acknowledged");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Alert acknowledged");
         return ResponseEntity.ok(res);
     }
 
@@ -7247,12 +7342,12 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",               db.getId());
@@ -7301,12 +7396,12 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         List<Order> allAssigned = orderRepository.findByDeliveryBoy(db);
 
@@ -7344,22 +7439,22 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (order == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_ASSIGNED);
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
+            res.put(KEY_MESSAGE, "Order is already in status: " + order.getTrackingStatus().getDisplayName());
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -7380,7 +7475,7 @@ public class ReactApiController {
         catch (Exception e) { LOGGER.error("Delivery OTP email failed", e); }
 
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
+        res.put(KEY_MESSAGE, "Marked as Out for Delivery. OTP sent to customer.");
         return ResponseEntity.ok(res);
     }
 
@@ -7401,32 +7496,32 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (order == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put(KEY_SUCCESS, false); res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_ASSIGNED);
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
-            res.put(KEY_SUCCESS, false); res.put("message", "Order is not out for delivery");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Order is not out for delivery");
             return ResponseEntity.badRequest().body(res);
         }
 
         int submittedOtp;
         try { submittedOtp = Integer.parseInt(body.getOrDefault("otp", "").toString().trim()); }
-        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put("message", ERR_INVALID_OTP_FORMAT); return ResponseEntity.badRequest().body(res); }
+        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_INVALID_OTP_FORMAT); return ResponseEntity.badRequest().body(res); }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
-        if (deliveryOtp == null)   { res.put(KEY_SUCCESS, false); res.put("message", "No OTP found for this order"); return ResponseEntity.badRequest().body(res); }
-        if (deliveryOtp.isUsed())  { res.put(KEY_SUCCESS, false); res.put("message", "OTP already used"); return ResponseEntity.badRequest().body(res); }
-        if (deliveryOtp.getOtp() != submittedOtp) { res.put(KEY_SUCCESS, false); res.put("message", "Wrong OTP. Ask customer for the correct OTP."); return ResponseEntity.badRequest().body(res); }
+        if (deliveryOtp == null)   { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No OTP found for this order"); return ResponseEntity.badRequest().body(res); }
+        if (deliveryOtp.isUsed())  { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP already used"); return ResponseEntity.badRequest().body(res); }
+        if (deliveryOtp.getOtp() != submittedOtp) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Wrong OTP. Ask customer for the correct OTP."); return ResponseEntity.badRequest().body(res); }
 
         deliveryOtp.setUsed(true);
         deliveryOtp.setUsedAt(java.time.LocalDateTime.now());
@@ -7444,7 +7539,7 @@ public class ReactApiController {
         catch (Exception e) { LOGGER.error("Delivery confirmation email failed", e); }
 
         res.put(KEY_SUCCESS, true);
-        res.put("message", PREFIX_ORDER + id + " marked as Delivered!");
+        res.put(KEY_MESSAGE, PREFIX_ORDER + id + " marked as Delivered!");
         return ResponseEntity.ok(res);
     }
     
@@ -7457,48 +7552,48 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
         if (db == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DELIVERY_BOY_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_ORDER_NOT_ASSIGNED);
+            res.put(KEY_MESSAGE, ERR_ORDER_NOT_ASSIGNED);
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Order is not out for delivery");
+            res.put(KEY_MESSAGE, "Order is not out for delivery");
             return ResponseEntity.badRequest().body(res);
         }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
         if (deliveryOtp == null || deliveryOtp.isUsed()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "No active OTP found for this order");
+            res.put(KEY_MESSAGE, "No active OTP found for this order");
             return ResponseEntity.badRequest().body(res);
         }
 
         try {
             emailSender.sendDeliveryOtp(order.getCustomer(), deliveryOtp.getOtp(), order.getId());
             res.put(KEY_SUCCESS, true);
-            res.put("message", "OTP resent to " + order.getCustomer().getEmail() + ". Ask customer to check spam folder too.");
+            res.put(KEY_MESSAGE, "OTP resent to " + order.getCustomer().getEmail() + ". Ask customer to check spam folder too.");
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to send email: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to send email: " + e.getMessage());
         }
         return ResponseEntity.ok(res);
     }
@@ -7517,12 +7612,12 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
         List<Map<String, Object>> list = new ArrayList<>();
@@ -7557,33 +7652,33 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         int warehouseId;
         try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
-        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put("message", "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
+        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
 
-        if (warehouseId <= 0) { res.put(KEY_SUCCESS, false); res.put("message", "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
+        if (warehouseId <= 0) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
 
         // One pending request at a time
         java.util.Optional<WarehouseChangeRequest> existing =
                 warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
         if (existing.isPresent()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "You already have a pending transfer request. Please wait for admin to review it.");
+            res.put(KEY_MESSAGE, "You already have a pending transfer request. Please wait for admin to review it.");
             return ResponseEntity.ok(res);
         }
 
         Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
-        if (requested == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (requested == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
 
         if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
-            res.put(KEY_SUCCESS, false); res.put("message", "You are already assigned to this warehouse");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You are already assigned to this warehouse");
             return ResponseEntity.ok(res);
         }
 
@@ -7596,7 +7691,7 @@ public class ReactApiController {
         warehouseChangeRequestRepository.save(req);
 
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Transfer request submitted. Admin will review it shortly.");
+        res.put(KEY_MESSAGE, "Transfer request submitted. Admin will review it shortly.");
         return ResponseEntity.ok(res);
     }
 
@@ -7616,19 +7711,19 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         Boolean isAvailable = body.containsKey(KEY_IS_AVAILABLE) 
                 ? (Boolean) body.get(KEY_IS_AVAILABLE) 
                 : null;
         if (isAvailable == null) { 
             res.put(KEY_SUCCESS, false); 
-            res.put("message", "isAvailable is required"); 
+            res.put(KEY_MESSAGE, "isAvailable is required"); 
             return ResponseEntity.badRequest().body(res); 
         }
 
@@ -7637,7 +7732,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS, true);
         res.put(KEY_IS_AVAILABLE, db.isAvailable());
-        res.put("message", isAvailable ? "You are now Online - Available for deliveries" : "You are now Offline - Not available for deliveries");
+        res.put(KEY_MESSAGE, isAvailable ? "You are now Online - Available for deliveries" : "You are now Offline - Not available for deliveries");
         return ResponseEntity.ok(res);
     }
 
@@ -7655,12 +7750,12 @@ public class ReactApiController {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_AUTH_FAILED);
+            res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
         
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put("message", ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
 
         java.util.Optional<WarehouseChangeRequest> pending =
                 warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
@@ -7843,7 +7938,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -7873,7 +7968,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -7889,13 +7984,13 @@ public class ReactApiController {
      */
     @GetMapping("/admin/deprecation/summary")
     public ResponseEntity<Map<String, Object>> getDeprecationSummary(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put(KEY_MESSAGE, ERR_DEPRECATION_TRACKING_DISABLED);
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7918,13 +8013,13 @@ public class ReactApiController {
             @RequestParam(defaultValue = "100") int limit,
             @RequestParam(required = false) String category,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put(KEY_MESSAGE, ERR_DEPRECATION_TRACKING_DISABLED);
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7951,20 +8046,20 @@ public class ReactApiController {
      */
     @GetMapping("/admin/deprecation/report")
     public ResponseEntity<Map<String, Object>> getDeprecationReport(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put(KEY_MESSAGE, ERR_DEPRECATION_TRACKING_DISABLED);
             return ResponseEntity.status(503).body(res);
         }
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put(KEY_SUCCESS, true);
         res.put("report", deprecationTracker.getDeprecationReport());
-        res.put("message", "Migration plan: Prioritize routes with highest access count. Use React SPA endpoints as replacements.");
+        res.put(KEY_MESSAGE, "Migration plan: Prioritize routes with highest access count. Use React SPA endpoints as replacements.");
         return ResponseEntity.ok(res);
     }
 
@@ -7978,13 +8073,13 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> getRouteDeprecationStats(
             @PathVariable String route,
             HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put(KEY_MESSAGE, ERR_DEPRECATION_TRACKING_DISABLED);
             return ResponseEntity.status(503).body(res);
         }
 
@@ -7994,7 +8089,7 @@ public class ReactApiController {
 
         if (stats == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Route not found in deprecation logs");
+            res.put(KEY_MESSAGE, "Route not found in deprecation logs");
             return ResponseEntity.status(404).body(res);
         }
 
@@ -8019,13 +8114,13 @@ public class ReactApiController {
      */
     @PostMapping("/admin/deprecation/clear-logs")
     public ResponseEntity<Map<String, Object>> clearDeprecationLogs(HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> _guard = requireAdmin(request);
-        if (_guard != null) return _guard;
+        ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
+        if (guard != null) return guard;
 
         if (deprecationTracker == null) {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_DEPRECATION_TRACKING_DISABLED);
+            res.put(KEY_MESSAGE, ERR_DEPRECATION_TRACKING_DISABLED);
             return ResponseEntity.status(503).body(res);
         }
 
@@ -8033,7 +8128,7 @@ public class ReactApiController {
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put(KEY_SUCCESS, true);
-        res.put("message", "Deprecation logs cleared");
+        res.put(KEY_MESSAGE, "Deprecation logs cleared");
         return ResponseEntity.ok(res);
     }
 
@@ -8090,7 +8185,7 @@ public class ReactApiController {
         // 1. Validate JWT token and extract admin role
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Missing or invalid Authorization header");
+            res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -8099,12 +8194,12 @@ public class ReactApiController {
             String role = jwtUtil.getRole(token);
             if (role == null || !role.equals(ROLE_ADMIN)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Admin role required");
+                res.put(KEY_MESSAGE, "Admin role required");
                 return ResponseEntity.status(403).body(res);
             }
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Invalid JWT token: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Invalid JWT token: " + e.getMessage());
             return ResponseEntity.status(401).body(res);
         }
 
@@ -8132,13 +8227,13 @@ public class ReactApiController {
         // 3. Validate required fields
         if (name.isEmpty() || city.isEmpty() || state.isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Missing required fields: name, city, state");
+            res.put(KEY_MESSAGE, "Missing required fields: name, city, state");
             return ResponseEntity.badRequest().body(res);
         }
 
         if (contactEmail.isEmpty()) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Contact email is required");
+            res.put(KEY_MESSAGE, "Contact email is required");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -8153,7 +8248,7 @@ public class ReactApiController {
             return ResponseEntity.ok(createResult);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Error creating warehouse: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Error creating warehouse: " + e.getMessage());
             LOGGER.error("Error creating warehouse", e);
             return ResponseEntity.status(500).body(res);
         }
@@ -8205,7 +8300,7 @@ public class ReactApiController {
         // 1. Validate JWT token and extract admin role
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Missing or invalid Authorization header");
+            res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -8214,12 +8309,12 @@ public class ReactApiController {
             String role = jwtUtil.getRole(token);
             if (role == null || !role.equals(ROLE_ADMIN)) {
                 res.put(KEY_SUCCESS, false);
-                res.put("message", "Admin role required");
+                res.put(KEY_MESSAGE, "Admin role required");
                 return ResponseEntity.status(403).body(res);
             }
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", "Invalid JWT token: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Invalid JWT token: " + e.getMessage());
             return ResponseEntity.status(401).body(res);
         }
 
@@ -8227,7 +8322,7 @@ public class ReactApiController {
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
             res.put(KEY_SUCCESS, false);
-            res.put("message", ERR_WAREHOUSE_NOT_FOUND);
+            res.put(KEY_MESSAGE, ERR_WAREHOUSE_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
@@ -8249,7 +8344,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS, true);
         res.put("warehouse", warehouseDto);
-        res.put("message", "Warehouse credentials retrieved (password is encrypted and not shown)");
+        res.put(KEY_MESSAGE, "Warehouse credentials retrieved (password is encrypted and not shown)");
         return ResponseEntity.ok(res);
     }
 
@@ -8670,10 +8765,10 @@ public class ReactApiController {
             res.put(KEY_ORDER_ID, orderId);
             res.put("status", STATUS_DELIVERED);
             if (isCOD) {
-                res.put("message", "Delivery confirmed. Please submit the collected cash to your warehouse.");
+                res.put(KEY_MESSAGE, "Delivery confirmed. Please submit the collected cash to your warehouse.");
                 res.put("cashToSubmit", order.getCodAmount());
             } else {
-                res.put("message", "Delivery confirmed.");
+                res.put(KEY_MESSAGE, "Delivery confirmed.");
             }
             return ResponseEntity.ok(res);
         } catch (Exception e) {

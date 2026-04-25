@@ -10,15 +10,15 @@ import org.springframework.stereotype.Component;
 
 /**
  * Startup listener for secure admin account bootstrap.
- * 
+ *
  * Handles:
  * 1. Initial admin creation via --init-admin flag
  * 2. Environment variable validation
  * 3. Security-focused logging and error handling
- * 
+ *
  * USAGE:
  *   export ADMIN_EMAIL="admin@company.com"
- *   export ADMIN_PASSWORD="SecurePassword123!@#"
+ *   export ADMIN_PASSWORD="<your-strong-password>"
  *   java -jar app.jar --init-admin
  */
 @Component
@@ -26,8 +26,12 @@ public class AdminBootstrapListener implements ApplicationListener<ApplicationRe
 
     private static final Logger logger = LoggerFactory.getLogger(AdminBootstrapListener.class);
 
-    // FIX (java:S1192): Define constant instead of duplicating the separator literal
+    // FIX S1192: Define constant instead of duplicating the separator literal
     private static final String SEPARATOR = "================================================================================";
+
+    // FIX S2068: Replaced hard-coded example password with a generic placeholder to avoid
+    // Sonar treating it as a real credential embedded in source code (java:S2068).
+    private static final String EXAMPLE_PASSWORD_HINT = "<your-strong-password>";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final AdminBootstrapService adminBootstrapService;
@@ -43,7 +47,6 @@ public class AdminBootstrapListener implements ApplicationListener<ApplicationRe
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
-        // FIX (java:S3776): Reduce cognitive complexity by extracting helper methods
         boolean initAdminRequested = isInitAdminRequested(event);
 
         if (!initAdminRequested) {
@@ -80,7 +83,7 @@ public class AdminBootstrapListener implements ApplicationListener<ApplicationRe
             logger.warn(SEPARATOR);
             logger.warn("To create initial admin, set environment variables and restart with --init-admin:");
             logger.warn("  export ADMIN_EMAIL=\"admin@company.com\"");
-            logger.warn("  export ADMIN_PASSWORD=\"SecurePassword123!@#\"");
+            logger.warn("  export ADMIN_PASSWORD=\"{}\"", EXAMPLE_PASSWORD_HINT);
             logger.warn("  java -jar app.jar --init-admin");
             logger.warn(SEPARATOR);
         }
@@ -101,7 +104,7 @@ public class AdminBootstrapListener implements ApplicationListener<ApplicationRe
                 logger.error("ERROR: --init-admin requested but ADMIN_EMAIL or ADMIN_PASSWORD not set");
                 logger.error("Set environment variables:");
                 logger.error("  export ADMIN_EMAIL=\"your-email@company.com\"");
-                logger.error("  export ADMIN_PASSWORD=\"SecurePassword123!@#\"");
+                logger.error("  export ADMIN_PASSWORD=\"{}\"", EXAMPLE_PASSWORD_HINT);
                 System.exit(1);
             }
 

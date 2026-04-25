@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -147,47 +146,51 @@ public class EkartController {
         return row[idx];
     }
 
-    @Autowired
-    VendorService vendorService;
+    // ── Dependencies (constructor injection — replaces @Autowired field injection) ──
+    private final VendorService vendorService;
+    private final AdminService adminService;
+    private final ItemRepository itemRepository;
+    private final OrderRepository orderRepository;
+    private final CustomerService customerService;
+    private final CustomerRepository customerRepository;
+    private final com.example.ekart.service.StockAlertService stockAlertService;
+    private final com.example.ekart.service.OrderTrackingService orderTrackingService;
+    private final BannerService bannerService;
+    private final CategoryService categoryService;
+    private final com.example.ekart.service.UserAdminService userAdminService;
+    private final GuestService guestService;
+    private final ProductRepository productRepository;
+    private final RefundService refundService;
 
-    @Autowired
-    AdminService adminService;
-
-    @Autowired
-    ItemRepository itemRepository;
-
-    @Autowired
-    OrderRepository orderRepository;
-
-    @Autowired
-    CustomerService customerService;
-
-    @Autowired
-    CustomerRepository customerRepository;
-
-    @Autowired
-    com.example.ekart.service.StockAlertService stockAlertService;
-
-    @Autowired
-    com.example.ekart.service.OrderTrackingService orderTrackingService;
-
-    @Autowired
-    BannerService bannerService;
-
-    @Autowired
-    CategoryService categoryService;
-
-    @Autowired
-    com.example.ekart.service.UserAdminService userAdminService;
-
-    @Autowired
-    GuestService guestService;
-
-    @Autowired
-    ProductRepository productRepository;
-
-    @Autowired
-    RefundService refundService;
+    public EkartController(VendorService vendorService,
+                           AdminService adminService,
+                           ItemRepository itemRepository,
+                           OrderRepository orderRepository,
+                           CustomerService customerService,
+                           CustomerRepository customerRepository,
+                           com.example.ekart.service.StockAlertService stockAlertService,
+                           com.example.ekart.service.OrderTrackingService orderTrackingService,
+                           BannerService bannerService,
+                           CategoryService categoryService,
+                           com.example.ekart.service.UserAdminService userAdminService,
+                           GuestService guestService,
+                           ProductRepository productRepository,
+                           RefundService refundService) {
+        this.vendorService = vendorService;
+        this.adminService = adminService;
+        this.itemRepository = itemRepository;
+        this.orderRepository = orderRepository;
+        this.customerService = customerService;
+        this.customerRepository = customerRepository;
+        this.stockAlertService = stockAlertService;
+        this.orderTrackingService = orderTrackingService;
+        this.bannerService = bannerService;
+        this.categoryService = categoryService;
+        this.userAdminService = userAdminService;
+        this.guestService = guestService;
+        this.productRepository = productRepository;
+        this.refundService = refundService;
+    }
 
     // ── GUEST ─────────────────────────────────────────────────────────────────
 
@@ -1033,5 +1036,3 @@ public class EkartController {
         return stockAlertService.acknowledgeAlert(id, session);
     }
 }
-
-
