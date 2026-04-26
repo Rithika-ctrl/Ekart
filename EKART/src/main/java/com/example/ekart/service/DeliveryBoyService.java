@@ -24,6 +24,18 @@ public class DeliveryBoyService {
 
     private static final Logger log = LoggerFactory.getLogger(DeliveryBoyService.class);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // String constants (S1192 — eliminates duplicate-literal violations)
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_FAILURE = "failure";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_ADMIN = "admin";
+    private static final String REDIRECT_DELIVERY_LOGIN = "redirect:/delivery/login";
+    private static final String MSG_NOT_LOGGED_IN = "Not logged in";
+    private static final String MSG_UNAUTHORIZED = "Unauthorized";
+    private static final String KEY_DELIVERY_BOY = "deliveryBoy";
+
 
 
     // ── Dependencies (constructor injection) ─────────────────────────────────
@@ -70,38 +82,38 @@ public class DeliveryBoyService {
                                 int warehouseId, HttpSession session) {
 
         if (name == null || name.trim().length() < 3) {
-            session.setAttribute("failure", "Name must be at least 3 characters");
+            session.setAttribute(KEY_FAILURE, "Name must be at least 3 characters");
             return "redirect:/delivery/register";
         }
         if (email == null || !email.contains("@")) {
-            session.setAttribute("failure", "Enter a valid email address");
+            session.setAttribute(KEY_FAILURE, "Enter a valid email address");
             return "redirect:/delivery/register";
         }
         if (deliveryBoyRepository.existsByEmail(email.trim().toLowerCase())) {
             DeliveryBoy existing = deliveryBoyRepository.findByEmail(email.trim().toLowerCase());
             if (existing != null && existing.isVerified()) {
-                session.setAttribute("failure", "This email is already verified. Please login instead.");
+                session.setAttribute(KEY_FAILURE, "This email is already verified. Please login instead.");
                 return "redirect:/delivery/register";
             }
             // Allow updating unverified account
         }
         if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
-            session.setAttribute("failure", "Password and Confirm Password must match");
+            session.setAttribute(KEY_FAILURE, "Password and Confirm Password must match");
             return "redirect:/delivery/register";
         }
         String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (!password.matches(passwordRegex)) {
-            session.setAttribute("failure", "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
+            session.setAttribute(KEY_FAILURE, "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
             return "redirect:/delivery/register";
         }
         if (warehouseId <= 0) {
-            session.setAttribute("failure", "Please select a warehouse");
+            session.setAttribute(KEY_FAILURE, "Please select a warehouse");
             return "redirect:/delivery/register";
         }
 
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
-            session.setAttribute("failure", "Selected warehouse not found. Please try again.");
+            session.setAttribute(KEY_FAILURE, "Selected warehouse not found. Please try again.");
             return "redirect:/delivery/register";
         }
 
@@ -133,7 +145,7 @@ public class DeliveryBoyService {
             log.error("Delivery boy OTP email failed: {}", e.getMessage(), e);
         }
 
-        session.setAttribute("success", "OTP sent to " + email + ". Verify your email to continue.");
+        session.setAttribute(KEY_SUCCESS, "OTP sent to " + email + ". Verify your email to continue.");
         return "redirect:/delivery/otp/" + db.getId();
     }
 
@@ -147,7 +159,7 @@ public class DeliveryBoyService {
     public String verifyOtp(int id, int otp, HttpSession session) {
         DeliveryBoy db = deliveryBoyRepository.findById(id).orElse(null);
         if (db == null) {
-            session.setAttribute("failure", "Invalid request");
+            session.setAttribute(KEY_FAILURE, "Invalid request");
             return "redirect:/delivery/login";
         }
 
@@ -164,11 +176,11 @@ public class DeliveryBoyService {
                 return "redirect:/delivery/pending";
             }
 
-            session.setAttribute("success", "Email verified! You can now login.");
+            session.setAttribute(KEY_SUCCESS, "Email verified! You can now login.");
             return "redirect:/delivery/login";
         }
 
-        session.setAttribute("failure", result.message);
+        session.setAttribute(KEY_FAILURE, result.message);
         return "redirect:/delivery/otp/" + id;
     }
 
@@ -184,14 +196,14 @@ public class DeliveryBoyService {
             int deliveryBoyId, String assignedPinCodes, HttpSession session) {
 
         Map<String, Object> res = new LinkedHashMap<>();
-        if (session.getAttribute("admin") == null) {
-            res.put("success", false); res.put("message", "Unauthorized");
+        if (session.getAttribute(KEY_ADMIN) == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_UNAUTHORIZED);
             return ResponseEntity.status(403).body(res);
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null) {
-            res.put("success", false); res.put("message", "Delivery boy not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delivery boy not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -204,8 +216,8 @@ public class DeliveryBoyService {
         try { emailSender.sendDeliveryBoyApproved(db); }
         catch (Exception e) { log.error("Approval email failed: {}", e.getMessage(), e); }
 
-        res.put("success", true);
-        res.put("message", db.getName() + " approved successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, db.getName() + " approved successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -213,14 +225,14 @@ public class DeliveryBoyService {
             int deliveryBoyId, String reason, HttpSession session) {
 
         Map<String, Object> res = new LinkedHashMap<>();
-        if (session.getAttribute("admin") == null) {
-            res.put("success", false); res.put("message", "Unauthorized");
+        if (session.getAttribute(KEY_ADMIN) == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_UNAUTHORIZED);
             return ResponseEntity.status(403).body(res);
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null) {
-            res.put("success", false); res.put("message", "Delivery boy not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delivery boy not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -230,8 +242,8 @@ public class DeliveryBoyService {
         try { emailSender.sendDeliveryBoyRejected(db, reason); }
         catch (Exception e) { log.warn("Rejection email failed", e); }
 
-        res.put("success", true);
-        res.put("message", db.getName() + " rejected and deactivated");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, db.getName() + " rejected and deactivated");
         return ResponseEntity.ok(res);
     }
 
@@ -243,13 +255,13 @@ public class DeliveryBoyService {
         DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
 
         if (db == null) {
-            session.setAttribute("failure", "No account found with this email");
+            session.setAttribute(KEY_FAILURE, "No account found with this email");
             return "redirect:/delivery/login";
         }
 
         String decrypted = AES.decrypt(db.getPassword());
         if (decrypted == null || !decrypted.equals(password)) {
-            session.setAttribute("failure", "Wrong password");
+            session.setAttribute(KEY_FAILURE, "Wrong password");
             return "redirect:/delivery/login";
         }
 
@@ -259,29 +271,29 @@ public class DeliveryBoyService {
                 String plainOtp = otpService.resendOtp(db.getEmail(), OtpService.PURPOSE_DELIVERY_LOGIN);
                 emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
             } catch (Exception ignored) {}
-            session.setAttribute("success", "Please verify your email first. OTP resent.");
+            session.setAttribute(KEY_SUCCESS, "Please verify your email first. OTP resent.");
             return "redirect:/delivery/otp/" + db.getId();
         }
 
         if (!db.isActive()) {
-            session.setAttribute("failure", "Your account has been deactivated. Contact admin.");
+            session.setAttribute(KEY_FAILURE, "Your account has been deactivated. Contact admin.");
             return "redirect:/delivery/login";
         }
 
         if (!db.isAdminApproved()) {
-            session.setAttribute("failure",
+            session.setAttribute(KEY_FAILURE,
                 "Your account is pending admin approval. You will receive an email once approved.");
             return "redirect:/delivery/login";
         }
 
-        session.setAttribute("deliveryBoy", db);
-        session.setAttribute("success", "Welcome back, " + db.getName() + "!");
+        session.setAttribute(KEY_DELIVERY_BOY, db);
+        session.setAttribute(KEY_SUCCESS, "Welcome back, " + db.getName() + "!");
         return "redirect:/delivery/home";
     }
 
     public String logout(HttpSession session) {
-        session.removeAttribute("deliveryBoy");
-        session.setAttribute("success", "Logged out successfully");
+        session.removeAttribute(KEY_DELIVERY_BOY);
+        session.setAttribute(KEY_SUCCESS, "Logged out successfully");
         return "redirect:/delivery/login";
     }
 
@@ -350,8 +362,8 @@ public class DeliveryBoyService {
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
-            res.put("success", false);
-            res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Order is already in status: " + order.getTrackingStatus().getDisplayName());
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -373,8 +385,8 @@ public class DeliveryBoyService {
         try { emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId()); }
         catch (Exception e) { log.error("Delivery OTP email failed: {}", e.getMessage(), e); }
 
-        res.put("success", true);
-        res.put("message", "Marked as Out for Delivery. OTP sent to customer.");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Marked as Out for Delivery. OTP sent to customer.");
         return ResponseEntity.ok(res);
     }
 
@@ -385,35 +397,35 @@ public class DeliveryBoyService {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = getSessionDeliveryBoy(session);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not logged in");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_LOGGED_IN);
             return ResponseEntity.status(401).body(res);
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Order not found");
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", "This order is not assigned to you");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
-            res.put("success", false); res.put("message", "Order is not out for delivery");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Order is not out for delivery");
             return ResponseEntity.badRequest().body(res);
         }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
         if (deliveryOtp == null) {
-            res.put("success", false); res.put("message", "No OTP found for this order");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No OTP found for this order");
             return ResponseEntity.badRequest().body(res);
         }
         if (deliveryOtp.isUsed()) {
-            res.put("success", false); res.put("message", "OTP already used");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP already used");
             return ResponseEntity.badRequest().body(res);
         }
         if (deliveryOtp.getOtp() != submittedOtp) {
-            res.put("success", false); res.put("message", "Wrong OTP. Ask customer for the correct OTP.");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Wrong OTP. Ask customer for the correct OTP.");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -437,8 +449,8 @@ public class DeliveryBoyService {
         // Now: Warehouse staff will manually assign next order for delivery boy
         log.info("[DELIVERY] Order #{} delivered by delivery_boy_id={} (auto-fill disabled)", orderId, db.getId());
 
-        res.put("success", true);
-        res.put("message", "Order #" + orderId + " marked as Delivered!");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Order #" + orderId + " marked as Delivered!");
         return ResponseEntity.ok(res);
     }
 
@@ -448,7 +460,7 @@ public class DeliveryBoyService {
         DeliveryBoy db = getSessionDeliveryBoy(session);
         if (db == null) return "redirect:/delivery/login";
         db = deliveryBoyRepository.findById(db.getId()).orElse(db);
-        session.setAttribute("deliveryBoy", db);
+        session.setAttribute(KEY_DELIVERY_BOY, db);
         map.addAttribute("db", db);
         map.addAttribute("activeOrders", autoAssignmentService.countActiveOrders(db));
         map.addAttribute("maxConcurrent", AutoAssignmentService.MAX_CONCURRENT_ORDERS);
@@ -462,13 +474,13 @@ public class DeliveryBoyService {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = getSessionDeliveryBoy(session);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not logged in");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_LOGGED_IN);
             return ResponseEntity.status(401).body(res);
         }
 
         Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
         if (requested == null) {
-            res.put("success", false); res.put("message", "Warehouse not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Warehouse not found");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -477,7 +489,7 @@ public class DeliveryBoyService {
             .isPresent();
 
         if (hasPending) {
-            res.put("success", false); res.put("message", "You already have a pending transfer request");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You already have a pending transfer request");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -490,8 +502,8 @@ public class DeliveryBoyService {
         req.setRequestedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
 
-        res.put("success", true);
-        res.put("message", "Transfer request submitted. Admin will review it shortly.");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Transfer request submitted. Admin will review it shortly.");
         return ResponseEntity.ok(res);
     }
 
@@ -499,8 +511,8 @@ public class DeliveryBoyService {
             int requestId, String adminNote, HttpSession session) {
 
         Map<String, Object> res = new LinkedHashMap<>();
-        if (session.getAttribute("admin") == null) {
-            res.put("success", false); res.put("message", "Unauthorized");
+        if (session.getAttribute(KEY_ADMIN) == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_UNAUTHORIZED);
             return ResponseEntity.status(403).body(res);
         }
 
@@ -526,8 +538,8 @@ public class DeliveryBoyService {
         }
         catch (Exception e) { log.error("Warehouse change approval email failed: {}", e.getMessage(), e); }
 
-        res.put("success", true);
-        res.put("message", "Warehouse change approved for " + db.getName());
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Warehouse change approved for " + db.getName());
         return ResponseEntity.ok(res);
     }
 
@@ -535,14 +547,14 @@ public class DeliveryBoyService {
             int requestId, String adminNote, HttpSession session) {
 
         Map<String, Object> res = new LinkedHashMap<>();
-        if (session.getAttribute("admin") == null) {
-            res.put("success", false); res.put("message", "Unauthorized");
+        if (session.getAttribute(KEY_ADMIN) == null) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_UNAUTHORIZED);
             return ResponseEntity.status(403).body(res);
         }
 
         WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(requestId).orElse(null);
         if (req == null || req.getStatus() != WarehouseChangeRequest.Status.PENDING) {
-            res.put("success", false); res.put("message", "Request not found or already resolved");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Request not found or already resolved");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -555,8 +567,8 @@ public class DeliveryBoyService {
         try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
         catch (Exception e) { log.error("Warehouse change rejection email failed: {}", e.getMessage(), e); }
 
-        res.put("success", true);
-        res.put("message", "Warehouse change request rejected");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Warehouse change request rejected");
         return ResponseEntity.ok(res);
     }
 
@@ -571,8 +583,8 @@ public class DeliveryBoyService {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = getSessionDeliveryBoy(session);
         if (db == null) {
-            res.put("success", false);
-            res.put("message", "Not logged in");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_NOT_LOGGED_IN);
             return ResponseEntity.status(401).body(res);
         }
 

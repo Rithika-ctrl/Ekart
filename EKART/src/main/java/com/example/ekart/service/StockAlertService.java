@@ -24,6 +24,11 @@ public class StockAlertService {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(StockAlertService.class);
 
+	// ═══════════════════════════════════════════════════════════════════════════
+	// String constants (S1192 — eliminates duplicate-literal violations)
+	// ═══════════════════════════════════════════════════════════════════════════
+	private static final String MSG_STOCK_THRESHOLD_SUFFIX = " units). Threshold: ";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final StockAlertRepository stockAlertRepository;
     private final ProductRepository productRepository;
@@ -66,7 +71,7 @@ public class StockAlertService {
 					alert.setStockLevel(product.getStock());
 					alert.setAlertTime(LocalDateTime.now());
 					alert.setMessage("Stock level for '" + product.getName() + "' is low (" 
-							+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
+							+ product.getStock() + MSG_STOCK_THRESHOLD_SUFFIX + product.getStockAlertThreshold());
 					stockAlertRepository.save(alert);
 				}
 			}
@@ -96,8 +101,7 @@ public class StockAlertService {
 		alert.setEmailSent(false);
 		alert.setAcknowledged(false);
 		alert.setMessage("Stock level for '" + product.getName() + "' is low (" 
-				+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
-
+						+ product.getStock() + MSG_STOCK_THRESHOLD_SUFFIX + product.getStockAlertThreshold());
 		stockAlertRepository.save(alert);
 
 		// Send email notification
