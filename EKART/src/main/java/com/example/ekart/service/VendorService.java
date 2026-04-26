@@ -58,6 +58,8 @@ public class VendorService {
 	private static final String REDIRECT_VENDOR_HOME = "redirect:/vendor/home";
 	private static final String REDIRECT_VENDOR_STOREFRONT = "redirect:/vendor/store-front";
 	private static final String LOGIN_FIRST = "Login First";
+	private static final String KEY_FAILURE = "failure";
+	private static final String KEY_SUCCESS = "success";
 
     /**
      * Groups all VendorService dependencies into a single injectable object,
@@ -195,7 +197,7 @@ public class VendorService {
 			return "redirect:/";
 		}
 
-		session.setAttribute("failure", result.message);
+		session.setAttribute(KEY_FAILURE, result.message);
 		return "redirect:/vendor/otp/" + id;
 	}
 
@@ -205,12 +207,12 @@ public class VendorService {
 		Vendor vendor = vendorRepository.findByEmail(email);
 
 		if (vendor == null) {
-			session.setAttribute("failure", "Invalid Email");
+			session.setAttribute(KEY_FAILURE, "Invalid Email");
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
 		if (!AES.decrypt(vendor.getPassword()).equals(password)) {
-			session.setAttribute("failure", "Invalid Password");
+			session.setAttribute(KEY_FAILURE, "Invalid Password");
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
@@ -240,7 +242,7 @@ public class VendorService {
 	public String sendResetOtp(String email, HttpSession session) {
 		Vendor vendor = vendorRepository.findByEmail(email);
 		if (vendor == null) {
-			session.setAttribute("failure", "No account found with this email");
+			session.setAttribute(KEY_FAILURE, "No account found with this email");
 			return "redirect:/vendor/forgot-password";
 		}
 
@@ -264,19 +266,19 @@ public class VendorService {
 	public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
 		Vendor vendor = vendorRepository.findById(id).orElse(null);
 		if (vendor == null) {
-			session.setAttribute("failure", "Invalid reset request");
+			session.setAttribute(KEY_FAILURE, "Invalid reset request");
 			return "redirect:/vendor/forgot-password";
 		}
 
 		// 🔒 NEW: Verify OTP using secure service (hashed comparison)
 		OtpService.VerificationResult result = otpService.verifyOtp(vendor.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_PASSWORD_RESET);
 		if (!result.success) {
-			session.setAttribute("failure", result.message);
+			session.setAttribute(KEY_FAILURE, result.message);
 			return "redirect:/vendor/reset-password/" + id;
 		}
 
 		if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
-			session.setAttribute("failure", "Password and Confirm Password should match");
+			session.setAttribute(KEY_FAILURE, "Password and Confirm Password should match");
 			return "redirect:/vendor/reset-password/" + id;
 		}
 
@@ -299,13 +301,13 @@ public class VendorService {
 		if (session.getAttribute("vendor") != null)
 			return "vendor-home.html";
 
-		session.setAttribute("failure", LOGIN_FIRST);
+		session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	public String loadHome(HttpSession session, ModelMap map) {
 		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
@@ -347,12 +349,12 @@ public class VendorService {
 
 		String updatedName = name == null ? "" : name.trim();
 		if (updatedName.length() < 5 || updatedName.length() > 30) {
-			session.setAttribute("failure", "Name must be between 5 and 30 characters");
+			session.setAttribute(KEY_FAILURE, "Name must be between 5 and 30 characters");
 			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
 		if (mobile < 6000000000L || mobile > 9999999999L) {
-			session.setAttribute("failure", "Enter a valid mobile number");
+			session.setAttribute(KEY_FAILURE, "Enter a valid mobile number");
 			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
@@ -361,7 +363,7 @@ public class VendorService {
 
 		Vendor existingMobileVendor = vendorRepository.findByMobile(mobile);
 		if (existingMobileVendor != null && existingMobileVendor.getId() != vendor.getId()) {
-			session.setAttribute("failure", "Mobile number already exists");
+			session.setAttribute(KEY_FAILURE, "Mobile number already exists");
 			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
@@ -423,7 +425,7 @@ public class VendorService {
 
 		} catch (Exception e) {
 			LOGGER.error("Cloudinary upload error: {}", e.getMessage(), e);
-			session.setAttribute("failure", "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
+			session.setAttribute(KEY_FAILURE, "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
 			return "redirect:/add-product";
 		}
 

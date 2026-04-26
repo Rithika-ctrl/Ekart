@@ -68,7 +68,14 @@ public class FlutterApiController {
     // In-memory coupon session store (mirrors ReactApiController)
     private final java.util.concurrent.ConcurrentHashMap<Integer, com.example.ekart.dto.Coupon> appliedCoupons
             = new java.util.concurrent.ConcurrentHashMap<>();
- 
+
+    // String constants (fixes S1192 - String Literal Duplication)
+    private static final String KEY_EMAIL = "email";
+    private static final String KEY_TOKEN = "token";
+    private static final String KEY_ADMIN_ID = "adminId";
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_MESSAGE = "message";
+    
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
     // ═══════════════════════════════════════════════════════
