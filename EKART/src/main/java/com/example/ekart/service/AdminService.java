@@ -1,10 +1,9 @@
 package com.example.ekart.service;
+import java.time.LocalDateTime;
 
 import java.util.List;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -21,7 +20,6 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
-// import com.example.ekart.repository.ItemRepository; // unused
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -30,40 +28,55 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminService {
 
-	private final AdminAuthService adminAuthService;
-	private final ProductRepository productRepository;
-	private final CustomerRepository customerRepository;
-	private final VendorRepository vendorRepository;
-	private final OrderRepository orderRepository;
-	private final WishlistRepository wishlistRepository;
-	private final RefundRepository refundRepository;
+	private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+	private static final String LOGIN_FIRST = "Login First";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminAuthService adminAuthService;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final OrderRepository orderRepository;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
+
+    public AdminService(
+            AdminAuthService adminAuthService,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            OrderRepository orderRepository,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository) {
+        this.adminAuthService = adminAuthService;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.orderRepository = orderRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+    }
+
+
+
+
+
+
+
+
+
+	// private ItemRepository itemRepository; // unused
 
 	// Banner text stored via @Value — set in application.properties or .env
 	// No longer uses static fields (static fields reset on restart and are shared JVM-wide)
-	@Value("${ekart.banner.title:Welcome to Ekart}")
+	@org.springframework.beans.factory.annotation.Value("${ekart.banner.title:Welcome to Ekart}")
 	private String bannerTitle;
 
-	@Value("${ekart.banner.subtitle:Your one-stop shopping destination}")
+	@org.springframework.beans.factory.annotation.Value("${ekart.banner.subtitle:Your one-stop shopping destination}")
 	private String bannerSubtitle;
 
-	@Value("${admin.email:admin@ekart.com}")
+	@org.springframework.beans.factory.annotation.Value("${admin.email:admin@ekart.com}")
 	private String adminEmail;
-
-	public AdminService(AdminAuthService adminAuthService,
-						ProductRepository productRepository,
-						CustomerRepository customerRepository,
-						VendorRepository vendorRepository,
-						OrderRepository orderRepository,
-						WishlistRepository wishlistRepository,
-						RefundRepository refundRepository) {
-		this.adminAuthService = adminAuthService;
-		this.productRepository = productRepository;
-		this.customerRepository = customerRepository;
-		this.vendorRepository = vendorRepository;
-		this.orderRepository = orderRepository;
-		this.wishlistRepository = wishlistRepository;
-		this.refundRepository = refundRepository;
-	}
 
 	// ---------------- LOGOUT ----------------
 	public String logout(HttpSession session) {
@@ -79,7 +92,7 @@ public class AdminService {
 		
 		if (!authResult.isSuccess()) {
 			session.setAttribute("failure", authResult.getMessage());
-			return "redirect:/admin/login";
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Check if 2FA is required
@@ -105,16 +118,16 @@ public class AdminService {
 		if (session.getAttribute("admin") != null)
 			return "admin-home.html";
 
-		session.setAttribute("failure", "Login First");
-		return "redirect:/admin/login";
+		session.setAttribute("failure", LOGIN_FIRST);
+		return REDIRECT_ADMIN_LOGIN;
 	}
 
 	// ---------------- APPROVE PRODUCTS ----------------
 	public String approveProducts(HttpSession session, ModelMap map) {
 
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// 🔥 show all products (approved + unapproved)
@@ -133,8 +146,8 @@ public class AdminService {
 	public String changeStatus(int id, HttpSession session) {
 
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Product product = productRepository.findById(id).orElse(null);
@@ -155,8 +168,8 @@ public class AdminService {
 	// 🔥 SEARCH USERS/VENDORS
 	public String searchUsers(HttpSession session, org.springframework.ui.ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		java.util.List<Customer> customers = customerRepository.findAll();
@@ -198,8 +211,8 @@ public class AdminService {
 	@Transactional
 	public String deleteCustomer(int id, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Customer customer = customerRepository.findById(id).orElse(null);
@@ -231,8 +244,8 @@ public class AdminService {
 	@Transactional
 	public String deleteVendor(int id, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Vendor vendor = vendorRepository.findById(id).orElse(null);
@@ -245,7 +258,7 @@ public class AdminService {
 		//    Products remain on platform but become unowned — admin can then delete them separately
 		List<Product> products = productRepository.findAll().stream()
 				.filter(p -> p.getVendor() != null && p.getVendor().getId() == vendor.getId())
-				.collect(java.util.stream.Collectors.toList());
+				.toList();
 		for (Product p : products) {
 			p.setVendor(null);
 			p.setApproved(false);
@@ -262,8 +275,8 @@ public class AdminService {
 	// ============ REFUND MANAGEMENT ============
 	public String refundManagement(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Get all orders with replacement/refund requests
@@ -286,8 +299,8 @@ public class AdminService {
 
 	public String processRefund(int orderId, String action, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Order order = orderRepository.findById(orderId).orElse(null);
@@ -317,8 +330,8 @@ public class AdminService {
 	// ============ CONTENT MANAGEMENT ============
 	public String contentManagement(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("bannerTitle", bannerTitle);
@@ -333,8 +346,8 @@ public class AdminService {
 
 	public String updateBanner(String title, String subtitle, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 		// Update instance fields (survives current session; restart resets to .properties defaults)
 		this.bannerTitle = (title != null && !title.isBlank()) ? title : this.bannerTitle;
@@ -346,8 +359,8 @@ public class AdminService {
 	// ============ SECURITY SETTINGS ============
 	public String securitySettings(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("adminEmail", adminEmail);
@@ -360,8 +373,8 @@ public class AdminService {
 	public String updateAdminPassword(String currentPassword, String newPassword, 
 									   String confirmPassword, HttpSession session) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		if (!newPassword.equals(confirmPassword)) {
@@ -378,7 +391,7 @@ public class AdminService {
 		Integer adminId = (Integer) session.getAttribute("adminId");
 		if (adminId == null) {
 			session.setAttribute("failure", "Admin ID not found. Please login again.");
-			return "redirect:/admin/login";
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Use AdminAuthService to change password (validates current password via BCrypt)
@@ -397,8 +410,8 @@ public class AdminService {
 	// ============ ANALYTICS & REPORTS ============
 	public String analytics(HttpSession session, ModelMap map) {
 		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+			session.setAttribute("failure", LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Gather platform statistics
@@ -467,3 +480,4 @@ public class AdminService {
 		return "analytics.html";
 	}
 }
+
