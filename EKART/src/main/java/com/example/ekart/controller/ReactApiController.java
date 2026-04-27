@@ -184,12 +184,18 @@ public class ReactApiController {
     private static final String MSG_PASSWORD_CHANGED = "Password changed successfully";
     private static final String PREFIX_ORDER = "Order #";
     private static final String KEY_MESSAGE = "message";
+    private static final String KEY_APPROVED = "approved";
     private static final String KEY_CREATED_AT = "createdAt";
+    private static final String KEY_REQUESTED_AT = "requestedAt";
     private static final String KEY_SUBTOTAL = "subtotal";
     private static final String KEY_COUPON_DISCOUNT = "couponDiscount";
     private static final String KEY_DELIVERY_TIME = "deliveryTime";
     private static final String KEY_ADDRESSES = "addresses";
     private static final String KEY_AMOUNT = "amount";
+    private static final String KEY_VENDOR = "vendor";
+    private static final String KEY_PROVIDER = "provider";
+    private static final String ERR_OTP_FAILURE = "Failed to send OTP: ";
+    private static final String ERR_VERIFICATION_FAILED = "Verification failed: ";
 
 
 
@@ -473,7 +479,7 @@ public class ReactApiController {
             res.put(KEY_MESSAGE, "OTP sent to " + email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_OTP_FAILURE + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -508,7 +514,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP verified successfully");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VERIFICATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -647,7 +653,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP sent to " + email);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_OTP_FAILURE + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -685,7 +691,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP must be a 6-digit number");
             return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VERIFICATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -953,7 +959,7 @@ public class ReactApiController {
             res.put(KEY_EMAIL,         db.getEmail());
             res.put("accessToken",   token);  // AuthPage reads data.accessToken || data.token
             res.put(KEY_TOKEN,         token);  // legacy fallback
-            res.put("approved",      db.isAdminApproved());
+            res.put(KEY_APPROVED,    db.isAdminApproved());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
@@ -1398,7 +1404,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_MESSAGE, ERR_OTP_FAILURE + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1454,7 +1460,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, ERR_VERIFICATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1553,7 +1559,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_MESSAGE, ERR_OTP_FAILURE + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1604,7 +1610,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, ERR_VERIFICATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -3024,7 +3030,7 @@ public class ReactApiController {
         profile.put(KEY_EMAIL, customer.getEmail()); profile.put(KEY_MOBILE, customer.getMobile());
         profile.put("profileImage", customer.getProfileImage());
         profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
-        profile.put("provider",  customer.getProvider()  != null ? customer.getProvider() : "local");
+        profile.put(KEY_PROVIDER,  customer.getProvider()  != null ? customer.getProvider() : "local");
         profile.put("password",  customer.getPassword() != null); // boolean: true if password is set
         profile.put(KEY_ADDRESSES, customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
@@ -4168,7 +4174,7 @@ public class ReactApiController {
         m.put("category", p.getCategory()); m.put("stock", p.getStock());
         m.put("stockAlertThreshold", p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
         m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
-        m.put("approved", p.isApproved());
+        m.put(KEY_APPROVED, p.isApproved());
         m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
         m.put(KEY_VENDOR_NAME, p.getVendorName());
         m.put("isRestricted", p.isRestrictedByPinCode());
@@ -5192,7 +5198,7 @@ public class ReactApiController {
                     m.put("reason",          r.getReason());
                     m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
                     m.put(KEY_STATUS_DISPLAY,   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
-                    m.put("requestedAt",     r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+                    m.put(KEY_REQUESTED_AT,  r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                     m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
                     m.put("processedBy",     r.getProcessedBy());
                     m.put("rejectionReason", r.getRejectionReason());
@@ -5426,7 +5432,7 @@ public class ReactApiController {
                 m.put("active",           db.isActive());
                 m.put(KEY_IS_AVAILABLE,      db.isAvailable());
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
-                m.put("approved",         db.isAdminApproved()); // alias read by AdminApp.jsx filter
+                m.put(KEY_APPROVED,       db.isAdminApproved()); // alias read by AdminApp.jsx filter
 
                 // Derive a single human-readable status string
                 String status;
@@ -6149,7 +6155,7 @@ public class ReactApiController {
                 m.put("status",      r.getStatus().name());
                 m.put("reason",      r.getReason());
                 m.put(KEY_ADMIN_NOTE,   r.getAdminNote());
-                m.put("requestedAt", r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+                m.put(KEY_REQUESTED_AT, r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                 m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
 
                 // Delivery boy summary
@@ -6374,7 +6380,7 @@ public class ReactApiController {
                         m.put("id",         v.getId());
                         m.put("name",       v.getName());
                         m.put(KEY_EMAIL,      v.getEmail());
-                        m.put("type",       "vendor");
+                        m.put("type",       KEY_VENDOR);
                         m.put("vendorCode", v.getVendorCode());
                         m.put("verified",   v.isVerified());
                         results.add(m);
@@ -6988,9 +6994,9 @@ public class ReactApiController {
         v.put(KEY_EMAIL, vendor.getEmail()); v.put(KEY_MOBILE, vendor.getMobile());
         v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
         v.put("description", vendor.getDescription());
-        v.put("provider",    vendor.getProvider()   != null ? vendor.getProvider() : "local");
+        v.put(KEY_PROVIDER,    vendor.getProvider()   != null ? vendor.getProvider() : "local");
         v.put("password",    vendor.getPassword()   != null); // boolean: true if password is set
-        res.put(KEY_SUCCESS, true); res.put("vendor", v);
+        res.put(KEY_SUCCESS, true); res.put(KEY_VENDOR, v);
         return ResponseEntity.ok(res);
     }
 
@@ -7358,7 +7364,7 @@ public class ReactApiController {
         profile.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
         profile.put("active",           db.isActive());
         profile.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
-        profile.put("approved",         db.isAdminApproved()); // alias read by DeliveryApp.jsx
+        profile.put(KEY_APPROVED,       db.isAdminApproved()); // alias read by DeliveryApp.jsx
         profile.put(KEY_IS_AVAILABLE,      db.isAvailable());    // availability status
 
         if (db.getWarehouse() != null) {
@@ -7765,7 +7771,7 @@ public class ReactApiController {
             WarehouseChangeRequest req = pending.get();
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("id", req.getId());
-            requestData.put("requestedAt", req.getRequestedAt() != null ? req.getRequestedAt().toString() : null);
+            requestData.put(KEY_REQUESTED_AT, req.getRequestedAt() != null ? req.getRequestedAt().toString() : null);
             requestData.put("reason", req.getReason());
             if (req.getRequestedWarehouse() != null) {
                 Map<String, Object> whData = new HashMap<>();

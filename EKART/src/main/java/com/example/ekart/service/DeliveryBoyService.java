@@ -31,6 +31,7 @@ public class DeliveryBoyService {
     private static final String KEY_FAILURE = "failure";
     private static final String KEY_MESSAGE = "message";
     private static final String KEY_ADMIN = "admin";
+    private static final String KEY_IS_AVAILABLE = "isAvailable";
     private static final String REDIRECT_DELIVERY_LOGIN = "redirect:/delivery/login";
     private static final String MSG_NOT_LOGGED_IN = "Not logged in";
     private static final String MSG_UNAUTHORIZED = "Unauthorized";
@@ -325,7 +326,7 @@ public class DeliveryBoyService {
             return ResponseEntity.status(401).body(res);
         }
 
-        boolean isAvailable = (Boolean) payload.getOrDefault("isAvailable", false);
+        boolean isAvailable = (Boolean) payload.getOrDefault(KEY_IS_AVAILABLE, false);
         db.setAvailable(isAvailable);
         deliveryBoyRepository.save(db);
 
@@ -338,7 +339,7 @@ public class DeliveryBoyService {
 
         res.put("success", true);
         res.put("message", isAvailable ? "You are now online" : "You are now offline");
-        res.put("isAvailable", isAvailable);
+        res.put(KEY_IS_AVAILABLE, isAvailable);
         return ResponseEntity.ok(res);
     }
 
@@ -595,7 +596,7 @@ public class DeliveryBoyService {
         dbMap.put("mobile", db.getMobile());
         dbMap.put("deliveryBoyCode", db.getDeliveryBoyCode());
         dbMap.put("assignedPinCodes", db.getAssignedPinCodes());
-        dbMap.put("isAvailable", db.isAvailable());
+        dbMap.put(KEY_IS_AVAILABLE, db.isAvailable());
 
         if (db.getWarehouse() != null) {
             Map<String, Object> whMap = new LinkedHashMap<>();

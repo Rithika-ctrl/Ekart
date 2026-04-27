@@ -25,7 +25,6 @@ package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,12 +38,34 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class FlutterAdminApiController {
 
-    @Autowired private CouponRepository      couponRepository;
-    @Autowired private RefundRepository      refundRepository;
-    @Autowired private OrderRepository       orderRepository;
-    @Autowired private ProductRepository     productRepository;
-    @Autowired private VendorRepository      vendorRepository;
-    @Autowired private DeliveryBoyRepository deliveryBoyRepository;
+    private final CouponRepository      couponRepository;
+    private final RefundRepository      refundRepository;
+    private final OrderRepository       orderRepository;
+    private final ProductRepository     productRepository;
+    private final VendorRepository      vendorRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+
+    // String constants (S1192 — eliminates duplicate-literal violations)
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_ACTIVE = "active";
+    private static final String KEY_ORDER_NOT_FOUND = "Order not found";
+    private static final String KEY_TRACKING_STATUS = "trackingStatus";
+
+    public FlutterAdminApiController(
+            CouponRepository couponRepository,
+            RefundRepository refundRepository,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            VendorRepository vendorRepository,
+            DeliveryBoyRepository deliveryBoyRepository) {
+        this.couponRepository = couponRepository;
+        this.refundRepository = refundRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.vendorRepository = vendorRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // ADMIN — COUPON MANAGEMENT
@@ -55,8 +76,8 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminGetCoupons() {
         Map<String, Object> res = new LinkedHashMap<>();
         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc()
-                .stream().map(this::mapCoupon).collect(Collectors.toList());
-        res.put("success", true);
+                .stream().map(this::mapCoupon).toList();
+        res.put(KEY_SUCCESS, true);
         res.put("coupons", list);
         res.put("count", list.size());
         return ResponseEntity.ok(res);
@@ -74,8 +95,8 @@ public class FlutterAdminApiController {
         try {
             String code = ((String) body.get("code")).toUpperCase().trim();
             if (couponRepository.findByCode(code).isPresent()) {
-                res.put("success", false);
-                res.put("message", "Coupon code '" + code + "' already exists");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Coupon code '" + code + "' already exists");
                 return ResponseEntity.badRequest().body(res);
             }
             Coupon c = new Coupon();
@@ -93,13 +114,13 @@ public class FlutterAdminApiController {
                 c.setExpiryDate(LocalDate.parse(expiry.toString()));
             }
             couponRepository.save(c);
-            res.put("success", true);
-            res.put("message", "Coupon '" + code + "' created successfully");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Coupon '" + code + "' created successfully");
             res.put("coupon", mapCoupon(c));
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error creating coupon: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error creating coupon: " + e.getMessage());
             return ResponseEntity.badRequest().body(res);
         }
     }
@@ -110,14 +131,14 @@ public class FlutterAdminApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         Coupon c = couponRepository.findById(id).orElse(null);
         if (c == null) {
-            res.put("success", false); res.put("message", "Coupon not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon not found");
             return ResponseEntity.badRequest().body(res);
         }
         c.setActive(!c.isActive());
         couponRepository.save(c);
-        res.put("success", true);
-        res.put("active", c.isActive());
-        res.put("message", c.isActive() ? "Coupon activated" : "Coupon deactivated");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_ACTIVE, c.isActive());
+        res.put(KEY_MESSAGE, c.isActive() ? "Coupon activated" : "Coupon deactivated");
         return ResponseEntity.ok(res);
     }
 
@@ -126,12 +147,12 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminDeleteCoupon(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         if (!couponRepository.existsById(id)) {
-            res.put("success", false); res.put("message", "Coupon not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon not found");
             return ResponseEntity.badRequest().body(res);
         }
         couponRepository.deleteById(id);
-        res.put("success", true);
-        res.put("message", "Coupon deleted successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Coupon deleted successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -144,8 +165,8 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminGetRefunds() {
         Map<String, Object> res = new LinkedHashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc()
-                .stream().map(this::mapRefund).collect(Collectors.toList());
-        res.put("success", true);
+                .stream().map(this::mapRefund).toList();
+        res.put(KEY_SUCCESS, true);
         res.put("refunds", list);
         res.put("count", list.size());
         return ResponseEntity.ok(res);
@@ -163,15 +184,15 @@ public class FlutterAdminApiController {
         try {
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
-                res.put("success", false); res.put("message", "Order not found");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, KEY_ORDER_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
             Refund refund = refundRepository.findByOrder(order).stream()
                     .filter(r -> r.getStatus() == RefundStatus.PENDING)
                     .findFirst().orElse(null);
             if (refund == null) {
-                res.put("success", false);
-                res.put("message", "No pending refund found for this order");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "No pending refund found for this order");
                 return ResponseEntity.badRequest().body(res);
             }
             String action = (String) body.getOrDefault("action", "");
@@ -184,20 +205,20 @@ public class FlutterAdminApiController {
                 refund.setStatus(RefundStatus.REJECTED);
                 refund.setRejectionReason(reason);
             } else {
-                res.put("success", false);
-                res.put("message", "Invalid action. Use 'approve' or 'reject'");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Invalid action. Use 'approve' or 'reject'");
                 return ResponseEntity.badRequest().body(res);
             }
             refund.setProcessedAt(LocalDateTime.now());
             refund.setProcessedBy("Admin");
             refundRepository.save(refund);
-            res.put("success", true);
-            res.put("message", "Refund " + action + "d successfully");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Refund " + action + "d successfully");
             res.put("refund", mapRefund(refund));
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error processing refund: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error processing refund: " + e.getMessage());
             return ResponseEntity.badRequest().body(res);
         }
     }
@@ -224,13 +245,13 @@ public class FlutterAdminApiController {
 
         List<Map<String, Object>> pending = deliveryBoyRepository
                 .findByAdminApprovedFalseAndVerifiedTrue()
-                .stream().map(this::mapDeliveryBoy).collect(Collectors.toList());
+                .stream().map(this::mapDeliveryBoy).toList();
 
         List<Map<String, Object>> active = deliveryBoyRepository.findByActiveTrue()
                 .stream()
                 .filter(DeliveryBoy::isAdminApproved)
                 .map(this::mapDeliveryBoy)
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> unassignedOrders = orderRepository.findAll()
                 .stream()
@@ -241,7 +262,7 @@ public class FlutterAdminApiController {
                 .map(o -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("id",                   o.getId());
-                    m.put("trackingStatus",        o.getTrackingStatus().name());
+                    m.put(KEY_TRACKING_STATUS,        o.getTrackingStatus().name());
                     m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
                     m.put("totalPrice",            o.getTotalPrice());
                     m.put("currentCity",           o.getCurrentCity() != null ? o.getCurrentCity() : "");
@@ -251,9 +272,9 @@ public class FlutterAdminApiController {
                         m.put("customerPhone", o.getCustomer().getMobile());
                     }
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
 
-        res.put("success",            true);
+        res.put(KEY_SUCCESS,            true);
         res.put("pendingApproval",    pending);
         res.put("pendingCount",       pending.size());
         res.put("activeDeliveryBoys", active);
@@ -279,20 +300,20 @@ public class FlutterAdminApiController {
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, KEY_ORDER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.PACKED) {
-            res.put("success", false);
-            res.put("message", "Order must be PACKED before assigning a delivery boy. Current status: "
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Order must be PACKED before assigning a delivery boy. Current status: "
                     + order.getTrackingStatus().getDisplayName());
             return ResponseEntity.badRequest().body(res);
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null || !db.isActive() || !db.isVerified() || !db.isAdminApproved()) {
-            res.put("success", false);
-            res.put("message", "Delivery boy not found or not active/approved");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Delivery boy not found or not active/approved");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -302,9 +323,9 @@ public class FlutterAdminApiController {
                 ? db.getWarehouse().getCity() : "In transit");
         orderRepository.save(order);
 
-        res.put("success",        true);
-        res.put("message",        "Order #" + orderId + " assigned to " + db.getName());
-        res.put("trackingStatus", order.getTrackingStatus().name());
+        res.put(KEY_SUCCESS,        true);
+        res.put(KEY_MESSAGE,        "Order #" + orderId + " assigned to " + db.getName());
+        res.put(KEY_TRACKING_STATUS, order.getTrackingStatus().name());
         return ResponseEntity.ok(res);
     }
 
@@ -323,11 +344,11 @@ public class FlutterAdminApiController {
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null) {
-            res.put("success", false); res.put("message", "Delivery boy not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delivery boy not found");
             return ResponseEntity.badRequest().body(res);
         }
         if (db.isAdminApproved()) {
-            res.put("success", false); res.put("message", "Already approved");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Already approved");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -338,8 +359,8 @@ public class FlutterAdminApiController {
         }
         deliveryBoyRepository.save(db);
 
-        res.put("success", true);
-        res.put("message", db.getName() + " approved successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, db.getName() + " approved successfully");
         res.put("deliveryBoy", mapDeliveryBoy(db));
         return ResponseEntity.ok(res);
     }
@@ -358,15 +379,15 @@ public class FlutterAdminApiController {
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
         if (db == null) {
-            res.put("success", false); res.put("message", "Delivery boy not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delivery boy not found");
             return ResponseEntity.badRequest().body(res);
         }
 
         String name = db.getName();
         deliveryBoyRepository.delete(db);
 
-        res.put("success", true);
-        res.put("message", name + "'s registration rejected"
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, name + "'s registration rejected"
                 + (reason.isBlank() ? "" : ": " + reason));
         return ResponseEntity.ok(res);
     }
@@ -380,12 +401,12 @@ public class FlutterAdminApiController {
     public ResponseEntity<Map<String, Object>> adminApproveAllProducts() {
         Map<String, Object> res = new LinkedHashMap<>();
         List<Product> pending = productRepository.findAll()
-                .stream().filter(p -> !p.isApproved()).collect(Collectors.toList());
+                .stream().filter(p -> !p.isApproved()).toList();
         pending.forEach(p -> p.setApproved(true));
         productRepository.saveAll(pending);
-        res.put("success",       true);
+        res.put(KEY_SUCCESS,       true);
         res.put("approvedCount", pending.size());
-        res.put("message",       "Approved " + pending.size() + " product(s) successfully");
+        res.put(KEY_MESSAGE,       "Approved " + pending.size() + " product(s) successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -406,18 +427,18 @@ public class FlutterAdminApiController {
 
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) {
-            res.put("success", false); res.put("message", "Vendor not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found");
             return ResponseEntity.badRequest().body(res);
         }
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, KEY_ORDER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
-            res.put("success", false);
-            res.put("message", "Order is already "
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Order is already "
                     + order.getTrackingStatus().getDisplayName()
                     + " — cannot mark ready again");
             return ResponseEntity.badRequest().body(res);
@@ -426,9 +447,9 @@ public class FlutterAdminApiController {
         order.setTrackingStatus(TrackingStatus.PACKED);
         orderRepository.save(order);
 
-        res.put("success",        true);
-        res.put("message",        "Order #" + id + " marked as Packed — ready for delivery pickup");
-        res.put("trackingStatus", order.getTrackingStatus().name());
+        res.put(KEY_SUCCESS,        true);
+        res.put(KEY_MESSAGE,        "Order #" + id + " marked as Packed — ready for delivery pickup");
+        res.put(KEY_TRACKING_STATUS, order.getTrackingStatus().name());
         return ResponseEntity.ok(res);
     }
 

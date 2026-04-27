@@ -46,6 +46,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
      * In production, change this to wherever the React build is served.
      */
     private static final String REACT_ORIGIN = "http://localhost:3000";
+    private static final String KEY_OAUTH_LOGIN_TYPE = "oauth_login_type";
+    private static final String PROVIDER_GOOGLE = "google";
+    private static final String PROVIDER_GITHUB = "github";
+    private static final String PROVIDER_FACEBOOK = "facebook";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final SocialAuthService socialAuthService;
@@ -74,7 +78,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
 
         HttpSession session  = request.getSession();
-        String loginType     = (String) session.getAttribute("oauth_login_type");
+        String loginType     = (String) session.getAttribute(KEY_OAUTH_LOGIN_TYPE);
         if (loginType == null) loginType = "customer";
 
         String name          = extractName(oAuth2User, provider);
@@ -86,7 +90,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             // Handle linking flows first (before removing attribute)
             if ("flutter-link-customer".equals(loginType)) {
                 Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
-                session.removeAttribute("oauth_login_type");
+                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
                 session.removeAttribute("oauth_link_customer_id");
                 if (linkId != null) {
                     socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
@@ -96,7 +100,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             }
             if ("flutter-link-vendor".equals(loginType)) {
                 Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
-                session.removeAttribute("oauth_login_type");
+                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
                 session.removeAttribute("oauth_link_vendor_id");
                 if (linkId != null) {
                     socialAuthService.linkOAuthToVendor(linkId, provider, pid);
@@ -105,7 +109,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            session.removeAttribute("oauth_login_type");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
 
             if ("flutter-vendor".equals(loginType)) {
                 Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
@@ -143,7 +147,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
             session.setAttribute("vendor", v);
             session.setAttribute("success", "Login Successful via " + providerDisplay);
-            session.removeAttribute("oauth_login_type");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/vendor/home");
             return;
         }
@@ -151,7 +155,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
         if (!c.isActive()) {
             session.setAttribute("failure", "Your account has been suspended.");
-            session.removeAttribute("oauth_login_type");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/customer/login");
             return;
         }
@@ -171,9 +175,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String getProviderDisplayName(String provider) {
         return switch (provider.toLowerCase()) {
-            case "google"    -> "Google";
-            case "github"    -> "GitHub";
-            case "facebook"  -> "Facebook";
+            case PROVIDER_GOOGLE   -> "Google";
+            case PROVIDER_GITHUB   -> "GitHub";
+            case PROVIDER_FACEBOOK -> "Facebook";
             case "instagram" -> "Instagram";
             default          -> "Social Login";
         };
@@ -181,12 +185,12 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String extractProviderId(OAuth2User u, String provider) {
         return switch (provider.toLowerCase()) {
-            case "google" -> u.getAttribute("sub");
-            case "github" -> {
+            case PROVIDER_GOOGLE -> u.getAttribute("sub");
+            case PROVIDER_GITHUB -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
-            case "facebook" -> {
+            case PROVIDER_FACEBOOK -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
@@ -200,13 +204,13 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String extractName(OAuth2User u, String provider) {
         return switch (provider.toLowerCase()) {
-            case "google"   -> u.getAttribute("name");
-            case "github"   -> {
+            case PROVIDER_GOOGLE   -> u.getAttribute("name");
+            case PROVIDER_GITHUB   -> {
                 String n = u.getAttribute("name");
                 if (n == null || n.isEmpty()) n = u.getAttribute("login");
                 yield n;
             }
-            case "facebook" -> u.getAttribute("name");
+            case PROVIDER_FACEBOOK -> u.getAttribute("name");
             case "instagram" -> {
                 String name = u.getAttribute("username");
                 if (name == null || name.isEmpty()) name = u.getAttribute("name");
