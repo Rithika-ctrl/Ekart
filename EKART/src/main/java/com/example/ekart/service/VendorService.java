@@ -52,6 +52,13 @@ import com.example.ekart.dto.Item;
 @Transactional
 public class VendorService {
 
+    // ── S1192 String constants ──
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_REDIRECT_MANAGE_PRODUCTS          = "redirect:/manage-products";
+    private static final String K_REDIRECT_VENDOR_OTP               = "redirect:/vendor/otp/";
+    private static final String K_REDIRECT_VENDOR_RESET_PASSWORD    = "redirect:/vendor/reset-password/";
+    private static final String K_VENDOR                            = "vendor";
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(VendorService.class);
 
 	private static final String REDIRECT_VENDOR_LOGIN = "redirect:/vendor/login";
@@ -131,7 +138,7 @@ public class VendorService {
 
 	// ---------------- REGISTER ----------------
 	public String loadRegistration(ModelMap map, Vendor vendor) {
-		map.put("vendor", vendor);
+		map.put(K_VENDOR, vendor);
 		return "vendor-register.html";
 	}
 
@@ -172,8 +179,8 @@ public class VendorService {
 			LOGGER.warn("Vendor OTP email failed: {}", e.getMessage(), e);
 		}
 
-		session.setAttribute("success", "OTP Sent Successfully to your email");
-		return "redirect:/vendor/otp/" + vendor.getId();
+		session.setAttribute(KEY_SUCCESS, "OTP Sent Successfully to your email");
+		return K_REDIRECT_VENDOR_OTP + vendor.getId();
 	}
 
 	// ---------------- OTP PAGE ----------------
@@ -193,12 +200,12 @@ public class VendorService {
 		if (result.success) {
 			vendor.setVerified(true);
 			vendorRepository.save(vendor);
-			session.setAttribute("success", "Vendor Verified Successfully");
+			session.setAttribute(KEY_SUCCESS, "Vendor Verified Successfully");
 			return "redirect:/";
 		}
 
 		session.setAttribute(KEY_FAILURE, result.message);
-		return "redirect:/vendor/otp/" + id;
+		return K_REDIRECT_VENDOR_OTP + id;
 	}
 
 	// ---------------- LOGIN ----------------
@@ -226,12 +233,12 @@ public class VendorService {
 				LOGGER.warn("Vendor OTP resend email failed: {}", e.getMessage(), e);
 			}
 
-			session.setAttribute("success", "OTP Sent to your email. Please verify first.");
-			return "redirect:/vendor/otp/" + vendor.getId();
+			session.setAttribute(KEY_SUCCESS, "OTP Sent to your email. Please verify first.");
+			return K_REDIRECT_VENDOR_OTP + vendor.getId();
 		}
 
-		session.setAttribute("vendor", vendor);
-		session.setAttribute("success", "Login Successful");
+		session.setAttribute(K_VENDOR, vendor);
+		session.setAttribute(KEY_SUCCESS, "Login Successful");
 		return REDIRECT_VENDOR_HOME;
 	}
 
@@ -254,8 +261,8 @@ public class VendorService {
 			LOGGER.warn("Vendor password reset OTP email failed: {}", e.getMessage(), e);
 		}
 
-		session.setAttribute("success", "OTP sent to your registered email");
-		return "redirect:/vendor/reset-password/" + vendor.getId();
+		session.setAttribute(KEY_SUCCESS, "OTP sent to your registered email");
+		return K_REDIRECT_VENDOR_RESET_PASSWORD + vendor.getId();
 	}
 
 	public String loadResetPasswordPage(int id, ModelMap map) {
@@ -274,31 +281,31 @@ public class VendorService {
 		OtpService.VerificationResult result = otpService.verifyOtp(vendor.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_PASSWORD_RESET);
 		if (!result.success) {
 			session.setAttribute(KEY_FAILURE, result.message);
-			return "redirect:/vendor/reset-password/" + id;
+			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
 		if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
 			session.setAttribute(KEY_FAILURE, "Password and Confirm Password should match");
-			return "redirect:/vendor/reset-password/" + id;
+			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
 		String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
 		if (!password.matches(passwordRegex)) {
-			session.setAttribute("failure",
+			session.setAttribute(KEY_FAILURE,
 					"Password must have 8+ characters with uppercase, lowercase, number and special character");
-			return "redirect:/vendor/reset-password/" + id;
+			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
 		vendor.setPassword(AES.encrypt(password));
 		vendorRepository.save(vendor);
 
-		session.setAttribute("success", "Password reset successful. Please login");
+		session.setAttribute(KEY_SUCCESS, "Password reset successful. Please login");
 		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	// ---------------- HOME ----------------
 	public String loadHome(HttpSession session) {
-		if (session.getAttribute("vendor") != null)
+		if (session.getAttribute(K_VENDOR) != null)
 			return "vendor-home.html";
 
 		session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
@@ -306,12 +313,12 @@ public class VendorService {
 	}
 
 	public String loadHome(HttpSession session, ModelMap map) {
-		if (session.getAttribute("vendor") == null) {
+		if (session.getAttribute(K_VENDOR) == null) {
 			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		int alertCount = stockAlertService.getUnacknowledgedAlerts(vendor).size();
 		map.put("alertCount", alertCount);
 
@@ -321,19 +328,19 @@ public class VendorService {
 	// ---------------- STORE FRONT ----------------
 	public String loadStoreFront(HttpSession session, ModelMap map) {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
+		Vendor sessionVendor = (Vendor) session.getAttribute(K_VENDOR);
 		Vendor vendor = vendorRepository.findById(sessionVendor.getId()).orElse(sessionVendor);
-		session.setAttribute("vendor", vendor);
+		session.setAttribute(K_VENDOR, vendor);
 
 		int productCount = productRepository.findByVendor(vendor).size();
 		int alertCount = stockAlertService.getUnacknowledgedAlerts(vendor).size();
 
-		map.put("vendor", vendor);
+		map.put(K_VENDOR, vendor);
 		map.put("productCount", productCount);
 		map.put("alertCount", alertCount);
 
@@ -342,8 +349,8 @@ public class VendorService {
 
 	public String updateStoreFront(String name, long mobile, HttpSession session) {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
@@ -358,7 +365,7 @@ public class VendorService {
 			return REDIRECT_VENDOR_STOREFRONT;
 		}
 
-		Vendor sessionVendor = (Vendor) session.getAttribute("vendor");
+		Vendor sessionVendor = (Vendor) session.getAttribute(K_VENDOR);
 		Vendor vendor = vendorRepository.findById(sessionVendor.getId()).orElse(sessionVendor);
 
 		Vendor existingMobileVendor = vendorRepository.findByMobile(mobile);
@@ -370,29 +377,29 @@ public class VendorService {
 		vendor.setName(updatedName);
 		vendor.setMobile(mobile);
 		vendorRepository.save(vendor);
-		session.setAttribute("vendor", vendor);
+		session.setAttribute(K_VENDOR, vendor);
 
-		session.setAttribute("success", "Vendor profile updated successfully");
+		session.setAttribute(KEY_SUCCESS, "Vendor profile updated successfully");
 		return REDIRECT_VENDOR_STOREFRONT;
 	}
 
 	// ---------------- ADD PRODUCT ----------------
 	public String laodAddProduct(HttpSession session) {
-		if (session.getAttribute("vendor") != null)
+		if (session.getAttribute(K_VENDOR) != null)
 			return "add-product.html";
 
-		session.setAttribute("failure", LOGIN_FIRST);
+		session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 		return REDIRECT_VENDOR_LOGIN;
 	}
 
 	public String laodAddProduct(Product product, HttpSession session) throws IOException {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 
 		product.setVendor(vendor);
 		product.setApproved(false);
@@ -432,19 +439,19 @@ public class VendorService {
 		productRepository.save(product);
 		stockAlertService.checkStockLevel(product);
 
-		session.setAttribute("success", "Product added successfully! Waiting for admin approval.");
+		session.setAttribute(KEY_SUCCESS, "Product added successfully! Waiting for admin approval.");
 		return REDIRECT_VENDOR_HOME;
 	}
 
 	// ---------------- MANAGE PRODUCTS ----------------
 	public String manageProducts(HttpSession session, ModelMap map) {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		List<Product> products = productRepository.findByVendor(vendor);
 
 		map.put("products", products);
@@ -453,17 +460,17 @@ public class VendorService {
 
 	// ---------------- DELETE PRODUCT ----------------
 	public String delete(int id, HttpSession session) {
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		Product product = productRepository.findById(id).orElse(null);
 
 		if (product == null || product.getVendor() == null || product.getVendor().getId() != vendor.getId()) {
-			session.setAttribute("failure", "You can delete only your own products");
-			return "redirect:/manage-products";
+			session.setAttribute(KEY_FAILURE, "You can delete only your own products");
+			return K_REDIRECT_MANAGE_PRODUCTS;
 		}
 
 		List<Item> items = itemRepository.findByProductId(product.getId());
@@ -473,24 +480,24 @@ public class VendorService {
 
 		productRepository.delete(product);
 
-		session.setAttribute("success", "Product Deleted Successfully");
-		return "redirect:/manage-products";
+		session.setAttribute(KEY_SUCCESS, "Product Deleted Successfully");
+		return K_REDIRECT_MANAGE_PRODUCTS;
 	}
 
 	// ---------------- EDIT PRODUCT ----------------
 	public String editProduct(int id, ModelMap map, HttpSession session) {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		Product product = productRepository.findById(id).orElse(null);
 
 		if (product == null || product.getVendor() == null || product.getVendor().getId() != vendor.getId()) {
-			session.setAttribute("failure", "You can edit only your own products");
-			return "redirect:/manage-products";
+			session.setAttribute(KEY_FAILURE, "You can edit only your own products");
+			return K_REDIRECT_MANAGE_PRODUCTS;
 		}
 
 		map.put("product", product);
@@ -500,18 +507,18 @@ public class VendorService {
 	// ---------------- UPDATE PRODUCT ----------------
 	public String updateProduct(Product product, HttpSession session) throws IOException {
 
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		Product existingProduct = productRepository.findById(product.getId()).orElse(null);
 
 		if (existingProduct == null || existingProduct.getVendor() == null
 				|| existingProduct.getVendor().getId() != vendor.getId()) {
-			session.setAttribute("failure", "You can update only your own products");
-			return "redirect:/manage-products";
+			session.setAttribute(KEY_FAILURE, "You can update only your own products");
+			return K_REDIRECT_MANAGE_PRODUCTS;
 		}
 
 		int oldStock = existingProduct.getStock();
@@ -559,8 +566,8 @@ public class VendorService {
 			backInStockService.notifySubscribers(existingProduct);
 		}
 
-		session.setAttribute("success", "Product Updated Successfully");
-		return "redirect:/manage-products";
+		session.setAttribute(KEY_SUCCESS, "Product Updated Successfully");
+		return K_REDIRECT_MANAGE_PRODUCTS;
 	}
 
 	// ── NEW: Vendor views orders containing their products ────────
@@ -572,9 +579,9 @@ public class VendorService {
 	 *   deliveredOrders  — DELIVERED
 	 */
 	public String loadVendorOrders(HttpSession session, ModelMap map) {
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		if (vendor == null) {
-			session.setAttribute("failure", LOGIN_FIRST);
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
 			return REDIRECT_VENDOR_LOGIN;
 		}
 
@@ -597,7 +604,7 @@ public class VendorService {
 			}
 		}
 
-		map.put("vendor", vendor);
+		map.put(K_VENDOR, vendor);
 		map.put("pendingOrders",    pendingOrders);
 		map.put("inProgressOrders", inProgressOrders);
 		map.put("deliveredOrders",  deliveredOrders);
@@ -613,21 +620,21 @@ public class VendorService {
 		java.util.Map<String, Object> res = new java.util.LinkedHashMap<>();
 
 		try {
-			Vendor vendor = (Vendor) session.getAttribute("vendor");
+			Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 			if (vendor == null) {
-				res.put("success", false); res.put("message", LOGIN_FIRST);
+				res.put(KEY_SUCCESS, false); res.put(K_MESSAGE, LOGIN_FIRST);
 				return ResponseEntity.status(401).body(res);
 			}
 
 			Order order = orderRepository.findById(orderId).orElse(null);
 			if (order == null) {
-				res.put("success", false); res.put("message", "Order not found");
+				res.put(KEY_SUCCESS, false); res.put(K_MESSAGE, "Order not found");
 				return ResponseEntity.ok(res);
 			}
 
 			if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
-				res.put("success", false);
-				res.put("message", "Order is already in status: " + order.getTrackingStatus().getDisplayName());
+				res.put(KEY_SUCCESS, false);
+				res.put(K_MESSAGE, "Order is already in status: " + order.getTrackingStatus().getDisplayName());
 				return ResponseEntity.ok(res);
 			}
 
@@ -652,21 +659,21 @@ public class VendorService {
 				TrackingEventLog log = new TrackingEventLog(
 					order, TrackingStatus.PACKED, city,
 					"Order packed and ready for pickup by delivery team",
-					"vendor"
+					K_VENDOR
 				);
 				trackingEventLogRepository.save(log);
 			} catch (Exception logEx) {
 				LOGGER.warn("[VendorService] TrackingEventLog save (non-fatal): {}", logEx.getMessage(), logEx);
 			}
 
-			res.put("success", true);
-			res.put("message", "Order #" + orderId + " marked as Packed. Admin will assign delivery boy.");
+			res.put(KEY_SUCCESS, true);
+			res.put(K_MESSAGE, "Order #" + orderId + " marked as Packed. Admin will assign delivery boy.");
 			return ResponseEntity.ok(res);
 
 		} catch (Exception e) {
 			LOGGER.error("[VendorService] markOrderReady error: {}", e.getMessage(), e);
-			res.put("success", false);
-			res.put("message", "Server error: " + e.getMessage());
+			res.put(KEY_SUCCESS, false);
+			res.put(K_MESSAGE, "Server error: " + e.getMessage());
 			return ResponseEntity.ok(res);
 		}
 	}
@@ -674,9 +681,9 @@ public class VendorService {
 
     // ---------------- SALES REPORT ----------------
     public String loadSalesReport(HttpSession session, org.springframework.ui.ModelMap map) {
-        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
         if (vendor == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
             return REDIRECT_VENDOR_LOGIN;
         }
 
@@ -788,7 +795,7 @@ public class VendorService {
     }
 
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> getSalesReportJSON(jakarta.servlet.http.HttpSession session) {
-        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
         if (vendor == null) {
             return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(new java.util.HashMap<>());
         }
@@ -819,7 +826,7 @@ public class VendorService {
     public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> syncReportingDb(
             jakarta.servlet.http.HttpSession session) {
 
-        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
         if (vendor == null) {
             return org.springframework.http.ResponseEntity
                     .status(org.springframework.http.HttpStatus.UNAUTHORIZED)
@@ -841,7 +848,7 @@ public class VendorService {
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("synced",  synced);
         result.put("total",   orders.size());
-        result.put("message", "Synced " + synced + " of " + orders.size() + " orders");
+        result.put(K_MESSAGE, "Synced " + synced + " of " + orders.size() + " orders");
         return org.springframework.http.ResponseEntity.ok(result);
     }
 }

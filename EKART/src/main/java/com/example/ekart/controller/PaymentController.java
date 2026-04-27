@@ -29,6 +29,15 @@ import java.util.*;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class PaymentController {
+
+    // ── S1192 String constants ──
+    private static final String K_COD                               = "COD";
+    private static final String K_CODE                              = "code";
+    private static final String K_DESCRIPTION                       = "description";
+    private static final String K_ICON                              = "icon";
+    private static final String K_NAME                              = "name";
+    private static final String K_ORDERID                           = "orderId";
+    private static final String K_RAZORPAY                          = "RAZORPAY";
     private static final Logger LOGGER = LoggerFactory.getLogger(PaymentController.class);
 
     // String constants to avoid duplications (fixes S1192)
@@ -64,22 +73,22 @@ public class PaymentController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "methods": [
      *       {
-     *         "code": "RAZORPAY",
-     *         "name": "Online Payment (Razorpay)",
-     *         "description": "Pay securely online...",
-     *         "icon": "credit-card"
+     *         K_CODE: K_RAZORPAY,
+     *         K_NAME: "Online Payment (Razorpay)",
+     *         K_DESCRIPTION: "Pay securely online...",
+     *         K_ICON: "credit-card"
      *       },
      *       {
-     *         "code": "COD",
-     *         "name": "Cash On Delivery",
-     *         "description": "Pay when delivered...",
-     *         "icon": "cash"
+     *         K_CODE: K_COD,
+     *         K_NAME: "Cash On Delivery",
+     *         K_DESCRIPTION: "Pay when delivered...",
+     *         K_ICON: "cash"
      *       }
      *     ],
-     *     "default": "RAZORPAY"
+     *     "default": K_RAZORPAY
      *   }
      */
     @GetMapping("/payment/methods")
@@ -92,8 +101,8 @@ public class PaymentController {
         try {
             Customer customer = (Customer) session.getAttribute("customer");
             if (customer == null) {
-                res.put("success", false);
-                res.put("message", "Not logged in");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Not logged in");
                 return ResponseEntity.status(401).body(res);
             }
 
@@ -105,10 +114,10 @@ public class PaymentController {
             List<Map<String, String>> methods = new ArrayList<>();
             for (String method : availableMethods) {
                 Map<String, String> methodObj = new LinkedHashMap<>();
-                methodObj.put("code", method);
-                methodObj.put("name", paymentMethodService.getPaymentMethodDisplayName(method));
-                methodObj.put("description", paymentMethodService.getPaymentMethodDescription(method));
-                methodObj.put("icon", paymentMethodService.getPaymentMethodIcon(method));
+                methodObj.put(K_CODE, method);
+                methodObj.put(K_NAME, paymentMethodService.getPaymentMethodDisplayName(method));
+                methodObj.put(K_DESCRIPTION, paymentMethodService.getPaymentMethodDescription(method));
+                methodObj.put(K_ICON, paymentMethodService.getPaymentMethodIcon(method));
                 methods.add(methodObj);
             }
 
@@ -140,7 +149,7 @@ public class PaymentController {
      *
      * Request Body:
      *   {
-     *     "paymentMethod": "COD" | "RAZORPAY",
+     *     KEY_PAYMENT_METHOD: K_COD | K_RAZORPAY,
      *     "deliveryPinCode": "560001",
      *     "deliveryAddress": "123 Main St, Bangalore",
      *     "items": [ { ... } ]
@@ -148,21 +157,21 @@ public class PaymentController {
      *
      * Response (for COD):
      *   {
-     *     "success": true,
-     *     "message": "COD order created",
-     *     "orderId": 12345,
-     *     "paymentMethod": "COD",
-     *     "amount": 500.00,
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "COD order created",
+     *     K_ORDERID: 12345,
+     *     KEY_PAYMENT_METHOD: K_COD,
+     *     KEY_AMOUNT: 500.00,
      *     "status": "PROCESSING"
      *   }
      *
      * Response (for Razorpay):
      *   {
-     *     "success": true,
-     *     "message": "Proceed to Razorpay payment",
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Proceed to Razorpay payment",
      *     "razorpayOrderId": "order_xxx",
      *     "razorpayKey": "rzp_xxx",
-     *     "amount": 50000  (in paise)
+     *     KEY_AMOUNT: 50000  (in paise)
      *   }
      */
     @PostMapping("/checkout/initiate")
@@ -203,7 +212,7 @@ public class PaymentController {
             }
 
             // Route based on payment method
-            if ("COD".equalsIgnoreCase(paymentMethod)) {
+            if (K_COD.equalsIgnoreCase(paymentMethod)) {
                 return handleCodCheckout(totalAmount, deliveryCharge, res);
             } else {
                 return handleRazorpayCheckout(totalAmount, deliveryCharge, res);
@@ -237,7 +246,7 @@ public class PaymentController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "COD order created successfully");
-            res.put(KEY_PAYMENT_METHOD, "COD");
+            res.put(KEY_PAYMENT_METHOD, K_COD);
             res.put(KEY_AMOUNT, totalAmount);
             res.put("instruction", "You will pay ₹" + totalAmount + " in cash when order is delivered");
             res.put("status", "PROCESSING");
@@ -271,7 +280,7 @@ public class PaymentController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Proceed to Razorpay payment");
-            res.put(KEY_PAYMENT_METHOD, "RAZORPAY");
+            res.put(KEY_PAYMENT_METHOD, K_RAZORPAY);
             res.put(KEY_AMOUNT, (int) (totalAmount * 100));  // In paise
             res.put("currency", "INR");
 
@@ -300,7 +309,7 @@ public class PaymentController {
      *
      * Request Body:
      *   {
-     *     "orderId": 12345,
+     *     K_ORDERID: 12345,
      *     "deliveryBoyId": 567,
      *     "otpVerified": true,
      *     "collectionNotes": "Customer paid in full"
@@ -308,9 +317,9 @@ public class PaymentController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "COD collected for Order #12345",
-     *     "paymentStatus": "COLLECTED"
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "COD collected for Order #12345",
+     *     KEY_PAYMENT_STATUS: "COLLECTED"
      *   }
      */
     @PostMapping("/cod/mark-collected")
@@ -320,7 +329,7 @@ public class PaymentController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         try {
-            int orderId = ((Number) payload.get("orderId")).intValue();
+            int orderId = ((Number) payload.get(K_ORDERID)).intValue();
             int deliveryBoyId = ((Number) payload.get("deliveryBoyId")).intValue();
             String notes = (String) payload.getOrDefault("collectionNotes", "");
 
@@ -355,13 +364,13 @@ public class PaymentController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "orders": [
      *       {
      *         "id": 12345,
      *         "customerName": "John Doe",
-     *         "amount": 500.00,
-     *         "paymentStatus": "COLLECTED",
+     *         KEY_AMOUNT: 500.00,
+     *         KEY_PAYMENT_STATUS: "COLLECTED",
      *         "collectedAt": "2026-04-14T10:30:00",
      *         "deliveryBoyName": "Raj Kumar"
      *       }
@@ -415,16 +424,16 @@ public class PaymentController {
      *
      * Request Body:
      *   {
-     *     "orderId": 12345,
+     *     K_ORDERID: 12345,
      *     "adminId": 99,
      *     "verificationNotes": "Cash amount verified"
      *   }
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Order #12345 payment verified",
-     *     "paymentStatus": "VERIFIED"
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Order #12345 payment verified",
+     *     KEY_PAYMENT_STATUS: "VERIFIED"
      *   }
      */
     @PostMapping("/admin/cod/verify-payment")
@@ -434,7 +443,7 @@ public class PaymentController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         try {
-            int orderId = ((Number) payload.get("orderId")).intValue();
+            int orderId = ((Number) payload.get(K_ORDERID)).intValue();
             int adminId = ((Number) payload.get("adminId")).intValue();
             String notes = (String) payload.getOrDefault("verificationNotes", "");
 
@@ -464,6 +473,3 @@ public class PaymentController {
         }
     }
 }
-
-
-

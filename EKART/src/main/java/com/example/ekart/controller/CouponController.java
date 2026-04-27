@@ -19,6 +19,15 @@ import java.util.Map;
 @Controller
 public class CouponController {
 
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_REDIRECT_ADMIN_COUPONS            = "redirect:/admin/coupons";
+    private static final String K_REDIRECT_ADMIN_LOGIN              = "redirect:/admin/login";
+    private static final String K_SUCCESS                           = "success";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final CouponRepository couponRepository;
 
@@ -32,9 +41,9 @@ public class CouponController {
     // ── ADMIN: View all coupons ──────────────────────────────────────
     @GetMapping("/admin/coupons")
     public String adminCoupons(HttpSession session, ModelMap map) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Login first");
-            return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, "Login first");
+            return K_REDIRECT_ADMIN_LOGIN;
         }
         List<Coupon> allCoupons = couponRepository.findAllByOrderByIdDesc();
         map.put("coupons", allCoupons);
@@ -56,12 +65,12 @@ public class CouponController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
             HttpSession session) {
 
-        if (session.getAttribute("admin") == null) return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) return K_REDIRECT_ADMIN_LOGIN;
 
         // Check duplicate
         if (couponRepository.findByCode(code.toUpperCase().trim()).isPresent()) {
-            session.setAttribute("failure", "Coupon code '" + code.toUpperCase() + "' already exists!");
-            return "redirect:/admin/coupons";
+            session.setAttribute(K_FAILURE, "Coupon code '" + code.toUpperCase() + "' already exists!");
+            return K_REDIRECT_ADMIN_COUPONS;
         }
 
         Coupon coupon = new Coupon();
@@ -76,35 +85,35 @@ public class CouponController {
         coupon.setActive(true);
         couponRepository.save(coupon);
 
-        session.setAttribute("success", "Coupon '" + coupon.getCode() + "' created successfully!");
-        return "redirect:/admin/coupons";
+        session.setAttribute(K_SUCCESS, "Coupon '" + coupon.getCode() + "' created successfully!");
+        return K_REDIRECT_ADMIN_COUPONS;
     }
 
     // ── ADMIN: Toggle active/inactive ───────────────────────────────
     @PostMapping("/admin/coupons/toggle/{id}")
     public String toggleCoupon(@PathVariable int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) return K_REDIRECT_ADMIN_LOGIN;
         couponRepository.findById(id).ifPresent(c -> {
             c.setActive(!c.isActive());
             couponRepository.save(c);
         });
-        return "redirect:/admin/coupons";
+        return K_REDIRECT_ADMIN_COUPONS;
     }
 
     // ── ADMIN: Delete coupon ─────────────────────────────────────────
     @PostMapping("/admin/coupons/delete/{id}")
     public String deleteCoupon(@PathVariable int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) return K_REDIRECT_ADMIN_LOGIN;
         couponRepository.deleteById(id);
-        session.setAttribute("success", "Coupon deleted.");
-        return "redirect:/admin/coupons";
+        session.setAttribute(K_SUCCESS, "Coupon deleted.");
+        return K_REDIRECT_ADMIN_COUPONS;
     }
 
     // ── CUSTOMER: View available coupons page ───────────────────────
     @GetMapping("/customer/coupons")
     public String customerCoupons(HttpSession session, ModelMap map) {
-        if (session.getAttribute("customer") == null) {
-            session.setAttribute("failure", "Login first");
+        if (session.getAttribute(K_CUSTOMER) == null) {
+            session.setAttribute(K_FAILURE, "Login first");
             return "redirect:/customer/login";
         }
         List<Coupon> activeCoupons = couponRepository.findByActiveTrue();
@@ -113,7 +122,7 @@ public class CouponController {
                 .filter(Coupon::isValid)
                 .toList();
         map.put("coupons", valid);
-        map.put("customer", session.getAttribute("customer"));
+        map.put(K_CUSTOMER, session.getAttribute(K_CUSTOMER));
         return "customer-coupons.html";
     }
 
@@ -126,41 +135,41 @@ public class CouponController {
             HttpSession session) {
 
         Map<String, Object> res = new HashMap<>();
-        if (session.getAttribute("customer") == null) {
-            res.put("success", false);
-            res.put("message", "Please login to apply coupon");
+        if (session.getAttribute(K_CUSTOMER) == null) {
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Please login to apply coupon");
             return ResponseEntity.ok(res);
         }
 
         Optional<Coupon> opt = couponRepository.findByCode(code.toUpperCase().trim());
         if (opt.isEmpty()) {
-            res.put("success", false);
-            res.put("message", "Invalid coupon code");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Invalid coupon code");
             return ResponseEntity.ok(res);
         }
 
         Coupon coupon = opt.get();
         if (!coupon.isValid()) {
-            res.put("success", false);
-            res.put("message", "This coupon has expired or reached its usage limit");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "This coupon has expired or reached its usage limit");
             return ResponseEntity.ok(res);
         }
 
         if (amount < coupon.getMinOrderAmount()) {
-            res.put("success", false);
-            res.put("message", "Minimum order amount ₹" + (int)coupon.getMinOrderAmount() + " required for this coupon");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Minimum order amount ₹" + (int)coupon.getMinOrderAmount() + " required for this coupon");
             return ResponseEntity.ok(res);
         }
 
         double discount = coupon.calculateDiscount(amount);
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("code", coupon.getCode());
         res.put("description", coupon.getDescription());
         res.put("type", coupon.getType().name());
         res.put("value", coupon.getValue());
         res.put("discount", discount);
         res.put("typeLabel", coupon.getTypeLabel());
-        res.put("message", coupon.getDescription() + " — saving ₹" + (int)discount);
+        res.put(K_MESSAGE, coupon.getDescription() + " — saving ₹" + (int)discount);
         return ResponseEntity.ok(res);
     }
 
@@ -189,14 +198,14 @@ public class CouponController {
     public ResponseEntity<Map<String, Object>> useCoupon(
             @RequestParam String code, HttpSession session) {
         Map<String, Object> res = new HashMap<>();
-        if (session.getAttribute("customer") == null) {
-            res.put("success", false); return ResponseEntity.ok(res);
+        if (session.getAttribute(K_CUSTOMER) == null) {
+            res.put(K_SUCCESS, false); return ResponseEntity.ok(res);
         }
         couponRepository.findByCode(code.toUpperCase()).ifPresent(c -> {
             c.setUsedCount(c.getUsedCount() + 1);
             couponRepository.save(c);
         });
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         return ResponseEntity.ok(res);
     }
 }

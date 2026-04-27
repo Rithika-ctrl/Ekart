@@ -20,7 +20,7 @@ import java.util.Map;
  * REST endpoint for session-based (web) add-to-cart with quantity selection.
  *
  * POST /api/cart/add-web
- *   Body: { "productId": 5, "quantity": 3 }
+ *   Body: { "productId": 5, K_QUANTITY: 3 }
  *   Auth: HttpSession (customer must be logged in)
  *
  * Unlike the original /add-cart/{id} route (which only adds qty=1 and
@@ -31,6 +31,11 @@ import java.util.Map;
  */
 @RestController
 public class CartWebController {
+
+    // ── S1192 String constants ──
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_QUANTITY                          = "quantity";
+    private static final String K_SUCCESS                           = "success";
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CustomerRepository customerRepository;
@@ -59,8 +64,8 @@ public class CartWebController {
         // ── Auth ──────────────────────────────────────────────────
         Customer sessionCustomer = (Customer) session.getAttribute("customer");
         if (sessionCustomer == null) {
-            res.put("success",  false);
-            res.put("message",  "Please log in to add items to cart");
+            res.put(K_SUCCESS,  false);
+            res.put(K_MESSAGE,  "Please log in to add items to cart");
             res.put("redirect", "/customer/login");
             return res;
         }
@@ -71,10 +76,10 @@ public class CartWebController {
         try {
             productId = Integer.parseInt(body.get("productId").toString());
             quantity  = Math.max(1, Integer.parseInt(
-                    body.getOrDefault("quantity", 1).toString()));
+                    body.getOrDefault(K_QUANTITY, 1).toString()));
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Invalid request");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Invalid request");
             return res;
         }
 
@@ -82,27 +87,27 @@ public class CartWebController {
         Customer customer = customerRepository.findById(sessionCustomer.getId())
                 .orElse(null);
         if (customer == null) {
-            res.put("success", false);
-            res.put("message", "Session expired, please log in again");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Session expired, please log in again");
             return res;
         }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null || !product.isApproved()) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Product not found");
             return res;
         }
 
         // ── Stock check ───────────────────────────────────────────
         if (product.getStock() <= 0) {
-            res.put("success", false);
-            res.put("message", "This product is out of stock");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "This product is out of stock");
             return res;
         }
         if (product.getStock() < quantity) {
-            res.put("success", false);
-            res.put("message", "Only " + product.getStock() + " unit"
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Only " + product.getStock() + " unit"
                     + (product.getStock() == 1 ? "" : "s") + " available in stock");
             return res;
         }
@@ -121,8 +126,8 @@ public class CartWebController {
             // when the item was first added, so remaining stock is what's left)
             int stockLeft  = product.getStock(); // stock remaining in warehouse
             if (quantity > stockLeft) {
-                res.put("success", false);
-                res.put("message", "Cannot add " + quantity + " more — only "
+                res.put(K_SUCCESS, false);
+                res.put(K_MESSAGE, "Cannot add " + quantity + " more — only "
                         + stockLeft + " remaining in stock");
                 return res;
             }
@@ -139,8 +144,8 @@ public class CartWebController {
             itemRepository.save(item);
             productRepository.save(product);
 
-            res.put("success", true);
-            res.put("message", "Cart updated — quantity is now " + totalQty);
+            res.put(K_SUCCESS, true);
+            res.put(K_MESSAGE, "Cart updated — quantity is now " + totalQty);
             res.put("alreadyInCart", true);
 
         } else {
@@ -163,9 +168,9 @@ public class CartWebController {
             productRepository.save(product);
             customerRepository.save(customer);
 
-            res.put("success",      true);
+            res.put(K_SUCCESS,      true);
             res.put("alreadyInCart", false);
-            res.put("message", quantity > 1
+            res.put(K_MESSAGE, quantity > 1
                     ? quantity + " items added to cart!"
                     : "Added to cart!");
         }
@@ -176,7 +181,7 @@ public class CartWebController {
 
         res.put("cartCount",   updated.getCart().getItems().size());
         res.put("productName", product.getName());
-        res.put("quantity",    quantity);
+        res.put(K_QUANTITY,    quantity);
 
         return res;
     }

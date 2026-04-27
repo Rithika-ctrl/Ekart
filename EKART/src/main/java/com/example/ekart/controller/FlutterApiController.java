@@ -6,13 +6,13 @@ import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.PinCodeValidator;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
  
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCrypt;
  
 /**
@@ -38,44 +38,132 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 @CrossOrigin(origins = "*")
 public class FlutterApiController {
  
-    @Autowired private CustomerRepository          customerRepository;
-    @Autowired private VendorRepository            vendorRepository;
-    @Autowired private ProductRepository           productRepository;
-    @Autowired private OrderRepository             orderRepository;
-    @Autowired private ItemRepository              itemRepository;
-    @Autowired private WishlistRepository          wishlistRepository;
-    @Autowired private AddressRepository           addressRepository;
-    @Autowired private ReviewRepository            reviewRepository;
-    @Autowired private RefundRepository            refundRepository;
-    @Autowired private StockAlertRepository        stockAlertRepository;
-    @Autowired private BannerRepository            bannerRepository;
-    @Autowired private BackInStockRepository       backInStockRepository;
-    @Autowired private DeliveryBoyRepository              deliveryBoyRepository;
-    @Autowired private WarehouseRepository                warehouseRepository;
-    @Autowired private TrackingEventLogRepository         trackingEventLogRepository;
-    @Autowired private DeliveryOtpRepository              deliveryOtpRepository;
-    @Autowired private WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-    @Autowired private EmailSender                        emailSender;
-    @Autowired private CouponRepository                   couponRepository;
+    private final CustomerRepository          customerRepository;
+    private final VendorRepository            vendorRepository;
+    private final ProductRepository           productRepository;
+    private final OrderRepository             orderRepository;
+    private final ItemRepository              itemRepository;
+    private final WishlistRepository          wishlistRepository;
+    private final AddressRepository           addressRepository;
+    private final ReviewRepository            reviewRepository;
+    private final RefundRepository            refundRepository;
+    private final StockAlertRepository        stockAlertRepository;
+    private final BannerRepository            bannerRepository;
+    private final BackInStockRepository       backInStockRepository;
+    private final DeliveryBoyRepository              deliveryBoyRepository;
+    private final WarehouseRepository                warehouseRepository;
+    private final TrackingEventLogRepository         trackingEventLogRepository;
+    private final DeliveryOtpRepository              deliveryOtpRepository;
+    private final WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
+    private final EmailSender                        emailSender;
+    private final CouponRepository                   couponRepository;
+    private final com.example.ekart.service.AdminAccountService adminAccountService;
  
     // Admin credentials come from application.properties (admin.email / admin.password)
-    @org.springframework.beans.factory.annotation.Value("${admin.email}")
-    private String adminEmail;
- 
-    @org.springframework.beans.factory.annotation.Value("${admin.password}")
-    private String adminPassword;
+    private final String adminEmail;
+    private final String adminPassword;
  
     // In-memory coupon session store (mirrors ReactApiController)
     private final java.util.concurrent.ConcurrentHashMap<Integer, com.example.ekart.dto.Coupon> appliedCoupons
             = new java.util.concurrent.ConcurrentHashMap<>();
 
     // String constants (fixes S1192 - String Literal Duplication)
-    private static final String KEY_EMAIL = "email";
-    private static final String KEY_TOKEN = "token";
-    private static final String KEY_ADMIN_ID = "adminId";
-    private static final String KEY_SUCCESS = "success";
-    private static final String KEY_MESSAGE = "message";
-    
+    private static final String KEY_EMAIL        = "email";
+    private static final String KEY_TOKEN        = "token";
+    private static final String KEY_ADMIN_ID     = "adminId";
+    private static final String KEY_SUCCESS      = "success";
+    private static final String KEY_MESSAGE      = "message";
+    private static final String KEY_ID           = "id";
+    private static final String KEY_NAME         = "name";
+    private static final String KEY_ACTIVE            = "active";
+    private static final String KEY_DELIVERY_BOY_ID   = "deliveryBoyId";
+    private static final String KEY_DELIVERY_BOY_CODE = "deliveryBoyCode";
+    private static final String KEY_TRACKING_STATUS   = "trackingStatus";
+    private static final String KEY_MOBILE       = "mobile";
+    private static final String KEY_PASSWORD     = "password";
+    private static final String KEY_STATUS       = "status";
+    private static final String KEY_COUNT        = "count";
+    private static final String KEY_ITEMS        = "items";
+    private static final String KEY_SUBSCRIBED   = "subscribed";
+    private static final String KEY_VENDOR_CODE  = "vendorCode";
+    private static final String KEY_DESCRIPTION  = "description";
+    private static final String KEY_PRODUCT_ID   = "productId";
+    private static final String KEY_CITY         = "city";
+    private static final String KEY_CODE         = "code";
+    private static final String KEY_PRICE        = "price";
+    private static final String KEY_CUSTOMER_NAME      = "customerName";
+    private static final String MSG_NOT_AUTHENTICATED   = "Not authenticated";
+    private static final String MSG_ORDER_NOT_FOUND     = "Order not found";
+    private static final String MSG_WAREHOUSE_NOT_FOUND = "Warehouse not found";
+    private static final String MSG_EMAIL_REGISTERED    = "Email already registered";
+    private static final String MSG_REGISTRATION_FAILED = "Registration failed: ";
+    private static final String MSG_LOGIN_FAILED        = "Login failed: ";
+    private static final String KEY_ADMIN_NOTE          = "adminNote";
+    private static final String KEY_REASON              = "reason";
+    private static final String KEY_TITLE               = "title";
+    private static final String KEY_IMAGE_URL           = "imageUrl";
+    private static final String KEY_LINK_URL            = "linkUrl";
+    private static final String KEY_WAREHOUSE_ID        = "warehouseId";
+    private static final String VAL_DELIVERY_BOY        = "delivery_boy";
+    private static final String VAL_ON_THE_WAY          = "On the way \u2014 ";
+    private static final String VAL_DELIVERED           = "Delivered";
+    private static final String VAL_NONE                = "None";
+    private static final String KEY_TOTAL_PRICE         = "totalPrice";
+    private static final String KEY_PAYMENT_MODE        = "paymentMode";
+    private static final String KEY_DELIVERY_TIME       = "deliveryTime";
+    private static final String KEY_PRODUCT_NAME        = "productName";
+    private static final String KEY_QUANTITY            = "quantity";
+
+    private static final Logger log = LoggerFactory.getLogger(FlutterApiController.class);
+    private static final Random RANDOM = new Random();
+
+
+    public FlutterApiController(
+            @org.springframework.beans.factory.annotation.Value("${admin.email}") String adminEmail,
+            @org.springframework.beans.factory.annotation.Value("${admin.password}") String adminPassword,
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            WishlistRepository wishlistRepository,
+            AddressRepository addressRepository,
+            ReviewRepository reviewRepository,
+            RefundRepository refundRepository,
+            StockAlertRepository stockAlertRepository,
+            BannerRepository bannerRepository,
+            BackInStockRepository backInStockRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            DeliveryOtpRepository deliveryOtpRepository,
+            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
+            EmailSender emailSender,
+            CouponRepository couponRepository,
+            com.example.ekart.service.AdminAccountService adminAccountService) {
+        this.adminEmail = adminEmail;
+        this.adminPassword = adminPassword;
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.addressRepository = addressRepository;
+        this.reviewRepository = reviewRepository;
+        this.refundRepository = refundRepository;
+        this.stockAlertRepository = stockAlertRepository;
+        this.bannerRepository = bannerRepository;
+        this.backInStockRepository = backInStockRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.deliveryOtpRepository = deliveryOtpRepository;
+        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
+        this.emailSender = emailSender;
+        this.couponRepository = couponRepository;
+        this.adminAccountService = adminAccountService;
+    }
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
     // ═══════════════════════════════════════════════════════
@@ -92,11 +180,11 @@ public class FlutterApiController {
         try {
             String email = (String) body.get("email");
             if (email == null || email.isBlank()) {
-                res.put("success", false); res.put("message", "Email is required");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (customerRepository.existsByEmail(email)) {
-                res.put("success", false); res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED);
                 return ResponseEntity.badRequest().body(res);
             }
  
@@ -108,8 +196,8 @@ public class FlutterApiController {
             Customer c = new Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
-            c.setMobile(Long.parseLong(body.get("mobile").toString()));
-            c.setPassword(AES.encrypt((String) body.get("password")));
+            c.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
+            c.setPassword(AES.encrypt((String) body.get(KEY_PASSWORD)));
             c.setVerified(false);
             c.setRole(Role.CUSTOMER);
             c.setActive(true);
@@ -121,12 +209,12 @@ public class FlutterApiController {
             c.setOtp(plainOtp); // legacy field used by email template
             emailSender.send(c);
  
-            res.put("success", true);
-            res.put("message", "OTP sent to " + email + ". Valid for 10 minutes.");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "OTP sent to " + email + ". Valid for 10 minutes.");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to send OTP: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Failed to send OTP: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -145,21 +233,21 @@ public class FlutterApiController {
  
             Customer c = customerRepository.findByEmail(email);
             if (c == null) {
-                res.put("success", false); res.put("message", "Account not found. Please register again.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Account not found. Please register again.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (c.isVerified()) {
-                res.put("success", false); res.put("message", "Account already verified. Please login.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Account already verified. Please login.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (c.getOtpExpiry() == null || java.time.LocalDateTime.now().isAfter(c.getOtpExpiry())) {
                 // OTP expired — delete the unverified account so user can retry
                 customerRepository.delete(c);
-                res.put("success", false); res.put("message", "OTP expired. Please register again.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP expired. Please register again.");
                 return ResponseEntity.badRequest().body(res);
             }
             if (c.getOtpHash() == null || !BCrypt.checkpw(otpInput, c.getOtpHash())) {
-                res.put("success", false); res.put("message", "Invalid OTP. Please try again.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid OTP. Please try again.");
                 return ResponseEntity.badRequest().body(res);
             }
  
@@ -171,16 +259,16 @@ public class FlutterApiController {
  
             String token = java.util.Base64.getEncoder()
                     .encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
-            res.put("success", true);
-            res.put("message", "Account verified successfully! Welcome to Ekart.");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Account verified successfully! Welcome to Ekart.");
             res.put("customerId", c.getId());
-            res.put("name", c.getName());
-            res.put("email", c.getEmail());
-            res.put("token", token);
+            res.put(KEY_NAME, c.getName());
+            res.put(KEY_EMAIL, c.getEmail());
+            res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Verification failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Verification failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -192,26 +280,26 @@ public class FlutterApiController {
         try {
             String email = (String) body.get("email");
             if (customerRepository.existsByEmail(email)) {
-                res.put("success", false);
-                res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED);
                 return ResponseEntity.badRequest().body(res);
             }
             Customer c = new Customer();
             c.setName((String) body.get("name"));
             c.setEmail(email);
-            c.setMobile(Long.parseLong(body.get("mobile").toString()));
-            c.setPassword(AES.encrypt((String) body.get("password")));
+            c.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
+            c.setPassword(AES.encrypt((String) body.get(KEY_PASSWORD)));
             c.setVerified(true);
             c.setRole(Role.CUSTOMER);
             c.setActive(true);
             customerRepository.save(c);
-            res.put("success", true);
-            res.put("message", "Registered successfully");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Registered successfully");
             res.put("customerId", c.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -222,27 +310,27 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email    = (String) body.get("email");
-            String password = (String) body.get("password");
+            String password = (String) body.get(KEY_PASSWORD);
             Customer c = customerRepository.findByEmail(email);
             String decryptedCustomerPwd = c != null ? AES.decrypt(c.getPassword()) : null;
             if (c == null || decryptedCustomerPwd == null || !decryptedCustomerPwd.equals(password)) {
-                res.put("success", false); res.put("message", "Invalid email or password");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
             if (!c.isActive()) {
-                res.put("success", false); res.put("message", "Account suspended. Contact support.");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Account suspended. Contact support.");
                 return ResponseEntity.badRequest().body(res);
             }
             String token = Base64.getEncoder().encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.put("customerId", c.getId());
-            res.put("name", c.getName());
-            res.put("email", c.getEmail());
-            res.put("mobile", c.getMobile());
-            res.put("token", token);
+            res.put(KEY_NAME, c.getName());
+            res.put(KEY_EMAIL, c.getEmail());
+            res.put(KEY_MOBILE, c.getMobile());
+            res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", "Login failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -257,22 +345,22 @@ public class FlutterApiController {
         try {
             String email = (String) body.get("email");
             if (vendorRepository.existsByEmail(email)) {
-                res.put("success", false); res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED);
                 return ResponseEntity.badRequest().body(res);
             }
             Vendor v = new Vendor();
             v.setName((String) body.get("name"));
             v.setEmail(email);
-            v.setMobile(Long.parseLong(body.get("mobile").toString()));
-            v.setPassword(AES.encrypt((String) body.get("password")));
+            v.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
+            v.setPassword(AES.encrypt((String) body.get(KEY_PASSWORD)));
             v.setVerified(true);
             vendorRepository.save(v);
-            res.put("success", true);
-            res.put("message", "Registered successfully. Wait for admin approval.");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Registered successfully. Wait for admin approval.");
             res.put("vendorId", v.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -283,22 +371,22 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email    = (String) body.get("email");
-            String password = (String) body.get("password");
+            String password = (String) body.get(KEY_PASSWORD);
             Vendor v = vendorRepository.findByEmail(email);
             if (v == null || !AES.decrypt(v.getPassword()).equals(password)) {
-                res.put("success", false); res.put("message", "Invalid email or password");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
                 return ResponseEntity.badRequest().body(res);
             }
             String token = Base64.getEncoder().encodeToString((v.getId() + ":" + v.getEmail()).getBytes());
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.put("vendorId", v.getId());
-            res.put("name", v.getName());
-            res.put("email", v.getEmail());
-            res.put("vendorCode", v.getVendorCode());
-            res.put("token", token);
+            res.put(KEY_NAME, v.getName());
+            res.put(KEY_EMAIL, v.getEmail());
+            res.put(KEY_VENDOR_CODE, v.getVendorCode());
+            res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", "Login failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -312,21 +400,21 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         String email    = (String) body.get("email");
-        String password = (String) body.get("password");
+        String password = (String) body.get(KEY_PASSWORD);
         if (email == null || password == null) {
-            res.put("success", false); res.put("message", "Email and password are required");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email and password are required");
             return ResponseEntity.badRequest().body(res);
         }
         if (!email.equals(adminEmail) || !password.equals(adminPassword)) {
-            res.put("success", false); res.put("message", "Invalid admin credentials");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid admin credentials");
             return ResponseEntity.status(401).body(res);
         }
         String token = Base64.getEncoder().encodeToString(("admin:" + adminEmail).getBytes());
-        res.put("success", true);
-        res.put("adminId", 0);
-        res.put("name", "Admin");
-        res.put("email", adminEmail);
-        res.put("token", token);
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_ADMIN_ID, 0);
+        res.put(KEY_NAME, "Admin");
+        res.put(KEY_EMAIL, adminEmail);
+        res.put(KEY_TOKEN, token);
         res.put("role", "ADMIN");
         return ResponseEntity.ok(res);
     }
@@ -352,61 +440,61 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String email    = (String) body.get("email");
-            String password = (String) body.get("password");
+            String password = (String) body.get(KEY_PASSWORD);
 
             if (email == null || password == null) {
-                res.put("success", false);
-                res.put("message", "Email and password are required");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Email and password are required");
                 return ResponseEntity.badRequest().body(res);
             }
 
             DeliveryBoy db = deliveryBoyRepository.findByEmail(email);
             if (db == null) {
-                res.put("success", false);
-                res.put("message", "No account found with this email");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "No account found with this email");
                 return ResponseEntity.status(401).body(res);
             }
 
             String decrypted = AES.decrypt(db.getPassword());
             if (decrypted == null || !decrypted.equals(password)) {
-                res.put("success", false);
-                res.put("message", "Wrong password");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Wrong password");
                 return ResponseEntity.status(401).body(res);
             }
 
             if (!db.isVerified()) {
-                res.put("success", false);
-                res.put("status", "unverified");
-                res.put("deliveryBoyId", db.getId());
-                res.put("message", "Email not verified. Please check your inbox for the OTP.");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_STATUS, "unverified");
+                res.put(KEY_DELIVERY_BOY_ID, db.getId());
+                res.put(KEY_MESSAGE, "Email not verified. Please check your inbox for the OTP.");
                 return ResponseEntity.status(403).body(res);
             }
 
             if (!db.isActive()) {
-                res.put("success", false);
-                res.put("status", "inactive");
-                res.put("message", "Your account has been deactivated. Contact admin.");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_STATUS, "inactive");
+                res.put(KEY_MESSAGE, "Your account has been deactivated. Contact admin.");
                 return ResponseEntity.status(403).body(res);
             }
 
             if (!db.isAdminApproved()) {
-                res.put("success", false);
-                res.put("status", "pending");
-                res.put("message", "Your account is pending admin approval. You will be notified by email once approved.");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_STATUS, "pending");
+                res.put(KEY_MESSAGE, "Your account is pending admin approval. You will be notified by email once approved.");
                 return ResponseEntity.status(403).body(res);
             }
 
-            res.put("success", true);
-            res.put("status", "active");
-            res.put("deliveryBoyId",   db.getId());
-            res.put("name",            db.getName());
-            res.put("email",           db.getEmail());
-            res.put("deliveryBoyCode", db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_STATUS, KEY_ACTIVE);
+            res.put(KEY_DELIVERY_BOY_ID,   db.getId());
+            res.put(KEY_NAME,            db.getName());
+            res.put(KEY_EMAIL,           db.getEmail());
+            res.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Login failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_LOGIN_FAILED + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -435,17 +523,17 @@ public class FlutterApiController {
         try {
             String name     = (String) body.get("name");
             String email    = (String) body.get("email");
-            String password = (String) body.get("password");
-            Object mob      = body.get("mobile");
+            String password = (String) body.get(KEY_PASSWORD);
+            Object mob      = body.get(KEY_MOBILE);
 
             if (name == null || email == null || password == null || mob == null) {
-                res.put("success", false);
-                res.put("message", "name, email, password and mobile are all required");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "name, email, password and mobile are all required");
                 return ResponseEntity.badRequest().body(res);
             }
             if (deliveryBoyRepository.findByEmail(email) != null) {
-                res.put("success", false);
-                res.put("message", "Email already registered");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED);
                 return ResponseEntity.badRequest().body(res);
             }
             DeliveryBoy db = new DeliveryBoy();
@@ -457,13 +545,13 @@ public class FlutterApiController {
             db.setActive(true);
             db.setAdminApproved(false); // admin must approve before login succeeds
             deliveryBoyRepository.save(db);
-            res.put("success", true);
-            res.put("message", "Registered successfully. Your account is pending admin approval. You will receive an email once approved.");
-            res.put("deliveryBoyId", db.getId());
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Registered successfully. Your account is pending admin approval. You will receive an email once approved.");
+            res.put(KEY_DELIVERY_BOY_ID, db.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Registration failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -493,7 +581,7 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = resolveDeliveryBoy(request);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not authenticated");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_AUTHENTICATED);
             return ResponseEntity.status(401).body(res);
         }
         // Refresh from DB
@@ -501,16 +589,16 @@ public class FlutterApiController {
 
         // Profile block
         Map<String, Object> profile = new LinkedHashMap<>();
-        profile.put("id",               db.getId());
-        profile.put("name",             db.getName());
-        profile.put("email",            db.getEmail());
-        profile.put("mobile",           db.getMobile());
-        profile.put("deliveryBoyCode",  db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
+        profile.put(KEY_ID,               db.getId());
+        profile.put(KEY_NAME,             db.getName());
+        profile.put(KEY_EMAIL,            db.getEmail());
+        profile.put(KEY_MOBILE,           db.getMobile());
+        profile.put(KEY_DELIVERY_BOY_CODE,  db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
         profile.put("assignedPinCodes", db.getAssignedPinCodes() != null ? db.getAssignedPinCodes() : "");
         if (db.getWarehouse() != null) {
             Map<String, Object> wh = new LinkedHashMap<>();
-            wh.put("id",   db.getWarehouse().getId());
-            wh.put("name", db.getWarehouse().getName());
+            wh.put(KEY_ID,   db.getWarehouse().getId());
+            wh.put(KEY_NAME, db.getWarehouse().getName());
             wh.put("city", db.getWarehouse().getCity());
             wh.put("code", db.getWarehouse().getWarehouseCode());
             profile.put("warehouse", wh);
@@ -536,7 +624,7 @@ public class FlutterApiController {
             else if (s == TrackingStatus.DELIVERED)        delivered.add(om);
         }
 
-        res.put("success",   true);
+        res.put(KEY_SUCCESS,   true);
         res.put("profile",   profile);
         res.put("toPickUp",  toPickUp);   // SHIPPED   → Mark Picked Up
         res.put("outNow",    outNow);     // OUT_FOR_DELIVERY → Confirm Delivery (OTP)
@@ -547,20 +635,20 @@ public class FlutterApiController {
     /** Helper: convert Order to map for delivery responses */
     private Map<String, Object> orderToMap(Order o) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id",              o.getId());
-        m.put("trackingStatus",  o.getTrackingStatus().name());
+        m.put(KEY_ID,              o.getId());
+        m.put(KEY_TRACKING_STATUS,  o.getTrackingStatus().name());
         m.put("statusDisplay",   o.getTrackingStatus().getDisplayName());
         m.put("amount",          o.getAmount());
-        m.put("totalPrice",      o.getTotalPrice());
-        m.put("paymentMode",     o.getPaymentMode());
-        m.put("deliveryTime",    o.getDeliveryTime());
+        m.put(KEY_TOTAL_PRICE,      o.getTotalPrice());
+        m.put(KEY_PAYMENT_MODE,     o.getPaymentMode());
+        m.put(KEY_DELIVERY_TIME,    o.getDeliveryTime());
         m.put("currentCity",     o.getCurrentCity() != null ? o.getCurrentCity() : "");
         m.put("deliveryAddress", o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");
         if (o.getCustomer() != null) {
             Map<String, Object> cust = new LinkedHashMap<>();
-            cust.put("id",     o.getCustomer().getId());
-            cust.put("name",   o.getCustomer().getName());
-            cust.put("mobile", o.getCustomer().getMobile());
+            cust.put(KEY_ID,     o.getCustomer().getId());
+            cust.put(KEY_NAME,   o.getCustomer().getName());
+            cust.put(KEY_MOBILE, o.getCustomer().getMobile());
             m.put("customer", cust);
         }
         // Include items
@@ -568,13 +656,13 @@ public class FlutterApiController {
         if (o.getItems() != null) {
             for (Item item : o.getItems()) {
                 Map<String, Object> im = new LinkedHashMap<>();
-                im.put("productName", item.getName() != null ? item.getName() : "");
-                im.put("quantity",    item.getQuantity());
+                im.put(KEY_PRODUCT_NAME, item.getName() != null ? item.getName() : "");
+                im.put(KEY_QUANTITY,    item.getQuantity());
                 im.put("price",       item.getPrice());
                 items.add(im);
             }
         }
-        m.put("items", items);
+        m.put(KEY_ITEMS, items);
         return m;
     }
 
@@ -591,49 +679,49 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = resolveDeliveryBoy(request);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not authenticated");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_AUTHENTICATED);
             return ResponseEntity.status(401).body(res);
         }
         db = deliveryBoyRepository.findById(db.getId()).orElseThrow();
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", "This order is not assigned to you");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.SHIPPED) {
-            res.put("success", false);
-            res.put("message", "Order status is " + order.getTrackingStatus().getDisplayName() + " — cannot mark pickup");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Order status is " + order.getTrackingStatus().getDisplayName() + " — cannot mark pickup");
             return ResponseEntity.badRequest().body(res);
         }
 
         String city = db.getWarehouse() != null ? db.getWarehouse().getCity() : "Warehouse";
         order.setTrackingStatus(TrackingStatus.OUT_FOR_DELIVERY);
-        order.setCurrentCity("On the way — " + city);
+        order.setCurrentCity(VAL_ON_THE_WAY + city);
         orderRepository.save(order);
 
         trackingEventLogRepository.save(new TrackingEventLog(
             order, TrackingStatus.OUT_FOR_DELIVERY,
-            "On the way — " + city,
-            "Parcel picked up by delivery boy " + db.getName(), "delivery_boy"));
+            VAL_ON_THE_WAY + city,
+            "Parcel picked up by delivery boy " + db.getName(), VAL_DELIVERY_BOY));
 
         // Generate and send OTP to customer
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
         deliveryOtpRepository.save(new DeliveryOtp(order, otp));
 
         try {
             emailSender.sendDeliveryOtp(order.getCustomer(), otp, order.getId());
         } catch (Exception e) {
-            System.err.println("Delivery OTP email failed: " + e.getMessage());
+            log.warn("Delivery OTP email failed: " + e.getMessage());
         }
 
-        res.put("success", true);
-        res.put("message", "Marked as Out for Delivery. OTP sent to customer's email.");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Marked as Out for Delivery. OTP sent to customer's email.");
         return ResponseEntity.ok(res);
     }
 
@@ -652,7 +740,7 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = resolveDeliveryBoy(request);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not authenticated");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_AUTHENTICATED);
             return ResponseEntity.status(401).body(res);
         }
 
@@ -660,35 +748,35 @@ public class FlutterApiController {
         try {
             submittedOtp = Integer.parseInt(body.getOrDefault("otp", "0").toString());
         } catch (NumberFormatException e) {
-            res.put("success", false); res.put("message", "Invalid OTP format");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid OTP format");
             return ResponseEntity.badRequest().body(res);
         }
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getDeliveryBoy() == null || order.getDeliveryBoy().getId() != db.getId()) {
-            res.put("success", false); res.put("message", "This order is not assigned to you");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This order is not assigned to you");
             return ResponseEntity.status(403).body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
-            res.put("success", false); res.put("message", "Order is not out for delivery");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Order is not out for delivery");
             return ResponseEntity.badRequest().body(res);
         }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
         if (deliveryOtp == null) {
-            res.put("success", false); res.put("message", "No OTP found for this order");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No OTP found for this order");
             return ResponseEntity.badRequest().body(res);
         }
         if (deliveryOtp.isUsed()) {
-            res.put("success", false); res.put("message", "OTP already used");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP already used");
             return ResponseEntity.badRequest().body(res);
         }
         if (deliveryOtp.getOtp() != submittedOtp) {
-            res.put("success", false); res.put("message", "Wrong OTP. Ask the customer for the correct OTP.");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Wrong OTP. Ask the customer for the correct OTP.");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -697,22 +785,22 @@ public class FlutterApiController {
         deliveryOtpRepository.save(deliveryOtp);
 
         order.setTrackingStatus(TrackingStatus.DELIVERED);
-        order.setCurrentCity("Delivered");
+        order.setCurrentCity(VAL_DELIVERED);
         orderRepository.save(order);
 
         trackingEventLogRepository.save(new TrackingEventLog(
             order, TrackingStatus.DELIVERED,
             "Delivered to customer",
-            "Delivered by " + db.getName() + ". OTP verified at doorstep.", "delivery_boy"));
+            "Delivered by " + db.getName() + ". OTP verified at doorstep.", VAL_DELIVERY_BOY));
 
         try {
             emailSender.sendDeliveryConfirmation(order.getCustomer(), order);
         } catch (Exception e) {
-            System.err.println("Delivery confirmation email failed: " + e.getMessage());
+            log.warn("Delivery confirmation email failed: " + e.getMessage());
         }
 
-        res.put("success", true);
-        res.put("message", "Order #" + id + " marked as Delivered!");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Order #" + id + " marked as Delivered!");
         return ResponseEntity.ok(res);
     }
 
@@ -729,35 +817,35 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         DeliveryBoy db = resolveDeliveryBoy(request);
         if (db == null) {
-            res.put("success", false); res.put("message", "Not authenticated");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_NOT_AUTHENTICATED);
             return ResponseEntity.status(401).body(res);
         }
         db = deliveryBoyRepository.findById(db.getId()).orElseThrow();
 
         int warehouseId;
         try {
-            warehouseId = Integer.parseInt(body.getOrDefault("warehouseId", "0").toString());
+            warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString());
         } catch (NumberFormatException e) {
-            res.put("success", false); res.put("message", "Invalid warehouse ID");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid warehouse ID");
             return ResponseEntity.badRequest().body(res);
         }
-        String reason = (String) body.getOrDefault("reason", "");
+        String reason = (String) body.getOrDefault(KEY_REASON, "");
 
         Optional<WarehouseChangeRequest> existing = warehouseChangeRequestRepository
                 .findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
         if (existing.isPresent()) {
-            res.put("success", false);
-            res.put("message", "You already have a pending warehouse change request. Please wait for admin to review it.");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "You already have a pending warehouse change request. Please wait for admin to review it.");
             return ResponseEntity.ok(res);
         }
 
         Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
         if (requested == null) {
-            res.put("success", false); res.put("message", "Warehouse not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_WAREHOUSE_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
-            res.put("success", false); res.put("message", "You are already assigned to this warehouse");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You are already assigned to this warehouse");
             return ResponseEntity.ok(res);
         }
 
@@ -769,8 +857,8 @@ public class FlutterApiController {
         req.setRequestedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
 
-        res.put("success", true);
-        res.put("message", "Warehouse change request submitted. Admin will review it shortly.");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Warehouse change request submitted. Admin will review it shortly.");
         return ResponseEntity.ok(res);
     }
 
@@ -784,13 +872,13 @@ public class FlutterApiController {
         List<Warehouse> warehouses = warehouseRepository.findByActiveTrue();
         List<Map<String, Object>> data = warehouses.stream().map(wh -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",   wh.getId());
-            m.put("name", wh.getName());
+            m.put(KEY_ID,   wh.getId());
+            m.put(KEY_NAME, wh.getName());
             m.put("city", wh.getCity());
             m.put("code", wh.getWarehouseCode());
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true);
+        }).toList();
+        res.put(KEY_SUCCESS, true);
         res.put("warehouses", data);
         return ResponseEntity.ok(res);
     }
@@ -815,17 +903,17 @@ public class FlutterApiController {
 
         List<Map<String, Object>> bannerList = banners.stream().map(b -> {
             Map<String, Object> bm = new LinkedHashMap<>();
-            bm.put("id",           b.getId());
-            bm.put("title",        b.getTitle()    != null ? b.getTitle()    : "");
-            bm.put("imageUrl",     b.getImageUrl() != null ? b.getImageUrl() : "");
-            bm.put("linkUrl",      b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
+            bm.put(KEY_ID,           b.getId());
+            bm.put(KEY_TITLE,        b.getTitle()    != null ? b.getTitle()    : "");
+            bm.put(KEY_IMAGE_URL,     b.getImageUrl() != null ? b.getImageUrl() : "");
+            bm.put(KEY_LINK_URL,      b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
             bm.put("displayOrder", b.getDisplayOrder());
             return bm;
-        }).collect(Collectors.toList());
+        }).toList();
 
         Map<String, Object> res = new LinkedHashMap<>();
-        res.put("success", true);
-        res.put("count",   bannerList.size());
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_COUNT,   bannerList.size());
         res.put("banners", bannerList);
         return ResponseEntity.ok(res);
     }
@@ -849,15 +937,15 @@ public class FlutterApiController {
             found.addAll(productRepository.findByNameContainingIgnoreCase(search));
             found.addAll(productRepository.findByDescriptionContainingIgnoreCase(search));
             found.addAll(productRepository.findByCategoryContainingIgnoreCase(search));
-            products = found.stream().filter(Product::isApproved).collect(Collectors.toList());
+            products = found.stream().filter(Product::isApproved).toList();
         } else if (category != null && !category.isBlank()) {
             products = productRepository.findByCategoryAndApprovedTrue(category);
         } else {
             products = productRepository.findByApprovedTrue();
         }
         // Price range filter (budget-based shopping)
-        if (minPrice != null) products = products.stream().filter(p -> p.getPrice() >= minPrice).collect(Collectors.toList());
-        if (maxPrice != null) products = products.stream().filter(p -> p.getPrice() <= maxPrice).collect(Collectors.toList());
+        if (minPrice != null) products = products.stream().filter(p -> p.getPrice() >= minPrice).toList();
+        if (maxPrice != null) products = products.stream().filter(p -> p.getPrice() <= maxPrice).toList();
         // Sort
         switch (sortBy == null ? "default" : sortBy.toLowerCase()) {
             case "price_asc":  products.sort(Comparator.comparingDouble(Product::getPrice)); break;
@@ -865,9 +953,9 @@ public class FlutterApiController {
             case "name":       products.sort(Comparator.comparing(p -> p.getName() == null ? "" : p.getName().toLowerCase())); break;
             default: break;
         }
-        res.put("success", true);
-        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
-        res.put("count", products.size());
+        res.put(KEY_SUCCESS, true);
+        res.put("products", products.stream().map(this::mapProduct).toList());
+        res.put(KEY_COUNT, products.size());
         return ResponseEntity.ok(res);
     }
 
@@ -877,25 +965,25 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
         if (p == null || !p.isApproved()) {
-            res.put("success", false); res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found");
             return ResponseEntity.badRequest().body(res);
         }
         Map<String, Object> pm = mapProduct(p);
         List<Review> reviews = reviewRepository.findAll().stream()
                 .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+                .toList();
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         pm.put("reviews", reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", r.getId());
+            m.put(KEY_ID, r.getId());
             m.put("rating", r.getRating());
             m.put("comment", r.getComment());
             m.put("customerName", r.getCustomerName());
             return m;
-        }).collect(Collectors.toList()));
+        }).toList());
         pm.put("avgRating", Math.round(avg * 10.0) / 10.0);
         pm.put("reviewCount", reviews.size());
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("product", pm);
         return ResponseEntity.ok(res);
     }
@@ -906,17 +994,17 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<Review> reviews = reviewRepository.findAll().stream()
                 .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+                .toList();
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("reviews", reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", r.getId());
+            m.put(KEY_ID, r.getId());
             m.put("rating", r.getRating());
             m.put("comment", r.getComment());
             m.put("customerName", r.getCustomerName());
             return m;
-        }).collect(Collectors.toList()));
+        }).toList());
         res.put("avgRating", Math.round(avg * 10.0) / 10.0);
         res.put("reviewCount", reviews.size());
         return ResponseEntity.ok(res);
@@ -928,8 +1016,8 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<String> categories = productRepository.findByApprovedTrue()
                 .stream().map(Product::getCategory).filter(Objects::nonNull)
-                .distinct().sorted().collect(Collectors.toList());
-        res.put("success", true);
+                .distinct().sorted().toList();
+        res.put(KEY_SUCCESS, true);
         res.put("categories", categories);
         return ResponseEntity.ok(res);
     }
@@ -943,15 +1031,15 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getCart(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
         if (cart == null) {
-            res.put("success", true); res.put("items", new ArrayList<>()); res.put("total", 0.0);
+            res.put(KEY_SUCCESS, true); res.put(KEY_ITEMS, new ArrayList<>()); res.put("total", 0.0);
             res.put("subtotal", 0.0); res.put("deliveryCharge", 0.0); res.put("couponDiscount", 0.0);
-            res.put("couponApplied", false); res.put("couponCode", ""); res.put("count", 0);
+            res.put("couponApplied", false); res.put("couponCode", ""); res.put(KEY_COUNT, 0);
             return ResponseEntity.ok(res);
         }
-        List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).collect(Collectors.toList());
+        List<Map<String, Object>> items = cart.getItems().stream().map(this::mapItem).toList();
         double subtotal = cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
         // Coupon
         com.example.ekart.dto.Coupon applied = appliedCoupons.get(customerId);
@@ -966,9 +1054,9 @@ public class FlutterApiController {
         double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
         double deliveryCharge = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
         double total = discountedSubtotal + deliveryCharge;
-        res.put("success", true); res.put("items", items); res.put("itemCount", items.size());
+        res.put(KEY_SUCCESS, true); res.put(KEY_ITEMS, items); res.put("itemCount", items.size());
         res.put("subtotal", subtotal); res.put("couponDiscount", couponDiscount);
-        res.put("deliveryCharge", deliveryCharge); res.put("total", total); res.put("count", items.size());
+        res.put("deliveryCharge", deliveryCharge); res.put("total", total); res.put(KEY_COUNT, items.size());
         return ResponseEntity.ok(res);
     }
 
@@ -980,23 +1068,23 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+            if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int productId = Integer.parseInt(body.get("productId").toString());
             // FIX: read quantity from request body (Flutter sends the user-selected qty).
             // Default to 1 if not provided (backward-compat with single-tap add-to-cart).
             int requestedQty = 1;
-            if (body.containsKey("quantity")) {
-                try { requestedQty = Integer.parseInt(body.get("quantity").toString()); }
+            if (body.containsKey(KEY_QUANTITY)) {
+                try { requestedQty = Integer.parseInt(body.get(KEY_QUANTITY).toString()); }
                 catch (NumberFormatException ignored) {}
             }
             if (requestedQty < 1) requestedQty = 1;
 
             Product product = productRepository.findById(productId).orElse(null);
-            if (product == null || !product.isApproved()) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
-            if (product.getStock() <= 0) { res.put("success", false); res.put("message", "Product out of stock"); return ResponseEntity.badRequest().body(res); }
+            if (product == null || !product.isApproved()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found"); return ResponseEntity.badRequest().body(res); }
+            if (product.getStock() <= 0) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product out of stock"); return ResponseEntity.badRequest().body(res); }
             if (requestedQty > product.getStock()) {
-                res.put("success", false);
-                res.put("message", "Only " + product.getStock() + " item(s) in stock");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Only " + product.getStock() + " item(s) in stock");
                 return ResponseEntity.badRequest().body(res);
             }
             Cart cart = customer.getCart();
@@ -1008,8 +1096,8 @@ public class FlutterApiController {
                 Item item = existing.get();
                 int newQty = item.getQuantity() + qty;
                 if (newQty > product.getStock()) {
-                    res.put("success", false);
-                    res.put("message", "Max stock reached. Only " + product.getStock() + " available.");
+                    res.put(KEY_SUCCESS, false);
+                    res.put(KEY_MESSAGE, "Max stock reached. Only " + product.getStock() + " available.");
                     return ResponseEntity.badRequest().body(res);
                 }
                 item.setQuantity(newQty);
@@ -1022,10 +1110,10 @@ public class FlutterApiController {
                 cart.getItems().add(item);
             }
             customerRepository.save(customer);
-            res.put("success", true);
-            res.put("message", qty == 1 ? "Added to cart" : qty + " items added to cart");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, qty == 1 ? "Added to cart" : qty + " items added to cart");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** DELETE /api/flutter/cart/remove/{productId} */
@@ -1035,14 +1123,14 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int productId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart not found"); return ResponseEntity.badRequest().body(res); }
         List<Item> toDelete = customer.getCart().getItems().stream()
                 .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-                .collect(Collectors.toList());
+                .toList();
         customer.getCart().getItems().removeAll(toDelete);
         customerRepository.save(customer);
         itemRepository.deleteAll(toDelete);
-        res.put("success", true); res.put("message", "Removed from cart");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Removed from cart");
         return ResponseEntity.ok(res);
     }
 
@@ -1053,14 +1141,14 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null || customer.getCart() == null) { res.put("success", false); res.put("message", "Cart not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get("productId").toString());
-        int quantity  = Integer.parseInt(body.get("quantity").toString());
+        int quantity  = Integer.parseInt(body.get(KEY_QUANTITY).toString());
         Cart cart = customer.getCart();
         if (quantity <= 0) {
             List<Item> toDelete = cart.getItems().stream()
                     .filter(i -> i.getProductId() != null && i.getProductId() == productId)
-                    .collect(Collectors.toList());
+                    .toList();
             cart.getItems().removeAll(toDelete);
             customerRepository.save(customer);
             itemRepository.deleteAll(toDelete);
@@ -1070,7 +1158,7 @@ public class FlutterApiController {
                     .findFirst().ifPresent(i -> i.setQuantity(quantity));
             customerRepository.save(customer);
         }
-        res.put("success", true); res.put("message", "Cart updated");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Cart updated");
         return ResponseEntity.ok(res);
     }
 
@@ -1097,17 +1185,17 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+            if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
             Cart cart = customer.getCart();
-            if (cart == null || cart.getItems().isEmpty()) { res.put("success", false); res.put("message", "Cart is empty"); return ResponseEntity.badRequest().body(res); }
+            if (cart == null || cart.getItems().isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart is empty"); return ResponseEntity.badRequest().body(res); }
 
             List<Item> orderItems = new ArrayList<>();
             double total = 0;
             for (Item cartItem : cart.getItems()) {
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
                 if (product == null || product.getStock() < cartItem.getQuantity()) {
-                    res.put("success", false);
-                    res.put("message", "Insufficient stock for: " + cartItem.getName());
+                    res.put(KEY_SUCCESS, false);
+                    res.put(KEY_MESSAGE, "Insufficient stock for: " + cartItem.getName());
                     return ResponseEntity.badRequest().body(res);
                 }
                 product.setStock(product.getStock() - cartItem.getQuantity());
@@ -1121,7 +1209,7 @@ public class FlutterApiController {
                 total += cartItem.getPrice() * cartItem.getQuantity();
             }
 
-            String deliveryTime   = (String) body.getOrDefault("deliveryTime", "STANDARD");
+            String deliveryTime   = (String) body.getOrDefault(KEY_DELIVERY_TIME, "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
             // ── Structured address support ──────────────────────────────────
@@ -1137,8 +1225,8 @@ public class FlutterApiController {
 
                 // Validate PIN if provided
                 if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
-                    res.put("success", false);
-                    res.put("message", PinCodeValidator.ERROR_MESSAGE);
+                    res.put(KEY_SUCCESS, false);
+                    res.put(KEY_MESSAGE, PinCodeValidator.ERROR_MESSAGE);
                     return ResponseEntity.badRequest().body(res);
                 }
 
@@ -1159,7 +1247,7 @@ public class FlutterApiController {
             order.setAmount(total);
             order.setDeliveryCharge(deliveryCharge);
             order.setTotalPrice(total + deliveryCharge);
-            order.setPaymentMode((String) body.getOrDefault("paymentMode", "COD"));
+            order.setPaymentMode((String) body.getOrDefault(KEY_PAYMENT_MODE, "COD"));
             order.setDeliveryTime(deliveryTime);
             order.setDateTime(LocalDateTime.now());
             order.setTrackingStatus(TrackingStatus.PROCESSING);
@@ -1173,13 +1261,13 @@ public class FlutterApiController {
             cart.getItems().clear();
             customerRepository.save(customer);
 
-            res.put("success", true);
-            res.put("message", "Order placed successfully");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Order placed successfully");
             res.put("orderId", order.getId());
-            res.put("totalPrice", order.getTotalPrice());
+            res.put(KEY_TOTAL_PRICE, order.getTotalPrice());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1189,10 +1277,10 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getOrders(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> orders = orderRepository.findByCustomer(customer);
-        res.put("success", true);
-        res.put("orders", orders.stream().map(this::mapOrder).collect(Collectors.toList()));
+        res.put(KEY_SUCCESS, true);
+        res.put("orders", orders.stream().map(this::mapOrder).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -1202,8 +1290,8 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
-        res.put("success", true); res.put("order", mapOrder(order));
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        res.put(KEY_SUCCESS, true); res.put("order", mapOrder(order));
         return ResponseEntity.ok(res);
     }
 
@@ -1213,9 +1301,9 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED || order.getTrackingStatus() == TrackingStatus.CANCELLED) {
-            res.put("success", false); res.put("message", "Cannot cancel this order");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cannot cancel this order");
             return ResponseEntity.badRequest().body(res);
         }
         for (Item item : order.getItems()) {
@@ -1226,7 +1314,7 @@ public class FlutterApiController {
             }
         }
         order.setTrackingStatus(TrackingStatus.CANCELLED); orderRepository.save(order);
-        res.put("success", true); res.put("message", "Order cancelled");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Order cancelled");
         return ResponseEntity.ok(res);
     }
 
@@ -1251,8 +1339,8 @@ public class FlutterApiController {
                     m.put("maxDiscount",    c.getMaxDiscount());
                     m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
                     return m;
-                }).collect(Collectors.toList());
-        res.put("success", true); res.put("coupons", list);
+                }).toList();
+        res.put(KEY_SUCCESS, true); res.put("coupons", list);
         return ResponseEntity.ok(res);
     }
 
@@ -1263,23 +1351,23 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         String code = body.get("code") instanceof String s ? s.toUpperCase().trim() : "";
-        if (code.isEmpty()) { res.put("success", false); res.put("message", "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
+        if (code.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
         com.example.ekart.dto.Coupon coupon = couponRepository.findByCode(code).orElse(null);
-        if (coupon == null) { res.put("success", false); res.put("message", "Invalid coupon code"); return ResponseEntity.ok(res); }
-        if (!coupon.isValid()) { res.put("success", false); res.put("message", "This coupon has expired or reached its usage limit"); return ResponseEntity.ok(res); }
+        if (coupon == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid coupon code"); return ResponseEntity.ok(res); }
+        if (!coupon.isValid()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This coupon has expired or reached its usage limit"); return ResponseEntity.ok(res); }
         Cart cart = customer.getCart();
         double subtotal = (cart == null) ? 0 : cart.getItems().stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
         if (subtotal < coupon.getMinOrderAmount()) {
-            res.put("success", false); res.put("message", "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Minimum order amount ₹" + (int) coupon.getMinOrderAmount() + " required for this coupon");
             return ResponseEntity.ok(res);
         }
         double discount = coupon.calculateDiscount(subtotal);
         appliedCoupons.put(customerId, coupon);
-        res.put("success", true); res.put("code", coupon.getCode()); res.put("description", coupon.getDescription());
+        res.put(KEY_SUCCESS, true); res.put("code", coupon.getCode()); res.put("description", coupon.getDescription());
         res.put("discount", discount); res.put("typeLabel", coupon.getTypeLabel());
-        res.put("message", coupon.getDescription() + " — saving ₹" + (int) discount);
+        res.put(KEY_MESSAGE, coupon.getDescription() + " — saving ₹" + (int) discount);
         return ResponseEntity.ok(res);
     }
 
@@ -1301,20 +1389,20 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer() == null || order.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         com.example.ekart.dto.TrackingStatus status = order.getTrackingStatus();
         List<com.example.ekart.dto.TrackingEventLog> events = trackingEventLogRepository.findByOrderOrderByEventTimeAsc(order);
         List<Map<String, Object>> history = events.stream().map(e -> {
             Map<String, Object> ev = new HashMap<>();
-            ev.put("status",      e.getStatus() != null ? e.getStatus().name() : null);
+            ev.put(KEY_STATUS,      e.getStatus() != null ? e.getStatus().name() : null);
             ev.put("location",    e.getCity());
             ev.put("description", e.getDescription());
             ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
             return ev;
-        }).collect(Collectors.toList());
-        res.put("success",         true);
+        }).toList();
+        res.put(KEY_SUCCESS,         true);
         res.put("orderId",         order.getId());
         res.put("currentStatus",   status != null ? status.name() : null);
         res.put("currentCity",     order.getCurrentCity());
@@ -1339,26 +1427,26 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customerId) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
-        String reason      = body != null ? body.get("reason")      : null;
+        String reason      = body != null ? body.get(KEY_REASON)      : null;
         String description = body != null ? body.get("description") : null;
         if (reason == null || reason.isBlank()) {
-            res.put("success", false); res.put("message", "reason is required");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "reason is required");
             return ResponseEntity.badRequest().body(res);
         }
         String customerEmail = order.getCustomer().getEmail();
-        System.out.printf("[DISPUTE] orderId=%d customerId=%d customerEmail=%s reason=\"%s\" description=\"%s\" ip=%s at=%s%n",
+        log.info("[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
             id, customerId, customerEmail, reason, description != null ? description : "",
             req.getRemoteAddr(), LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         try {
             emailSender.sendDisputeNotification(adminEmail, adminEmail, id, customerId, customerEmail, reason, description);
         } catch (Exception e) {
-            System.err.println("[DISPUTE] Admin email dispatch failed: " + e.getMessage());
+            log.warn("[DISPUTE] Admin email dispatch failed: " + e.getMessage());
         }
-        res.put("success", true); res.put("message", "Your issue has been reported. Our team will review it shortly.");
-        res.put("orderId", id); res.put("reason", reason);
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Your issue has been reported. Our team will review it shortly.");
+        res.put("orderId", id); res.put(KEY_REASON, reason);
         return ResponseEntity.ok(res);
     }
 
@@ -1371,17 +1459,17 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getWishlist(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Wishlist> wishlist = wishlistRepository.findByCustomer(customer);
         List<Map<String, Object>> items = wishlist.stream().map(w -> {
             Map<String, Object> m = new HashMap<>();
             Product p = w.getProduct();
             m.put("wishlistId", w.getId()); m.put("addedAt", w.getAddedAt() != null ? w.getAddedAt().toString() : null);
-            m.put("productId", p.getId()); m.put("name", p.getName()); m.put("price", p.getPrice());
+            m.put("productId", p.getId()); m.put(KEY_NAME, p.getName()); m.put("price", p.getPrice());
             m.put("imageLink", p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("count", items.size()); res.put("items", items);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put(KEY_COUNT, items.size()); res.put(KEY_ITEMS, items);
         return ResponseEntity.ok(res);
     }
 
@@ -1390,10 +1478,10 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getWishlistIds(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Integer> ids = wishlistRepository.findByCustomer(customer).stream()
-                .map(w -> w.getProduct().getId()).collect(Collectors.toList());
-        res.put("success", true); res.put("ids", ids);
+                .map(w -> w.getProduct().getId()).toList();
+        res.put(KEY_SUCCESS, true); res.put("ids", ids);
         return ResponseEntity.ok(res);
     }
 
@@ -1404,20 +1492,20 @@ public class FlutterApiController {
             @RequestBody Map<String, Integer> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Integer productId = body.get("productId");
-        if (productId == null) { res.put("success", false); res.put("message", "productId is required"); return ResponseEntity.badRequest().body(res); }
+        if (productId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "productId is required"); return ResponseEntity.badRequest().body(res); }
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found"); return ResponseEntity.status(404).body(res); }
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
-                .filter(w -> w.getProduct().getId() == productId).collect(Collectors.toList());
+                .filter(w -> w.getProduct().getId() == productId).toList();
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
-            res.put("success", true); res.put("wishlisted", false); res.put("message", "Removed from wishlist");
+            res.put(KEY_SUCCESS, true); res.put("wishlisted", false); res.put(KEY_MESSAGE, "Removed from wishlist");
         } else {
             Wishlist w = new Wishlist(); w.setCustomer(customer); w.setProduct(product); w.setAddedAt(LocalDateTime.now());
             wishlistRepository.save(w);
-            res.put("success", true); res.put("wishlisted", true); res.put("message", "Added to wishlist");
+            res.put(KEY_SUCCESS, true); res.put("wishlisted", true); res.put(KEY_MESSAGE, "Added to wishlist");
         }
         return ResponseEntity.ok(res);
     }
@@ -1431,14 +1519,14 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getProfile(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
-        profile.put("id", customer.getId()); profile.put("name", customer.getName());
-        profile.put("email", customer.getEmail()); profile.put("mobile", customer.getMobile());
+        profile.put(KEY_ID, customer.getId()); profile.put(KEY_NAME, customer.getName());
+        profile.put(KEY_EMAIL, customer.getEmail()); profile.put(KEY_MOBILE, customer.getMobile());
         profile.put("profileImage", customer.getProfileImage());
         profile.put("addresses", customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
-            am.put("id",              a.getId());
+            am.put(KEY_ID,              a.getId());
             am.put("formattedAddress", a.getFormattedAddress());
             am.put("recipientName",   a.getRecipientName() != null ? a.getRecipientName() : "");
             am.put("houseStreet",     a.getHouseStreet()   != null ? a.getHouseStreet()   : "");
@@ -1447,8 +1535,8 @@ public class FlutterApiController {
             am.put("postalCode",      a.getPostalCode()    != null ? a.getPostalCode()    : "");
             am.put("details",         a.getDetails()       != null ? a.getDetails()       : "");
             return am;
-        }).collect(Collectors.toList()));
-        res.put("success", true); res.put("profile", profile);
+        }).toList());
+        res.put(KEY_SUCCESS, true); res.put("profile", profile);
         return ResponseEntity.ok(res);
     }
 
@@ -1459,11 +1547,11 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name"))   customer.setName((String) body.get("name"));
-        if (body.containsKey("mobile")) customer.setMobile(Long.parseLong(body.get("mobile").toString()));
+        if (body.containsKey(KEY_MOBILE)) customer.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
         customerRepository.save(customer);
-        res.put("success", true); res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -1478,7 +1566,7 @@ public class FlutterApiController {
             @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
 
         Address address = new Address();
         address.setCustomer(customer);
@@ -1491,15 +1579,15 @@ public class FlutterApiController {
             address.setState(body.getOrDefault("state", "").trim());
             String postalCode = body.getOrDefault("postalCode", "").trim();
             if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
-                res.put("success", false);
-                res.put("message", PinCodeValidator.ERROR_MESSAGE);
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, PinCodeValidator.ERROR_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             address.setPostalCode(postalCode);
         } else {
             String details = body.get("address");
             if (details == null || details.isBlank()) {
-                res.put("success", false); res.put("message", "Address cannot be empty");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Address cannot be empty");
                 return ResponseEntity.badRequest().body(res);
             }
             address.setDetails(details.trim());
@@ -1507,7 +1595,7 @@ public class FlutterApiController {
 
         customer.getAddresses().add(address);
         customerRepository.save(customer);
-        res.put("success", true); res.put("message", "Address added");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Address added");
         res.put("addressId", address.getId());
         return ResponseEntity.ok(res);
     }
@@ -1518,10 +1606,10 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         customer.getAddresses().removeIf(a -> a.getId() == id);
         customerRepository.save(customer);
-        res.put("success", true); res.put("message", "Address deleted");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Address deleted");
         return ResponseEntity.ok(res);
     }
 
@@ -1542,17 +1630,17 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         int productId  = Integer.parseInt(body.get("productId").toString());
         int rating     = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.status(404).body(res); }
+        if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found"); return ResponseEntity.status(404).body(res); }
         Review review = new Review();
         review.setProduct(product); review.setRating(rating); review.setComment(comment);
         review.setCustomerName(customer.getName());
         reviewRepository.save(review);
-        res.put("success", true); res.put("message", "Review added successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Review added successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -1571,32 +1659,32 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found");
             return ResponseEntity.badRequest().body(res);
         }
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false); res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found");
             return ResponseEntity.status(404).body(res);
         }
         if (product.getStock() > 0) {
-            res.put("success", false);
-            res.put("message", "Product is already in stock — add it to your cart!");
-            res.put("subscribed", false);
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Product is already in stock — add it to your cart!");
+            res.put(KEY_SUBSCRIBED, false);
             return ResponseEntity.badRequest().body(res);
         }
         // Prevent duplicate subscriptions
         if (backInStockRepository.existsByCustomerAndProductAndNotifiedFalse(customer, product)) {
-            res.put("success", true);
-            res.put("subscribed", true);
-            res.put("message", "You are already subscribed. We'll email you when it's back!");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_SUBSCRIBED, true);
+            res.put(KEY_MESSAGE, "You are already subscribed. We'll email you when it's back!");
             return ResponseEntity.ok(res);
         }
         BackInStockSubscription sub = new BackInStockSubscription(customer, product);
         backInStockRepository.save(sub);
-        res.put("success", true);
-        res.put("subscribed", true);
-        res.put("message", "You'll be notified when " + product.getName() + " is back in stock!");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_SUBSCRIBED, true);
+        res.put(KEY_MESSAGE, "You'll be notified when " + product.getName() + " is back in stock!");
         return ResponseEntity.ok(res);
     }
 
@@ -1611,25 +1699,25 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found");
             return ResponseEntity.badRequest().body(res);
         }
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false); res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found");
             return ResponseEntity.status(404).body(res);
         }
         Optional<BackInStockSubscription> existing =
                 backInStockRepository.findByCustomerAndProduct(customer, product);
         if (existing.isPresent()) {
             backInStockRepository.delete(existing.get());
-            res.put("success", true);
-            res.put("subscribed", false);
-            res.put("message", "Notification removed");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_SUBSCRIBED, false);
+            res.put(KEY_MESSAGE, "Notification removed");
         } else {
-            res.put("success", true);
-            res.put("subscribed", false);
-            res.put("message", "No active subscription found");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_SUBSCRIBED, false);
+            res.put(KEY_MESSAGE, "No active subscription found");
         }
         return ResponseEntity.ok(res);
     }
@@ -1646,18 +1734,18 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            res.put("success", false); res.put("message", "Customer not found");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found");
             return ResponseEntity.badRequest().body(res);
         }
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", true); res.put("subscribed", false);
+            res.put(KEY_SUCCESS, true); res.put(KEY_SUBSCRIBED, false);
             return ResponseEntity.ok(res);
         }
         boolean subscribed = backInStockRepository
                 .existsByCustomerAndProductAndNotifiedFalse(customer, product);
-        res.put("success", true);
-        res.put("subscribed", subscribed);
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_SUBSCRIBED, subscribed);
         return ResponseEntity.ok(res);
     }
 
@@ -1670,10 +1758,10 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getSpendingSummary(@RequestHeader("X-Customer-Id") int customerId) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         List<Order> delivered = orderRepository.findByCustomer(customer).stream()
-                .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).collect(Collectors.toList());
-        if (delivered.isEmpty()) { res.put("success", true); res.put("hasData", false); return ResponseEntity.ok(res); }
+                .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED).toList();
+        if (delivered.isEmpty()) { res.put(KEY_SUCCESS, true); res.put("hasData", false); return ResponseEntity.ok(res); }
         double totalSpent = delivered.stream().mapToDouble(Order::getAmount).sum();
         int    totalOrders = delivered.size();
         double avgOrder    = totalOrders > 0 ? totalSpent / totalOrders : 0;
@@ -1693,7 +1781,7 @@ public class FlutterApiController {
                 monthly.merge(key, o.getAmount(), Double::sum);
             }
         }
-        res.put("success", true); res.put("hasData", true);
+        res.put(KEY_SUCCESS, true); res.put("hasData", true);
         res.put("totalSpent", totalSpent); res.put("totalOrders", totalOrders);
         res.put("averageOrderValue", avgOrder); res.put("topCategory", topCategory);
         res.put("categorySpending", catSpend); res.put("monthlySpending", monthly);
@@ -1712,23 +1800,23 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+            if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
             int orderId   = Integer.parseInt(body.get("orderId").toString());
-            String reason = (String) body.getOrDefault("reason", "");
+            String reason = (String) body.getOrDefault(KEY_REASON, "");
             String type   = (String) body.getOrDefault("type", "REFUND");
             Order order = orderRepository.findById(orderId).orElse(null);
-            if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
-            if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put("success", false); res.put("message", "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
+            if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+            if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
             Refund refund = new Refund();
             refund.setOrder(order); refund.setCustomer(customer);
             refund.setReason("[" + type + "] " + reason);
             refund.setStatus(RefundStatus.PENDING);
             refund.setAmount(order.getTotalPrice());
             refundRepository.save(refund);
-            res.put("success", true); res.put("message", "Refund request submitted");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Refund request submitted");
             res.put("refundId", refund.getId());
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** GET /api/flutter/refund/status/{orderId} */
@@ -1737,18 +1825,18 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int orderId) {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Refund> refunds = refundRepository.findByOrder(order);
-        if (refunds.isEmpty()) { res.put("success", true); res.put("hasRefund", false); return ResponseEntity.ok(res); }
+        if (refunds.isEmpty()) { res.put(KEY_SUCCESS, true); res.put("hasRefund", false); return ResponseEntity.ok(res); }
         Refund latest = refunds.get(refunds.size() - 1);
-        res.put("success", true); res.put("hasRefund", true);
-        res.put("status", latest.getStatus().name());
+        res.put(KEY_SUCCESS, true); res.put("hasRefund", true);
+        res.put(KEY_STATUS, latest.getStatus().name());
         String storedReason  = latest.getReason() != null ? latest.getReason() : "";
         String refundType    = "REFUND";
         String displayReason = storedReason;
         if (storedReason.startsWith("[REFUND] "))       { refundType = "REFUND";       displayReason = storedReason.substring(9);  }
         else if (storedReason.startsWith("[REPLACEMENT] ")) { refundType = "REPLACEMENT"; displayReason = storedReason.substring(14); }
-        res.put("reason", displayReason);
+        res.put(KEY_REASON, displayReason);
         res.put("type", refundType);
         return ResponseEntity.ok(res);
     }
@@ -1762,11 +1850,11 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getVendorProducts(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
-        res.put("success", true);
-        res.put("products", products.stream().map(this::mapProduct).collect(Collectors.toList()));
-        res.put("count", products.size());
+        res.put(KEY_SUCCESS, true);
+        res.put("products", products.stream().map(this::mapProduct).toList());
+        res.put(KEY_COUNT, products.size());
         return ResponseEntity.ok(res);
     }
 
@@ -1775,20 +1863,20 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getVendorOrders(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
-        List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).collect(Collectors.toList());
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        List<Integer> vendorProductIds = productRepository.findByVendor(vendor).stream().map(Product::getId).toList();
         List<Order> allOrders = orderRepository.findOrdersByVendor(vendor);
         List<Map<String, Object>> vendorOrders = allOrders.stream().map(order -> {
             Map<String, Object> o = mapOrder(order);
             List<Map<String, Object>> vendorItems = order.getItems().stream()
                     .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
-                    .map(this::mapItem).collect(Collectors.toList());
-            o.put("items", vendorItems);
-            double vendorTotal = vendorItems.stream().mapToDouble(i -> (double) i.get("price") * (int) i.get("quantity")).sum();
+                    .map(this::mapItem).toList();
+            o.put(KEY_ITEMS, vendorItems);
+            double vendorTotal = vendorItems.stream().mapToDouble(i -> (double) i.get("price") * (int) i.get(KEY_QUANTITY)).sum();
             o.put("vendorTotal", vendorTotal);
             return o;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("orders", vendorOrders);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("orders", vendorOrders);
         return ResponseEntity.ok(res);
     }
 
@@ -1797,9 +1885,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getVendorStats(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
-        List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        List<Integer> productIds = products.stream().map(Product::getId).toList();
         List<Order> orders = orderRepository.findOrdersByVendor(vendor);
         double totalRevenue = orders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
                 .flatMap(o -> o.getItems().stream())
@@ -1807,7 +1895,7 @@ public class FlutterApiController {
                 .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
         long activeProducts   = products.stream().filter(Product::isApproved).count();
         long lowStockProducts = products.stream().filter(p -> p.getStock() <= (p.getStockAlertThreshold() != null ? p.getStockAlertThreshold() : 10)).count();
-        res.put("success", true); res.put("totalRevenue", totalRevenue);
+        res.put(KEY_SUCCESS, true); res.put("totalRevenue", totalRevenue);
         res.put("totalOrders", orders.size()); res.put("totalProducts", products.size());
         res.put("activeProducts", activeProducts); res.put("lowStockProducts", lowStockProducts);
         return ResponseEntity.ok(res);
@@ -1823,7 +1911,7 @@ public class FlutterApiController {
             @RequestHeader("X-Vendor-Id") int vendorId, @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         try {
             Product p = new Product();
             p.setName((String) body.get("name")); p.setDescription((String) body.get("description"));
@@ -1838,9 +1926,9 @@ public class FlutterApiController {
             Object pins = body.get("allowedPinCodes");
             if (pins != null && !pins.toString().isBlank()) p.setAllowedPinCodes(pins.toString().trim());
             productRepository.save(p);
-            res.put("success", true); res.put("message", "Product added. Pending admin approval."); res.put("productId", p.getId());
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product added. Pending admin approval."); res.put("productId", p.getId());
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** PUT /api/flutter/vendor/products/{id}/update */
@@ -1849,9 +1937,9 @@ public class FlutterApiController {
             @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id, @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
+        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
             if (body.containsKey("name"))        p.setName((String) body.get("name"));
             if (body.containsKey("description")) p.setDescription((String) body.get("description"));
@@ -1864,9 +1952,9 @@ public class FlutterApiController {
             if (body.containsKey("allowedPinCodes")) p.setAllowedPinCodes(
                 body.get("allowedPinCodes") == null ? null : body.get("allowedPinCodes").toString().trim());
             productRepository.save(p);
-            res.put("success", true); res.put("message", "Product updated successfully.");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** DELETE /api/flutter/vendor/products/{id}/delete */
@@ -1875,11 +1963,11 @@ public class FlutterApiController {
             @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
+        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         productRepository.delete(p);
-        res.put("success", true); res.put("message", "Product deleted.");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product deleted.");
         return ResponseEntity.ok(res);
     }
 
@@ -1888,11 +1976,11 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> vendorSalesReport(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<Product> products  = productRepository.findByVendor(vendor);
-        List<Integer> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        List<Integer> productIds = products.stream().map(Product::getId).toList();
         List<Order>   allOrders = orderRepository.findOrdersByVendor(vendor);
-        List<Order>   activeOrders = allOrders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED).collect(Collectors.toList());
+        List<Order>   activeOrders = allOrders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED).toList();
         double totalRevenue = activeOrders.stream().flatMap(o -> o.getItems().stream())
                 .filter(i -> i.getProductId() != null && productIds.contains(i.getProductId()))
                 .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
@@ -1910,18 +1998,18 @@ public class FlutterApiController {
                 .limit(10).map(p -> {
                     Map<String, Object> m = new HashMap<>();
                     int units = unitsSoldMap.getOrDefault(p.getId(), 0);
-                    m.put("id", p.getId()); m.put("name", p.getName()); m.put("unitsSold", units); m.put("revenue", units * p.getPrice());
+                    m.put(KEY_ID, p.getId()); m.put(KEY_NAME, p.getName()); m.put("unitsSold", units); m.put("revenue", units * p.getPrice());
                     return m;
-                }).collect(Collectors.toList());
+                }).toList();
         List<Map<String, Object>> recentOrders = allOrders.stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed()).limit(10).map(o -> {
-                    List<Item> vi = o.getItems().stream().filter(i -> i.getProductId() != null && productIds.contains(i.getProductId())).collect(Collectors.toList());
+                    List<Item> vi = o.getItems().stream().filter(i -> i.getProductId() != null && productIds.contains(i.getProductId())).toList();
                     double vTotal = vi.stream().mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
                     Map<String, Object> m = new HashMap<>();
-                    m.put("id", o.getId()); m.put("trackingStatus", o.getTrackingStatus().name()); m.put("vendorTotal", vTotal);
+                    m.put(KEY_ID, o.getId()); m.put(KEY_TRACKING_STATUS, o.getTrackingStatus().name()); m.put("vendorTotal", vTotal);
                     return m;
-                }).collect(Collectors.toList());
-        res.put("success", true); res.put("totalRevenue", totalRevenue);
+                }).toList();
+        res.put(KEY_SUCCESS, true); res.put("totalRevenue", totalRevenue);
         res.put("totalOrders", allOrders.size()); res.put("totalProducts", products.size());
         res.put("pendingOrders", pendingOrders); res.put("topProducts", topProducts); res.put("recentOrders", recentOrders);
         return ResponseEntity.ok(res);
@@ -1936,12 +2024,12 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getVendorProfile(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> v = new HashMap<>();
-        v.put("id", vendor.getId()); v.put("name", vendor.getName());
-        v.put("email", vendor.getEmail()); v.put("mobile", vendor.getMobile());
-        v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
-        res.put("success", true); res.put("vendor", v);
+        v.put(KEY_ID, vendor.getId()); v.put(KEY_NAME, vendor.getName());
+        v.put(KEY_EMAIL, vendor.getEmail()); v.put(KEY_MOBILE, vendor.getMobile());
+        v.put(KEY_VENDOR_CODE, vendor.getVendorCode()); v.put("verified", vendor.isVerified());
+        res.put(KEY_SUCCESS, true); res.put("vendor", v);
         return ResponseEntity.ok(res);
     }
 
@@ -1951,13 +2039,13 @@ public class FlutterApiController {
             @RequestHeader("X-Vendor-Id") int vendorId, @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         if (body.containsKey("name") && !((String) body.get("name")).isBlank())
             vendor.setName((String) body.get("name"));
-        if (body.containsKey("mobile"))
-            try { vendor.setMobile(Long.parseLong(body.get("mobile").toString())); } catch (Exception ignored) {}
+        if (body.containsKey(KEY_MOBILE))
+            try { vendor.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString())); } catch (Exception ignored) {}
         vendorRepository.save(vendor);
-        res.put("success", true); res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -1966,7 +2054,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> getStockAlerts(@RequestHeader("X-Vendor-Id") int vendorId) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         List<StockAlert> alerts = stockAlertRepository.findByVendor(vendor);
         alerts.sort((a, b) -> {
             if (a.isAcknowledged() != b.isAcknowledged()) return a.isAcknowledged() ? 1 : -1;
@@ -1975,17 +2063,17 @@ public class FlutterApiController {
         int unacknowledged = (int) alerts.stream().filter(a -> !a.isAcknowledged()).count();
         List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", a.getId());
-            m.put("productName",  a.getProduct() != null ? a.getProduct().getName()  : "Unknown");
+            m.put(KEY_ID, a.getId());
+            m.put(KEY_PRODUCT_NAME,  a.getProduct() != null ? a.getProduct().getName()  : "Unknown");
             m.put("productId",    a.getProduct() != null ? a.getProduct().getId()    : 0);
             m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
             m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null ? a.getProduct().getStockAlertThreshold() : 10);
-            m.put("message",      a.getMessage());
+            m.put(KEY_MESSAGE,      a.getMessage());
             m.put("acknowledged", a.isAcknowledged());
             m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("alerts", alertMaps); res.put("unacknowledgedCount", unacknowledged);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("alerts", alertMaps); res.put("unacknowledgedCount", unacknowledged);
         return ResponseEntity.ok(res);
     }
 
@@ -1995,12 +2083,12 @@ public class FlutterApiController {
             @RequestHeader("X-Vendor-Id") int vendorId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         StockAlert alert = stockAlertRepository.findById(id).orElse(null);
-        if (alert == null || alert.getVendor().getId() != vendorId) { res.put("success", false); res.put("message", "Alert not found"); return ResponseEntity.badRequest().body(res); }
+        if (alert == null || alert.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Alert not found"); return ResponseEntity.badRequest().body(res); }
         alert.setAcknowledged(true);
         stockAlertRepository.save(alert);
-        res.put("success", true); res.put("message", "Alert acknowledged");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Alert acknowledged");
         return ResponseEntity.ok(res);
     }
 
@@ -2014,18 +2102,18 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", c.getId()); m.put("name", c.getName()); m.put("email", c.getEmail());
-            m.put("mobile", c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
+            m.put(KEY_ID, c.getId()); m.put(KEY_NAME, c.getName()); m.put(KEY_EMAIL, c.getEmail());
+            m.put(KEY_MOBILE, c.getMobile()); m.put(KEY_ACTIVE, c.isActive()); m.put("verified", c.isVerified());
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
-            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            m.put(KEY_ID, v.getId()); m.put(KEY_NAME, v.getName()); m.put(KEY_EMAIL, v.getEmail());
+            m.put(KEY_MOBILE, v.getMobile()); m.put(KEY_VENDOR_CODE, v.getVendorCode());
+            m.put(KEY_ACTIVE, v.isVerified()); m.put("verified", v.isVerified());
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("customers", customers); res.put("vendors", vendors);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("customers", customers); res.put("vendors", vendors);
         return ResponseEntity.ok(res);
     }
 
@@ -2034,9 +2122,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminToggleCustomer(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Customer c = customerRepository.findById(id).orElse(null);
-        if (c == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (c == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         c.setActive(!c.isActive()); customerRepository.save(c);
-        res.put("success", true); res.put("message", c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, c.isActive() ? "Account activated" : "Account suspended"); res.put(KEY_ACTIVE, c.isActive());
         return ResponseEntity.ok(res);
     }
 
@@ -2045,9 +2133,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminToggleVendor(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Vendor v = vendorRepository.findById(id).orElse(null);
-        if (v == null) { res.put("success", false); res.put("message", "Vendor not found"); return ResponseEntity.badRequest().body(res); }
+        if (v == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor not found"); return ResponseEntity.badRequest().body(res); }
         v.setVerified(!v.isVerified()); vendorRepository.save(v);
-        res.put("success", true); res.put("message", v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put(KEY_ACTIVE, v.isVerified());
         return ResponseEntity.ok(res);
     }
 
@@ -2055,8 +2143,8 @@ public class FlutterApiController {
     @GetMapping("/admin/products")
     public ResponseEntity<Map<String, Object>> adminGetProducts() {
         Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        res.put("products", productRepository.findAll().stream().map(this::mapProduct).collect(Collectors.toList()));
+        res.put(KEY_SUCCESS, true);
+        res.put("products", productRepository.findAll().stream().map(this::mapProduct).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -2065,9 +2153,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminApproveProduct(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found"); return ResponseEntity.badRequest().body(res); }
         p.setApproved(true); productRepository.save(p);
-        res.put("success", true); res.put("message", "Product approved and is now visible to customers");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product approved and is now visible to customers");
         return ResponseEntity.ok(res);
     }
 
@@ -2076,9 +2164,9 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminRejectProduct(@PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Product p = productRepository.findById(id).orElse(null);
-        if (p == null) { res.put("success", false); res.put("message", "Product not found"); return ResponseEntity.badRequest().body(res); }
+        if (p == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found"); return ResponseEntity.badRequest().body(res); }
         p.setApproved(false); productRepository.save(p);
-        res.put("success", true); res.put("message", "Product rejected / hidden from customers");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product rejected / hidden from customers");
         return ResponseEntity.ok(res);
     }
 
@@ -2088,8 +2176,8 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> orders = orderRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(Order::getId).reversed())
-                .map(this::mapOrder).collect(Collectors.toList());
-        res.put("success", true); res.put("orders", orders);
+                .map(this::mapOrder).toList();
+        res.put(KEY_SUCCESS, true); res.put("orders", orders);
         return ResponseEntity.ok(res);
     }
 
@@ -2099,13 +2187,13 @@ public class FlutterApiController {
             @PathVariable int id, @RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        if (order == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
-            TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
+            TrackingStatus newStatus = TrackingStatus.valueOf(body.get(KEY_STATUS));
             order.setTrackingStatus(newStatus); orderRepository.save(order);
-            res.put("success", true); res.put("message", "Order status updated to " + newStatus.getDisplayName());
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Order status updated to " + newStatus.getDisplayName());
         } catch (IllegalArgumentException e) {
-            res.put("success", false); res.put("message", "Invalid status: " + body.get("status"));
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid status: " + body.get(KEY_STATUS));
             return ResponseEntity.badRequest().body(res);
         }
         return ResponseEntity.ok(res);
@@ -2117,12 +2205,12 @@ public class FlutterApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put("email", v.getEmail());
-            m.put("mobile", v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            m.put(KEY_ID, v.getId()); m.put(KEY_NAME, v.getName()); m.put(KEY_EMAIL, v.getEmail());
+            m.put(KEY_MOBILE, v.getMobile()); m.put(KEY_VENDOR_CODE, v.getVendorCode());
+            m.put(KEY_ACTIVE, v.isVerified()); m.put("verified", v.isVerified());
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("vendors", vendors);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("vendors", vendors);
         return ResponseEntity.ok(res);
     }
 
@@ -2139,9 +2227,9 @@ public class FlutterApiController {
             @RequestHeader("X-Customer-Id") int customerId, @PathVariable int id) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null || order.getCustomer().getId() != customerId) { res.put("success", false); res.put("message", "Order not found"); return ResponseEntity.badRequest().body(res); }
+        if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Cart cart = customer.getCart();
         if (cart == null) { cart = new Cart(); customer.setCart(cart); }
         cart.getItems().clear();
@@ -2160,10 +2248,10 @@ public class FlutterApiController {
             addedCount++;
         }
         customerRepository.save(customer);
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("addedCount", addedCount);
         res.put("outOfStockItems", outOfStock);
-        res.put("message", addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
+        res.put(KEY_MESSAGE, addedCount > 0 ? addedCount + " item(s) added to cart" : "All items are out of stock");
         return ResponseEntity.ok(res);
     }
 
@@ -2174,20 +2262,20 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer == null) { res.put("success", false); res.put("message", "Customer not found"); return ResponseEntity.badRequest().body(res); }
+        if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Customer not found"); return ResponseEntity.badRequest().body(res); }
         String current = (String) body.get("currentPassword");
         String newPwd  = (String) body.get("newPassword");
-        if (current == null || newPwd == null) { res.put("success", false); res.put("message", "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Both passwords required"); return ResponseEntity.badRequest().body(res); }
         try {
             if (!AES.decrypt(customer.getPassword()).equals(current)) {
-                res.put("success", false); res.put("message", "Current password is incorrect");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (newPwd.length() < 8) { res.put("success", false); res.put("message", "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
+            if (newPwd.length() < 8) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "New password must be at least 8 characters"); return ResponseEntity.badRequest().body(res); }
             customer.setPassword(AES.encrypt(newPwd)); customerRepository.save(customer);
-            res.put("success", true); res.put("message", "Password changed successfully");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Password changed successfully");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put("success", false); res.put("message", "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -2196,21 +2284,21 @@ public class FlutterApiController {
 
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id", p.getId()); m.put("name", p.getName()); m.put("description", p.getDescription());
+        m.put(KEY_ID, p.getId()); m.put(KEY_NAME, p.getName()); m.put("description", p.getDescription());
         m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("category", p.getCategory());
         m.put("stock", p.getStock()); m.put("imageLink", p.getImageLink());
         m.put("extraImageLinks", p.getExtraImageLinks());
         m.put("approved", p.isApproved());
-        m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
+        m.put(KEY_VENDOR_CODE, p.getVendor() != null ? p.getVendor().getVendorCode() : null);
         m.put("allowedPinCodes", p.getAllowedPinCodes()); // PIN code delivery restriction
         return m;
     }
 
     private Map<String, Object> mapItem(Item i) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id", i.getId()); m.put("name", i.getName()); m.put("description", i.getDescription());
+        m.put(KEY_ID, i.getId()); m.put(KEY_NAME, i.getName()); m.put("description", i.getDescription());
         m.put("price", i.getPrice()); m.put("category", i.getCategory());
-        m.put("quantity", i.getQuantity()); m.put("imageLink", i.getImageLink()); m.put("productId", i.getProductId());
+        m.put(KEY_QUANTITY, i.getQuantity()); m.put("imageLink", i.getImageLink()); m.put("productId", i.getProductId());
         // FIX: Flutter OrderItem.returnsAccepted gates the "Request Refund / Replacement"
         // button and the "Returnable / Non-returnable" badge on the orders screen.
         // Product.java has no returnsAccepted column yet so we default to true
@@ -2228,13 +2316,13 @@ public class FlutterApiController {
 
     private Map<String, Object> mapOrder(Order o) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id",                    o.getId());
+        m.put(KEY_ID,                    o.getId());
         m.put("amount",                o.getAmount());
         m.put("deliveryCharge",        o.getDeliveryCharge());
-        m.put("totalPrice",            o.getTotalPrice());
-        m.put("paymentMode",           o.getPaymentMode());
-        m.put("deliveryTime",          o.getDeliveryTime());
-        m.put("trackingStatus",        o.getTrackingStatus().name());
+        m.put(KEY_TOTAL_PRICE,            o.getTotalPrice());
+        m.put(KEY_PAYMENT_MODE,           o.getPaymentMode());
+        m.put(KEY_DELIVERY_TIME,          o.getDeliveryTime());
+        m.put(KEY_TRACKING_STATUS,        o.getTrackingStatus().name());
         m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
         m.put("currentCity",           o.getCurrentCity());
         // FIX: emit the immutable destination address separately from currentCity
@@ -2242,7 +2330,7 @@ public class FlutterApiController {
         m.put("deliveryAddress",       o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");
         m.put("orderDate",             o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested",  o.isReplacementRequested());
-        m.put("items",                 o.getItems().stream().map(this::mapItem).collect(Collectors.toList()));
+        m.put(KEY_ITEMS,                 o.getItems().stream().map(this::mapItem).toList());
         if (o.getCustomer() != null) m.put("customerName", o.getCustomer().getName());
 
         // ── deliveredAt ───────────────────────────────────────────────────────
@@ -2271,7 +2359,7 @@ public class FlutterApiController {
                 .filter(i -> reviewRepository.existsByProductIdAndCustomerName(
                         i.getProductId(), customerName))
                 .map(i -> i.getProductId())
-                .collect(Collectors.toList());
+                .toList();
             m.put("reviewedProductIds", reviewedIds);
         } else {
             m.put("reviewedProductIds", Collections.emptyList());
@@ -2284,8 +2372,6 @@ public class FlutterApiController {
     // ADMIN — ACCOUNTS (search, stats, profile, toggle, delete, reset-pwd)
     // ═══════════════════════════════════════════════════════════════════════
 
-    @Autowired private com.example.ekart.service.AdminAccountService adminAccountService;
-
     /** GET /api/flutter/admin/accounts?search=... */
     @GetMapping("/admin/accounts")
     public ResponseEntity<Map<String, Object>> adminGetAccounts(
@@ -2294,9 +2380,9 @@ public class FlutterApiController {
         List<Map<String, Object>> accounts = (search != null && !search.isBlank())
                 ? adminAccountService.searchAccounts(search)
                 : adminAccountService.getAllAccountsWithMetadata();
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("accounts", accounts);
-        res.put("count", accounts.size());
+        res.put(KEY_COUNT, accounts.size());
         return ResponseEntity.ok(res);
     }
 
@@ -2304,7 +2390,7 @@ public class FlutterApiController {
     @GetMapping("/admin/accounts/stats")
     public ResponseEntity<Map<String, Object>> adminGetAccountStats() {
         Map<String, Object> stats = adminAccountService.getAccountStats();
-        stats.put("success", true);
+        stats.put(KEY_SUCCESS, true);
         return ResponseEntity.ok(stats);
     }
 
@@ -2368,7 +2454,7 @@ public class FlutterApiController {
         if (!filter.equals("all")) {
             try {
                 int star = Integer.parseInt(filter);
-                filtered = filtered.stream().filter(r -> r.getRating() == star).collect(Collectors.toList());
+                filtered = filtered.stream().filter(r -> r.getRating() == star).toList();
             } catch (NumberFormatException ignored) {}
         }
         if (!search.isBlank()) {
@@ -2377,7 +2463,7 @@ public class FlutterApiController {
                 (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q)) ||
                 (r.getComment()      != null && r.getComment().toLowerCase().contains(q)) ||
                 (r.getProduct()      != null && r.getProduct().getName().toLowerCase().contains(q))
-            ).collect(Collectors.toList());
+            ).toList();
         }
         filtered.sort((a, b) -> {
             if (a.getCreatedAt() == null) return 1;
@@ -2387,17 +2473,17 @@ public class FlutterApiController {
 
         List<Map<String, Object>> reviewMaps = filtered.stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",           r.getId());
+            m.put(KEY_ID,           r.getId());
             m.put("rating",       r.getRating());
             m.put("comment",      r.getComment() != null ? r.getComment() : "");
             m.put("customerName", r.getCustomerName() != null ? r.getCustomerName() : "");
-            m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : "");
+            m.put(KEY_PRODUCT_NAME,  r.getProduct() != null ? r.getProduct().getName() : "");
             m.put("productId",    r.getProduct() != null ? r.getProduct().getId() : 0);
             m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : "");
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
 
-        res.put("success",      true);
+        res.put(KEY_SUCCESS,      true);
         res.put("reviews",      reviewMaps);
         res.put("total",        all.size());
         res.put("filtered",     filtered.size());
@@ -2417,10 +2503,10 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             reviewRepository.deleteById(id);
-            res.put("success", true); res.put("message", "Review deleted");
+            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Review deleted");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", "Delete failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Delete failed: " + e.getMessage());
             return ResponseEntity.badRequest().body(res);
         }
     }
@@ -2431,19 +2517,19 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminBulkDeleteReviews(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
-        String productName = (String) body.getOrDefault("productName", "");
+        String productName = (String) body.getOrDefault(KEY_PRODUCT_NAME, "");
         try {
             List<com.example.ekart.dto.Review> toDelete = reviewRepository.findAll().stream()
                     .filter(r -> r.getProduct() != null &&
                                  r.getProduct().getName().equalsIgnoreCase(productName))
-                    .collect(Collectors.toList());
+                    .toList();
             reviewRepository.deleteAll(toDelete);
-            res.put("success", true);
-            res.put("message", "Deleted " + toDelete.size() + " reviews for \"" + productName + "\"");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Deleted " + toDelete.size() + " reviews for \"" + productName + "\"");
             res.put("deleted", toDelete.size());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false); res.put("message", "Bulk delete failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Bulk delete failed: " + e.getMessage());
             return ResponseEntity.badRequest().body(res);
         }
     }
@@ -2458,16 +2544,16 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         List<Map<String, Object>> banners = bannerRepository.findAll().stream().map(b -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",                 b.getId());
-            m.put("title",              b.getTitle()    != null ? b.getTitle()    : "");
-            m.put("imageUrl",           b.getImageUrl() != null ? b.getImageUrl() : "");
-            m.put("linkUrl",            b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
-            m.put("active",             b.isActive());
+            m.put(KEY_ID,                 b.getId());
+            m.put(KEY_TITLE,              b.getTitle()    != null ? b.getTitle()    : "");
+            m.put(KEY_IMAGE_URL,           b.getImageUrl() != null ? b.getImageUrl() : "");
+            m.put(KEY_LINK_URL,            b.getLinkUrl()  != null ? b.getLinkUrl()  : "");
+            m.put(KEY_ACTIVE,             b.isActive());
             m.put("showOnCustomerHome", b.isShowOnCustomerHome());
             m.put("displayOrder",       b.getDisplayOrder());
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("banners", banners);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("banners", banners);
         return ResponseEntity.ok(res);
     }
 
@@ -2478,14 +2564,14 @@ public class FlutterApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = new Banner();
-        b.setTitle((String) body.getOrDefault("title", ""));
-        b.setImageUrl((String) body.getOrDefault("imageUrl", ""));
-        b.setLinkUrl((String) body.getOrDefault("linkUrl", ""));
+        b.setTitle((String) body.getOrDefault(KEY_TITLE, ""));
+        b.setImageUrl((String) body.getOrDefault(KEY_IMAGE_URL, ""));
+        b.setLinkUrl((String) body.getOrDefault(KEY_LINK_URL, ""));
         b.setActive(true);
         b.setShowOnCustomerHome(true);
         b.setDisplayOrder(0);
         bannerRepository.save(b);
-        res.put("success", true); res.put("message", "Banner added"); res.put("id", b.getId());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Banner added"); res.put(KEY_ID, b.getId());
         return ResponseEntity.ok(res);
     }
 
@@ -2495,11 +2581,11 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminToggleBanner(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Banner not found"); return ResponseEntity.badRequest().body(res); }
         b.setActive(!b.isActive());
         bannerRepository.save(b);
-        res.put("success", true); res.put("active", b.isActive());
-        res.put("message", b.isActive() ? "Banner activated" : "Banner deactivated");
+        res.put(KEY_SUCCESS, true); res.put(KEY_ACTIVE, b.isActive());
+        res.put(KEY_MESSAGE, b.isActive() ? "Banner activated" : "Banner deactivated");
         return ResponseEntity.ok(res);
     }
 
@@ -2509,11 +2595,11 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminToggleBannerCustomerHome(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
-        if (b == null) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
+        if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Banner not found"); return ResponseEntity.badRequest().body(res); }
         b.setShowOnCustomerHome(!b.isShowOnCustomerHome());
         bannerRepository.save(b);
-        res.put("success", true); res.put("showOnCustomerHome", b.isShowOnCustomerHome());
-        res.put("message", b.isShowOnCustomerHome() ? "Shown on customer home" : "Hidden from customer home");
+        res.put(KEY_SUCCESS, true); res.put("showOnCustomerHome", b.isShowOnCustomerHome());
+        res.put(KEY_MESSAGE, b.isShowOnCustomerHome() ? "Shown on customer home" : "Hidden from customer home");
         return ResponseEntity.ok(res);
     }
 
@@ -2522,9 +2608,9 @@ public class FlutterApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> adminDeleteBanner(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
-        if (!bannerRepository.existsById(id)) { res.put("success", false); res.put("message", "Banner not found"); return ResponseEntity.badRequest().body(res); }
+        if (!bannerRepository.existsById(id)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Banner not found"); return ResponseEntity.badRequest().body(res); }
         bannerRepository.deleteById(id);
-        res.put("success", true); res.put("message", "Banner deleted");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Banner deleted");
         return ResponseEntity.ok(res);
     }
 
@@ -2538,19 +2624,19 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         List<Map<String, Object>> warehouses = warehouseRepository.findAll().stream().map(wh -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",             wh.getId());
-            m.put("name",           wh.getName());
+            m.put(KEY_ID,             wh.getId());
+            m.put(KEY_NAME,           wh.getName());
             m.put("city",           wh.getCity());
             m.put("state",          wh.getState() != null ? wh.getState() : "");
             m.put("warehouseCode",  wh.getWarehouseCode() != null ? wh.getWarehouseCode() : "");
-            m.put("active",         wh.isActive());
+            m.put(KEY_ACTIVE,         wh.isActive());
             m.put("servedPinCodes", wh.getServedPinCodes() != null ? wh.getServedPinCodes() : "");
             long boyCount = deliveryBoyRepository.findAll().stream()
                     .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == wh.getId()).count();
             m.put("deliveryBoyCount", boyCount);
             return m;
-        }).collect(Collectors.toList());
-        res.put("success", true); res.put("warehouses", warehouses);
+        }).toList();
+        res.put(KEY_SUCCESS, true); res.put("warehouses", warehouses);
         return ResponseEntity.ok(res);
     }
 
@@ -2563,7 +2649,7 @@ public class FlutterApiController {
         String name = (String) body.getOrDefault("name", "");
         String city = (String) body.getOrDefault("city", "");
         if (name.isBlank() || city.isBlank()) {
-            res.put("success", false); res.put("message", "Name and city are required");
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Name and city are required");
             return ResponseEntity.badRequest().body(res);
         }
         Warehouse wh = new Warehouse();
@@ -2575,7 +2661,7 @@ public class FlutterApiController {
         warehouseRepository.save(wh);
         wh.setWarehouseCode(String.format("WH-%04d", wh.getId()));
         warehouseRepository.save(wh);
-        res.put("success", true); res.put("message", "Warehouse added"); res.put("id", wh.getId());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Warehouse added"); res.put(KEY_ID, wh.getId());
         return ResponseEntity.ok(res);
     }
 
@@ -2585,11 +2671,11 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminToggleWarehouse(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Warehouse wh = warehouseRepository.findById(id).orElse(null);
-        if (wh == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
+        if (wh == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         wh.setActive(!wh.isActive());
         warehouseRepository.save(wh);
-        res.put("success", true); res.put("active", wh.isActive());
-        res.put("message", wh.isActive() ? "Warehouse activated" : "Warehouse deactivated");
+        res.put(KEY_SUCCESS, true); res.put(KEY_ACTIVE, wh.isActive());
+        res.put(KEY_MESSAGE, wh.isActive() ? "Warehouse activated" : "Warehouse deactivated");
         return ResponseEntity.ok(res);
     }
 
@@ -2598,21 +2684,21 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminGetDeliveryBoysByWarehouse(@PathVariable int id) {
         Map<String, Object> res = new LinkedHashMap<>();
         Warehouse wh = warehouseRepository.findById(id).orElse(null);
-        if (wh == null) { res.put("success", false); res.put("message", "Warehouse not found"); return ResponseEntity.badRequest().body(res); }
+        if (wh == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Map<String, Object>> boys = deliveryBoyRepository.findAll().stream()
                 .filter(db -> db.getWarehouse() != null && db.getWarehouse().getId() == id)
                 .map(db -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id",              db.getId());
-                    m.put("name",            db.getName());
-                    m.put("email",           db.getEmail());
-                    m.put("deliveryBoyCode", db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
-                    m.put("active",          db.isActive());
+                    m.put(KEY_ID,              db.getId());
+                    m.put(KEY_NAME,            db.getName());
+                    m.put(KEY_EMAIL,           db.getEmail());
+                    m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode() != null ? db.getDeliveryBoyCode() : "");
+                    m.put(KEY_ACTIVE,          db.isActive());
                     m.put("adminApproved",   db.isAdminApproved());
                     m.put("assignedPinCodes",db.getAssignedPinCodes() != null ? db.getAssignedPinCodes() : "");
                     return m;
-                }).collect(Collectors.toList());
-        res.put("success", true); res.put("boys", boys);
+                }).toList();
+        res.put(KEY_SUCCESS, true); res.put("boys", boys);
         return ResponseEntity.ok(res);
     }
 
@@ -2628,18 +2714,18 @@ public class FlutterApiController {
                 .findByStatusOrderByRequestedAtDesc(WarehouseChangeRequest.Status.PENDING)
                 .stream().map(req -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id",                 req.getId());
-                    m.put("deliveryBoyId",       req.getDeliveryBoy().getId());
+                    m.put(KEY_ID,                 req.getId());
+                    m.put(KEY_DELIVERY_BOY_ID,       req.getDeliveryBoy().getId());
                     m.put("deliveryBoyName",     req.getDeliveryBoy().getName());
-                    m.put("deliveryBoyCode",     req.getDeliveryBoy().getDeliveryBoyCode() != null ? req.getDeliveryBoy().getDeliveryBoyCode() : "");
-                    m.put("currentWarehouse",    req.getDeliveryBoy().getWarehouse() != null ? req.getDeliveryBoy().getWarehouse().getName() : "None");
+                    m.put(KEY_DELIVERY_BOY_CODE,     req.getDeliveryBoy().getDeliveryBoyCode() != null ? req.getDeliveryBoy().getDeliveryBoyCode() : "");
+                    m.put("currentWarehouse",    req.getDeliveryBoy().getWarehouse() != null ? req.getDeliveryBoy().getWarehouse().getName() : VAL_NONE);
                     m.put("requestedWarehouse",  req.getRequestedWarehouse().getName());
                     m.put("requestedWarehouseId",req.getRequestedWarehouse().getId());
-                    m.put("reason",              req.getReason() != null ? req.getReason() : "");
+                    m.put(KEY_REASON,              req.getReason() != null ? req.getReason() : "");
                     m.put("requestedAt",         req.getRequestedAt() != null ? req.getRequestedAt().toString() : "");
                     return m;
-                }).collect(Collectors.toList());
-        res.put("success", true); res.put("requests", requests);
+                }).toList();
+        res.put(KEY_SUCCESS, true); res.put("requests", requests);
         return ResponseEntity.ok(res);
     }
 
@@ -2649,10 +2735,10 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminApproveWarehouseChange(
             @PathVariable int id, @RequestBody(required = false) Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
-        String adminNote = body != null ? (String) body.getOrDefault("adminNote", "") : "";
+        String adminNote = body != null ? (String) body.getOrDefault(KEY_ADMIN_NOTE, "") : "";
         WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
-        if (req == null) { res.put("success", false); res.put("message", "Request not found"); return ResponseEntity.badRequest().body(res); }
-        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put("success", false); res.put("message", "Request already resolved"); return ResponseEntity.ok(res); }
+        if (req == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Request not found"); return ResponseEntity.badRequest().body(res); }
+        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Request already resolved"); return ResponseEntity.ok(res); }
         DeliveryBoy db = req.getDeliveryBoy();
         db.setWarehouse(req.getRequestedWarehouse());
         db.setAssignedPinCodes("");
@@ -2662,7 +2748,7 @@ public class FlutterApiController {
         req.setResolvedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
         try { emailSender.sendWarehouseChangeApproved(db, req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
-        res.put("success", true); res.put("message", db.getName() + " transferred to " + req.getRequestedWarehouse().getName());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, db.getName() + " transferred to " + req.getRequestedWarehouse().getName());
         return ResponseEntity.ok(res);
     }
 
@@ -2672,16 +2758,16 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> adminRejectWarehouseChange(
             @PathVariable int id, @RequestBody(required = false) Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
-        String adminNote = body != null ? (String) body.getOrDefault("adminNote", "") : "";
+        String adminNote = body != null ? (String) body.getOrDefault(KEY_ADMIN_NOTE, "") : "";
         WarehouseChangeRequest req = warehouseChangeRequestRepository.findById(id).orElse(null);
-        if (req == null) { res.put("success", false); res.put("message", "Request not found"); return ResponseEntity.badRequest().body(res); }
-        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put("success", false); res.put("message", "Request already resolved"); return ResponseEntity.ok(res); }
+        if (req == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Request not found"); return ResponseEntity.badRequest().body(res); }
+        if (req.getStatus() != WarehouseChangeRequest.Status.PENDING) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Request already resolved"); return ResponseEntity.ok(res); }
         req.setStatus(WarehouseChangeRequest.Status.REJECTED);
         req.setAdminNote(adminNote.trim());
         req.setResolvedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
         try { emailSender.sendWarehouseChangeRejected(req.getDeliveryBoy(), req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
-        res.put("success", true); res.put("message", "Request rejected");
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Request rejected");
         return ResponseEntity.ok(res);
     }
 
@@ -2709,7 +2795,7 @@ public class FlutterApiController {
                 .findByStatusOrderByRequestedAtDesc(WarehouseChangeRequest.Status.PENDING).size();
         long totalReviews      = reviewRepository.count();
         long totalBanners      = bannerRepository.count();
-        res.put("success",           true);
+        res.put(KEY_SUCCESS,           true);
         res.put("totalCustomers",    totalCustomers);
         res.put("totalVendors",      totalVendors);
         res.put("totalProducts",     totalProducts);

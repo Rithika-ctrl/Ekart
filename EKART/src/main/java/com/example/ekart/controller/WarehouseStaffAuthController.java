@@ -69,9 +69,9 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "email": "staff@warehouse.com",
-     *   "password": "SecurePass123!",
-     *   "warehouse_id": 1
+     *   EMAIL_KEY: "staff@warehouse.com",
+     *   PASSWORD_KEY: "SecurePass123!",
+     *   WAREHOUSE_ID_KEY: 1
      * }
      */
     @PostMapping("/login")
@@ -132,7 +132,7 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5,
+     *   STAFF_ID_KEY: 5,
      *   "otp": 123456
      * }
      */
@@ -298,10 +298,10 @@ public class WarehouseStaffAuthController {
      * Request body:
      * {
      *   "name": "John Doe",
-     *   "email": "john@warehouse.com",
+     *   EMAIL_KEY: "john@warehouse.com",
      *   "mobile": "9876543210",
-     *   "warehouse_id": 1,
-     *   "role": "WAREHOUSE_STAFF"
+     *   WAREHOUSE_ID_KEY: 1,
+     *   ROLE_KEY: "WAREHOUSE_STAFF"
      * }
      *
      * Response includes: staff_id, email, password (plain text), name
@@ -324,7 +324,7 @@ public class WarehouseStaffAuthController {
         String email = (String) request.get(EMAIL_KEY);
         String mobile = (String) request.get(MOBILE_KEY);
         Integer warehouseId = ((Number) request.get(WAREHOUSE_ID_KEY)).intValue();
-        String role = (String) request.get("role");
+        String role = (String) request.get(ROLE_KEY);
 
         if (name == null || email == null || mobile == null || warehouseId == null) {
             return ResponseEntity.badRequest()
@@ -334,7 +334,7 @@ public class WarehouseStaffAuthController {
         try {
             Map<String, Object> creationResult = staffService.createStaffAccount(name, email, mobile, warehouseId, role);
             WarehouseStaff newStaff = (WarehouseStaff) creationResult.get("staff");
-            String plainPassword = (String) creationResult.get("password");
+            String plainPassword = (String) creationResult.get(PASSWORD_KEY);
 
             // Return credentials to admin (plain password for display)
             Map<String, Object> response = new LinkedHashMap<>();
@@ -364,7 +364,7 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5
+     *   STAFF_ID_KEY: 5
      * }
      */
     @PostMapping("/staff/deactivate")
@@ -404,7 +404,7 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5
+     *   STAFF_ID_KEY: 5
      * }
      */
     @PostMapping("/staff/reactivate")

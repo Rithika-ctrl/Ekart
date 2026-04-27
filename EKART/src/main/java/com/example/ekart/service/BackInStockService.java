@@ -24,6 +24,11 @@ import java.util.Map;
 @Transactional
 public class BackInStockService {
 
+    // ── S1192 String constants ──
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_SUBSCRIBED                        = "subscribed";
+    private static final String K_SUCCESS                           = "success";
+
     private static final Logger log = LoggerFactory.getLogger(BackInStockService.class);
 
 
@@ -56,17 +61,17 @@ public class BackInStockService {
     public Map<String, Object> subscribe(int productId, HttpServletRequest request) {
         Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
-            return Map.of("success", false, "message", "Please log in to subscribe.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Please log in to subscribe.");
         }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            return Map.of("success", false, "message", "Product not found.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product not found.");
         }
 
         // If product is actually in stock, no need to subscribe
         if (product.getStock() > 0) {
-            return Map.of("success", false, "message", "Product is already in stock! Add it to your cart.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product is already in stock! Add it to your cart.");
         }
 
         // Fetch fresh customer from DB
@@ -81,9 +86,9 @@ public class BackInStockService {
             if (!sub.isNotified()) {
                 // Already has an active (unnotified) subscription
                 return Map.of(
-                    "success",    true,
-                    "subscribed", true,
-                    "message",    "You are already subscribed. We'll email you when it's back!"
+                    K_SUCCESS,    true,
+                    K_SUBSCRIBED, true,
+                    K_MESSAGE,    "You are already subscribed. We'll email you when it's back!"
                 );
             }
             // Previously notified — reuse the existing row by resetting it
@@ -92,9 +97,9 @@ public class BackInStockService {
             sub.setSubscribedAt(java.time.LocalDateTime.now());
             backInStockRepository.save(sub);
             return Map.of(
-                "success",    true,
-                "subscribed", true,
-                "message",    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
+                K_SUCCESS,    true,
+                K_SUBSCRIBED, true,
+                K_MESSAGE,    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
             );
         }
 
@@ -103,9 +108,9 @@ public class BackInStockService {
         backInStockRepository.save(sub);
 
         return Map.of(
-            "success",    true,
-            "subscribed", true,
-            "message",    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
+            K_SUCCESS,    true,
+            K_SUBSCRIBED, true,
+            K_MESSAGE,    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
         );
     }
 
@@ -113,13 +118,13 @@ public class BackInStockService {
     public Map<String, Object> unsubscribe(int productId, HttpServletRequest request) {
         Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
-            return Map.of("success", false, "message", "Not logged in.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Not logged in.");
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
         Product product   = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            return Map.of("success", false, "message", "Product not found.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product not found.");
         }
 
         Optional<BackInStockSubscription> sub =
@@ -127,9 +132,9 @@ public class BackInStockService {
         sub.ifPresent(backInStockRepository::delete);
 
         return Map.of(
-            "success",    true,
-            "subscribed", false,
-            "message",    "Unsubscribed from back-in-stock notifications."
+            K_SUCCESS,    true,
+            K_SUBSCRIBED, false,
+            K_MESSAGE,    "Unsubscribed from back-in-stock notifications."
         );
     }
 

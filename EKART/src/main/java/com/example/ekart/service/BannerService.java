@@ -23,6 +23,12 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class BannerService {
 
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_BANNER_NOT_FOUND                  = "Banner not found";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_SUCCESS                           = "success";
+
     private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
     private static final String REDIRECT_ADMIN_CONTENT = "redirect:/admin/content";
     private static final String LOGIN_FIRST = "Login First";
@@ -74,8 +80,8 @@ public class BannerService {
      * Load admin content management page
      */
     public String loadContentPage(HttpSession session, ModelMap map) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
 
@@ -89,16 +95,16 @@ public class BannerService {
      * Add a new banner with file upload — uploads image to Cloudinary first
      */
     public String addBannerWithUpload(String title, MultipartFile imageFile, String linkUrl, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
         if (title == null || title.trim().isEmpty()) {
-            session.setAttribute("failure", "Banner title is required");
+            session.setAttribute(K_FAILURE, "Banner title is required");
             return REDIRECT_ADMIN_CONTENT;
         }
         if (imageFile == null || imageFile.isEmpty()) {
-            session.setAttribute("failure", "Please select an image file");
+            session.setAttribute(K_FAILURE, "Please select an image file");
             return REDIRECT_ADMIN_CONTENT;
         }
         try {
@@ -110,9 +116,9 @@ public class BannerService {
             banner.setActive(true);
             banner.setDisplayOrder((int) bannerRepository.count());
             bannerRepository.save(banner);
-            session.setAttribute("success", "Banner " + title.trim() + " uploaded and added successfully!");
+            session.setAttribute(K_SUCCESS, "Banner " + title.trim() + " uploaded and added successfully!");
         } catch (Exception e) {
-            session.setAttribute("failure", "Image upload failed: " + e.getMessage());
+            session.setAttribute(K_FAILURE, "Image upload failed: " + e.getMessage());
         }
         return REDIRECT_ADMIN_CONTENT;
     }
@@ -121,18 +127,18 @@ public class BannerService {
      * Add a new banner
      */
     public String addBanner(String title, String imageUrl, String linkUrl, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
 
         if (title == null || title.trim().isEmpty()) {
-            session.setAttribute("failure", "Banner title is required");
+            session.setAttribute(K_FAILURE, "Banner title is required");
             return REDIRECT_ADMIN_CONTENT;
         }
 
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
-            session.setAttribute("failure", "Image URL is required");
+            session.setAttribute(K_FAILURE, "Image URL is required");
             return REDIRECT_ADMIN_CONTENT;
         }
 
@@ -144,7 +150,7 @@ public class BannerService {
         banner.setDisplayOrder((int) bannerRepository.count());
 
         bannerRepository.save(banner);
-        session.setAttribute("success", "Banner added successfully");
+        session.setAttribute(K_SUCCESS, "Banner added successfully");
         return REDIRECT_ADMIN_CONTENT;
     }
 
@@ -152,14 +158,14 @@ public class BannerService {
      * Toggle banner active status
      */
     public String toggleBanner(int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
-            session.setAttribute("failure", "Banner not found");
+            session.setAttribute(K_FAILURE, K_BANNER_NOT_FOUND);
             return REDIRECT_ADMIN_CONTENT;
         }
 
@@ -168,7 +174,7 @@ public class BannerService {
         bannerRepository.save(banner);
 
         String status = banner.isActive() ? "activated" : "deactivated";
-        session.setAttribute("success", "Banner \"" + banner.getTitle() + "\" " + status);
+        session.setAttribute(K_SUCCESS, "Banner \"" + banner.getTitle() + "\" " + status);
         return REDIRECT_ADMIN_CONTENT;
     }
 
@@ -176,19 +182,19 @@ public class BannerService {
      * Delete a banner
      */
     public String deleteBanner(int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
-            session.setAttribute("failure", "Banner not found");
+            session.setAttribute(K_FAILURE, K_BANNER_NOT_FOUND);
             return REDIRECT_ADMIN_CONTENT;
         }
 
         bannerRepository.deleteById(id);
-        session.setAttribute("success", "Banner deleted successfully");
+        session.setAttribute(K_SUCCESS, "Banner deleted successfully");
         return REDIRECT_ADMIN_CONTENT;
     }
 
@@ -196,8 +202,8 @@ public class BannerService {
      * Toggle whether banner shows on the landing page (home.html)
      */
     public String toggleShowOnHome(int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
         bannerRepository.findById(id).ifPresent(b -> {
@@ -211,8 +217,8 @@ public class BannerService {
      * Toggle whether banner shows on the customer home page (customer-home.html)
      */
     public String toggleShowOnCustomerHome(int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
         bannerRepository.findById(id).ifPresent(b -> {
@@ -226,14 +232,14 @@ public class BannerService {
      * Update banner details
      */
     public String updateBanner(int id, String title, String imageUrl, String linkUrl, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Banner> optBanner = bannerRepository.findById(id);
         if (optBanner.isEmpty()) {
-            session.setAttribute("failure", "Banner not found");
+            session.setAttribute(K_FAILURE, K_BANNER_NOT_FOUND);
             return REDIRECT_ADMIN_CONTENT;
         }
 
@@ -247,8 +253,7 @@ public class BannerService {
         banner.setLinkUrl(linkUrl != null ? linkUrl.trim() : "");
 
         bannerRepository.save(banner);
-        session.setAttribute("success", "Banner updated successfully");
+        session.setAttribute(K_SUCCESS, "Banner updated successfully");
         return REDIRECT_ADMIN_CONTENT;
     }
 }
-

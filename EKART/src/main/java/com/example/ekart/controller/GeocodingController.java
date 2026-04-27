@@ -36,6 +36,14 @@ import java.util.Map;
 @RequestMapping("/api/geocode")
 public class GeocodingController {
 
+    // ── S1192 String constants ──
+    private static final String K_CITY                              = "city";
+    private static final String K_KEY                               = "key";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_PIN                               = "pin";
+    private static final String K_STATE                             = "state";
+    private static final String K_SUCCESS                           = "success";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(GeocodingController.class);
 
     private static final int CONNECT_TIMEOUT = 4000; // 4 seconds
@@ -57,8 +65,8 @@ public class GeocodingController {
 
         // Skip for localhost/private IPs — can't geo-locate these
         if (isPrivateIp(ip)) {
-            res.put("success", false);
-            res.put("message", "Running on localhost — cannot detect PIN from IP.");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Running on localhost — cannot detect PIN from IP.");
             return ResponseEntity.ok(res);
         }
 
@@ -69,21 +77,21 @@ public class GeocodingController {
             String body = httpGet(url, "Ekart-App/1.0", "en");
 
             if (body == null || !body.contains("\"success\"")) {
-                res.put("success", false);
-                res.put("message", "IP lookup failed.");
+                res.put(K_SUCCESS, false);
+                res.put(K_MESSAGE, "IP lookup failed.");
                 return ResponseEntity.ok(res);
             }
 
             String countryCode = extractJson(body, "countryCode");
             if (!"IN".equalsIgnoreCase(countryCode)) {
-                res.put("success", false);
+                res.put(K_SUCCESS, false);
                 res.put("outsideIndia", true);
                 res.put("country", extractJson(body, "country"));
-                res.put("message", "Location outside India.");
+                res.put(K_MESSAGE, "Location outside India.");
                 return ResponseEntity.ok(res);
             }
 
-            String city  = extractJson(body, "city");
+            String city  = extractJson(body, K_CITY);
             String state = extractJson(body, "regionName");
             String zip   = extractJson(body, "zip");
 
@@ -92,10 +100,10 @@ public class GeocodingController {
                 String pin = zip.replaceAll("[^0-9]", "").trim();
                 if (pin.length() >= 6) pin = pin.substring(0, 6);
                 if (PinCodeValidator.isValid(pin)) {
-                    res.put("success", true);
-                    res.put("pin",    pin);
-                    res.put("city",   city  != null ? city  : "");
-                    res.put("state",  state != null ? state : "");
+                    res.put(K_SUCCESS, true);
+                    res.put(K_PIN,    pin);
+                    res.put(K_CITY,   city  != null ? city  : "");
+                    res.put(K_STATE,  state != null ? state : "");
                     res.put("source", "ip-api");
                     return ResponseEntity.ok(res);
                 }
@@ -105,25 +113,25 @@ public class GeocodingController {
             if (city != null && !city.isBlank()) {
                 Map<String, Object> postal = callPostalPincode(city);
                 if (postal != null) {
-                    res.put("success", true);
-                    res.put("pin",    postal.get("pin"));
-                    res.put("city",   city);
-                    res.put("state",  state != null ? state : "");
+                    res.put(K_SUCCESS, true);
+                    res.put(K_PIN,    postal.get(K_PIN));
+                    res.put(K_CITY,   city);
+                    res.put(K_STATE,  state != null ? state : "");
                     res.put("source", "ip-api+postalpincode");
                     return ResponseEntity.ok(res);
                 }
             }
 
             // At least return city/state even if no PIN
-            res.put("success", false);
+            res.put(K_SUCCESS, false);
             res.put("pinMissing", true);
-            res.put("city",   city  != null ? city  : "");
-            res.put("state",  state != null ? state : "");
-            res.put("message", "Detected " + city + " but could not find PIN. Please enter manually.");
+            res.put(K_CITY,   city  != null ? city  : "");
+            res.put(K_STATE,  state != null ? state : "");
+            res.put(K_MESSAGE, "Detected " + city + " but could not find PIN. Please enter manually.");
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Auto-detection failed: " + e.getMessage());
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Auto-detection failed: " + e.getMessage());
         }
 
         return ResponseEntity.ok(res);
@@ -164,8 +172,8 @@ public class GeocodingController {
 
         // Basic bounds check — India is roughly 8°N–37°N, 68°E–97°E
         if (lat < 6.0 || lat > 38.0 || lon < 68.0 || lon > 98.0) {
-            res.put("success", false);
-            res.put("message", "Location is outside India. Ekart delivers only within India.");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Location is outside India. Ekart delivers only within India.");
             res.put("outsideIndia", true);
             return ResponseEntity.ok(res);
         }
@@ -175,7 +183,7 @@ public class GeocodingController {
             Map<String, Object> nominatim = callNominatim(lat, lon);
             if (nominatim != null) {
                 res.putAll(nominatim);
-                res.put("success", true);
+                res.put(K_SUCCESS, true);
                 res.put("source", "nominatim");
                 return ResponseEntity.ok(res);
             }
@@ -187,28 +195,28 @@ public class GeocodingController {
         try {
             Map<String, Object> bdc = callBigDataCloud(lat, lon);
             if (bdc != null) {
-                String city = (String) bdc.getOrDefault("city", "");
-                String state = (String) bdc.getOrDefault("state", "");
+                String city = (String) bdc.getOrDefault(K_CITY, "");
+                String state = (String) bdc.getOrDefault(K_STATE, "");
 
                 // Stage 2b: use city name to look up PIN via postalpincode.in
                 if (!city.isBlank()) {
                     Map<String, Object> postal = callPostalPincode(city);
                     if (postal != null) {
-                        res.put("pin",   postal.get("pin"));
-                        res.put("city",  city);
-                        res.put("state", state);
-                        res.put("success", true);
+                        res.put(K_PIN,   postal.get(K_PIN));
+                        res.put(K_CITY,  city);
+                        res.put(K_STATE, state);
+                        res.put(K_SUCCESS, true);
                         res.put("source", "bigdatacloud+postalpincode");
                         return ResponseEntity.ok(res);
                     }
                 }
 
                 // BigDataCloud gave city but postal API failed — return city/state at least
-                res.put("city",  city);
-                res.put("state", state);
-                res.put("success", false);
+                res.put(K_CITY,  city);
+                res.put(K_STATE, state);
+                res.put(K_SUCCESS, false);
                 res.put("pinMissing", true);
-                res.put("message", "Could not find PIN code for your area. City detected: " + city + ". Please enter PIN manually.");
+                res.put(K_MESSAGE, "Could not find PIN code for your area. City detected: " + city + ". Please enter PIN manually.");
                 return ResponseEntity.ok(res);
             }
         } catch (Exception e) {
@@ -216,8 +224,8 @@ public class GeocodingController {
         }
 
         // ── All APIs failed ───────────────────────────────────────────────────
-        res.put("success", false);
-        res.put("message", "Could not detect your location. Please enter your PIN code manually.");
+        res.put(K_SUCCESS, false);
+        res.put(K_MESSAGE, "Could not detect your location. Please enter your PIN code manually.");
         return ResponseEntity.ok(res);
     }
 
@@ -232,15 +240,15 @@ public class GeocodingController {
         try {
             Map<String, Object> result = callPostalPincode(city);
             if (result != null) {
-                res.put("success", true);
+                res.put(K_SUCCESS, true);
                 res.putAll(result);
             } else {
-                res.put("success", false);
-                res.put("message", "No PIN found for: " + city);
+                res.put(K_SUCCESS, false);
+                res.put(K_MESSAGE, "No PIN found for: " + city);
             }
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Lookup failed: " + e.getMessage());
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Lookup failed: " + e.getMessage());
         }
         return ResponseEntity.ok(res);
     }
@@ -259,12 +267,12 @@ public class GeocodingController {
 
         String postcode = extractJson(body, "postcode");
         String city     = firstNonBlank(
-            extractJson(body, "city"),
+            extractJson(body, K_CITY),
             extractJson(body, "town"),
             extractJson(body, "village"),
             extractJson(body, "county")
         );
-        String state = extractJson(body, "state");
+        String state = extractJson(body, K_STATE);
 
         // Clean postcode — Nominatim sometimes returns ranges like "560001-560010"
         if (postcode != null) {
@@ -273,9 +281,9 @@ public class GeocodingController {
                 String pin = cleaned.substring(0, 6);
                 if (PinCodeValidator.isValid(pin)) {
                     Map<String, Object> r = new HashMap<>();
-                    r.put("pin",   pin);
-                    r.put("city",  city != null ? city : "");
-                    r.put("state", state != null ? state : "");
+                    r.put(K_PIN,   pin);
+                    r.put(K_CITY,  city != null ? city : "");
+                    r.put(K_STATE, state != null ? state : "");
                     return r;
                 }
             }
@@ -285,8 +293,8 @@ public class GeocodingController {
         if (city != null && !city.isBlank()) {
             Map<String, Object> postal = callPostalPincode(city);
             if (postal != null) {
-                postal.put("city",  city);
-                postal.put("state", state != null ? state : "");
+                postal.put(K_CITY,  city);
+                postal.put(K_STATE, state != null ? state : "");
                 return postal;
             }
         }
@@ -303,12 +311,12 @@ public class GeocodingController {
         String countryCode = extractJson(body, "countryCode");
         if (!"IN".equalsIgnoreCase(countryCode)) return null;
 
-        String city  = firstNonBlank(extractJson(body, "city"), extractJson(body, "locality"));
+        String city  = firstNonBlank(extractJson(body, K_CITY), extractJson(body, "locality"));
         String state = extractJson(body, "principalSubdivision");
 
         Map<String, Object> r = new HashMap<>();
-        r.put("city",  city  != null ? city  : "");
-        r.put("state", state != null ? state : "");
+        r.put(K_CITY,  city  != null ? city  : "");
+        r.put(K_STATE, state != null ? state : "");
         return r;
     }
 
@@ -327,7 +335,7 @@ public class GeocodingController {
             // Also extract post office name for display
             String officeName = extractJson(body, "Name");
             Map<String, Object> r = new HashMap<>();
-            r.put("pin",        pin);
+            r.put(K_PIN,        pin);
             r.put("postOffice", officeName != null ? officeName : cityName);
             return r;
         }
@@ -362,10 +370,10 @@ public class GeocodingController {
 
     /**
      * Extracts the first value for a given key from a JSON string.
-     * Handles both string values ("key":"value") and numeric ("key":123456).
+     * Handles both string values (K_KEY:"value") and numeric (K_KEY:123456).
      */
     private String extractJson(String json, String key) {
-        // Match "key":"value"
+        // Match K_KEY:"value"
         String pattern1 = "\"" + key + "\":\"";
         int idx = json.indexOf(pattern1);
         if (idx >= 0) {
@@ -373,7 +381,7 @@ public class GeocodingController {
             int end   = json.indexOf("\"", start);
             if (end > start) return json.substring(start, end).trim();
         }
-        // Match "key":123456  (numeric — for PIN codes)
+        // Match K_KEY:123456  (numeric — for PIN codes)
         String pattern2 = "\"" + key + "\":";
         idx = json.indexOf(pattern2);
         if (idx >= 0) {

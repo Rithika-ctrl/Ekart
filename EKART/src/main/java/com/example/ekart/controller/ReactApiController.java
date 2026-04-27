@@ -53,6 +53,102 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 public class ReactApiController {
 
+    // ── S1192 String constants ──
+    private static final String K_CSV_APPEND                        = ",";
+    private static final String K_DISPLAY_ORDER                     = "displayOrder";
+    private static final String K_PAYMENT_METHOD                    = "paymentMethod";
+    private static final String K_ACTIVE                            = "active";
+    private static final String K_ADDRESS                           = "address";
+    private static final String K_AVGORDERVALUE                     = "avgOrderValue";
+    private static final String K_AVGRATING                         = "avgRating";
+    private static final String K_BANGALORE                         = "Bangalore";
+    private static final String K_BANGALORE_HUB                     = "Bangalore Hub";
+    private static final String K_BANNERS                           = "banners";
+    private static final String K_BEARER                            = "Bearer ";
+    private static final String K_CITY                              = "city";
+    private static final String K_CODE                              = "code";
+    private static final String K_COD_SUBMITTED_TO_WAREHOUSE        = "COD_SUBMITTED_TO_WAREHOUSE";
+    private static final String K_CONFIRMPASSWORD                   = "confirmPassword";
+    private static final String K_COUPONAPPLIED                     = "couponApplied";
+    private static final String K_COUPONCODE                        = "couponCode";
+    private static final String K_CURRENTCITY                       = "currentCity";
+    private static final String K_DELIVERYBOY                       = "deliveryBoy";
+    private static final String K_DELIVERYBOYS                      = "deliveryBoys";
+    private static final String K_DELIVERYCHARGE                    = "deliveryCharge";
+    private static final String K_DELIVERYPINCODE                   = "deliveryPinCode";
+    private static final String K_DEPRECATION                       = "deprecation";
+    private static final String K_EXPIRYDATE                        = "expiryDate";
+    private static final String K_FAILED                            = "Failed: ";
+    private static final String K_FAILED_TO_LOAD_BANNERS            = "Failed to load banners: ";
+    private static final String K_FILE                              = "file";
+    private static final String K_IMAGES                            = "images";
+    private static final String K_IMAGEURL                          = "imageUrl";
+    private static final String K_ITEMS                             = "items";
+    private static final String K_LINKURL                           = "linkUrl";
+    private static final String K_LIT_12345678                      = "12345678";
+    private static final String K_LIT_EMPTY                         = " : ";
+    private static final String K_NAME                              = "name";
+    private static final String K_DESCRIPTION                       = "description";
+    private static final String K_PRICE                             = "price";
+    private static final String K_CATEGORY                          = "category";
+    private static final String K_STOCK                             = "stock";
+    private static final String K_IMAGE                             = "image";
+    private static final String K_MRP                               = "mrp";
+    private static final String K_GST_RATE                          = "gstRate";
+    private static final String K_STOCK_ALERT_THRESHOLD             = "stockAlertThreshold";
+    private static final String K_TYPE                              = "type";
+    private static final String K_CUSTOMER                         = "customer";
+    private static final String K_COD                              = "COD";
+    private static final String K_DAY                              = "day";
+    private static final String K_MONTH                            = "month";
+    private static final String K_REJECTED                         = "REJECTED";
+    private static final String K_APPROVED                         = "APPROVED";
+
+    private static final String K_MAXDISCOUNT                       = "maxDiscount";
+    private static final String K_MINORDERAMOUNT                    = "minOrderAmount";
+    private static final String K_NOT_FOUND                         = " not found";
+    private static final String K_N_A                               = "N/A";
+    private static final String K_ORDERDATE                         = "orderDate";
+    private static final String K_OTP                               = "otp";
+    private static final String K_PASSWORD                          = "password";
+    private static final String K_PAYMENTMODE                       = "paymentMode";
+    private static final String K_PRODUCTS                          = "products";
+    private static final String K_PRODUCT_ID                        = "Product id ";
+    private static final String K_QUANTITY                          = "quantity";
+    private static final String K_REASON                            = "reason";
+    private static final String K_REGISTRATION_FAILED               = "Registration failed: ";
+    private static final String K_REVIEWS                           = "reviews";
+    private static final String K_ROLE                              = "role";
+    private static final String K_SOURCEWAREHOUSE                   = "sourceWarehouse";
+    private static final String K_STATE                             = "state";
+    private static final String K_STATUS                            = "status";
+    private static final String K_TITLE                             = "title";
+    private static final String K_TOPCATEGORY                       = "topCategory";
+    private static final String K_TOTALORDERS                       = "totalOrders";
+    private static final String K_TOTALPRICE                        = "totalPrice";
+    private static final String K_TOTALPRODUCTS                     = "totalProducts";
+    private static final String K_TOTALREVENUE                      = "totalRevenue";
+    private static final String K_TOTALSPENT                        = "totalSpent";
+    private static final String K_TYPELABEL                         = "typeLabel";
+    private static final String K_UNKNOWN                           = "Unknown";
+    private static final String K_VALUE                             = "value";
+    private static final String K_VENDORCODE                        = "vendorCode";
+    private static final String K_VERIFIED                          = "verified";
+    private static final String K_WAREHOUSE                         = "warehouse";
+    private static final String K_WAREHOUSES                        = "warehouses";
+    private static final String K_WH_BLR_12345678                   = "WH-BLR-12345678";
+    private static final String K_RECIPIENT_NAME                   = "recipientName";
+    private static final String K_HOUSE_STREET                     = "houseStreet";
+    private static final String K_POSTAL_CODE                      = "postalCode";
+    private static final String K_DESTINATION_WAREHOUSE            = "destinationWarehouse";
+    private static final String K_CATEGORY_SPENDING                = "categorySpending";
+    private static final String K_MONTHLY_SPENDING                 = "monthlySpending";
+    private static final String K_REFUND                           = "refund";
+    private static final String K_REVENUE                          = "revenue";
+    private static final String K_CUSTOMER_ID                      = "customerId";
+    private static final String K_RATING                           = "rating";
+    private static final String K_COMMENT                          = "comment";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ReactApiController.class);
 
     private static String sanitizeForLog(String value) {
@@ -365,7 +461,7 @@ public class ReactApiController {
 
     /**
      * In-memory store of emails whose OTP has been successfully verified.
-     * Key: email (lower-cased).  Value: role tag ("customer" | "vendor").
+     * Key: email (lower-cased).  Value: role tag (K_CUSTOMER | KEY_VENDOR).
      * Entry is cleared once reset-password consumes it, preventing replay.
      */
     private final java.util.concurrent.ConcurrentHashMap<String, String> otpVerified =
@@ -443,13 +539,13 @@ public class ReactApiController {
 
     /** POST /api/react/auth/customer/send-register-otp */
     @PostMapping("/auth/customer/send-register-otp")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> customerSendRegisterOtp(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String name = ((String) body.getOrDefault("name", "Customer")).trim();
+            String name = ((String) body.getOrDefault(K_NAME, "Customer")).trim();
             if (email.isEmpty()) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
@@ -491,7 +587,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             
             // Get OTP from temporary cache (not from DB)
             OtpData otpData = registerOtpCache.get(email);
@@ -525,7 +621,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String password = ((String) body.getOrDefault("password", "")).trim();
+            String password = ((String) body.getOrDefault(K_PASSWORD, "")).trim();
             if (!Boolean.TRUE.equals(registerOtpVerified.get(email))) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Email not verified. Please complete OTP verification first.");
@@ -545,7 +641,7 @@ public class ReactApiController {
             
             // Reuse unverified customer or create new
             com.example.ekart.dto.Customer c = existing != null ? existing : new com.example.ekart.dto.Customer();
-            c.setName((String) body.get("name"));
+            c.setName((String) body.get(K_NAME));
             c.setEmail(email);
             c.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
             c.setPassword(com.example.ekart.helper.AES.encrypt(password));
@@ -560,11 +656,11 @@ public class ReactApiController {
             
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Registered successfully");
-            res.put("customerId", c.getId());
+            res.put(K_CUSTOMER_ID, c.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, K_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -577,7 +673,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email    = (String) body.get(KEY_EMAIL);
-            String password = (String) body.get("password");
+            String password = (String) body.get(K_PASSWORD);
             Customer c = customerRepository.findByEmail(email);
             if (c == null || !AES.decrypt(c.getPassword()).equals(password)) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
@@ -589,8 +685,8 @@ public class ReactApiController {
             }
             String token = jwtUtil.generateToken(c.getId(), c.getEmail(), ROLE_CUSTOMER);
             res.put(KEY_SUCCESS, true);
-            res.put("customerId", c.getId());
-            res.put("name", c.getName());
+            res.put(K_CUSTOMER_ID, c.getId());
+            res.put(K_NAME, c.getName());
             res.put(KEY_EMAIL, c.getEmail());
             res.put(KEY_MOBILE, c.getMobile());
             res.put(KEY_TOKEN, token);
@@ -617,13 +713,13 @@ public class ReactApiController {
 
     /** POST /api/react/auth/vendor/send-register-otp */
     @PostMapping("/auth/vendor/send-register-otp")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> vendorSendRegisterOtp(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String name = ((String) body.getOrDefault("name", "Vendor")).trim();
+            String name = ((String) body.getOrDefault(K_NAME, "Vendor")).trim();
             if (email.isEmpty()) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
@@ -665,7 +761,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
@@ -702,7 +798,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String password = ((String) body.getOrDefault("password", "")).trim();
+            String password = ((String) body.getOrDefault(K_PASSWORD, "")).trim();
             if (!Boolean.TRUE.equals(vendorRegisterOtpVerified.get(email))) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Email not verified. Please complete OTP verification first.");
@@ -721,7 +817,7 @@ public class ReactApiController {
             }
             // Reuse unverified vendor or create new
             com.example.ekart.dto.Vendor v = existing != null ? existing : new com.example.ekart.dto.Vendor();
-            v.setName((String) body.get("name"));
+            v.setName((String) body.get(K_NAME));
             v.setEmail(email);
             v.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
             v.setPassword(com.example.ekart.helper.AES.encrypt(password));
@@ -736,7 +832,7 @@ public class ReactApiController {
             res.put(KEY_VENDOR_ID, v.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -755,7 +851,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email    = (String) body.get(KEY_EMAIL);
-            String password = (String) body.get("password");
+            String password = (String) body.get(K_PASSWORD);
             Vendor v = vendorRepository.findByEmail(email);
             if (v == null || !AES.decrypt(v.getPassword()).equals(password)) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid email or password");
@@ -764,9 +860,9 @@ public class ReactApiController {
             String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
             res.put(KEY_SUCCESS, true);
             res.put(KEY_VENDOR_ID, v.getId());
-            res.put("name", v.getName());
+            res.put(K_NAME, v.getName());
             res.put(KEY_EMAIL, v.getEmail());
-            res.put("vendorCode", v.getVendorCode());
+            res.put(K_VENDORCODE, v.getVendorCode());
             res.put(KEY_TOKEN, token);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -795,7 +891,7 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         String email    = (String) body.get(KEY_EMAIL);
-        String password = (String) body.get("password");
+        String password = (String) body.get(K_PASSWORD);
         if (email == null || password == null) {
             res.put(KEY_SUCCESS, false); 
             res.put(KEY_MESSAGE, "Email and password are required");
@@ -826,10 +922,10 @@ public class ReactApiController {
         String token = jwtUtil.generateToken(0, email, ROLE_ADMIN);
         res.put(KEY_SUCCESS, true);
         res.put(KEY_ADMIN_ID, authResult.getAdminId());
-        res.put("name", authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
+        res.put(K_NAME, authResult.getAdminName() != null ? authResult.getAdminName() : "Admin");
         res.put(KEY_EMAIL, email);
         res.put(KEY_TOKEN, token);
-        res.put("role", ROLE_ADMIN);
+        res.put(K_ROLE, ROLE_ADMIN);
         return ResponseEntity.ok(res);
     }
 
@@ -905,13 +1001,13 @@ public class ReactApiController {
      *   - Pending admin approval  → 403 + message
      */
     @PostMapping("/auth/delivery/login")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> deliveryLogin(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
             String email    = ((String) body.getOrDefault(KEY_EMAIL,    "")).trim().toLowerCase();
-            String password = ((String) body.getOrDefault("password", "")).trim();
+            String password = ((String) body.getOrDefault(K_PASSWORD, "")).trim();
             if (email.isEmpty() || password.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Email and password are required");
@@ -948,14 +1044,14 @@ public class ReactApiController {
                 return ResponseEntity.status(403).body(res);
             }
             // FIX: Use JwtUtil with role="DELIVERY" so ReactAuthFilter accepts the token.
-            // Old code used DeliveryRefreshTokenUtil which produced tokens with no "role" claim,
+            // Old code used DeliveryRefreshTokenUtil which produced tokens with no K_ROLE claim,
             // causing ReactAuthFilter to return 403 "Unknown role in token: null" on every
             // delivery API call (profile, orders, toggle, pickup, deliver).
             String token = jwtUtil.generateToken(db.getId(), db.getEmail(), "DELIVERY");
 
             res.put(KEY_SUCCESS,       true);
             res.put(KEY_DELIVERY_BOY_ID, db.getId());
-            res.put("name",          db.getName());
+            res.put(K_NAME,          db.getName());
             res.put(KEY_EMAIL,         db.getEmail());
             res.put("accessToken",   token);  // AuthPage reads data.accessToken || data.token
             res.put(KEY_TOKEN,         token);  // legacy fallback
@@ -982,15 +1078,15 @@ public class ReactApiController {
         for (Warehouse wh : warehouses) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",   wh.getId());
-            m.put("name", wh.getName());
-            m.put("city", wh.getCity());
-            m.put("active", wh.isActive());
-            String statusLabel = wh.isActive() ? "" : " (Inactive)";
+            m.put(K_NAME, wh.getName());
+            m.put(K_CITY, wh.getCity());
+            m.put(K_ACTIVE, wh.isActive());
+            String statusLabel = wh.isActive() ? " (Active)" : " (Inactive)";
             m.put("display", wh.getName() + " — " + wh.getCity() + statusLabel);
             list.add(m);
         }
         res.put(KEY_SUCCESS,    true);
-        res.put("warehouses", list);
+        res.put(K_WAREHOUSES, list);
         res.put(KEY_MESSAGE, list.isEmpty() ? "No warehouses available yet. Please contact admin to create one." : "");
         return ResponseEntity.ok(res);
     }
@@ -1002,16 +1098,16 @@ public class ReactApiController {
      * Returns JWT token with role=WAREHOUSE and warehouseId claim.
      * 
      * Request Body:
-     *   { "loginId": "12345678", "password": "654321" }
+     *   { KEY_LOGIN_ID: K_LIT_12345678, K_PASSWORD: "654321" }
      *
      * Response (200 OK):
      *   {
      *     KEY_SUCCESS: true,
      *     "token": "<JWT_TOKEN_with_role_WAREHOUSE_and_warehouseId>",
      *     KEY_WAREHOUSE_ID: 45,
-     *     KEY_WAREHOUSE_NAME: "Bangalore Hub",
-     *     "city": "Bangalore",
-     *     KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
+     *     KEY_WAREHOUSE_NAME: K_BANGALORE_HUB,
+     *     K_CITY: K_BANGALORE,
+     *     KEY_WAREHOUSE_CODE: K_WH_BLR_12345678,
                 LOGGER.error("Vendor register OTP email failed", e);
      *   }
      *
@@ -1026,7 +1122,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String loginId = (String) body.get(KEY_LOGIN_ID);        // 8-digit number as string
-            String password = (String) body.get("password");      // 6-digit number as string
+            String password = (String) body.get(K_PASSWORD);      // 6-digit number as string
 
             if (loginId == null || loginId.isBlank() || password == null || password.isBlank()) {
                 res.put(KEY_ERROR, "loginId and password are required");
@@ -1072,11 +1168,11 @@ public class ReactApiController {
 
             // Generate JWT with warehouseId and role=WAREHOUSE
             Map<String, Object> claims = new HashMap<>();
-            claims.put("role", ROLE_WAREHOUSE);
+            claims.put(K_ROLE, ROLE_WAREHOUSE);
             claims.put(KEY_WAREHOUSE_ID, warehouse.getId());
             claims.put(KEY_WAREHOUSE_NAME, warehouse.getName());
             claims.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
-            claims.put("city", warehouse.getCity());
+            claims.put(K_CITY, warehouse.getCity());
 
             String token = jwtUtil.generateWarehouseToken(String.valueOf(warehouse.getId()), claims);
 
@@ -1084,9 +1180,9 @@ public class ReactApiController {
             res.put(KEY_TOKEN, token);
             res.put(KEY_WAREHOUSE_ID, warehouse.getId());
             res.put(KEY_WAREHOUSE_NAME, warehouse.getName());
-            res.put("city", warehouse.getCity());
+            res.put(K_CITY, warehouse.getCity());
             res.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
-            res.put("role", ROLE_WAREHOUSE);
+            res.put(K_ROLE, ROLE_WAREHOUSE);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -1107,10 +1203,10 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String name            = ((String) body.getOrDefault("name",            "")).trim();
+            String name            = ((String) body.getOrDefault(K_NAME,            "")).trim();
             String email           = ((String) body.getOrDefault(KEY_EMAIL,           "")).trim().toLowerCase();
-            String password        = ((String) body.getOrDefault("password",        "")).trim();
-            String confirmPassword = ((String) body.getOrDefault("confirmPassword", "")).trim();
+            String password        = ((String) body.getOrDefault(K_PASSWORD,        "")).trim();
+            String confirmPassword = ((String) body.getOrDefault(K_CONFIRMPASSWORD, "")).trim();
             String mobileStr       = body.getOrDefault(KEY_MOBILE, "").toString().trim();
             int warehouseId;
             try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
@@ -1165,7 +1261,7 @@ public class ReactApiController {
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Registration failed: " + e.getMessage());
+            res.put(KEY_MESSAGE, K_REGISTRATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
     }
@@ -1183,7 +1279,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
@@ -1371,7 +1467,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/customer/forgot-password */
     @PostMapping("/auth/customer/forgot-password")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> customerForgotPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1430,7 +1526,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
@@ -1454,7 +1550,7 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             // Mark this email as OTP-verified so reset-password can proceed
-            otpVerified.put(email, "customer");
+            otpVerified.put(email, K_CUSTOMER);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "OTP verified");
             return ResponseEntity.ok(res);
@@ -1467,7 +1563,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/customer/reset-password */
     @PostMapping("/auth/customer/reset-password")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> customerResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1530,7 +1626,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/forgot-password */
     @PostMapping("/auth/vendor/forgot-password")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> vendorForgotPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1571,7 +1667,7 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         try {
             String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
-            String otpStr = body.getOrDefault("otp", "").toString().trim();
+            String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
@@ -1604,7 +1700,7 @@ public class ReactApiController {
             }
             
             // Mark this email as OTP-verified for password reset
-            otpVerified.put(email, "vendor");
+            otpVerified.put(email, KEY_VENDOR);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "OTP verified");
             return ResponseEntity.ok(res);
@@ -1617,7 +1713,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/reset-password */
     @PostMapping("/auth/vendor/reset-password")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings(K_DEPRECATION)
     public ResponseEntity<Map<String, Object>> vendorResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1717,7 +1813,7 @@ public class ReactApiController {
             case "price_desc":
                 products.sort(Comparator.comparingDouble(Product::getPrice).reversed());
                 break;
-            case "name":
+            case K_NAME:
                 products.sort(Comparator.comparing(p -> p.getName() == null ? "" : p.getName().toLowerCase()));
                 break;
             default:
@@ -1727,7 +1823,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS,  true);
         res.put(KEY_COUNT,    products.size());
-        res.put("products", products.stream().map(this::mapProduct).toList());
+        res.put(K_PRODUCTS, products.stream().map(this::mapProduct).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -1744,15 +1840,15 @@ public class ReactApiController {
         // Include reviews — use targeted query, not findAll()
         List<Review> reviews = reviewRepository.findByProductId(id);
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
-        pm.put("reviews", reviews.stream().map(r -> {
+        pm.put(K_REVIEWS, reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", r.getId());
-            m.put("rating", r.getRating());
-            m.put("comment", r.getComment());
+            m.put(K_RATING, r.getRating());
+            m.put(K_COMMENT, r.getComment());
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
         }).toList());
-        pm.put("avgRating", Math.round(avg * 10.0) / 10.0);
+        pm.put(K_AVGRATING, Math.round(avg * 10.0) / 10.0);
         pm.put("reviewCount", reviews.size());
         res.put(KEY_SUCCESS, true);
         res.put("product", pm);
@@ -1766,15 +1862,15 @@ public class ReactApiController {
         List<Review> reviews = reviewRepository.findByProductId(id);
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         res.put(KEY_SUCCESS, true);
-        res.put("reviews", reviews.stream().map(r -> {
+        res.put(K_REVIEWS, reviews.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", r.getId());
-            m.put("rating", r.getRating());
-            m.put("comment", r.getComment());
+            m.put(K_RATING, r.getRating());
+            m.put(K_COMMENT, r.getComment());
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             return m;
         }).toList());
-        res.put("avgRating", Math.round(avg * 10.0) / 10.0);
+        res.put(K_AVGRATING, Math.round(avg * 10.0) / 10.0);
         res.put("reviewCount", reviews.size());
         return ResponseEntity.ok(res);
     }
@@ -1821,11 +1917,11 @@ public class ReactApiController {
         double total = discountedSubtotal + deliveryCharge;
 
         res.put(KEY_SUCCESS,       true);
-        res.put("items",           items);
+        res.put(K_ITEMS,           items);
         res.put("itemCount",       items.size());
         res.put(KEY_SUBTOTAL,        subtotal);
         res.put(KEY_COUPON_DISCOUNT,  couponDiscount);
-        res.put("deliveryCharge",  deliveryCharge);
+        res.put(K_DELIVERYCHARGE,  deliveryCharge);
         res.put(KEY_TOTAL,         total);
         res.put(KEY_COUNT,         items.size());
         return ResponseEntity.ok(res);
@@ -1835,12 +1931,12 @@ public class ReactApiController {
     private ResponseEntity<Map<String, Object>> buildEmptyCartResponse() {
         Map<String, Object> res = new HashMap<>();
         res.put(KEY_SUCCESS,       true);
-        res.put("items",           new ArrayList<>());
+        res.put(K_ITEMS,           new ArrayList<>());
         res.put(KEY_TOTAL,         0.0);
         res.put(KEY_SUBTOTAL,        0.0);
         res.put(KEY_COUNT,         0);
-        res.put("couponApplied",   false);
-        res.put("couponCode",      "");
+        res.put(K_COUPONAPPLIED,   false);
+        res.put(K_COUPONCODE,      "");
         res.put(KEY_COUPON_DISCOUNT,  0.0);
         return ResponseEntity.ok(res);
     }
@@ -1854,16 +1950,16 @@ public class ReactApiController {
         Coupon applied = appliedCoupons.get(customerId);
         if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
             double discount = applied.calculateDiscount(subtotal);
-            res.put("couponApplied",  true);
-            res.put("couponCode",     applied.getCode());
+            res.put(K_COUPONAPPLIED,  true);
+            res.put(K_COUPONCODE,     applied.getCode());
             res.put(KEY_COUPON_DISCOUNT, discount);
             return discount;
         }
         if (applied != null) {
             appliedCoupons.remove(customerId); // expired / invalid since it was applied
         }
-        res.put("couponApplied",  false);
-        res.put("couponCode",     "");
+        res.put(K_COUPONAPPLIED,  false);
+        res.put(K_COUPONCODE,     "");
         res.put(KEY_COUPON_DISCOUNT, 0.0);
         return 0;
     }
@@ -1894,14 +1990,14 @@ public class ReactApiController {
                 .filter(Coupon::isValid)
                 .map(c -> {
                     Map<String, Object> m = new HashMap<>();
-                    m.put("code",           c.getCode());
-                    m.put("description",    c.getDescription());
-                    m.put("type",           c.getType().name());
-                    m.put("value",          c.getValue());
-                    m.put("typeLabel",      c.getTypeLabel());
-                    m.put("minOrderAmount", c.getMinOrderAmount());
-                    m.put("maxDiscount",    c.getMaxDiscount());
-                    m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
+                    m.put(K_CODE,           c.getCode());
+                    m.put(K_DESCRIPTION,    c.getDescription());
+                    m.put(K_TYPE,           c.getType().name());
+                    m.put(K_VALUE,          c.getValue());
+                    m.put(K_TYPELABEL,      c.getTypeLabel());
+                    m.put(K_MINORDERAMOUNT, c.getMinOrderAmount());
+                    m.put(K_MAXDISCOUNT,    c.getMaxDiscount());
+                    m.put(K_EXPIRYDATE,     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
                     return m;
                 })
                 .toList();
@@ -1914,7 +2010,7 @@ public class ReactApiController {
 
     /**
      * POST /api/flutter/cart/coupon
-     * Body: { "code": "SAVE10" }
+     * Body: { K_CODE: "SAVE10" }
      * Validates the coupon against the customer's current cart total and
      * stores it in the in-memory appliedCoupons map for this session.
      * Returns discount amount so the frontend can update the summary immediately.
@@ -1934,7 +2030,7 @@ public class ReactApiController {
             return ResponseEntity.badRequest().body(res);
         }
 
-        String code = body.get("code") instanceof String s ? s.toUpperCase().trim() : "";
+        String code = body.get(K_CODE) instanceof String s ? s.toUpperCase().trim() : "";
         if (code.isEmpty()) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code is required");
             return ResponseEntity.badRequest().body(res);
@@ -1968,10 +2064,10 @@ public class ReactApiController {
         appliedCoupons.put(customerId, coupon);
 
         res.put(KEY_SUCCESS,      true);
-        res.put("code",         coupon.getCode());
-        res.put("description",  coupon.getDescription());
+        res.put(K_CODE,         coupon.getCode());
+        res.put(K_DESCRIPTION,  coupon.getDescription());
         res.put("discount",     discount);
-        res.put("typeLabel",    coupon.getTypeLabel());
+        res.put(K_TYPELABEL,    coupon.getTypeLabel());
         res.put(KEY_MESSAGE,      coupon.getDescription() + " — saving ₹" + (int) discount);
         return ResponseEntity.ok(res);
     }
@@ -2061,7 +2157,7 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null || customer.getCart() == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart not found"); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
-        int quantity  = Integer.parseInt(body.get("quantity").toString());
+        int quantity  = Integer.parseInt(body.get(K_QUANTITY).toString());
         Cart cart = customer.getCart();
         if (quantity <= 0) {
             List<Item> toRemove = cart.getItems().stream()
@@ -2102,7 +2198,7 @@ public class ReactApiController {
             if (customerError != null) return customerError;
             Cart cart = customer.getCart();
 
-            String paymentMode    = (String) body.getOrDefault("paymentMode", "COD");
+            String paymentMode    = (String) body.getOrDefault(K_PAYMENTMODE, K_COD);
             String deliveryTime   = (String) body.getOrDefault(KEY_DELIVERY_TIME, "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
@@ -2125,7 +2221,7 @@ public class ReactApiController {
                 deliveryCharge,
                 paymentMode,
                 deliveryTime,
-                (String) body.getOrDefault("city", ""),
+                (String) body.getOrDefault(K_CITY, ""),
                 deliveryLocation.deliveryPin,
                 deliveryLocation.warehouse
             );
@@ -2145,9 +2241,9 @@ public class ReactApiController {
             res.put(KEY_MESSAGE,        "Order placed successfully");
             res.put(KEY_ORDER_ID,        subOrderResult.firstOrder.getId());
             res.put("subOrderIds",    subOrderResult.subOrderIds);
-            res.put("totalPrice",     couponApplication.discountedTotal + deliveryCharge);
+            res.put(K_TOTALPRICE,     couponApplication.discountedTotal + deliveryCharge);
             res.put(KEY_COUPON_DISCOUNT, couponApplication.couponDiscount);
-            res.put("couponCode",     couponApplication.appliedCouponCode);
+            res.put(K_COUPONCODE,     couponApplication.appliedCouponCode);
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
@@ -2472,12 +2568,12 @@ public class ReactApiController {
                 res.put("tempOrderId", tempOrderId);
                 res.put(KEY_SUBTOTAL, subtotal);
                 res.put(KEY_COUPON_DISCOUNT, couponDiscount);
-                res.put("deliveryCharge", deliveryCharge);
+                res.put(K_DELIVERYCHARGE, deliveryCharge);
                 res.put(KEY_TOTAL_AMOUNT, totalAmount);
                 return ResponseEntity.ok(res);
             } else {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, razorpayOrderDetails.getOrDefault("message", "Failed to create Razorpay order"));
+                res.put(KEY_MESSAGE, razorpayOrderDetails.getOrDefault(KEY_MESSAGE, "Failed to create Razorpay order"));
                 return ResponseEntity.status(500).body(res);
             }
 
@@ -2624,7 +2720,7 @@ public class ReactApiController {
         res.put(KEY_SUCCESS,         true);
         res.put(KEY_ORDER_ID,        order.getId());
         res.put("currentStatus",     status != null ? status.name() : null);
-        res.put("currentCity",       order.getCurrentCity());
+        res.put(K_CURRENTCITY,       order.getCurrentCity());
         res.put("progressPercent",   status != null ? status.getProgressPercent() : 0);
         putEstimatedDeliveryIfInTransit(res, order, status);
         res.put("history",           history);
@@ -2637,9 +2733,9 @@ public class ReactApiController {
                 .stream()
                 .map(e -> {
                     Map<String, Object> ev = new HashMap<>();
-                    ev.put("status",      e.getStatus() != null ? e.getStatus().name() : null);
+                    ev.put(K_STATUS,      e.getStatus() != null ? e.getStatus().name() : null);
                     ev.put("location",    e.getCity());
-                    ev.put("description", e.getDescription());
+                    ev.put(K_DESCRIPTION, e.getDescription());
                     ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
                     return ev;
                 })
@@ -2679,18 +2775,18 @@ public class ReactApiController {
 
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_ORDER_ID, orderId);
-            res.put("status", order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
-            res.put(KEY_STATUS_DISPLAY, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "Unknown");
-            res.put("paymentMethod", order.getPaymentMethod());
+            res.put(K_STATUS, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
+            res.put(KEY_STATUS_DISPLAY, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : K_UNKNOWN);
+            res.put(K_PAYMENT_METHOD, order.getPaymentMethod());
             res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
             res.put(KEY_ROUTING_PATH, order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
-            res.put("sourceWarehouse", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : "N/A");
-            res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : "N/A");
-            res.put("destinationWarehouse", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : "N/A");
-            res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : "N/A");
-            res.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : "N/A");
+            res.put(K_SOURCEWAREHOUSE, order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : K_N_A);
+            res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : K_N_A);
+            res.put(K_DESTINATION_WAREHOUSE, order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : K_N_A);
+            res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : K_N_A);
+            res.put(K_ORDERDATE, order.getOrderDate() != null ? order.getOrderDate().toString() : K_N_A);
             res.put(KEY_DELIVERY_ADDRESS, order.getDeliveryAddress());
-            res.put("totalPrice", order.getAmount());
+            res.put(K_TOTALPRICE, order.getAmount());
             res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
             
             // Estimated delivery: +48 hours from order date if still in transit
@@ -2807,7 +2903,7 @@ public class ReactApiController {
      * POST /api/flutter/orders/{id}/report-issue
      *
      * Request body (JSON):
-     *   { "reason": "Wrong item delivered", "description": "Optional extra details..." }
+     *   { K_REASON: "Wrong item delivered", K_DESCRIPTION: "Optional extra details..." }
      *
      * - Validates the order exists and belongs to the authenticated customer.
      * - Sends an HTML admin notification email via EmailSender (async, fire-and-forget).
@@ -2843,8 +2939,8 @@ public class ReactApiController {
         }
 
         // ── 3. Extract and validate body ───────────────────────────────────
-        String reason      = body != null ? body.get("reason")      : null;
-        String description = body != null ? body.get("description") : null;
+        String reason      = body != null ? body.get(K_REASON)      : null;
+        String description = body != null ? body.get(K_DESCRIPTION) : null;
 
         if (reason == null || reason.isBlank()) {
             res.put(KEY_SUCCESS, false);
@@ -2881,7 +2977,7 @@ public class ReactApiController {
         res.put(KEY_SUCCESS, true);
         res.put(KEY_MESSAGE, "Your issue has been reported. Our team will review it shortly.");
         res.put(KEY_ORDER_ID, id);
-        res.put("reason", reason);
+        res.put(K_REASON, reason);
         return ResponseEntity.ok(res);
     }
 
@@ -2967,11 +3063,11 @@ public class ReactApiController {
             Map<String, Object> m = new HashMap<>();
             Product p = w.getProduct();
             m.put("wishlistId", w.getId()); m.put("addedAt", w.getAddedAt() != null ? w.getAddedAt().toString() : null);
-            m.put(KEY_PRODUCT_ID, p.getId()); m.put("name", p.getName()); m.put("price", p.getPrice());
-            m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("category", p.getCategory()); m.put("inStock", p.getStock() > 0);
+            m.put(KEY_PRODUCT_ID, p.getId()); m.put(K_NAME, p.getName()); m.put(K_PRICE, p.getPrice());
+            m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put(K_CATEGORY, p.getCategory()); m.put("inStock", p.getStock() > 0);
             return m;
         }).toList();
-        res.put(KEY_SUCCESS, true); res.put(KEY_COUNT, items.size()); res.put("items", items);
+        res.put(KEY_SUCCESS, true); res.put(KEY_COUNT, items.size()); res.put(K_ITEMS, items);
         return ResponseEntity.ok(res);
     }
 
@@ -3026,21 +3122,21 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> profile = new HashMap<>();
-        profile.put("id", customer.getId()); profile.put("name", customer.getName());
+        profile.put("id", customer.getId()); profile.put(K_NAME, customer.getName());
         profile.put(KEY_EMAIL, customer.getEmail()); profile.put(KEY_MOBILE, customer.getMobile());
         profile.put("profileImage", customer.getProfileImage());
         profile.put("lastLogin", customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
         profile.put(KEY_PROVIDER,  customer.getProvider()  != null ? customer.getProvider() : "local");
-        profile.put("password",  customer.getPassword() != null); // boolean: true if password is set
+        profile.put(K_PASSWORD,  customer.getPassword() != null); // boolean: true if password is set
         profile.put(KEY_ADDRESSES, customer.getAddresses().stream().map(a -> {
             Map<String, Object> am = new HashMap<>();
             am.put("id",            a.getId());
             am.put("formattedAddress", a.getFormattedAddress());
-            am.put("recipientName", a.getRecipientName() != null ? a.getRecipientName() : "");
-            am.put("houseStreet",   a.getHouseStreet()   != null ? a.getHouseStreet()   : "");
-            am.put("city",          a.getCity()          != null ? a.getCity()          : "");
-            am.put("state",         a.getState()         != null ? a.getState()         : "");
-            am.put("postalCode",    a.getPostalCode()    != null ? a.getPostalCode()    : "");
+            am.put(K_RECIPIENT_NAME, a.getRecipientName() != null ? a.getRecipientName() : "");
+            am.put(K_HOUSE_STREET,   a.getHouseStreet()   != null ? a.getHouseStreet()   : "");
+            am.put(K_CITY,          a.getCity()          != null ? a.getCity()          : "");
+            am.put(K_STATE,         a.getState()         != null ? a.getState()         : "");
+            am.put(K_POSTAL_CODE,    a.getPostalCode()    != null ? a.getPostalCode()    : "");
             // legacy fallback
             am.put("details",       a.getDetails()       != null ? a.getDetails()       : "");
             return am;
@@ -3058,7 +3154,7 @@ public class ReactApiController {
         if (customerId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_MISSING_CUSTOMER_HEADER); return ResponseEntity.status(401).body(res); }
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        if (body.containsKey("name"))   customer.setName((String) body.get("name"));
+        if (body.containsKey(K_NAME))   customer.setName((String) body.get(K_NAME));
         if (body.containsKey(KEY_MOBILE)) customer.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString()));
         customerRepository.save(customer);
         res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
@@ -3068,7 +3164,7 @@ public class ReactApiController {
     /**
      * POST /api/flutter/profile/address/add
      * Accepts structured fields: recipientName, houseStreet, city, state, postalCode.
-     * Also accepts legacy "address" flat-text field for backward compatibility.
+     * Also accepts legacy K_ADDRESS flat-text field for backward compatibility.
      */
     @PostMapping("/profile/address/add")
     public ResponseEntity<Map<String, Object>> addAddress(
@@ -3082,18 +3178,18 @@ public class ReactApiController {
         Address address = new Address();
         address.setCustomer(customer);
 
-        String recipientName = body.get("recipientName");
+        String recipientName = body.get(K_RECIPIENT_NAME);
         if (recipientName != null && !recipientName.isBlank()) {
             // Structured form submission
             address.setRecipientName(recipientName.trim());
-            address.setHouseStreet(body.getOrDefault("houseStreet", "").trim());
-            address.setCity(body.getOrDefault("city", "").trim());
-            address.setState(body.getOrDefault("state", "").trim());
-            String postalCode = body.getOrDefault("postalCode", "").trim();
+            address.setHouseStreet(body.getOrDefault(K_HOUSE_STREET, "").trim());
+            address.setCity(body.getOrDefault(K_CITY, "").trim());
+            address.setState(body.getOrDefault(K_STATE, "").trim());
+            String postalCode = body.getOrDefault(K_POSTAL_CODE, "").trim();
             address.setPostalCode(postalCode);
         } else {
             // Legacy flat-text fallback
-            String details = body.get("address");
+            String details = body.get(K_ADDRESS);
             if (details == null || details.isBlank()) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Address cannot be empty");
                 return ResponseEntity.badRequest().body(res);
@@ -3136,8 +3232,8 @@ public class ReactApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         int productId = Integer.parseInt(body.get(KEY_PRODUCT_ID).toString());
-        int rating    = Integer.parseInt(body.get("rating").toString());
-        String comment = (String) body.get("comment");
+        int rating    = Integer.parseInt(body.get(K_RATING).toString());
+        String comment = (String) body.get(K_COMMENT);
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
         if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
@@ -3157,14 +3253,14 @@ public class ReactApiController {
     /**
      * POST /api/flutter/reviews/{reviewId}/upload-image
      * Multipart upload of up to 5 evidence photos for a review.
-     * Field name: "images" (multiple files).
+     * Field name: K_IMAGES (multiple files).
      * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per review.
     * Header: X-Customer-Id — ownership enforced via review.customer FK.
      */
     @PostMapping(value = "/reviews/{reviewId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadReviewImageFlutter(
             @PathVariable int reviewId,
-            @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
+            @RequestParam(K_IMAGES) List<org.springframework.web.multipart.MultipartFile> files,
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
 
         Map<String, Object> res = new HashMap<>();
@@ -3206,7 +3302,7 @@ public class ReactApiController {
             boolean validType = ct != null && (ct.equals("image/jpeg") || ct.equals("image/png") || ct.equals("image/webp"));
             boolean validSize = file.getSize() <= 5 * 1024 * 1024;
             if (!validType || !validSize) {
-                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : "file")
+                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : K_FILE)
                     + ": must be JPG/PNG/WEBP, max 5 MB");
                 continue;
             }
@@ -3261,7 +3357,7 @@ public class ReactApiController {
                 catSpend.merge(cat, item.getPrice() * item.getQuantity(), Double::sum);
             }
         }
-        String topCategory = catSpend.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("N/A");
+        String topCategory = catSpend.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(K_N_A);
         Map<String, Double> monthly = new LinkedHashMap<>();
         int year = java.time.Year.now().getValue();
         for (Order o : delivered) {
@@ -3271,9 +3367,9 @@ public class ReactApiController {
             }
         }
         res.put(KEY_SUCCESS, true); res.put("hasData", true);
-        res.put("totalSpent", totalSpent); res.put("totalOrders", totalOrders);
-        res.put("averageOrderValue", avgOrder); res.put("topCategory", topCategory);
-        res.put("categorySpending", catSpend); res.put("monthlySpending", monthly);
+        res.put(K_TOTALSPENT, totalSpent); res.put(K_TOTALORDERS, totalOrders);
+        res.put("averageOrderValue", avgOrder); res.put(K_TOPCATEGORY, topCategory);
+        res.put(K_CATEGORY_SPENDING, catSpend); res.put(K_MONTHLY_SPENDING, monthly);
         return ResponseEntity.ok(res);
     }
 
@@ -3292,8 +3388,8 @@ public class ReactApiController {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
             int orderId  = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
-            String reason = (String) body.getOrDefault("reason", "");
-            String type   = (String) body.getOrDefault("type", "REFUND");
+            String reason = (String) body.getOrDefault(K_REASON, "");
+            String type   = (String) body.getOrDefault(K_TYPE, K_REFUND);
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null || order.getCustomer().getId() != customerId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
             if (order.getTrackingStatus() != TrackingStatus.DELIVERED) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Refund can only be requested for delivered orders"); return ResponseEntity.badRequest().body(res); }
@@ -3323,20 +3419,20 @@ public class ReactApiController {
         Refund latest = refunds.get(refunds.size() - 1);
         res.put(KEY_SUCCESS, true); res.put("hasRefund", true);
         res.put("refundId", latest.getId());
-        res.put("status", latest.getStatus().name());
+        res.put(K_STATUS, latest.getStatus().name());
         // reason is stored as "[TYPE] actual reason" — parse them back out
         String storedReason = latest.getReason() != null ? latest.getReason() : "";
-        String refundType = "REFUND";
+        String refundType = K_REFUND;
         String displayReason = storedReason;
         if (storedReason.startsWith("[REFUND] ")) {
-            refundType = "REFUND";
+            refundType = K_REFUND;
             displayReason = storedReason.substring(9);
         } else if (storedReason.startsWith("[REPLACEMENT] ")) {
             refundType = "REPLACEMENT";
             displayReason = storedReason.substring(14);
         }
-        res.put("reason", displayReason);
-        res.put("type", refundType);
+        res.put(K_REASON, displayReason);
+        res.put(K_TYPE, refundType);
         return ResponseEntity.ok(res);
     }
 
@@ -3348,14 +3444,14 @@ public class ReactApiController {
     /**
      * POST /api/flutter/refund/{refundId}/upload-image
      * Multipart upload of up to 5 evidence images for a refund request.
-     * Accepts: multipart/form-data, field name "images" (multiple files).
+     * Accepts: multipart/form-data, field name K_IMAGES (multiple files).
      * Validates: JPEG/PNG/WEBP only, max 5 MB each, max 5 total per refund.
      * Header: X-Customer-Id (ownership enforced)
      */
     @PostMapping(value = "/refund/{refundId}/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadRefundImageFlutter(
             @PathVariable int refundId,
-            @RequestParam("images") List<org.springframework.web.multipart.MultipartFile> files,
+            @RequestParam(K_IMAGES) List<org.springframework.web.multipart.MultipartFile> files,
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId) {
 
         Map<String, Object> res = new HashMap<>();
@@ -3397,7 +3493,7 @@ public class ReactApiController {
             boolean validType = ct != null && (ct.equals("image/jpeg") || ct.equals("image/png") || ct.equals("image/webp"));
             boolean validSize = file.getSize() <= 5 * 1024 * 1024;
             if (!validType || !validSize) {
-                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : "file")
+                errors.add((file.getOriginalFilename() != null ? file.getOriginalFilename() : K_FILE)
                     + ": must be JPG/PNG/WEBP, max 5 MB");
                 continue;
             }
@@ -3459,11 +3555,11 @@ public class ReactApiController {
         for (RefundImage img : images) {
             Map<String, Object> m = new HashMap<>();
             m.put("id", img.getId());
-            m.put("imageUrl", img.getImageUrl());
+            m.put(K_IMAGEURL, img.getImageUrl());
             data.add(m);
         }
         res.put(KEY_SUCCESS, true);
-        res.put("images", data);
+        res.put(K_IMAGES, data);
         res.put(KEY_COUNT, data.size());
         return ResponseEntity.ok(res);
     }
@@ -3480,7 +3576,7 @@ public class ReactApiController {
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         List<Product> products = productRepository.findByVendor(vendor);
         res.put(KEY_SUCCESS, true);
-        res.put("products", products.stream().map(this::mapProduct).toList());
+        res.put(K_PRODUCTS, products.stream().map(this::mapProduct).toList());
         res.put(KEY_COUNT, products.size());
         return ResponseEntity.ok(res);
     }
@@ -3498,8 +3594,8 @@ public class ReactApiController {
             List<Map<String, Object>> vendorItems = order.getItems().stream()
                     .filter(i -> i.getProductId() != null && vendorProductIds.contains(i.getProductId()))
                     .map(this::mapItem).toList();
-            o.put("items", vendorItems);
-            double vendorTotal = vendorItems.stream().mapToDouble(i -> (double) i.get("price") * (int) i.get("quantity")).sum();
+            o.put(K_ITEMS, vendorItems);
+            double vendorTotal = vendorItems.stream().mapToDouble(i -> (double) i.get(K_PRICE) * (int) i.get(K_QUANTITY)).sum();
             o.put("vendorTotal", vendorTotal);
             return o;
         }).toList();
@@ -3573,7 +3669,7 @@ public class ReactApiController {
         res.put(KEY_ORDER_ID, orderId);
         res.put(KEY_NEW_STATUS, TrackingStatus.PACKED.name());
         if (order.getSourceWarehouse() != null) {
-            res.put("sourceWarehouse", order.getSourceWarehouse().getName());
+            res.put(K_SOURCEWAREHOUSE, order.getSourceWarehouse().getName());
         }
         return ResponseEntity.ok(res);
     }
@@ -3593,8 +3689,8 @@ public class ReactApiController {
                 .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
         long activeProducts   = products.stream().filter(Product::isApproved).count();
         long lowStockProducts = products.stream().filter(p -> p.getStock() <= (p.getStockAlertThreshold() != null ? p.getStockAlertThreshold() : 10)).count();
-        res.put(KEY_SUCCESS, true); res.put("totalRevenue", totalRevenue);
-        res.put("totalOrders", orders.size()); res.put("totalProducts", products.size());
+        res.put(KEY_SUCCESS, true); res.put(K_TOTALREVENUE, totalRevenue);
+        res.put(K_TOTALORDERS, orders.size()); res.put(K_TOTALPRODUCTS, products.size());
         res.put("activeProducts", activeProducts); res.put("lowStockProducts", lowStockProducts);
         return ResponseEntity.ok(res);
     }
@@ -3607,17 +3703,17 @@ public class ReactApiController {
     @PostMapping(value = "/vendor/products/add", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorAddProduct(
             @RequestHeader(HEADER_VENDOR_ID) int vendorId,
-            @RequestParam("name") String name,
-            @RequestParam("description") String description,
-            @RequestParam("price") String price,
-            @RequestParam("category") String category,
-            @RequestParam("stock") String stock,
+            @RequestParam(K_NAME) String name,
+            @RequestParam(K_DESCRIPTION) String description,
+            @RequestParam(K_PRICE) String price,
+            @RequestParam(K_CATEGORY) String category,
+            @RequestParam(K_STOCK) String stock,
             @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
-            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
-            @RequestParam(value = "mrp", required = false) String mrp,
-            @RequestParam(value = "gstRate", required = false) String gstRate,
+            @RequestParam(value = K_IMAGE, required = false) org.springframework.web.multipart.MultipartFile image,
+            @RequestParam(value = K_MRP, required = false) String mrp,
+            @RequestParam(value = K_GST_RATE, required = false) String gstRate,
             @RequestParam(value = "allowedPinCodes", required = false) String allowedPinCodes,
-            @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
+            @RequestParam(value = K_STOCK_ALERT_THRESHOLD, required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
@@ -3660,7 +3756,7 @@ public class ReactApiController {
             productRepository.save(p);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product added. Pending admin approval."); res.put(KEY_PRODUCT_ID, p.getId());
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** PUT /api/react/vendor/products/{id}/update — Accepts multipart/form-data */
@@ -3668,16 +3764,16 @@ public class ReactApiController {
     public ResponseEntity<Map<String, Object>> vendorUpdateProduct(
             @RequestHeader(HEADER_VENDOR_ID) int vendorId,
             @PathVariable int id,
-            @RequestParam(value = "name", required = false) String name,
-            @RequestParam(value = "description", required = false) String description,
-            @RequestParam(value = "price", required = false) String price,
-            @RequestParam(value = "category", required = false) String category,
-            @RequestParam(value = "stock", required = false) String stock,
+            @RequestParam(value = K_NAME, required = false) String name,
+            @RequestParam(value = K_DESCRIPTION, required = false) String description,
+            @RequestParam(value = K_PRICE, required = false) String price,
+            @RequestParam(value = K_CATEGORY, required = false) String category,
+            @RequestParam(value = K_STOCK, required = false) String stock,
             @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
-            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
-            @RequestParam(value = "mrp", required = false) String mrp,
-            @RequestParam(value = "gstRate", required = false) String gstRate,
-            @RequestParam(value = "stockAlertThreshold", required = false) String stockAlertThreshold) {
+            @RequestParam(value = K_IMAGE, required = false) org.springframework.web.multipart.MultipartFile image,
+            @RequestParam(value = K_MRP, required = false) String mrp,
+            @RequestParam(value = K_GST_RATE, required = false) String gstRate,
+            @RequestParam(value = K_STOCK_ALERT_THRESHOLD, required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
@@ -3707,7 +3803,7 @@ public class ReactApiController {
             productRepository.save(p);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** DELETE /api/flutter/vendor/products/{id}/delete */
@@ -3739,7 +3835,7 @@ public class ReactApiController {
             categories = java.util.Arrays.asList("Electronics", "Fashion", "Home & Kitchen", "Sports", "Beauty", "Books", "Toys", "Food & Groceries");
         }
         res.put(KEY_SUCCESS, true);
-        res.put("categories", categories.stream().map(c -> java.util.Map.of("name", c)).toList());
+        res.put("categories", categories.stream().map(c -> java.util.Map.of(K_NAME, c)).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -3755,7 +3851,7 @@ public class ReactApiController {
     @PostMapping("/vendor/products/upload-csv")
     public ResponseEntity<Map<String, Object>> vendorUploadCsv(
             @RequestHeader(value = HEADER_VENDOR_ID, required = false) Integer vendorId,
-            @RequestParam("file") MultipartFile file,
+            @RequestParam(K_FILE) MultipartFile file,
             jakarta.servlet.http.HttpServletRequest request) {
         Map<String, Object> res = new HashMap<>();
         // Allow header to be omitted when the request carries a valid JWT — fall back
@@ -3789,13 +3885,13 @@ public class ReactApiController {
                 String[] cells = parseCsvLine(line);
                 try {
                     String idStr = getCellByHeaders(cells, idx, "id", "productid");
-                    String name = getCellByHeaders(cells, idx, "name", "productname");
-                    String desc = getCellByHeaders(cells, idx, "description", "productdescription");
-                    String priceStr = getCellByHeaders(cells, idx, "price", "sellingprice", "saleprice");
-                    String mrpStr = getCellByHeaders(cells, idx, "mrp", "originalprice");
-                    String category = getCellByHeaders(cells, idx, "category", "productcategory");
-                    String stockStr = getCellByHeaders(cells, idx, "stock", "quantity");
-                    String imageLink = getCellByHeaders(cells, idx, "imagelink", "imageurl", "image");
+                    String name = getCellByHeaders(cells, idx, K_NAME, "productname");
+                    String desc = getCellByHeaders(cells, idx, K_DESCRIPTION, "productdescription");
+                    String priceStr = getCellByHeaders(cells, idx, K_PRICE, "sellingprice", "saleprice");
+                    String mrpStr = getCellByHeaders(cells, idx, K_MRP, "originalprice");
+                    String category = getCellByHeaders(cells, idx, K_CATEGORY, "productcategory");
+                    String stockStr = getCellByHeaders(cells, idx, K_STOCK, K_QUANTITY);
+                    String imageLink = getCellByHeaders(cells, idx, "imagelink", "imageurl", K_IMAGE);
                     String threshStr = getCellByHeaders(cells, idx, "stockalertthreshold", "stockalert", "alertthreshold");
                     String gstRateStr = getCellByHeaders(cells, idx, "gstrate", "gstratepercent", "gst", "gstpercent");
                     String pinCodes = getCellByHeaders(cells, idx, "allowedpincodes", "pincodes", "deliverablepincodes");
@@ -3812,8 +3908,8 @@ public class ReactApiController {
                     if (idStr != null && !idStr.isBlank()) {
                         int id = Integer.parseInt(idStr);
                         Product p = productRepository.findById(id).orElse(null);
-                        if (p == null) throw new IllegalArgumentException("Product id " + id + " not found");
-                        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException("Product id " + id + " does not belong to you");
+                        if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
+                        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException(K_PRODUCT_ID + id + " does not belong to you");
                         p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp); p.setCategory(category); p.setStock(stock);
                         if (imageLink != null) p.setImageLink(imageLink);
                         if (thresh != null) p.setStockAlertThreshold(thresh);
@@ -3857,7 +3953,7 @@ public class ReactApiController {
      */
     @PostMapping(value = "/admin/products/upload-csv", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> adminUploadProductCsv(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam(K_FILE) MultipartFile file,
             @RequestParam(value = KEY_VENDOR_ID, required = false) Integer vendorId,
             @RequestParam(value = "autoApprove", required = false, defaultValue = "true") boolean autoApprove,
             jakarta.servlet.http.HttpServletRequest request) {
@@ -3875,7 +3971,7 @@ public class ReactApiController {
         if (vendorId != null) {
             vendor = vendorRepository.findById(vendorId).orElse(null);
             if (vendor == null) {
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor id " + vendorId + " not found");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Vendor id " + vendorId + K_NOT_FOUND);
                 return ResponseEntity.badRequest().body(res);
             }
         }
@@ -3895,12 +3991,12 @@ public class ReactApiController {
                 String[] cells = parseCsvLine(line);
                 try {
                     String idStr       = getCell(cells, idx.get("id"));
-                    String name        = getCell(cells, idx.get("name"));
-                    String desc        = getCell(cells, idx.get("description"));
-                    String priceStr    = getCell(cells, idx.get("price"));
-                    String mrpStr      = getCell(cells, idx.get("mrp"));
-                    String category    = getCell(cells, idx.get("category"));
-                    String stockStr    = getCell(cells, idx.get("stock"));
+                    String name        = getCell(cells, idx.get(K_NAME));
+                    String desc        = getCell(cells, idx.get(K_DESCRIPTION));
+                    String priceStr    = getCell(cells, idx.get(K_PRICE));
+                    String mrpStr      = getCell(cells, idx.get(K_MRP));
+                    String category    = getCell(cells, idx.get(K_CATEGORY));
+                    String stockStr    = getCell(cells, idx.get(K_STOCK));
                     String imageLink   = getCell(cells, idx.get("imagelink"));
                     String threshStr   = getCell(cells, idx.get("stockalertthreshold"));
                     String gstRateStr  = getCell(cells, idx.get("gstrate"));
@@ -3922,7 +4018,7 @@ public class ReactApiController {
                         // Update existing product
                         int id = Integer.parseInt(idStr.trim());
                         Product p = productRepository.findById(id).orElse(null);
-                        if (p == null) throw new IllegalArgumentException("Product id " + id + " not found");
+                        if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
                         p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
                         p.setCategory(category); p.setStock(stock); p.setApproved(approved);
                         if (imageLink != null) p.setImageLink(imageLink);
@@ -4023,18 +4119,18 @@ public class ReactApiController {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         java.time.LocalDateTime windowStart;
         int buckets;
-        String bucketUnit; // "day", "week", "month"
+        String bucketUnit; // K_DAY, "week", K_MONTH
 
         switch (period.toLowerCase()) {
             case "daily":
                 windowStart = now.minusDays(6).toLocalDate().atStartOfDay();
                 buckets     = 7;
-                bucketUnit  = "day";
+                bucketUnit  = K_DAY;
                 break;
             case "monthly":
                 windowStart = now.minusMonths(6).withDayOfMonth(1).toLocalDate().atStartOfDay();
                 buckets     = 6;
-                bucketUnit  = "month";
+                bucketUnit  = K_MONTH;
                 break;
             case "yearly":
                 windowStart = now.minusMonths(11).withDayOfMonth(1).toLocalDate().atStartOfDay();
@@ -4073,12 +4169,12 @@ public class ReactApiController {
             java.time.LocalDateTime bucketStart, bucketEnd;
             String label;
 
-            if ("day".equals(bucketUnit)) {
+            if (K_DAY.equals(bucketUnit)) {
                 java.time.LocalDate d = now.toLocalDate().minusDays(i);
                 bucketStart = d.atStartOfDay();
                 bucketEnd   = d.plusDays(1).atStartOfDay();
                 label       = d.getDayOfMonth() + " " + d.getMonth().name().substring(0, 3);
-            } else if ("month".equals(bucketUnit)) {
+            } else if (K_MONTH.equals(bucketUnit)) {
                 java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(i);
                 bucketStart = ym.atDay(1).atStartOfDay();
                 bucketEnd   = ym.atEndOfMonth().plusDays(1).atStartOfDay();
@@ -4109,7 +4205,7 @@ public class ReactApiController {
 
             Map<String, Object> bucket = new HashMap<>();
             bucket.put("label",   label);
-            bucket.put("revenue", Math.round(bucketRevenue * 100.0) / 100.0);
+            bucket.put(K_REVENUE, Math.round(bucketRevenue * 100.0) / 100.0);
             data.add(bucket);
         }
 
@@ -4132,13 +4228,13 @@ public class ReactApiController {
                 .map(p -> {
                     Map<String, Object> m = new HashMap<>();
                     int units = unitsSoldMap.getOrDefault(p.getId(), 0);
-                    m.put("id", p.getId()); m.put("name", p.getName());
+                    m.put("id", p.getId()); m.put(K_NAME, p.getName());
                     m.put("unitsSold", units);
-                    m.put("revenue",   Math.round(units * p.getPrice() * 100.0) / 100.0);
+                    m.put(K_REVENUE,   Math.round(units * p.getPrice() * 100.0) / 100.0);
                     return m;
                 }).toList();
 
-        String topProduct = topProducts.isEmpty() ? "—" : (String) topProducts.get(0).get("name");
+        String topProduct = topProducts.isEmpty() ? "—" : (String) topProducts.get(0).get(K_NAME);
 
         // All-time pending count (useful status signal regardless of period)
         // All-time pending count (useful status signal regardless of period)
@@ -4151,10 +4247,10 @@ public class ReactApiController {
         res.put(KEY_SUCCESS,        true);
         res.put("period",         period);
         res.put("data",           data);
-        res.put("totalRevenue",   Math.round(totalRevenue * 100.0) / 100.0);
-        res.put("totalOrders",    totalOrders);
-        res.put("totalProducts",  products.size());
-        res.put("avgOrderValue",  Math.round(avgOrderValue * 100.0) / 100.0);
+        res.put(K_TOTALREVENUE,   Math.round(totalRevenue * 100.0) / 100.0);
+        res.put(K_TOTALORDERS,    totalOrders);
+        res.put(K_TOTALPRODUCTS,  products.size());
+        res.put(K_AVGORDERVALUE,  Math.round(avgOrderValue * 100.0) / 100.0);
         res.put("topProduct",     topProduct);
         res.put("topProducts",    topProducts);
         res.put("pendingOrders",  pendingOrders);
@@ -4168,14 +4264,14 @@ public class ReactApiController {
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
         double resolvedGstRate = resolveGstRate(p.getGstRate(), p.getCategory());
-        m.put("id", p.getId()); m.put("name", p.getName()); m.put("description", p.getDescription());
-        m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("gstRate", p.getGstRate());
+        m.put("id", p.getId()); m.put(K_NAME, p.getName()); m.put(K_DESCRIPTION, p.getDescription());
+        m.put(K_PRICE, p.getPrice()); m.put(K_MRP, p.getMrp()); m.put(K_GST_RATE, p.getGstRate());
         m.put("gstRateResolved", resolvedGstRate);
-        m.put("category", p.getCategory()); m.put("stock", p.getStock());
-        m.put("stockAlertThreshold", p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
+        m.put(K_CATEGORY, p.getCategory()); m.put(K_STOCK, p.getStock());
+        m.put(K_STOCK_ALERT_THRESHOLD, p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
         m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put(KEY_APPROVED, p.isApproved());
-        m.put("vendorCode", p.getVendor() != null ? p.getVendor().getVendorCode() : null);
+        m.put(K_VENDORCODE, p.getVendor() != null ? p.getVendor().getVendorCode() : null);
         m.put(KEY_VENDOR_NAME, p.getVendorName());
         m.put("isRestricted", p.isRestrictedByPinCode());
         return m;
@@ -4184,10 +4280,10 @@ public class ReactApiController {
     private Map<String, Object> mapItem(Item i) {
         Map<String, Object> m = new HashMap<>();
         double resolvedGstRate = resolveItemGstRate(i);
-        m.put("id", i.getId()); m.put("name", i.getName()); m.put("description", i.getDescription());
-        m.put("price", i.getPrice()); m.put("category", i.getCategory());
+        m.put("id", i.getId()); m.put(K_NAME, i.getName()); m.put(K_DESCRIPTION, i.getDescription());
+        m.put(K_PRICE, i.getPrice()); m.put(K_CATEGORY, i.getCategory());
         m.put("gstRateResolved", resolvedGstRate);
-        m.put("quantity", i.getQuantity()); m.put(KEY_IMAGE_LINK, i.getImageLink()); m.put(KEY_PRODUCT_ID, i.getProductId());
+        m.put(K_QUANTITY, i.getQuantity()); m.put(KEY_IMAGE_LINK, i.getImageLink()); m.put(KEY_PRODUCT_ID, i.getProductId());
         return m;
     }
 
@@ -4224,41 +4320,41 @@ public class ReactApiController {
 
     private Map<String, Object> mapOrder(Order o) {
         Map<String, Object> m = new HashMap<>();
-        m.put("id", o.getId()); m.put(KEY_AMOUNT, o.getAmount()); m.put("deliveryCharge", o.getDeliveryCharge());
-        m.put("totalPrice", o.getTotalPrice()); m.put("paymentMode", o.getPaymentMode());
+        m.put("id", o.getId()); m.put(KEY_AMOUNT, o.getAmount()); m.put(K_DELIVERYCHARGE, o.getDeliveryCharge());
+        m.put(K_TOTALPRICE, o.getTotalPrice()); m.put(K_PAYMENTMODE, o.getPaymentMode());
         m.put(KEY_DELIVERY_TIME, o.getDeliveryTime()); m.put("trackingStatus", o.getTrackingStatus().name());
         m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
-        m.put("currentCity", o.getCurrentCity());
-        m.put("orderDate", o.getOrderDate() != null ? o.getOrderDate().toString() : null);
+        m.put(K_CURRENTCITY, o.getCurrentCity());
+        m.put(K_ORDERDATE, o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested", o.isReplacementRequested());
-        m.put("deliveryPinCode", o.getDeliveryPinCode());
+        m.put(K_DELIVERYPINCODE, o.getDeliveryPinCode());
         m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
-        m.put("items", o.getItems().stream().map(this::mapItem).toList());
+        m.put(K_ITEMS, o.getItems().stream().map(this::mapItem).toList());
         // Customer — name + mobile for admin/delivery views
         if (o.getCustomer() != null) {
             m.put(KEY_CUSTOMER_NAME, o.getCustomer().getName());
             Map<String, Object> cust = new HashMap<>();
             cust.put("id",     o.getCustomer().getId());
-            cust.put("name",   o.getCustomer().getName());
+            cust.put(K_NAME,   o.getCustomer().getName());
             cust.put(KEY_EMAIL,  o.getCustomer().getEmail());
             cust.put(KEY_MOBILE, o.getCustomer().getMobile());
-            m.put("customer", cust);
+            m.put(K_CUSTOMER, cust);
         }
         // Warehouse — needed by delivery assignment tab
         if (o.getWarehouse() != null) {
             Map<String, Object> wh = new HashMap<>();
             wh.put("id",   o.getWarehouse().getId());
-            wh.put("name", o.getWarehouse().getName());
-            wh.put("city", o.getWarehouse().getCity());
-            m.put("warehouse", wh);
+            wh.put(K_NAME, o.getWarehouse().getName());
+            wh.put(K_CITY, o.getWarehouse().getCity());
+            m.put(K_WAREHOUSE, wh);
         }
         // Assigned delivery boy — needed by In-Progress tab
         if (o.getDeliveryBoy() != null) {
             Map<String, Object> db = new HashMap<>();
             db.put("id",   o.getDeliveryBoy().getId());
-            db.put("name", o.getDeliveryBoy().getName());
-            db.put("code", o.getDeliveryBoy().getDeliveryBoyCode());
-            m.put("deliveryBoy", db);
+            db.put(K_NAME, o.getDeliveryBoy().getName());
+            db.put(K_CODE, o.getDeliveryBoy().getDeliveryBoyCode());
+            m.put(K_DELIVERYBOY, db);
         }
         return m;
     }
@@ -4276,16 +4372,16 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> customers = customerRepository.findAll().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", c.getId()); m.put("name", c.getName()); m.put(KEY_EMAIL, c.getEmail());
-            m.put(KEY_MOBILE, c.getMobile()); m.put("active", c.isActive()); m.put("verified", c.isVerified());
-            m.put("role", c.getRole() != null ? c.getRole().name() : ROLE_CUSTOMER);
+            m.put("id", c.getId()); m.put(K_NAME, c.getName()); m.put(KEY_EMAIL, c.getEmail());
+            m.put(KEY_MOBILE, c.getMobile()); m.put(K_ACTIVE, c.isActive()); m.put(K_VERIFIED, c.isVerified());
+            m.put(K_ROLE, c.getRole() != null ? c.getRole().name() : ROLE_CUSTOMER);
             return m;
         }).toList();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put(KEY_EMAIL, v.getEmail());
-            m.put(KEY_MOBILE, v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            m.put("id", v.getId()); m.put(K_NAME, v.getName()); m.put(KEY_EMAIL, v.getEmail());
+            m.put(KEY_MOBILE, v.getMobile()); m.put(K_VENDORCODE, v.getVendorCode());
+            m.put(K_ACTIVE, v.isVerified()); m.put(K_VERIFIED, v.isVerified());
             return m;
         }).toList();
         res.put(KEY_SUCCESS, true); res.put("customers", customers); res.put("vendors", vendors);
@@ -4302,7 +4398,7 @@ public class ReactApiController {
         if (c == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         c.setActive(!c.isActive());
         customerRepository.save(c);
-        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, c.isActive() ? "Account activated" : "Account suspended"); res.put("active", c.isActive());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, c.isActive() ? "Account activated" : "Account suspended"); res.put(K_ACTIVE, c.isActive());
         return ResponseEntity.ok(res);
     }
 
@@ -4313,7 +4409,7 @@ public class ReactApiController {
      * Only Customer entities carry the Role enum (CUSTOMER / ORDER_MANAGER / ADMIN).
      * Vendors and delivery boys are separate entities with their own auth — not affected here.
      *
-     * Body: { "role": "ORDER_MANAGER" }
+     * Body: { K_ROLE: "ORDER_MANAGER" }
      * Response: { success, message, userId, oldRole, newRole, userName }
      */
     @PatchMapping("/admin/users/{id}/role")
@@ -4325,7 +4421,7 @@ public class ReactApiController {
         if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
 
-        String newRoleStr = body.get("role");
+        String newRoleStr = body.get(K_ROLE);
         if (newRoleStr == null || newRoleStr.isBlank()) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "role is required");
             return ResponseEntity.badRequest().body(res);
@@ -4368,7 +4464,7 @@ public class ReactApiController {
         if (v == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         v.setVerified(!v.isVerified());
         vendorRepository.save(v);
-        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put("active", v.isVerified());
+        res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, v.isVerified() ? "Vendor activated" : "Vendor suspended"); res.put(K_ACTIVE, v.isVerified());
         return ResponseEntity.ok(res);
     }
 
@@ -4381,7 +4477,7 @@ public class ReactApiController {
         List<Map<String, Object>> products = productRepository.findAll().stream()
                 .sorted(Comparator.comparingInt(p -> p.isApproved() ? 0 : 1))
                 .map(this::mapProduct).toList();
-        res.put(KEY_SUCCESS, true); res.put("products", products);
+        res.put(KEY_SUCCESS, true); res.put(K_PRODUCTS, products);
         return ResponseEntity.ok(res);
     }
 
@@ -4567,12 +4663,12 @@ public class ReactApiController {
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_ORDER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
-            TrackingStatus newStatus = TrackingStatus.valueOf(body.get("status"));
+            TrackingStatus newStatus = TrackingStatus.valueOf(body.get(K_STATUS));
             order.setTrackingStatus(newStatus);
             orderRepository.save(order);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Order status updated to " + newStatus.getDisplayName());
         } catch (IllegalArgumentException e) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid status: " + body.get("status"));
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid status: " + body.get(K_STATUS));
             return ResponseEntity.badRequest().body(res);
         }
         return ResponseEntity.ok(res);
@@ -4605,11 +4701,11 @@ public class ReactApiController {
             : customer.getAddresses().stream().map(a -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id",            a.getId());
-                m.put("recipientName", a.getRecipientName());
-                m.put("houseStreet",   a.getHouseStreet());
-                m.put("city",          a.getCity());
-                m.put("state",         a.getState());
-                m.put("postalCode",    a.getPostalCode());
+                m.put(K_RECIPIENT_NAME, a.getRecipientName());
+                m.put(K_HOUSE_STREET,   a.getHouseStreet());
+                m.put(K_CITY,          a.getCity());
+                m.put(K_STATE,         a.getState());
+                m.put(K_POSTAL_CODE,    a.getPostalCode());
                 m.put("details",       a.getDetails());
                 m.put("formatted",     a.getFormattedAddress());
                 return m;
@@ -4623,12 +4719,12 @@ public class ReactApiController {
 
     /**
      * POST /api/react/admin/orders/{id}/cancel
-     * Body (optional): { "reason": "Fraud suspected" }
+     * Body (optional): { K_REASON: "Fraud suspected" }
      *
      * Admin-initiated cancel. Differences from customer cancel:
      *  - Uses admin JWT auth (requireAdmin), not X-Customer-Id
      *  - No ownership check — admin can cancel any order
-     *  - Accepts an optional "reason" string logged to stdout for audit trail
+     *  - Accepts an optional K_REASON string logged to stdout for audit trail
      *  - Restores product stock (same logic as customer cancel)
      *  - Sends the standard cancellation email to the customer (fire-and-forget)
      *  - Blocks cancelling an already-DELIVERED or already-CANCELLED order
@@ -4659,7 +4755,7 @@ public class ReactApiController {
             return ResponseEntity.badRequest().body(res);
         }
 
-        String reason = (body != null && body.get("reason") != null) ? body.get("reason").trim() : "Admin-initiated cancellation";
+        String reason = (body != null && body.get(K_REASON) != null) ? body.get(K_REASON).trim() : "Admin-initiated cancellation";
 
         // Restore stock for every line item
         for (Item item : order.getItems()) {
@@ -4691,7 +4787,7 @@ public class ReactApiController {
 
         res.put(KEY_SUCCESS, true);
         res.put(KEY_MESSAGE, PREFIX_ORDER + id + " cancelled successfully");
-        res.put("reason", reason);
+        res.put(K_REASON, reason);
         res.put(KEY_ORDER_ID, id);
         return ResponseEntity.ok(res);
     }
@@ -4704,9 +4800,9 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> vendors = vendorRepository.findAll().stream().map(v -> {
             Map<String, Object> m = new HashMap<>();
-            m.put("id", v.getId()); m.put("name", v.getName()); m.put(KEY_EMAIL, v.getEmail());
-            m.put(KEY_MOBILE, v.getMobile()); m.put("vendorCode", v.getVendorCode());
-            m.put("active", v.isVerified()); m.put("verified", v.isVerified());
+            m.put("id", v.getId()); m.put(K_NAME, v.getName()); m.put(KEY_EMAIL, v.getEmail());
+            m.put(KEY_MOBILE, v.getMobile()); m.put(K_VENDORCODE, v.getVendorCode());
+            m.put(K_ACTIVE, v.isVerified()); m.put(K_VERIFIED, v.isVerified());
             return m;
         }).toList();
         res.put(KEY_SUCCESS, true); res.put("vendors", vendors);
@@ -4726,17 +4822,17 @@ public class ReactApiController {
         List<Map<String, Object>> list = couponRepository.findAllByOrderByIdDesc().stream().map(c -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id",             c.getId());
-            m.put("code",           c.getCode());
-            m.put("description",    c.getDescription());
-            m.put("type",           c.getType() != null ? c.getType().name() : null);
-            m.put("typeLabel",      c.getTypeLabel());
-            m.put("value",          c.getValue());
-            m.put("minOrderAmount", c.getMinOrderAmount());
-            m.put("maxDiscount",    c.getMaxDiscount());
+            m.put(K_CODE,           c.getCode());
+            m.put(K_DESCRIPTION,    c.getDescription());
+            m.put(K_TYPE,           c.getType() != null ? c.getType().name() : null);
+            m.put(K_TYPELABEL,      c.getTypeLabel());
+            m.put(K_VALUE,          c.getValue());
+            m.put(K_MINORDERAMOUNT, c.getMinOrderAmount());
+            m.put(K_MAXDISCOUNT,    c.getMaxDiscount());
             m.put("usageLimit",     c.getUsageLimit());
             m.put("usedCount",      c.getUsedCount());
-            m.put("active",         c.isActive());
-            m.put("expiryDate",     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
+            m.put(K_ACTIVE,         c.isActive());
+            m.put(K_EXPIRYDATE,     c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
             return m;
         }).toList();
         res.put(KEY_SUCCESS, true);
@@ -4756,30 +4852,30 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
         if (guard != null) return guard;
         Map<String, Object> res = new HashMap<>();
-        String code = body.getOrDefault("code", "").toString().toUpperCase().trim();
+        String code = body.getOrDefault(K_CODE, "").toString().toUpperCase().trim();
         if (code.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code is required"); return ResponseEntity.badRequest().body(res); }
         if (couponRepository.findByCode(code).isPresent()) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Coupon code '" + code + "' already exists");
             return ResponseEntity.badRequest().body(res);
         }
         double value;
-        try { value = Double.parseDouble(body.getOrDefault("value", "0").toString()); }
+        try { value = Double.parseDouble(body.getOrDefault(K_VALUE, "0").toString()); }
         catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid discount value"); return ResponseEntity.badRequest().body(res); }
 
         Coupon coupon = new Coupon();
         coupon.setCode(code);
-        coupon.setDescription(body.getOrDefault("description", "").toString());
+        coupon.setDescription(body.getOrDefault(K_DESCRIPTION, "").toString());
         coupon.setValue(value);
         coupon.setActive(true);
-        try { coupon.setMinOrderAmount(Double.parseDouble(body.getOrDefault("minOrderAmount", "0").toString())); } catch (Exception ignored) {}
-        try { coupon.setMaxDiscount(Double.parseDouble(body.getOrDefault("maxDiscount", "0").toString())); } catch (Exception ignored) {}
+        try { coupon.setMinOrderAmount(Double.parseDouble(body.getOrDefault(K_MINORDERAMOUNT, "0").toString())); } catch (Exception ignored) {}
+        try { coupon.setMaxDiscount(Double.parseDouble(body.getOrDefault(K_MAXDISCOUNT, "0").toString())); } catch (Exception ignored) {}
         try { coupon.setUsageLimit(Integer.parseInt(body.getOrDefault("usageLimit", "0").toString())); } catch (Exception ignored) {}
         try {
-            String typeStr = body.getOrDefault("type", "PERCENT").toString().toUpperCase();
+            String typeStr = body.getOrDefault(K_TYPE, "PERCENT").toString().toUpperCase();
             coupon.setType(Coupon.CouponType.valueOf(typeStr));
         } catch (Exception e) { coupon.setType(Coupon.CouponType.PERCENT); }
         try {
-            String expiry = body.getOrDefault("expiryDate", "").toString();
+            String expiry = body.getOrDefault(K_EXPIRYDATE, "").toString();
             if (!expiry.isBlank()) coupon.setExpiryDate(java.time.LocalDate.parse(expiry));
         } catch (Exception ignored) {}
 
@@ -4802,7 +4898,7 @@ public class ReactApiController {
         couponRepository.save(coupon);
         res.put(KEY_SUCCESS, true);
         res.put(KEY_MESSAGE, coupon.isActive() ? "Coupon enabled" : "Coupon disabled");
-        res.put("active", coupon.isActive());
+        res.put(K_ACTIVE, coupon.isActive());
         return ResponseEntity.ok(res);
     }
 
@@ -4873,7 +4969,7 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
 
         // ── Core counts ──────────────────────────────────────────────────────
@@ -4957,13 +5053,13 @@ public class ReactApiController {
                 .map(e -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id",        e.getKey());
-                    m.put("revenue",   Math.round(e.getValue()[0] * 100.0) / 100.0);
+                    m.put(K_REVENUE,   Math.round(e.getValue()[0] * 100.0) / 100.0);
                     m.put("unitsSold", (long) e.getValue()[1]);
                     // Enrich with product name / category if available
                     productRepository.findById(e.getKey()).ifPresent(p -> {
-                        m.put("name",     p.getName());
-                        m.put("category", p.getCategory());
-                        m.put("price",    p.getPrice());
+                        m.put(K_NAME,     p.getName());
+                        m.put(K_CATEGORY, p.getCategory());
+                        m.put(K_PRICE,    p.getPrice());
                     });
                     return m;
                 }).toList();
@@ -4980,18 +5076,18 @@ public class ReactApiController {
         res.put(KEY_SUCCESS,          true);
         res.put("totalCustomers",   totalCustomers);
         res.put("totalVendors",     totalVendors);
-        res.put("totalProducts",    totalProducts);
+        res.put(K_TOTALPRODUCTS,    totalProducts);
         res.put("approvedProducts", approvedProducts);
         res.put("pendingProducts",  pendingProducts);
-        res.put("totalOrders",      totalOrders);
-        res.put("totalRevenue",     Math.round(totalRevenue * 100.0) / 100.0);
-        res.put("avgOrderValue",    avgOrderValue);
+        res.put(K_TOTALORDERS,      totalOrders);
+        res.put(K_TOTALREVENUE,     Math.round(totalRevenue * 100.0) / 100.0);
+        res.put(K_AVGORDERVALUE,    avgOrderValue);
         res.put("deliveredOrders",  deliveredOrders);
         res.put("processingOrders", processingOrders);
         res.put("shippedOrders",    shippedOrders);
         res.put("cancelledOrders",  cancelledOrders);
         res.put("totalReviews",     totalReviews);
-        res.put("avgRating",        Math.round(avgRating * 10.0) / 10.0);
+        res.put(K_AVGRATING,        Math.round(avgRating * 10.0) / 10.0);
         res.put("dailyOrders",      dailyOrders);
         res.put("monthlyRevenue",   monthlyRevenue);
         res.put("topProducts",      topProducts);
@@ -5030,16 +5126,16 @@ public class ReactApiController {
 
             Map<String, Object> entry = new HashMap<>();
             entry.put("id",    customer.getId());
-            entry.put("name",  customer.getName());
+            entry.put(K_NAME,  customer.getName());
             entry.put(KEY_EMAIL, customer.getEmail());
 
             if (delivered.isEmpty()) {
-                entry.put("totalSpent",       0.0);
-                entry.put("totalOrders",      0);
-                entry.put("avgOrderValue",    0.0);
-                entry.put("topCategory",      "—");
-                entry.put("categorySpending", new HashMap<>());
-                entry.put("monthlySpending",  new LinkedHashMap<>());
+                entry.put(K_TOTALSPENT,       0.0);
+                entry.put(K_TOTALORDERS,      0);
+                entry.put(K_AVGORDERVALUE,    0.0);
+                entry.put(K_TOPCATEGORY,      "—");
+                entry.put(K_CATEGORY_SPENDING, new HashMap<>());
+                entry.put(K_MONTHLY_SPENDING,  new LinkedHashMap<>());
                 spendingList.add(entry);
                 continue;
             }
@@ -5069,19 +5165,19 @@ public class ReactApiController {
                 }
             }
 
-            entry.put("totalSpent",       Math.round(totalSpent * 100.0) / 100.0);
-            entry.put("totalOrders",      totalOrders);
-            entry.put("avgOrderValue",    Math.round((totalSpent / totalOrders) * 100.0) / 100.0);
-            entry.put("topCategory",      topCategory);
-            entry.put("categorySpending", catSpend);
-            entry.put("monthlySpending",  monthly);
+            entry.put(K_TOTALSPENT,       Math.round(totalSpent * 100.0) / 100.0);
+            entry.put(K_TOTALORDERS,      totalOrders);
+            entry.put(K_AVGORDERVALUE,    Math.round((totalSpent / totalOrders) * 100.0) / 100.0);
+            entry.put(K_TOPCATEGORY,      topCategory);
+            entry.put(K_CATEGORY_SPENDING, catSpend);
+            entry.put(K_MONTHLY_SPENDING,  monthly);
             spendingList.add(entry);
         }
 
         // Sort by totalSpent descending — top spenders first
         spendingList.sort((a, b) -> Double.compare(
-                ((Number) b.get("totalSpent")).doubleValue(),
-                ((Number) a.get("totalSpent")).doubleValue()));
+                ((Number) b.get(K_TOTALSPENT)).doubleValue(),
+                ((Number) a.get(K_TOTALSPENT)).doubleValue()));
 
         Map<String, Object> res = new HashMap<>();
         res.put(KEY_SUCCESS,   true);
@@ -5108,7 +5204,7 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
         List<Review> all = reviewRepository.findAll();
         // Sort newest first (nulls last)
@@ -5121,8 +5217,8 @@ public class ReactApiController {
         List<Map<String, Object>> list = all.stream().map(r -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id",           r.getId());
-            m.put("rating",       r.getRating());
-            m.put("comment",      r.getComment());
+            m.put(K_RATING,       r.getRating());
+            m.put(K_COMMENT,      r.getComment());
             m.put(KEY_CUSTOMER_NAME, r.getCustomerName());
             m.put("productName",  r.getProduct() != null ? r.getProduct().getName() : null);
             m.put(KEY_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId()   : null);
@@ -5131,7 +5227,7 @@ public class ReactApiController {
         }).toList();
         Map<String, Object> res = new HashMap<>();
         res.put(KEY_SUCCESS, true);
-        res.put("reviews", list);
+        res.put(K_REVIEWS, list);
         res.put(KEY_COUNT,   list.size());
         return ResponseEntity.ok(res);
     }
@@ -5155,14 +5251,14 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
         if (!reviewRepository.existsById(id)) {
             return ResponseEntity.status(404)
-                    .body(Map.of(KEY_SUCCESS, false, "message", "Review not found"));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, "Review not found"));
         }
         reviewRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of(KEY_SUCCESS, true, "message", "Review deleted"));
+        return ResponseEntity.ok(Map.of(KEY_SUCCESS, true, KEY_MESSAGE, "Review deleted"));
     }
 
     // ═══════════════════════════════════════════════════════
@@ -5183,7 +5279,7 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
@@ -5195,8 +5291,8 @@ public class ReactApiController {
                     m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
                     m.put(KEY_AMOUNT,          r.getAmount());
                     m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
-                    m.put("reason",          r.getReason());
-                    m.put("status",          r.getStatus() != null ? r.getStatus().name() : null);
+                    m.put(K_REASON,          r.getReason());
+                    m.put(K_STATUS,          r.getStatus() != null ? r.getStatus().name() : null);
                     m.put(KEY_STATUS_DISPLAY,   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
                     m.put(KEY_REQUESTED_AT,  r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                     m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
@@ -5225,12 +5321,12 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
         Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
         if (adminId == null) {
             return ResponseEntity.status(403)
-                .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_ID_NOT_IN_TOKEN));
+                .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_ID_NOT_IN_TOKEN));
         }
         String adminEmail = adminAuthService.getAdminEmailById(adminId);
         Map<String, Object> result = refundService.approveRefund(id, adminEmail);
@@ -5258,15 +5354,15 @@ public class ReactApiController {
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
-                    .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_REQUIRED));
+                    .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_REQUIRED));
         }
         Integer adminId = (Integer) request.getAttribute(CLAIM_USER_ID);
         if (adminId == null) {
             return ResponseEntity.status(403)
-                .body(Map.of(KEY_SUCCESS, false, "message", ERR_ADMIN_ID_NOT_IN_TOKEN));
+                .body(Map.of(KEY_SUCCESS, false, KEY_MESSAGE, ERR_ADMIN_ID_NOT_IN_TOKEN));
         }
         String adminEmail = adminAuthService.getAdminEmailById(adminId);
-        String reason = body.getOrDefault("reason", "").toString().trim();
+        String reason = body.getOrDefault(K_REASON, "").toString().trim();
         Map<String, Object> result = refundService.rejectRefund(id, reason, adminEmail);
         boolean success = Boolean.TRUE.equals(result.get(KEY_SUCCESS));
         return success
@@ -5298,22 +5394,22 @@ public class ReactApiController {
             for (Warehouse w : warehouses) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",             w.getId());
-                m.put("name",           w.getName());
-                m.put("city",           w.getCity());
-                m.put("state",          w.getState());
+                m.put(K_NAME,           w.getName());
+                m.put(K_CITY,           w.getCity());
+                m.put(K_STATE,          w.getState());
                 m.put(KEY_WAREHOUSE_CODE,  w.getWarehouseCode());
                 m.put(KEY_LOGIN_ID,        w.getWarehouseLoginId());
                 m.put(KEY_CONTACT_EMAIL,   w.getContactEmail());
                 m.put(KEY_CONTACT_PHONE,   w.getContactPhone());
-                m.put("address",        w.getAddress());
+                m.put(K_ADDRESS,        w.getAddress());
                 m.put(KEY_SERVED_PIN_CODES, w.getServedPinCodes());
-                m.put("active",         w.isActive());
+                m.put(K_ACTIVE,         w.isActive());
                 m.put(KEY_LATITUDE,       w.getLatitude());
                 m.put(KEY_LONGITUDE,      w.getLongitude());
                 list.add(m);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("warehouses", list);
+            res.put(K_WAREHOUSES, list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
@@ -5331,10 +5427,10 @@ public class ReactApiController {
      * /api/flutter/admin/warehouses/add — that endpoint did not exist.
      *
      * Request body (JSON):
-     *   { "name": "...", "city": "...", "state": "...", KEY_SERVED_PIN_CODES: "..." }
+     *   { K_NAME: K_LIT_EMPTY, K_CITY: K_LIT_EMPTY, K_STATE: K_LIT_EMPTY, KEY_SERVED_PIN_CODES: K_LIT_EMPTY }
      *
      * Response:
-     *   { KEY_SUCCESS: true, "message": "...", KEY_WAREHOUSE_ID: 3, KEY_WAREHOUSE_CODE: "WH-003" }
+     *   { KEY_SUCCESS: true, KEY_MESSAGE: K_LIT_EMPTY, KEY_WAREHOUSE_ID: 3, KEY_WAREHOUSE_CODE: "WH-003" }
      */
     @PostMapping("/admin/warehouses/add")
     public ResponseEntity<Map<String, Object>> adminAddWarehouse(
@@ -5344,9 +5440,9 @@ public class ReactApiController {
         if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            String name           = body.getOrDefault("name",           "").toString().trim();
-            String city           = body.getOrDefault("city",           "").toString().trim();
-            String state          = body.getOrDefault("state",          "").toString().trim();
+            String name           = body.getOrDefault(K_NAME,           "").toString().trim();
+            String city           = body.getOrDefault(K_CITY,           "").toString().trim();
+            String state          = body.getOrDefault(K_STATE,          "").toString().trim();
             String servedPinCodes = body.getOrDefault(KEY_SERVED_PIN_CODES, "").toString().trim();
 
             if (name.isEmpty()) {
@@ -5408,8 +5504,8 @@ public class ReactApiController {
      *
      * Approval status field logic (mirrors login flow in FlutterApiController):
      *   STATUS_PENDING   — verified=true  but adminApproved=false
-     *   "APPROVED"  — adminApproved=true  and active=true
-     *   "REJECTED"  — adminApproved=false and active=false  (admin blocked them)
+     *   K_APPROVED  — adminApproved=true  and active=true
+     *   K_REJECTED  — adminApproved=false and active=false  (admin blocked them)
      *   "UNVERIFIED"— verified=false (email OTP not yet confirmed)
      */
     @GetMapping("/admin/delivery-boys")
@@ -5423,13 +5519,13 @@ public class ReactApiController {
             for (DeliveryBoy db : boys) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",               db.getId());
-                m.put("name",             db.getName());
+                m.put(K_NAME,             db.getName());
                 m.put(KEY_EMAIL,            db.getEmail());
                 m.put(KEY_MOBILE,           db.getMobile());
                 m.put(KEY_DELIVERY_BOY_CODE,  db.getDeliveryBoyCode());
-                m.put("verified",         db.isVerified());
+                m.put(K_VERIFIED,         db.isVerified());
                 m.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
-                m.put("active",           db.isActive());
+                m.put(K_ACTIVE,           db.isActive());
                 m.put(KEY_IS_AVAILABLE,      db.isAvailable());
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
                 m.put(KEY_APPROVED,       db.isAdminApproved()); // alias read by AdminApp.jsx filter
@@ -5439,11 +5535,11 @@ public class ReactApiController {
                 if (!db.isVerified()) {
                     status = "EMAIL_PENDING";  // Waiting for email OTP verification
                 } else if (!db.isAdminApproved() && !db.isActive()) {
-                    status = "REJECTED";
+                    status = K_REJECTED;
                 } else if (!db.isAdminApproved()) {
                     status = STATUS_PENDING;  // Verified but awaiting admin approval
                 } else {
-                    status = "APPROVED";
+                    status = K_APPROVED;
                 }
                 m.put("approvalStatus", status);
                 m.put("statusLabel", getDeliveryBoyStatusLabel(status)); // Human-readable label
@@ -5452,18 +5548,18 @@ public class ReactApiController {
                 if (db.getWarehouse() != null) {
                     Map<String, Object> wh = new LinkedHashMap<>();
                     wh.put("id",            db.getWarehouse().getId());
-                    wh.put("name",          db.getWarehouse().getName());
-                    wh.put("city",          db.getWarehouse().getCity());
+                    wh.put(K_NAME,          db.getWarehouse().getName());
+                    wh.put(K_CITY,          db.getWarehouse().getCity());
                     wh.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
-                    m.put("warehouse", wh);
+                    m.put(K_WAREHOUSE, wh);
                 } else {
-                    m.put("warehouse", null);
+                    m.put(K_WAREHOUSE, null);
                 }
 
                 list.add(m);
             }
             res.put(KEY_SUCCESS,      true);
-            res.put("deliveryBoys", list);
+            res.put(K_DELIVERYBOYS, list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             e.printStackTrace();
@@ -5477,8 +5573,8 @@ public class ReactApiController {
         return switch(status) {
             case "EMAIL_PENDING" -> "⏳ Waiting for Email Verification";
             case STATUS_PENDING -> "⏳ Pending Admin Approval";
-            case "REJECTED" -> "❌ Rejected";
-            case "APPROVED" -> "✅ Approved";
+            case K_REJECTED -> "❌ Rejected";
+            case K_APPROVED -> "✅ Approved";
             default -> status;
         };
     }
@@ -5499,12 +5595,12 @@ public class ReactApiController {
             for (DeliveryBoy db : boys) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", db.getId());
-                m.put("name", db.getName());
+                m.put(K_NAME, db.getName());
                 m.put(KEY_EMAIL, db.getEmail());
-                m.put("verified", db.isVerified());
+                m.put(K_VERIFIED, db.isVerified());
                 m.put(KEY_ADMIN_APPROVED, db.isAdminApproved());
-                m.put("active", db.isActive());
-                m.put("warehouse", db.getWarehouse() != null ? db.getWarehouse().getName() : "NULL⚠️");
+                m.put(K_ACTIVE, db.isActive());
+                m.put(K_WAREHOUSE, db.getWarehouse() != null ? db.getWarehouse().getName() : "NULL⚠️");
                 m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 
                 // Status diagnosis
@@ -5525,7 +5621,7 @@ public class ReactApiController {
             }
             
             res.put(KEY_SUCCESS, true);
-            res.put("deliveryBoys", debugList);
+            res.put(K_DELIVERYBOYS, debugList);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             e.printStackTrace();
@@ -5868,11 +5964,11 @@ public class ReactApiController {
             .map(db -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id",          db.getId());
-                m.put("name",        db.getName());
-                m.put("code",        db.getDeliveryBoyCode());
+                m.put(K_NAME,        db.getName());
+                m.put(K_CODE,        db.getDeliveryBoyCode());
                 m.put(KEY_MOBILE,      db.getMobile());
                 m.put(KEY_IS_AVAILABLE, db.isAvailable());
-                m.put("warehouse",   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
+                m.put(K_WAREHOUSE,   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
                 m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
                 return m;
             })
@@ -5880,8 +5976,8 @@ public class ReactApiController {
             .toList();
 
         res.put(KEY_SUCCESS, true);
-        res.put("deliveryBoys", boys);
-        res.put("orderPin", pin != null ? pin : "N/A");
+        res.put(K_DELIVERYBOYS, boys);
+        res.put("orderPin", pin != null ? pin : K_N_A);
         return ResponseEntity.ok(res);
     }
 
@@ -5928,7 +6024,7 @@ public class ReactApiController {
 
             // Determine if this is a COD order
             boolean isCod = order.getPaymentMode() != null && 
-                           (order.getPaymentMode().equalsIgnoreCase("COD") || 
+                           (order.getPaymentMode().equalsIgnoreCase(K_COD) || 
                             order.getPaymentMode().equalsIgnoreCase("Cash on Delivery"));
 
             res.put(KEY_SUCCESS, true);
@@ -5938,7 +6034,7 @@ public class ReactApiController {
             res.put(KEY_DELIVERY_BOY_NAME, db.getName());
             res.put(KEY_NEW_STATUS,       TrackingStatus.SHIPPED.name());
             res.put("isCod",           isCod);
-            res.put("paymentMode",     order.getPaymentMode());
+            res.put(K_PAYMENTMODE,     order.getPaymentMode());
             res.put(KEY_TOTAL_AMOUNT,     order.getTotalPrice() + order.getDeliveryCharge());
             return ResponseEntity.ok(res);
         } catch (NullPointerException | NumberFormatException e) {
@@ -6037,7 +6133,7 @@ public class ReactApiController {
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "PIN codes updated for " + db.getName());
             res.put("id", id);
-            res.put("name", db.getName());
+            res.put(K_NAME, db.getName());
             res.put("newPins", pins);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -6071,8 +6167,8 @@ public class ReactApiController {
             
             Map<String, Object> status = new HashMap<>();
             status.put("id", b.getId());
-            status.put("name", b.getName());
-            status.put("code", b.getDeliveryBoyCode());
+            status.put(K_NAME, b.getName());
+            status.put(K_CODE, b.getDeliveryBoyCode());
             status.put("isOnline", b.isAvailable());
             status.put("activeOrders", active);
             status.put("maxConcurrent", maxConcurrent);
@@ -6082,7 +6178,7 @@ public class ReactApiController {
         }
         
         res.put(KEY_SUCCESS, true);
-        res.put("deliveryBoys", load);
+        res.put(K_DELIVERYBOYS, load);
         return ResponseEntity.ok(res);
     }
 
@@ -6152,8 +6248,8 @@ public class ReactApiController {
             for (WarehouseChangeRequest r : requests) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",          r.getId());
-                m.put("status",      r.getStatus().name());
-                m.put("reason",      r.getReason());
+                m.put(K_STATUS,      r.getStatus().name());
+                m.put(K_REASON,      r.getReason());
                 m.put(KEY_ADMIN_NOTE,   r.getAdminNote());
                 m.put(KEY_REQUESTED_AT, r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
                 m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
@@ -6162,28 +6258,28 @@ public class ReactApiController {
                 DeliveryBoy db = r.getDeliveryBoy();
                 Map<String, Object> dbMap = new LinkedHashMap<>();
                 dbMap.put("id",              db.getId());
-                dbMap.put("name",            db.getName());
+                dbMap.put(K_NAME,            db.getName());
                 dbMap.put(KEY_EMAIL,           db.getEmail());
                 dbMap.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 // Current warehouse (where they are now)
                 if (db.getWarehouse() != null) {
                     Map<String, Object> cw = new LinkedHashMap<>();
                     cw.put("id",            db.getWarehouse().getId());
-                    cw.put("name",          db.getWarehouse().getName());
-                    cw.put("city",          db.getWarehouse().getCity());
+                    cw.put(K_NAME,          db.getWarehouse().getName());
+                    cw.put(K_CITY,          db.getWarehouse().getCity());
                     cw.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
                     dbMap.put("currentWarehouse", cw);
                 } else {
                     dbMap.put("currentWarehouse", null);
                 }
-                m.put("deliveryBoy", dbMap);
+                m.put(K_DELIVERYBOY, dbMap);
 
                 // Requested warehouse (where they want to move TO)
                 Warehouse rw = r.getRequestedWarehouse();
                 Map<String, Object> rwMap = new LinkedHashMap<>();
                 rwMap.put("id",            rw.getId());
-                rwMap.put("name",          rw.getName());
-                rwMap.put("city",          rw.getCity());
+                rwMap.put(K_NAME,          rw.getName());
+                rwMap.put(K_CITY,          rw.getCity());
                 rwMap.put(KEY_WAREHOUSE_CODE, rw.getWarehouseCode());
                 m.put("requestedWarehouse", rwMap);
 
@@ -6336,7 +6432,7 @@ public class ReactApiController {
      *
      * Params:
      *   q    — search string (name or email, case-insensitive substring match)
-     *   type — optional filter: "customer" | "vendor" | ROLE_DELIVERY_BOY
+     *   type — optional filter: K_CUSTOMER | KEY_VENDOR | ROLE_DELIVERY_BOY
      *           omit (or any other value) to search all three types
      *
      * Response:
@@ -6345,7 +6441,7 @@ public class ReactApiController {
     @GetMapping("/admin/users/search")
     public ResponseEntity<Map<String, Object>> adminSearchUsers(
             @RequestParam(name = "q", defaultValue = "") String q,
-            @RequestParam(name = "type", defaultValue = "") String type,
+            @RequestParam(name = K_TYPE, defaultValue = "") String type,
             HttpServletRequest request) {
         ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
         if (guard != null) return guard;
@@ -6357,32 +6453,32 @@ public class ReactApiController {
             List<Map<String, Object>> results = new ArrayList<>();
 
             // ── Customers ──────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals("customer")) {
+            if (typeFilter.isEmpty() || typeFilter.equals(K_CUSTOMER)) {
                 for (Customer c : customerRepository.findAll()) {
                     if (matchesQuery(term, c.getName(), c.getEmail())) {
                         Map<String, Object> m = new LinkedHashMap<>();
                         m.put("id",       c.getId());
-                        m.put("name",     c.getName());
+                        m.put(K_NAME,     c.getName());
                         m.put(KEY_EMAIL,    c.getEmail());
-                        m.put("type",     "customer");
-                        m.put("verified", c.isVerified());
-                        m.put("active",   c.isActive());
+                        m.put(K_TYPE,     K_CUSTOMER);
+                        m.put(K_VERIFIED, c.isVerified());
+                        m.put(K_ACTIVE,   c.isActive());
                         results.add(m);
                     }
                 }
             }
 
             // ── Vendors ────────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals("vendor")) {
+            if (typeFilter.isEmpty() || typeFilter.equals(KEY_VENDOR)) {
                 for (Vendor v : vendorRepository.findAll()) {
                     if (matchesQuery(term, v.getName(), v.getEmail())) {
                         Map<String, Object> m = new LinkedHashMap<>();
                         m.put("id",         v.getId());
-                        m.put("name",       v.getName());
+                        m.put(K_NAME,       v.getName());
                         m.put(KEY_EMAIL,      v.getEmail());
-                        m.put("type",       KEY_VENDOR);
-                        m.put("vendorCode", v.getVendorCode());
-                        m.put("verified",   v.isVerified());
+                        m.put(K_TYPE,       KEY_VENDOR);
+                        m.put(K_VENDORCODE, v.getVendorCode());
+                        m.put(K_VERIFIED,   v.isVerified());
                         results.add(m);
                     }
                 }
@@ -6394,13 +6490,13 @@ public class ReactApiController {
                     if (matchesQuery(term, db.getName(), db.getEmail())) {
                         Map<String, Object> m = new LinkedHashMap<>();
                         m.put("id",              db.getId());
-                        m.put("name",            db.getName());
+                        m.put(K_NAME,            db.getName());
                         m.put(KEY_EMAIL,           db.getEmail());
-                        m.put("type",            ROLE_DELIVERY_BOY);
+                        m.put(K_TYPE,            ROLE_DELIVERY_BOY);
                         m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
-                        m.put("verified",        db.isVerified());
+                        m.put(K_VERIFIED,        db.isVerified());
                         m.put(KEY_ADMIN_APPROVED,   db.isAdminApproved());
-                        m.put("active",          db.isActive());
+                        m.put(K_ACTIVE,          db.isActive());
                         results.add(m);
                     }
                 }
@@ -6408,7 +6504,7 @@ public class ReactApiController {
 
             res.put(KEY_SUCCESS, true);
             res.put("query",   q);
-            res.put("type",    type);
+            res.put(K_TYPE,    type);
             res.put(KEY_COUNT,   results.size());
             res.put("users",   results);
             return ResponseEntity.ok(res);
@@ -6448,7 +6544,7 @@ public class ReactApiController {
      * so the admin screen can show and toggle every banner, not just active ones.
      *
      * Response:
-     *   { KEY_SUCCESS: true, "banners": [ { id, title, imageUrl, linkUrl,
+     *   { KEY_SUCCESS: true, K_BANNERS: [ { id, title, imageUrl, linkUrl,
      *     active, showOnHome, showOnCustomerHome, displayOrder }, ... ] }
      */
     @GetMapping("/admin/banners")
@@ -6462,21 +6558,21 @@ public class ReactApiController {
             for (Banner b : banners) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",                 b.getId());
-                m.put("title",              b.getTitle());
-                m.put("imageUrl",           b.getImageUrl());
-                m.put("linkUrl",            b.getLinkUrl());
-                m.put("active",             b.isActive());
+                m.put(K_TITLE,              b.getTitle());
+                m.put(K_IMAGEURL,           b.getImageUrl());
+                m.put(K_LINKURL,            b.getLinkUrl());
+                m.put(K_ACTIVE,             b.isActive());
                 m.put("showOnHome",         b.isShowOnHome());
                 m.put("showOnCustomerHome", b.isShowOnCustomerHome());
-                m.put("displayOrder",       b.getDisplayOrder());
+                m.put(K_DISPLAY_ORDER,       b.getDisplayOrder());
                 list.add(m);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("banners", list);
+            res.put(K_BANNERS, list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, K_FAILED_TO_LOAD_BANNERS + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6493,9 +6589,9 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
         if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
-        String title    = body.getOrDefault("title",    "").toString().trim();
-        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
-        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
+        String title    = body.getOrDefault(K_TITLE,    "").toString().trim();
+        String imageUrl = body.getOrDefault(K_IMAGEURL, "").toString().trim();
+        String linkUrl  = body.getOrDefault(K_LINKURL,  "").toString().trim();
         if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Title is required");     return ResponseEntity.badRequest().body(res); }
         if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Image URL is required"); return ResponseEntity.badRequest().body(res); }
         Banner b = new Banner();
@@ -6527,9 +6623,9 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         Banner b = bannerRepository.findById(id).orElse(null);
         if (b == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_BANNER_NOT_FOUND); return ResponseEntity.status(404).body(res); }
-        String title    = body.getOrDefault("title",    "").toString().trim();
-        String imageUrl = body.getOrDefault("imageUrl", "").toString().trim();
-        String linkUrl  = body.getOrDefault("linkUrl",  "").toString().trim();
+        String title    = body.getOrDefault(K_TITLE,    "").toString().trim();
+        String imageUrl = body.getOrDefault(K_IMAGEURL, "").toString().trim();
+        String linkUrl  = body.getOrDefault(K_LINKURL,  "").toString().trim();
         if (title.isEmpty())    { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Title is required");     return ResponseEntity.badRequest().body(res); }
         if (imageUrl.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Image URL is required"); return ResponseEntity.badRequest().body(res); }
         b.setTitle(title);
@@ -6557,7 +6653,7 @@ public class ReactApiController {
         b.setActive(!b.isActive());
         bannerRepository.save(b);
         res.put(KEY_SUCCESS, true);
-        res.put("active", b.isActive());
+        res.put(K_ACTIVE, b.isActive());
         return ResponseEntity.ok(res);
     }
 
@@ -6675,11 +6771,11 @@ public class ReactApiController {
                 }
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", c.getId());
-                m.put("name", c.getName());
+                m.put(K_NAME, c.getName());
                 m.put(KEY_EMAIL, c.getEmail());
                 m.put(KEY_MOBILE, c.getMobile());
                 m.put(KEY_IS_ACTIVE, c.isActive());
-                m.put("role", c.getRole() != null ? c.getRole() : ROLE_CUSTOMER);
+                m.put(K_ROLE, c.getRole() != null ? c.getRole() : ROLE_CUSTOMER);
                 m.put(KEY_CREATED_AT, c.getLastLogin() != null ? c.getLastLogin().toString() : null);
                 data.add(m);
             }
@@ -6776,11 +6872,11 @@ public class ReactApiController {
             }
             res.put(KEY_SUCCESS, true);
             res.put("id", customer.getId());
-            res.put("name", customer.getName());
+            res.put(K_NAME, customer.getName());
             res.put(KEY_EMAIL, customer.getEmail());
             res.put(KEY_MOBILE, customer.getMobile());
             res.put(KEY_IS_ACTIVE, customer.isActive());
-            res.put("role", customer.getRole() != null ? customer.getRole() : ROLE_CUSTOMER);
+            res.put(K_ROLE, customer.getRole() != null ? customer.getRole() : ROLE_CUSTOMER);
             res.put(KEY_CREATED_AT, customer.getLastLogin() != null ? customer.getLastLogin().toString() : null);
             res.put(KEY_ADDRESSES, customer.getAddresses() != null ? customer.getAddresses().size() : 0);
             return ResponseEntity.ok(res);
@@ -6828,14 +6924,14 @@ public class ReactApiController {
      * Changes the admin password via database-backed AdminAuthService.
      * 
      * Request body (JSON):
-     *   { KEY_CURRENT_PASSWORD: "...", KEY_NEW_PASSWORD: "...", "confirmPassword": "..." }
+     *   { KEY_CURRENT_PASSWORD: K_LIT_EMPTY, KEY_NEW_PASSWORD: K_LIT_EMPTY, K_CONFIRMPASSWORD: K_LIT_EMPTY }
      *
      * Header: Authorization: Bearer <admin-jwt-token>
      * The token contains the admin ID which is extracted and used for password change.
      * 
      * Response:
-     *   { KEY_SUCCESS: true, "message": MSG_PASSWORD_CHANGED }
-     *   { KEY_SUCCESS: false, "message": "Current password is incorrect (or other error)" }
+     *   { KEY_SUCCESS: true, KEY_MESSAGE: MSG_PASSWORD_CHANGED }
+     *   { KEY_SUCCESS: false, KEY_MESSAGE: "Current password is incorrect (or other error)" }
      */
     @PostMapping("/admin/change-password")
     public ResponseEntity<Map<String, Object>> adminChangePassword(
@@ -6856,7 +6952,7 @@ public class ReactApiController {
             
             String currentPassword  = body.getOrDefault(KEY_CURRENT_PASSWORD,  "").toString().trim();
             String newPassword      = body.getOrDefault(KEY_NEW_PASSWORD,      "").toString().trim();
-            String confirmPassword  = body.getOrDefault("confirmPassword",  "").toString().trim();
+            String confirmPassword  = body.getOrDefault(K_CONFIRMPASSWORD,  "").toString().trim();
 
             // ── Validate inputs ────────────────────────────────────────────
             if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
@@ -6977,7 +7073,7 @@ public class ReactApiController {
             customerRepository.save(customer);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     /** GET /api/flutter/vendor/profile
@@ -6990,12 +7086,12 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Map<String, Object> v = new HashMap<>();
-        v.put("id", vendor.getId()); v.put("name", vendor.getName());
+        v.put("id", vendor.getId()); v.put(K_NAME, vendor.getName());
         v.put(KEY_EMAIL, vendor.getEmail()); v.put(KEY_MOBILE, vendor.getMobile());
-        v.put("vendorCode", vendor.getVendorCode()); v.put("verified", vendor.isVerified());
-        v.put("description", vendor.getDescription());
+        v.put(K_VENDORCODE, vendor.getVendorCode()); v.put(K_VERIFIED, vendor.isVerified());
+        v.put(K_DESCRIPTION, vendor.getDescription());
         v.put(KEY_PROVIDER,    vendor.getProvider()   != null ? vendor.getProvider() : "local");
-        v.put("password",    vendor.getPassword()   != null); // boolean: true if password is set
+        v.put(K_PASSWORD,    vendor.getPassword()   != null); // boolean: true if password is set
         res.put(KEY_SUCCESS, true); res.put(KEY_VENDOR, v);
         return ResponseEntity.ok(res);
     }
@@ -7012,8 +7108,8 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        if (body.containsKey("name") && !((String) body.get("name")).isBlank())
-            vendor.setName((String) body.get("name"));
+        if (body.containsKey(K_NAME) && !((String) body.get(K_NAME)).isBlank())
+            vendor.setName((String) body.get(K_NAME));
         if (body.containsKey(KEY_MOBILE))
             try { vendor.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString())); } catch (Exception ignored) {}
         vendorRepository.save(vendor);
@@ -7040,8 +7136,8 @@ public class ReactApiController {
             res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
-        if (body.containsKey("name")) {
-            String name = ((String) body.get("name")).trim();
+        if (body.containsKey(K_NAME)) {
+            String name = ((String) body.get(K_NAME)).trim();
             if (!name.isBlank()) vendor.setName(name);
         }
         if (body.containsKey(KEY_MOBILE)) {
@@ -7065,9 +7161,9 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
         }
-        if (body.containsKey("description")) {
+        if (body.containsKey(K_DESCRIPTION)) {
             // Allow empty string to clear the description
-            vendor.setDescription((String) body.get("description"));
+            vendor.setDescription((String) body.get(K_DESCRIPTION));
         }
         vendorRepository.save(vendor);
         res.put(KEY_SUCCESS, true);
@@ -7100,7 +7196,7 @@ public class ReactApiController {
             vendorRepository.save(vendor);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
 
     // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -7121,13 +7217,13 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body,
             HttpSession session) {
         Map<String, Object> res = new HashMap<>();
-        String provider = (String) body.get("provider");
+        String provider = (String) body.get(KEY_PROVIDER);
         if (provider == null || provider.isBlank()) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "provider required");
             return ResponseEntity.badRequest().body(res);
         }
-        if (!oAuthProviderValidator.isProviderAllowed(provider, "customer")) {
+        if (!oAuthProviderValidator.isProviderAllowed(provider, K_CUSTOMER)) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
             return ResponseEntity.badRequest().body(res);
@@ -7174,13 +7270,13 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body,
             HttpSession session) {
         Map<String, Object> res = new HashMap<>();
-        String provider = (String) body.get("provider");
+        String provider = (String) body.get(KEY_PROVIDER);
         if (provider == null || provider.isBlank()) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "provider required");
             return ResponseEntity.badRequest().body(res);
         }
-        if (!oAuthProviderValidator.isProviderAllowed(provider, "vendor")) {
+        if (!oAuthProviderValidator.isProviderAllowed(provider, KEY_VENDOR)) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, oAuthProviderValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
             return ResponseEntity.badRequest().body(res);
@@ -7237,7 +7333,7 @@ public class ReactApiController {
         List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", a.getId());
-            m.put("productName", a.getProduct() != null ? a.getProduct().getName() : "Unknown");
+            m.put("productName", a.getProduct() != null ? a.getProduct().getName() : K_UNKNOWN);
             m.put(KEY_PRODUCT_ID,   a.getProduct() != null ? a.getProduct().getId()   : 0);
             m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
             m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
@@ -7293,7 +7389,7 @@ public class ReactApiController {
 
         Map<String, Object> res = new HashMap<>();
 
-        String userMessage = ((String) body.getOrDefault("message", "")).trim();
+        String userMessage = ((String) body.getOrDefault(KEY_MESSAGE, "")).trim();
         if (userMessage.isEmpty()) {
             res.put("reply", "Please type a message.");
             return ResponseEntity.badRequest().body(res);
@@ -7311,7 +7407,7 @@ public class ReactApiController {
         if (customerId != null) {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer != null) {
-                role        = "customer";
+                role        = K_CUSTOMER;
                 userName    = customer.getName();
                 contextBlock = buildCustomerContext(customer);
             }
@@ -7320,14 +7416,14 @@ public class ReactApiController {
         String reply = aiAssistantService.getReply(userMessage, role, userName, contextBlock, history);
 
         res.put("reply", reply);
-        res.put("role",  role);
-        res.put("name",  userName);
+        res.put(K_ROLE,  role);
+        res.put(K_NAME,  userName);
         return ResponseEntity.ok(res);
     }
 
     /**
      * Builds the personalised context block for a customer —
-     * mirrors the "customer" case in ChatController.buildContext().
+     * mirrors the K_CUSTOMER case in ChatController.buildContext().
      */
     // ═══════════════════════════════════════════════════════════════════
     // DELIVERY BOY — Flutter API  (X-Delivery-Id header)
@@ -7357,12 +7453,12 @@ public class ReactApiController {
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",               db.getId());
-        profile.put("name",             db.getName());
+        profile.put(K_NAME,             db.getName());
         profile.put(KEY_EMAIL,            db.getEmail());
         profile.put(KEY_MOBILE,           db.getMobile());
         profile.put(KEY_DELIVERY_BOY_CODE,  db.getDeliveryBoyCode());
         profile.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
-        profile.put("active",           db.isActive());
+        profile.put(K_ACTIVE,           db.isActive());
         profile.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
         profile.put(KEY_APPROVED,       db.isAdminApproved()); // alias read by DeliveryApp.jsx
         profile.put(KEY_IS_AVAILABLE,      db.isAvailable());    // availability status
@@ -7371,17 +7467,17 @@ public class ReactApiController {
             Warehouse wh = db.getWarehouse();
             Map<String, Object> w = new HashMap<>();
             w.put("id",            wh.getId());
-            w.put("name",          wh.getName());
-            w.put("city",          wh.getCity());
-            w.put("state",         wh.getState());
+            w.put(K_NAME,          wh.getName());
+            w.put(K_CITY,          wh.getCity());
+            w.put(K_STATE,         wh.getState());
             w.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
-            profile.put("warehouse", w);
+            profile.put(K_WAREHOUSE, w);
         } else {
-            profile.put("warehouse", null);
+            profile.put(K_WAREHOUSE, null);
         }
 
         res.put(KEY_SUCCESS, true);
-        res.put("deliveryBoy", profile);
+        res.put(K_DELIVERYBOY, profile);
         return ResponseEntity.ok(res);
     }
 
@@ -7521,7 +7617,7 @@ public class ReactApiController {
         }
 
         int submittedOtp;
-        try { submittedOtp = Integer.parseInt(body.getOrDefault("otp", "").toString().trim()); }
+        try { submittedOtp = Integer.parseInt(body.getOrDefault(K_OTP, "").toString().trim()); }
         catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_INVALID_OTP_FORMAT); return ResponseEntity.badRequest().body(res); }
 
         DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
@@ -7630,14 +7726,14 @@ public class ReactApiController {
         for (Warehouse wh : warehouses) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",            wh.getId());
-            m.put("name",          wh.getName());
-            m.put("city",          wh.getCity());
-            m.put("state",         wh.getState());
+            m.put(K_NAME,          wh.getName());
+            m.put(K_CITY,          wh.getCity());
+            m.put(K_STATE,         wh.getState());
             m.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
             list.add(m);
         }
         res.put(KEY_SUCCESS,    true);
-        res.put("warehouses", list);
+        res.put(K_WAREHOUSES, list);
         return ResponseEntity.ok(res);
     }
 
@@ -7691,7 +7787,7 @@ public class ReactApiController {
         WarehouseChangeRequest req = new WarehouseChangeRequest();
         req.setDeliveryBoy(db);
         req.setRequestedWarehouse(requested);
-        req.setReason(body.containsKey("reason") ? (String) body.get("reason") : "");
+        req.setReason(body.containsKey(K_REASON) ? (String) body.get(K_REASON) : "");
         req.setStatus(WarehouseChangeRequest.Status.PENDING);
         req.setRequestedAt(java.time.LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
@@ -7772,13 +7868,13 @@ public class ReactApiController {
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("id", req.getId());
             requestData.put(KEY_REQUESTED_AT, req.getRequestedAt() != null ? req.getRequestedAt().toString() : null);
-            requestData.put("reason", req.getReason());
+            requestData.put(K_REASON, req.getReason());
             if (req.getRequestedWarehouse() != null) {
                 Map<String, Object> whData = new HashMap<>();
                 whData.put("id", req.getRequestedWarehouse().getId());
-                whData.put("name", req.getRequestedWarehouse().getName());
-                whData.put("city", req.getRequestedWarehouse().getCity());
-                whData.put("state", req.getRequestedWarehouse().getState());
+                whData.put(K_NAME, req.getRequestedWarehouse().getName());
+                whData.put(K_CITY, req.getRequestedWarehouse().getCity());
+                whData.put(K_STATE, req.getRequestedWarehouse().getState());
                 whData.put(KEY_WAREHOUSE_CODE, req.getRequestedWarehouse().getWarehouseCode());
                 requestData.put("requestedWarehouse", whData);
             }
@@ -7793,9 +7889,9 @@ public class ReactApiController {
     private Map<String, Object> mapDeliveryOrder(Order o) {
         Map<String, Object> m = new HashMap<>();
         m.put("id",              o.getId());
-        m.put("status",          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
+        m.put(K_STATUS,          o.getTrackingStatus() != null ? o.getTrackingStatus().name() : null);
         m.put(KEY_STATUS_DISPLAY,   o.getTrackingStatus() != null ? o.getTrackingStatus().getDisplayName() : null);
-        m.put("currentCity",     o.getCurrentCity());
+        m.put(K_CURRENTCITY,     o.getCurrentCity());
         m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
         m.put(KEY_TOTAL_AMOUNT,     o.getAmount());
         m.put("orderedDate",     o.getDateTime() != null ? o.getDateTime().toString() : null);
@@ -7804,10 +7900,10 @@ public class ReactApiController {
         // Item count summary
         m.put("itemCount",       o.getItems() != null ? o.getItems().size() : 0);
         // Payment mode and COD info — needed for delivery boy to know payment method and collect cash if COD
-        m.put("paymentMode",     o.getPaymentMode() != null ? o.getPaymentMode() : "PREPAID");
-        m.put("deliveryCharge",  o.getDeliveryCharge());
-        m.put("totalPrice",      o.getTotalPrice());
-        m.put("isCod",           o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase("COD") || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")));
+        m.put(K_PAYMENTMODE,     o.getPaymentMode() != null ? o.getPaymentMode() : "PREPAID");
+        m.put(K_DELIVERYCHARGE,  o.getDeliveryCharge());
+        m.put(K_TOTALPRICE,      o.getTotalPrice());
+        m.put("isCod",           o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase(K_COD) || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")));
         return m;
     }
 
@@ -7933,18 +8029,18 @@ public class ReactApiController {
             for (Banner b : banners) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",           b.getId());
-                m.put("title",        b.getTitle());
-                m.put("imageUrl",     b.getImageUrl());
-                m.put("linkUrl",      b.getLinkUrl());
-                m.put("displayOrder", b.getDisplayOrder());
+                m.put(K_TITLE,        b.getTitle());
+                m.put(K_IMAGEURL,     b.getImageUrl());
+                m.put(K_LINKURL,      b.getLinkUrl());
+                m.put(K_DISPLAY_ORDER, b.getDisplayOrder());
                 list.add(m);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("banners", list);
+            res.put(K_BANNERS, list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, K_FAILED_TO_LOAD_BANNERS + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -7963,18 +8059,18 @@ public class ReactApiController {
             for (Banner b : banners) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",           b.getId());
-                m.put("title",        b.getTitle());
-                m.put("imageUrl",     b.getImageUrl());
-                m.put("linkUrl",      b.getLinkUrl());
-                m.put("displayOrder", b.getDisplayOrder());
+                m.put(K_TITLE,        b.getTitle());
+                m.put(K_IMAGEURL,     b.getImageUrl());
+                m.put(K_LINKURL,      b.getLinkUrl());
+                m.put(K_DISPLAY_ORDER, b.getDisplayOrder());
                 list.add(m);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("banners", list);
+            res.put(K_BANNERS, list);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to load banners: " + e.getMessage());
+            res.put(KEY_MESSAGE, K_FAILED_TO_LOAD_BANNERS + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -8154,26 +8250,26 @@ public class ReactApiController {
      *
      * Request Body (JSON):
      *   {
-     *     "name": "Bangalore Hub",
-     *     "city": "Bangalore",
-     *     "state": "Karnataka",
+     *     K_NAME: K_BANGALORE_HUB,
+     *     K_CITY: K_BANGALORE,
+     *     K_STATE: "Karnataka",
      *     KEY_SERVED_PIN_CODES: "560001,560002,560003",
      *     "latitude": 12.9716,
      *     "longitude": 77.5946,
-     *     "contactEmail": "warehouse@company.com",
-     *     "contactPhone": "+919876543210",
-     *     "address": "123 Main St, Bangalore"
+     *     KEY_CONTACT_EMAIL: "warehouse@company.com",
+     *     KEY_CONTACT_PHONE: "+919876543210",
+     *     K_ADDRESS: "123 Main St, Bangalore"
      *   }
      *
      * Response (200 OK):
      *   {
      *     KEY_SUCCESS: true,
      *     KEY_WAREHOUSE_ID: 45,
-     *     KEY_WAREHOUSE_NAME: "Bangalore Hub",
-     *     KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
-     *     "loginId": "12345678",
+     *     KEY_WAREHOUSE_NAME: K_BANGALORE_HUB,
+     *     KEY_WAREHOUSE_CODE: K_WH_BLR_12345678,
+     *     KEY_LOGIN_ID: K_LIT_12345678,
      *     "loginPassword": "654321",
-     *     "message": "Warehouse created. Credentials sent to warehouse@company.com. Login ID and Password shown above. Save these immediately — password will not be shown again."
+     *     KEY_MESSAGE: "Warehouse created. Credentials sent to warehouse@company.com. Login ID and Password shown above. Save these immediately — password will not be shown again."
      *   }
      *
      * Error Responses:
@@ -8189,7 +8285,7 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         // 1. Validate JWT token and extract admin role
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.startsWith(K_BEARER)) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
             return ResponseEntity.status(401).body(res);
@@ -8210,9 +8306,9 @@ public class ReactApiController {
         }
 
         // 2. Extract and validate request body
-        String name = ((String) body.getOrDefault("name", "")).trim();
-        String city = ((String) body.getOrDefault("city", "")).trim();
-        String state = ((String) body.getOrDefault("state", "")).trim();
+        String name = ((String) body.getOrDefault(K_NAME, "")).trim();
+        String city = ((String) body.getOrDefault(K_CITY, "")).trim();
+        String state = ((String) body.getOrDefault(K_STATE, "")).trim();
         String servedPinCodes = ((String) body.getOrDefault(KEY_SERVED_PIN_CODES, "")).trim();
         Double latitude = null;
         Double longitude = null;
@@ -8228,7 +8324,7 @@ public class ReactApiController {
 
         String contactEmail = ((String) body.getOrDefault(KEY_CONTACT_EMAIL, "")).trim();
         String contactPhone = ((String) body.getOrDefault(KEY_CONTACT_PHONE, "")).trim();
-        String address = ((String) body.getOrDefault("address", "")).trim();
+        String address = ((String) body.getOrDefault(K_ADDRESS, "")).trim();
 
         // 3. Validate required fields
         if (name.isEmpty() || city.isEmpty() || state.isEmpty()) {
@@ -8275,21 +8371,21 @@ public class ReactApiController {
      * Response (200 OK):
      *   {
      *     KEY_SUCCESS: true,
-     *     "warehouse": {
+     *     K_WAREHOUSE: {
      *       "id": 45,
-     *       "name": "Bangalore Hub",
-     *       "city": "Bangalore",
-     *       "state": "Karnataka",
+     *       K_NAME: K_BANGALORE_HUB,
+     *       K_CITY: K_BANGALORE,
+     *       K_STATE: "Karnataka",
      *       KEY_SERVED_PIN_CODES: "560001,560002,560003",
-     *       KEY_WAREHOUSE_CODE: "WH-BLR-12345678",
-     *       "warehouseLoginId": "12345678",
-     *       "contactEmail": "warehouse@company.com",
-     *       "contactPhone": "+919876543210",
-     *       "address": "123 Main St, Bangalore",
-     *       "active": true,
+     *       KEY_WAREHOUSE_CODE: K_WH_BLR_12345678,
+     *       "warehouseLoginId": K_LIT_12345678,
+     *       KEY_CONTACT_EMAIL: "warehouse@company.com",
+     *       KEY_CONTACT_PHONE: "+919876543210",
+     *       K_ADDRESS: "123 Main St, Bangalore",
+     *       K_ACTIVE: true,
      *       "createdAt": "2024-01-15T10:30:45"
      *     },
-     *     "message": "Warehouse details retrieved"
+     *     KEY_MESSAGE: "Warehouse details retrieved"
      *   }
      *
      * Error Responses:
@@ -8304,7 +8400,7 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         // 1. Validate JWT token and extract admin role
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.startsWith(K_BEARER)) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
             return ResponseEntity.status(401).body(res);
@@ -8335,21 +8431,21 @@ public class ReactApiController {
         // 3. Build response with warehouse details (excluding encrypted password)
         Map<String, Object> warehouseDto = new LinkedHashMap<>();
         warehouseDto.put("id", warehouse.getId());
-        warehouseDto.put("name", warehouse.getName());
-        warehouseDto.put("city", warehouse.getCity());
-        warehouseDto.put("state", warehouse.getState());
+        warehouseDto.put(K_NAME, warehouse.getName());
+        warehouseDto.put(K_CITY, warehouse.getCity());
+        warehouseDto.put(K_STATE, warehouse.getState());
         warehouseDto.put(KEY_SERVED_PIN_CODES, warehouse.getServedPinCodes());
         warehouseDto.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
         warehouseDto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
         warehouseDto.put(KEY_CONTACT_EMAIL, warehouse.getContactEmail());
         warehouseDto.put(KEY_CONTACT_PHONE, warehouse.getContactPhone());
-        warehouseDto.put("address", warehouse.getAddress());
-        warehouseDto.put("active", warehouse.isActive());
+        warehouseDto.put(K_ADDRESS, warehouse.getAddress());
+        warehouseDto.put(K_ACTIVE, warehouse.isActive());
         warehouseDto.put(KEY_LATITUDE, warehouse.getLatitude());
         warehouseDto.put(KEY_LONGITUDE, warehouse.getLongitude());
 
         res.put(KEY_SUCCESS, true);
-        res.put("warehouse", warehouseDto);
+        res.put(K_WAREHOUSE, warehouseDto);
         res.put(KEY_MESSAGE, "Warehouse credentials retrieved (password is encrypted and not shown)");
         return ResponseEntity.ok(res);
     }
@@ -8381,14 +8477,14 @@ public class ReactApiController {
                 .map(o -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("id", o.getId());
-                    m.put("status", o.getTrackingStatus());
-                    m.put("deliveryPinCode", o.getDeliveryPinCode());
+                    m.put(K_STATUS, o.getTrackingStatus());
+                    m.put(K_DELIVERYPINCODE, o.getDeliveryPinCode());
                     m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
                     m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                     m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
-                    m.put("totalPrice", o.getTotalPrice());
-                    m.put("paymentMethod", o.getPaymentMethod());
-                    m.put("orderDate", o.getOrderDate());
+                    m.put(K_TOTALPRICE, o.getTotalPrice());
+                    m.put(K_PAYMENT_METHOD, o.getPaymentMethod());
+                    m.put(K_ORDERDATE, o.getOrderDate());
                     return m;
                 }).toList();
 
@@ -8489,7 +8585,7 @@ public class ReactApiController {
                 KEY_SUCCESS, true,
                 KEY_ORDER_ID, orderId,
                 KEY_NEW_STATUS, order.getTrackingStatus().toString(),
-                "destinationWarehouse", destinationWarehouse != null ? destinationWarehouse.getName() : "Unknown",
+                K_DESTINATION_WAREHOUSE, destinationWarehouse != null ? destinationWarehouse.getName() : K_UNKNOWN,
                 KEY_ROUTING_PATH, routingPath != null ? routingPath : "Direct",
                 "transferInitiated", destinationWarehouse != null && 
                     order.getSourceWarehouse() != null &&
@@ -8528,14 +8624,14 @@ public class ReactApiController {
                 .map(o -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("id", o.getId());
-                    m.put("status", o.getTrackingStatus());
+                    m.put(K_STATUS, o.getTrackingStatus());
                     m.put("pinCode", o.getDeliveryPinCode());
-                    m.put("address", o.getDeliveryAddress());
+                    m.put(K_ADDRESS, o.getDeliveryAddress());
                     m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                     m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
-                    m.put("totalPrice", o.getTotalPrice());
-                    m.put("paymentMethod", o.getPaymentMethod());
-                    m.put("orderDate", o.getOrderDate());
+                    m.put(K_TOTALPRICE, o.getTotalPrice());
+                    m.put(K_PAYMENT_METHOD, o.getPaymentMethod());
+                    m.put(K_ORDERDATE, o.getOrderDate());
                     return m;
                 }).toList();
 
@@ -8603,7 +8699,7 @@ public class ReactApiController {
                 KEY_DELIVERY_BOY_ID, db.getId(),
                 KEY_DELIVERY_BOY_NAME, db.getName(),
                 KEY_NEW_STATUS, STATUS_SHIPPED,
-                "message", PREFIX_ORDER + orderId + " assigned to " + db.getName()
+                KEY_MESSAGE, PREFIX_ORDER + orderId + " assigned to " + db.getName()
             ));
         } catch (NumberFormatException e) {
             return ResponseEntity.badRequest().body(Map.of(KEY_ERROR, "Invalid deliveryBoyId in request body"));
@@ -8641,7 +8737,7 @@ public class ReactApiController {
                 .map(db -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("id", db.getId());
-                    m.put("name", db.getName());
+                    m.put(K_NAME, db.getName());
                     m.put(KEY_EMAIL, db.getEmail());
                     m.put(KEY_MOBILE, db.getMobile());
                     m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId() : null);
@@ -8649,7 +8745,7 @@ public class ReactApiController {
                     return m;
                 }).toList();
 
-            return ResponseEntity.ok(Map.of("deliveryBoys", result));
+            return ResponseEntity.ok(Map.of(K_DELIVERYBOYS, result));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
         }
@@ -8670,7 +8766,7 @@ public class ReactApiController {
     public ResponseEntity<Object> deliveryGetOrders(@RequestHeader(HEADER_AUTHORIZATION) String authHeader) {
         try {
             // Extract delivery boy ID from JWT
-            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace(K_BEARER, ""));
 
             List<Order> orders = orderRepository.findByFinalDeliveryBoyIdAndTrackingStatusIn(
                 deliveryBoyId,
@@ -8680,14 +8776,14 @@ public class ReactApiController {
             List<Map<String, Object>> result = orders.stream().map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", o.getId());
-                m.put("status", o.getTrackingStatus());
+                m.put(K_STATUS, o.getTrackingStatus());
                 m.put(KEY_STATUS_DISPLAY, o.getTrackingStatus().getDisplayName());
                 m.put(KEY_DELIVERY_ADDRESS, o.getDeliveryAddress());
-                m.put("deliveryPinCode", o.getDeliveryPinCode());
+                m.put(K_DELIVERYPINCODE, o.getDeliveryPinCode());
                 m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
                 m.put("customerPhone", o.getCustomer() != null ? o.getCustomer().getMobile() : "");
-                m.put("totalPrice", o.getTotalPrice());
-                m.put("paymentMethod", o.getPaymentMethod());
+                m.put(K_TOTALPRICE, o.getTotalPrice());
+                m.put(K_PAYMENT_METHOD, o.getPaymentMethod());
                 m.put(KEY_ROUTING_PATH, o.getWarehouseRoutingPath());
                 return m;
             }).toList();
@@ -8708,7 +8804,7 @@ public class ReactApiController {
      * 
      * Request body:
      * {
-     *   "otp": "123456",
+     *   K_OTP: "123456",
      *   "cashCollected": 2500  (only for COD orders)
      * }
      */
@@ -8718,7 +8814,7 @@ public class ReactApiController {
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
         try {
-            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace(K_BEARER, ""));
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(404).body(Map.of(KEY_ERROR, ERR_ORDER_NOT_FOUND));
@@ -8734,7 +8830,7 @@ public class ReactApiController {
             }
 
             // Validate OTP from DeliveryOtp table
-            String enteredOtp = (String) body.get("otp");
+            String enteredOtp = (String) body.get(K_OTP);
             DeliveryOtp deliveryOtp = deliveryOtpRepository.findByOrder(order).orElse(null);
             if (deliveryOtp == null || !String.valueOf(deliveryOtp.getOtp()).equals(enteredOtp)) {
                 return ResponseEntity.badRequest()
@@ -8742,7 +8838,7 @@ public class ReactApiController {
             }
 
             // COD validation
-            boolean isCOD = "COD".equalsIgnoreCase(order.getPaymentMethod());
+            boolean isCOD = K_COD.equalsIgnoreCase(order.getPaymentMethod());
             if (isCOD) {
                 Object cashObj = body.get("cashCollected");
                 if (cashObj == null) {
@@ -8769,7 +8865,7 @@ public class ReactApiController {
             Map<String, Object> res = new LinkedHashMap<>();
             res.put(KEY_SUCCESS, true);
             res.put(KEY_ORDER_ID, orderId);
-            res.put("status", STATUS_DELIVERED);
+            res.put(K_STATUS, STATUS_DELIVERED);
             if (isCOD) {
                 res.put(KEY_MESSAGE, "Delivery confirmed. Please submit the collected cash to your warehouse.");
                 res.put("cashToSubmit", order.getCodAmount());
@@ -8796,7 +8892,7 @@ public class ReactApiController {
             @PathVariable int orderId,
             @RequestBody Map<String, Object> body) {
         try {
-            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace("Bearer ", ""));
+            int deliveryBoyId = jwtUtil.extractDeliveryBoyId(authHeader.replace(K_BEARER, ""));
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(404).body(Map.of(KEY_ERROR, ERR_ORDER_NOT_FOUND));
@@ -8815,12 +8911,12 @@ public class ReactApiController {
                     .body(Map.of(KEY_ERROR, "No COD cash to submit for this order"));
             }
 
-            order.setPaymentStatus("COD_SUBMITTED_TO_WAREHOUSE");
+            order.setPaymentStatus(K_COD_SUBMITTED_TO_WAREHOUSE);
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
-                "message", "Cash submission recorded. Hand ₹" + order.getCodAmount() + " to warehouse staff.",
+                KEY_MESSAGE, "Cash submission recorded. Hand ₹" + order.getCodAmount() + " to warehouse staff.",
                 "cashAmount", order.getCodAmount()
             ));
         } catch (Exception e) {
@@ -8846,7 +8942,7 @@ public class ReactApiController {
 
         // Orders where paymentStatus = COD_SUBMITTED_TO_WAREHOUSE and destinationWarehouseId = this warehouse
         List<Order> orders = orderRepository.findByDestinationWarehouseIdAndPaymentStatus(
-            warehouseId, "COD_SUBMITTED_TO_WAREHOUSE");
+            warehouseId, K_COD_SUBMITTED_TO_WAREHOUSE);
 
         List<Map<String, Object>> result = orders.stream().map(o -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -8896,7 +8992,7 @@ public class ReactApiController {
             List<Order> orders = new ArrayList<>();
             for (int oid : orderIds) {
                 Order o = orderRepository.findById(oid).orElseThrow();
-                if (!"COD_SUBMITTED_TO_WAREHOUSE".equals(o.getPaymentStatus())) continue;
+                if (!K_COD_SUBMITTED_TO_WAREHOUSE.equals(o.getPaymentStatus())) continue;
                 totalCash += o.getCodAmount() != null ? o.getCodAmount() : 0;
                 orders.add(o);
             }
@@ -8936,8 +9032,8 @@ public class ReactApiController {
                 "totalCash", totalCash,
                 KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
                 KEY_VENDOR_PAY_AMOUNT, settlement.getVendorPayAmount(),
-                "status", STATUS_PROOF_UPLOADED,
-                "message", "Settlement submitted to admin for verification"
+                K_STATUS, STATUS_PROOF_UPLOADED,
+                KEY_MESSAGE, "Settlement submitted to admin for verification"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -8968,7 +9064,7 @@ public class ReactApiController {
             m.put(KEY_TOTAL_AMOUNT, s.getTotalAmountCollected());
             m.put(KEY_ADMIN_COMMISSION, s.getAdminCommission());
             m.put(KEY_VENDOR_PAY_AMOUNT, s.getVendorPayAmount());
-            m.put("status", s.getSettlementStatus());
+            m.put(K_STATUS, s.getSettlementStatus());
             m.put("proofPhotoUrl", s.getProofPhotoUrl());
             m.put("submittedAt", s.getSubmittedAt());
             m.put("orderCount", s.getOrderCount());
@@ -8991,7 +9087,7 @@ public class ReactApiController {
             @PathVariable int settlementId,
             @RequestBody(required = false) Map<String, Object> body) {
         // Extract admin ID from JWT
-        int adminId = jwtUtil.extractAdminId(authHeader.replace("Bearer ", ""));
+        int adminId = jwtUtil.extractAdminId(authHeader.replace(K_BEARER, ""));
 
         CashSettlement settlement = cashSettlementRepository.findById(settlementId)
             .orElseThrow(() -> new RuntimeException("Settlement not found"));
@@ -9015,7 +9111,7 @@ public class ReactApiController {
         return ResponseEntity.ok(Map.of(
             KEY_SUCCESS, true,
             KEY_SETTLEMENT_ID, settlementId,
-            "status", STATUS_VERIFIED,
+            K_STATUS, STATUS_VERIFIED,
             KEY_ADMIN_COMMISSION, settlement.getAdminCommission(),
             KEY_VENDOR_PAY_AMOUNT, settlement.getVendorPayAmount()
         ));
@@ -9072,7 +9168,7 @@ public class ReactApiController {
         return ResponseEntity.ok(Map.of(
             KEY_SUCCESS, true,
             KEY_SETTLEMENT_ID, settlementId,
-            "status", STATUS_PAID,
+            K_STATUS, STATUS_PAID,
             "totalPaid", settlement.getTotalAmountCollected(),
             "adminKept", settlement.getAdminCommission(),
             "vendorReceived", settlement.getVendorPayAmount(),
@@ -9157,19 +9253,19 @@ public class ReactApiController {
             List<Map<String, Object>> result = pageOrders.stream().map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", o.getId());
-                m.put("status", o.getTrackingStatus());
-                m.put("paymentMethod", o.getPaymentMethod());
+                m.put(K_STATUS, o.getTrackingStatus());
+                m.put(K_PAYMENT_METHOD, o.getPaymentMethod());
                 m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
                 m.put(KEY_CUSTOMER_NAME, o.getCustomer() != null ? o.getCustomer().getName() : "");
-                m.put("customerId", o.getCustomer() != null ? o.getCustomer().getId() : null);
+                m.put(K_CUSTOMER_ID, o.getCustomer() != null ? o.getCustomer().getId() : null);
                 m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
-                m.put("sourceWarehouse", o.getSourceWarehouse() != null ? o.getSourceWarehouse().getName() : "");
-                m.put("destinationWarehouse", o.getDestinationWarehouse() != null ? o.getDestinationWarehouse().getName() : "");
+                m.put(K_SOURCEWAREHOUSE, o.getSourceWarehouse() != null ? o.getSourceWarehouse().getName() : "");
+                m.put(K_DESTINATION_WAREHOUSE, o.getDestinationWarehouse() != null ? o.getDestinationWarehouse().getName() : "");
                 m.put(KEY_ROUTING_PATH, o.getWarehouseRoutingPath());
                 m.put(KEY_DELIVERY_BOY_ID, o.getFinalDeliveryBoyId());
-                m.put("totalPrice", o.getTotalPrice());
-                m.put("orderDate", o.getOrderDate());
+                m.put(K_TOTALPRICE, o.getTotalPrice());
+                m.put(K_ORDERDATE, o.getOrderDate());
                 return m;
             }).toList();
 
@@ -9197,16 +9293,16 @@ public class ReactApiController {
             List<Map<String, Object>> result = warehouses.stream().map(wh -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", wh.getId());
-                m.put("name", wh.getName());
-                m.put("city", wh.getCity());
-                m.put("state", wh.getState());
+                m.put(K_NAME, wh.getName());
+                m.put(K_CITY, wh.getCity());
+                m.put(K_STATE, wh.getState());
                 m.put(KEY_WAREHOUSE_CODE, wh.getWarehouseCode());
                 m.put(KEY_LOGIN_ID, wh.getWarehouseLoginId());
                 m.put(KEY_CONTACT_EMAIL, wh.getContactEmail());
                 m.put(KEY_CONTACT_PHONE, wh.getContactPhone());
-                m.put("address", wh.getAddress());
+                m.put(K_ADDRESS, wh.getAddress());
                 m.put(KEY_SERVED_PIN_CODES, wh.getServedPinCodes());
-                m.put("active", wh.isActive());
+                m.put(K_ACTIVE, wh.isActive());
                 m.put(KEY_LATITUDE, wh.getLatitude());
                 m.put(KEY_LONGITUDE, wh.getLongitude());
                 return m;
@@ -9251,7 +9347,7 @@ public class ReactApiController {
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
                 KEY_NEW_PASSWORD, newPlainPassword,
-                "message", "Password reset. New password emailed to " + wh.getContactEmail()
+                KEY_MESSAGE, "Password reset. New password emailed to " + wh.getContactEmail()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -9274,9 +9370,9 @@ public class ReactApiController {
             warehouseRepository.save(wh);
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
-                "active", wh.isActive(),
+                K_ACTIVE, wh.isActive(),
                 KEY_WAREHOUSE_ID, warehouseId,
-                "message", "Warehouse " + (wh.isActive() ? "activated" : "deactivated")
+                KEY_MESSAGE, "Warehouse " + (wh.isActive() ? "activated" : "deactivated")
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -9299,9 +9395,9 @@ public class ReactApiController {
             List<Map<String, Object>> result = delivered.stream().map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put(KEY_ORDER_ID, o.getId());
-                m.put("paymentMethod", o.getPaymentMethod());
+                m.put(K_PAYMENT_METHOD, o.getPaymentMethod());
                 m.put(KEY_PAYMENT_STATUS, o.getPaymentStatus());
-                m.put("totalPrice", o.getTotalPrice());
+                m.put(K_TOTALPRICE, o.getTotalPrice());
                 m.put(KEY_VENDOR_ID, o.getVendor() != null ? o.getVendor().getId() : null);
                 m.put(KEY_VENDOR_NAME, o.getVendor() != null ? o.getVendor().getName() : "");
                 m.put("adminCut20pct", o.getTotalPrice() * 0.20);
@@ -9332,13 +9428,13 @@ public class ReactApiController {
             List<Map<String, Object>> result = pending.stream().map(db -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", db.getId());
-                m.put("name", db.getName());
+                m.put(K_NAME, db.getName());
                 m.put(KEY_EMAIL, db.getEmail());
                 m.put(KEY_MOBILE, db.getMobile());
                 m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId() : null);
                 m.put(KEY_WAREHOUSE_NAME, db.getWarehouse() != null ? db.getWarehouse().getName() : "");
                 m.put(KEY_ASSIGNED_PIN_CODES, db.getAssignedPinCodes());
-                m.put("active", db.isActive());
+                m.put(K_ACTIVE, db.isActive());
                 m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
                 return m;
             }).toList();
@@ -9383,7 +9479,7 @@ public class ReactApiController {
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
                 KEY_DELIVERY_BOY_ID, deliveryBoyId,
-                "message", "Delivery boy approved and activated",
+                KEY_MESSAGE, "Delivery boy approved and activated",
                 KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode()
             ));
         } catch (Exception e) {
@@ -9405,7 +9501,7 @@ public class ReactApiController {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
                 .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
-            String reason = body != null ? (String) body.get("reason") : null;
+            String reason = body != null ? (String) body.get(K_REASON) : null;
             
             db.setAdminApproved(false);
             db.setActive(false);
@@ -9423,7 +9519,7 @@ public class ReactApiController {
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
                 KEY_DELIVERY_BOY_ID, deliveryBoyId,
-                "message", "Delivery boy deactivated"
+                KEY_MESSAGE, "Delivery boy deactivated"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, e.getMessage()));
@@ -9460,7 +9556,7 @@ public class ReactApiController {
             List<Map<String, Object>> result = pending.stream().map(db -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", db.getId());
-                m.put("name", db.getName());
+                m.put(K_NAME, db.getName());
                 m.put(KEY_EMAIL, db.getEmail());
                 m.put(KEY_MOBILE, db.getMobile());
                 m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
@@ -9512,7 +9608,7 @@ public class ReactApiController {
             
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
-                "message", "Delivery boy approved successfully",
+                KEY_MESSAGE, "Delivery boy approved successfully",
                 KEY_DELIVERY_BOY_ID, deliveryBoyId,
                 KEY_DELIVERY_BOY_NAME, db.getName()
             ));
@@ -9546,7 +9642,7 @@ public class ReactApiController {
                 return ResponseEntity.status(403).body(Map.of(KEY_SUCCESS, false, KEY_ERROR, "Not your delivery boy"));
             }
             
-            String reason = body != null ? (String) body.get("reason") : null;
+            String reason = body != null ? (String) body.get(K_REASON) : null;
             
             db.setAdminApproved(false);
             db.setActive(false);
@@ -9554,7 +9650,7 @@ public class ReactApiController {
             
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,
-                "message", "Delivery boy rejected",
+                KEY_MESSAGE, "Delivery boy rejected",
                 KEY_DELIVERY_BOY_ID, deliveryBoyId,
                 KEY_DELIVERY_BOY_NAME, db.getName()
             ));
@@ -9619,10 +9715,10 @@ public class ReactApiController {
                 return ResponseEntity.status(404).body(Map.of(KEY_SUCCESS, false, KEY_ERROR, ERR_WAREHOUSE_NOT_FOUND));
             }
 
-            String name = (String) body.get("name");
+            String name = (String) body.get(K_NAME);
             String email = (String) body.get(KEY_EMAIL);
             String mobile = (String) body.get(KEY_MOBILE);
-            String role = (String) body.get("role");
+            String role = (String) body.get(K_ROLE);
 
             if (name == null || email == null || mobile == null) {
                 return ResponseEntity.badRequest().body(Map.of(KEY_SUCCESS, false, KEY_ERROR, "Name, email, and mobile are required"));
@@ -9636,10 +9732,10 @@ public class ReactApiController {
                 KEY_SUCCESS, true,
                 "staff_id", staffId,
                 KEY_EMAIL, email,
-                "password", password,
-                "name", name,
+                K_PASSWORD, password,
+                K_NAME, name,
                 KEY_MOBILE, mobile,
-                "role", role
+                K_ROLE, role
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(KEY_SUCCESS, false, KEY_ERROR, e.getMessage()));

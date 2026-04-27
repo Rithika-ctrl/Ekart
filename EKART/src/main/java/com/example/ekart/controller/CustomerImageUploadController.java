@@ -41,6 +41,19 @@ import java.util.Map;
 @Controller
 public class CustomerImageUploadController {
 
+    // ── S1192 String constants ──
+    private static final String K_COUNT                             = "count";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_IMAGES                            = "images";
+    private static final String K_MAXIMUM                           = "Maximum ";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_REDIRECT_CUSTOMER_LOGIN           = "redirect:/customer/login";
+    private static final String K_REDIRECT_PRODUCT                  = "redirect:/product/";
+    private static final String K_REDIRECT_VIEW_ORDERS              = "redirect:/view-orders";
+    private static final String K_REDIRECT_VIEW_PRODUCTS            = "redirect:/view-products";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_IMAGE_URL                         = "imageUrl";
+
     private static final int MAX_IMAGES_PER_ENTITY = 5;
 
     // ── Injected dependencies ────────────────────────────────────────────────
@@ -88,30 +101,30 @@ public class CustomerImageUploadController {
     @Transactional
     public String uploadReviewImage(
             @PathVariable int reviewId,
-            @RequestParam("images") List<MultipartFile> files,
+            @RequestParam(K_IMAGES) List<MultipartFile> files,
             HttpSession session) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         Review review = reviewRepository.findById(reviewId).orElse(null);
         if (review == null) {
-            session.setAttribute("failure", "Review not found");
-            return "redirect:/view-products";
+            session.setAttribute(K_FAILURE, "Review not found");
+            return K_REDIRECT_VIEW_PRODUCTS;
         }
 
         // Ownership check — only the author can attach images
         if (review.getCustomer() == null || review.getCustomer().getId() != customer.getId()) {
-            session.setAttribute("failure", "You can only add images to your own reviews");
-            return "redirect:/view-products";
+            session.setAttribute(K_FAILURE, "You can only add images to your own reviews");
+            return K_REDIRECT_VIEW_PRODUCTS;
         }
 
         long existing = reviewImageRepository.countByReviewId(reviewId);
         int slots = (int) (MAX_IMAGES_PER_ENTITY - existing);
 
         if (slots <= 0) {
-            session.setAttribute("failure", "Maximum " + MAX_IMAGES_PER_ENTITY + " images allowed per review");
-            return "redirect:/view-products";
+            session.setAttribute(K_FAILURE, K_MAXIMUM + MAX_IMAGES_PER_ENTITY + " images allowed per review");
+            return K_REDIRECT_VIEW_PRODUCTS;
         }
 
         int uploaded = 0;
@@ -139,13 +152,13 @@ public class CustomerImageUploadController {
         }
 
         if (uploaded > 0) {
-            session.setAttribute("success", uploaded + " image(s) added to your review");
+            session.setAttribute(K_SUCCESS, uploaded + " image(s) added to your review");
         }
         if (!errors.isEmpty()) {
-            session.setAttribute("failure", String.join("; ", errors));
+            session.setAttribute(K_FAILURE, String.join("; ", errors));
         }
 
-        return "redirect:/product/" + review.getProduct().getId();
+        return K_REDIRECT_PRODUCT + review.getProduct().getId();
     }
 
     /**
@@ -165,13 +178,13 @@ public class CustomerImageUploadController {
         for (ReviewImage img : images) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",       img.getId());
-            m.put("imageUrl", img.getImageUrl());
+            m.put(K_IMAGE_URL, img.getImageUrl());
             data.add(m);
         }
 
-        res.put("success", true);
-        res.put("images",  data);
-        res.put("count",   data.size());
+        res.put(K_SUCCESS, true);
+        res.put(K_IMAGES,  data);
+        res.put(K_COUNT,   data.size());
         return ResponseEntity.ok(res);
     }
 
@@ -187,23 +200,23 @@ public class CustomerImageUploadController {
             HttpSession session) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         ReviewImage img = reviewImageRepository.findById(imageId).orElse(null);
         if (img == null || img.getReview().getId() != reviewId) {
-            session.setAttribute("failure", "Image not found");
-            return "redirect:/view-products";
+            session.setAttribute(K_FAILURE, "Image not found");
+            return K_REDIRECT_VIEW_PRODUCTS;
         }
 
         // Ownership check
         if (img.getReview().getCustomer() == null || img.getReview().getCustomer().getId() != customer.getId()) {
-            session.setAttribute("failure", "You can only delete your own review images");
-            return "redirect:/view-products";
+            session.setAttribute(K_FAILURE, "You can only delete your own review images");
+            return K_REDIRECT_VIEW_PRODUCTS;
         }
 
         reviewImageRepository.delete(img);
-        session.setAttribute("success", "Image removed from review");
-        return "redirect:/product/" + img.getReview().getProduct().getId();
+        session.setAttribute(K_SUCCESS, "Image removed from review");
+        return K_REDIRECT_PRODUCT + img.getReview().getProduct().getId();
     }
 
     // ══════════════════════════════════════════════════════════
@@ -222,7 +235,7 @@ public class CustomerImageUploadController {
             ModelMap map) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         map.put("orderId", orderId);
         return "customer-refund-report.html";
@@ -237,30 +250,30 @@ public class CustomerImageUploadController {
     @Transactional
     public String uploadRefundImage(
             @PathVariable int refundId,
-            @RequestParam("images") List<MultipartFile> files,
+            @RequestParam(K_IMAGES) List<MultipartFile> files,
             HttpSession session) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         Refund refund = refundRepository.findById(refundId).orElse(null);
         if (refund == null) {
-            session.setAttribute("failure", "Refund request not found");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Refund request not found");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         // Ownership check
         if (refund.getCustomer().getId() != customer.getId()) {
-            session.setAttribute("failure", "Access denied");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Access denied");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         long existing = refundImageRepository.countByRefundId(refundId);
         int slots = (int) (MAX_IMAGES_PER_ENTITY - existing);
 
         if (slots <= 0) {
-            session.setAttribute("failure", "Maximum " + MAX_IMAGES_PER_ENTITY + " evidence images allowed per request");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, K_MAXIMUM + MAX_IMAGES_PER_ENTITY + " evidence images allowed per request");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         int uploaded = 0;
@@ -288,13 +301,13 @@ public class CustomerImageUploadController {
         }
 
         if (uploaded > 0) {
-            session.setAttribute("success", uploaded + " evidence image(s) uploaded to your refund request");
+            session.setAttribute(K_SUCCESS, uploaded + " evidence image(s) uploaded to your refund request");
         }
         if (!errors.isEmpty()) {
-            session.setAttribute("failure", String.join("; ", errors));
+            session.setAttribute(K_FAILURE, String.join("; ", errors));
         }
 
-        return "redirect:/view-orders";
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     /**
@@ -314,22 +327,22 @@ public class CustomerImageUploadController {
         Customer customer  = (Customer) session.getAttribute("customer");
 
         if (!isAdmin && customer == null) {
-            res.put("success", false);
-            res.put("message", "Login required");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Login required");
             return ResponseEntity.status(401).body(res);
         }
 
         Refund refund = refundRepository.findById(refundId).orElse(null);
         if (refund == null) {
-            res.put("success", false);
-            res.put("message", "Refund not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Refund not found");
             return ResponseEntity.status(404).body(res);
         }
 
         // Customer ownership check (admin sees all)
         if (!isAdmin && refund.getCustomer().getId() != customer.getId()) {
-            res.put("success", false);
-            res.put("message", "Access denied");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Access denied");
             return ResponseEntity.status(403).body(res);
         }
 
@@ -338,13 +351,13 @@ public class CustomerImageUploadController {
         for (RefundImage img : images) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",       img.getId());
-            m.put("imageUrl", img.getImageUrl());
+            m.put(K_IMAGE_URL, img.getImageUrl());
             data.add(m);
         }
 
-        res.put("success", true);
-        res.put("images",  data);
-        res.put("count",   data.size());
+        res.put(K_SUCCESS, true);
+        res.put(K_IMAGES,  data);
+        res.put(K_COUNT,   data.size());
         return ResponseEntity.ok(res);
     }
 
@@ -360,22 +373,22 @@ public class CustomerImageUploadController {
             HttpSession session) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         RefundImage img = refundImageRepository.findById(imageId).orElse(null);
         if (img == null || img.getRefund().getId() != refundId) {
-            session.setAttribute("failure", "Image not found");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Image not found");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         if (img.getRefund().getCustomer().getId() != customer.getId()) {
-            session.setAttribute("failure", "You can only delete your own images");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "You can only delete your own images");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         refundImageRepository.delete(img);
-        session.setAttribute("success", "Evidence image removed");
-        return "redirect:/view-orders";
+        session.setAttribute(K_SUCCESS, "Evidence image removed");
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -392,19 +405,19 @@ public class CustomerImageUploadController {
     @Transactional
     public String uploadProductPageImage(
             @PathVariable int productId,
-            @RequestParam("images") List<MultipartFile> files,
+            @RequestParam(K_IMAGES) List<MultipartFile> files,
             HttpSession session) {
 
         Customer customer = requireCustomer(session);
-        if (customer == null) return "redirect:/customer/login";
+        if (customer == null) return K_REDIRECT_CUSTOMER_LOGIN;
 
         // Find the customer's most recent review for this product
         Review latestReview = reviewRepository.findLatestByProductIdAndCustomerId(productId, customer.getId())
             .orElse(null);
 
         if (latestReview == null) {
-            session.setAttribute("failure", "Please write a review for this product before uploading images");
-            return "redirect:/product/" + productId;
+            session.setAttribute(K_FAILURE, "Please write a review for this product before uploading images");
+            return K_REDIRECT_PRODUCT + productId;
         }
 
         // Delegate to the same review-upload logic
@@ -412,8 +425,8 @@ public class CustomerImageUploadController {
         int slots = (int) (MAX_IMAGES_PER_ENTITY - existing);
 
         if (slots <= 0) {
-            session.setAttribute("failure", "Maximum " + MAX_IMAGES_PER_ENTITY + " images already uploaded for your review");
-            return "redirect:/product/" + productId;
+            session.setAttribute(K_FAILURE, K_MAXIMUM + MAX_IMAGES_PER_ENTITY + " images already uploaded for your review");
+            return K_REDIRECT_PRODUCT + productId;
         }
 
         int uploaded = 0;
@@ -430,15 +443,15 @@ public class CustomerImageUploadController {
                 reviewImageRepository.save(img);
                 uploaded++;
             } catch (Exception e) {
-                session.setAttribute("failure", "Upload failed: " + e.getMessage());
+                session.setAttribute(K_FAILURE, "Upload failed: " + e.getMessage());
             }
         }
 
         if (uploaded > 0) {
-            session.setAttribute("success", uploaded + " image(s) added to your review");
+            session.setAttribute(K_SUCCESS, uploaded + " image(s) added to your review");
         }
 
-        return "redirect:/product/" + productId;
+        return K_REDIRECT_PRODUCT + productId;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -459,8 +472,8 @@ public class CustomerImageUploadController {
         Map<String, Object> res = new HashMap<>();
 
         if (session.getAttribute("admin") == null) {
-            res.put("success", false);
-            res.put("message", "Admin login required");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Admin login required");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -469,13 +482,13 @@ public class CustomerImageUploadController {
         for (RefundImage img : images) {
             Map<String, Object> m = new HashMap<>();
             m.put("id",       img.getId());
-            m.put("imageUrl", img.getImageUrl());
+            m.put(K_IMAGE_URL, img.getImageUrl());
             data.add(m);
         }
 
-        res.put("success", true);
-        res.put("images",  data);
-        res.put("count",   data.size());
+        res.put(K_SUCCESS, true);
+        res.put(K_IMAGES,  data);
+        res.put(K_COUNT,   data.size());
         return ResponseEntity.ok(res);
     }
 
@@ -487,7 +500,7 @@ public class CustomerImageUploadController {
     private Customer requireCustomer(HttpSession session) {
         Customer c = (Customer) session.getAttribute("customer");
         if (c == null) {
-            session.setAttribute("failure", "Please login first");
+            session.setAttribute(K_FAILURE, "Please login first");
         }
         return c;
     }

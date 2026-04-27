@@ -1,13 +1,14 @@
 package com.example.ekart.service;
 
 import java.time.LocalDateTime;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.example.ekart.dto.Cart;
@@ -30,6 +31,15 @@ import jakarta.transaction.Transactional;
 @Service
 @Transactional
 public class ReorderService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReorderService.class);
+    private static final String K_SUCCESS        = "success";
+    private static final String K_MESSAGE        = "message";
+    private static final String K_AVAILABLE      = "available";
+    private static final String K_CURRENT_STOCK  = "currentStock";
+    private static final String K_CURRENT_PRICE  = "currentPrice";
+    private static final String K_STATUS         = "status";
+    private static final String K_CUSTOMER       = "customer";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final OrderRepository orderRepository;
@@ -87,7 +97,7 @@ public class ReorderService {
         ReorderResult result = new ReorderResult();
 
         // Verify customer session
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
             result.setSuccess(false);
             result.setMessage("Session expired. Please login again.");
@@ -219,7 +229,7 @@ public class ReorderService {
         customerRepository.save(customer);
 
         // Update session
-        session.setAttribute("customer", customer);
+        session.setAttribute(K_CUSTOMER, customer);
 
         // Build result
         result.setOutOfStockItems(outOfStock);
@@ -247,17 +257,17 @@ public class ReorderService {
     public Map<String, Object> checkOrderStock(int orderId, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
 
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            response.put("success", false);
-            response.put("message", "Session expired");
+            response.put(K_SUCCESS, false);
+            response.put(K_MESSAGE, "Session expired");
             return response;
         }
 
         Optional<Order> orderOpt = orderRepository.findById(orderId);
         if (orderOpt.isEmpty()) {
-            response.put("success", false);
-            response.put("message", "Order not found");
+            response.put(K_SUCCESS, false);
+            response.put(K_MESSAGE, "Order not found");
             return response;
         }
 
@@ -265,8 +275,8 @@ public class ReorderService {
 
         // Verify ownership
         if (order.getCustomer() == null || order.getCustomer().getId() != sessionCustomer.getId()) {
-            response.put("success", false);
-            response.put("message", "Not authorized");
+            response.put(K_SUCCESS, false);
+            response.put(K_MESSAGE, "Not authorized");
             return response;
         }
 
@@ -290,28 +300,28 @@ public class ReorderService {
             }
 
             if (product == null || !product.isApproved()) {
-                itemInfo.put("available", false);
-                itemInfo.put("currentStock", 0);
-                itemInfo.put("currentPrice", 0);
-                itemInfo.put("status", "unavailable");
+                itemInfo.put(K_AVAILABLE, false);
+                itemInfo.put(K_CURRENT_STOCK, 0);
+                itemInfo.put(K_CURRENT_PRICE, 0);
+                itemInfo.put(K_STATUS, "unavailable");
                 hasOutOfStock = true;
             } else if (product.getStock() < orderItem.getQuantity()) {
-                itemInfo.put("available", product.getStock() > 0);
-                itemInfo.put("currentStock", product.getStock());
-                itemInfo.put("currentPrice", product.getPrice());
-                itemInfo.put("status", product.getStock() <= 0 ? "out_of_stock" : "partial");
+                itemInfo.put(K_AVAILABLE, product.getStock() > 0);
+                itemInfo.put(K_CURRENT_STOCK, product.getStock());
+                itemInfo.put(K_CURRENT_PRICE, product.getPrice());
+                itemInfo.put(K_STATUS, product.getStock() <= 0 ? "out_of_stock" : "partial");
                 hasOutOfStock = true;
             } else {
-                itemInfo.put("available", true);
-                itemInfo.put("currentStock", product.getStock());
-                itemInfo.put("currentPrice", product.getPrice());
-                itemInfo.put("status", "in_stock");
+                itemInfo.put(K_AVAILABLE, true);
+                itemInfo.put(K_CURRENT_STOCK, product.getStock());
+                itemInfo.put(K_CURRENT_PRICE, product.getPrice());
+                itemInfo.put(K_STATUS, "in_stock");
             }
 
             items.add(itemInfo);
         }
 
-        response.put("success", true);
+        response.put(K_SUCCESS, true);
         response.put("items", items);
         response.put("hasOutOfStock", hasOutOfStock);
         response.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : null);
@@ -319,4 +329,3 @@ public class ReorderService {
         return response;
     }
 }
-

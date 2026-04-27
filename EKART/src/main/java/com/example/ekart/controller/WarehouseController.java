@@ -58,6 +58,17 @@ import com.example.ekart.repository.OrderRepository;
 @RequestMapping("/api/warehouse")
 public class WarehouseController {
 
+    // ── S1192 String constants ──
+    private static final String K_ERROR                             = "error";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_ORDER_NOT_FOUND                   = "Order not found";
+    private static final String K_STATUS                            = "status";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_UNAUTHORIZED                      = "Unauthorized";
+    private static final String K_COUNT                             = "count";
+    private static final String K_WAREHOUSEID                       = "warehouseId";
+    private static final String K_WAREHOUSE_NOT_FOUND               = "Warehouse not found";
+
     private static final Logger logger = LoggerFactory.getLogger(WarehouseController.class);
     private static final String WAREHOUSE_KEY = "warehouse";
     private static final String QUEUE_COUNT_KEY = "queue_count";
@@ -127,7 +138,7 @@ public class WarehouseController {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             List<Order> receivingQueue = warehouseReceivingService.getReceivingQueue(warehouseId);
@@ -139,7 +150,7 @@ public class WarehouseController {
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -164,17 +175,17 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to mark order as received"));
+                    .body(Map.of(K_ERROR, "Failed to mark order as received"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Order marked as received",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Order marked as received",
                 ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -195,7 +206,7 @@ public class WarehouseController {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             List<Order> prepQueue = warehouseReceivingService.getOrdersAwaitingPreparation(warehouseId);
@@ -207,7 +218,7 @@ public class WarehouseController {
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -230,17 +241,17 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to prepare order. Check order status."));
+                    .body(Map.of(K_ERROR, "Failed to prepare order. Check order status."));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Order prepared for delivery",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Order prepared for delivery",
                 ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -261,19 +272,19 @@ public class WarehouseController {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             List<Order> assignQueue = warehouseReceivingService.getOrdersReadyForDelivery(warehouseId);
             
             return ResponseEntity.ok(Map.of(
-                "warehouse", warehouse.get().getName(),
+                WAREHOUSE_KEY, warehouse.get().getName(),
                 "queue_count", assignQueue.size(),
                 ORDERS_KEY, assignQueue
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -290,7 +301,7 @@ public class WarehouseController {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             List<DeliveryBoy> boys = warehouseReceivingService.getAvailableDeliveryBoys(warehouseId);
@@ -310,20 +321,20 @@ public class WarehouseController {
             }
 
             return ResponseEntity.ok(Map.of(
-                "warehouse", warehouse.get().getName(),
+                WAREHOUSE_KEY, warehouse.get().getName(),
                 "available_count", boys.size(),
                 "delivery_boys", boysWithLoad
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
     /**
      * POST /api/warehouse/{warehouseId}/order/{orderId}/assign-delivery-boy
      * Assign a delivery boy to an order manually (warehouse staff decides).
-     * Request body: { "delivery_boy_id": 5, "warehouse_staff_id": 10, "notes": "..." }
+     * Request body: { "delivery_boy_id": 5, WAREHOUSE_STAFF_ID_KEY: 10, "notes": "..." }
      *
      * @param warehouseId Warehouse ID
      * @param orderId Order ID
@@ -348,17 +359,17 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to assign delivery boy. Check order status and delivery boy availability."));
+                    .body(Map.of(K_ERROR, "Failed to assign delivery boy. Check order status and delivery boy availability."));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Delivery boy assigned successfully",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Delivery boy assigned successfully",
                 ORDER_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -379,7 +390,7 @@ public class WarehouseController {
             Optional<Warehouse> warehouse = warehouseRepository.findById(warehouseId);
             if (warehouse.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             // Get pending transfer legs from this warehouse
@@ -405,14 +416,14 @@ public class WarehouseController {
                 .toList();
             
             return ResponseEntity.ok(Map.of(
-                "warehouse", warehouse.get().getName(),
+                WAREHOUSE_KEY, warehouse.get().getName(),
                 "pending_count", orders.size(),
                 ORDERS_KEY, orders,
                 "transfers", transfers
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -430,16 +441,16 @@ public class WarehouseController {
             
             if (legOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Transfer leg not found"));
+                    .body(Map.of(K_ERROR, "Transfer leg not found"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
+                K_STATUS, K_SUCCESS,
                 TRANSFER_LEG_KEY, legOpt.get()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -462,17 +473,17 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to mark transfer leg as in-transit"));
+                    .body(Map.of(K_ERROR, "Failed to mark transfer leg as in-transit"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Transfer leg marked as in-transit",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Transfer leg marked as in-transit",
                 TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -495,24 +506,24 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to mark transfer leg as arrived"));
+                    .body(Map.of(K_ERROR, "Failed to mark transfer leg as arrived"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Transfer leg marked as arrived",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Transfer leg marked as arrived",
                 TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
     /**
      * POST /api/warehouse/transfer-leg/{legId}/mark-received
      * Mark transfer leg as received by warehouse staff (final step).
-     * Request body: { "warehouse_staff_id": 5, "description": "..." }
+     * Request body: { WAREHOUSE_STAFF_ID_KEY: 5, "description": "..." }
      *
      * @param legId Transfer leg ID
      * @param request Staff ID and optional description
@@ -532,17 +543,17 @@ public class WarehouseController {
 
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "Failed to mark transfer leg as received"));
+                    .body(Map.of(K_ERROR, "Failed to mark transfer leg as received"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Transfer leg marked as received",
+                K_STATUS, K_SUCCESS,
+                K_MESSAGE, "Transfer leg marked as received",
                 TRANSFER_LEG_KEY, updated
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -559,7 +570,7 @@ public class WarehouseController {
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Order not found"));
+                    .body(Map.of(K_ERROR, K_ORDER_NOT_FOUND));
             }
 
             List<WarehouseTransferLeg> legs = warehouseTransferService.getOrderTransferLegs(orderId);
@@ -571,7 +582,7 @@ public class WarehouseController {
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -591,22 +602,22 @@ public class WarehouseController {
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Order not found"));
+                    .body(Map.of(K_ERROR, K_ORDER_NOT_FOUND));
             }
 
             Order order = orderOpt.get();
             if (order.getTrackingStatus() != TrackingStatus.WAREHOUSE_RECEIVED) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Order must be WAREHOUSE_RECEIVED", 
+                    .body(Map.of(K_ERROR, "Order must be WAREHOUSE_RECEIVED", 
                                  CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
@@ -614,13 +625,13 @@ public class WarehouseController {
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "status", "PREPARED_FOR_HUB_TRANSIT",
+                K_SUCCESS, true,
+                K_STATUS, "PREPARED_FOR_HUB_TRANSIT",
                 ORDER_ID_KEY, orderId
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -636,22 +647,22 @@ public class WarehouseController {
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Order not found"));
+                    .body(Map.of(K_ERROR, K_ORDER_NOT_FOUND));
             }
 
             Order order = orderOpt.get();
             if (order.getTrackingStatus() != TrackingStatus.PREPARED_FOR_HUB_TRANSIT) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Order must be PREPARED_FOR_HUB_TRANSIT",
+                    .body(Map.of(K_ERROR, "Order must be PREPARED_FOR_HUB_TRANSIT",
                                  CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
@@ -659,14 +670,14 @@ public class WarehouseController {
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "status", "IN_HUB_TRANSIT",
+                K_SUCCESS, true,
+                K_STATUS, "IN_HUB_TRANSIT",
                 ORDER_ID_KEY, orderId,
                 ROUTING_PATH_KEY, order.getWarehouseRoutingPath()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -683,22 +694,22 @@ public class WarehouseController {
             @PathVariable int orderId,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Order not found"));
+                    .body(Map.of(K_ERROR, K_ORDER_NOT_FOUND));
             }
 
             Order order = orderOpt.get();
             if (order.getTrackingStatus() != TrackingStatus.IN_HUB_TRANSIT) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Order must be IN_HUB_TRANSIT",
+                    .body(Map.of(K_ERROR, "Order must be IN_HUB_TRANSIT",
                                  CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
@@ -710,24 +721,24 @@ public class WarehouseController {
                 order.setTrackingStatus(TrackingStatus.ARRIVED_AT_DESTINATION_HUB);
                 orderRepository.save(order);
                 return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "status", "ARRIVED_AT_DESTINATION_HUB",
+                    K_SUCCESS, true,
+                    K_STATUS, "ARRIVED_AT_DESTINATION_HUB",
                     ORDER_ID_KEY, orderId,
-                    "message", "Order ready for delivery assignment"
+                    K_MESSAGE, "Order ready for delivery assignment"
                 ));
             } else {
                 order.setTrackingStatus(TrackingStatus.ARRIVED_AT_INTERMEDIATE_HUB);
                 orderRepository.save(order);
                 return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "status", "ARRIVED_AT_INTERMEDIATE_HUB",
+                    K_SUCCESS, true,
+                    K_STATUS, "ARRIVED_AT_INTERMEDIATE_HUB",
                     ORDER_ID_KEY, orderId,
-                    "message", "Mark for continued transit to destination"
+                    K_MESSAGE, "Mark for continued transit to destination"
                 ));
             }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -741,10 +752,10 @@ public class WarehouseController {
     @GetMapping("/assignment-queue")
     public ResponseEntity<Map<String, Object>> warehouseAssignmentQueue(HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             List<Order> queue = orderRepository.findByDestinationWarehouseIdAndTrackingStatus(
@@ -753,7 +764,7 @@ public class WarehouseController {
             List<Map<String, Object>> result = queue.stream().map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", o.getId());
-                m.put("status", o.getTrackingStatus().getDisplayName());
+                m.put(K_STATUS, o.getTrackingStatus().getDisplayName());
                 m.put("deliveryPinCode", o.getDeliveryPinCode());
                 m.put("deliveryAddress", o.getDeliveryAddress());
                 m.put("customerName", o.getCustomer() != null ? o.getCustomer().getName() : "");
@@ -765,12 +776,12 @@ public class WarehouseController {
             }).toList();
 
             return ResponseEntity.ok(Map.of(
-                "count", result.size(),
+                K_COUNT, result.size(),
                 ORDERS_KEY, result
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -786,16 +797,16 @@ public class WarehouseController {
             @RequestParam String pinCode,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             Optional<Warehouse> whOpt = warehouseRepository.findById(warehouseId);
             if (whOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Warehouse not found"));
+                    .body(Map.of(K_ERROR, K_WAREHOUSE_NOT_FOUND));
             }
 
             Warehouse wh = whOpt.get();
@@ -807,7 +818,7 @@ public class WarehouseController {
                     .toList()
                     .contains(pinCode.trim())) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Pin code " + pinCode + " is not served by this warehouse"));
+                    .body(Map.of(K_ERROR, "Pin code " + pinCode + " is not served by this warehouse"));
             }
 
             // Find all active + admin-approved delivery boys
@@ -833,11 +844,11 @@ public class WarehouseController {
             return ResponseEntity.ok(Map.of(
                 "pinCode", pinCode,
                 "availableBoys", boys,
-                "count", boys.size()
+                K_COUNT, boys.size()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 
@@ -855,28 +866,28 @@ public class WarehouseController {
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         try {
-            Integer warehouseId = (Integer) request.getAttribute("warehouseId");
+            Integer warehouseId = (Integer) request.getAttribute(K_WAREHOUSEID);
             if (warehouseId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Unauthorized"));
+                    .body(Map.of(K_ERROR, K_UNAUTHORIZED));
             }
 
             Optional<Order> orderOpt = orderRepository.findById(orderId);
             if (orderOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Order not found"));
+                    .body(Map.of(K_ERROR, K_ORDER_NOT_FOUND));
             }
 
             Order order = orderOpt.get();
             if (order.getTrackingStatus() != TrackingStatus.ARRIVED_AT_DESTINATION_HUB) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Order not ready for delivery boy assignment",
+                    .body(Map.of(K_ERROR, "Order not ready for delivery boy assignment",
                                  CURRENT_STATUS_KEY, order.getTrackingStatus()));
             }
 
             if (body.get(DELIVERY_BOY_ID_KEY) == null) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "deliveryBoyId is required"));
+                    .body(Map.of(K_ERROR, "deliveryBoyId is required"));
             }
 
             int deliveryBoyId = Integer.parseInt(body.get(DELIVERY_BOY_ID_KEY).toString());
@@ -884,7 +895,7 @@ public class WarehouseController {
             Optional<DeliveryBoy> boyOpt = deliveryBoyRepository.findById(deliveryBoyId);
             if (boyOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Delivery boy not found"));
+                    .body(Map.of(K_ERROR, "Delivery boy not found"));
             }
 
             DeliveryBoy boy = boyOpt.get();
@@ -904,16 +915,16 @@ public class WarehouseController {
             sendDeliveryOtpEmail(order, otp);
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
+                K_SUCCESS, true,
                 ORDER_ID_KEY, orderId,
                 "deliveryBoyName", boy.getName(),
                 DELIVERY_BOY_ID_KEY, boy.getId(),
-                "status", "SHIPPED",
-                "message", "Delivery OTP sent to customer email"
+                K_STATUS, "SHIPPED",
+                K_MESSAGE, "Delivery OTP sent to customer email"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(K_ERROR, e.getMessage()));
         }
     }
 

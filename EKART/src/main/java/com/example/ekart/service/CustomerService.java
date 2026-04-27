@@ -64,7 +64,26 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Transactional
 public class CustomerService {
 
+    // ── S1192 String constants ──
+    private static final String K_CARTEMPTY                         = "cartEmpty";
+    private static final String K_CARTTOTAL                         = "cartTotal";
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_DELIVERYCHARGE                    = "deliveryCharge";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_FREEDELIVERY                      = "freeDelivery";
+    private static final String K_ITEM_NOT_FOUND                    = "Item not found";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_ORDERS                            = "orders";
+    private static final String K_PRODUCTS                          = "products";
+    private static final String K_QUERY                             = "query";
+    private static final String K_REDIRECT_CUSTOMER_RESET_PASSWORD  = "redirect:/customer/reset-password/";
+    private static final String K_REDIRECT_VIEW_ORDERS              = "redirect:/view-orders";
+    private static final String K_SESSION_EXPIRED                   = "Session expired";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE = "This product is no longer available.";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(CustomerService.class);
+    private static final Random RANDOM = new Random();
     private static final String REDIRECT_CUSTOMER_LOGIN = "redirect:/customer/login";
     private static final String REDIRECT_CUSTOMER_HOME = "redirect:/customer/home";
     private static final String REDIRECT_VIEW_CART = "redirect:/view-cart";
@@ -144,7 +163,7 @@ public class CustomerService {
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         return "customer-register.html";
     }
 
@@ -166,7 +185,7 @@ public class CustomerService {
         if (result.hasErrors())
             return "customer-register.html";
 
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         customer.setOtp(otp);
         customer.setPassword(AES.encrypt(customer.getPassword()));
         customerRepository.save(customer);
@@ -177,7 +196,7 @@ public class CustomerService {
             LOGGER.error("Customer OTP email failed: {}", e.getMessage(), e);
         }
 
-        session.setAttribute("success", "OTP Sent Successfully to your email");
+        session.setAttribute(K_SUCCESS, "OTP Sent Successfully to your email");
         return "redirect:/customer/otp/" + customer.getId();
     }
 
@@ -187,11 +206,11 @@ public class CustomerService {
         if (customer.getOtp() == otp) {
             customer.setVerified(true);
             customerRepository.save(customer);
-            session.setAttribute("success", "Account verified! Please log in.");
+            session.setAttribute(K_SUCCESS, "Account verified! Please log in.");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
-        session.setAttribute("failure", "OTP Mismatch");
+        session.setAttribute(K_FAILURE, "OTP Mismatch");
         return "redirect:/customer/otp/" + customer.getId();
     }
 
@@ -201,22 +220,22 @@ public class CustomerService {
         Customer customer = customerRepository.findByEmail(email);
 
         if (customer == null) {
-            session.setAttribute("failure", "Invalid Email");
+            session.setAttribute(K_FAILURE, "Invalid Email");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!AES.decrypt(customer.getPassword()).equals(password)) {
-            session.setAttribute("failure", "Invalid Password");
+            session.setAttribute(K_FAILURE, "Invalid Password");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!customer.isVerified()) {
-            session.setAttribute("failure", "Verify Email First");
+            session.setAttribute(K_FAILURE, "Verify Email First");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!customer.isActive()) {
-            session.setAttribute("failure", "Your account has been suspended.");
+            session.setAttribute(K_FAILURE, "Your account has been suspended.");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -230,8 +249,8 @@ public class CustomerService {
         customerRepository.save(customer);
 
         session.removeAttribute("guest");
-        session.setAttribute("customer", customer);
-        session.setAttribute("success", "Login Successful");
+        session.setAttribute(K_CUSTOMER, customer);
+        session.setAttribute(K_SUCCESS, "Login Successful");
         return REDIRECT_CUSTOMER_HOME;
     }
 
@@ -243,17 +262,17 @@ public class CustomerService {
     public String sendResetOtp(String email, HttpSession session) {
         Customer customer = customerRepository.findByEmail(email);
         if (customer == null) {
-            session.setAttribute("failure", "No account found with this email");
+            session.setAttribute(K_FAILURE, "No account found with this email");
             return "redirect:/customer/forgot-password";
         }
 
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         customer.setOtp(otp);
         customerRepository.save(customer);
         emailSender.send(customer);
 
-        session.setAttribute("success", "OTP sent to your registered email");
-        return "redirect:/customer/reset-password/" + customer.getId();
+        session.setAttribute(K_SUCCESS, "OTP sent to your registered email");
+        return K_REDIRECT_CUSTOMER_RESET_PASSWORD + customer.getId();
     }
 
     public String loadResetPasswordPage(int id, ModelMap map) {
@@ -264,38 +283,38 @@ public class CustomerService {
     public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
-            session.setAttribute("failure", "Invalid reset request");
+            session.setAttribute(K_FAILURE, "Invalid reset request");
             return "redirect:/customer/forgot-password";
         }
 
         if (customer.getOtp() != otp) {
-            session.setAttribute("failure", "Invalid OTP");
-            return "redirect:/customer/reset-password/" + id;
+            session.setAttribute(K_FAILURE, "Invalid OTP");
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
-            session.setAttribute("failure", "Password and Confirm Password should match");
-            return "redirect:/customer/reset-password/" + id;
+            session.setAttribute(K_FAILURE, "Password and Confirm Password should match");
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (!password.matches(passwordRegex)) {
-            session.setAttribute("failure",
+            session.setAttribute(K_FAILURE,
                     "Password must have 8+ characters with uppercase, lowercase, number and special character");
-            return "redirect:/customer/reset-password/" + id;
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         customer.setPassword(AES.encrypt(password));
         customerRepository.save(customer);
 
-        session.setAttribute("success", "Password reset successful. Please login");
+        session.setAttribute(K_SUCCESS, "Password reset successful. Please login");
         return REDIRECT_CUSTOMER_LOGIN;
     }
 
     public String loadCustomerHome(HttpSession session, org.springframework.ui.ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -307,7 +326,7 @@ public class CustomerService {
         map.put("cartCount", cartCount);
 
         List<Product> products = productRepository.findByApprovedTrue();
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
 
         java.util.Map<String, Long> subCatCounts = new java.util.LinkedHashMap<>();
         for (Product p : products) {
@@ -328,13 +347,13 @@ public class CustomerService {
 
     // ---------------- PRODUCT DETAIL ----------------
     public String viewProductDetail(int id, HttpSession session, ModelMap map) {
-        boolean isGuest = session.getAttribute("customer") == null
+        boolean isGuest = session.getAttribute(K_CUSTOMER) == null
                        && session.getAttribute("vendor") == null;
         map.put("isGuestView", isGuest);
 
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || !product.isApproved()) {
-            if (!isGuest) session.setAttribute("failure", "Product not found");
+            if (!isGuest) session.setAttribute(K_FAILURE, "Product not found");
             return isGuest ? "redirect:/" : "redirect:/customer/home";
         }
 
@@ -351,17 +370,17 @@ public class CustomerService {
     // ---------------- VIEW PRODUCTS ----------------
     public String viewProducts(HttpSession session, ModelMap map) {
 
-        if (session.getAttribute("customer") == null)
+        if (session.getAttribute(K_CUSTOMER) == null)
             return REDIRECT_CUSTOMER_LOGIN;
 
         List<Product> products = productRepository.findByApprovedTrue();
 
         if (products.isEmpty()) {
-            session.setAttribute("failure", "No Products Available");
+            session.setAttribute(K_FAILURE, "No Products Available");
             return REDIRECT_CUSTOMER_HOME;
         }
 
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         return "customer-view-products.html";
     }
 
@@ -373,9 +392,9 @@ public class CustomerService {
         } else {
             products = productRepository.findByApprovedTrue();
         }
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
 
-        if (session.getAttribute("customer") != null) {
+        if (session.getAttribute(K_CUSTOMER) != null) {
             return "customer-view-products.html";
         }
         return "guest-browse.html";
@@ -400,25 +419,25 @@ public class CustomerService {
                 products.addAll(productRepository.findByCategoryContainingIgnoreCase(corrected));
                 map.put("correctedQuery", corrected);
                 map.put("originalQuery", query);
-                map.put("query", corrected);
+                map.put(K_QUERY, corrected);
             } else {
-                map.put("query", query);
+                map.put(K_QUERY, query);
             }
         } else {
-            map.put("query", query);
+            map.put(K_QUERY, query);
         }
 
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         return "search.html";
     }
 
     // ---------------- ADD TO CART ----------------
     public String addToCart(int id, HttpSession session) {
 
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
 
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Session Expired, Login Again");
+            session.setAttribute(K_FAILURE, "Session Expired, Login Again");
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -434,12 +453,12 @@ public class CustomerService {
                 .anyMatch(i -> i.getName().equals(product.getName()));
 
         if (exists) {
-            session.setAttribute("failure", "Product already in cart");
+            session.setAttribute(K_FAILURE, "Product already in cart");
             return REDIRECT_CUSTOMER_HOME;
         }
 
         if (product.getStock() <= 0) {
-            session.setAttribute("failure", "Sorry, this product is out of stock.");
+            session.setAttribute(K_FAILURE, "Sorry, this product is out of stock.");
             return REDIRECT_CUSTOMER_HOME;
         }
 
@@ -462,15 +481,15 @@ public class CustomerService {
         productRepository.save(product);
         customerRepository.save(customer);
 
-        session.setAttribute("success", "Added to cart");
+        session.setAttribute(K_SUCCESS, "Added to cart");
         return REDIRECT_CUSTOMER_HOME;
     }
 
     // ---------------- VIEW CART ----------------
     public String viewCart(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -495,17 +514,17 @@ public class CustomerService {
         Item item = itemRepository.findById(id).orElseThrow();
 
         if (item.getProductId() == null) {
-            session.setAttribute("failure", "This product is no longer available.");
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
             return REDIRECT_VIEW_CART;
         }
         Product product = productRepository.findById(item.getProductId()).orElse(null);
         if (product == null) {
-            session.setAttribute("failure", "This product is no longer available.");
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
             return REDIRECT_VIEW_CART;
         }
 
         if (product.getStock() <= 0) {
-            session.setAttribute("failure", "No more stock available for this product.");
+            session.setAttribute(K_FAILURE, "No more stock available for this product.");
             return REDIRECT_VIEW_CART;
         }
 
@@ -534,7 +553,7 @@ public class CustomerService {
         if (product == null) {
             item.getCart().getItems().removeIf(i -> i.getId() == item.getId());
             itemRepository.delete(item);
-            session.setAttribute("failure", "This product is no longer available.");
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
             return REDIRECT_VIEW_CART;
         }
 
@@ -568,29 +587,29 @@ public class CustomerService {
             });
         }
 
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         customer.getCart().getItems().removeIf(i -> i.getId() == id);
         customerRepository.save(customer);
         itemRepository.deleteById(id);
 
-        session.setAttribute("success", "Item Removed from Cart");
+        session.setAttribute(K_SUCCESS, "Item Removed from Cart");
         return REDIRECT_VIEW_CART;
     }
 
     // ── AJAX: increase ────────────────────────────────────────────
     public java.util.Map<String, Object> ajaxIncrease(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
-        if (item.getProductId() == null) { res.put("success", false); res.put("message", "Product unavailable"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
+        if (item.getProductId() == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "Product unavailable"); return res; }
         Product product = productRepository.findById(item.getProductId()).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", "Product no longer available"); return res; }
-        if (product.getStock() <= 0) { res.put("success", false); res.put("message", "No more stock available"); return res; }
+        if (product == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "Product no longer available"); return res; }
+        if (product.getStock() <= 0) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "No more stock available"); return res; }
 
         int newQty = item.getQuantity() + 1;
         double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
@@ -605,26 +624,26 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("quantity", newQty);
         res.put("lineTotal", unitPrice * newQty);
         res.put("unitPrice", unitPrice);
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", false);
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, false);
         return res;
     }
 
     // ── AJAX: decrease ────────────────────────────────────────────
     public java.util.Map<String, Object> ajaxDecrease(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
 
         Product product = item.getProductId() != null
             ? productRepository.findById(item.getProductId()).orElse(null) : null;
@@ -652,17 +671,17 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("removed", removed);
         if (!removed) {
             res.put("quantity", item.getQuantity());
             res.put("lineTotal", item.getPrice());
             res.put("unitPrice", item.getUnitPrice());
         }
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, customer.getCart().getItems().isEmpty());
         return res;
     }
 
@@ -670,12 +689,12 @@ public class CustomerService {
     @org.springframework.transaction.annotation.Transactional
     public java.util.Map<String, Object> ajaxRemove(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
 
         if (item.getProductId() != null) {
             productRepository.findById(item.getProductId()).ifPresent(p -> {
@@ -692,19 +711,19 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        res.put(K_SUCCESS, true);
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, customer.getCart().getItems().isEmpty());
         return res;
     }
 
     // ---------------- PAYMENT PAGE ----------------
     public String payment(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -712,7 +731,7 @@ public class CustomerService {
         List<Item> items = customer.getCart().getItems();
 
         if (items == null || items.isEmpty()) {
-            session.setAttribute("failure", "Your cart is empty! Add products before paying.");
+            session.setAttribute(K_FAILURE, "Your cart is empty! Add products before paying.");
             return REDIRECT_VIEW_CART;
         }
 
@@ -744,10 +763,10 @@ public class CustomerService {
         double deliveryCharge = (cartTotal >= 500) ? 0 : 40;
         double finalAmount = cartTotal + deliveryCharge;
 
-        map.put("cartTotal", cartTotal);
-        map.put("deliveryCharge", deliveryCharge);
+        map.put(K_CARTTOTAL, cartTotal);
+        map.put(K_DELIVERYCHARGE, deliveryCharge);
         map.put("amount", finalAmount);
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         map.put("cartItems", items);
         map.put("recommendedProducts", recommendations);
         map.put("cartItemCategory", categoryLabel);
@@ -779,9 +798,9 @@ public class CustomerService {
     //
     @Transactional
     public String paymentSuccess(Order baseOrder, String deliveryPinCode, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -794,7 +813,7 @@ public class CustomerService {
                 if (cartItem.getProductId() == null) continue;
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
                 if (product != null && !product.isDeliverableTo(pin)) {
-                    session.setAttribute("failure",
+                    session.setAttribute(K_FAILURE,
                         "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
                         ". Please remove it from your cart or try a different pin code.");
                     return "redirect:/payment";
@@ -805,7 +824,7 @@ public class CustomerService {
                 if (cartItem.getProductId() == null) continue;
                 Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
                 if (product != null && product.isRestrictedByPinCode()) {
-                    session.setAttribute("failure",
+                    session.setAttribute(K_FAILURE,
                         "\"" + product.getName() + "\" has delivery restrictions. " +
                         "Please verify your pin code on the payment page before placing the order.");
                     return "redirect:/payment";
@@ -1013,7 +1032,7 @@ public class CustomerService {
 
         // ── 9. UPDATE SESSION ────────────────────────────────────
         Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
-        session.setAttribute("customer", updatedCustomer);
+        session.setAttribute(K_CUSTOMER, updatedCustomer);
 
         // Pass sub-order IDs as comma-separated string so order-success can show all
         String subOrderIdsStr = subOrderIds.stream()
@@ -1038,22 +1057,22 @@ public class CustomerService {
                 }).sum();
         totalSessionGst = Math.round(totalSessionGst * 100.0) / 100.0;
         session.setAttribute("lastOrderGst", totalSessionGst);
-        session.setAttribute("success", "Order Placed Successfully!");
+        session.setAttribute(K_SUCCESS, "Order Placed Successfully!");
         return "redirect:/order-success";
     }
 
     // ---------------- DELETE ACCOUNT ----------------
     @Transactional
     public String deleteAccount(HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
         if (customer == null) {
-            session.setAttribute("failure", "Account not found");
+            session.setAttribute(K_FAILURE, "Account not found");
             return REDIRECT_CUSTOMER_HOME;
         }
 
@@ -1083,9 +1102,9 @@ public class CustomerService {
 
     // ---------------- VIEW ORDERS ----------------
     public String viewOrders(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -1104,7 +1123,7 @@ public class CustomerService {
             replacementRequestedMap.put(order.getId(), replaced);
         }
 
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         map.put("returnEligibleMap", returnEligibleMap);
         map.put("replacementRequestedMap", replacementRequestedMap);
         return "view-orders.html";
@@ -1112,9 +1131,9 @@ public class CustomerService {
 
     @Transactional
     public String cancelOrder(int id, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
@@ -1140,33 +1159,33 @@ public class CustomerService {
 
         orderRepository.delete(order);
 
-        session.setAttribute("success", "Order #" + orderId + " Cancelled Successfully");
-        return "redirect:/view-orders";
+        session.setAttribute(K_SUCCESS, "Order #" + orderId + " Cancelled Successfully");
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     @Transactional
     public String requestReplacement(int orderId, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            session.setAttribute("failure", "Order not found");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Order not found");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
         if (order.getOrderDate() == null || order.getOrderDate().isBefore(cutoff)) {
-            session.setAttribute("failure", "Replacement window has expired (7 days only)");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Replacement window has expired (7 days only)");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         if (order.isReplacementRequested()) {
-            session.setAttribute("failure", "Replacement already requested for this order");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Replacement already requested for this order");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         order.setReplacementRequested(true);
@@ -1179,12 +1198,12 @@ public class CustomerService {
             LOGGER.error("Replacement email failed: {}", e.getMessage(), e);
         }
 
-        session.setAttribute("success", "Replacement requested for Order #" + orderId + ". Our team will contact you shortly.");
-        return "redirect:/view-orders";
+        session.setAttribute(K_SUCCESS, "Replacement requested for Order #" + orderId + ". Our team will contact you shortly.");
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     public void addReview(int productId, int rating, String comment, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) return;
 
         Product product = productRepository.findById(productId).orElse(null);
@@ -1212,21 +1231,21 @@ public class CustomerService {
 
     // ---------------- ORDER HISTORY ----------------
     public String viewOrderHistory(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
         List<Order> orders = orderRepository.findByCustomer(customer);
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         return "order-history.html";
     }
 
     // ---------------- TRACK ORDERS ----------------
     public String trackOrders(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", LOGIN_FIRST);
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
             return REDIRECT_CUSTOMER_LOGIN;
         }
         List<Order> orders = orderRepository.findByCustomer(customer);
@@ -1243,7 +1262,7 @@ public class CustomerService {
             progressWidthMap.put(order.getId(), width);
         }
 
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         map.put("trackingStepMap", trackingStepMap);
         map.put("progressWidthMap", progressWidthMap);
         return "track-orders.html";
@@ -1251,18 +1270,18 @@ public class CustomerService {
 
     // ---------------- ADDRESS ----------------
     public String loadAddressPage(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) return REDIRECT_CUSTOMER_LOGIN;
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         return "address-page.html";
     }
 
     public String saveAddress(String recipientName, String houseStreet,
                               String city, String state, String postalCode,
                               HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
 
         Address newAddress = new Address();
@@ -1284,7 +1303,3 @@ public class CustomerService {
         return "redirect:/customer/address";
     }
 }
-
-
-
-

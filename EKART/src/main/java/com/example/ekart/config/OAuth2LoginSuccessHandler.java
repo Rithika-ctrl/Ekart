@@ -24,8 +24,8 @@ import jakarta.servlet.http.HttpSession;
  * Handles successful OAuth2 authentication.
  *
  * login_type values stored in session by OAuth2Controller:
- *   "customer"         → Thymeleaf web flow, redirect to /customer/home
- *   "vendor"           → Thymeleaf web flow, redirect to /vendor/home
+ *   K_CUSTOMER         → Thymeleaf web flow, redirect to /customer/home
+ *   K_VENDOR           → Thymeleaf web flow, redirect to /vendor/home
  *   "flutter-customer" → React app flow, redirect to React /oauth2/callback with data in query params
  *   "flutter-vendor"   → React app flow, redirect to React /oauth2/callback with data in query params
  *
@@ -37,6 +37,12 @@ import jakarta.servlet.http.HttpSession;
  */
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    // ── S1192 String constants ──
+    private static final String K_INSTAGRAM                         = "instagram";
+    private static final String K_CUSTOMER                         = "customer";
+    private static final String K_NAME                              = "name";
+    private static final String K_VENDOR                            = "vendor";
 
 
 
@@ -79,7 +85,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         HttpSession session  = request.getSession();
         String loginType     = (String) session.getAttribute(KEY_OAUTH_LOGIN_TYPE);
-        if (loginType == null) loginType = "customer";
+        if (loginType == null) loginType = K_CUSTOMER;
 
         String name          = extractName(oAuth2User, provider);
         String pid           = extractProviderId(oAuth2User, provider);
@@ -143,9 +149,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
 
         // ── Thymeleaf / web flows (unchanged) ────────────────────────────────
-        if ("vendor".equals(loginType)) {
+        if (K_VENDOR.equals(loginType)) {
             Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
-            session.setAttribute("vendor", v);
+            session.setAttribute(K_VENDOR, v);
             session.setAttribute("success", "Login Successful via " + providerDisplay);
             session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/vendor/home");
@@ -161,7 +167,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
         c.setLastLogin(LocalDateTime.now());
         customerRepository.save(c);
-        session.setAttribute("customer", c);
+        session.setAttribute(K_CUSTOMER, c);
         session.setAttribute("success", "Login Successful via " + providerDisplay);
         session.removeAttribute("oauth_login_type");
         response.sendRedirect("/customer/home");
@@ -178,7 +184,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             case PROVIDER_GOOGLE   -> "Google";
             case PROVIDER_GITHUB   -> "GitHub";
             case PROVIDER_FACEBOOK -> "Facebook";
-            case "instagram" -> "Instagram";
+            case K_INSTAGRAM -> "Instagram";
             default          -> "Social Login";
         };
     }
@@ -194,7 +200,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
-            case "instagram" -> {
+            case K_INSTAGRAM -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
@@ -204,19 +210,19 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String extractName(OAuth2User u, String provider) {
         return switch (provider.toLowerCase()) {
-            case PROVIDER_GOOGLE   -> u.getAttribute("name");
+            case PROVIDER_GOOGLE   -> u.getAttribute(K_NAME);
             case PROVIDER_GITHUB   -> {
-                String n = u.getAttribute("name");
+                String n = u.getAttribute(K_NAME);
                 if (n == null || n.isEmpty()) n = u.getAttribute("login");
                 yield n;
             }
-            case PROVIDER_FACEBOOK -> u.getAttribute("name");
-            case "instagram" -> {
+            case PROVIDER_FACEBOOK -> u.getAttribute(K_NAME);
+            case K_INSTAGRAM -> {
                 String name = u.getAttribute("username");
-                if (name == null || name.isEmpty()) name = u.getAttribute("name");
+                if (name == null || name.isEmpty()) name = u.getAttribute(K_NAME);
                 yield name;
             }
-            default         -> u.getAttribute("name");
+            default         -> u.getAttribute(K_NAME);
         };
     }
 }

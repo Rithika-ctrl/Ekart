@@ -36,6 +36,8 @@ import jakarta.servlet.http.HttpSession;
 public class RecentlyViewedController {
 
     private static final int MAX_RECENTLY_VIEWED = 10;
+    private static final String K_COUNT = "count";
+    private static final String K_SYNCED = "synced";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final ProductRepository productRepository;
@@ -109,13 +111,13 @@ public class RecentlyViewedController {
 
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
-            return ResponseEntity.ok(Map.of("synced", false, "message", "Not logged in"));
+            return ResponseEntity.ok(Map.of(K_SYNCED, false, "message", "Not logged in"));
         }
 
         try {
             List<Integer> productIds = request.getProductIds();
             if (productIds == null || productIds.isEmpty()) {
-                return ResponseEntity.ok(Map.of("synced", true, "count", 0));
+                return ResponseEntity.ok(Map.of(K_SYNCED, true, K_COUNT, 0));
             }
 
             // Remove duplicates and limit to MAX
@@ -137,10 +139,10 @@ public class RecentlyViewedController {
                 customerRepository.save(cust);
             }
 
-            return ResponseEntity.ok(Map.of("synced", true, "count", limitedIds.size()));
+            return ResponseEntity.ok(Map.of(K_SYNCED, true, K_COUNT, limitedIds.size()));
 
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("synced", false, "message", e.getMessage()));
+            return ResponseEntity.ok(Map.of(K_SYNCED, false, "message", e.getMessage()));
         }
     }
 
@@ -217,6 +219,3 @@ public class RecentlyViewedController {
         public void setProductIds(List<Integer> productIds) { this.productIds = productIds; }
     }
 }
-
-
-

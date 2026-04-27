@@ -31,7 +31,17 @@ import java.util.LinkedHashSet;
 @Transactional
 public class DeliveryAdminService {
 
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_N_A                               = "N/A";
+    private static final String K_ORDER_NOT_FOUND                   = "Order not found";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_UNAUTHORIZED                      = "Unauthorized";
+    private static final String K_WAREHOUSE_NOT_FOUND               = "Warehouse not found";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(DeliveryAdminService.class);
+    private static final Random RANDOM = new Random();
 
     // Constants (from removed AutoAssignmentService)
     private static final int MAX_CONCURRENT_ORDERS = 3;
@@ -137,7 +147,7 @@ public class DeliveryAdminService {
                                                                   String state, String servedPinCodes,
                                                                   HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure(K_UNAUTHORIZED));
         }
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Warehouse name is required"));
@@ -165,7 +175,7 @@ public class DeliveryAdminService {
             int warehouseId, String assignedPinCodes,
             HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure(K_UNAUTHORIZED));
         }
 
         if (name == null || name.trim().length() < 3) {
@@ -188,7 +198,7 @@ public class DeliveryAdminService {
 
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
-            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Warehouse not found"));
+            return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure(K_WAREHOUSE_NOT_FOUND));
         }
 
         DeliveryBoy db = new DeliveryBoy();
@@ -202,7 +212,7 @@ public class DeliveryAdminService {
         db.setAdminApproved(true);
         db.setActive(true);
 
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         db.setOtp(otp);
 
         deliveryBoyRepository.save(db);
@@ -226,13 +236,13 @@ public class DeliveryAdminService {
                                                                        HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(403)
-                    .body(DeliveryAssignmentResponse.failure("Unauthorized"));
+                    .body(DeliveryAssignmentResponse.failure(K_UNAUTHORIZED));
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             return ResponseEntity.badRequest()
-                    .body(DeliveryAssignmentResponse.failure("Order not found"));
+                    .body(DeliveryAssignmentResponse.failure(K_ORDER_NOT_FOUND));
         }
         if (order.getTrackingStatus() != TrackingStatus.PACKED) {
             return ResponseEntity.badRequest().body(DeliveryAssignmentResponse.failure(
@@ -261,7 +271,7 @@ public class DeliveryAdminService {
             : "[ADMIN] Manually assigned to " + db.getName() + " (" + db.getDeliveryBoyCode() + ")";
 
         trackingEventLogRepository.save(new TrackingEventLog(
-            order, TrackingStatus.SHIPPED, city, note, "admin"));
+            order, TrackingStatus.SHIPPED, city, note, K_ADMIN));
 
         try { emailSender.sendShippedEmail(order.getCustomer(), order, db.getName()); }
         catch (Exception e) { LOGGER.error("Shipped email failed: {}", e.getMessage(), e); }
@@ -276,18 +286,18 @@ public class DeliveryAdminService {
     public ResponseEntity<Map<String, Object>> markOrderPacked(int orderId, HttpSession session) {
         Map<String, Object> res = new LinkedHashMap<>();
         if (!isAdmin(session)) {
-            res.put("success", false); res.put("message", "Unauthorized");
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_UNAUTHORIZED);
             return ResponseEntity.status(403).body(res);
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            res.put("success", false); res.put("message", "Order not found");
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ORDER_NOT_FOUND);
             return ResponseEntity.badRequest().body(res);
         }
         if (order.getTrackingStatus() != TrackingStatus.PROCESSING) {
-            res.put("success", false);
-            res.put("message", "Order must be PROCESSING to mark as Packed. Current: "
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Order must be PROCESSING to mark as Packed. Current: "
                     + order.getTrackingStatus().getDisplayName());
             return ResponseEntity.badRequest().body(res);
         }
@@ -298,10 +308,10 @@ public class DeliveryAdminService {
         trackingEventLogRepository.save(new TrackingEventLog(
             order, TrackingStatus.PACKED,
             order.getCurrentCity() != null ? order.getCurrentCity() : "Warehouse",
-            "Order packed and ready for pickup", "admin"));
+            "Order packed and ready for pickup", K_ADMIN));
 
-        res.put("success", true);
-        res.put("message", "Order #" + orderId + " marked as PACKED. Admin must manually assign a delivery boy.");
+        res.put(K_SUCCESS, true);
+        res.put(K_MESSAGE, "Order #" + orderId + " marked as PACKED. Admin must manually assign a delivery boy.");
         return ResponseEntity.ok(res);
     }
 
@@ -309,7 +319,7 @@ public class DeliveryAdminService {
 
     public ResponseEntity<AutoAssignLogResponse> getAutoAssignLogs(HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(AutoAssignLogResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(AutoAssignLogResponse.failure(K_UNAUTHORIZED));
         }
 
         List<AutoAssignLog> logs = autoAssignLogRepository.findTop50ByOrderByAssignedAtDesc();
@@ -318,8 +328,8 @@ public class DeliveryAdminService {
             data.add(new AutoAssignLogItem(
                     log.getId(),
                     log.getOrderId(),
-                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : "N/A",
-                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : "N/A",
+                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : K_N_A,
+                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : K_N_A,
                     log.getPinCode(),
                     log.getAssignedAt() != null ? log.getAssignedAt().toString() : null,
                     log.getActiveOrdersAtAssignment(),
@@ -333,7 +343,7 @@ public class DeliveryAdminService {
 
     public ResponseEntity<DeliveryBoyLoadResponse> getDeliveryBoyLoad(HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(DeliveryBoyLoadResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(DeliveryBoyLoadResponse.failure(K_UNAUTHORIZED));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByActiveTrue();
@@ -363,12 +373,12 @@ public class DeliveryAdminService {
     public ResponseEntity<EligibleDeliveryBoysResponse> getEligibleDeliveryBoys(int orderId,
                                                                                 HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(EligibleDeliveryBoysResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(EligibleDeliveryBoysResponse.failure(K_UNAUTHORIZED));
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            return ResponseEntity.badRequest().body(EligibleDeliveryBoysResponse.failure("Order not found"));
+            return ResponseEntity.badRequest().body(EligibleDeliveryBoysResponse.failure(K_ORDER_NOT_FOUND));
         }
 
         String pin = order.getDeliveryPinCode();
@@ -439,7 +449,7 @@ public class DeliveryAdminService {
                     active >= MAX_CONCURRENT_ORDERS));
         }
 
-        return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : "N/A"));
+        return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : K_N_A));
     }
 
     // ── Get delivery boys for a warehouse (AJAX dropdown) ─────────
@@ -447,12 +457,12 @@ public class DeliveryAdminService {
     public ResponseEntity<WarehouseDeliveryBoysResponse> getDeliveryBoysByWarehouse(
             int warehouseId, HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(WarehouseDeliveryBoysResponse.failure("Unauthorized"));
+            return ResponseEntity.status(403).body(WarehouseDeliveryBoysResponse.failure(K_UNAUTHORIZED));
         }
 
         Warehouse wh = warehouseRepository.findById(warehouseId).orElse(null);
         if (wh == null) {
-            return ResponseEntity.badRequest().body(WarehouseDeliveryBoysResponse.failure("Warehouse not found"));
+            return ResponseEntity.badRequest().body(WarehouseDeliveryBoysResponse.failure(K_WAREHOUSE_NOT_FOUND));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByWarehouse(wh);
@@ -477,7 +487,7 @@ public class DeliveryAdminService {
     public ResponseEntity<DeliveryBoyPinsUpdateResponse> updateDeliveryBoyPinCodes(
             int deliveryBoyId, String assignedPinCodes, HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(new DeliveryBoyPinsUpdateResponse(false, "Unauthorized", null, null));
+            return ResponseEntity.status(403).body(new DeliveryBoyPinsUpdateResponse(false, K_UNAUTHORIZED, null, null));
         }
 
         DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
@@ -498,7 +508,7 @@ public class DeliveryAdminService {
 
     public ResponseEntity<VerifyDeliveryBoysResponse> verifyAllDeliveryBoys(HttpSession session) {
         if (!isAdmin(session)) {
-            return ResponseEntity.status(403).body(new VerifyDeliveryBoysResponse(false, "Unauthorized", 0));
+            return ResponseEntity.status(403).body(new VerifyDeliveryBoysResponse(false, K_UNAUTHORIZED, 0));
         }
 
         List<DeliveryBoy> boys = deliveryBoyRepository.findByActiveTrue();
@@ -516,8 +526,6 @@ public class DeliveryAdminService {
     }
 
     private boolean isAdmin(HttpSession session) {
-        return session.getAttribute("admin") != null;
+        return session.getAttribute(K_ADMIN) != null;
     }
 }
-
-

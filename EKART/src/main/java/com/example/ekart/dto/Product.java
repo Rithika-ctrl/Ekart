@@ -109,7 +109,7 @@ public class Product {
 	public java.util.List<String> getAllowedPinCodeList() {
 		if (allowedPinCodes == null || allowedPinCodes.isBlank()) return new java.util.ArrayList<>();
 		return java.util.Arrays.stream(allowedPinCodes.split(","))
-				.map(String::trim).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toList());
+				.map(String::trim).filter(s -> !s.isEmpty()).toList();
 	}
 
 	/** True if this product has at least one pin code restriction set. */

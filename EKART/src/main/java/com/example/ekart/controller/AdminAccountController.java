@@ -27,6 +27,9 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class AdminAccountController {
 
+    // ── S1192 String constants ──
+    private static final String K_SUCCESS                           = "success";
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final AdminAccountService adminAccountService;
 
@@ -74,7 +77,7 @@ public class AdminAccountController {
             accounts = adminAccountService.getAllAccountsWithMetadata();
         }
         
-        response.put("success", true);
+        response.put(K_SUCCESS, true);
         response.put("accounts", accounts);
         response.put("count", accounts.size());
         
@@ -93,7 +96,7 @@ public class AdminAccountController {
         boolean activate = Boolean.TRUE.equals(payload.get("isActive"));
         Map<String, Object> result = adminAccountService.toggleAccountStatus(id, activate);
         
-        if (Boolean.TRUE.equals(result.get("success"))) {
+        if (Boolean.TRUE.equals(result.get(K_SUCCESS))) {
             return ResponseEntity.ok(result);
         } else {
             return ResponseEntity.badRequest().body(result);
@@ -123,7 +126,7 @@ public class AdminAccountController {
     public ResponseEntity<Map<String, Object>> resetPassword(@PathVariable int id) {
         Map<String, Object> result = adminAccountService.generatePasswordResetLink(id);
         
-        if (Boolean.TRUE.equals(result.get("success"))) {
+        if (Boolean.TRUE.equals(result.get(K_SUCCESS))) {
             return ResponseEntity.ok(result);
         } else {
             return ResponseEntity.badRequest().body(result);
@@ -137,7 +140,7 @@ public class AdminAccountController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> stats = adminAccountService.getAccountStats();
-        stats.put("success", true);
+        stats.put(K_SUCCESS, true);
         return ResponseEntity.ok(stats);
     }
 
@@ -152,12 +155,12 @@ public class AdminAccountController {
 
         if (session.getAttribute("admin") == null) {
             return ResponseEntity.status(401).body(
-                java.util.Map.of("success", false, "message", "Admin login required"));
+                java.util.Map.of(K_SUCCESS, false, "message", "Admin login required"));
         }
 
         Map<String, Object> result = adminAccountService.deleteAccount(id);
 
-        if (Boolean.TRUE.equals(result.get("success"))) {
+        if (Boolean.TRUE.equals(result.get(K_SUCCESS))) {
             return ResponseEntity.ok(result);
         } else {
             return ResponseEntity.badRequest().body(result);

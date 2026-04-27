@@ -27,6 +27,9 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // ── S1192 String constants ──
+    private static final String K_DELIVERY                          = "DELIVERY";
+
     private final CustomOAuth2UserService customOAuth2UserService;
     private final ReactAuthFilter reactAuthFilter;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -80,7 +83,7 @@ public class SecurityConfig {
                     // Role-based React API protection.
                     .requestMatchers("/api/react/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/react/vendor/**").hasRole("VENDOR")
-                    .requestMatchers("/api/react/delivery/**").hasRole("DELIVERY")
+                    .requestMatchers("/api/react/delivery/**").hasRole(K_DELIVERY)
 
                     // All remaining React routes require any authenticated JWT role.
                     .anyRequest().authenticated()
@@ -135,10 +138,10 @@ public class SecurityConfig {
                     .requestMatchers("/vendor/**").hasRole("VENDOR")
 
                     // ── Customer routes (requires ROLE_CUSTOMER or ROLE_DELIVERY) ──
-                    .requestMatchers("/customer/**").hasAnyRole("CUSTOMER", "DELIVERY")
+                    .requestMatchers("/customer/**").hasAnyRole("CUSTOMER", K_DELIVERY)
 
                     // ── Delivery routes (requires ROLE_DELIVERY) ──────────────────
-                    .requestMatchers("/delivery/**").hasRole("DELIVERY")
+                    .requestMatchers("/delivery/**").hasRole(K_DELIVERY)
 
                     // ── Deny all other requests ───────────────────────────────────
                     .anyRequest().denyAll()

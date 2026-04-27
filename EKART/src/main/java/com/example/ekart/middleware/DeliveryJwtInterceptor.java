@@ -12,12 +12,12 @@ import java.io.IOException;
  * JWT Token Interceptor for Delivery Boy REST API endpoints.
  *
  * FIX: Previously used DeliveryRefreshTokenUtil to validate tokens, but delivery
- * login issues tokens via JwtUtil (with role="DELIVERY"). Switched to JwtUtil
+ * login issues tokens via JwtUtil (with role=K_DELIVERY). Switched to JwtUtil
  * so that token validation is consistent end-to-end:
  *
- *   Login  → JwtUtil.generateToken(id, email, "DELIVERY")  → accessToken
+ *   Login  → JwtUtil.generateToken(id, email, K_DELIVERY)  → accessToken
  *   Filter → ReactAuthFilter uses JwtUtil.isValid() + getRole() → passes DELIVERY role
- *   This  → JwtUtil.isValid() + getRole() == "DELIVERY"    → sets deliveryBoyId attribute
+ *   This  → JwtUtil.isValid() + getRole() == K_DELIVERY    → sets deliveryBoyId attribute
  *
  * PROTECTED PATH PATTERNS (registered in WebMvcConfig):
  *   /api/react/delivery/**
@@ -27,6 +27,10 @@ import java.io.IOException;
  */
 @Component
 public class DeliveryJwtInterceptor implements HandlerInterceptor {
+
+    // ── S1192 String constants ──
+    private static final String K_DELIVERYBOYID                     = "deliveryBoyId";
+    private static final String K_DELIVERY                          = "DELIVERY";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final JwtUtil jwtUtil;
@@ -45,14 +49,14 @@ public class DeliveryJwtInterceptor implements HandlerInterceptor {
 
         // ReactAuthFilter already validated the token and set react.userId / react.role.
         // We just read those attributes and re-expose them as deliveryBoyId for the
-        // delivery controllers that call request.getAttribute("deliveryBoyId").
+        // delivery controllers that call request.getAttribute(K_DELIVERYBOYID).
 
         Object roleAttr = request.getAttribute("react.role");
         Object idAttr   = request.getAttribute("react.userId");
 
-        if (idAttr != null && "DELIVERY".equals(roleAttr)) {
+        if (idAttr != null && K_DELIVERY.equals(roleAttr)) {
             // ReactAuthFilter already did full validation — trust its result.
-            request.setAttribute("deliveryBoyId", (Integer) idAttr);
+            request.setAttribute(K_DELIVERYBOYID, (Integer) idAttr);
             return true;
         }
 
@@ -71,13 +75,13 @@ public class DeliveryJwtInterceptor implements HandlerInterceptor {
         }
 
         String role = jwtUtil.getRole(token);
-        if (!"DELIVERY".equals(role)) {
+        if (!K_DELIVERY.equals(role)) {
             rejectJson(response, 403, "Access denied: delivery token required");
             return false;
         }
 
         int deliveryBoyId = jwtUtil.getCustomerId(token); // getCustomerId works for all roles (sub = id)
-        request.setAttribute("deliveryBoyId", deliveryBoyId);
+        request.setAttribute(K_DELIVERYBOYID, deliveryBoyId);
         return true;
     }
 

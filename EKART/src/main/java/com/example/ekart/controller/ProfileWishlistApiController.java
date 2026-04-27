@@ -38,6 +38,13 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 public class ProfileWishlistApiController {
 
+    // ── S1192 String constants ──
+    private static final String K_AUTHORIZATION                     = "Authorization";
+    private static final String K_MOBILE                            = "mobile";
+    private static final String K_NAME                              = "name";
+    private static final String K_PRODUCTID                         = "productId";
+    private static final String K_PROFILEIMAGE                      = "profileImage";
+
     private static final String KEY_SUCCESS = "success";
     private static final String KEY_MESSAGE = "message";
 
@@ -77,7 +84,7 @@ public class ProfileWishlistApiController {
     /** GET /api/profile */
     @GetMapping("/api/profile")
     public ResponseEntity<Map<String, Object>> getProfile(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -88,10 +95,10 @@ public class ProfileWishlistApiController {
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",           customer.getId());
-        profile.put("name",         customer.getName());
+        profile.put(K_NAME,         customer.getName());
         profile.put("email",        customer.getEmail());
-        profile.put("mobile",       customer.getMobile());
-        profile.put("profileImage", customer.getProfileImage());
+        profile.put(K_MOBILE,       customer.getMobile());
+        profile.put(K_PROFILEIMAGE, customer.getProfileImage());
         profile.put("provider",     customer.getProvider());
         profile.put("verified",     customer.isVerified());
 
@@ -113,7 +120,7 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> updateProfile(
             @RequestBody Map<String, Object> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -121,8 +128,8 @@ public class ProfileWishlistApiController {
 
         customer = customerRepository.findById(customer.getId()).orElseThrow();
 
-        if (body.containsKey("name"))   customer.setName((String) body.get("name"));
-        if (body.containsKey("mobile")) customer.setMobile(Long.parseLong(body.get("mobile").toString()));
+        if (body.containsKey(K_NAME))   customer.setName((String) body.get(K_NAME));
+        if (body.containsKey(K_MOBILE)) customer.setMobile(Long.parseLong(body.get(K_MOBILE).toString()));
 
         customerRepository.save(customer);
 
@@ -136,7 +143,7 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> addAddress(
             @RequestBody Map<String, String> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -170,7 +177,7 @@ public class ProfileWishlistApiController {
     /** GET /api/mobile/wishlist */
     @GetMapping("/api/mobile/wishlist")
     public ResponseEntity<Map<String, Object>> getWishlist(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -183,8 +190,8 @@ public class ProfileWishlistApiController {
             Product p = w.getProduct();
             m.put("wishlistId",  w.getId());
             m.put("addedAt",     w.getAddedAt() != null ? w.getAddedAt().toString() : null);
-            m.put("productId",   p.getId());
-            m.put("name",        p.getName());
+            m.put(K_PRODUCTID,   p.getId());
+            m.put(K_NAME,        p.getName());
             m.put("price",       p.getPrice());
             m.put("imageLink",   p.getImageLink());
             m.put("category",    p.getCategory());
@@ -198,18 +205,18 @@ public class ProfileWishlistApiController {
         return ResponseEntity.ok(res);
     }
 
-    /** POST /api/mobile/wishlist/toggle — { "productId": 5 } */
+    /** POST /api/mobile/wishlist/toggle — { K_PRODUCTID: 5 } */
     @PostMapping("/api/mobile/wishlist/toggle")
     @Transactional
     public ResponseEntity<Map<String, Object>> toggleWishlist(
             @RequestBody Map<String, Integer> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        Integer productId = body.get("productId");
+        Integer productId = body.get(K_PRODUCTID);
         if (productId == null) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "productId is required");
@@ -253,8 +260,8 @@ public class ProfileWishlistApiController {
     @PostMapping("/api/profile/upload-image")
     @Transactional
     public ResponseEntity<Map<String, Object>> uploadProfileImageApi(
-            @RequestParam("profileImage") MultipartFile file,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestParam(K_PROFILEIMAGE) MultipartFile file,
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -274,7 +281,7 @@ public class ProfileWishlistApiController {
                 customerRepository.save(db);
             }
             res.put(KEY_SUCCESS, true);
-            res.put("profileImage", url);
+            res.put(K_PROFILEIMAGE, url);
             res.put(KEY_MESSAGE, "Profile photo updated");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -289,7 +296,7 @@ public class ProfileWishlistApiController {
      */
     @GetMapping("/api/profile/remove-image")
     @Transactional
-    public ResponseEntity<Map<String, Object>> removeProfileImageApi(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<Map<String, Object>> removeProfileImageApi(@RequestHeader(K_AUTHORIZATION) String authHeader) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
@@ -312,7 +319,7 @@ public class ProfileWishlistApiController {
     /** GET /api/mobile/wishlist/ids — returns just the product IDs */
     @GetMapping("/api/mobile/wishlist/ids")
     public ResponseEntity<Map<String, Object>> getWishlistIds(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -336,13 +343,13 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> addReview(
             @RequestBody Map<String, Object> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        int productId = Integer.parseInt(body.get("productId").toString());
+        int productId = Integer.parseInt(body.get(K_PRODUCTID).toString());
         int rating    = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
 

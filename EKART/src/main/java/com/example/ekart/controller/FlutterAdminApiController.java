@@ -51,6 +51,8 @@ public class FlutterAdminApiController {
     private static final String KEY_ACTIVE = "active";
     private static final String KEY_ORDER_NOT_FOUND = "Order not found";
     private static final String KEY_TRACKING_STATUS = "trackingStatus";
+    private static final String KEY_COUNT = "count";
+    private static final String KEY_REASON = "reason";
 
     public FlutterAdminApiController(
             CouponRepository couponRepository,
@@ -79,7 +81,7 @@ public class FlutterAdminApiController {
                 .stream().map(this::mapCoupon).toList();
         res.put(KEY_SUCCESS, true);
         res.put("coupons", list);
-        res.put("count", list.size());
+        res.put(KEY_COUNT, list.size());
         return ResponseEntity.ok(res);
     }
 
@@ -168,7 +170,7 @@ public class FlutterAdminApiController {
                 .stream().map(this::mapRefund).toList();
         res.put(KEY_SUCCESS, true);
         res.put("refunds", list);
-        res.put("count", list.size());
+        res.put(KEY_COUNT, list.size());
         return ResponseEntity.ok(res);
     }
 
@@ -196,7 +198,7 @@ public class FlutterAdminApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             String action = (String) body.getOrDefault("action", "");
-            String reason = (String) body.getOrDefault("reason", "");
+            String reason = (String) body.getOrDefault(KEY_REASON, "");
             if ("approve".equalsIgnoreCase(action)) {
                 refund.setStatus(RefundStatus.APPROVED);
                 order.setTrackingStatus(TrackingStatus.REFUNDED);
@@ -481,7 +483,7 @@ public class FlutterAdminApiController {
         m.put("orderId",         r.getOrder()    != null ? r.getOrder().getId()       : null);
         m.put("orderAmount",     r.getOrder()    != null ? r.getOrder().getTotalPrice() : 0);
         m.put("amount",          r.getAmount());
-        m.put("reason",          r.getReason());
+        m.put(KEY_REASON,          r.getReason());
         m.put("status",          r.getStatus().name());
         m.put("statusDisplay",   r.getStatus().getDisplayName());
         m.put("rejectionReason", r.getRejectionReason());

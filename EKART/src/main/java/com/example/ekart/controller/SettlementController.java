@@ -31,6 +31,8 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 public class SettlementController {
 
+    // ── S1192 String constants ──
+
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final CashSettlementService cashSettlementService;
     private final CashSettlementRepository cashSettlementRepository;
@@ -76,7 +78,7 @@ public class SettlementController {
      *
      * Request Body:
      *   {
-     *     "warehouseId": 1,
+     *     KEY_WAREHOUSE_ID: 1,
      *     "orderIds": [101, 102, 103],
      *     "staffId": 5,
      *     "notes": "Batch from morning collection"
@@ -84,13 +86,13 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement batch submitted",
-     *     "settlementId": 45,
-     *     "orderCount": 3,
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement batch submitted",
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_ORDER_COUNT: 3,
      *     "totalAmount": 1500.00,
-     *     "adminCommission": 300.00,
-     *     "vendorShare": 1200.00
+     *     KEY_ADMIN_COMMISSION: 300.00,
+     *     KEY_VENDOR_SHARE: 1200.00
      *   }
      */
     @PostMapping("/settlement/submit-batch")
@@ -100,7 +102,7 @@ public class SettlementController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         try {
-            int warehouseId = ((Number) payload.get("warehouseId")).intValue();
+            int warehouseId = ((Number) payload.get(KEY_WAREHOUSE_ID)).intValue();
             @SuppressWarnings("unchecked")
             List<Integer> orderIds = (List<Integer>) payload.get("orderIds");
             int staffId = ((Number) payload.get("staffId")).intValue();
@@ -148,17 +150,17 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlements": [
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENTS: [
      *       {
-     *         "settlementId": 45,
-     *         "warehouseId": 1,
+     *         KEY_SETTLEMENT_ID: 45,
+     *         KEY_WAREHOUSE_ID: 1,
      *         "submittedAt": "2026-04-14T10:30:00",
-     *         "orderCount": 3,
-     *         "totalCashCollected": 1500.00,
-     *         "adminCommission": 300.00,
-     *         "vendorShare": 1200.00,
-     *         "status": "SUBMITTED"
+     *         KEY_ORDER_COUNT: 3,
+     *         KEY_TOTAL_CASH_COLLECTED: 1500.00,
+     *         KEY_ADMIN_COMMISSION: 300.00,
+     *         KEY_VENDOR_SHARE: 1200.00,
+     *         KEY_STATUS: "SUBMITTED"
      *       }
      *     ]
      *   }
@@ -206,12 +208,12 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlementId": 45,
-     *     "status": "SUBMITTED",
-     *     "totalCashCollected": 1500.00,
-     *     "adminCommission": 300.00,
-     *     "vendorShare": 1200.00,
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_STATUS: "SUBMITTED",
+     *     KEY_TOTAL_CASH_COLLECTED: 1500.00,
+     *     KEY_ADMIN_COMMISSION: 300.00,
+     *     KEY_VENDOR_SHARE: 1200.00,
      *     "orders": [
      *       {
      *         "orderId": 101,
@@ -264,11 +266,11 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement approved",
-     *     "settlementId": 45,
-     *     "status": "APPROVED",
-     *     "adminCommission": 300.00
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement approved",
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_STATUS: "APPROVED",
+     *     KEY_ADMIN_COMMISSION: 300.00
      *   }
      */
     @PostMapping("/admin/settlement/{settlementId}/approve")
@@ -317,8 +319,8 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement rejected"
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement rejected"
      *   }
      */
     @PostMapping("/admin/settlement/{settlementId}/reject")
@@ -357,7 +359,7 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "totalCashSettled": 50000.00,
      *     "totalAdminCommission": 10000.00,
      *     "totalVendorPayouts": 40000.00,
@@ -395,15 +397,15 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlements": [
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENTS: [
      *       {
-     *         "settlementId": 45,
+     *         KEY_SETTLEMENT_ID: 45,
      *         "approvedAt": "2026-04-14T15:00:00",
      *         "vendorCollected": 1000.00,
-     *         "adminCommission": 200.00,
+     *         KEY_ADMIN_COMMISSION: 200.00,
      *         "vendorPayout": 800.00,
-     *         "orderCount": 2
+     *         KEY_ORDER_COUNT: 2
      *       }
      *     ],
      *     "totalPayout": 8000.00
@@ -445,7 +447,7 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "totalCodCollected": 5000.00,
      *     "totalSettled": 4000.00,
      *     "totalCommissionPaid": 1000.00,
@@ -477,7 +479,7 @@ public class SettlementController {
                     .sum();
 
             double totalCommission = history.stream()
-                    .mapToDouble(s -> (Double) s.get("adminCommission"))
+                    .mapToDouble(s -> (Double) s.get(KEY_ADMIN_COMMISSION))
                     .sum();
 
             res.put(KEY_SUCCESS, true);
@@ -495,5 +497,3 @@ public class SettlementController {
         }
     }
 }
-
-

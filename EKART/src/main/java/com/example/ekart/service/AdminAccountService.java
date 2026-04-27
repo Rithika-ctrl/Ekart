@@ -31,7 +31,13 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminAccountService {
 
+    // ── S1192 String constants ──
+    private static final String K_CUSTOMER_NOT_FOUND                = "Customer not found";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_SUCCESS                           = "success";
+
     private static final Logger log = LoggerFactory.getLogger(AdminAccountService.class);
+    private static final Random RANDOM = new Random();
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final CustomerRepository customerRepository;
@@ -123,16 +129,16 @@ public class AdminAccountService {
         
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            result.put("success", false);
-            result.put("message", "Customer not found");
+            result.put(K_SUCCESS, false);
+            result.put(K_MESSAGE, K_CUSTOMER_NOT_FOUND);
             return result;
         }
         
         customer.setActive(activate);
         customerRepository.save(customer);
         
-        result.put("success", true);
-        result.put("message", activate ? "Account activated successfully" : "Account deactivated successfully");
+        result.put(K_SUCCESS, true);
+        result.put(K_MESSAGE, activate ? "Account activated successfully" : "Account deactivated successfully");
         result.put("isActive", customer.isActive());
         
         // Log the action
@@ -149,7 +155,7 @@ public class AdminAccountService {
         
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            profile.put("error", "Customer not found");
+            profile.put("error", K_CUSTOMER_NOT_FOUND);
             return profile;
         }
         
@@ -250,19 +256,19 @@ public class AdminAccountService {
         
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            result.put("success", false);
-            result.put("message", "Customer not found");
+            result.put(K_SUCCESS, false);
+            result.put(K_MESSAGE, K_CUSTOMER_NOT_FOUND);
             return result;
         }
         
         // Generate new OTP
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
         // For backward compatibility with password reset, we store in local variable only
         
         // Build reset URL
         String resetUrl = "/customer/reset-password/" + customer.getId() + "/" + otp;
-        result.put("success", true);
+        result.put(K_SUCCESS, true);
         result.put("resetUrl", resetUrl);
         result.put("otp", otp);
         result.put("email", customer.getEmail());
@@ -306,8 +312,8 @@ public class AdminAccountService {
 
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) {
-            result.put("success", false);
-            result.put("message", "Customer not found");
+            result.put(K_SUCCESS, false);
+            result.put(K_MESSAGE, K_CUSTOMER_NOT_FOUND);
             return result;
         }
 
@@ -328,10 +334,8 @@ public class AdminAccountService {
         // 4. Delete customer (CascadeType.ALL handles cart + addresses)
         customerRepository.delete(customer);
 
-        result.put("success", true);
-        result.put("message", "Account of " + name + " deleted successfully");
+        result.put(K_SUCCESS, true);
+        result.put(K_MESSAGE, "Account of " + name + " deleted successfully");
         return result;
     }
 }
-
-
