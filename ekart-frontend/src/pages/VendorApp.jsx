@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
+import { ORDER_STATUS_COLORS, PAYMENT_STATUS_COLORS } from "../constants/orderStyles";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
@@ -169,7 +170,7 @@ function Dashboard({ stats, orders, products }) {
     { label: "COD Earnings", value: fmt(codEarnings), icon: "💵", color: "#059669" },
     { label: "COD Collected", value: fmt(codCollected), icon: "✓", color: "#22c55e" },
   ];
-  const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
+  const statusColor = ORDER_STATUS_COLORS;
   return (
     <div>
       <h2 style={vs.pageTitle}>Dashboard</h2>
@@ -231,9 +232,9 @@ function OrdersView({ orders, onMarkPacked, api, showToast }) {
   const [markingPacked, setMarkingPacked] = useState({});
   const [warehouseInfo, setWarehouseInfo] = useState({});
   
-  const statusColor = { PROCESSING: "#d97706", PACKED: "#6366f1", SHIPPED: "#0284c7", OUT_FOR_DELIVERY: "#7c3aed", DELIVERED: "#16a34a", REFUNDED: "#0891b2", CANCELLED: "#dc2626" };
+  const statusColor = ORDER_STATUS_COLORS;
   const paymentMethodColor = { COD: "#f97316", RAZORPAY: "#8b5cf6" };
-  const paymentStatusColor = { PENDING: "#9ca3af", COD_COLLECTED: "#f59e0b", PAID: "#10b981" };
+  const paymentStatusColor = PAYMENT_STATUS_COLORS;
   
   // ── COD FILTER & CALCULATIONS ──
   const allCodOrders = (orders || []).filter(o => (o.paymentMethod || o.paymentMode || "").toUpperCase() === "COD");
@@ -1506,7 +1507,7 @@ function VendorSecurity({ profile, api, onRefresh, showToast }) {
 }
 
 function PaymentsView({ orders, showToast }) {
-  const paymentStatusColor = { PENDING: "#9ca3af", COD_COLLECTED: "#f59e0b", PAID: "#10b981" };
+  const paymentStatusColor = PAYMENT_STATUS_COLORS;
   
   // Calculate earnings
   const paidOrders = (orders || []).filter(o => o.paymentStatus === "PAID");

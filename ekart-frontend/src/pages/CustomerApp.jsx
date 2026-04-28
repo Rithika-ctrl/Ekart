@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
+import { ORDER_STATUS_COLORS, REFUND_STATUS_STYLES } from "../constants/orderStyles";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
 const stars = r => "★".repeat(r) + "☆".repeat(5 - r);
-const statusColor = { PLACED: "#d97706", CONFIRMED: "#6366f1", SHIPPED: "#3b82f6", OUT_FOR_DELIVERY: "#8b5cf6", DELIVERED: "#16a34a", CANCELLED: "#dc2626" };
+const statusColor = ORDER_STATUS_COLORS;
 
 // ─── GST helpers ──────────────────────────────────────────────────────────────
 // Indian GST slabs by product category.  Vendors can override per-product.
@@ -247,11 +248,7 @@ function MyRefunds({ auth, api }) {
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState("ALL");
 
-  const statusColor = {
-    PENDING:  { text: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.3)"  },
-    APPROVED: { text: "#22c55e", bg: "rgba(34,197,94,0.12)",   border: "rgba(34,197,94,0.3)"   },
-    REJECTED: { text: "#ef4444", bg: "rgba(239,68,68,0.12)",   border: "rgba(239,68,68,0.3)"   },
-  };
+  const statusColor = REFUND_STATUS_STYLES;
 
   useEffect(() => {
     if (!auth || auth.role === "GUEST") return;
@@ -333,9 +330,9 @@ function MyRefunds({ auth, api }) {
 
       <div style={{ display: "grid", gap: 12 }}>
         {filtered.map(e => {
-          const sc = statusColor[e.status] || statusColor.PENDING;
+          const statusStyle = statusColor[e.status] || statusColor.PENDING;
           return (
-            <div key={e.orderId} style={{ borderRadius: 12, border: `1px solid ${sc.border}`, background: sc.bg, overflow: "hidden" }}>
+            <div key={e.orderId} style={{ borderRadius: 12, border: `1px solid ${statusStyle.border}`, background: statusStyle.bg, overflow: "hidden" }}>
               <div style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                   <div>
@@ -346,13 +343,12 @@ function MyRefunds({ auth, api }) {
                       </span>
                     )}
                   </div>
-                  <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, color: sc.text, background: "transparent", border: `1px solid ${sc.text}` }}>
+                  <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, color: statusStyle.text, background: "transparent", border: `1px solid ${statusStyle.text}` }}>
                     {e.status}
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
                   <span style={{ fontWeight: 600 }}>{e.type}</span>
-                  {e.reason && <span> — {e.reason}</span>}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{fmt(e.amount)}</div>
               </div>
@@ -4908,11 +4904,7 @@ function RefundReportPage({ api, onSelectOrder }) {
   const [refunds, setRefunds] = useState([]);
   const [filter, setFilter] = useState("ALL");
 
-  const statusColor = {
-    PENDING:  { text: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "#f59e0b",  label: "Pending Review" },
-    APPROVED: { text: "#22c55e", bg: "rgba(34,197,94,0.12)",   border: "#22c55e",  label: "Approved" },
-    REJECTED: { text: "#ef4444", bg: "rgba(239,68,68,0.12)",   border: "#ef4444",  label: "Rejected" },
-  };
+  const statusColor = REFUND_STATUS_STYLES;
 
   useEffect(() => {
     if (!auth || auth.role === "GUEST") {
@@ -5034,7 +5026,7 @@ function RefundReportPage({ api, onSelectOrder }) {
       {!loading && filtered.length > 0 && (
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
           {filtered.map((refund) => {
-            const sc = statusColor[refund.status] || statusColor.PENDING;
+            const statusStyle = statusColor[refund.status] || statusColor.PENDING;
             const formatDate = (dateStr) => {
               try {
                 return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -5052,7 +5044,7 @@ function RefundReportPage({ api, onSelectOrder }) {
                 key={refund.orderId}
                 style={{
                   background: "#ffffff",
-                  border: `1.5px solid ${sc.border}`,
+                  border: `1.5px solid ${statusStyle.border}`,
                   borderRadius: 12,
                   padding: "18px",
                   display: "flex",
@@ -5087,13 +5079,13 @@ function RefundReportPage({ api, onSelectOrder }) {
                       borderRadius: 20,
                       fontSize: 11,
                       fontWeight: 700,
-                      color: sc.text,
-                      background: sc.bg,
-                      border: `1px solid ${sc.border}`,
+                      color: statusStyle.text,
+                      background: statusStyle.bg,
+                      border: `1px solid ${statusStyle.border}`,
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {sc.label}
+                    {statusStyle.label}
                   </span>
                 </div>
 

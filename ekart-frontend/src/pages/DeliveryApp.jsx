@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
+import { DELIVERY_TOAST_HIDE_MS, DELIVERY_ACTION_REFRESH_MS, DELIVERY_TRANSFER_REFRESH_MS, DELIVERY_SHORT_RETRY_MS, DELIVERY_PHOTO_DIALOG_DELAY_MS } from "../constants/uiConstants";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -32,7 +33,7 @@ export default function DeliveryApp() {
   const showToast = (msg, success = true) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ msg, success });
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
+    toastTimer.current = setTimeout(() => setToast(null), DELIVERY_TOAST_HIDE_MS);
   };
 
   // Alerts (flash messages)
@@ -124,7 +125,7 @@ export default function DeliveryApp() {
     try {
       const d = await api(`/delivery/orders/${orderId}/pickup`, { method: "POST" });
       showToast(d?.message || "Marked as picked up", d?.success);
-      if (d?.success) setTimeout(load, 1800);
+      if (d?.success) setTimeout(load, DELIVERY_ACTION_REFRESH_MS);
     } catch { showToast("Request failed. Try again.", false); }
   };
 
@@ -140,7 +141,7 @@ export default function DeliveryApp() {
         const serverStatus = d.isAvailable !== undefined ? d.isAvailable : newStatus;
         setIsAvailable(serverStatus);
         showToast(serverStatus ? "🟢 You are now ONLINE — Available for deliveries" : "⚫ You are now OFFLINE — Not available for deliveries", true);
-        setTimeout(load, 500);
+        setTimeout(load, DELIVERY_SHORT_RETRY_MS);
       } else {
         showToast("❌ " + (d?.message || "Failed to update status"), false);
       }
@@ -161,7 +162,7 @@ export default function DeliveryApp() {
         body: JSON.stringify({ otp: otp })
       });
       showToast(d?.message || "Delivery confirmed", d?.success);
-      if (d?.success) setTimeout(load, 1800);
+      if (d?.success) setTimeout(load, DELIVERY_ACTION_REFRESH_MS);
     } catch { showToast("Request failed. Try again.", false); }
   };
 
@@ -197,7 +198,7 @@ export default function DeliveryApp() {
       if (d?.success) {
         showToast("✅ Transfer request submitted successfully", true);
         setTransferModal(false);
-        setTimeout(load, 1500);
+        setTimeout(load, DELIVERY_TRANSFER_REFRESH_MS);
       } else {
         showToast(d?.message || "❌ Failed to submit request", false);
       }
@@ -212,7 +213,7 @@ export default function DeliveryApp() {
     setTimeout(() => {
       if (photoType === 'pickup') cameraInputRef.current?.click();
       else photoInputRef.current?.click();
-    }, 100);
+    }, DELIVERY_PHOTO_DIALOG_DELAY_MS);
   };
 
   const handlePhotoCapture = (e, photoType) => {
@@ -246,7 +247,7 @@ export default function DeliveryApp() {
         body: JSON.stringify({ photo: pickupPhotos[orderId] })
       });
       showToast(d?.message || "✓ Marked as picked up with photo", d?.success);
-      if (d?.success) setTimeout(load, 1800);
+      if (d?.success) setTimeout(load, DELIVERY_ACTION_REFRESH_MS);
     } catch { showToast("Request failed. Try again.", false); }
   };
 
@@ -274,7 +275,7 @@ export default function DeliveryApp() {
         body: JSON.stringify({ otp, photo: deliveryPhotos[orderId] })
       });
       showToast(d?.message || "✓ Delivery confirmed with photo", d?.success);
-      if (d?.success) setTimeout(load, 1800);
+      if (d?.success) setTimeout(load, DELIVERY_ACTION_REFRESH_MS);
     } catch { showToast("Request failed. Try again.", false); }
   };
 

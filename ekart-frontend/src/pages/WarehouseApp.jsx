@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { WAREHOUSE_LOGIN_ID_LENGTH, WAREHOUSE_PASSWORD_LENGTH } from '../constants/uiConstants';
 
 const API_BASE_URL = 'http://localhost:8080/api/react';
 
@@ -38,13 +39,13 @@ export default function WarehouseApp() {
         return;
       }
 
-      if (loginId.length !== 8) {
+      if (loginId.length !== WAREHOUSE_LOGIN_ID_LENGTH) {
         setError('Login ID must be 8 digits');
         setLoading(false);
         return;
       }
 
-      if (password.length !== 6) {
+      if (password.length !== WAREHOUSE_PASSWORD_LENGTH) {
         setError('Password must be 6 digits');
         setLoading(false);
         return;
@@ -487,7 +488,7 @@ export default function WarehouseApp() {
               <input
                 type="number"
                 value={loginId}
-                onChange={(e) => setLoginId(e.target.value.slice(0, 8))}
+                onChange={(e) => setLoginId(e.target.value.slice(0, WAREHOUSE_LOGIN_ID_LENGTH))}
                 placeholder="Enter 8-digit ID"
                 maxLength="8"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -502,7 +503,7 @@ export default function WarehouseApp() {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value.slice(0, 6))}
+                onChange={(e) => setPassword(e.target.value.slice(0, WAREHOUSE_PASSWORD_LENGTH))}
                 placeholder="Enter 6-digit password"
                 maxLength="6"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

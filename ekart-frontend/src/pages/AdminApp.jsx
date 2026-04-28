@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { apiFetch } from "../api";
 import CODSettlementAdmin from "./CODSettlementAdmin";
+import { ADMIN_TOAST_HIDE_MS, ADMIN_FEEDBACK_TOAST_HIDE_MS, ADMIN_MODAL_CLOSE_MS, ADMIN_ACCOUNT_SEARCH_DEBOUNCE_MS } from "../constants/uiConstants";
 
 const fmt = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
 function Toast({ msg, onHide }) {
-  useEffect(() => { if (msg) { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); } }, [msg]);
+  useEffect(() => { if (msg) { const t = setTimeout(onHide, ADMIN_TOAST_HIDE_MS); return () => clearTimeout(t); } }, [msg]);
   if (!msg) return null;
   return <div style={as.toast}>{msg}</div>;
 }
@@ -58,27 +59,19 @@ export default function AdminApp() {
   const [showRejectModal, setShowRejectModal] = useState(false);
 
 
-  const api = useCallback(async (path, opts = {}) => {
-    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-    if (auth?.token) {
-      headers["Authorization"] = `Bearer ${auth.token}`;
-      headers["X-Admin-Email"] = auth.email || "";
-    }
-    const res = await fetch("/api/react" + path, { ...opts, headers });
-    return res.json();
-  }, [auth]);
+  const api = useCallback((path, opts = {}) => apiFetch(path, opts, auth), [auth]);
   const show = m => setToast(m);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, p, o, v] = await Promise.all([
+      const [usersResponse, productsResponse, ordersResponse, vendorsResponse] = await Promise.all([
         api("/admin/users"), api("/admin/products"), api("/admin/orders"), api("/admin/vendors")
       ]);
-      if (u.success) setUsers({ customers: u.customers || [], vendors: u.vendors || [] });
-      if (p.success) setProducts(p.products || []);
-      if (o.success) setOrders(o.orders || []);
-      if (v.success) setVendors(v.vendors || []);
+      if (usersResponse.success) setUsers({ customers: usersResponse.customers || [], vendors: usersResponse.vendors || [] });
+      if (productsResponse.success) setProducts(productsResponse.products || []);
+      if (ordersResponse.success) setOrders(ordersResponse.orders || []);
+      if (vendorsResponse.success) setVendors(vendorsResponse.vendors || []);
     } catch { show("Failed to load"); }
     setLoading(false);
     // Fetch analytics in the background after core data loads — needed by Overview's revenue card.
@@ -131,34 +124,22 @@ export default function AdminApp() {
   }, [orders]);
   useEffect(() => {
     if (page === "delivery") {
-      const token = auth?.token || localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-        "X-Admin-Email": auth?.email || ""
-      };
-      
       const loadDeliveryData = async () => {
         try {
-          // Use cache-busting with timestamp to force fresh data
           const cacheBuster = `?t=${Date.now()}`;
-          const [dbRes, packedRes, shippedRes, outRes, whRes] = await Promise.all([
-            fetch(`/api/react/admin/delivery-boys${cacheBuster}`, { headers }),
-            fetch(`/api/react/admin/orders/packed${cacheBuster}`, { headers }),
-            fetch(`/api/react/admin/orders/shipped${cacheBuster}`, { headers }),
-            fetch(`/api/react/admin/orders/out-for-delivery${cacheBuster}`, { headers }),
-            fetch(`/api/react/admin/warehouses${cacheBuster}`, { headers })
+          const [deliveryBoysResponse, packedOrdersResponse, shippedOrdersResponse, outOrdersResponse, warehousesResponse] = await Promise.all([
+            apiFetch(`/admin/delivery-boys${cacheBuster}`, {}, auth),
+            apiFetch(`/admin/orders/packed${cacheBuster}`, {}, auth),
+            apiFetch(`/admin/orders/shipped${cacheBuster}`, {}, auth),
+            apiFetch(`/admin/orders/out-for-delivery${cacheBuster}`, {}, auth),
+            apiFetch(`/admin/warehouses${cacheBuster}`, {}, auth)
           ]);
-          
-          const [db, packed, shipped, out, wh] = await Promise.all([
-            dbRes.json(), packedRes.json(), shippedRes.json(), outRes.json(), whRes.json()
-          ]);
-          
-          if (db.success) setDeliveryBoys(db.deliveryBoys || []);
-          if (packed.success) setPackedOrders(packed.orders || []);
-          if (shipped.success) setShippedOrders(shipped.orders || []);
-          if (out.success) setOutOrders(out.orders || []);
-          if (wh.success) setWarehouses(wh.warehouses || []);
+
+          if (deliveryBoysResponse.success) setDeliveryBoys(deliveryBoysResponse.deliveryBoys || []);
+          if (packedOrdersResponse.success) setPackedOrders(packedOrdersResponse.orders || []);
+          if (shippedOrdersResponse.success) setShippedOrders(shippedOrdersResponse.orders || []);
+          if (outOrdersResponse.success) setOutOrders(outOrdersResponse.orders || []);
+          if (warehousesResponse.success) setWarehouses(warehousesResponse.warehouses || []);
         } catch (err) {
           console.error("Error loading delivery data:", err);
         }
@@ -294,7 +275,7 @@ export default function AdminApp() {
         setTimeout(() => {
           setSelectedSettlementId(null);
           setReviewSettlement(null);
-        }, 1500);
+        }, ADMIN_MODAL_CLOSE_MS);
       }
     } catch (err) {
       show('Error: ' + (err?.message || 'Failed to approve settlement'));
@@ -325,7 +306,7 @@ export default function AdminApp() {
           setSelectedSettlementId(null);
           setReviewSettlement(null);
           setRejectReason('');
-        }, 1500);
+        }, ADMIN_MODAL_CLOSE_MS);
       }
     } catch (err) {
       show('Error: ' + (err?.message || 'Failed to reject settlement'));
@@ -3866,7 +3847,7 @@ function AccountsAdmin() {
   const [modal, setModal] = useState(null); // { type: "profile"|"delete"|"reset", account, data }
 
   const show = m => setToast(m);
-  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), ADMIN_TOAST_HIDE_MS); return () => clearTimeout(t); } }, [toast]);
 
   const acctApiFetch = async (path) => {
     const headers = { "Content-Type": "application/json" };
@@ -3899,7 +3880,7 @@ function AccountsAdmin() {
   const handleSearch = e => {
     setQ(e.target.value);
     clearTimeout(window._acctSearch);
-    window._acctSearch = setTimeout(() => load(e.target.value), 400);
+    window._acctSearch = setTimeout(() => load(e.target.value), ADMIN_ACCOUNT_SEARCH_DEBOUNCE_MS);
   };
 
   const toggleStatus = async (id, activate) => {
@@ -4271,7 +4252,7 @@ function ContentAdmin() {
   const [saving, setSaving] = useState(false);
 
   const show = m => setToast(m);
-  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), ADMIN_FEEDBACK_TOAST_HIDE_MS); return () => clearTimeout(t); } }, [toast]);
 
   const loadBanners = async () => {
     setLoading(true);
@@ -5161,7 +5142,7 @@ function SecurityAdmin() {
   const [roleChanging, setRoleChanging] = useState(false);
   const [toast, setToast] = useState("");
 
-  const showToast = m => { setToast(m); setTimeout(() => setToast(""), 3200); };
+  const showToast = m => { setToast(m); setTimeout(() => setToast(""), ADMIN_FEEDBACK_TOAST_HIDE_MS); };
 
   // ── Fetch all users on mount — uses /api/react/admin/users (JWT, returns role field) ──
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { API_BASE } from '../api';
 
 /**
  * OrderTrackingPage.jsx - Visual timeline tracking with warehouse hops
@@ -24,15 +25,16 @@ export default function OrderTrackingPage() {
   const fetchOrderTracking = async (id) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:8080/api/react/customer/orders/${id}/tracking`, {
+      const response = await fetch(`${API_BASE}/customer/orders/${id}/tracking`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
         }
       });
-      setOrder(response.data);
+      const trackingData = await response.json();
+      setOrder(trackingData);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch tracking information');
+      setError(err?.message || 'Failed to fetch tracking information');
       console.error('Tracking error:', err);
     } finally {
       setLoading(false);
@@ -51,7 +53,7 @@ export default function OrderTrackingPage() {
   const buildTimeline = () => {
     if (!order) return [];
 
-    const status = order.status;
+    const trackingStatus = order.status;
     const stages = [
       { name: 'Order Placed', icon: '📦', status: 'ORDER_PLACED' },
       { name: 'Order Packed by Vendor', icon: '📋', status: 'ORDER_PACKED' },
@@ -62,7 +64,7 @@ export default function OrderTrackingPage() {
       { name: 'Delivered', icon: '✅', status: 'DELIVERED' }
     ];
 
-    const statusMap = {
+    const TRACKING_STAGE_INDEX = {
       'PROCESSING': 0,
       'PACKED': 1,
       'SHIPPED': 3,
@@ -70,7 +72,7 @@ export default function OrderTrackingPage() {
       'DELIVERED': 6
     };
 
-    const currentIndex = statusMap[status] || 0;
+    const currentIndex = TRACKING_STAGE_INDEX[trackingStatus] || 0;
 
     return stages.map((stage, index) => ({
       ...stage,
