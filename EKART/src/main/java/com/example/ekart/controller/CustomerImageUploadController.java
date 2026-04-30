@@ -5,7 +5,6 @@ import com.example.ekart.helper.CloudinaryHelper;
 import com.example.ekart.repository.*;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;

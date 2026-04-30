@@ -17,7 +17,6 @@ package com.example.ekart.service;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -250,4 +249,3 @@ public class PaymentMethodService {
         return "";  // Valid
     }
 }
-

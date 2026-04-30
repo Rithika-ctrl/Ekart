@@ -58,6 +58,7 @@ public class VendorService {
     private static final String K_REDIRECT_VENDOR_OTP               = "redirect:/vendor/otp/";
     private static final String K_REDIRECT_VENDOR_RESET_PASSWORD    = "redirect:/vendor/reset-password/";
     private static final String K_VENDOR                            = "vendor";
+    private static final String K_VENDOR_CODE                       = "vendorCode";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(VendorService.class);
 
@@ -690,7 +691,7 @@ public class VendorService {
         int vendorId = vendor.getId();
         map.put("vendorId",   vendorId);
         map.put("vendorName", vendor.getName());
-        map.put("vendorCode", vendor.getVendorCode());
+        map.put(K_VENDOR_CODE, vendor.getVendorCode());
 
         java.time.LocalDate today     = java.time.LocalDate.now();
         java.time.LocalDate weekStart = today.with(DayOfWeek.MONDAY);

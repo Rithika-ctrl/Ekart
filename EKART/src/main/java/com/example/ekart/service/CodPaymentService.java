@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -435,5 +434,3 @@ public class CodPaymentService {
                 .toList();
     }
 }
-
-

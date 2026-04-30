@@ -9,7 +9,6 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.ProductRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
