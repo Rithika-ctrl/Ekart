@@ -66,7 +66,7 @@ public class AdminReviewController {
                 filtered = filtered.stream()
                         .filter(r -> r.getRating() == starFilter)
                         .toList();
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
         }
 
         // ── Search by customer name or comment ───────────────────────

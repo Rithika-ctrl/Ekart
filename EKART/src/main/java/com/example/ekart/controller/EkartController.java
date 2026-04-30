@@ -113,12 +113,12 @@ public class EkartController {
 
                     double mrp = 0;
                     if (mrpStr != null && !mrpStr.isBlank()) {
-                        try { mrp = Double.parseDouble(mrpStr); } catch (NumberFormatException ignored) {}
+                        try { mrp = Double.parseDouble(mrpStr); } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
                     }
 
                     int alertThreshold = 10; // same default as form
                     if (alertStr != null && !alertStr.isBlank()) {
-                        try { alertThreshold = Integer.parseInt(alertStr); } catch (NumberFormatException ignored) {}
+                        try { alertThreshold = Integer.parseInt(alertStr); } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
                     }
 
                     Product p = new Product();
@@ -563,8 +563,8 @@ public class EkartController {
 
     @PostMapping("/success")
     public String paymentSuccess(
-            @RequestParam(required=false) String razorpay_payment_id,
-            @RequestParam(required=false) String razorpay_order_id,
+            @RequestParam(required=false) String razorpayPaymentId,
+            @RequestParam(required=false) String razorpayOrderId,
             @RequestParam(required=false, defaultValue="Cash on Delivery") String paymentMode,
             @RequestParam(required=false) String deliveryTime,
             @RequestParam(required=false) String amount,
@@ -573,8 +573,8 @@ public class EkartController {
 
         // Build Order manually — avoids Spring binding errors from the @ManyToOne Customer field
         Order order = new Order();
-        order.setRazorpay_payment_id(razorpay_payment_id);
-        order.setRazorpay_order_id(razorpay_order_id);
+        order.setRazorpayPaymentId(razorpayPaymentId);
+        order.setRazorpayOrderId(razorpayOrderId);
         order.setDeliveryTime(deliveryTime);
         order.setPaymentMode(paymentMode);
         order.setReplacementRequested(false);
@@ -584,7 +584,7 @@ public class EkartController {
         Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         double finalAmount = 0;
         if (amount != null && !amount.isBlank()) {
-            try { finalAmount = Double.parseDouble(amount); } catch (Exception ignored) {}
+            try { finalAmount = Double.parseDouble(amount); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         }
         // Fallback to cart total if frontend amount is missing/unparseable
         if (finalAmount == 0 && customer != null && customer.getCart() != null) {

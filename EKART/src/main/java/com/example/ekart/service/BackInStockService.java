@@ -176,7 +176,7 @@ public class BackInStockService {
                         int cid = jwtUtil.getCustomerId(token);
                         return customerRepository.findById(cid).orElse(null);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { /* invalid or expired JWT — skip token auth, try next method */ }
             }
 
             // 3) X-Customer-Id header (fallback)
@@ -185,7 +185,7 @@ public class BackInStockService {
                 try {
                     int cid = Integer.parseInt(xcid);
                     return customerRepository.findById(cid).orElse(null);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) { /* non-numeric customer ID header — treat as unauthenticated */ }
             }
         }
         return null;

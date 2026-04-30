@@ -927,8 +927,8 @@ public class CustomerService {
             Order subOrder = new Order();
             subOrder.setCustomer(customer);
             subOrder.setOrderDate(java.time.LocalDateTime.now());
-            subOrder.setRazorpay_payment_id(baseOrder.getRazorpay_payment_id());
-            subOrder.setRazorpay_order_id(baseOrder.getRazorpay_order_id());
+            subOrder.setRazorpayPaymentId(baseOrder.getRazorpayPaymentId());
+            subOrder.setRazorpayOrderId(baseOrder.getRazorpayOrderId());
             subOrder.setPaymentMode(baseOrder.getPaymentMode());
             subOrder.setDeliveryTime(baseOrder.getDeliveryTime());
             subOrder.setTotalPrice(subTotal);

@@ -1075,7 +1075,7 @@ public class FlutterApiController {
             int requestedQty = 1;
             if (body.containsKey(KEY_QUANTITY)) {
                 try { requestedQty = Integer.parseInt(body.get(KEY_QUANTITY).toString()); }
-                catch (NumberFormatException ignored) {}
+                catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
             }
             if (requestedQty < 1) requestedQty = 1;
 
@@ -2043,7 +2043,7 @@ public class FlutterApiController {
         if (body.containsKey("name") && !((String) body.get("name")).isBlank())
             vendor.setName((String) body.get("name"));
         if (body.containsKey(KEY_MOBILE))
-            try { vendor.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString())); } catch (Exception ignored) {}
+            try { vendor.setMobile(Long.parseLong(body.get(KEY_MOBILE).toString())); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         vendorRepository.save(vendor);
         res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
@@ -2455,7 +2455,7 @@ public class FlutterApiController {
             try {
                 int star = Integer.parseInt(filter);
                 filtered = filtered.stream().filter(r -> r.getRating() == star).toList();
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
         }
         if (!search.isBlank()) {
             String q = search.toLowerCase();
@@ -2747,7 +2747,7 @@ public class FlutterApiController {
         req.setAdminNote(adminNote.trim());
         req.setResolvedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
-        try { emailSender.sendWarehouseChangeApproved(db, req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
+        try { emailSender.sendWarehouseChangeApproved(db, req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, db.getName() + " transferred to " + req.getRequestedWarehouse().getName());
         return ResponseEntity.ok(res);
     }
@@ -2766,7 +2766,7 @@ public class FlutterApiController {
         req.setAdminNote(adminNote.trim());
         req.setResolvedAt(LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
-        try { emailSender.sendWarehouseChangeRejected(req.getDeliveryBoy(), req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) {}
+        try { emailSender.sendWarehouseChangeRejected(req.getDeliveryBoy(), req.getRequestedWarehouse(), adminNote); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Request rejected");
         return ResponseEntity.ok(res);
     }

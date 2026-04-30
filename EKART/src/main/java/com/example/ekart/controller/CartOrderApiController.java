@@ -324,8 +324,8 @@ public class CartOrderApiController {
         order.setAmount(grandTotal);
         order.setPaymentMode(paymentMode);
         order.setDeliveryTime(deliveryTime);
-        order.setRazorpay_payment_id("COD_NA");
-        order.setRazorpay_order_id("COD_ORDER");
+        order.setRazorpayPaymentId("COD_NA");
+        order.setRazorpayOrderId("COD_ORDER");
         order.setTrackingStatus(TrackingStatus.PROCESSING);
         order.setReplacementRequested(false);
 

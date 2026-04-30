@@ -105,8 +105,8 @@ public class RazorpayService {
     public boolean verifySignature(String razorpayOrderId, String razorpayPaymentId, String signature) {
         try {
             String payload = razorpayOrderId + "|" + razorpayPaymentId;
-            String computed_signature = hmacSHA256(payload, razorpayKeySecret);
-            return computed_signature.equals(signature);
+            String computedSignature = hmacSHA256(payload, razorpayKeySecret);
+            return computedSignature.equals(signature);
         } catch (Exception e) {
             LOGGER.error("Signature verification failed: {}", e.getMessage(), e);
             return false;

@@ -81,14 +81,14 @@ public class GenericReadOnlyController {
     }
 
     private Object parseId(String id) {
-        try { return Long.valueOf(id); } catch (Exception ignored) {}
-        try { return Integer.valueOf(id); } catch (Exception ignored) {}
+        try { return Long.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
+        try { return Integer.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         return id;
     }
 
     private Object tryOtherIdTypes(String id) {
-        try { return Integer.valueOf(id); } catch (Exception ignored) {}
-        try { return Long.valueOf(id); } catch (Exception ignored) {}
+        try { return Integer.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
+        try { return Long.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         return id;
     }
 }

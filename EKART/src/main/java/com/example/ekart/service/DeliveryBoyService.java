@@ -279,7 +279,7 @@ public class DeliveryBoyService {
                 // 🔒 NEW: Use secure OTP service to resend
                 String plainOtp = otpService.resendOtp(db.getEmail(), OtpService.PURPOSE_DELIVERY_LOGIN);
                 emailSender.sendDeliveryBoyOtpSecure(db, plainOtp);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { /* OTP resend failure — non-critical, continue login flow */ }
             session.setAttribute(KEY_SUCCESS, "Please verify your email first. OTP resent.");
             return K_REDIRECT_DELIVERY_OTP + db.getId();
         }

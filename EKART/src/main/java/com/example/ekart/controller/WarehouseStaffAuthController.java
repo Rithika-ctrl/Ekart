@@ -251,7 +251,7 @@ public class WarehouseStaffAuthController {
      * - warehouse_id (required)
      */
     @GetMapping("/staff/list")
-    public ResponseEntity<Map<String, Object>> getStaffList(@RequestParam int warehouse_id, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getStaffList(@RequestParam int warehouseId, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -265,7 +265,7 @@ public class WarehouseStaffAuthController {
         }
 
         try {
-            var staffList = staffService.getActiveStaffByWarehouse(warehouse_id);
+            var staffList = staffService.getActiveStaffByWarehouse(warehouseId);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put(SUCCESS_KEY, true);
