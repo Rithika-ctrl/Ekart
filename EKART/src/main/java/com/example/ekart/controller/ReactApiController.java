@@ -54,15 +54,12 @@ import java.util.*;
 public class ReactApiController {
 
     // ── S1192 String constants ──
-    private static final String K_CSV_APPEND                        = ",";
     private static final String K_DISPLAY_ORDER                     = "displayOrder";
     private static final String K_PAYMENT_METHOD                    = "paymentMethod";
     private static final String K_ACTIVE                            = "active";
     private static final String K_ADDRESS                           = "address";
     private static final String K_AVGORDERVALUE                     = "avgOrderValue";
     private static final String K_AVGRATING                         = "avgRating";
-    private static final String K_BANGALORE                         = "Bangalore";
-    private static final String K_BANGALORE_HUB                     = "Bangalore Hub";
     private static final String K_BANNERS                           = "banners";
     private static final String K_BEARER                            = "Bearer ";
     private static final String K_CITY                              = "city";
@@ -76,7 +73,6 @@ public class ReactApiController {
     private static final String K_DELIVERYBOYS                      = "deliveryBoys";
     private static final String K_DELIVERYCHARGE                    = "deliveryCharge";
     private static final String K_DELIVERYPINCODE                   = "deliveryPinCode";
-    private static final String K_DEPRECATION                       = "deprecation";
     private static final String K_EXPIRYDATE                        = "expiryDate";
     private static final String K_FAILED                            = "Failed: ";
     private static final String K_FAILED_TO_LOAD_BANNERS            = "Failed to load banners: ";
@@ -85,8 +81,6 @@ public class ReactApiController {
     private static final String K_IMAGEURL                          = "imageUrl";
     private static final String K_ITEMS                             = "items";
     private static final String K_LINKURL                           = "linkUrl";
-    private static final String K_LIT_12345678                      = "12345678";
-    private static final String K_LIT_EMPTY                         = " : ";
     private static final String K_NAME                              = "name";
     private static final String K_DESCRIPTION                       = "description";
     private static final String K_PRICE                             = "price";
@@ -101,6 +95,7 @@ public class ReactApiController {
     private static final String K_COD                              = "COD";
     private static final String K_DAY                              = "day";
     private static final String K_MONTH                            = "month";
+    private static final String K_YEAR_MONTH                       = "year_month";
     private static final String K_REJECTED                         = "REJECTED";
     private static final String K_APPROVED                         = "APPROVED";
 
@@ -136,7 +131,6 @@ public class ReactApiController {
     private static final String K_VERIFIED                          = "verified";
     private static final String K_WAREHOUSE                         = "warehouse";
     private static final String K_WAREHOUSES                        = "warehouses";
-    private static final String K_WH_BLR_12345678                   = "WH-BLR-12345678";
     private static final String K_RECIPIENT_NAME                   = "recipientName";
     private static final String K_HOUSE_STREET                     = "houseStreet";
     private static final String K_POSTAL_CODE                      = "postalCode";
@@ -1138,32 +1132,6 @@ public class ReactApiController {
     }
 
     /**
-     * POST /api/react/auth/warehouse/login
-     * 
-     * Warehouse staff numeric login (8-digit ID + 6-digit password).
-     * Returns JWT token with role=WAREHOUSE and warehouseId claim.
-     * 
-     * Request Body:
-     *   { KEY_LOGIN_ID: K_LIT_12345678, K_PASSWORD: "654321" }
-     *
-     * Response (200 OK):
-     *   {
-     *     KEY_SUCCESS: true,
-     *     "token": "<JWT_TOKEN_with_role_WAREHOUSE_and_warehouseId>",
-     *     KEY_WAREHOUSE_ID: 45,
-     *     KEY_WAREHOUSE_NAME: K_BANGALORE_HUB,
-     *     K_CITY: K_BANGALORE,
-     *     KEY_WAREHOUSE_CODE: K_WH_BLR_12345678,
-     *   }
-     *
-     * Error Responses:
-     *   400: Invalid format (loginId not 8 digits or password not 6 digits)
-     *   401: Invalid credentials (warehouse not found or wrong password)
-     *   403: Warehouse account deactivated
-     *   500: Authentication error
-     */
-
-    /**
      * Decrypts a warehouse login password via AES.
      * Extracted from warehouseLogin to avoid a nested try block (SonarQube S1141).
      *
@@ -1178,6 +1146,21 @@ public class ReactApiController {
         }
     }
 
+    /**
+     * POST /api/react/auth/warehouse/login
+     *
+     * Warehouse staff numeric login (8-digit ID + 6-digit password).
+     * Returns JWT token with role=WAREHOUSE and warehouseId claim.
+     *
+     * Request Body:
+     *   { KEY_LOGIN_ID: "12345678", K_PASSWORD: "654321" }
+     *
+     * Response (200 OK):
+     *   { KEY_SUCCESS: true, "token": "...", KEY_WAREHOUSE_ID: 45, ... }
+     *
+     * Error Responses:
+     *   400: Invalid format | 401: Invalid credentials | 403: Deactivated | 500: Auth error
+     */
     @PostMapping("/auth/warehouse/login")
     public ResponseEntity<Map<String, Object>> warehouseLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -3523,7 +3506,6 @@ public class ReactApiController {
         String refundType = K_REFUND;
         String displayReason = storedReason;
         if (storedReason.startsWith("[REFUND] ")) {
-            refundType = K_REFUND;
             displayReason = storedReason.substring(9);
         } else if (storedReason.startsWith("[REPLACEMENT] ")) {
             refundType = "REPLACEMENT";
@@ -4031,53 +4013,86 @@ public class ReactApiController {
      */
     private void processVendorCsvRow(String[] cells, Map<String, Integer> idx,
                                      Vendor vendor, int vendorId, int[] counts) {
-        String idStr    = getCellByHeaders(cells, idx, "id", "productid");
-        String name     = getCellByHeaders(cells, idx, K_NAME, "productname");
-        String desc     = getCellByHeaders(cells, idx, K_DESCRIPTION, "productdescription");
-        String priceStr = getCellByHeaders(cells, idx, K_PRICE, "sellingprice", "saleprice");
-        String mrpStr   = getCellByHeaders(cells, idx, K_MRP, "originalprice");
-        String category = getCellByHeaders(cells, idx, K_CATEGORY, "productcategory");
-        String stockStr = getCellByHeaders(cells, idx, K_STOCK, K_QUANTITY);
-        String imageLink = getCellByHeaders(cells, idx, "imagelink", "imageurl", K_IMAGE);
-        String threshStr = getCellByHeaders(cells, idx, "stockalertthreshold", "stockalert", "alertthreshold");
+        String idStr      = getCellByHeaders(cells, idx, "id", "productid");
+        String name       = getCellByHeaders(cells, idx, K_NAME, "productname");
+        String desc       = getCellByHeaders(cells, idx, K_DESCRIPTION, "productdescription");
+        String priceStr   = getCellByHeaders(cells, idx, K_PRICE, "sellingprice", "saleprice");
+        String mrpStr     = getCellByHeaders(cells, idx, K_MRP, "originalprice");
+        String category   = getCellByHeaders(cells, idx, K_CATEGORY, "productcategory");
+        String stockStr   = getCellByHeaders(cells, idx, K_STOCK, K_QUANTITY);
+        String imageLink  = getCellByHeaders(cells, idx, "imagelink", "imageurl", K_IMAGE);
+        String threshStr  = getCellByHeaders(cells, idx, "stockalertthreshold", "stockalert", "alertthreshold");
         String gstRateStr = getCellByHeaders(cells, idx, "gstrate", "gstratepercent", "gst", "gstpercent");
-        String pinCodes  = getCellByHeaders(cells, idx, "allowedpincodes", "pincodes", "deliverablepincodes");
+        String pinCodes   = getCellByHeaders(cells, idx, "allowedpincodes", "pincodes", "deliverablepincodes");
 
         if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
         if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
 
-        double price     = Double.parseDouble(priceStr);
-        int stock        = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr);
-        Integer thresh   = (threshStr == null || threshStr.isBlank()) ? null : Integer.parseInt(threshStr);
-        Double mrp       = (mrpStr == null || mrpStr.isBlank()) ? 0.0 : Double.parseDouble(mrpStr);
-        Double gstRate   = (gstRateStr == null || gstRateStr.isBlank()) ? null : Double.parseDouble(gstRateStr);
+        VendorCsvProductData data = parseVendorCsvProductData(priceStr, mrpStr, stockStr, threshStr, gstRateStr);
 
         if (idStr != null && !idStr.isBlank()) {
-            int id = Integer.parseInt(idStr);
-            Product p = productRepository.findById(id).orElse(null);
-            if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
-            if (p.getVendor() == null || p.getVendor().getId() != vendorId)
-                throw new IllegalArgumentException(K_PRODUCT_ID + id + " does not belong to you");
-            p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
-            p.setCategory(category); p.setStock(stock);
-            if (imageLink != null) p.setImageLink(imageLink);
-            if (thresh != null) p.setStockAlertThreshold(thresh);
-            if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
-            if (pinCodes != null) p.setAllowedPinCodes(pinCodes);
-            productRepository.save(p);
-            counts[1]++;
+            updateVendorProduct(idStr, name, desc, category, imageLink, pinCodes, data, vendorId, counts);
         } else {
-            Product p = new Product();
-            p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
-            p.setCategory(category); p.setStock(stock);
-            if (imageLink != null) p.setImageLink(imageLink);
-            if (thresh != null) p.setStockAlertThreshold(thresh);
-            if (gstRate != null && gstRate > 0) p.setGstRate(gstRate);
-            if (pinCodes != null) p.setAllowedPinCodes(pinCodes);
-            p.setVendor(vendor); p.setApproved(false);
-            productRepository.save(p);
-            counts[0]++;
+            createVendorProduct(name, desc, category, imageLink, pinCodes, data, vendor, counts);
         }
+    }
+
+    /** Parsed numeric fields from a vendor CSV row, extracted to reduce cognitive complexity. */
+    private static class VendorCsvProductData {
+        final double price;
+        final Double mrp;
+        final int stock;
+        final Integer thresh;
+        final Double gstRate;
+        VendorCsvProductData(double price, Double mrp, int stock, Integer thresh, Double gstRate) {
+            this.price = price; this.mrp = mrp; this.stock = stock;
+            this.thresh = thresh; this.gstRate = gstRate;
+        }
+    }
+
+    private VendorCsvProductData parseVendorCsvProductData(
+            String priceStr, String mrpStr, String stockStr, String threshStr, String gstRateStr) {
+        double price   = Double.parseDouble(priceStr);
+        Double mrp     = (mrpStr      == null || mrpStr.isBlank())      ? 0.0  : Double.parseDouble(mrpStr);
+        int    stock   = (stockStr    == null || stockStr.isBlank())    ? 0    : Integer.parseInt(stockStr);
+        Integer thresh = (threshStr   == null || threshStr.isBlank())   ? null : Integer.parseInt(threshStr);
+        Double gstRate = (gstRateStr  == null || gstRateStr.isBlank())  ? null : Double.parseDouble(gstRateStr);
+        return new VendorCsvProductData(price, mrp, stock, thresh, gstRate);
+    }
+
+    private void applyOptionalVendorProductFields(Product p, String imageLink, String pinCodes,
+                                                   VendorCsvProductData d) {
+        if (imageLink != null) p.setImageLink(imageLink);
+        if (d.thresh  != null) p.setStockAlertThreshold(d.thresh);
+        if (d.gstRate != null && d.gstRate > 0) p.setGstRate(d.gstRate);
+        if (pinCodes  != null) p.setAllowedPinCodes(pinCodes);
+    }
+
+    private void updateVendorProduct(String idStr, String name, String desc, String category,
+                                      String imageLink, String pinCodes,
+                                      VendorCsvProductData d, int vendorId, int[] counts) {
+        int id = Integer.parseInt(idStr);
+        Product p = productRepository.findById(id).orElse(null);
+        if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
+        if (p.getVendor() == null || p.getVendor().getId() != vendorId)
+            throw new IllegalArgumentException(K_PRODUCT_ID + id + " does not belong to you");
+        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(category); p.setStock(d.stock);
+        applyOptionalVendorProductFields(p, imageLink, pinCodes, d);
+        productRepository.save(p);
+        counts[1]++;
+    }
+
+    private void createVendorProduct(String name, String desc, String category,
+                                      String imageLink, String pinCodes,
+                                      VendorCsvProductData d, Vendor vendor, int[] counts) {
+        Product p = new Product();
+        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(category); p.setStock(d.stock);
+        applyOptionalVendorProductFields(p, imageLink, pinCodes, d);
+        p.setVendor(vendor); p.setApproved(false);
+        productRepository.save(p);
+        counts[0]++;
     }
 
     /**
@@ -4102,44 +4117,77 @@ public class ReactApiController {
         String imageLink   = getCell(cells, idx.get("imagelink"));
         String threshStr   = getCell(cells, idx.get("stockalertthreshold"));
         String gstRateStr  = getCell(cells, idx.get("gstrate"));
-        String approvedStr = getCell(cells, idx.get("approved"));
+        String approvedStr = getCell(cells, idx.get(KEY_APPROVED));
 
         if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
         if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
 
-        double price    = Double.parseDouble(priceStr.replaceAll("[^\\d.]", ""));
-        int    stock    = (stockStr   == null || stockStr.isBlank())   ? 0    : Integer.parseInt(stockStr.trim());
-        Integer thresh  = (threshStr  == null || threshStr.isBlank())  ? null : Integer.parseInt(threshStr.trim());
-        Double mrp      = (mrpStr     == null || mrpStr.isBlank())     ? 0.0  : Double.parseDouble(mrpStr.replaceAll("[^\\d.]", ""));
-        Double gstRate  = (gstRateStr == null || gstRateStr.isBlank()) ? null : Double.parseDouble(gstRateStr.trim());
+        AdminCsvProductData data = parseAdminCsvProductData(priceStr, mrpStr, stockStr, threshStr, gstRateStr, approvedStr, autoApprove);
+
+        if (idStr != null && !idStr.isBlank()) {
+            updateAdminProduct(idStr, name, desc, category, imageLink, vendor, data, counts);
+        } else {
+            createAdminProduct(name, desc, category, imageLink, vendor, data, counts);
+        }
+    }
+
+    /** Parsed numeric/boolean fields from an admin CSV row, extracted to reduce cognitive complexity. */
+    private static class AdminCsvProductData {
+        final double price;
+        final Double mrp;
+        final int stock;
+        final Integer thresh;
+        final Double gstRate;
+        final boolean approved;
+        AdminCsvProductData(double price, Double mrp, int stock, Integer thresh, Double gstRate, boolean approved) {
+            this.price = price; this.mrp = mrp; this.stock = stock;
+            this.thresh = thresh; this.gstRate = gstRate; this.approved = approved;
+        }
+    }
+
+    private AdminCsvProductData parseAdminCsvProductData(
+            String priceStr, String mrpStr, String stockStr, String threshStr,
+            String gstRateStr, String approvedStr, boolean autoApprove) {
+        double  price    = Double.parseDouble(priceStr.replaceAll("[^\d.]", ""));
+        Double  mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0  : Double.parseDouble(mrpStr.replaceAll("[^\d.]", ""));
+        int     stock    = (stockStr    == null || stockStr.isBlank())    ? 0    : Integer.parseInt(stockStr.trim());
+        Integer thresh   = (threshStr   == null || threshStr.isBlank())   ? null : Integer.parseInt(threshStr.trim());
+        Double  gstRate  = (gstRateStr  == null || gstRateStr.isBlank())  ? null : Double.parseDouble(gstRateStr.trim());
         boolean approved = approvedStr != null
             ? approvedStr.equalsIgnoreCase("true") || approvedStr.equals("1") || approvedStr.equalsIgnoreCase("yes")
             : autoApprove;
+        return new AdminCsvProductData(price, mrp, stock, thresh, gstRate, approved);
+    }
 
-        if (idStr != null && !idStr.isBlank()) {
-            int id = Integer.parseInt(idStr.trim());
-            Product p = productRepository.findById(id).orElse(null);
-            if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
-            p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
-            p.setCategory(category); p.setStock(stock); p.setApproved(approved);
-            if (imageLink != null) p.setImageLink(imageLink);
-            if (thresh    != null) p.setStockAlertThreshold(thresh);
-            if (gstRate   != null && gstRate > 0) p.setGstRate(gstRate);
-            if (vendor    != null) p.setVendor(vendor);
-            productRepository.save(p);
-            counts[1]++;
-        } else {
-            Product p = new Product();
-            p.setName(name); p.setDescription(desc); p.setPrice(price); p.setMrp(mrp);
-            p.setCategory(category != null ? category : "General"); p.setStock(stock);
-            if (imageLink != null) p.setImageLink(imageLink);
-            if (thresh    != null) p.setStockAlertThreshold(thresh);
-            if (gstRate   != null && gstRate > 0) p.setGstRate(gstRate);
-            p.setVendor(vendor);
-            p.setApproved(approved);
-            productRepository.save(p);
-            counts[0]++;
-        }
+    private void applyOptionalAdminProductFields(Product p, String imageLink, Vendor vendor,
+                                                  AdminCsvProductData d) {
+        if (imageLink != null) p.setImageLink(imageLink);
+        if (d.thresh  != null) p.setStockAlertThreshold(d.thresh);
+        if (d.gstRate != null && d.gstRate > 0) p.setGstRate(d.gstRate);
+        if (vendor    != null) p.setVendor(vendor);
+    }
+
+    private void updateAdminProduct(String idStr, String name, String desc, String category,
+                                     String imageLink, Vendor vendor, AdminCsvProductData d, int[] counts) {
+        int id = Integer.parseInt(idStr.trim());
+        Product p = productRepository.findById(id).orElse(null);
+        if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
+        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(category); p.setStock(d.stock); p.setApproved(d.approved);
+        applyOptionalAdminProductFields(p, imageLink, vendor, d);
+        productRepository.save(p);
+        counts[1]++;
+    }
+
+    private void createAdminProduct(String name, String desc, String category,
+                                     String imageLink, Vendor vendor, AdminCsvProductData d, int[] counts) {
+        Product p = new Product();
+        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(category != null ? category : "General"); p.setStock(d.stock);
+        applyOptionalAdminProductFields(p, imageLink, vendor, d);
+        p.setApproved(d.approved);
+        productRepository.save(p);
+        counts[0]++;
     }
 
     /**
@@ -4345,7 +4393,7 @@ public class ReactApiController {
         switch (period.toLowerCase()) {
             case "daily":   return new SalesPeriodConfig(7,  K_DAY,       6,  0, 0);
             case "monthly": return new SalesPeriodConfig(6,  K_MONTH,     0,  0, 6);
-            case "yearly":  return new SalesPeriodConfig(12, "year_month", 0,  0, 11);
+            case "yearly":  return new SalesPeriodConfig(12, K_YEAR_MONTH, 0,  0, 11);
             default:        return new SalesPeriodConfig(6,  "week",       0,  6, 0);
         }
     }
@@ -4414,8 +4462,8 @@ public class ReactApiController {
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
-        if ("year_month".equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+        if (K_YEAR_MONTH.equals(bucketUnit)) {
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long)(11 - offset));
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
@@ -4435,8 +4483,8 @@ public class ReactApiController {
             java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(offset);
             return ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
         }
-        if ("year_month".equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+        if (K_YEAR_MONTH.equals(bucketUnit)) {
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long)(11 - offset));
             return ym.getMonth().name().substring(0, 3) + " '" + String.valueOf(ym.getYear()).substring(2);
         }
         // week
@@ -6488,7 +6536,7 @@ public class ReactApiController {
                 // No filter — return everything, newest first
                 requests = warehouseChangeRequestRepository.findAll(
                         org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC, "requestedAt"));
+                                org.springframework.data.domain.Sort.Direction.DESC, KEY_REQUESTED_AT));
             }
 
             List<Map<String, Object>> list = new ArrayList<>();
@@ -9752,7 +9800,6 @@ public class ReactApiController {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
                 .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
-            String reason = body != null ? (String) body.get(K_REASON) : null;
             
             db.setAdminApproved(false);
             db.setActive(false);
@@ -9892,9 +9939,6 @@ public class ReactApiController {
             if (db.getWarehouse() == null || db.getWarehouse().getId() != warehouseId) {
                 return ResponseEntity.status(403).body(Map.of(KEY_SUCCESS, false, KEY_ERROR, "Not your delivery boy"));
             }
-            
-            String reason = body != null ? (String) body.get(K_REASON) : null;
-            
             db.setAdminApproved(false);
             db.setActive(false);
             deliveryBoyRepository.save(db);

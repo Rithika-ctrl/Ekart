@@ -142,7 +142,7 @@ public class RecentlyViewedController {
             return ResponseEntity.ok(Map.of(K_SYNCED, true, K_COUNT, limitedIds.size()));
 
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(K_SYNCED, false, "message", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of(K_SYNCED, false, "message", e.getMessage()));
         }
     }
 

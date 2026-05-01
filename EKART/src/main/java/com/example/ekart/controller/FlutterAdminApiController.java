@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/flutter")
@@ -471,7 +470,7 @@ public class FlutterAdminApiController {
         m.put("maxDiscount",   c.getMaxDiscount());
         m.put("usageLimit",    c.getUsageLimit());
         m.put("usedCount",     c.getUsedCount());
-        m.put("active",        c.isActive());
+        m.put(KEY_ACTIVE,        c.isActive());
         m.put("valid",         c.isValid());
         m.put("expiryDate",    c.getExpiryDate() != null ? c.getExpiryDate().toString() : null);
         return m;
@@ -504,7 +503,7 @@ public class FlutterAdminApiController {
         m.put("mobile",          d.getMobile());
         m.put("deliveryBoyCode", d.getDeliveryBoyCode() != null ? d.getDeliveryBoyCode() : "");
         m.put("adminApproved",   d.isAdminApproved());
-        m.put("active",          d.isActive());
+        m.put(KEY_ACTIVE,          d.isActive());
         m.put("verified",        d.isVerified());
         m.put("assignedPinCodes", d.getAssignedPinCodes() != null ? d.getAssignedPinCodes() : "");
         if (d.getWarehouse() != null) {

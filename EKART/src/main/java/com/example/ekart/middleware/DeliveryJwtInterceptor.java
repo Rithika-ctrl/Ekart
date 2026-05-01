@@ -56,7 +56,7 @@ public class DeliveryJwtInterceptor implements HandlerInterceptor {
 
         if (idAttr != null && K_DELIVERY.equals(roleAttr)) {
             // ReactAuthFilter already did full validation — trust its result.
-            request.setAttribute(K_DELIVERYBOYID, (Integer) idAttr);
+            request.setAttribute(K_DELIVERYBOYID, idAttr);
             return true;
         }
 

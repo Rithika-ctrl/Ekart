@@ -169,7 +169,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         customerRepository.save(c);
         session.setAttribute(K_CUSTOMER, c);
         session.setAttribute("success", "Login Successful via " + providerDisplay);
-        session.removeAttribute("oauth_login_type");
+        session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
         response.sendRedirect("/customer/home");
     }
 

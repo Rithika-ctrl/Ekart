@@ -78,7 +78,7 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
         // Check cache first
         Boolean cachedResult = IP_CACHE.get(ip);
         if (cachedResult != null) {
-            if (!cachedResult) {
+            if (!cachedResult.booleanValue()) {
                 sendBlocked(response, request);
                 return false;
             }
