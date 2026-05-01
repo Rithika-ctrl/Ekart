@@ -4148,8 +4148,8 @@ public class ReactApiController {
     private AdminCsvProductData parseAdminCsvProductData(
             String priceStr, String mrpStr, String stockStr, String threshStr,
             String gstRateStr, String approvedStr, boolean autoApprove) {
-        double  price    = Double.parseDouble(priceStr.replaceAll("[^\d.]", ""));
-        Double  mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0  : Double.parseDouble(mrpStr.replaceAll("[^\d.]", ""));
+        double  price    = Double.parseDouble(priceStr.replaceAll("[^\\d.]", ""));
+        Double  mrp      = (mrpStr      == null || mrpStr.isBlank())      ? 0.0  : Double.parseDouble(mrpStr.replaceAll("[^\\d.]", ""));
         int     stock    = (stockStr    == null || stockStr.isBlank())    ? 0    : Integer.parseInt(stockStr.trim());
         Integer thresh   = (threshStr   == null || threshStr.isBlank())   ? null : Integer.parseInt(threshStr.trim());
         Double  gstRate  = (gstRateStr  == null || gstRateStr.isBlank())  ? null : Double.parseDouble(gstRateStr.trim());
@@ -9806,6 +9806,7 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
             
             // Optional: Send rejection email
+            String reason = (body != null) ? (String) body.get("reason") : null;
             try {
                 if (db.getEmail() != null && reason != null) {
                     emailSender.sendDeliveryBoyRejected(db, reason);

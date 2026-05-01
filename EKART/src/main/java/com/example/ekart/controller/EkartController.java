@@ -158,27 +158,9 @@ public class EkartController {
         return row[idx];
     }
 
-    // ── Dependency container (fixes S107 — reduces constructor parameter count) ──
-    // Groups all dependencies so the constructor takes a single parameter.
-    record EkartDependencies(
-            VendorService vendorService,
-            AdminService adminService,
-            OrderRepository orderRepository,
-            CustomerService customerService,
-            CustomerRepository customerRepository,
-            com.example.ekart.service.StockAlertService stockAlertService,
-            com.example.ekart.service.OrderTrackingService orderTrackingService,
-            BannerService bannerService,
-            CategoryService categoryService,
-            com.example.ekart.service.UserAdminService userAdminService,
-            GuestService guestService,
-            ProductRepository productRepository,
-            RefundService refundService) {}
-
     // ── Dependencies (constructor injection) ──
     private final VendorService vendorService;
     private final AdminService adminService;
-    // itemRepository removed — declared but never used (fixes S1068)
     private final OrderRepository orderRepository;
     private final CustomerService customerService;
     private final CustomerRepository customerRepository;
@@ -191,20 +173,33 @@ public class EkartController {
     private final ProductRepository productRepository;
     private final RefundService refundService;
 
-    public EkartController(EkartDependencies deps) {
-        this.vendorService = deps.vendorService();
-        this.adminService = deps.adminService();
-        this.orderRepository = deps.orderRepository();
-        this.customerService = deps.customerService();
-        this.customerRepository = deps.customerRepository();
-        this.stockAlertService = deps.stockAlertService();
-        this.orderTrackingService = deps.orderTrackingService();
-        this.bannerService = deps.bannerService();
-        this.categoryService = deps.categoryService();
-        this.userAdminService = deps.userAdminService();
-        this.guestService = deps.guestService();
-        this.productRepository = deps.productRepository();
-        this.refundService = deps.refundService();
+    public EkartController(
+            VendorService vendorService,
+            AdminService adminService,
+            OrderRepository orderRepository,
+            CustomerService customerService,
+            CustomerRepository customerRepository,
+            com.example.ekart.service.StockAlertService stockAlertService,
+            com.example.ekart.service.OrderTrackingService orderTrackingService,
+            BannerService bannerService,
+            CategoryService categoryService,
+            com.example.ekart.service.UserAdminService userAdminService,
+            GuestService guestService,
+            ProductRepository productRepository,
+            RefundService refundService) {
+        this.vendorService = vendorService;
+        this.adminService = adminService;
+        this.orderRepository = orderRepository;
+        this.customerService = customerService;
+        this.customerRepository = customerRepository;
+        this.stockAlertService = stockAlertService;
+        this.orderTrackingService = orderTrackingService;
+        this.bannerService = bannerService;
+        this.categoryService = categoryService;
+        this.userAdminService = userAdminService;
+        this.guestService = guestService;
+        this.productRepository = productRepository;
+        this.refundService = refundService;
     }
 
     // ── GUEST ─────────────────────────────────────────────────────────────────

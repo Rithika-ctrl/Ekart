@@ -65,69 +65,7 @@ public class FlutterApiController {
      * reducing the constructor parameter count to satisfy SonarQube S107
      * (max 7 parameters per constructor).
      */
-    public static class Dependencies {
-        final CustomerRepository                 customerRepository;
-        final VendorRepository                   vendorRepository;
-        final ProductRepository                  productRepository;
-        final OrderRepository                    orderRepository;
-        final ItemRepository                     itemRepository;
-        final WishlistRepository                 wishlistRepository;
-        final ReviewRepository                   reviewRepository;
-        final RefundRepository                   refundRepository;
-        final StockAlertRepository               stockAlertRepository;
-        final BannerRepository                   bannerRepository;
-        final BackInStockRepository              backInStockRepository;
-        final DeliveryBoyRepository              deliveryBoyRepository;
-        final WarehouseRepository                warehouseRepository;
-        final TrackingEventLogRepository         trackingEventLogRepository;
-        final DeliveryOtpRepository              deliveryOtpRepository;
-        final WarehouseChangeRequestRepository   warehouseChangeRequestRepository;
-        final EmailSender                        emailSender;
-        final CouponRepository                   couponRepository;
-        final com.example.ekart.service.AdminAccountService adminAccountService;
 
-        @org.springframework.beans.factory.annotation.Autowired
-        public Dependencies(
-                CustomerRepository customerRepository,
-                VendorRepository vendorRepository,
-                ProductRepository productRepository,
-                OrderRepository orderRepository,
-                ItemRepository itemRepository,
-                WishlistRepository wishlistRepository,
-                ReviewRepository reviewRepository,
-                RefundRepository refundRepository,
-                StockAlertRepository stockAlertRepository,
-                BannerRepository bannerRepository,
-                BackInStockRepository backInStockRepository,
-                DeliveryBoyRepository deliveryBoyRepository,
-                WarehouseRepository warehouseRepository,
-                TrackingEventLogRepository trackingEventLogRepository,
-                DeliveryOtpRepository deliveryOtpRepository,
-                WarehouseChangeRequestRepository warehouseChangeRequestRepository,
-                EmailSender emailSender,
-                CouponRepository couponRepository,
-                com.example.ekart.service.AdminAccountService adminAccountService) {
-            this.customerRepository               = customerRepository;
-            this.vendorRepository                 = vendorRepository;
-            this.productRepository                = productRepository;
-            this.orderRepository                  = orderRepository;
-            this.itemRepository                   = itemRepository;
-            this.wishlistRepository               = wishlistRepository;
-            this.reviewRepository                 = reviewRepository;
-            this.refundRepository                 = refundRepository;
-            this.stockAlertRepository             = stockAlertRepository;
-            this.bannerRepository                 = bannerRepository;
-            this.backInStockRepository            = backInStockRepository;
-            this.deliveryBoyRepository            = deliveryBoyRepository;
-            this.warehouseRepository              = warehouseRepository;
-            this.trackingEventLogRepository       = trackingEventLogRepository;
-            this.deliveryOtpRepository            = deliveryOtpRepository;
-            this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
-            this.emailSender                      = emailSender;
-            this.couponRepository                 = couponRepository;
-            this.adminAccountService              = adminAccountService;
-        }
-    }
  
     // Admin credentials come from application.properties (admin.email / admin.password)
     private final String adminEmail;
@@ -178,6 +116,7 @@ public class FlutterApiController {
     private static final String KEY_DELIVERY_TIME       = "deliveryTime";
     private static final String KEY_PRODUCT_NAME        = "productName";
     private static final String KEY_QUANTITY            = "quantity";
+    private static final String K_ORDERS                = "orders";
     private static final String MSG_PRODUCT_NOT_FOUND   = "Product not found";
     private static final String MSG_VENDOR_NOT_FOUND    = "Vendor not found";
     private static final String MSG_CUSTOMER_NOT_FOUND  = "Customer not found";
@@ -197,28 +136,46 @@ public class FlutterApiController {
     public FlutterApiController(
             @org.springframework.beans.factory.annotation.Value("${admin.email}") String adminEmail,
             @org.springframework.beans.factory.annotation.Value("${admin.password}") String adminPassword,
-            Dependencies deps) {
-        this.adminEmail    = adminEmail;
-        this.adminPassword = adminPassword;
-        this.customerRepository               = deps.customerRepository;
-        this.vendorRepository                 = deps.vendorRepository;
-        this.productRepository                = deps.productRepository;
-        this.orderRepository                  = deps.orderRepository;
-        this.itemRepository                   = deps.itemRepository;
-        this.wishlistRepository               = deps.wishlistRepository;
-        this.reviewRepository                 = deps.reviewRepository;
-        this.refundRepository                 = deps.refundRepository;
-        this.stockAlertRepository             = deps.stockAlertRepository;
-        this.bannerRepository                 = deps.bannerRepository;
-        this.backInStockRepository            = deps.backInStockRepository;
-        this.deliveryBoyRepository            = deps.deliveryBoyRepository;
-        this.warehouseRepository              = deps.warehouseRepository;
-        this.trackingEventLogRepository       = deps.trackingEventLogRepository;
-        this.deliveryOtpRepository            = deps.deliveryOtpRepository;
-        this.warehouseChangeRequestRepository = deps.warehouseChangeRequestRepository;
-        this.emailSender                      = deps.emailSender;
-        this.couponRepository                 = deps.couponRepository;
-        this.adminAccountService              = deps.adminAccountService;
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            WishlistRepository wishlistRepository,
+            ReviewRepository reviewRepository,
+            RefundRepository refundRepository,
+            StockAlertRepository stockAlertRepository,
+            BannerRepository bannerRepository,
+            BackInStockRepository backInStockRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            DeliveryOtpRepository deliveryOtpRepository,
+            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
+            EmailSender emailSender,
+            CouponRepository couponRepository,
+            com.example.ekart.service.AdminAccountService adminAccountService) {
+        this.adminEmail                       = adminEmail;
+        this.adminPassword                    = adminPassword;
+        this.customerRepository               = customerRepository;
+        this.vendorRepository                 = vendorRepository;
+        this.productRepository                = productRepository;
+        this.orderRepository                  = orderRepository;
+        this.itemRepository                   = itemRepository;
+        this.wishlistRepository               = wishlistRepository;
+        this.reviewRepository                 = reviewRepository;
+        this.refundRepository                 = refundRepository;
+        this.stockAlertRepository             = stockAlertRepository;
+        this.bannerRepository                 = bannerRepository;
+        this.backInStockRepository            = backInStockRepository;
+        this.deliveryBoyRepository            = deliveryBoyRepository;
+        this.warehouseRepository              = warehouseRepository;
+        this.trackingEventLogRepository       = trackingEventLogRepository;
+        this.deliveryOtpRepository            = deliveryOtpRepository;
+        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
+        this.emailSender                      = emailSender;
+        this.couponRepository                 = couponRepository;
+        this.adminAccountService              = adminAccountService;
     }
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
