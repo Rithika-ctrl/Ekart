@@ -1,7 +1,5 @@
 package com.example.ekart.controller;
-import com.example.ekart.dto.Address;
 import java.util.stream.Collectors;
-import java.util.Random;
 import java.util.Optional;
 import java.time.LocalDateTime;
 
@@ -18,7 +16,6 @@ import com.example.ekart.config.OAuthProviderValidator;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
 // import com.example.ekart.dto.Role; // unused
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -325,6 +322,7 @@ public class ReactApiController {
             Map.entry("automobile accessories", 28.0)
         );
         private static final double DEFAULT_GST_RATE = 18.0;
+        private static final int DEFAULT_STOCK_ALERT_THRESHOLD = 10;
 
 
     // ── S2119: Reuse a single Random instance instead of creating a new one per call ──
@@ -351,7 +349,6 @@ public class ReactApiController {
     private final SocialAuthService socialAuthService;
     private final OAuthProviderValidator oAuthProviderValidator;
     private final com.example.ekart.service.StockAlertService stockAlertService;
-    private final com.example.ekart.service.AutoAssignmentService autoAssignmentService;
     private final com.example.ekart.service.OtpService otpService;
     private final AdminAuthService adminAuthService;
     private final com.example.ekart.helper.EmailSender emailSender;
@@ -392,7 +389,6 @@ public class ReactApiController {
             SocialAuthService socialAuthService,
             OAuthProviderValidator oAuthProviderValidator,
             com.example.ekart.service.StockAlertService stockAlertService,
-            com.example.ekart.service.AutoAssignmentService autoAssignmentService,
             com.example.ekart.service.OtpService otpService,
             AdminAuthService adminAuthService,
             com.example.ekart.helper.EmailSender emailSender,
@@ -431,7 +427,6 @@ public class ReactApiController {
         this.socialAuthService = socialAuthService;
         this.oAuthProviderValidator = oAuthProviderValidator;
         this.stockAlertService = stockAlertService;
-        this.autoAssignmentService = autoAssignmentService;
         this.otpService = otpService;
         this.adminAuthService = adminAuthService;
         this.emailSender = emailSender;
@@ -524,10 +519,8 @@ public class ReactApiController {
     private static class OtpData {
         String otp;
         long timestamp;
-        String name;
-        OtpData(String otp, String name) {
+        OtpData(String otp) {
             this.otp = otp;
-            this.name = name;
             this.timestamp = System.currentTimeMillis();
         }
         boolean isExpired() {
@@ -557,8 +550,8 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             // Generate OTP and store in TEMPORARY cache only (not in DB)
-            String otp = String.format(FMT_OTP, RANDOM.nextInt(1000000));
-            registerOtpCache.put(email, new OtpData(otp, name));
+            String otp = String.format(FMT_OTP, new java.util.Random().nextInt(1000000));
+            registerOtpCache.put(email, new OtpData(otp));
             registerOtpVerified.remove(email);
             
             // Send OTP via email (S1141: extracted to avoid nested try block)
@@ -1041,7 +1034,7 @@ public class ReactApiController {
      *   - Pending admin approval  → 403 + message
      */
     @PostMapping("/auth/delivery/login")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("deprecation")
     public ResponseEntity<Map<String, Object>> deliveryLogin(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1454,7 +1447,6 @@ public class ReactApiController {
 
             // Get delivery boy ID from refresh token
             int deliveryBoyId = deliveryRefreshTokenUtil.getDeliveryBoyId(refreshToken);
-            String email = deliveryRefreshTokenUtil.getEmail(refreshToken);
 
             // Verify delivery boy still exists and is active
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId).orElse(null);
@@ -1621,7 +1613,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/customer/reset-password */
     @PostMapping("/auth/customer/reset-password")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("deprecation")
     public ResponseEntity<Map<String, Object>> customerResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1684,7 +1676,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/forgot-password */
     @PostMapping("/auth/vendor/forgot-password")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("deprecation")
     public ResponseEntity<Map<String, Object>> vendorForgotPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1770,7 +1762,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/reset-password */
     @PostMapping("/auth/vendor/reset-password")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("deprecation")
     public ResponseEntity<Map<String, Object>> vendorResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -3766,19 +3758,110 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        
         List<Product> products = productRepository.findByVendor(vendor);
-        List<Integer> productIds = products.stream().map(Product::getId).toList();
         List<Order> orders = orderRepository.findOrdersByVendor(vendor);
-        double totalRevenue = orders.stream().filter(o -> o.getTrackingStatus() != TrackingStatus.CANCELLED)
-                .flatMap(o -> o.getItems().stream())
-                .filter(i -> i.getProductId() != null && productIds.contains(i.getProductId()))
-                .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
-        long activeProducts   = products.stream().filter(Product::isApproved).count();
-        long lowStockProducts = products.stream().filter(p -> p.getStock() <= (p.getStockAlertThreshold() != null ? p.getStockAlertThreshold() : 10)).count();
-        res.put(KEY_SUCCESS, true); res.put(K_TOTALREVENUE, totalRevenue);
-        res.put(K_TOTALORDERS, orders.size()); res.put(K_TOTALPRODUCTS, products.size());
-        res.put("activeProducts", activeProducts); res.put("lowStockProducts", lowStockProducts);
+        
+        // Calculate revenue from vendor's active orders
+        double totalRevenue = calculateVendorRevenue(orders, products);
+        
+        // Count active and low-stock products
+        long activeProducts = countActiveProducts(products);
+        long lowStockProducts = countLowStockProducts(products);
+        
+        // Build response with calculated stats
+        res.put(KEY_SUCCESS, true);
+        res.put(K_TOTALREVENUE, totalRevenue);
+        res.put(K_TOTALORDERS, orders.size());
+        res.put(K_TOTALPRODUCTS, products.size());
+        res.put("activeProducts", activeProducts);
+        res.put("lowStockProducts", lowStockProducts);
         return ResponseEntity.ok(res);
+    }
+    
+    /**
+     * Calculates total revenue for a vendor from their products in non-cancelled orders.
+     * Revenue = sum of (item price × quantity) for vendor's products in completed orders.
+     */
+    private double calculateVendorRevenue(List<Order> vendorOrders, List<Product> vendorProducts) {
+        List<Integer> productIds = vendorProducts.stream().map(Product::getId).toList();
+        return vendorOrders.stream()
+                .filter(order -> order.getTrackingStatus() != TrackingStatus.CANCELLED)
+                .flatMap(order -> order.getItems().stream())
+                .filter(item -> item.getProductId() != null && productIds.contains(item.getProductId()))
+                .mapToDouble(item -> item.getPrice() * item.getQuantity())
+                .sum();
+    }
+    
+    /**
+     * Counts products that have been approved by admin.
+     */
+    private long countActiveProducts(List<Product> products) {
+        return products.stream().filter(Product::isApproved).count();
+    }
+    
+    /**
+     * Counts products whose current stock is at or below their alert threshold.
+     * Uses DEFAULT_STOCK_ALERT_THRESHOLD (10) if product has no custom threshold set.
+     */
+    private long countLowStockProducts(List<Product> products) {
+        return products.stream()
+                .filter(product -> {
+                    int threshold = product.getStockAlertThreshold() != null 
+                            ? product.getStockAlertThreshold() 
+                            : DEFAULT_STOCK_ALERT_THRESHOLD;
+                    return product.getStock() <= threshold;
+                })
+                .count();
+    }
+    
+    /**
+     * Handles image upload and fallback logic for product images.
+     * Attempts to upload to Cloudinary; falls back to provided imageLink if upload fails or is not provided.
+     * Returns the resolved image URL (may be empty string if no image provided).
+     */
+    private String resolveProductImage(MultipartFile image, String imageLink) {
+        if (image != null && !image.isEmpty()) {
+            try {
+                return cloudinaryHelper.saveToCloudinary(image);
+            } catch (Exception e) {
+                // Fall back to provided imageLink if upload fails
+                return (imageLink != null && !imageLink.isBlank()) ? imageLink : "";
+            }
+        }
+        return (imageLink != null && !imageLink.isBlank()) ? imageLink : "";
+    }
+    
+    /**
+     * Safely parses an optional numeric string parameter.
+     * Returns the parsed double value if parameter is provided and valid; returns defaultValue otherwise.
+     */
+    private double parseOptionalDouble(String value, double defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            double parsed = Double.parseDouble(value);
+            return parsed > 0 ? parsed : defaultValue;
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+    
+    /**
+     * Safely parses an optional integer string parameter.
+     * Returns the parsed int value if parameter is provided and valid; returns null otherwise.
+     */
+    private Integer parseOptionalInteger(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -3812,8 +3895,12 @@ public class ReactApiController {
             p.setStock(Integer.parseInt(stock));
             
             if (image != null && !image.isEmpty()) {
-                String imageUrl = uploadImageToCloudinary(image, imageLink);
-                p.setImageLink(imageUrl);
+                try {
+                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
+                    p.setImageLink(imageUrl);
+                } catch (Exception e) {
+                    p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+                }
             } else {
                 p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
             }
@@ -3821,22 +3908,26 @@ public class ReactApiController {
             p.setVendor(vendor);
             
             if (mrp != null && !mrp.isBlank()) {
-                double parsedMrp = Double.parseDouble(mrp);
-                if (parsedMrp > 0) p.setMrp(parsedMrp);
+                double mrpVal = Double.parseDouble(mrp);
+                if (mrpVal > 0) product.setMrp(mrpVal);
             }
             if (gstRate != null && !gstRate.isBlank()) {
-                double parsedGst = Double.parseDouble(gstRate);
-                if (parsedGst > 0) p.setGstRate(parsedGst);
+                double gstVal = Double.parseDouble(gstRate);
+                if (gstVal > 0) product.setGstRate(gstVal);
             }
             if (allowedPinCodes != null && !allowedPinCodes.isBlank()) {
-                p.setAllowedPinCodes(allowedPinCodes.trim());
-            }
-            if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) {
-                p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
+                product.setAllowedPinCodes(allowedPinCodes.trim());
             }
             
-            productRepository.save(p);
-            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product added. Pending admin approval."); res.put(KEY_PRODUCT_ID, p.getId());
+            Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
+            if (alertThreshold != null) {
+                product.setStockAlertThreshold(alertThreshold);
+            }
+            
+            productRepository.save(product);
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Product added. Pending admin approval.");
+            res.put(KEY_PRODUCT_ID, product.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
@@ -3859,26 +3950,45 @@ public class ReactApiController {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-        Product p = productRepository.findById(id).orElse(null);
-        if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null || product.getVendor() == null || product.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
-            if (name != null &&!name.isBlank()) p.setName(name);
-            if (description != null && !description.isBlank()) p.setDescription(description);
-            if (price != null && !price.isBlank()) p.setPrice(Double.parseDouble(price));
-            if (category != null && !category.isBlank()) p.setCategory(category);
-            if (stock != null && !stock.isBlank()) p.setStock(Integer.parseInt(stock));
+            // Update basic product fields if provided
+            if (name != null && !name.isBlank()) product.setName(name);
+            if (description != null && !description.isBlank()) product.setDescription(description);
+            if (price != null && !price.isBlank()) product.setPrice(Double.parseDouble(price));
+            if (category != null && !category.isBlank()) product.setCategory(category);
+            if (stock != null && !stock.isBlank()) product.setStock(Integer.parseInt(stock));
             
+            // Handle image update with fallback to provided URL
             if (image != null && !image.isEmpty()) {
-                String imageUrl = uploadImageToCloudinary(image, imageLink);
-                p.setImageLink(imageUrl);
-            } else if (imageLink != null && !imageLink.isBlank()) {
-                p.setImageLink(imageLink);
+                try {
+                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
+                    product.setImageLink(imageUrl);
+                } catch (Exception e) {
+                    product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+                }
+            } else {
+                product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
             }
-            if (mrp != null && !mrp.isBlank()) p.setMrp(Double.parseDouble(mrp));
-            if (gstRate != null && !gstRate.isBlank()) p.setGstRate(Double.parseDouble(gstRate));
-            if (stockAlertThreshold != null && !stockAlertThreshold.isBlank()) p.setStockAlertThreshold(Integer.parseInt(stockAlertThreshold));
+            product.setApproved(false);
+            product.setVendor(vendor);
             
-            productRepository.save(p);
+            if (mrp != null && !mrp.isBlank()) {
+                double mrpVal = Double.parseDouble(mrp);
+                if (mrpVal > 0) product.setMrp(mrpVal);
+            }
+            if (gstRate != null && !gstRate.isBlank()) {
+                double gstVal = Double.parseDouble(gstRate);
+                if (gstVal > 0) product.setGstRate(gstVal);
+            }
+            // Update stock alert threshold if provided
+            Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
+            if (alertThreshold != null) {
+                product.setStockAlertThreshold(alertThreshold);
+            }
+            
+            productRepository.save(product);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
@@ -9800,13 +9910,13 @@ public class ReactApiController {
         try {
             DeliveryBoy db = deliveryBoyRepository.findById(deliveryBoyId)
                 .orElseThrow(() -> new RuntimeException(ERR_DELIVERY_BOY_NOT_FOUND));
+            String reason = body != null ? (String) body.get(K_REASON) : null;
             
             db.setAdminApproved(false);
             db.setActive(false);
             deliveryBoyRepository.save(db);
             
             // Optional: Send rejection email
-            String reason = (body != null) ? (String) body.get("reason") : null;
             try {
                 if (db.getEmail() != null && reason != null) {
                     emailSender.sendDeliveryBoyRejected(db, reason);

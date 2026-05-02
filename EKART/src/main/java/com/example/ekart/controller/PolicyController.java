@@ -54,31 +54,23 @@ public class PolicyController {
     public Policy createPolicy(@RequestBody Policy policy) {
         logger.info("[POST] /api/policies - Incoming: title={}, slug={}, category={}, author={}",
             policy.getTitle(), policy.getSlug(), policy.getCategory(), policy.getAuthorAdminId());
-        policy.setLastUpdated(LocalDateTime.now());
-        Policy saved = policyRepository.save(policy);
+        Policy savedPolicy = savePolicyWithAudit("CREATED", policy);
         logger.info("[POST] /api/policies - Saved: id={}, title={}, slug={}",
-            saved.getId(), saved.getTitle(), saved.getSlug());
-        auditLogService.logPolicyAction("CREATED", saved.getTitle(), saved.getAuthorAdminId());
-        return saved;
+            savedPolicy.getId(), savedPolicy.getTitle(), savedPolicy.getSlug());
+        return savedPolicy;
     }
 
     @PutMapping("/{slug}")
     public Policy updatePolicy(@PathVariable String slug, @RequestBody Policy policy) {
         logger.info("[PUT] /api/policies/{} - Incoming: title={}, slug={}, category={}, author={}",
             slug, policy.getTitle(), policy.getSlug(), policy.getCategory(), policy.getAuthorAdminId());
-        Optional<Policy> existing = policyRepository.findBySlug(slug);
-        if (existing.isPresent()) {
-            Policy p = existing.get();
-            p.setTitle(policy.getTitle());
-            p.setContent(policy.getContent());
-            p.setCategory(policy.getCategory());
-            p.setLastUpdated(LocalDateTime.now());
-            p.setAuthorAdminId(policy.getAuthorAdminId());
-            Policy updated = policyRepository.save(p);
+        Optional<Policy> existingPolicy = policyRepository.findBySlug(slug);
+        if (existingPolicy.isPresent()) {
+            Policy updatedPolicy = copyPolicyChanges(existingPolicy.get(), policy);
             logger.info("[PUT] /api/policies/{} - Updated: id={}, title={}, slug={}",
-                slug, updated.getId(), updated.getTitle(), updated.getSlug());
-            auditLogService.logPolicyAction("UPDATED", updated.getTitle(), updated.getAuthorAdminId());
-            return updated;
+                slug, updatedPolicy.getId(), updatedPolicy.getTitle(), updatedPolicy.getSlug());
+            auditLogService.logPolicyAction("UPDATED", updatedPolicy.getTitle(), updatedPolicy.getAuthorAdminId());
+            return updatedPolicy;
         }
         logger.warn("[PUT] /api/policies/{} - Policy not found", slug);
         return null;
@@ -87,15 +79,31 @@ public class PolicyController {
     @DeleteMapping("/{slug}")
     public void deletePolicy(@PathVariable String slug) {
         logger.info("[DELETE] /api/policies/{}", slug);
-        Optional<Policy> existing = policyRepository.findBySlug(slug);
-        if (existing.isPresent()) {
-            Policy p = existing.get();
+        Optional<Policy> existingPolicy = policyRepository.findBySlug(slug);
+        if (existingPolicy.isPresent()) {
+            Policy policyToDelete = existingPolicy.get();
             policyRepository.deleteBySlug(slug);
-            logger.info("[DELETE] /api/policies/{} - Deleted: id={}, title={}", slug, p.getId(), p.getTitle());
-            auditLogService.logPolicyAction("DELETED", p.getTitle(), p.getAuthorAdminId());
+            logger.info("[DELETE] /api/policies/{} - Deleted: id={}, title={}", slug, policyToDelete.getId(), policyToDelete.getTitle());
+            auditLogService.logPolicyAction("DELETED", policyToDelete.getTitle(), policyToDelete.getAuthorAdminId());
         } else {
             policyRepository.deleteBySlug(slug);
             logger.warn("[DELETE] /api/policies/{} - Not found in DB, but deleteBySlug called", slug);
         }
+    }
+
+    private Policy savePolicyWithAudit(String action, Policy policy) {
+        policy.setLastUpdated(LocalDateTime.now());
+        Policy savedPolicy = policyRepository.save(policy);
+        auditLogService.logPolicyAction(action, savedPolicy.getTitle(), savedPolicy.getAuthorAdminId());
+        return savedPolicy;
+    }
+
+    private Policy copyPolicyChanges(Policy targetPolicy, Policy sourcePolicy) {
+        targetPolicy.setTitle(sourcePolicy.getTitle());
+        targetPolicy.setContent(sourcePolicy.getContent());
+        targetPolicy.setCategory(sourcePolicy.getCategory());
+        targetPolicy.setLastUpdated(LocalDateTime.now());
+        targetPolicy.setAuthorAdminId(sourcePolicy.getAuthorAdminId());
+        return policyRepository.save(targetPolicy);
     }
 }

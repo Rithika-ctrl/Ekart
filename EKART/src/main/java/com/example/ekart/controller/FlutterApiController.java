@@ -38,19 +38,17 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 @CrossOrigin(origins = "*")
 public class FlutterApiController {
 
-    // Repository and service dependencies grouped to satisfy SonarQube S107
-    // (constructor parameter count must not exceed 7).
-    private final CustomerRepository                 customerRepository;
-    private final VendorRepository                   vendorRepository;
-    private final ProductRepository                  productRepository;
-    private final OrderRepository                    orderRepository;
-    private final ItemRepository                     itemRepository;
-    private final WishlistRepository                 wishlistRepository;
-    private final ReviewRepository                   reviewRepository;
-    private final RefundRepository                   refundRepository;
-    private final StockAlertRepository               stockAlertRepository;
-    private final BannerRepository                   bannerRepository;
-    private final BackInStockRepository              backInStockRepository;
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+    private final WishlistRepository wishlistRepository;
+    private final ReviewRepository reviewRepository;
+    private final RefundRepository refundRepository;
+    private final StockAlertRepository stockAlertRepository;
+    private final BannerRepository bannerRepository;
+    private final BackInStockRepository backInStockRepository;
     private final DeliveryBoyRepository              deliveryBoyRepository;
     private final WarehouseRepository                warehouseRepository;
     private final TrackingEventLogRepository         trackingEventLogRepository;
@@ -155,27 +153,27 @@ public class FlutterApiController {
             EmailSender emailSender,
             CouponRepository couponRepository,
             com.example.ekart.service.AdminAccountService adminAccountService) {
-        this.adminEmail                       = adminEmail;
-        this.adminPassword                    = adminPassword;
-        this.customerRepository               = customerRepository;
-        this.vendorRepository                 = vendorRepository;
-        this.productRepository                = productRepository;
-        this.orderRepository                  = orderRepository;
-        this.itemRepository                   = itemRepository;
-        this.wishlistRepository               = wishlistRepository;
-        this.reviewRepository                 = reviewRepository;
-        this.refundRepository                 = refundRepository;
-        this.stockAlertRepository             = stockAlertRepository;
-        this.bannerRepository                 = bannerRepository;
-        this.backInStockRepository            = backInStockRepository;
-        this.deliveryBoyRepository            = deliveryBoyRepository;
-        this.warehouseRepository              = warehouseRepository;
-        this.trackingEventLogRepository       = trackingEventLogRepository;
-        this.deliveryOtpRepository            = deliveryOtpRepository;
+        this.adminEmail = adminEmail;
+        this.adminPassword = adminPassword;
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.reviewRepository = reviewRepository;
+        this.refundRepository = refundRepository;
+        this.stockAlertRepository = stockAlertRepository;
+        this.bannerRepository = bannerRepository;
+        this.backInStockRepository = backInStockRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.deliveryOtpRepository = deliveryOtpRepository;
         this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
-        this.emailSender                      = emailSender;
-        this.couponRepository                 = couponRepository;
-        this.adminAccountService              = adminAccountService;
+        this.emailSender = emailSender;
+        this.couponRepository = couponRepository;
+        this.adminAccountService = adminAccountService;
     }
     // ═══════════════════════════════════════════════════════
     // AUTH — CUSTOMER
@@ -218,8 +216,8 @@ public class FlutterApiController {
             c.setOtpExpiry(java.time.LocalDateTime.now().plusMinutes(10));
             customerRepository.save(c);
  
-            // Send OTP email (reuses existing template)
-            c.setOtp(plainOtp); // legacy field used by email template
+            // Send OTP email (reuses existing template with legacy setOtp field for backward compatibility)
+            setOtpForEmailTemplate(c, plainOtp);
             emailSender.send(c);
  
             res.put(KEY_SUCCESS, true);
@@ -231,7 +229,16 @@ public class FlutterApiController {
             return ResponseEntity.internalServerError().body(res);
         }
     }
- 
+
+    /**
+     * Helper method to set OTP value on customer for email template.
+     * The setOtp method is deprecated but retained for email template backward compatibility.
+     */
+    @SuppressWarnings("deprecation")
+    private void setOtpForEmailTemplate(Customer customer, int plainOtp) {
+        customer.setOtp(plainOtp);
+    }
+
     /**
      * POST /api/flutter/auth/customer/verify-otp
      * Step 2 of 2FA registration: verifies the OTP, marks account as verified.
