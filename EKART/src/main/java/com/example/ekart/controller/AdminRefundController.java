@@ -30,6 +30,7 @@ public class AdminRefundController {
     private static final String K_ADMIN                             = "admin";
     private static final String K_COUNT                           = "count";
     private static final String K_MESSAGE                           = "message";
+    private static final String K_REASON                            = "reason";
     private static final String K_SUCCESS                           = "success";
     private static final String K_UNAUTHORIZED_ADMIN_LOGIN_REQUIRED = "Unauthorized - Admin login required";
 
@@ -196,7 +197,7 @@ public class AdminRefundController {
         map.put("customerEmail", refund.getCustomer().getEmail());
         map.put("amount", refund.getAmount());
         map.put("orderTotal", refund.getOrder().getTotalPrice());
-        map.put("reason", refund.getReason());
+        map.put(K_REASON, refund.getReason());
         map.put("status", refund.getStatus().getDisplayName());
         map.put("statusCode", refund.getStatus().name());
         map.put("requestedAt", refund.getRequestedAt() != null ? refund.getRequestedAt().toString() : null);

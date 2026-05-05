@@ -54,6 +54,7 @@ public class ReactApiController {
     private static final String K_DISPLAY_ORDER                     = "displayOrder";
     private static final String K_PAYMENT_METHOD                    = "paymentMethod";
     private static final String K_ACTIVE                            = "active";
+    private static final String K_INACTIVE                          = "inactive";
     private static final String K_ADDRESS                           = "address";
     private static final String K_AVGORDERVALUE                     = "avgOrderValue";
     private static final String K_AVGRATING                         = "avgRating";
@@ -3909,25 +3910,25 @@ public class ReactApiController {
             
             if (mrp != null && !mrp.isBlank()) {
                 double mrpVal = Double.parseDouble(mrp);
-                if (mrpVal > 0) product.setMrp(mrpVal);
+                if (mrpVal > 0) p.setMrp(mrpVal);
             }
             if (gstRate != null && !gstRate.isBlank()) {
                 double gstVal = Double.parseDouble(gstRate);
-                if (gstVal > 0) product.setGstRate(gstVal);
+                if (gstVal > 0) p.setGstRate(gstVal);
             }
             if (allowedPinCodes != null && !allowedPinCodes.isBlank()) {
-                product.setAllowedPinCodes(allowedPinCodes.trim());
+                p.setAllowedPinCodes(allowedPinCodes.trim());
             }
             
             Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
             if (alertThreshold != null) {
-                product.setStockAlertThreshold(alertThreshold);
+                p.setStockAlertThreshold(alertThreshold);
             }
             
-            productRepository.save(product);
+            productRepository.save(p);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Product added. Pending admin approval.");
-            res.put(KEY_PRODUCT_ID, product.getId());
+            res.put(KEY_PRODUCT_ID, p.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
     }
@@ -4121,6 +4122,19 @@ public class ReactApiController {
      * @param vendorId the vendor's ID (for ownership checks)
      * @param counts  two-element array: counts[0]=created, counts[1]=updated (mutated in place)
      */
+    /** Bundles the common string fields for a vendor CSV product row, reducing parameter count. */
+    private static class VendorProductFields {
+        final String name;
+        final String desc;
+        final String category;
+        final String imageLink;
+        final String pinCodes;
+        VendorProductFields(String name, String desc, String category, String imageLink, String pinCodes) {
+            this.name = name; this.desc = desc; this.category = category;
+            this.imageLink = imageLink; this.pinCodes = pinCodes;
+        }
+    }
+
     private void processVendorCsvRow(String[] cells, Map<String, Integer> idx,
                                      Vendor vendor, int vendorId, int[] counts) {
         String idStr      = getCellByHeaders(cells, idx, "id", "productid");
@@ -4139,11 +4153,12 @@ public class ReactApiController {
         if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
 
         VendorCsvProductData data = parseVendorCsvProductData(priceStr, mrpStr, stockStr, threshStr, gstRateStr);
+        VendorProductFields fields = new VendorProductFields(name, desc, category, imageLink, pinCodes);
 
         if (idStr != null && !idStr.isBlank()) {
-            updateVendorProduct(idStr, name, desc, category, imageLink, pinCodes, data, vendorId, counts);
+            updateVendorProduct(idStr, fields, data, vendorId, counts);
         } else {
-            createVendorProduct(name, desc, category, imageLink, pinCodes, data, vendor, counts);
+            createVendorProduct(fields, data, vendor, counts);
         }
     }
 
@@ -4178,28 +4193,26 @@ public class ReactApiController {
         if (pinCodes  != null) p.setAllowedPinCodes(pinCodes);
     }
 
-    private void updateVendorProduct(String idStr, String name, String desc, String category,
-                                      String imageLink, String pinCodes,
+    private void updateVendorProduct(String idStr, VendorProductFields f,
                                       VendorCsvProductData d, int vendorId, int[] counts) {
         int id = Integer.parseInt(idStr);
         Product p = productRepository.findById(id).orElse(null);
         if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
         if (p.getVendor() == null || p.getVendor().getId() != vendorId)
             throw new IllegalArgumentException(K_PRODUCT_ID + id + " does not belong to you");
-        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
-        p.setCategory(category); p.setStock(d.stock);
-        applyOptionalVendorProductFields(p, imageLink, pinCodes, d);
+        p.setName(f.name); p.setDescription(f.desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(f.category); p.setStock(d.stock);
+        applyOptionalVendorProductFields(p, f.imageLink, f.pinCodes, d);
         productRepository.save(p);
         counts[1]++;
     }
 
-    private void createVendorProduct(String name, String desc, String category,
-                                      String imageLink, String pinCodes,
+    private void createVendorProduct(VendorProductFields f,
                                       VendorCsvProductData d, Vendor vendor, int[] counts) {
         Product p = new Product();
-        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
-        p.setCategory(category); p.setStock(d.stock);
-        applyOptionalVendorProductFields(p, imageLink, pinCodes, d);
+        p.setName(f.name); p.setDescription(f.desc); p.setPrice(d.price); p.setMrp(d.mrp);
+        p.setCategory(f.category); p.setStock(d.stock);
+        applyOptionalVendorProductFields(p, f.imageLink, f.pinCodes, d);
         p.setVendor(vendor); p.setApproved(false);
         productRepository.save(p);
         counts[0]++;
@@ -4573,7 +4586,7 @@ public class ReactApiController {
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long)(11 - offset));
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
@@ -4594,7 +4607,7 @@ public class ReactApiController {
             return ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long)(11 - offset));
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
             return ym.getMonth().name().substring(0, 3) + " '" + String.valueOf(ym.getYear()).substring(2);
         }
         // week
@@ -7246,7 +7259,7 @@ public class ReactApiController {
             customer.setActive(isActive);
             customerRepository.save(customer);
             res.put(KEY_SUCCESS, true);
-            res.put(KEY_MESSAGE, "Account status updated to " + (isActive ? "active" : "inactive"));
+            res.put(KEY_MESSAGE, "Account status updated to " + (isActive ? K_ACTIVE : K_INACTIVE));
             res.put(KEY_IS_ACTIVE, isActive);
             return ResponseEntity.ok(res);
         } catch (Exception e) {

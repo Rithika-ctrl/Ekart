@@ -38,7 +38,6 @@ public class GeocodingController {
 
     // ── S1192 String constants ──
     private static final String K_CITY                              = "city";
-    private static final String K_KEY                               = "key";
     private static final String K_MESSAGE                           = "message";
     private static final String K_PIN                               = "pin";
     private static final String K_STATE                             = "state";

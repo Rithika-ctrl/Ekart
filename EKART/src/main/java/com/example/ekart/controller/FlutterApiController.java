@@ -74,6 +74,7 @@ public class FlutterApiController {
             = new java.util.concurrent.ConcurrentHashMap<>();
 
     // String constants (fixes S1192 - String Literal Duplication)
+    private static final String KEY_CUSTOMER_ID  = "customerId";
     private static final String KEY_EMAIL        = "email";
     private static final String KEY_TOKEN        = "token";
     private static final String KEY_ADMIN_ID     = "adminId";
@@ -115,6 +116,11 @@ public class FlutterApiController {
     private static final String KEY_PRODUCT_NAME        = "productName";
     private static final String KEY_QUANTITY            = "quantity";
     private static final String K_ORDERS                = "orders";
+    private static final String KEY_CURRENT_CITY        = "currentCity";
+    private static final String KEY_DELIVERY_CHARGE     = "deliveryCharge";
+    private static final String KEY_COUPON_DISCOUNT     = "couponDiscount";
+    private static final String KEY_ORDER_ID            = "orderId";
+    private static final String KEY_DESCRIPTION         = "description";
     private static final String MSG_PRODUCT_NOT_FOUND   = "Product not found";
     private static final String MSG_VENDOR_NOT_FOUND    = "Vendor not found";
     private static final String MSG_CUSTOMER_NOT_FOUND  = "Customer not found";
@@ -200,7 +206,7 @@ public class FlutterApiController {
             }
  
             // Generate 6-digit OTP and hash it
-            int plainOtp = new java.util.Random().nextInt(100000, 1000000);
+            int plainOtp = RANDOM.nextInt(100000, 1000000);
             String otpHash = BCrypt.hashpw(String.valueOf(plainOtp), BCrypt.gensalt());
  
             // Save unverified customer (verified=false until OTP confirmed)
@@ -233,8 +239,9 @@ public class FlutterApiController {
     /**
      * Helper method to set OTP value on customer for email template.
      * The setOtp method is deprecated but retained for email template backward compatibility.
+     * Suppressed: java:S1874 — setOtp() is required by the legacy email template until migrated.
      */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "java:S1874"})
     private void setOtpForEmailTemplate(Customer customer, int plainOtp) {
         customer.setOtp(plainOtp);
     }
@@ -281,7 +288,7 @@ public class FlutterApiController {
                     .encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Account verified successfully! Welcome to Ekart.");
-            res.put("customerId", c.getId());
+            res.put(KEY_CUSTOMER_ID, c.getId());
             res.put(KEY_NAME, c.getName());
             res.put(KEY_EMAIL, c.getEmail());
             res.put(KEY_TOKEN, token);
@@ -294,6 +301,7 @@ public class FlutterApiController {
     }
  
     /** @deprecated Use /api/flutter/auth/customer/send-otp + verify-otp instead */
+    @Deprecated(since = "2.0", forRemoval = false)
     @PostMapping("/auth/customer/register")
     public ResponseEntity<Map<String, Object>> customerRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -315,7 +323,7 @@ public class FlutterApiController {
             customerRepository.save(c);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Registered successfully");
-            res.put("customerId", c.getId());
+            res.put(KEY_CUSTOMER_ID, c.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
@@ -343,7 +351,7 @@ public class FlutterApiController {
             }
             String token = Base64.getEncoder().encodeToString((c.getId() + ":" + c.getEmail()).getBytes());
             res.put(KEY_SUCCESS, true);
-            res.put("customerId", c.getId());
+            res.put(KEY_CUSTOMER_ID, c.getId());
             res.put(KEY_NAME, c.getName());
             res.put(KEY_EMAIL, c.getEmail());
             res.put(KEY_MOBILE, c.getMobile());
@@ -662,7 +670,7 @@ public class FlutterApiController {
         m.put(KEY_TOTAL_PRICE,      o.getTotalPrice());
         m.put(KEY_PAYMENT_MODE,     o.getPaymentMode());
         m.put(KEY_DELIVERY_TIME,    o.getDeliveryTime());
-        m.put("currentCity",     o.getCurrentCity() != null ? o.getCurrentCity() : "");
+        m.put(KEY_CURRENT_CITY,     o.getCurrentCity() != null ? o.getCurrentCity() : "");
         m.put("deliveryAddress", o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");
         if (o.getCustomer() != null) {
             Map<String, Object> cust = new LinkedHashMap<>();
@@ -1055,7 +1063,7 @@ public class FlutterApiController {
         Cart cart = customer.getCart();
         if (cart == null) {
             res.put(KEY_SUCCESS, true); res.put(KEY_ITEMS, new ArrayList<>()); res.put(KEY_TOTAL, 0.0);
-            res.put("subtotal", 0.0); res.put("deliveryCharge", 0.0); res.put("couponDiscount", 0.0);
+            res.put("subtotal", 0.0); res.put(KEY_DELIVERY_CHARGE, 0.0); res.put(KEY_COUPON_DISCOUNT, 0.0);
             res.put(KEY_COUPON_APPLIED, false); res.put(KEY_COUPON_CODE, ""); res.put(KEY_COUNT, 0);
             return ResponseEntity.ok(res);
         }
@@ -1066,17 +1074,22 @@ public class FlutterApiController {
         double couponDiscount = 0;
         if (applied != null && applied.isValid() && subtotal >= applied.getMinOrderAmount()) {
             couponDiscount = applied.calculateDiscount(subtotal);
-            res.put(KEY_COUPON_APPLIED, true); res.put(KEY_COUPON_CODE, applied.getCode()); res.put("couponDiscount", couponDiscount);
+            res.put(KEY_COUPON_APPLIED, true); res.put(KEY_COUPON_CODE, applied.getCode()); res.put(KEY_COUPON_DISCOUNT, couponDiscount);
         } else {
             if (applied != null) appliedCoupons.remove(customerId);
-            res.put(KEY_COUPON_APPLIED, false); res.put(KEY_COUPON_CODE, ""); res.put("couponDiscount", 0.0);
+            res.put(KEY_COUPON_APPLIED, false); res.put(KEY_COUPON_CODE, ""); res.put(KEY_COUPON_DISCOUNT, 0.0);
         }
         double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-        double deliveryCharge = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
+        double deliveryCharge;
+        if (discountedSubtotal >= 500 || discountedSubtotal == 0) {
+            deliveryCharge = 0.0;
+        } else {
+            deliveryCharge = 40.0;
+        }
         double total = discountedSubtotal + deliveryCharge;
         res.put(KEY_SUCCESS, true); res.put(KEY_ITEMS, items); res.put("itemCount", items.size());
-        res.put("subtotal", subtotal); res.put("couponDiscount", couponDiscount);
-        res.put("deliveryCharge", deliveryCharge); res.put(KEY_TOTAL, total); res.put(KEY_COUNT, items.size());
+        res.put("subtotal", subtotal); res.put(KEY_COUPON_DISCOUNT, couponDiscount);
+        res.put(KEY_DELIVERY_CHARGE, deliveryCharge); res.put(KEY_TOTAL, total); res.put(KEY_COUNT, items.size());
         return ResponseEntity.ok(res);
     }
 
@@ -1282,7 +1295,7 @@ public class FlutterApiController {
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Order placed successfully");
-            res.put("orderId", order.getId());
+            res.put(KEY_ORDER_ID, order.getId());
             res.put(KEY_TOTAL_PRICE, order.getTotalPrice());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -1350,7 +1363,7 @@ public class FlutterApiController {
                 .map(c -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("code",           c.getCode());
-                    m.put("description",    c.getDescription());
+                    m.put(KEY_DESCRIPTION,    c.getDescription());
                     m.put("type",           c.getType().name());
                     m.put("value",          c.getValue());
                     m.put("typeLabel",      c.getTypeLabel());
@@ -1384,7 +1397,7 @@ public class FlutterApiController {
         }
         double discount = coupon.calculateDiscount(subtotal);
         appliedCoupons.put(customerId, coupon);
-        res.put(KEY_SUCCESS, true); res.put("code", coupon.getCode()); res.put("description", coupon.getDescription());
+        res.put(KEY_SUCCESS, true); res.put("code", coupon.getCode()); res.put(KEY_DESCRIPTION, coupon.getDescription());
         res.put("discount", discount); res.put("typeLabel", coupon.getTypeLabel());
         res.put(KEY_MESSAGE, coupon.getDescription() + " — saving ₹" + (int) discount);
         return ResponseEntity.ok(res);
@@ -1420,14 +1433,14 @@ public class FlutterApiController {
             Map<String, Object> ev = new HashMap<>();
             ev.put(KEY_STATUS,      e.getStatus() != null ? e.getStatus().name() : null);
             ev.put("location",    e.getCity());
-            ev.put("description", e.getDescription());
+            ev.put(KEY_DESCRIPTION, e.getDescription());
             ev.put("timestamp",   e.getEventTime() != null ? e.getEventTime().toString() : null);
             return ev;
         }).toList();
         res.put(KEY_SUCCESS,         true);
-        res.put("orderId",         order.getId());
+        res.put(KEY_ORDER_ID,         order.getId());
         res.put("currentStatus",   status != null ? status.name() : null);
-        res.put("currentCity",     order.getCurrentCity());
+        res.put(KEY_CURRENT_CITY,     order.getCurrentCity());
         res.put("progressPercent", status != null ? status.getProgressPercent() : 0);
         if (order.getOrderDate() != null && status != null
                 && status != com.example.ekart.dto.TrackingStatus.DELIVERED
@@ -1453,7 +1466,7 @@ public class FlutterApiController {
             return ResponseEntity.status(404).body(res);
         }
         String reason      = body != null ? body.get(KEY_REASON)      : null;
-        String description = body != null ? body.get("description") : null;
+        String description = body != null ? body.get(KEY_DESCRIPTION) : null;
         if (reason == null || reason.isBlank()) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "reason is required");
             return ResponseEntity.badRequest().body(res);
@@ -1470,7 +1483,7 @@ public class FlutterApiController {
             log.warn("[DISPUTE] Admin email dispatch failed: {}", e.getMessage());
         }
         res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Your issue has been reported. Our team will review it shortly.");
-        res.put("orderId", id); res.put(KEY_REASON, reason);
+        res.put(KEY_ORDER_ID, id); res.put(KEY_REASON, reason);
         return ResponseEntity.ok(res);
     }
 
@@ -1825,7 +1838,7 @@ public class FlutterApiController {
         try {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_CUSTOMER_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-            int orderId   = Integer.parseInt(body.get("orderId").toString());
+            int orderId   = Integer.parseInt(body.get(KEY_ORDER_ID).toString());
             String reason = (String) body.getOrDefault(KEY_REASON, "");
             String type   = (String) body.getOrDefault("type", "REFUND");
             Order order = orderRepository.findById(orderId).orElse(null);
@@ -1938,7 +1951,7 @@ public class FlutterApiController {
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
             Product p = new Product();
-            p.setName((String) body.get("name")); p.setDescription((String) body.get("description"));
+            p.setName((String) body.get("name")); p.setDescription((String) body.get(KEY_DESCRIPTION));
             p.setPrice(Double.parseDouble(body.get("price").toString()));
             p.setCategory((String) body.get("category"));
             p.setStock(Integer.parseInt(body.get("stock").toString()));
@@ -1966,7 +1979,7 @@ public class FlutterApiController {
         if (p == null || p.getVendor() == null || p.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
             if (body.containsKey("name"))        p.setName((String) body.get("name"));
-            if (body.containsKey("description")) p.setDescription((String) body.get("description"));
+            if (body.containsKey(KEY_DESCRIPTION)) p.setDescription((String) body.get(KEY_DESCRIPTION));
             if (body.containsKey("price"))       p.setPrice(Double.parseDouble(body.get("price").toString()));
             if (body.containsKey("category"))    p.setCategory((String) body.get("category"));
             if (body.containsKey("stock"))       p.setStock(Integer.parseInt(body.get("stock").toString()));
@@ -2308,7 +2321,7 @@ public class FlutterApiController {
 
     private Map<String, Object> mapProduct(Product p) {
         Map<String, Object> m = new HashMap<>();
-        m.put(KEY_ID, p.getId()); m.put(KEY_NAME, p.getName()); m.put("description", p.getDescription());
+        m.put(KEY_ID, p.getId()); m.put(KEY_NAME, p.getName()); m.put(KEY_DESCRIPTION, p.getDescription());
         m.put("price", p.getPrice()); m.put("mrp", p.getMrp()); m.put("category", p.getCategory());
         m.put("stock", p.getStock()); m.put("imageLink", p.getImageLink());
         m.put("extraImageLinks", p.getExtraImageLinks());
@@ -2320,7 +2333,7 @@ public class FlutterApiController {
 
     private Map<String, Object> mapItem(Item i) {
         Map<String, Object> m = new HashMap<>();
-        m.put(KEY_ID, i.getId()); m.put(KEY_NAME, i.getName()); m.put("description", i.getDescription());
+        m.put(KEY_ID, i.getId()); m.put(KEY_NAME, i.getName()); m.put(KEY_DESCRIPTION, i.getDescription());
         m.put("price", i.getPrice()); m.put("category", i.getCategory());
         m.put(KEY_QUANTITY, i.getQuantity()); m.put("imageLink", i.getImageLink()); m.put("productId", i.getProductId());
         // FIX: Flutter OrderItem.returnsAccepted gates the "Request Refund / Replacement"
@@ -2342,13 +2355,13 @@ public class FlutterApiController {
         Map<String, Object> m = new HashMap<>();
         m.put(KEY_ID,                    o.getId());
         m.put("amount",                o.getAmount());
-        m.put("deliveryCharge",        o.getDeliveryCharge());
+        m.put(KEY_DELIVERY_CHARGE,        o.getDeliveryCharge());
         m.put(KEY_TOTAL_PRICE,            o.getTotalPrice());
         m.put(KEY_PAYMENT_MODE,           o.getPaymentMode());
         m.put(KEY_DELIVERY_TIME,          o.getDeliveryTime());
         m.put(KEY_TRACKING_STATUS,        o.getTrackingStatus().name());
         m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
-        m.put("currentCity",           o.getCurrentCity());
+        m.put(KEY_CURRENT_CITY,           o.getCurrentCity());
         // FIX: emit the immutable destination address separately from currentCity
         // (currentCity is mutated as the order moves; deliveryAddress never changes).
         m.put("deliveryAddress",       o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");

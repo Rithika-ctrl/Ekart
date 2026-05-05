@@ -30,7 +30,6 @@ import com.example.ekart.service.RefundService;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
 import com.example.ekart.repository.CustomerRepository;
-import com.example.ekart.repository.ItemRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.service.AdminService;
@@ -159,6 +158,27 @@ public class EkartController {
     }
 
     // ── Dependencies (constructor injection) ──
+
+    /**
+     * Groups all EkartController dependencies into a single injectable object,
+     * keeping the constructor parameter count within the S107 limit of 7.
+     */
+    @org.springframework.stereotype.Component
+    public record Dependencies(
+            VendorService vendorService,
+            AdminService adminService,
+            OrderRepository orderRepository,
+            CustomerService customerService,
+            CustomerRepository customerRepository,
+            com.example.ekart.service.StockAlertService stockAlertService,
+            com.example.ekart.service.OrderTrackingService orderTrackingService,
+            BannerService bannerService,
+            CategoryService categoryService,
+            com.example.ekart.service.UserAdminService userAdminService,
+            GuestService guestService,
+            ProductRepository productRepository,
+            RefundService refundService) {}
+
     private final VendorService vendorService;
     private final AdminService adminService;
     private final OrderRepository orderRepository;
@@ -173,33 +193,20 @@ public class EkartController {
     private final ProductRepository productRepository;
     private final RefundService refundService;
 
-    public EkartController(
-            VendorService vendorService,
-            AdminService adminService,
-            OrderRepository orderRepository,
-            CustomerService customerService,
-            CustomerRepository customerRepository,
-            com.example.ekart.service.StockAlertService stockAlertService,
-            com.example.ekart.service.OrderTrackingService orderTrackingService,
-            BannerService bannerService,
-            CategoryService categoryService,
-            com.example.ekart.service.UserAdminService userAdminService,
-            GuestService guestService,
-            ProductRepository productRepository,
-            RefundService refundService) {
-        this.vendorService = vendorService;
-        this.adminService = adminService;
-        this.orderRepository = orderRepository;
-        this.customerService = customerService;
-        this.customerRepository = customerRepository;
-        this.stockAlertService = stockAlertService;
-        this.orderTrackingService = orderTrackingService;
-        this.bannerService = bannerService;
-        this.categoryService = categoryService;
-        this.userAdminService = userAdminService;
-        this.guestService = guestService;
-        this.productRepository = productRepository;
-        this.refundService = refundService;
+    public EkartController(Dependencies deps) {
+        this.vendorService = deps.vendorService();
+        this.adminService = deps.adminService();
+        this.orderRepository = deps.orderRepository();
+        this.customerService = deps.customerService();
+        this.customerRepository = deps.customerRepository();
+        this.stockAlertService = deps.stockAlertService();
+        this.orderTrackingService = deps.orderTrackingService();
+        this.bannerService = deps.bannerService();
+        this.categoryService = deps.categoryService();
+        this.userAdminService = deps.userAdminService();
+        this.guestService = deps.guestService();
+        this.productRepository = deps.productRepository();
+        this.refundService = deps.refundService();
     }
 
     // ── GUEST ─────────────────────────────────────────────────────────────────
@@ -725,7 +732,7 @@ public class EkartController {
         String fullReason = (details != null && !details.isBlank()) ? reason + " — " + details : reason;
         java.util.Map<String, Object> result = refundService.createRefundRequest(
                 order, customer, order.getTotalPrice(), fullReason);
-        if ((Boolean) result.get(K_SUCCESS)) {
+        if (Boolean.TRUE.equals(result.get(K_SUCCESS))) {
             int refundId = (int) result.get("refundId");
             session.setAttribute(K_SUCCESS, "Refund request submitted successfully!");
             return "redirect:/customer/refund/report/" + orderId + "?refundId=" + refundId;

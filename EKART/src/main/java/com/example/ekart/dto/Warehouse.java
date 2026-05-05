@@ -1,5 +1,6 @@
 package com.example.ekart.dto;
 import com.example.ekart.dto.Address;
+import java.io.Serializable;
 import java.util.Random;
 
 import jakarta.persistence.*;
@@ -15,8 +16,8 @@ import jakarta.persistence.*;
  */
 @Entity
 @Table(name = "warehouse")
-public class Warehouse {
-
+public class Warehouse implements Serializable {
+    private static final long serialVersionUID = 1L;
     private static final Random RANDOM = new Random();
 
     @Id
