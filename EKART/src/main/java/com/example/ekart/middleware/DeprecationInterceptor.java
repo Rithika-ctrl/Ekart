@@ -69,7 +69,8 @@ public class DeprecationInterceptor implements HandlerInterceptor {
 
     /**
      * Intercepts requests to legacy Thymeleaf routes.
-     * In Phase 1, log warning + add deprecation header.
+     * Phase 1: log warning + add deprecation header, allow access.
+     * Phase 2 (2025-Q2): redirect to SPA (return false) for deprecated routes.
      * User agents should read X-Deprecated header and display warning.
      */
     @Override
@@ -95,12 +96,24 @@ public class DeprecationInterceptor implements HandlerInterceptor {
                 "redirected to the React SPA in Q2 2025. No action needed now."
             );
 
-            // Phase 1: Allow access but log (do not redirect yet)
-            // Phase 2 will add: response.sendRedirect(spaPath); return false;
+            if (isPhase2Active()) {
+                // Phase 2: redirect permanently to SPA equivalent
+                response.sendRedirect(spaPath);
+                return false;
+            }
+            // Phase 1: Allow access but log
             return true;
         }
 
         return true;
+    }
+
+    /**
+     * Returns true when Phase 2 deprecation redirects should be enforced.
+     * Flip this to true in Q2 2025 to activate permanent redirects.
+     */
+    private boolean isPhase2Active() {
+        return false; // Phase 1: warning-only mode
     }
 
     /**

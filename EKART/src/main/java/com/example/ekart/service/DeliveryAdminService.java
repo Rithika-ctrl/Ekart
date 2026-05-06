@@ -325,15 +325,14 @@ public class DeliveryAdminService {
         List<AutoAssignLog> logs = autoAssignLogRepository.findTop50ByOrderByAssignedAtDesc();
         List<AutoAssignLogItem> data = new ArrayList<>();
         for (AutoAssignLog log : logs) {
-            data.add(new AutoAssignLogItem(
-                    log.getId(),
-                    log.getOrderId(),
-                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : K_N_A,
-                    log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : K_N_A,
-                    log.getPinCode(),
-                    log.getAssignedAt() != null ? log.getAssignedAt().toString() : null,
-                    log.getActiveOrdersAtAssignment(),
-                    MAX_CONCURRENT_ORDERS));
+            data.add(new AutoAssignLogItem.Builder(log.getId(), log.getOrderId())
+                    .deliveryBoyName(log.getDeliveryBoy() != null ? log.getDeliveryBoy().getName() : K_N_A)
+                    .deliveryBoyCode(log.getDeliveryBoy() != null ? log.getDeliveryBoy().getDeliveryBoyCode() : K_N_A)
+                    .pinCode(log.getPinCode())
+                    .assignedAt(log.getAssignedAt() != null ? log.getAssignedAt().toString() : null)
+                    .activeOrdersAtAssignment(log.getActiveOrdersAtAssignment())
+                    .maxConcurrent(MAX_CONCURRENT_ORDERS)
+                    .build());
         }
 
         return ResponseEntity.ok(AutoAssignLogResponse.success(data, MAX_CONCURRENT_ORDERS));
@@ -352,17 +351,15 @@ public class DeliveryAdminService {
             if (!db.isVerified() || !db.isAdminApproved()) continue;
             int active = countActiveOrders(db);
             int maxConcurrent = MAX_CONCURRENT_ORDERS;
-            data.add(new DeliveryBoyLoadItem(
-                    db.getId(),
-                    db.getName(),
-                    db.getDeliveryBoyCode(),
-                    db.isAvailable(),
-                    active,
-                    maxConcurrent - active,
-                    maxConcurrent,
-                    active >= maxConcurrent,
-                    db.getAssignedPinCodes(),
-                    db.getWarehouse() != null ? db.getWarehouse().getName() : "—"));
+            data.add(new DeliveryBoyLoadItem.Builder(db.getId(), db.getName(), db.getDeliveryBoyCode())
+                    .isOnline(db.isAvailable())
+                    .activeOrders(active)
+                    .slots(maxConcurrent - active)
+                    .maxConcurrent(maxConcurrent)
+                    .atCap(active >= maxConcurrent)
+                    .pins(db.getAssignedPinCodes())
+                    .warehouse(db.getWarehouse() != null ? db.getWarehouse().getName() : "—")
+                    .build());
         }
 
         return ResponseEntity.ok(DeliveryBoyLoadResponse.success(data, MAX_CONCURRENT_ORDERS));
@@ -437,16 +434,14 @@ public class DeliveryAdminService {
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
             int active = countActiveOrders(b);
-            data.add(new EligibleDeliveryBoyItem(
-                    b.getId(),
-                    b.getName(),
-                    b.getDeliveryBoyCode(),
-                    b.getAssignedPinCodes() != null ? b.getAssignedPinCodes() : "",
-                    b.getWarehouse() != null ? b.getWarehouse().getName() : "—",
-                    b.isAvailable(),
-                    active,
-                    MAX_CONCURRENT_ORDERS - active,
-                    active >= MAX_CONCURRENT_ORDERS));
+            data.add(new EligibleDeliveryBoyItem.Builder(b.getId(), b.getName(), b.getDeliveryBoyCode())
+                    .pins(b.getAssignedPinCodes() != null ? b.getAssignedPinCodes() : "")
+                    .warehouse(b.getWarehouse() != null ? b.getWarehouse().getName() : "—")
+                    .isAvailable(b.isAvailable())
+                    .activeOrders(active)
+                    .slots(MAX_CONCURRENT_ORDERS - active)
+                    .atCap(active >= MAX_CONCURRENT_ORDERS)
+                    .build());
         }
 
         return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : K_N_A));

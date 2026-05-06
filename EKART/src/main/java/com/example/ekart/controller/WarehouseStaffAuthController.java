@@ -333,7 +333,7 @@ public class WarehouseStaffAuthController {
 
         try {
             Map<String, Object> creationResult = staffService.createStaffAccount(name, email, mobile, warehouseId, role);
-            WarehouseStaff newStaff = (WarehouseStaff) creationResult.get("staff");
+            WarehouseStaff newStaff = (WarehouseStaff) creationResult.get(STAFF_KEY);
             String plainPassword = (String) creationResult.get(PASSWORD_KEY);
 
             // Return credentials to admin (plain password for display)

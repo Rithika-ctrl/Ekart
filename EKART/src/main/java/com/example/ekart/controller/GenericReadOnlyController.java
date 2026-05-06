@@ -10,22 +10,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-// import java.util.Optional; // unused
 
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class GenericReadOnlyController {
 
-    private final Map<String, JpaRepository> repositories;
+    private final Map<String, JpaRepository<?, ?>> repositories;
 
-    public GenericReadOnlyController(Map<String, JpaRepository> repositories) {
+    public GenericReadOnlyController(Map<String, JpaRepository<?, ?>> repositories) {
         this.repositories = repositories;
     }
 
-    private JpaRepository findRepo(String name) {
+    private JpaRepository<?, ?> findRepo(String name) {
         String lower = name.toLowerCase();
-        for (Map.Entry<String, JpaRepository> e : repositories.entrySet()) {
+        for (Map.Entry<String, JpaRepository<?, ?>> e : repositories.entrySet()) {
             String key = e.getKey().toLowerCase();
             if (key.equals(lower) || key.equals(lower + "repository") || key.equals(lower + "repo")) {
                 return e.getValue();
@@ -45,7 +44,7 @@ public class GenericReadOnlyController {
 
     @GetMapping("/{entity}")
     public ResponseEntity<Object> list(@PathVariable String entity) {
-        JpaRepository repo = findRepo(entity);
+        JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         return ResponseEntity.ok(repo.findAll());
     }
@@ -53,7 +52,7 @@ public class GenericReadOnlyController {
     @GetMapping("/{entity}/{id}")
     @SuppressWarnings("ALL")
     public ResponseEntity<Object> getOne(@PathVariable String entity, @PathVariable String id) {
-        JpaRepository repo = findRepo(entity);
+        JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         Object key = parseId(id);
         try {

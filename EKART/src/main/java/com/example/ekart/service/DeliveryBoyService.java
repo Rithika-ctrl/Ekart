@@ -1,5 +1,5 @@
 package com.example.ekart.service;
-import com.example.ekart.dto.Address;
+
 import java.util.Random;
 import java.time.LocalDateTime;
 
@@ -456,7 +456,7 @@ public class DeliveryBoyService {
         // AUTO-ASSIGN DISABLED (Phase 3)
         // Previously: autoAssignmentService.onOrderDelivered(db);
         // Now: Warehouse staff will manually assign next order for delivery boy
-        log.info("[DELIVERY] Order #{} delivered by delivery_boy_id={} (auto-fill disabled)", orderId, db.getId());
+        log.info("[DELIVERY] Order delivered by delivery_boy (auto-fill disabled), delivery_boy_id={}", db.getId());
 
         res.put(KEY_SUCCESS, true);
         res.put(KEY_MESSAGE, "Order #" + orderId + " marked as Delivered!");

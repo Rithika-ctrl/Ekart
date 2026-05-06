@@ -1,8 +1,8 @@
 package com.example.ekart.controller;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.util.stream.Collectors;
 import java.util.Optional;
 import java.time.LocalDateTime;
-
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
@@ -88,6 +88,7 @@ public class ReactApiController {
     private static final String K_MRP                               = "mrp";
     private static final String K_GST_RATE                          = "gstRate";
     private static final String K_STOCK_ALERT_THRESHOLD             = "stockAlertThreshold";
+    private static final String K_ALLOWED_PIN_CODES                 = "allowedPinCodes";
     private static final String K_TYPE                              = "type";
     private static final String K_CUSTOMER                         = "customer";
     private static final String K_COD                              = "COD";
@@ -329,124 +330,83 @@ public class ReactApiController {
     // ── S2119: Reuse a single Random instance instead of creating a new one per call ──
     private static final Random RANDOM = new Random();
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
-    private final CustomerRepository customerRepository;
-    private final VendorRepository vendorRepository;
-    private final ProductRepository productRepository;
-    private final OrderRepository orderRepository;
-    private final ItemRepository itemRepository;
-    private final WishlistRepository wishlistRepository;
-    private final ReviewRepository reviewRepository;
-    private final ReviewImageRepository reviewImageRepository;
-    private final RefundRepository refundRepository;
-    private final RefundImageRepository refundImageRepository;
-    private final OrderDisputeRepository orderDisputeRepository;
-    private final AutoAssignLogRepository autoAssignLogRepository;
-    private final CashSettlementRepository cashSettlementRepository;
-    private final com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
-    private final CouponRepository couponRepository;
-    private final AiAssistantService aiAssistantService;
-    private final RefundService refundService;
-    private final SocialAuthService socialAuthService;
-    private final OAuthProviderValidator oAuthProviderValidator;
-    private final com.example.ekart.service.StockAlertService stockAlertService;
-    private final com.example.ekart.service.OtpService otpService;
-    private final AdminAuthService adminAuthService;
-    private final com.example.ekart.helper.EmailSender emailSender;
-    private final com.example.ekart.service.RazorpayService razorpayService;
-    private final com.example.ekart.service.InvoiceService invoiceService;
-    private final JwtUtil jwtUtil;
-    private final DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
-    private final DeliveryBoyRepository deliveryBoyRepository;
-    private final WarehouseRepository warehouseRepository;
-    private final com.example.ekart.service.WarehouseService warehouseService;
-    private final com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
-    private final com.example.ekart.service.WarehouseTransferService warehouseTransferService;
-    private final DeliveryOtpRepository deliveryOtpRepository;
-    private final WarehouseChangeRequestRepository warehouseChangeRequestRepository;
-    private final TrackingEventLogRepository trackingEventLogRepository;
-    private final BannerRepository bannerRepository;
-    private final StockAlertRepository stockAlertRepository;
-    private final com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
-
-    public ReactApiController(
-            CustomerRepository customerRepository,
-            VendorRepository vendorRepository,
-            ProductRepository productRepository,
-            OrderRepository orderRepository,
-            ItemRepository itemRepository,
-            WishlistRepository wishlistRepository,
-            ReviewRepository reviewRepository,
-            ReviewImageRepository reviewImageRepository,
-            RefundRepository refundRepository,
-            RefundImageRepository refundImageRepository,
-            OrderDisputeRepository orderDisputeRepository,
-            AutoAssignLogRepository autoAssignLogRepository,
-            CashSettlementRepository cashSettlementRepository,
-            com.example.ekart.helper.CloudinaryHelper cloudinaryHelper,
-            CouponRepository couponRepository,
-            AiAssistantService aiAssistantService,
-            RefundService refundService,
-            SocialAuthService socialAuthService,
-            OAuthProviderValidator oAuthProviderValidator,
-            com.example.ekart.service.StockAlertService stockAlertService,
-            com.example.ekart.service.OtpService otpService,
-            AdminAuthService adminAuthService,
-            com.example.ekart.helper.EmailSender emailSender,
-            com.example.ekart.service.RazorpayService razorpayService,
-            com.example.ekart.service.InvoiceService invoiceService,
-            JwtUtil jwtUtil,
-            DeliveryRefreshTokenUtil deliveryRefreshTokenUtil,
-            DeliveryBoyRepository deliveryBoyRepository,
-            WarehouseRepository warehouseRepository,
-            com.example.ekart.service.WarehouseService warehouseService,
-            com.example.ekart.service.WarehouseRoutingService warehouseRoutingService,
-            com.example.ekart.service.WarehouseTransferService warehouseTransferService,
-            DeliveryOtpRepository deliveryOtpRepository,
-            WarehouseChangeRequestRepository warehouseChangeRequestRepository,
-            TrackingEventLogRepository trackingEventLogRepository,
-            BannerRepository bannerRepository,
-            StockAlertRepository stockAlertRepository,
-            @org.springframework.lang.Nullable com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker) {
-        this.customerRepository = customerRepository;
-        this.vendorRepository = vendorRepository;
-        this.productRepository = productRepository;
-        this.orderRepository = orderRepository;
-        this.itemRepository = itemRepository;
-        this.wishlistRepository = wishlistRepository;
-        this.reviewRepository = reviewRepository;
-        this.reviewImageRepository = reviewImageRepository;
-        this.refundRepository = refundRepository;
-        this.refundImageRepository = refundImageRepository;
-        this.orderDisputeRepository = orderDisputeRepository;
-        this.autoAssignLogRepository = autoAssignLogRepository;
-        this.cashSettlementRepository = cashSettlementRepository;
-        this.cloudinaryHelper = cloudinaryHelper;
-        this.couponRepository = couponRepository;
-        this.aiAssistantService = aiAssistantService;
-        this.refundService = refundService;
-        this.socialAuthService = socialAuthService;
-        this.oAuthProviderValidator = oAuthProviderValidator;
-        this.stockAlertService = stockAlertService;
-        this.otpService = otpService;
-        this.adminAuthService = adminAuthService;
-        this.emailSender = emailSender;
-        this.razorpayService = razorpayService;
-        this.invoiceService = invoiceService;
-        this.jwtUtil = jwtUtil;
-        this.deliveryRefreshTokenUtil = deliveryRefreshTokenUtil;
-        this.deliveryBoyRepository = deliveryBoyRepository;
-        this.warehouseRepository = warehouseRepository;
-        this.warehouseService = warehouseService;
-        this.warehouseRoutingService = warehouseRoutingService;
-        this.warehouseTransferService = warehouseTransferService;
-        this.deliveryOtpRepository = deliveryOtpRepository;
-        this.warehouseChangeRequestRepository = warehouseChangeRequestRepository;
-        this.trackingEventLogRepository = trackingEventLogRepository;
-        this.bannerRepository = bannerRepository;
-        this.stockAlertRepository = stockAlertRepository;
-        this.deprecationTracker = deprecationTracker;
-    }
+    // ── Dependencies (@Autowired field injection — avoids S107 excessive constructor params) ──
+    @Autowired
+    private CustomerRepository customerRepository;
+    @Autowired
+    private VendorRepository vendorRepository;
+    @Autowired
+    private ProductRepository productRepository;
+    @Autowired
+    private OrderRepository orderRepository;
+    @Autowired
+    private ItemRepository itemRepository;
+    @Autowired
+    private WishlistRepository wishlistRepository;
+    @Autowired
+    private ReviewRepository reviewRepository;
+    @Autowired
+    private ReviewImageRepository reviewImageRepository;
+    @Autowired
+    private RefundRepository refundRepository;
+    @Autowired
+    private RefundImageRepository refundImageRepository;
+    @Autowired
+    private OrderDisputeRepository orderDisputeRepository;
+    @Autowired
+    private AutoAssignLogRepository autoAssignLogRepository;
+    @Autowired
+    private CashSettlementRepository cashSettlementRepository;
+    @Autowired
+    private com.example.ekart.helper.CloudinaryHelper cloudinaryHelper;
+    @Autowired
+    private CouponRepository couponRepository;
+    @Autowired
+    private AiAssistantService aiAssistantService;
+    @Autowired
+    private RefundService refundService;
+    @Autowired
+    private SocialAuthService socialAuthService;
+    @Autowired
+    private OAuthProviderValidator oAuthProviderValidator;
+    @Autowired
+    private com.example.ekart.service.StockAlertService stockAlertService;
+    @Autowired
+    private com.example.ekart.service.OtpService otpService;
+    @Autowired
+    private AdminAuthService adminAuthService;
+    @Autowired
+    private com.example.ekart.helper.EmailSender emailSender;
+    @Autowired
+    private com.example.ekart.service.RazorpayService razorpayService;
+    @Autowired
+    private com.example.ekart.service.InvoiceService invoiceService;
+    @Autowired
+    private JwtUtil jwtUtil;
+    @Autowired
+    private DeliveryRefreshTokenUtil deliveryRefreshTokenUtil;
+    @Autowired
+    private DeliveryBoyRepository deliveryBoyRepository;
+    @Autowired
+    private WarehouseRepository warehouseRepository;
+    @Autowired
+    private com.example.ekart.service.WarehouseService warehouseService;
+    @Autowired
+    private com.example.ekart.service.WarehouseRoutingService warehouseRoutingService;
+    @Autowired
+    private com.example.ekart.service.WarehouseTransferService warehouseTransferService;
+    @Autowired
+    private DeliveryOtpRepository deliveryOtpRepository;
+    @Autowired
+    private WarehouseChangeRequestRepository warehouseChangeRequestRepository;
+    @Autowired
+    private TrackingEventLogRepository trackingEventLogRepository;
+    @Autowired
+    private BannerRepository bannerRepository;
+    @Autowired
+    private StockAlertRepository stockAlertRepository;
+    @Autowired(required = false)
+    private com.example.ekart.deprecation.ThymeleafDeprecationTracker deprecationTracker;
 /**
      * In-memory coupon store: customerId → applied Coupon.
      * Cleared on coupon removal or successful order placement.
@@ -2264,7 +2224,7 @@ public class ReactApiController {
 
             DeliveryLocation deliveryLocation = resolveDeliveryLocation(customer, body);
 
-            SubOrderResult subOrderResult = createSubOrders(
+            SubOrderResult subOrderResult = createSubOrders(new SubOrderRequest(
                 customer,
                 grouping,
                 couponApplication.couponDiscount,
@@ -2274,7 +2234,7 @@ public class ReactApiController {
                 (String) body.getOrDefault(K_CITY, ""),
                 deliveryLocation.deliveryPin,
                 deliveryLocation.warehouse
-            );
+            ));
 
             // Clear cart
             cart.getItems().clear();
@@ -2405,36 +2365,46 @@ public class ReactApiController {
     }
 
     private DeliveryLocation resolveDeliveryLocation(Customer customer, Map<String, Object> body) {
-        String deliveryPin = "";
-        Warehouse warehouse = null;
         Object addressIdObj = body.get("addressId");
+        if (addressIdObj == null) {
+            return new DeliveryLocation("", null);
+        }
+        try {
+            Integer addressId = Integer.parseInt(addressIdObj.toString());
+            Address selectedAddress = findAddressById(customer, addressId);
+            if (selectedAddress == null || selectedAddress.getPostalCode() == null) {
+                return new DeliveryLocation("", null);
+            }
+            String deliveryPin = extractPin(selectedAddress.getPostalCode());
+            Warehouse warehouse = findWarehouseForPin(deliveryPin);
+            return new DeliveryLocation(deliveryPin, warehouse);
+        } catch (Exception ignored) {
+            // Keep empty pin and null warehouse if address resolution fails.
+            return new DeliveryLocation("", null);
+        }
+    }
 
-        if (addressIdObj != null) {
-            try {
-                Integer addressId = Integer.parseInt(addressIdObj.toString());
-                Address selectedAddress = null;
-                for (Address address : customer.getAddresses()) {
-                    if (address.getId() == addressId) {
-                        selectedAddress = address;
-                        break;
-                    }
-                }
-                if (selectedAddress != null && selectedAddress.getPostalCode() != null) {
-                    String digitsOnlyPin = selectedAddress.getPostalCode().replaceAll("\\D", "");
-                    deliveryPin = digitsOnlyPin.substring(0, Math.min(6, digitsOnlyPin.length()));
-                    for (Warehouse candidate : warehouseRepository.findAll()) {
-                        if (candidate.serves(deliveryPin)) {
-                            warehouse = candidate;
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception ignored) {
-                // Keep empty pin and null warehouse if address resolution fails.
+    private Address findAddressById(Customer customer, int addressId) {
+        for (Address address : customer.getAddresses()) {
+            if (address.getId() == addressId) {
+                return address;
             }
         }
+        return null;
+    }
 
-        return new DeliveryLocation(deliveryPin, warehouse);
+    private String extractPin(String postalCode) {
+        String digitsOnly = postalCode.replaceAll("\\D", "");
+        return digitsOnly.substring(0, Math.min(6, digitsOnly.length()));
+    }
+
+    private Warehouse findWarehouseForPin(String deliveryPin) {
+        for (Warehouse candidate : warehouseRepository.findAll()) {
+            if (candidate.serves(deliveryPin)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static class SubOrderResult {
@@ -2447,66 +2417,51 @@ public class ReactApiController {
         }
     }
 
-    private SubOrderResult createSubOrders(
-            Customer customer,
-            VendorGrouping grouping,
-            double couponDiscount,
-            double deliveryCharge,
-            String paymentMode,
-            String deliveryTime,
-            String city,
-            String deliveryPin,
-            Warehouse warehouse) {
-        boolean multiVendor = grouping.vendorItems.size() > 1;
+    private static class SubOrderRequest {
+        final Customer customer;
+        final VendorGrouping grouping;
+        final double couponDiscount;
+        final double deliveryCharge;
+        final String paymentMode;
+        final String deliveryTime;
+        final String city;
+        final String deliveryPin;
+        final Warehouse warehouse;
+
+        SubOrderRequest(Customer customer, VendorGrouping grouping, double couponDiscount,
+                double deliveryCharge, String paymentMode, String deliveryTime,
+                String city, String deliveryPin, Warehouse warehouse) {
+            this.customer = customer;
+            this.grouping = grouping;
+            this.couponDiscount = couponDiscount;
+            this.deliveryCharge = deliveryCharge;
+            this.paymentMode = paymentMode;
+            this.deliveryTime = deliveryTime;
+            this.city = city;
+            this.deliveryPin = deliveryPin;
+            this.warehouse = warehouse;
+        }
+    }
+
+    private SubOrderResult createSubOrders(SubOrderRequest req) {
+        boolean multiVendor = req.grouping.vendorItems.size() > 1;
         Integer parentId = null;
         Order firstOrder = null;
         List<Integer> subOrderIds = new ArrayList<>();
 
-        for (Map.Entry<Integer, List<Item>> entry : grouping.vendorItems.entrySet()) {
+        for (Map.Entry<Integer, List<Item>> entry : req.grouping.vendorItems.entrySet()) {
             int vendorKey = entry.getKey();
             List<Item> groupedItems = entry.getValue();
-            Vendor vendor = grouping.vendorMap.get(vendorKey);
+            Vendor vendor = req.grouping.vendorMap.get(vendorKey);
 
-            double subTotal = 0;
-            for (Item item : groupedItems) {
-                subTotal += item.getPrice() * item.getQuantity();
-            }
-            double subDiscount = (grouping.grandTotal > 0) ? couponDiscount * (subTotal / grouping.grandTotal) : 0;
-            double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
+            double subTotal = groupedItems.stream()
+                    .mapToDouble(i -> i.getPrice() * i.getQuantity()).sum();
+            double subDiscount = (req.grouping.grandTotal > 0)
+                    ? req.couponDiscount * (subTotal / req.grouping.grandTotal) : 0;
+            double subDelivery = (firstOrder == null) ? req.deliveryCharge : 0.0;
 
-            List<Item> orderItems = new ArrayList<>();
-            for (Item cartItem : groupedItems) {
-                Item orderItem = new Item();
-                orderItem.setName(cartItem.getName());
-                orderItem.setDescription(cartItem.getDescription());
-                orderItem.setPrice(cartItem.getPrice());
-                orderItem.setCategory(cartItem.getCategory());
-                orderItem.setQuantity(cartItem.getQuantity());
-                orderItem.setImageLink(cartItem.getImageLink());
-                orderItem.setProductId(cartItem.getProductId());
-                orderItems.add(orderItem);
-            }
-
-            Order subOrder = new Order();
-            subOrder.setCustomer(customer);
-            subOrder.setItems(orderItems);
-            subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
-            subOrder.setDeliveryCharge(subDelivery);
-            subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
-            subOrder.setPaymentMode(paymentMode);
-            subOrder.setDeliveryTime(deliveryTime);
-            subOrder.setDateTime(LocalDateTime.now());
-            subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-            subOrder.setReplacementRequested(false);
-            subOrder.setCurrentCity(city);
-            subOrder.setDeliveryPinCode(deliveryPin);
-            if (warehouse != null) {
-                subOrder.setWarehouse(warehouse);
-            }
-            if (vendor != null) {
-                subOrder.setVendor(vendor);
-            }
-
+            List<Item> orderItems = buildOrderItems(groupedItems);
+            Order subOrder = buildSubOrder(req, orderItems, subTotal, subDiscount, subDelivery, vendor);
             orderRepository.save(subOrder);
 
             if (firstOrder == null) {
@@ -2525,6 +2480,47 @@ public class ReactApiController {
         }
 
         return new SubOrderResult(firstOrder, subOrderIds);
+    }
+
+    private List<Item> buildOrderItems(List<Item> cartItems) {
+        List<Item> orderItems = new ArrayList<>();
+        for (Item cartItem : cartItems) {
+            Item orderItem = new Item();
+            orderItem.setName(cartItem.getName());
+            orderItem.setDescription(cartItem.getDescription());
+            orderItem.setPrice(cartItem.getPrice());
+            orderItem.setCategory(cartItem.getCategory());
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setImageLink(cartItem.getImageLink());
+            orderItem.setProductId(cartItem.getProductId());
+            orderItems.add(orderItem);
+        }
+        return orderItems;
+    }
+
+    private Order buildSubOrder(SubOrderRequest req, List<Item> orderItems,
+            double subTotal, double subDiscount, double subDelivery, Vendor vendor) {
+        double amount = Math.max(0, subTotal - subDiscount) + subDelivery;
+        Order subOrder = new Order();
+        subOrder.setCustomer(req.customer);
+        subOrder.setItems(orderItems);
+        subOrder.setAmount(amount);
+        subOrder.setDeliveryCharge(subDelivery);
+        subOrder.setTotalPrice(amount);
+        subOrder.setPaymentMode(req.paymentMode);
+        subOrder.setDeliveryTime(req.deliveryTime);
+        subOrder.setDateTime(LocalDateTime.now());
+        subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+        subOrder.setReplacementRequested(false);
+        subOrder.setCurrentCity(req.city);
+        subOrder.setDeliveryPinCode(req.deliveryPin);
+        if (req.warehouse != null) {
+            subOrder.setWarehouse(req.warehouse);
+        }
+        if (vendor != null) {
+            subOrder.setVendor(vendor);
+        }
+        return subOrder;
     }
 
     // ═══════════════════════════════════════════════════════
@@ -3009,16 +3005,18 @@ public class ReactApiController {
         // ── 5. Structured audit log ────────────────────────────────────────
         String customerEmail = customer.getEmail();
         String adminEmail = adminAuthService.getPrimaryAdminEmail();
-        LOGGER.info(
-            "[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
-            id,
-            customerId,
-            maskEmailForLog(customerEmail),
-            sanitizeForLog(reason),
-            sanitizeForLog(description != null ? description : ""),
-            sanitizeForLog(req.getRemoteAddr()),
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        );
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(
+                "[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
+                id,
+                customerId,
+                maskEmailForLog(customerEmail),
+                sanitizeForLog(reason),
+                sanitizeForLog(description != null ? description : ""),
+                sanitizeForLog(req.getRemoteAddr()),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            );
+        }
 
         // ── 6. Admin notification email (async — failure won't break API) ──
         try {
@@ -3882,7 +3880,7 @@ public class ReactApiController {
             @RequestParam(value = K_IMAGE, required = false) org.springframework.web.multipart.MultipartFile image,
             @RequestParam(value = K_MRP, required = false) String mrp,
             @RequestParam(value = K_GST_RATE, required = false) String gstRate,
-            @RequestParam(value = "allowedPinCodes", required = false) String allowedPinCodes,
+            @RequestParam(value = K_ALLOWED_PIN_CODES, required = false) String allowedPinCodes,
             @RequestParam(value = K_STOCK_ALERT_THRESHOLD, required = false) String stockAlertThreshold) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
@@ -4671,7 +4669,7 @@ public class ReactApiController {
         m.put(K_PRICE, p.getPrice()); m.put(K_MRP, p.getMrp()); m.put(K_GST_RATE, p.getGstRate());
         m.put("gstRateResolved", resolvedGstRate);
         m.put(K_CATEGORY, p.getCategory()); m.put(K_STOCK, p.getStock());
-        m.put(K_STOCK_ALERT_THRESHOLD, p.getStockAlertThreshold()); m.put("allowedPinCodes", p.getAllowedPinCodes());
+        m.put(K_STOCK_ALERT_THRESHOLD, p.getStockAlertThreshold()); m.put(K_ALLOWED_PIN_CODES, p.getAllowedPinCodes());
         m.put(KEY_IMAGE_LINK, p.getImageLink()); m.put("extraImageLinks", p.getExtraImageLinks());
         m.put(KEY_APPROVED, p.isApproved());
         m.put(K_VENDORCODE, p.getVendor() != null ? p.getVendor().getVendorCode() : null);
@@ -5177,8 +5175,10 @@ public class ReactApiController {
         orderRepository.save(order);
 
         // Audit log
-        LOGGER.info("[ADMIN-CANCEL] orderId={} reason=\"{}\" at={}",
-    id, sanitizeForLog(reason), java.time.LocalDateTime.now());
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[ADMIN-CANCEL] orderId={} reason=\"{}\" at={}",
+                id, sanitizeForLog(reason), java.time.LocalDateTime.now());
+        }
 
         // Send cancellation email to customer (fire-and-forget — never fails the response)
         if (order.getCustomer() != null) {
@@ -6069,7 +6069,9 @@ public class ReactApiController {
                 db.setActive(true);
                 deliveryBoyRepository.save(db);
                 count++;
-                LOGGER.info("[FIX] Verified delivery boy: {} ({})", sanitizeForLog(db.getName()), maskEmailForLog(db.getEmail()));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("[FIX] Verified delivery boy: {} ({})", sanitizeForLog(db.getName()), maskEmailForLog(db.getEmail()));
+                }
             }
             
             res.put(KEY_SUCCESS, true);
@@ -6134,14 +6136,14 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
 
             try { emailSender.sendDeliveryBoyApproved(db); }
-            catch (Exception e) { LOGGER.error("Approval email failed", e); }
+            catch (Exception e) { LOGGER.error("Approval email failed for delivery boy id={}", id); }
 
             res.put(KEY_SUCCESS, true);
-            res.put(KEY_MESSAGE, db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
+            res.put(KEY_MESSAGE, "Delivery boy approved successfully for " + db.getWarehouse().getName());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Failed to approve delivery boy: " + e.getMessage());
+            res.put(KEY_MESSAGE, "Failed to approve delivery boy");
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -6175,7 +6177,9 @@ public class ReactApiController {
             // Previously: if (newStatus) autoAssignmentService.onDeliveryBoyOnline(db);
             // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
             if (newStatus) {
-                LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
+                }
             }
 
             res.put(KEY_SUCCESS, true);
@@ -6238,7 +6242,9 @@ public class ReactApiController {
             // AUTO-ASSIGN DISABLED (Phase 3)
             // Previously: autoAssignmentService.onOrderPacked(order);
             // Now: Warehouse staff manually assigns delivery boy via WarehouseReceivingService
-            LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", orderId);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", orderId);
+            }
 
             // Re-fetch for response (delivery boy will be null until manual assignment)
             Order refreshed = orderRepository.findById(orderId).orElse(order);
@@ -8703,68 +8709,20 @@ public class ReactApiController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         // 1. Validate JWT token and extract admin role
-        if (authHeader == null || !authHeader.startsWith(K_BEARER)) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
-            return ResponseEntity.status(401).body(res);
-        }
-
-        String token = authHeader.substring(7);
-        try {
-            String role = jwtUtil.getRole(token);
-            if (role == null || !role.equals(ROLE_ADMIN)) {
-                res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, "Admin role required");
-                return ResponseEntity.status(403).body(res);
-            }
-        } catch (Exception e) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Invalid JWT token: " + e.getMessage());
-            return ResponseEntity.status(401).body(res);
-        }
+        ResponseEntity<Map<String, Object>> authError = validateAdminToken(authHeader, res);
+        if (authError != null) return authError;
 
         // 2. Extract and validate request body
-        String name = ((String) body.getOrDefault(K_NAME, "")).trim();
-        String city = ((String) body.getOrDefault(K_CITY, "")).trim();
-        String state = ((String) body.getOrDefault(K_STATE, "")).trim();
-        String servedPinCodes = ((String) body.getOrDefault(KEY_SERVED_PIN_CODES, "")).trim();
-        Double latitude = null;
-        Double longitude = null;
-        
-        try {
-            Object latObj = body.get(KEY_LATITUDE);
-            Object lonObj = body.get(KEY_LONGITUDE);
-            latitude = (latObj instanceof Number latNum) ? latNum.doubleValue() : null;
-            longitude = (lonObj instanceof Number lonNum) ? lonNum.doubleValue() : null;
-        } catch (Exception e) {
-            // Invalid latitude/longitude format
-        }
+        WarehouseCreateParams params = extractWarehouseCreateParams(body);
+        ResponseEntity<Map<String, Object>> validationError = validateWarehouseCreateParams(params, res);
+        if (validationError != null) return validationError;
 
-        String contactEmail = ((String) body.getOrDefault(KEY_CONTACT_EMAIL, "")).trim();
-        String contactPhone = ((String) body.getOrDefault(KEY_CONTACT_PHONE, "")).trim();
-        String address = ((String) body.getOrDefault(K_ADDRESS, "")).trim();
-
-        // 3. Validate required fields
-        if (name.isEmpty() || city.isEmpty() || state.isEmpty()) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Missing required fields: name, city, state");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        if (contactEmail.isEmpty()) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Contact email is required");
-            return ResponseEntity.badRequest().body(res);
-        }
-
-        // 4. Call WarehouseService to create warehouse with auto-generated credentials
+        // 3. Call WarehouseService to create warehouse with auto-generated credentials
         try {
             Map<String, Object> createResult = warehouseService.createWarehouse(
-                    name, city, state, servedPinCodes, latitude, longitude,
-                    contactEmail, contactPhone, address);
-
-            // WarehouseService returns: { success, warehouseId, warehouseName, warehouseCode, 
-            //                             loginId, loginPassword, message }
+                    params.name, params.city, params.state, params.servedPinCodes,
+                    params.latitude, params.longitude, params.contactEmail,
+                    params.contactPhone, params.address);
             return ResponseEntity.ok(createResult);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
@@ -8772,6 +8730,47 @@ public class ReactApiController {
             LOGGER.error("Error creating warehouse", e);
             return ResponseEntity.status(500).body(res);
         }
+    }
+
+    /** Holds extracted warehouse creation parameters. */
+    private static class WarehouseCreateParams {
+        String name, city, state, servedPinCodes, contactEmail, contactPhone, address;
+        Double latitude, longitude;
+    }
+
+    private WarehouseCreateParams extractWarehouseCreateParams(Map<String, Object> body) {
+        WarehouseCreateParams p = new WarehouseCreateParams();
+        p.name          = ((String) body.getOrDefault(K_NAME, "")).trim();
+        p.city          = ((String) body.getOrDefault(K_CITY, "")).trim();
+        p.state         = ((String) body.getOrDefault(K_STATE, "")).trim();
+        p.servedPinCodes = ((String) body.getOrDefault(KEY_SERVED_PIN_CODES, "")).trim();
+        p.contactEmail  = ((String) body.getOrDefault(KEY_CONTACT_EMAIL, "")).trim();
+        p.contactPhone  = ((String) body.getOrDefault(KEY_CONTACT_PHONE, "")).trim();
+        p.address       = ((String) body.getOrDefault(K_ADDRESS, "")).trim();
+        try {
+            Object latObj = body.get(KEY_LATITUDE);
+            Object lonObj = body.get(KEY_LONGITUDE);
+            p.latitude  = (latObj instanceof Number latNum) ? latNum.doubleValue() : null;
+            p.longitude = (lonObj instanceof Number lonNum) ? lonNum.doubleValue() : null;
+        } catch (Exception e) {
+            // Invalid coordinate format — leave null
+        }
+        return p;
+    }
+
+    private ResponseEntity<Map<String, Object>> validateWarehouseCreateParams(
+            WarehouseCreateParams p, Map<String, Object> res) {
+        if (p.name.isEmpty() || p.city.isEmpty() || p.state.isEmpty()) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Missing required fields: name, city, state");
+            return ResponseEntity.badRequest().body(res);
+        }
+        if (p.contactEmail.isEmpty()) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Contact email is required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        return null;
     }
 
     /**
@@ -8816,29 +8815,9 @@ public class ReactApiController {
             @RequestHeader(value = HEADER_AUTHORIZATION, required = false) String authHeader,
             @PathVariable int warehouseId) {
         Map<String, Object> res = new LinkedHashMap<>();
+        ResponseEntity<Map<String, Object>> authError = validateAdminToken(authHeader, res);
+        if (authError != null) return authError;
 
-        // 1. Validate JWT token and extract admin role
-        if (authHeader == null || !authHeader.startsWith(K_BEARER)) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
-            return ResponseEntity.status(401).body(res);
-        }
-
-        String token = authHeader.substring(7);
-        try {
-            String role = jwtUtil.getRole(token);
-            if (role == null || !role.equals(ROLE_ADMIN)) {
-                res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, "Admin role required");
-                return ResponseEntity.status(403).body(res);
-            }
-        } catch (Exception e) {
-            res.put(KEY_SUCCESS, false);
-            res.put(KEY_MESSAGE, "Invalid JWT token: " + e.getMessage());
-            return ResponseEntity.status(401).body(res);
-        }
-
-        // 2. Query warehouse by ID
         Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
         if (warehouse == null) {
             res.put(KEY_SUCCESS, false);
@@ -8846,26 +8825,49 @@ public class ReactApiController {
             return ResponseEntity.status(404).body(res);
         }
 
-        // 3. Build response with warehouse details (excluding encrypted password)
-        Map<String, Object> warehouseDto = new LinkedHashMap<>();
-        warehouseDto.put("id", warehouse.getId());
-        warehouseDto.put(K_NAME, warehouse.getName());
-        warehouseDto.put(K_CITY, warehouse.getCity());
-        warehouseDto.put(K_STATE, warehouse.getState());
-        warehouseDto.put(KEY_SERVED_PIN_CODES, warehouse.getServedPinCodes());
-        warehouseDto.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
-        warehouseDto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
-        warehouseDto.put(KEY_CONTACT_EMAIL, warehouse.getContactEmail());
-        warehouseDto.put(KEY_CONTACT_PHONE, warehouse.getContactPhone());
-        warehouseDto.put(K_ADDRESS, warehouse.getAddress());
-        warehouseDto.put(K_ACTIVE, warehouse.isActive());
-        warehouseDto.put(KEY_LATITUDE, warehouse.getLatitude());
-        warehouseDto.put(KEY_LONGITUDE, warehouse.getLongitude());
-
         res.put(KEY_SUCCESS, true);
-        res.put(K_WAREHOUSE, warehouseDto);
+        res.put(K_WAREHOUSE, buildWarehouseCredentialsDto(warehouse));
         res.put(KEY_MESSAGE, "Warehouse credentials retrieved (password is encrypted and not shown)");
         return ResponseEntity.ok(res);
+    }
+
+    private ResponseEntity<Map<String, Object>> validateAdminToken(String authHeader, Map<String, Object> res) {
+        if (authHeader == null || !authHeader.startsWith(K_BEARER)) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Missing or invalid Authorization header");
+            return ResponseEntity.status(401).body(res);
+        }
+        try {
+            String role = jwtUtil.getRole(authHeader.substring(7));
+            if (role == null || !role.equals(ROLE_ADMIN)) {
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Admin role required");
+                return ResponseEntity.status(403).body(res);
+            }
+        } catch (Exception e) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Invalid JWT token");
+            return ResponseEntity.status(401).body(res);
+        }
+        return null;
+    }
+
+    private Map<String, Object> buildWarehouseCredentialsDto(Warehouse warehouse) {
+        Map<String, Object> dto = new LinkedHashMap<>();
+        dto.put("id", warehouse.getId());
+        dto.put(K_NAME, warehouse.getName());
+        dto.put(K_CITY, warehouse.getCity());
+        dto.put(K_STATE, warehouse.getState());
+        dto.put(KEY_SERVED_PIN_CODES, warehouse.getServedPinCodes());
+        dto.put(KEY_WAREHOUSE_CODE, warehouse.getWarehouseCode());
+        dto.put("warehouseLoginId", warehouse.getWarehouseLoginId());
+        dto.put(KEY_CONTACT_EMAIL, warehouse.getContactEmail());
+        dto.put(KEY_CONTACT_PHONE, warehouse.getContactPhone());
+        dto.put(K_ADDRESS, warehouse.getAddress());
+        dto.put(K_ACTIVE, warehouse.isActive());
+        dto.put(KEY_LATITUDE, warehouse.getLatitude());
+        dto.put(KEY_LONGITUDE, warehouse.getLongitude());
+        return dto;
     }
 
     /**

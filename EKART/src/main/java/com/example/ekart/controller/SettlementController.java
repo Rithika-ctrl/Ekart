@@ -33,21 +33,11 @@ public class SettlementController {
 
     // ── S1192 String constants ──
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    // ── Dependencies (constructor injection) ──
     private final CashSettlementService cashSettlementService;
-    private final CashSettlementRepository cashSettlementRepository;
-    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
-    private final OrderRepository orderRepository;
 
-    public SettlementController(
-            CashSettlementService cashSettlementService,
-            CashSettlementRepository cashSettlementRepository,
-            SettlementOrderMappingRepository settlementOrderMappingRepository,
-            OrderRepository orderRepository) {
+    public SettlementController(CashSettlementService cashSettlementService) {
         this.cashSettlementService = cashSettlementService;
-        this.cashSettlementRepository = cashSettlementRepository;
-        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
-        this.orderRepository = orderRepository;
     }
 
     // String constants to avoid duplications (fixes S1192)

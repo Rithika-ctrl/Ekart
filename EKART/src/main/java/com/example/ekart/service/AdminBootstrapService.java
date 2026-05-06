@@ -1,5 +1,5 @@
 package com.example.ekart.service;
-import com.example.ekart.dto.Address;
+
 import java.time.LocalDateTime;
 
 import com.example.ekart.dto.AdminCredential;
@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AdminBootstrapService {
 
-
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private static final int MIN_PASSWORD_LENGTH = 8;
@@ -40,7 +39,6 @@ public class AdminBootstrapService {
             AdminCredentialRepository adminCredentialRepository) {
         this.adminCredentialRepository = adminCredentialRepository;
     }
-
 
     /**
      * Create initial admin account from environment variables.
@@ -216,5 +214,3 @@ public class AdminBootstrapService {
         }
     }
 }
-
-

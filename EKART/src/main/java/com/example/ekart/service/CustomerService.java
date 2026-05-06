@@ -354,7 +354,7 @@ public class CustomerService {
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || !product.isApproved()) {
             if (!isGuest) session.setAttribute(K_FAILURE, "Product not found");
-            return isGuest ? "redirect:/" : "redirect:/customer/home";
+            return isGuest ? "redirect:/" : REDIRECT_CUSTOMER_HOME;
         }
 
         List<Product> similar = productRepository.findByCategoryAndApprovedTrue(product.getCategory())
@@ -510,22 +510,22 @@ public class CustomerService {
     }
 
     // ---------------- INCREASE QUANTITY ----------------
-    public String increase(int id, HttpSession session) {
+    public void increase(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
 
         if (item.getProductId() == null) {
             session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
-            return REDIRECT_VIEW_CART;
+            return;
         }
         Product product = productRepository.findById(item.getProductId()).orElse(null);
         if (product == null) {
             session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
-            return REDIRECT_VIEW_CART;
+            return;
         }
 
         if (product.getStock() <= 0) {
             session.setAttribute(K_FAILURE, "No more stock available for this product.");
-            return REDIRECT_VIEW_CART;
+            return;
         }
 
         int newQty = item.getQuantity() + 1;
@@ -537,12 +537,10 @@ public class CustomerService {
 
         itemRepository.save(item);
         productRepository.save(product);
-
-        return REDIRECT_VIEW_CART;
     }
 
     // ---------------- DECREASE QUANTITY ----------------
-    public String decrease(int id, HttpSession session) {
+    public void decrease(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
 
         Product product = null;
@@ -554,7 +552,7 @@ public class CustomerService {
             item.getCart().getItems().removeIf(i -> i.getId() == item.getId());
             itemRepository.delete(item);
             session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
-            return REDIRECT_VIEW_CART;
+            return;
         }
 
         if (item.getQuantity() > 1) {
@@ -571,8 +569,6 @@ public class CustomerService {
 
         product.setStock(product.getStock() + 1);
         productRepository.save(product);
-
-        return REDIRECT_VIEW_CART;
     }
 
     // ---------------- REMOVE FROM CART ----------------
@@ -807,161 +803,46 @@ public class CustomerService {
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
 
         // ── 1. PIN CODE VALIDATION ───────────────────────────────
-        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
-            String pin = deliveryPinCode.trim();
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && !product.isDeliverableTo(pin)) {
-                    session.setAttribute(K_FAILURE,
-                        "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
-                        ". Please remove it from your cart or try a different pin code.");
-                    return "redirect:/payment";
-                }
-            }
-        } else {
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && product.isRestrictedByPinCode()) {
-                    session.setAttribute(K_FAILURE,
-                        "\"" + product.getName() + "\" has delivery restrictions. " +
-                        "Please verify your pin code on the payment page before placing the order.");
-                    return "redirect:/payment";
-                }
-            }
+        String pinValidationError = validatePinCode(customer, deliveryPinCode);
+        if (pinValidationError != null) {
+            session.setAttribute(K_FAILURE, pinValidationError);
+            return "redirect:/payment";
         }
 
         // ── 2. BUILD ADDRESS SNAPSHOT ────────────────────────────
-        String addressSnapshot = null;
-        if (customer.getAddresses() != null && !customer.getAddresses().isEmpty()) {
-            Address addr = customer.getAddresses().get(customer.getAddresses().size() - 1);
-            StringBuilder sb = new StringBuilder();
-            if (addr.getRecipientName() != null && !addr.getRecipientName().isBlank())
-                sb.append(addr.getRecipientName()).append(" | ");
-            if (addr.getHouseStreet() != null && !addr.getHouseStreet().isBlank())
-                sb.append(addr.getHouseStreet()).append(", ");
-            if (addr.getCity() != null && !addr.getCity().isBlank())
-                sb.append(addr.getCity());
-            if (addr.getState() != null && !addr.getState().isBlank())
-                sb.append(", ").append(addr.getState());
-            if (addr.getPostalCode() != null && !addr.getPostalCode().isBlank())
-                sb.append(" - ").append(addr.getPostalCode());
-            String snap = sb.toString().trim().replaceAll("[,\\s]+$", "");
-            if (!snap.isEmpty()) addressSnapshot = snap;
-        }
+        String addressSnapshot = buildAddressSnapshot(customer);
 
         // ── 3. GROUP CART ITEMS BY VENDOR ────────────────────────
-        // Map: vendorId → { vendor, list of cart items }
         java.util.Map<Integer, java.util.List<Item>> vendorItems = new java.util.LinkedHashMap<>();
         java.util.Map<Integer, Vendor>               vendorMap   = new java.util.LinkedHashMap<>();
-
-        for (Item cartItem : customer.getCart().getItems()) {
-            if (cartItem.getProductId() == null) continue;
-            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-
-            int vKey;
-            Vendor vendor = null;
-            if (product != null && product.getVendor() != null) {
-                vendor = product.getVendor();
-                vKey   = vendor.getId();
-            } else {
-                vKey = 0; // unknown vendor — group together
-            }
-
-            vendorItems.computeIfAbsent(vKey, k -> new java.util.ArrayList<>()).add(cartItem);
-            if (vendor != null) vendorMap.put(vKey, vendor);
-        }
+        groupCartItemsByVendor(customer, vendorItems, vendorMap);
 
         // ── 4. CALCULATE OVERALL SUBTOTAL (for delivery charge) ──
-        double subtotal = 0;
-        for (Item cartItem : customer.getCart().getItems()) {
-            subtotal += cartItem.getPrice();
-        }
+        double subtotal    = customer.getCart().getItems().stream().mapToDouble(Item::getPrice).sum();
         double deliveryFee = (subtotal < 500) ? 40.0 : 0.0;
 
         // ── 5. FIND WAREHOUSE FOR THIS PIN ───────────────────────
-        Warehouse matchedWarehouse = null;
-        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
-            java.util.List<Warehouse> matches = warehouseRepository.findByPinCode(deliveryPinCode.trim());
-            if (!matches.isEmpty()) matchedWarehouse = matches.get(0);
-        }
+        Warehouse matchedWarehouse = findWarehouseForPin(deliveryPinCode);
 
         // ── 6. CREATE ONE SUB-ORDER PER VENDOR ──────────────────
         boolean multiVendor = vendorItems.size() > 1;
-        Integer parentId    = null;   // set after first sub-order is saved
+        Integer parentId    = null;
         Order   firstOrder  = null;
-
         java.util.List<Integer> subOrderIds = new java.util.ArrayList<>();
 
         for (java.util.Map.Entry<Integer, java.util.List<Item>> entry : vendorItems.entrySet()) {
-            int vendorKey         = entry.getKey();
-            java.util.List<Item> group = entry.getValue();
-            Vendor vendor         = vendorMap.get(vendorKey);
-
-            // Calculate sub-order total
-            double subTotal = 0;
-            for (Item ci : group) subTotal += ci.getPrice();
-
-            // Only first sub-order carries the delivery charge
+            Vendor vendor = vendorMap.get(entry.getKey());
+            double subTotal    = entry.getValue().stream().mapToDouble(Item::getPrice).sum();
             double subDelivery = (firstOrder == null) ? deliveryFee : 0.0;
 
-            // Clone items
-            java.util.List<Item> orderItems = new java.util.ArrayList<>();
-            for (Item cartItem : group) {
-                Item newItem = new Item();
-                newItem.setName(cartItem.getName());
-                newItem.setPrice(cartItem.getPrice());
-                newItem.setUnitPrice(cartItem.getUnitPrice() > 0
-                        ? cartItem.getUnitPrice()
-                        : cartItem.getPrice() / Math.max(cartItem.getQuantity(), 1));
-                newItem.setQuantity(cartItem.getQuantity());
-                newItem.setCategory(cartItem.getCategory());
-                newItem.setDescription(cartItem.getDescription());
-                newItem.setImageLink(cartItem.getImageLink());
-                newItem.setProductId(cartItem.getProductId());
-                orderItems.add(newItem);
-            }
+            Order subOrder = buildSubOrder(
+                    baseOrder, customer, vendor,
+                    entry.getValue(), subTotal, subDelivery,
+                    deliveryPinCode, matchedWarehouse, addressSnapshot);
 
-            // Build sub-order
-            Order subOrder = new Order();
-            subOrder.setCustomer(customer);
-            subOrder.setOrderDate(java.time.LocalDateTime.now());
-            subOrder.setRazorpayPaymentId(baseOrder.getRazorpayPaymentId());
-            subOrder.setRazorpayOrderId(baseOrder.getRazorpayOrderId());
-            subOrder.setPaymentMode(baseOrder.getPaymentMode());
-            subOrder.setDeliveryTime(baseOrder.getDeliveryTime());
-            subOrder.setTotalPrice(subTotal);
-            subOrder.setDeliveryCharge(subDelivery);
-            subOrder.setAmount(subTotal + subDelivery);
-            subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-            subOrder.setReplacementRequested(false);
-            subOrder.setItems(orderItems);
-
-            // ── Calculate GST from inclusive prices ───────────────
-            double subGst = GstUtil.calculateTotalGst(orderItems);
-            subOrder.setGstAmount(subGst);
-
-
-
-            // Vendor metadata
-            if (vendor != null) {
-                subOrder.setVendor(vendor);
-            }
-
-            // Delivery fields
-            if (deliveryPinCode != null && !deliveryPinCode.isBlank())
-                subOrder.setDeliveryPinCode(deliveryPinCode.trim());
-            if (matchedWarehouse != null)
-                subOrder.setWarehouse(matchedWarehouse);
-            if (addressSnapshot != null)
-                subOrder.setDeliveryAddress(addressSnapshot);
-
-            // Save sub-order
             orderRepository.save(subOrder);
             orderRepository.flush();
 
-            // Set parentOrderId after first sub-order is persisted
             if (firstOrder == null) {
                 firstOrder = subOrder;
                 if (multiVendor) {
@@ -974,7 +855,6 @@ public class CustomerService {
                 orderRepository.save(subOrder);
             }
 
-            // Track event
             String whCity = matchedWarehouse != null ? matchedWarehouse.getCity() : "Processing Center";
             subOrder.setCurrentCity(whCity);
             orderRepository.save(subOrder);
@@ -988,7 +868,6 @@ public class CustomerService {
 
             subOrderIds.add(subOrder.getId());
 
-            // Record in reporting DB (after commit)
             final Order finalSubOrder = subOrder;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -1004,24 +883,7 @@ public class CustomerService {
         }
 
         // ── 7. SEND CONFIRMATION EMAIL ───────────────────────────
-        // Email uses the first sub-order's total (includes delivery fee)
-        try {
-            String paymentMode = (baseOrder.getPaymentMode() != null && !baseOrder.getPaymentMode().isBlank())
-                    ? baseOrder.getPaymentMode() : "Cash on Delivery";
-            String deliverySlot = (baseOrder.getDeliveryTime() != null && !baseOrder.getDeliveryTime().isBlank())
-                    ? baseOrder.getDeliveryTime() : "";
-            // Collect all items across all sub-orders for email
-            java.util.List<Item> allItems = new java.util.ArrayList<>();
-            for (int sid : subOrderIds) {
-                Order so = orderRepository.findById(sid).orElse(null);
-                if (so != null) allItems.addAll(so.getItems());
-            }
-            emailSender.sendOrderConfirmation(
-                    customer, subtotal + deliveryFee,
-                    firstOrder.getId(), paymentMode, deliverySlot, allItems);
-        } catch (Exception e) {
-            LOGGER.error("Order confirmation email failed (non-fatal): {}", e.getMessage(), e);
-        }
+        sendOrderConfirmationEmail(customer, baseOrder, firstOrder, subOrderIds, subtotal, deliveryFee);
 
         // ── 8. CLEAR CART ────────────────────────────────────────
         java.util.List<Item> cartItems = new java.util.ArrayList<>(customer.getCart().getItems());
@@ -1034,7 +896,6 @@ public class CustomerService {
         Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
         session.setAttribute(K_CUSTOMER, updatedCustomer);
 
-        // Pass sub-order IDs as comma-separated string so order-success can show all
         String subOrderIdsStr = subOrderIds.stream()
                 .map(String::valueOf)
                 .reduce((a, b) -> a + "," + b)
@@ -1047,7 +908,6 @@ public class CustomerService {
         session.setAttribute("lastOrderPaymentMode",
                 baseOrder.getPaymentMode() != null ? baseOrder.getPaymentMode() : "Cash on Delivery");
 
-        // Store total GST across all sub-orders for the success page
         double totalSessionGst = subOrderIds.stream()
                 .mapToDouble(sid -> {
                     try {
@@ -1059,6 +919,137 @@ public class CustomerService {
         session.setAttribute("lastOrderGst", totalSessionGst);
         session.setAttribute(K_SUCCESS, "Order Placed Successfully!");
         return "redirect:/order-success";
+    }
+
+    // ── paymentSuccess helpers (S6541 extraction) ────────────────────────────
+
+    /** Returns an error message if a cart item cannot be delivered, null otherwise. */
+    private String validatePinCode(Customer customer, String deliveryPinCode) {
+        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
+            String pin = deliveryPinCode.trim();
+            for (Item cartItem : customer.getCart().getItems()) {
+                if (cartItem.getProductId() == null) continue;
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product != null && !product.isDeliverableTo(pin)) {
+                    return "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
+                           ". Please remove it from your cart or try a different pin code.";
+                }
+            }
+        } else {
+            for (Item cartItem : customer.getCart().getItems()) {
+                if (cartItem.getProductId() == null) continue;
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product != null && product.isRestrictedByPinCode()) {
+                    return "\"" + product.getName() + "\" has delivery restrictions. " +
+                           "Please verify your pin code on the payment page before placing the order.";
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Builds a formatted address snapshot string from the customer's latest saved address. */
+    private String buildAddressSnapshot(Customer customer) {
+        if (customer.getAddresses() == null || customer.getAddresses().isEmpty()) return null;
+        Address addr = customer.getAddresses().get(customer.getAddresses().size() - 1);
+        StringBuilder sb = new StringBuilder();
+        if (addr.getRecipientName() != null && !addr.getRecipientName().isBlank())
+            sb.append(addr.getRecipientName()).append(" | ");
+        if (addr.getHouseStreet() != null && !addr.getHouseStreet().isBlank())
+            sb.append(addr.getHouseStreet()).append(", ");
+        if (addr.getCity() != null && !addr.getCity().isBlank())
+            sb.append(addr.getCity());
+        if (addr.getState() != null && !addr.getState().isBlank())
+            sb.append(", ").append(addr.getState());
+        if (addr.getPostalCode() != null && !addr.getPostalCode().isBlank())
+            sb.append(" - ").append(addr.getPostalCode());
+        String snap = sb.toString().trim().replaceAll("[,\\s]+$", "");
+        return snap.isEmpty() ? null : snap;
+    }
+
+    /** Groups the customer's cart items by vendor into the provided maps. */
+    private void groupCartItemsByVendor(Customer customer,
+            java.util.Map<Integer, java.util.List<Item>> vendorItems,
+            java.util.Map<Integer, Vendor> vendorMap) {
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            Vendor vendor = (product != null) ? product.getVendor() : null;
+            int vKey = (vendor != null) ? vendor.getId() : 0;
+            vendorItems.computeIfAbsent(vKey, k -> new java.util.ArrayList<>()).add(cartItem);
+            if (vendor != null) vendorMap.put(vKey, vendor);
+        }
+    }
+
+    /** Looks up the warehouse that serves the given pin code, or null if none found. */
+    private Warehouse findWarehouseForPin(String deliveryPinCode) {
+        if (deliveryPinCode == null || deliveryPinCode.isBlank()) return null;
+        java.util.List<Warehouse> matches = warehouseRepository.findByPinCode(deliveryPinCode.trim());
+        return matches.isEmpty() ? null : matches.get(0);
+    }
+
+    /** Builds (but does not save) a sub-order for one vendor's group of items. */
+    private Order buildSubOrder(Order baseOrder, Customer customer, Vendor vendor,
+            java.util.List<Item> group, double subTotal, double subDelivery,
+            String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {
+
+        java.util.List<Item> orderItems = new java.util.ArrayList<>();
+        for (Item ci : group) {
+            Item newItem = new Item();
+            newItem.setName(ci.getName());
+            newItem.setPrice(ci.getPrice());
+            newItem.setUnitPrice(ci.getUnitPrice() > 0
+                    ? ci.getUnitPrice()
+                    : ci.getPrice() / Math.max(ci.getQuantity(), 1));
+            newItem.setQuantity(ci.getQuantity());
+            newItem.setCategory(ci.getCategory());
+            newItem.setDescription(ci.getDescription());
+            newItem.setImageLink(ci.getImageLink());
+            newItem.setProductId(ci.getProductId());
+            orderItems.add(newItem);
+        }
+
+        Order subOrder = new Order();
+        subOrder.setCustomer(customer);
+        subOrder.setOrderDate(java.time.LocalDateTime.now());
+        subOrder.setRazorpayPaymentId(baseOrder.getRazorpayPaymentId());
+        subOrder.setRazorpayOrderId(baseOrder.getRazorpayOrderId());
+        subOrder.setPaymentMode(baseOrder.getPaymentMode());
+        subOrder.setDeliveryTime(baseOrder.getDeliveryTime());
+        subOrder.setTotalPrice(subTotal);
+        subOrder.setDeliveryCharge(subDelivery);
+        subOrder.setAmount(subTotal + subDelivery);
+        subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+        subOrder.setReplacementRequested(false);
+        subOrder.setItems(orderItems);
+        subOrder.setGstAmount(GstUtil.calculateTotalGst(orderItems));
+        if (vendor != null)                                       subOrder.setVendor(vendor);
+        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) subOrder.setDeliveryPinCode(deliveryPinCode.trim());
+        if (matchedWarehouse != null)                             subOrder.setWarehouse(matchedWarehouse);
+        if (addressSnapshot != null)                              subOrder.setDeliveryAddress(addressSnapshot);
+        return subOrder;
+    }
+
+    /** Sends the order-confirmation email; logs but does not propagate failures. */
+    private void sendOrderConfirmationEmail(Customer customer, Order baseOrder,
+            Order firstOrder, java.util.List<Integer> subOrderIds,
+            double subtotal, double deliveryFee) {
+        try {
+            String paymentMode  = (baseOrder.getPaymentMode() != null && !baseOrder.getPaymentMode().isBlank())
+                                  ? baseOrder.getPaymentMode() : "Cash on Delivery";
+            String deliverySlot = (baseOrder.getDeliveryTime() != null && !baseOrder.getDeliveryTime().isBlank())
+                                  ? baseOrder.getDeliveryTime() : "";
+            java.util.List<Item> allItems = new java.util.ArrayList<>();
+            for (int sid : subOrderIds) {
+                Order so = orderRepository.findById(sid).orElse(null);
+                if (so != null) allItems.addAll(so.getItems());
+            }
+            emailSender.sendOrderConfirmation(
+                    customer, subtotal + deliveryFee,
+                    firstOrder.getId(), paymentMode, deliverySlot, allItems);
+        } catch (Exception e) {
+            LOGGER.error("Order confirmation email failed (non-fatal): {}", e.getMessage(), e);
+        }
     }
 
     // ---------------- DELETE ACCOUNT ----------------

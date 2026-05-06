@@ -1,5 +1,5 @@
 package com.example.ekart.dto;
-import com.example.ekart.dto.Address;
+
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
@@ -161,4 +161,3 @@ public class Customer implements Serializable {
 	public void setRecentlyViewedProducts(String recentlyViewedProducts) { this.recentlyViewedProducts = recentlyViewedProducts; }
 	public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
 }
-

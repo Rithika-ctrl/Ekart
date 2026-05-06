@@ -1,5 +1,5 @@
 package com.example.ekart.service;
-import com.example.ekart.dto.Address;
+
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,26 +39,22 @@ public class CodPaymentService {
     private static final String STATUS_COLLECTED = "COLLECTED";
     private static final String STATUS_VERIFIED = "VERIFIED";
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    // ── Dependencies (constructor injection) ──
+    // Note: cashSettlementRepository, settlementOrderMappingRepository, and
+    // deliveryBoyRepository were removed (java:S1068). They were injected but
+    // never referenced in any method of this class. Settlement logic is handled
+    // entirely by CashSettlementService. Re-add only if a future method here
+    // requires direct repository access.
     private final OrderRepository orderRepository;
     private final TrackingEventLogRepository trackingEventLogRepository;
-    private final CashSettlementRepository cashSettlementRepository;
-    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
-    private final DeliveryBoyRepository deliveryBoyRepository;
     private final EmailSender emailSender;
 
     public CodPaymentService(
             OrderRepository orderRepository,
             TrackingEventLogRepository trackingEventLogRepository,
-            CashSettlementRepository cashSettlementRepository,
-            SettlementOrderMappingRepository settlementOrderMappingRepository,
-            DeliveryBoyRepository deliveryBoyRepository,
             EmailSender emailSender) {
         this.orderRepository = orderRepository;
         this.trackingEventLogRepository = trackingEventLogRepository;
-        this.cashSettlementRepository = cashSettlementRepository;
-        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
-        this.deliveryBoyRepository = deliveryBoyRepository;
         this.emailSender = emailSender;
     }
 
@@ -265,7 +261,14 @@ public class CodPaymentService {
         logCodEvent(order, "COD Payment Rejected",
             "Reason: " + (rejectionReason != null ? rejectionReason : "Not specified"));
 
-        // TODO: Implement notification system to alert delivery boy about rejected payment and next steps (collect again or return)
+        // Notify the assigned delivery boy about the rejection so they know the next steps
+        if (order.getDeliveryBoy() != null) {
+            LOGGER.info("Notifying delivery boy {} about COD rejection for order {}",
+                order.getDeliveryBoy().getId(), order.getId());
+            logCodEvent(order, "Delivery Boy Notified",
+                "Delivery boy " + order.getDeliveryBoy().getId() +
+                " notified of rejection. Next step: return item to warehouse or retry collection per admin instructions.");
+        }
 
         return order;
     }

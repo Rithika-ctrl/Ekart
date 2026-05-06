@@ -1,5 +1,4 @@
 package com.example.ekart.repository;
-import com.example.ekart.dto.Address;
 
 import java.util.Optional;
 import com.example.ekart.dto.AdminCredential;
@@ -19,4 +18,3 @@ public interface AdminCredentialRepository extends JpaRepository<AdminCredential
      */
     boolean existsByEmail(String email);
 }
-

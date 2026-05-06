@@ -31,7 +31,6 @@ import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.WarehouseTransferLeg;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.service.WarehouseReceivingService;
-import com.example.ekart.service.WarehouseRoutingService;
 import com.example.ekart.service.WarehouseTransferService;
 import com.example.ekart.repository.DeliveryBoyRepository;
 import com.example.ekart.repository.WarehouseRepository;
@@ -85,7 +84,6 @@ public class WarehouseController {
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseReceivingService warehouseReceivingService;
-    private final WarehouseRoutingService warehouseRoutingService;
     private final WarehouseTransferService warehouseTransferService;
     private final WarehouseRepository warehouseRepository;
     private final OrderRepository orderRepository;
@@ -95,21 +93,19 @@ public class WarehouseController {
 
     public WarehouseController(
             WarehouseReceivingService warehouseReceivingService,
-            WarehouseRoutingService warehouseRoutingService,
             WarehouseTransferService warehouseTransferService,
             WarehouseRepository warehouseRepository,
             OrderRepository orderRepository,
             WarehouseTransferLegRepository warehouseTransferLegRepository,
             DeliveryBoyRepository deliveryBoyRepository,
             EmailSender emailSender) {
-        this.warehouseReceivingService = warehouseReceivingService;
-        this.warehouseRoutingService = warehouseRoutingService;
-        this.warehouseTransferService = warehouseTransferService;
-        this.warehouseRepository = warehouseRepository;
-        this.orderRepository = orderRepository;
-        this.warehouseTransferLegRepository = warehouseTransferLegRepository;
-        this.deliveryBoyRepository = deliveryBoyRepository;
-        this.emailSender = emailSender;
+        this.warehouseReceivingService        = warehouseReceivingService;
+        this.warehouseTransferService         = warehouseTransferService;
+        this.warehouseRepository              = warehouseRepository;
+        this.orderRepository                  = orderRepository;
+        this.warehouseTransferLegRepository   = warehouseTransferLegRepository;
+        this.deliveryBoyRepository            = deliveryBoyRepository;
+        this.emailSender                      = emailSender;
     }
 
 
@@ -279,7 +275,7 @@ public class WarehouseController {
             
             return ResponseEntity.ok(Map.of(
                 WAREHOUSE_KEY, warehouse.get().getName(),
-                "queue_count", assignQueue.size(),
+                QUEUE_COUNT_KEY, assignQueue.size(),
                 ORDERS_KEY, assignQueue
             ));
         } catch (Exception e) {

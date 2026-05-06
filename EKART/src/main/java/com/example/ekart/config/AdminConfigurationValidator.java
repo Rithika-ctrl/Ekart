@@ -1,6 +1,5 @@
 package com.example.ekart.config;
 
-import com.example.ekart.repository.AdminCredentialRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationContextInitializedEvent;
@@ -26,16 +25,8 @@ public class AdminConfigurationValidator implements ApplicationListener<Applicat
     // ── Injected dependencies ────────────────────────────────────────────────
     private final Environment environment;
 
-    // FIX (java:S6813): Use constructor injection instead of @Autowired setter/field injection.
-    // AdminCredentialRepository is optional (may not be available at ApplicationContextInitializedEvent
-    // time), so it is left out of the constructor and handled lazily if needed.
-    private final AdminCredentialRepository adminCredentialRepository;
-
-    public AdminConfigurationValidator(
-            Environment environment,
-            AdminCredentialRepository adminCredentialRepository) {
+    public AdminConfigurationValidator(Environment environment) {
         this.environment = environment;
-        this.adminCredentialRepository = adminCredentialRepository;
     }
 
     @Override

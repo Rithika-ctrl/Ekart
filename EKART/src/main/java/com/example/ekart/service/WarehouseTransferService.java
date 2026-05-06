@@ -11,7 +11,6 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.WarehouseTransferLeg;
 import com.example.ekart.repository.OrderRepository;
-import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.WarehouseTransferLegRepository;
 
 /**
@@ -35,17 +34,14 @@ public class WarehouseTransferService {
     // ── Injected dependencies ────────────────────────────────────────────────
     private final WarehouseTransferLegRepository warehouseTransferLegRepository;
     private final OrderRepository orderRepository;
-    private final WarehouseRepository warehouseRepository;
     private final OrderTrackingService orderTrackingService;
 
     public WarehouseTransferService(
             WarehouseTransferLegRepository warehouseTransferLegRepository,
             OrderRepository orderRepository,
-            WarehouseRepository warehouseRepository,
             OrderTrackingService orderTrackingService) {
         this.warehouseTransferLegRepository = warehouseTransferLegRepository;
         this.orderRepository = orderRepository;
-        this.warehouseRepository = warehouseRepository;
         this.orderTrackingService = orderTrackingService;
     }
 
@@ -318,4 +314,3 @@ public class WarehouseTransferService {
         return warehouseTransferLegRepository.countByFromWarehouseAndStatus(warehouse, "IN_TRANSIT");
     }
 }
-

@@ -489,12 +489,14 @@ public class EkartController {
 
     @GetMapping("/increase/{id}")
     public String increase(@PathVariable int id, HttpSession session) {
-        return customerService.increase(id, session);
+        customerService.increase(id, session);
+        return "redirect:/view-cart";
     }
 
     @GetMapping("/decrease/{id}")
     public String decrease(@PathVariable int id, HttpSession session) {
-        return customerService.decrease(id, session);
+        customerService.decrease(id, session);
+        return "redirect:/view-cart";
     }
 
     // ── AJAX endpoints — return JSON, no page reload ──────────────────────

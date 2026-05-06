@@ -1,6 +1,6 @@
 package com.example.ekart.helper;
 import org.springframework.beans.factory.annotation.Value;
-import java.util.Random;
+
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.Jwts;
@@ -39,6 +39,20 @@ public class JwtUtil {
 
     private static final long EXPIRY_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
     private static final String DEV_DEFAULT = "ekart-dev-default-256bit-key-change-in-production!!";
+    private static final String SECURITY_ALERT_MSG = """
+
+            ╔════════════════════════════════════════════════════════════════╗
+            ║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║
+            ║                                                                ║
+            ║ Your JWT tokens are being signed with a KNOWN default secret.  ║
+            ║ This allows ANYONE to forge valid authentication tokens.       ║
+            ║                                                                ║
+            ║ FIX: Set JWT_SECRET environment variable with a strong value   ║
+            ║      Example: openssl rand -base64 32                          ║
+            ║                                                                ║
+            ║ APPLICATION WILL NOT START IN PRODUCTION WITHOUT THIS!         ║
+            ╚════════════════════════════════════════════════════════════════╝
+            """;
 
     // Static holder so getKey() can be used — initialised by @PostConstruct
     private static String SECRET;
@@ -50,18 +64,7 @@ public class JwtUtil {
         // ⚠️ SECURITY CHECK: Warn if using default secret in production
         if ((environment.contains("prod") || environment.contains("production")) && 
             SECRET.equals(DEV_DEFAULT)) {
-            log.error("\n" +
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
-                "║                                                                ║\n" +
-                "║ Your JWT tokens are being signed with a KNOWN default secret.  ║\n" +
-                "║ This allows ANYONE to forge valid authentication tokens.       ║\n" +
-                "║                                                                ║\n" +
-                "║ FIX: Set JWT_SECRET environment variable with a strong value   ║\n" +
-                "║      Example: openssl rand -base64 32                          ║\n" +
-                "║                                                                ║\n" +
-                "║ APPLICATION WILL NOT START IN PRODUCTION WITHOUT THIS!         ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝\n");
+            log.error(SECURITY_ALERT_MSG);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
                 "random value in production. Generate with: openssl rand -base64 32"
@@ -169,4 +172,3 @@ public class JwtUtil {
         return Integer.parseInt(adminId.toString());
     }
 }
-

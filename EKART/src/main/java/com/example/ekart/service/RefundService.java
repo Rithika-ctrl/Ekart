@@ -15,6 +15,7 @@ import com.example.ekart.dto.RefundStatus;
 import com.example.ekart.dto.TrackingStatus;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.RefundRepository;
+import com.example.ekart.helper.EmailSender;
 
 /**
  * Service for managing refund requests.
@@ -32,12 +33,15 @@ public class RefundService {
     // ── Injected dependencies ────────────────────────────────────────────────
     private final RefundRepository refundRepository;
     private final OrderRepository orderRepository;
+    private final EmailSender emailSender;
 
     public RefundService(
             RefundRepository refundRepository,
-            OrderRepository orderRepository) {
+            OrderRepository orderRepository,
+            EmailSender emailSender) {
         this.refundRepository = refundRepository;
         this.orderRepository = orderRepository;
+        this.emailSender = emailSender;
     }
 
 
@@ -233,9 +237,14 @@ public class RefundService {
             log.info("   Rejection reason provided (content omitted)");
         }
 
-        // TODO: Implement actual email sending using emailSender
-        // You can create a refund-status-email.html template and call:
-        // emailSender.sendRefundStatus(customer, refund.getOrder().getId(), refund.getAmount(), approved, rejectionReason);
+        // Send refund-status email to the customer
+        try {
+            emailSender.sendRefundStatus(customer, refund.getOrder().getId(),
+                    refund.getAmount(), approved, rejectionReason);
+        } catch (Exception e) {
+            log.warn("Refund status email could not be sent for orderId={}: {}",
+                    refund.getOrder().getId(), e.getMessage());
+        }
     }
 
     // ───────────────────────────────────────────────────────────────────────────

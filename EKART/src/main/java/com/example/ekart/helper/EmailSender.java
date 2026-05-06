@@ -1,5 +1,5 @@
 package com.example.ekart.helper;
-import com.example.ekart.dto.Address;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +21,7 @@ import com.example.ekart.dto.Vendor;
 import com.example.ekart.dto.DeliveryBoy;
 import com.example.ekart.dto.Order;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 @Component
@@ -72,8 +73,8 @@ public class EmailSender {
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
-            updateVendorOtpFromString(vendor, plainOtp);
-        } catch (Exception e) {
+            updateVendorOtpFromString();
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Vendor OTP email failed: ", e);
         }
     }
@@ -84,7 +85,7 @@ public class EmailSender {
      * NOTE: vendor.setOtp() is deprecated in favour of setOtpHash(); this method is kept
      * only for backward compatibility and will be removed once all callers migrate.
      */
-    private void updateVendorOtpFromString(Vendor vendor, String plainOtp) {
+    private void updateVendorOtpFromString() {
         // vendor.setOtp() is @Deprecated — skip the int sync; callers should use setOtpHash() instead.
         // Kept as no-op to preserve the extracted-method structure without calling deprecated API.
     }
@@ -104,7 +105,7 @@ public class EmailSender {
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Customer OTP email failed: ", e);
         }
     }
@@ -129,7 +130,7 @@ public class EmailSender {
             String html = templateEngine.process("order-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Order confirmation email failed: ", e);
         }
     }
@@ -155,7 +156,7 @@ public class EmailSender {
             String html = templateEngine.process("cod-order-confirmation.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("COD order confirmation email failed: ", e);
         }
     }
@@ -176,7 +177,7 @@ public class EmailSender {
             String html = templateEngine.process("stock-alert-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Stock alert email failed: ", e);
         }
     }
@@ -198,7 +199,7 @@ public class EmailSender {
             String html = templateEngine.process("replacement-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Replacement email failed: ", e);
         }
     }
@@ -220,7 +221,7 @@ public class EmailSender {
             String html = templateEngine.process("cancel-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Cancellation email failed: ", e);
         }
     }
@@ -244,7 +245,7 @@ public class EmailSender {
             String html = templateEngine.process("back-in-stock-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Back-in-stock email failed for {}", customer.getEmail(), e);
         }
     }
@@ -263,7 +264,7 @@ public class EmailSender {
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Password reset email failed: ", e);
             throw new RuntimeException("Email sending failed: " + e.getMessage());
         }
@@ -291,7 +292,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
             updateDeliveryBoyOtpFromString(db, plainOtp);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Delivery boy OTP email failed: ", e);
         }
     }
@@ -339,7 +340,7 @@ public class EmailSender {
             String html = templateEngine.process("delivery-otp-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Delivery OTP email failed: ", e);
         }
     }
@@ -362,7 +363,7 @@ public class EmailSender {
             String html = templateEngine.process("shipped-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Shipped email failed: ", e);
         }
     }
@@ -384,7 +385,7 @@ public class EmailSender {
             String html = templateEngine.process("delivered-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Delivery confirmation email failed: ", e);
         }
     }
@@ -414,7 +415,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Admin pending alert email failed: ", e);
         }
     }
@@ -447,7 +448,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Approval email failed: ", e);
         }
     }
@@ -479,7 +480,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Rejection email failed: ", e);
         }
     }
@@ -515,7 +516,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Warehouse change approved email failed: ", e);
         }
     }
@@ -546,7 +547,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Warehouse change rejected email failed: ", e);
         }
     }
@@ -595,7 +596,7 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Dispute notification email failed: ", e);
         }
     }
@@ -652,7 +653,7 @@ public class EmailSender {
             helper.setSubject(subject);
             helper.setText(body, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException e) {
             logger.error("sendAutoAssignNotification failed: ", e);
         }
     }
@@ -679,7 +680,7 @@ public class EmailSender {
             String html = templateEngine.process("warehouse-credentials-email.html", context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Warehouse staff credentials email failed: ", e);
         }
     }
@@ -703,7 +704,7 @@ public class EmailSender {
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Warehouse staff OTP email failed: ", e);
         }
     }
@@ -727,7 +728,7 @@ public class EmailSender {
                 + "<hr/><p style='font-size: 12px; color: #6b7280;'>EKART Logistics Team</p>";
             helper.setText(body, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Warehouse credentials email send failed: ", e);
         }
     }
@@ -764,8 +765,50 @@ public class EmailSender {
 
             helper.setText(html, true);
             mailSender.send(message);
-        } catch (Exception e) {
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Vendor payment confirmation email failed: ", e);
         }
     }
+
+    // ===================== SEND REFUND STATUS NOTIFICATION =====================
+    @Async
+    public void sendRefundStatus(com.example.ekart.dto.Customer customer, int orderId,
+                                  double amount, boolean approved, String rejectionReason) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, EKART_SENDER);
+            helper.setTo(customer.getEmail());
+            String subject = approved
+                    ? "Refund Approved - Order #" + orderId
+                    : "Refund Request Update - Order #" + orderId;
+            helper.setSubject(subject);
+            String statusColor = approved ? "#4CAF50" : "#F44336";
+            String statusText  = approved ? "APPROVED" : "REJECTED";
+            String html = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e0e0e0;border-radius:8px;'>"
+                    + "<h2 style='color:#1a1a2e;'>Refund Status Update</h2>"
+                    + "<p style='color:#555;'>Hi " + customer.getName() + ",</p>"
+                    + "<p style='color:#555;'>Your refund request for Order <strong>#" + orderId + "</strong> has been reviewed.</p>"
+                    + "<table style='border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;'>"
+                    + "<tr style='background:#f5f5f5;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Status</td>"
+                    + "  <td style='padding:12px 14px;font-weight:700;color:" + statusColor + ";'>" + statusText + "</td></tr>"
+                    + "<tr style='border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Order ID</td>"
+                    + "  <td style='padding:12px 14px;font-weight:600;'>#" + orderId + "</td></tr>"
+                    + (approved ? "<tr style='background:#f5f5f5;border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Refund Amount</td>"
+                               + "  <td style='padding:12px 14px;font-weight:600;color:#4CAF50;'>&#8377;" + String.format("%.2f", amount) + "</td></tr>" : "")
+                    + ((!approved && rejectionReason != null && !rejectionReason.isBlank())
+                               ? "<tr style='background:#f5f5f5;border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Reason</td>"
+                               + "  <td style='padding:12px 14px;color:#555;'>" + rejectionReason + "</td></tr>" : "")
+                    + "</table>"
+                    + (approved ? "<p style='color:#555;'>The refund of <strong>&#8377;" + String.format("%.2f", amount) + "</strong> will be credited to your original payment method within 5-7 business days.</p>" : "")
+                    + "<p style='color:#555;'>If you have questions, please contact our support team.</p>"
+                    + "<p style='color:#aaa;font-size:0.75rem;margin-top:20px;'>— Ekart Support Team</p>"
+                    + "</div>";
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
+            logger.error("Refund status email failed: ", e);
+        }
+    }
+
 }

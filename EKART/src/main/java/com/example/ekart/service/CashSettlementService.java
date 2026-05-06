@@ -45,33 +45,21 @@ public class CashSettlementService {
     private static final Logger log = LoggerFactory.getLogger(CashSettlementService.class);
 
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    // ── Dependencies (constructor injection) ──
     private final CashSettlementRepository cashSettlementRepository;
     private final SettlementOrderMappingRepository settlementOrderMappingRepository;
     private final OrderRepository orderRepository;
-    private final VendorRepository vendorRepository;
-    private final WarehouseRepository warehouseRepository;
-    private final TrackingEventLogRepository trackingEventLogRepository;
     private final CodPaymentService codPaymentService;
-    private final EmailSender emailSender;
 
     public CashSettlementService(
             CashSettlementRepository cashSettlementRepository,
             SettlementOrderMappingRepository settlementOrderMappingRepository,
             OrderRepository orderRepository,
-            VendorRepository vendorRepository,
-            WarehouseRepository warehouseRepository,
-            TrackingEventLogRepository trackingEventLogRepository,
-            CodPaymentService codPaymentService,
-            EmailSender emailSender) {
+            CodPaymentService codPaymentService) {
         this.cashSettlementRepository = cashSettlementRepository;
         this.settlementOrderMappingRepository = settlementOrderMappingRepository;
         this.orderRepository = orderRepository;
-        this.vendorRepository = vendorRepository;
-        this.warehouseRepository = warehouseRepository;
-        this.trackingEventLogRepository = trackingEventLogRepository;
         this.codPaymentService = codPaymentService;
-        this.emailSender = emailSender;
     }
 
     // Commission split: 20% to admin (platform), 80% to vendor

@@ -29,15 +29,12 @@ public class PaymentMethodService {
     // ── Constants ──
     private static final String PAYMENT_METHOD_RAZORPAY = "RAZORPAY";
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
-    private final CustomerRepository customerRepository;
-    private final WarehouseRepository warehouseRepository;
+    // ── Dependencies ──
+    // Note: customerRepository and warehouseRepository were removed (java:S1068).
+    // They were injected but never referenced in any method of this class.
+    // Re-add via constructor injection only if a future method requires them.
 
-    public PaymentMethodService(
-            CustomerRepository customerRepository,
-            WarehouseRepository warehouseRepository) {
-        this.customerRepository = customerRepository;
-        this.warehouseRepository = warehouseRepository;
+    public PaymentMethodService() {
     }
 
 

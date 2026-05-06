@@ -1,5 +1,5 @@
 package com.example.ekart.dto;
-import com.example.ekart.dto.Address;
+
 import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
@@ -141,5 +141,3 @@ public class AuthenticationOtp {
 
     public static int getMaxAttempts() { return MAX_ATTEMPTS; }
 }
-
-
