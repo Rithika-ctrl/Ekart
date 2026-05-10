@@ -1,7 +1,6 @@
 package com.example.ekart.controller;
 
 import com.example.ekart.service.SearchService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,8 +11,15 @@ import java.util.Map;
 @RequestMapping("/api/search")
 public class SearchController {
 
-    @Autowired
-    private SearchService searchService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SearchService searchService;
+
+    public SearchController(
+            SearchService searchService) {
+        this.searchService = searchService;
+    }
+
+
 
     @GetMapping("/suggestions")
     public ResponseEntity<List<SearchSuggestionDTO>> getSuggestions(

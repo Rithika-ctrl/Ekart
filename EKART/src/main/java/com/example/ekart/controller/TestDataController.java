@@ -1,14 +1,15 @@
 package com.example.ekart.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.time.LocalDate;
+import java.util.*;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.example.ekart.repository.*;
+
 import com.example.ekart.dto.*;
-import java.time.LocalDate;
-import java.util.*;
+import com.example.ekart.repository.*;
 
 /**
  * 🔥 TEMPORARY Test Data Loader Controller
@@ -18,11 +19,29 @@ import java.util.*;
 @RequestMapping("/admin/test-data")
 public class TestDataController {
 
-    @Autowired private VendorRepository vendorRepository;
-    @Autowired private ProductRepository productRepository;
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private OrderRepository orderRepository;
-    @Autowired private ItemRepository itemRepository;
+    private static final String MSG_FAILED_PREFIX = "Failed: ";
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final VendorRepository vendorRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+
+    public TestDataController(
+            VendorRepository vendorRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository) {
+        this.vendorRepository = vendorRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+    }
+
+
 
     @GetMapping("/load")
     public ResponseEntity<Map<String, String>> loadTestData() {
@@ -114,8 +133,8 @@ public class TestDataController {
             order1.setAmount(5500);
             order1.setDeliveryCharge(100);
             order1.setTrackingStatus(com.example.ekart.dto.TrackingStatus.DELIVERED);
-            order1.setRazorpay_order_id("order_001");
-            order1.setRazorpay_payment_id("pay_001");
+            order1.setRazorpayOrderId("order_001");
+            order1.setRazorpayPaymentId("pay_001");
             order1.setDateTime(LocalDate.now().atStartOfDay());
             order1.setReplacementRequested(false);
             
@@ -148,8 +167,8 @@ public class TestDataController {
             order2.setAmount(95499);
             order2.setDeliveryCharge(100);
             order2.setTrackingStatus(com.example.ekart.dto.TrackingStatus.SHIPPED);
-            order2.setRazorpay_order_id("order_002");
-            order2.setRazorpay_payment_id("pay_002");
+            order2.setRazorpayOrderId("order_002");
+            order2.setRazorpayPaymentId("pay_002");
             order2.setDateTime(LocalDate.now().atStartOfDay());
             order2.setReplacementRequested(false);
 
@@ -182,8 +201,8 @@ public class TestDataController {
             order3.setAmount(10500);
             order3.setDeliveryCharge(100);
             order3.setTrackingStatus(com.example.ekart.dto.TrackingStatus.DELIVERED);
-            order3.setRazorpay_order_id("order_003");
-            order3.setRazorpay_payment_id("pay_003");
+            order3.setRazorpayOrderId("order_003");
+            order3.setRazorpayPaymentId("pay_003");
             order3.setDateTime(LocalDate.now().atStartOfDay());
             order3.setReplacementRequested(false);
 
@@ -218,7 +237,7 @@ public class TestDataController {
 
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Failed: " + e.getMessage());
+            error.put("error", MSG_FAILED_PREFIX + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body(error);
         }

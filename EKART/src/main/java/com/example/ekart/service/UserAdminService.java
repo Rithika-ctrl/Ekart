@@ -1,10 +1,8 @@
 package com.example.ekart.service;
+import java.util.Optional;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -23,8 +21,20 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class UserAdminService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    private static final String K_CUSTOMER = "customer";
+    private static final String K_FAILURE  = "failure";
+    private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+
+    public UserAdminService(
+            CustomerRepository customerRepository) {
+        this.customerRepository = customerRepository;
+    }
+
+
 
     /**
      * Load the security/RBAC management page
@@ -32,10 +42,10 @@ public class UserAdminService {
     public String loadSecurityPage(HttpSession session, ModelMap map) {
         if (session.getAttribute("admin") == null) {
             // Also check if customer has ADMIN role
-            Customer customer = (Customer) session.getAttribute("customer");
+            Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
             if (customer == null || customer.getRole() != Role.ADMIN) {
-                session.setAttribute("failure", "Admin access required");
-                return "redirect:/admin/login";
+                session.setAttribute(K_FAILURE, "Admin access required");
+                return REDIRECT_ADMIN_LOGIN;
             }
         }
 
@@ -65,13 +75,13 @@ public class UserAdminService {
      */
     public String updateUserRole(int userId, String newRole, HttpSession session) {
         if (!isAdminUser(session)) {
-            session.setAttribute("failure", "Admin access required");
-            return "redirect:/admin/login";
+            session.setAttribute(K_FAILURE, "Admin access required");
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         Optional<Customer> optCustomer = customerRepository.findById(userId);
         if (optCustomer.isEmpty()) {
-            session.setAttribute("failure", "User not found");
+            session.setAttribute(K_FAILURE, "User not found");
             return "redirect:/admin/security";
         }
 
@@ -84,15 +94,15 @@ public class UserAdminService {
             customerRepository.save(customer);
 
             // If the updated user is currently logged in, update their session
-            Customer sessionCustomer = (Customer) session.getAttribute("customer");
+            Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
             if (sessionCustomer != null && sessionCustomer.getId() == userId) {
-                session.setAttribute("customer", customer);
+                session.setAttribute(K_CUSTOMER, customer);
             }
 
             session.setAttribute("success", 
                 "User \"" + customer.getName() + "\" role changed from " + oldRole + " to " + role);
         } catch (IllegalArgumentException e) {
-            session.setAttribute("failure", "Invalid role: " + newRole);
+            session.setAttribute(K_FAILURE, "Invalid role: " + newRole);
         }
 
         return "redirect:/admin/security";
@@ -116,7 +126,7 @@ public class UserAdminService {
                 (c.getName() != null && c.getName().toLowerCase().contains(searchQuery)) ||
                 (c.getEmail() != null && c.getEmail().toLowerCase().contains(searchQuery))
             )
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /**
@@ -126,7 +136,7 @@ public class UserAdminService {
         if (session.getAttribute("admin") != null) {
             return true;
         }
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         return customer != null && customer.getRole() == Role.ADMIN;
     }
 

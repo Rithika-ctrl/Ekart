@@ -1,6 +1,6 @@
 package com.example.ekart.dto;
-
 import java.time.LocalDateTime;
+
 
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -114,3 +114,4 @@ public class WarehouseTransferLeg {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 }
+

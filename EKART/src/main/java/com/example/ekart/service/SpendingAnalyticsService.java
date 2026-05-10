@@ -7,9 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.ekart.dto.Customer;
@@ -28,11 +26,19 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class SpendingAnalyticsService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final OrderRepository orderRepository;
+    private final CustomerRepository customerRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    public SpendingAnalyticsService(
+            OrderRepository orderRepository,
+            CustomerRepository customerRepository) {
+        this.orderRepository = orderRepository;
+        this.customerRepository = customerRepository;
+    }
+
+
+
 
     /**
      * Get complete spending summary for the logged-in customer.
@@ -56,7 +62,7 @@ public class SpendingAnalyticsService {
         // Filter only DELIVERED orders for spending calculation
         List<Order> deliveredOrders = allOrders.stream()
                 .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
-                .collect(Collectors.toList());
+                .toList();
 
         SpendingSummary summary = new SpendingSummary();
 
@@ -178,3 +184,5 @@ public class SpendingAnalyticsService {
         public void setCategorySpending(Map<String, Double> categorySpending) { this.categorySpending = categorySpending; }
     }
 }
+
+

@@ -1,14 +1,13 @@
 package com.example.ekart.service;
+import java.util.Random;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.AuthenticationOtp;
 import com.example.ekart.repository.AuthenticationOtpRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Random;
 
 /**
  * OTP Service for secure OTP generation, storage, and verification.
@@ -25,8 +24,15 @@ import java.util.Random;
 @Transactional
 public class OtpService {
 
-    @Autowired
-    private AuthenticationOtpRepository otpRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AuthenticationOtpRepository otpRepository;
+
+    public OtpService(
+            AuthenticationOtpRepository otpRepository) {
+        this.otpRepository = otpRepository;
+    }
+
+
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final Random random = new Random();
@@ -161,3 +167,5 @@ public class OtpService {
         }
     }
 }
+
+

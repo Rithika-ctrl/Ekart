@@ -1,15 +1,13 @@
 package com.example.ekart.service;
+import java.util.Optional;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * UPDATED OrderTrackingService — real event-based tracking.
@@ -28,8 +26,18 @@ import java.util.stream.Collectors;
 @Service
 public class OrderTrackingService {
 
-    @Autowired private OrderRepository            orderRepository;
-    @Autowired private TrackingEventLogRepository trackingEventLogRepository;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+
+    public OrderTrackingService(
+            OrderRepository orderRepository,
+            TrackingEventLogRepository trackingEventLogRepository) {
+        this.orderRepository = orderRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+    }
+
+
 
     /**
      * Returns real tracking information for an order.
@@ -80,7 +88,7 @@ public class OrderTrackingService {
                         e.getStatus(),
                         e.getCity(),
                         e.getDescription()))
-                .collect(Collectors.toList());
+                .toList();
 
         response.setHistory(history);
         return response;
@@ -143,3 +151,6 @@ public class OrderTrackingService {
         trackingEventLogRepository.save(event);
     }
 }
+
+
+

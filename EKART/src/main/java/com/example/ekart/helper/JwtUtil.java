@@ -1,11 +1,14 @@
 package com.example.ekart.helper;
+import org.springframework.beans.factory.annotation.Value;
+
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -26,6 +29,11 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
+    private static final String K_ROLE = "role";
+
+
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
+
     @Value("${jwt.secret}")
     private String secretValue;
 
@@ -34,6 +42,20 @@ public class JwtUtil {
 
     private static final long EXPIRY_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
     private static final String DEV_DEFAULT = "ekart-dev-default-256bit-key-change-in-production!!";
+    private static final String SECURITY_ALERT_MSG = """
+
+            ╔════════════════════════════════════════════════════════════════╗
+            ║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║
+            ║                                                                ║
+            ║ Your JWT tokens are being signed with a KNOWN default secret.  ║
+            ║ This allows ANYONE to forge valid authentication tokens.       ║
+            ║                                                                ║
+            ║ FIX: Set JWT_SECRET environment variable with a strong value   ║
+            ║      Example: openssl rand -base64 32                          ║
+            ║                                                                ║
+            ║ APPLICATION WILL NOT START IN PRODUCTION WITHOUT THIS!         ║
+            ╚════════════════════════════════════════════════════════════════╝
+            """;
 
     // Static holder so getKey() can be used — initialised by @PostConstruct
     private static String SECRET;
@@ -45,18 +67,7 @@ public class JwtUtil {
         // ⚠️ SECURITY CHECK: Warn if using default secret in production
         if ((environment.contains("prod") || environment.contains("production")) && 
             SECRET.equals(DEV_DEFAULT)) {
-            System.err.println("\n" +
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
-                "║                                                                ║\n" +
-                "║ Your JWT tokens are being signed with a KNOWN default secret.  ║\n" +
-                "║ This allows ANYONE to forge valid authentication tokens.       ║\n" +
-                "║                                                                ║\n" +
-                "║ FIX: Set JWT_SECRET environment variable with a strong value   ║\n" +
-                "║      Example: openssl rand -base64 32                          ║\n" +
-                "║                                                                ║\n" +
-                "║ APPLICATION WILL NOT START IN PRODUCTION WITHOUT THIS!         ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝\n");
+            log.error(SECURITY_ALERT_MSG);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
                 "random value in production. Generate with: openssl rand -base64 32"
@@ -65,9 +76,7 @@ public class JwtUtil {
         
         // Warn in development
         if (!environment.contains("prod") && SECRET.equals(DEV_DEFAULT)) {
-            System.out.println("\n" +
-                "⚠️  JWT using development default (not secure). " +
-                "Set JWT_SECRET env var for production.\n");
+            log.warn("⚠️  JWT using development default (not secure). Set JWT_SECRET env var for production.");
         }
     }
 
@@ -80,7 +89,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .setSubject(String.valueOf(customerId))
                 .claim("email", email)
-                .claim("role", role)
+                .claim(K_ROLE, role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRY_MS))
                 .signWith(getKey(), SignatureAlgorithm.HS256)
@@ -99,7 +108,7 @@ public class JwtUtil {
 
     /** Extract role from token */
     public String getRole(String token) {
-        return (String) getClaims(token).get("role");
+        return (String) getClaims(token).get(K_ROLE);
     }
 
     /** Extract warehouse ID from warehouse-role token */
@@ -113,7 +122,7 @@ public class JwtUtil {
     /** Extract role from token (alias for getRole for consistency) */
     public String extractRole(String token) {
         Claims claims = extractAllClaims(token);
-        return (String) claims.get("role");
+        return (String) claims.get(K_ROLE);
     }
 
     /** Extract all claims from token (public version for external use) */
@@ -148,5 +157,21 @@ public class JwtUtil {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    /** Extract delivery boy ID from delivery-role token */
+    public int extractDeliveryBoyId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object dbid = claims.getSubject();
+        if (dbid == null) throw new RuntimeException("No delivery boy ID in token");
+        return Integer.parseInt(dbid.toString());
+    }
+
+    /** Extract admin ID from admin-role token */
+    public int extractAdminId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object adminId = claims.getSubject();
+        if (adminId == null) throw new RuntimeException("No admin ID in token");
+        return Integer.parseInt(adminId.toString());
     }
 }

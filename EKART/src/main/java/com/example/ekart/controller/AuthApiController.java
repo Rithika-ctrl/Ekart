@@ -8,7 +8,6 @@ import com.example.ekart.dto.Customer;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.CustomerRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,50 +30,67 @@ import java.util.Map;
 @CrossOrigin(origins = "*") // Allow Flutter, web, any origin
 public class AuthApiController {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    private static final String K_EMAIL = "email";
 
-    @Autowired
-    private JwtUtil jwtUtil;
+
+    // ── S1192 String constants ──
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_VERIFIED                          = "verified";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final JwtUtil jwtUtil;
+
+    public AuthApiController(
+            CustomerRepository customerRepository,
+            JwtUtil jwtUtil) {
+        this.customerRepository = customerRepository;
+        this.jwtUtil = jwtUtil;
+    }
+
+
+
 
     // ── LOGIN ──────────────────────────────────────────────────────────────
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> body) {
         Map<String, Object> res = new HashMap<>();
 
-        String email    = body.get("email");
+        String email    = body.get(K_EMAIL);
         String password = body.get("password");
 
         if (email == null || password == null) {
-            res.put("success", false);
-            res.put("message", "Email and password are required");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Email and password are required");
             return ResponseEntity.badRequest().body(res);
         }
 
         Customer customer = customerRepository.findByEmail(email);
 
         if (customer == null) {
-            res.put("success", false);
-            res.put("message", "No account found with this email");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "No account found with this email");
             return ResponseEntity.status(401).body(res);
         }
 
         if (!customer.isVerified()) {
-            res.put("success", false);
-            res.put("message", "Account not verified. Please verify OTP first.");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Account not verified. Please verify OTP first.");
             return ResponseEntity.status(403).body(res);
         }
 
         if (!customer.isActive()) {
-            res.put("success", false);
-            res.put("message", "Your account has been deactivated. Contact support.");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Your account has been deactivated. Contact support.");
             return ResponseEntity.status(403).body(res);
         }
 
         String decrypted = AES.decrypt(customer.getPassword());
         if (decrypted == null || !decrypted.equals(password)) {
-            res.put("success", false);
-            res.put("message", "Incorrect password");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Incorrect password");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -85,9 +101,9 @@ public class AuthApiController {
                 customer.getRole().name()
         );
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("token", token);
-        res.put("customer", buildCustomerMap(customer));
+        res.put(K_CUSTOMER, buildCustomerMap(customer));
         return ResponseEntity.ok(res);
     }
 
@@ -97,20 +113,20 @@ public class AuthApiController {
         Map<String, Object> res = new HashMap<>();
 
         String name     = (String) body.get("name");
-        String email    = (String) body.get("email");
+        String email    = (String) body.get(K_EMAIL);
         String password = (String) body.get("password");
         String mobile   = String.valueOf(body.get("mobile"));
 
         // Basic validation
         if (name == null || email == null || password == null || mobile == null) {
-            res.put("success", false);
-            res.put("message", "All fields are required");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "All fields are required");
             return ResponseEntity.badRequest().body(res);
         }
 
         if (customerRepository.findByEmail(email) != null) {
-            res.put("success", false);
-            res.put("message", "Email already registered");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Email already registered");
             return ResponseEntity.status(409).body(res);
         }
 
@@ -131,10 +147,10 @@ public class AuthApiController {
                 customer.getRole().name()
         );
 
-        res.put("success", true);
-        res.put("message", "Registration successful");
+        res.put(K_SUCCESS, true);
+        res.put(K_MESSAGE, "Registration successful");
         res.put("token", token);
-        res.put("customer", buildCustomerMap(customer));
+        res.put(K_CUSTOMER, buildCustomerMap(customer));
         return ResponseEntity.ok(res);
     }
 
@@ -147,8 +163,8 @@ public class AuthApiController {
         String token = extractToken(authHeader);
 
         if (token == null || !jwtUtil.isValid(token)) {
-            res.put("success", false);
-            res.put("message", "Invalid or expired token");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Invalid or expired token");
             return ResponseEntity.status(401).body(res);
         }
 
@@ -156,13 +172,13 @@ public class AuthApiController {
         Customer customer = customerRepository.findById(customerId).orElse(null);
 
         if (customer == null) {
-            res.put("success", false);
-            res.put("message", "Customer not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Customer not found");
             return ResponseEntity.status(404).body(res);
         }
 
-        res.put("success", true);
-        res.put("customer", buildCustomerMap(customer));
+        res.put(K_SUCCESS, true);
+        res.put(K_CUSTOMER, buildCustomerMap(customer));
         return ResponseEntity.ok(res);
     }
 
@@ -181,10 +197,10 @@ public class AuthApiController {
         Map<String, Object> m = new HashMap<>();
         m.put("id",           c.getId());
         m.put("name",         c.getName());
-        m.put("email",        c.getEmail());
+        m.put(K_EMAIL,        c.getEmail());
         m.put("mobile",       c.getMobile());
         m.put("role",         c.getRole().name());
-        m.put("verified",     c.isVerified());
+        m.put(K_VERIFIED,     c.isVerified());
         m.put("active",       c.isActive());
         m.put("profileImage", c.getProfileImage());
         m.put("provider",     c.getProvider());

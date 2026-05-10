@@ -1,10 +1,9 @@
 package com.example.ekart.service;
-
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,17 +32,30 @@ import com.example.ekart.repository.WarehouseRepository;
 @Transactional
 public class WarehouseReceivingService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    // ── Constants ──
+    private static final String UNKNOWN_VALUE = "Unknown";
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final OrderRepository orderRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final DeliveryBoyRepository deliveryBoyRepository;
+    private final OrderTrackingService orderTrackingService;
 
-    @Autowired
-    private DeliveryBoyRepository deliveryBoyRepository;
+    public WarehouseReceivingService(
+            OrderRepository orderRepository,
+            WarehouseRepository warehouseRepository,
+            DeliveryBoyRepository deliveryBoyRepository,
+            OrderTrackingService orderTrackingService) {
+        this.orderRepository = orderRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.deliveryBoyRepository = deliveryBoyRepository;
+        this.orderTrackingService = orderTrackingService;
+    }
 
-    @Autowired
-    private OrderTrackingService orderTrackingService;
+
+
+
+
 
     /**
      * Marks an order as received at warehouse.
@@ -131,7 +143,7 @@ public class WarehouseReceivingService {
 
         // Log tracking event
         Warehouse warehouse = order.getWarehouse();
-        String city = warehouse != null ? warehouse.getCity() : "Unknown";
+        String city = warehouse != null ? warehouse.getCity() : UNKNOWN_VALUE;
         
         orderTrackingService.logOrderStatusChange(
             orderId,
@@ -183,12 +195,9 @@ public class WarehouseReceivingService {
 
         // Verify delivery boy serves the warehouse's city
         Warehouse warehouse = order.getWarehouse();
-        if (warehouse != null && !deliveryBoy.getAssignedPinCodes().contains(warehouse.getServedPinCodes())) {
-            // Check if delivery boy's warehouse matches
-            if (deliveryBoy.getWarehouse() == null || 
-                deliveryBoy.getWarehouse().getId() != warehouse.getId()) {
-                return null;
-            }
+        if (warehouse != null && !deliveryBoy.getAssignedPinCodes().contains(warehouse.getServedPinCodes()) &&
+            (deliveryBoy.getWarehouse() == null || deliveryBoy.getWarehouse().getId() != warehouse.getId())) {
+            return null;
         }
 
         // Update order with assignment
@@ -201,14 +210,14 @@ public class WarehouseReceivingService {
         Order updated = orderRepository.save(order);
 
         // Log tracking event
-        String city = warehouse != null ? warehouse.getCity() : "Unknown";
+        String city = warehouse != null ? warehouse.getCity() : UNKNOWN_VALUE;
         
         orderTrackingService.logOrderStatusChange(
             orderId,
             "OUT_FOR_DELIVERY",
             city,
             "Delivery assigned to " + deliveryBoy.getName() + 
-            " (Staff: " + (warehouseStaffId != null ? warehouseStaffId : "Unknown") + ")"
+            " (Staff: " + (warehouseStaffId != null ? warehouseStaffId : UNKNOWN_VALUE) + ")"
         );
 
         return updated;
@@ -274,7 +283,6 @@ public class WarehouseReceivingService {
             return List.of();
         }
 
-        Warehouse warehouse = whOpt.get();
         List<DeliveryBoy> allBoys = deliveryBoyRepository.findAll();
 
         return allBoys.stream()
@@ -341,3 +349,4 @@ public class WarehouseReceivingService {
             .toList();
     }
 }
+

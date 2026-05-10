@@ -1,4 +1,9 @@
 package com.example.ekart.service;
+import java.util.Random;
+import java.util.Optional;
+import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.AES;
@@ -6,11 +11,9 @@ import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.WarehouseStaffRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -29,9 +32,23 @@ import java.util.*;
 @Transactional
 public class WarehouseStaffService {
 
-    @Autowired private WarehouseStaffRepository staffRepository;
-    @Autowired private WarehouseRepository warehouseRepository;
-    @Autowired private EmailSender emailSender;
+    private static final Logger LOGGER = LoggerFactory.getLogger(WarehouseStaffService.class);
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final WarehouseStaffRepository staffRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final EmailSender emailSender;
+
+    public WarehouseStaffService(
+            WarehouseStaffRepository staffRepository,
+            WarehouseRepository warehouseRepository,
+            EmailSender emailSender) {
+        this.staffRepository = staffRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.emailSender = emailSender;
+    }
+
+
 
     private final Random random = new Random();
 
@@ -85,7 +102,7 @@ public class WarehouseStaffService {
         try {
             emailSender.sendWarehouseStaffCredentials(staff, plainPassword);
         } catch (Exception e) {
-            System.err.println("[WarehouseStaffService] Credentials email failed: " + e.getMessage());
+            LOGGER.error("Credentials email failed: {}", e.getMessage(), e);
         }
 
         // Return both staff and plain password
@@ -318,7 +335,7 @@ public class WarehouseStaffService {
      * @param staffId Staff ID
      */
     public void deactivateStaff(int staffId) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setActive(false);
             staffRepository.save(staff);
@@ -331,7 +348,7 @@ public class WarehouseStaffService {
      * @param staffId Staff ID
      */
     public void reactivateStaff(int staffId) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setActive(true);
             staffRepository.save(staff);
@@ -345,7 +362,7 @@ public class WarehouseStaffService {
      * @param newRole New role (WAREHOUSE_STAFF or WAREHOUSE_MANAGER)
      */
     public void updateStaffRole(int staffId, String newRole) {
-        WarehouseStaff staff = staffRepository.findById(staffId).orElse(null);
+        var staff = staffRepository.findById(staffId).orElse(null);
         if (staff != null) {
             staff.setRole(newRole);
             staff.setUpdatedAt(LocalDateTime.now());
@@ -368,3 +385,4 @@ public class WarehouseStaffService {
         return staffRepository.countByWarehouseAndActive(warehouse, true);
     }
 }
+

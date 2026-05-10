@@ -1,4 +1,5 @@
 package com.example.ekart.helper;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
@@ -18,7 +19,8 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -48,6 +50,8 @@ import jakarta.annotation.PostConstruct;
  */
 @Component
 public class AES {
+
+    private static final Logger log = LoggerFactory.getLogger(AES.class);
 
     // Injected from application.properties → overridden by .env via DotenvConfig
     @Value("${aes.secret:change-me-in-production}")
@@ -88,7 +92,7 @@ public class AES {
         } catch (InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException
                 | InvalidKeySpecException | BadPaddingException | IllegalBlockSizeException
                 | NoSuchPaddingException e) {
-            System.out.println("Error occurred during encryption: " + e.toString());
+            log.error("Error occurred during encryption: {}", e.toString());
         }
         return null;
     }
@@ -107,7 +111,7 @@ public class AES {
         } catch (InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException
                 | InvalidKeySpecException | BadPaddingException | IllegalBlockSizeException
                 | NoSuchPaddingException e) {
-            System.out.println("Error occurred during decryption: " + e.toString());
+            log.error("Error occurred during decryption: {}", e.toString());
         }
         return null;
     }

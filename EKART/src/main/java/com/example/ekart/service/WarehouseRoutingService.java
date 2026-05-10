@@ -1,14 +1,13 @@
 package com.example.ekart.service;
+import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +34,17 @@ import com.example.ekart.repository.WarehouseRepository;
 @Transactional
 public class WarehouseRoutingService {
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    private static final String HUB_ROUTE_SEPARATOR = " Hub → ";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseRepository warehouseRepository;
+
+    public WarehouseRoutingService(
+            WarehouseRepository warehouseRepository) {
+        this.warehouseRepository = warehouseRepository;
+    }
+
+
 
     /**
      * Calculates the optimal warehouse route from source to destination.
@@ -65,9 +73,6 @@ public class WarehouseRoutingService {
         route.add(sourceWarehouse);
         Warehouse currentWarehouse = sourceWarehouse;
 
-        // Calculate distance from source to destination
-        double totalDistance = currentWarehouse.calculateDistanceTo(destinationWarehouse);
-
         // Use greedy algorithm: always pick nearest warehouse that's still closer to destination
         Set<Integer> visited = new HashSet<>();
         visited.add(currentWarehouse.getId());
@@ -77,44 +82,16 @@ public class WarehouseRoutingService {
         int hopCount = 0;
 
         while (hopCount < maxHops && currentWarehouse.getId() != destinationWarehouse.getId()) {
-            // Get all warehouses that could be intermediate hubs
-            List<Warehouse> allWarehouses = warehouseRepository.findAll();
-            List<Warehouse> candidates = new ArrayList<>();
-
-            // Filter: warehouse must be closer to destination than current position
-            for (Warehouse wh : allWarehouses) {
-                if (visited.contains(wh.getId())) {
-                    continue;
-                }
-                if (wh.isActive() && hasValidCoordinates(wh)) {
-                    double distToDest = wh.calculateDistanceTo(destinationWarehouse);
-                    double currentDistToDest = currentWarehouse.calculateDistanceTo(destinationWarehouse);
-
-                    // Warehouse must be moving us closer to destination (at least 10% closer)
-                    if (distToDest < currentDistToDest * 0.9) {
-                        candidates.add(wh);
-                    }
-                }
-            }
-
-            if (candidates.isEmpty()) {
-                // No intermediate hub found; go directly to destination
+            Warehouse nextHub = findNextHub(currentWarehouse, destinationWarehouse, visited);
+            
+            if (nextHub == null) {
                 break;
             }
-
-            // Pick the closest candidate (nearest-hub principle)
-            Warehouse nextHub = candidates.stream()
-                .min(Comparator.comparingDouble(currentWarehouse::calculateDistanceTo))
-                .orElse(null);
-
-            if (nextHub != null) {
-                route.add(nextHub);
-                visited.add(nextHub.getId());
-                currentWarehouse = nextHub;
-                hopCount++;
-            } else {
-                break;
-            }
+            
+            route.add(nextHub);
+            visited.add(nextHub.getId());
+            currentWarehouse = nextHub;
+            hopCount++;
         }
 
         // Add destination if not already there
@@ -123,6 +100,45 @@ public class WarehouseRoutingService {
         }
 
         return route;
+    }
+
+    /**
+     * Finds the next optimal hub for routing.
+     * Extracted helper method to reduce cognitive complexity of calculateOptimalRoute.
+     *
+     * @param currentWarehouse Current warehouse position
+     * @param destinationWarehouse Target destination
+     * @param visited Set of already-visited warehouse IDs
+     * @return Next hub warehouse, or null if none found
+     */
+    private Warehouse findNextHub(Warehouse currentWarehouse, Warehouse destinationWarehouse, Set<Integer> visited) {
+        List<Warehouse> allWarehouses = warehouseRepository.findAll();
+        List<Warehouse> candidates = new ArrayList<>();
+
+        // Filter: warehouse must be closer to destination than current position
+        for (Warehouse wh : allWarehouses) {
+            if (visited.contains(wh.getId())) {
+                continue;
+            }
+            if (wh.isActive() && hasValidCoordinates(wh)) {
+                double distToDest = wh.calculateDistanceTo(destinationWarehouse);
+                double currentDistToDest = currentWarehouse.calculateDistanceTo(destinationWarehouse);
+
+                // Warehouse must be moving us closer to destination (at least 10% closer)
+                if (distToDest < currentDistToDest * 0.9) {
+                    candidates.add(wh);
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        // Pick the closest candidate (nearest-hub principle)
+        return candidates.stream()
+            .min(Comparator.comparingDouble(currentWarehouse::calculateDistanceTo))
+            .orElse(null);
     }
 
     /**
@@ -257,5 +273,83 @@ public class WarehouseRoutingService {
             .filter(w -> w.isActive() && state.equalsIgnoreCase(w.getState()))
             .sorted(Comparator.comparing(Warehouse::getCity))
             .toList();
+    }
+
+    /**
+     * Calculate warehouse routing path string for display.
+     * 
+     * Algorithm:
+     * 1. Get all active warehouses
+     * 2. Calculate distance from source to destination using Haversine
+     * 3. If distance < 800km → direct route
+     * 4. If distance >= 800km → find intermediate hub closest to midpoint
+     * 5. Build routing path string: "Delhi Hub → Bengaluru South Hub" or 
+     *                                 "Delhi Hub → Hyderabad Hub → Bengaluru South Hub"
+     *
+     * @param order Order with source and destination warehouses set
+     * @return Formatted routing path string
+     */
+    public String calculateRoutingPath(com.example.ekart.dto.Order order) {
+        if (order.getSourceWarehouse() == null || order.getDestinationWarehouse() == null) {
+            return "Direct";
+        }
+
+        Optional<Warehouse> sourceOpt = warehouseRepository.findById(order.getSourceWarehouse().getId());
+        Optional<Warehouse> destOpt = warehouseRepository.findById(order.getDestinationWarehouse().getId());
+
+        if (sourceOpt.isEmpty() || destOpt.isEmpty()) {
+            return "Direct";
+        }
+
+        Warehouse source = sourceOpt.get();
+        Warehouse destination = destOpt.get();
+
+        // Check if source/destination have valid coordinates
+        if (source.getLatitude() == null || source.getLongitude() == null ||
+            destination.getLatitude() == null || destination.getLongitude() == null) {
+            return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
+        }
+
+        double distance = source.calculateDistanceTo(destination);
+
+        // Direct route for < 800 km
+        if (distance < 800) {
+            return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
+        }
+
+        // Find intermediate hub: warehouse closest to midpoint
+        double midLat = (source.getLatitude() + destination.getLatitude()) / 2.0;
+        double midLon = (source.getLongitude() + destination.getLongitude()) / 2.0;
+
+        List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
+        Warehouse bestHub = null;
+        double bestDist = Double.MAX_VALUE;
+
+        for (Warehouse wh : allWarehouses) {
+            // Skip source, destination, and warehouses without coordinates
+            if (wh.getId() == source.getId() || wh.getId() == destination.getId()
+                    || wh.getLatitude() == null || wh.getLongitude() == null) {
+                continue;
+            }
+
+            // Calculate distance to midpoint using Euclidean distance (approximate for lat/lon)
+            double d = Math.sqrt(
+                Math.pow(wh.getLatitude() - midLat, 2) + 
+                Math.pow(wh.getLongitude() - midLon, 2)
+            );
+
+            if (d < bestDist) {
+                bestDist = d;
+                bestHub = wh;
+            }
+        }
+
+        if (bestHub != null) {
+            // Save intermediate warehouse ID for tracking
+            order.setIntermediateWarehouseIds(String.valueOf(bestHub.getId()));
+            return source.getCity() + HUB_ROUTE_SEPARATOR + bestHub.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
+        }
+
+        return source.getCity() + HUB_ROUTE_SEPARATOR + destination.getCity() + " Hub";
     }
 }

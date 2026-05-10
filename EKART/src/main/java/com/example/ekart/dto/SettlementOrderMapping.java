@@ -1,6 +1,6 @@
 package com.example.ekart.dto;
-
 import java.time.LocalDateTime;
+
 
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -97,6 +97,7 @@ public class SettlementOrderMapping {
     /**
      * Get order amount (same as amountCollected).
      */
+    @SuppressWarnings("java:S4144")
     public double getOrderAmount() {
         return amountCollected;
     }
@@ -150,3 +151,4 @@ public class SettlementOrderMapping {
         // But we keep it for API compatibility
     }
 }
+

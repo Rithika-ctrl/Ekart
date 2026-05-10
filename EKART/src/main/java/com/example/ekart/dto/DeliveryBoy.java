@@ -14,11 +14,16 @@ package com.example.ekart.dto;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import java.io.Serial;
+import java.io.Serializable;
 
 @Entity
 @Table(name = "delivery_boy",
        indexes = { @Index(name = "idx_db_email", columnList = "email") })
-public class DeliveryBoy {
+public class DeliveryBoy implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,7 +49,7 @@ public class DeliveryBoy {
     private String confirmPassword;
 
     /** 6-digit OTP for email verification */
-    private int otp;
+    private Integer otp;
 
     /** True once email OTP is verified */
     private boolean verified = false;
@@ -100,8 +105,8 @@ public class DeliveryBoy {
     public String getConfirmPassword() { return confirmPassword; }
     public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
 
-    public int getOtp() { return otp; }
-    public void setOtp(int otp) { this.otp = otp; }
+    public Integer getOtp() { return otp; }
+    public void setOtp(Integer otp) { this.otp = otp; }
 
     public boolean isVerified() { return verified; }
     public void setVerified(boolean verified) { this.verified = verified; }

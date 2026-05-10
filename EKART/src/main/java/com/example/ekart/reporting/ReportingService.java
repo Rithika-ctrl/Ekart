@@ -1,17 +1,19 @@
 package com.example.ekart.reporting;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
 import com.example.ekart.dto.Item;
 import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Product;
 import com.example.ekart.repository.ProductRepository;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -36,11 +38,26 @@ import java.util.Map;
 @Service
 public class ReportingService {
 
-    @Autowired
-    private SalesRecordRepository salesRecordRepository;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReportingService.class);
 
-    @Autowired
-    private ProductRepository productRepository;   // main DB — only used during write to resolve vendor
+    private static final String K_TOTAL_ORDERS    = "totalOrders";
+    private static final String K_AVG_ORDER_VALUE  = "avgOrderValue";
+
+    private static final String K_TOTAL_REVENUE = "totalRevenue";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SalesRecordRepository salesRecordRepository;
+    private final ProductRepository productRepository;
+
+    public ReportingService(
+            SalesRecordRepository salesRecordRepository,
+            ProductRepository productRepository) {
+        this.salesRecordRepository = salesRecordRepository;
+        this.productRepository = productRepository;
+    }
+
+
+
 
     // ──────────────────────────────────────────────────────────────
     //  WRITE: Called when an order is placed → saves to reporting DB
@@ -89,7 +106,7 @@ public class ReportingService {
                         record.setVendorName(product.getVendor().getName());
                     }
                 } catch (Exception e) {
-                    // Product may have been deleted; store record without vendor info
+                    LOGGER.warn("Product not found when recording sale, vendor info omitted: {}", e.getMessage());
                 }
             }
 
@@ -109,10 +126,10 @@ public class ReportingService {
         double avg        = orders == 0 ? 0 : Math.round((revenue / orders) * 100.0) / 100.0;
 
         Map<String, Object> summary = new HashMap<>();
-        summary.put("totalRevenue",   revenue);
-        summary.put("totalOrders",    (int) orders);
+        summary.put(K_TOTAL_REVENUE,   revenue);
+        summary.put(K_TOTAL_ORDERS,    (int) orders);
         summary.put("totalItemsSold", (int) itemsSold);
-        summary.put("avgOrderValue",  avg);
+        summary.put(K_AVG_ORDER_VALUE,  avg);
         return summary;
     }
 
@@ -125,10 +142,10 @@ public class ReportingService {
         double avg = orders == 0 ? 0 : Math.round((revenue / orders) * 100.0) / 100.0;
 
         Map<String, Object> summary = new HashMap<>();
-        summary.put("totalRevenue",   revenue);
-        summary.put("totalOrders",    (int) orders);
+        summary.put(K_TOTAL_REVENUE,   revenue);
+        summary.put(K_TOTAL_ORDERS,    (int) orders);
         summary.put("totalItemsSold", (int) itemsSold);
-        summary.put("avgOrderValue",  avg);
+        summary.put(K_AVG_ORDER_VALUE,  avg);
         return summary;
     }
 
@@ -165,7 +182,7 @@ public class ReportingService {
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
             map.put("category",     row[0]);
-            map.put("totalRevenue", row[1]);
+            map.put(K_TOTAL_REVENUE, row[1]);
             result.add(map); // ✅ FIX: This line was missing — result was always empty before
         }
         return result;
@@ -195,7 +212,7 @@ public class ReportingService {
     private Map<String, Object> buildPlatformPeriodSummary(LocalDateTime from, LocalDateTime to) {
         double revenue = salesRecordRepository.getPlatformRevenueByDateRange(from, to);
         Map<String, Object> m = new HashMap<>();
-        m.put("totalRevenue", revenue);
+        m.put(K_TOTAL_REVENUE, revenue);
         return m;
     }
 
@@ -204,9 +221,9 @@ public class ReportingService {
         long   orders  = salesRecordRepository.getPlatformTotalOrders();
         double avg     = orders == 0 ? 0 : Math.round((revenue / orders) * 100.0) / 100.0;
         Map<String, Object> m = new HashMap<>();
-        m.put("totalRevenue",  revenue);
-        m.put("totalOrders",   orders);
-        m.put("avgOrderValue", avg);
+        m.put(K_TOTAL_REVENUE,  revenue);
+        m.put(K_TOTAL_ORDERS,   orders);
+        m.put(K_AVG_ORDER_VALUE, avg);
         return m;
     }
 
@@ -218,7 +235,7 @@ public class ReportingService {
             Map<String, Object> m = new HashMap<>();
             m.put("vendorId",     row[0]);
             m.put("vendorName",   row[1]);
-            m.put("totalRevenue", row[2]);
+            m.put(K_TOTAL_REVENUE, row[2]);
             result.add(m);
         }
         return result;
@@ -231,7 +248,7 @@ public class ReportingService {
         for (Object[] row : raw) {
             Map<String, Object> m = new HashMap<>();
             m.put("category",     row[0]);
-            m.put("totalRevenue", row[1]);
+            m.put(K_TOTAL_REVENUE, row[1]);
             result.add(m);
         }
         return result;

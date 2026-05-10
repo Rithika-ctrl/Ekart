@@ -2,7 +2,6 @@ package com.example.ekart.controller;
 
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -21,9 +20,17 @@ import jakarta.servlet.http.HttpSession;
  */
 @Controller
 public class SpendingAnalyticsController {
+    private static final String K_FAILURE = "failure";
 
-    @Autowired
-    private SpendingAnalyticsService spendingAnalyticsService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SpendingAnalyticsService spendingAnalyticsService;
+
+    public SpendingAnalyticsController(
+            SpendingAnalyticsService spendingAnalyticsService) {
+        this.spendingAnalyticsService = spendingAnalyticsService;
+    }
+
+
 
     // ───────────────────────────────────────────────────────────────────────────
     // REST API ENDPOINT
@@ -36,7 +43,7 @@ public class SpendingAnalyticsController {
      */
     @GetMapping("/api/account/spending-summary")
     @ResponseBody
-    public ResponseEntity<?> getSpendingSummary(HttpSession session) {
+    public ResponseEntity<Object> getSpendingSummary(HttpSession session) {
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
@@ -71,7 +78,7 @@ public class SpendingAnalyticsController {
     public String spendingPage(HttpSession session, ModelMap map) {
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
-            session.setAttribute("failure", "Please login to view spending summary");
+            session.setAttribute(K_FAILURE, "Please login to view spending summary");
             return "redirect:/customer/login";
         }
 

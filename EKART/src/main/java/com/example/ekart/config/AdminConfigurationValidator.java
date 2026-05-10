@@ -1,9 +1,7 @@
 package com.example.ekart.config;
 
-import com.example.ekart.repository.AdminCredentialRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationContextInitializedEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.env.Environment;
@@ -24,15 +22,17 @@ public class AdminConfigurationValidator implements ApplicationListener<Applicat
 
     private static final Logger logger = LoggerFactory.getLogger(AdminConfigurationValidator.class);
 
-    @Autowired(required = false)
-    private AdminCredentialRepository adminCredentialRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final Environment environment;
 
-    @Autowired
-    private Environment environment;
+    public AdminConfigurationValidator(Environment environment) {
+        this.environment = environment;
+    }
 
     @Override
     public void onApplicationEvent(ApplicationContextInitializedEvent event) {
-        // Skip validation during tests
+        // FIX (java:S3626): Removed redundant return — the method body is empty after
+        // the guard, so the early return added no value and was flagged as a redundant jump.
         if (isTestEnvironment()) {
             return;
         }

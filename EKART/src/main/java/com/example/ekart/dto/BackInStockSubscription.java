@@ -1,7 +1,7 @@
 package com.example.ekart.dto;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 /**
  * Stores a customer's "Notify Me" subscription for an out-of-stock product.

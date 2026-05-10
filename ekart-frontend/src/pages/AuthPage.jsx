@@ -10,6 +10,7 @@ const ROLE_HOME = {
   VENDOR:   "/vendor/dashboard",
   ADMIN:    "/admin/overview",
   DELIVERY: "/delivery/dashboard",
+  WAREHOUSE: "/warehouse/dashboard",
 };
 
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
@@ -215,7 +216,7 @@ export default function AuthPage() {
   }, [screen]);
 
   async function post(endpoint, body) {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(endpoint.startsWith("/api/") ? endpoint : `${API_BASE}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -226,11 +227,12 @@ export default function AuthPage() {
   async function handleLogin(e) {
     e.preventDefault(); clear(); setLoading(true);
     try {
-      const data = await post(`/auth/${role}/login`, { email: form.email, password: form.password });
+      const data = await post(role === "warehouse" ? `/api/warehouse/login` : `/auth/${role}/login`, { email: form.email, password: form.password });
       if (!data.success) { setError(data.message || "Login failed"); setLoading(false); return; }
       const id = role === "customer" ? (data.customer?.id || data.customerId)
                : role === "vendor"   ? data.vendorId
                : role === "delivery" ? data.deliveryBoyId
+               : role === "warehouse" ? data.staff_id
                : null;
       // Handle both 'token' (legacy) and 'accessToken' (new) from backend
       const token = data.accessToken || data.token || null;
@@ -402,6 +404,7 @@ export default function AuthPage() {
     { id: "vendor",   label: "🏪 Vendor" },
     { id: "admin",    label: "⚙️ Admin" },
     { id: "delivery", label: "🛵 Delivery" },
+    { id: "warehouse", label: "🏭 Warehouse" },
   ];
 
   // ── Social login SVGs ──────────────────────────────────────────────────────
@@ -513,7 +516,7 @@ export default function AuthPage() {
           )}
 
           {/* Login / Register tabs */}
-          {["login", "register"].includes(screen) && role !== "admin" && (
+          {["login", "register"].includes(screen) && role !== "admin" && role !== "warehouse" && (
             <div className="auth-tabs">
               <button className={`auth-tab${screen === "login" ? " active" : ""}`} onClick={() => { setScreen("login"); clear(); }}>Sign In</button>
               <button className={`auth-tab${screen === "register" ? " active" : ""}`} onClick={() => { setScreen("register"); clear(); }}>Register</button>

@@ -1,9 +1,9 @@
 package com.example.ekart.service;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.example.ekart.dto.AuthenticationResult;
 import com.example.ekart.dto.VerificationResult;
 import com.example.ekart.dto.PasswordChangeResult;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -45,6 +45,7 @@ public class AdminAuthService {
      * Verify TOTP code for 2FA (not used for .env based auth)
      */
     public VerificationResult verify2FA(int adminId, String totpCode) {
+        // Parameters unused in .env-based authentication
         return new VerificationResult(true, "2FA not required");
     }
 
@@ -52,6 +53,7 @@ public class AdminAuthService {
      * Change admin password (not supported with .env based auth)
      */
     public PasswordChangeResult changePassword(Integer adminId, String currentPassword, String newPassword) {
+        // Parameters unused in .env-based authentication
         return new PasswordChangeResult(false, "Cannot change password with environment variable based authentication. Update ADMIN_PASSWORD in .env file manually.");
     }
 
@@ -59,6 +61,7 @@ public class AdminAuthService {
      * Get admin email by ID
      */
     public String getAdminEmailById(int adminId) {
+        // Parameter unused in .env-based authentication
         return envAdminEmail;
     }
 
@@ -69,3 +72,4 @@ public class AdminAuthService {
         return envAdminEmail;
     }
 }
+

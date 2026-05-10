@@ -3,13 +3,11 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.WarehouseStaff;
 import com.example.ekart.service.WarehouseStaffService;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,7 +27,37 @@ import java.util.Map;
 @RequestMapping("/warehouse")
 public class WarehouseStaffAuthController {
 
-    @Autowired private WarehouseStaffService staffService;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final WarehouseStaffService staffService;
+
+    public WarehouseStaffAuthController(
+            WarehouseStaffService staffService) {
+        this.staffService = staffService;
+    }
+
+    private static final String EMAIL_KEY = "email";
+    private static final String PASSWORD_KEY = "password";
+    private static final String MOBILE_KEY = "mobile";
+    private static final String STAFF_ID_KEY = "staff_id";
+    private static final String WAREHOUSE_ID_KEY = "warehouse_id";
+    private static final String ERROR_KEY = "error";
+    private static final String SUCCESS_KEY = "success";
+    private static final String MESSAGE_KEY = "message";
+    private static final String STAFF_NAME_KEY = "staff_name";
+    private static final String ROLE_KEY = "role";
+    private static final String LAST_LOGIN_KEY = "last_login";
+    private static final String DATA_KEY = "data";
+    private static final String TOTAL_KEY = "total";
+    private static final String STAFF_KEY = "staff";
+    private static final String NAME_KEY = "name";
+    private static final String ID_KEY = "id";
+    private static final String VERIFIED_KEY = "verified";
+    private static final String ACTIVE_KEY = "active";
+    private static final String WAREHOUSE_NAME_KEY = "warehouse_name";
+    private static final String IS_MANAGER_KEY = "is_manager";
+    private static final String CREDENTIALS_SENT_TO_EMAIL_KEY = "credentials_sent_to_email";
+    private static final String NOT_LOGGED_IN_MESSAGE = "Not logged in";
+    private static final String STAFF_ID_REQUIRED_MESSAGE = "Staff ID is required";
 
     // ─────────────────────────────────────────────────────────────────────────
     // AUTHENTICATION
@@ -41,19 +69,19 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "email": "staff@warehouse.com",
-     *   "password": "SecurePass123!",
-     *   "warehouse_id": 1
+     *   EMAIL_KEY: "staff@warehouse.com",
+     *   PASSWORD_KEY: "SecurePass123!",
+     *   WAREHOUSE_ID_KEY: 1
      * }
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, Object> request, HttpSession session) {
-        String email = (String) request.get("email");
-        String password = (String) request.get("password");
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> request, HttpSession session) {
+        String email = (String) request.get(EMAIL_KEY);
+        String password = (String) request.get(PASSWORD_KEY);
 
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Email and password are required"));
+                .body(Map.of(ERROR_KEY, "Email and password are required"));
         }
 
         try {
@@ -61,7 +89,7 @@ public class WarehouseStaffAuthController {
             WarehouseStaff staff = staffService.authenticateStaff(email, password);
             if (staff == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid email or password"));
+                    .body(Map.of(ERROR_KEY, "Invalid email or password"));
             }
 
             // Store in session
@@ -69,19 +97,19 @@ public class WarehouseStaffAuthController {
 
             // Response
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Login successful",
-                "staff_id", staff.getId(),
-                "staff_name", staff.getName(),
-                "warehouse_id", staff.getWarehouseId(),
-                "role", staff.getRole()
+                SUCCESS_KEY, true,
+                MESSAGE_KEY, "Login successful",
+                STAFF_ID_KEY, staff.getId(),
+                STAFF_NAME_KEY, staff.getName(),
+                WAREHOUSE_ID_KEY, staff.getWarehouseId(),
+                ROLE_KEY, staff.getRole()
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(ERROR_KEY, e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Login failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Login failed: " + e.getMessage()));
         }
     }
 
@@ -90,11 +118,11 @@ public class WarehouseStaffAuthController {
      * Clear staff session.
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> logout(HttpSession session) {
         staffService.clearStaffSession(session);
         return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Logout successful"
+            SUCCESS_KEY, true,
+            MESSAGE_KEY, "Logout successful"
         ));
     }
 
@@ -104,34 +132,37 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5,
+     *   STAFF_ID_KEY: 5,
      *   "otp": 123456
      * }
      */
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, Object> request) {
-        Integer staffId = ((Number) request.get("staff_id")).intValue();
-        Integer otp = ((Number) request.get("otp")).intValue();
+    public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody Map<String, Object> request) {
+        Object rawStaffId = request.get(STAFF_ID_KEY);
+        Object rawOtp     = request.get("otp");
 
-        if (staffId == null || otp == null) {
+        if (rawStaffId == null || rawOtp == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Staff ID and OTP are required"));
+                .body(Map.of(ERROR_KEY, "Staff ID and OTP are required"));
         }
+
+        int staffId = ((Number) rawStaffId).intValue();
+        int otp     = ((Number) rawOtp).intValue();
 
         try {
             boolean verified = staffService.verifyStaffEmail(staffId, otp);
             if (!verified) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid OTP"));
+                    .body(Map.of(ERROR_KEY, "Invalid OTP"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Email verified successfully. You can now login."
+                SUCCESS_KEY, true,
+                MESSAGE_KEY, "Email verified successfully. You can now login."
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Verification failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Verification failed: " + e.getMessage()));
         }
     }
 
@@ -146,11 +177,11 @@ public class WarehouseStaffAuthController {
      * }
      */
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> changePassword(@RequestBody Map<String, String> request, HttpSession session) {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         String oldPassword = request.get("old_password");
@@ -158,23 +189,23 @@ public class WarehouseStaffAuthController {
 
         if (oldPassword == null || oldPassword.isBlank() || newPassword == null || newPassword.isBlank()) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Old and new passwords are required"));
+                .body(Map.of(ERROR_KEY, "Old and new passwords are required"));
         }
 
         try {
             boolean updated = staffService.updatePassword(staff.getId(), oldPassword, newPassword);
             if (!updated) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Old password is incorrect"));
+                    .body(Map.of(ERROR_KEY, "Old password is incorrect"));
             }
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Password updated successfully"
+                SUCCESS_KEY, true,
+                MESSAGE_KEY, "Password updated successfully"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Password update failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Password update failed: " + e.getMessage()));
         }
     }
 
@@ -187,31 +218,31 @@ public class WarehouseStaffAuthController {
      * Get current staff session info and dashboard data.
      */
     @GetMapping("/dashboard")
-    public ResponseEntity<?> getDashboard(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getDashboard(HttpSession session) {
         WarehouseStaff staff = staffService.getStaffFromSession(session);
         if (staff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         try {
-            Map<String, Object> dashboard = new LinkedHashMap<>();
-            dashboard.put("staff_id", staff.getId());
-            dashboard.put("staff_name", staff.getName());
-            dashboard.put("email", staff.getEmail());
-            dashboard.put("warehouse_id", staff.getWarehouseId());
-            dashboard.put("warehouse_name", staff.getWarehouse().getName());
-            dashboard.put("role", staff.getRole());
-            dashboard.put("is_manager", staff.isManager());
-            dashboard.put("last_login", staff.getLastLogin());
+            var dashboard = new LinkedHashMap<String, Object>();
+            dashboard.put(STAFF_ID_KEY, staff.getId());
+            dashboard.put(STAFF_NAME_KEY, staff.getName());
+            dashboard.put(EMAIL_KEY, staff.getEmail());
+            dashboard.put(WAREHOUSE_ID_KEY, staff.getWarehouseId());
+            dashboard.put(WAREHOUSE_NAME_KEY, staff.getWarehouse().getName());
+            dashboard.put(ROLE_KEY, staff.getRole());
+            dashboard.put(IS_MANAGER_KEY, staff.isManager());
+            dashboard.put(LAST_LOGIN_KEY, staff.getLastLogin());
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", dashboard
+                SUCCESS_KEY, true,
+                DATA_KEY, dashboard
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to load dashboard: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Failed to load dashboard: " + e.getMessage()));
         }
     }
 
@@ -223,42 +254,42 @@ public class WarehouseStaffAuthController {
      * - warehouse_id (required)
      */
     @GetMapping("/staff/list")
-    public ResponseEntity<?> getStaffList(@RequestParam int warehouse_id, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getStaffList(@RequestParam int warehouseId, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         // Only managers can view staff list
         if (!currentStaff.isManager()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Only warehouse managers can view staff list"));
+                .body(Map.of(ERROR_KEY, "Only warehouse managers can view staff list"));
         }
 
         try {
-            List<WarehouseStaff> staffList = staffService.getActiveStaffByWarehouse(warehouse_id);
+            var staffList = staffService.getActiveStaffByWarehouse(warehouseId);
 
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("success", true);
-            response.put("total", staffList.size());
-            response.put("staff", staffList.stream()
+            response.put(SUCCESS_KEY, true);
+            response.put(TOTAL_KEY, staffList.size());
+            response.put(STAFF_KEY, staffList.stream()
                 .map(s -> Map.of(
-                    "id", s.getId(),
-                    "name", s.getName(),
-                    "email", s.getEmail(),
-                    "mobile", s.getMobile(),
-                    "role", s.getRole(),
-                    "verified", s.isVerified(),
-                    "active", s.isActive(),
-                    "last_login", s.getLastLogin() != null ? s.getLastLogin().toString() : "Never"
+                    ID_KEY, s.getId(),
+                    NAME_KEY, s.getName(),
+                    EMAIL_KEY, s.getEmail(),
+                    MOBILE_KEY, s.getMobile(),
+                    ROLE_KEY, s.getRole(),
+                    VERIFIED_KEY, s.isVerified(),
+                    ACTIVE_KEY, s.isActive(),
+                    LAST_LOGIN_KEY, s.getLastLogin() != null ? s.getLastLogin().toString() : "Never"
                 ))
                 .toList());
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to fetch staff list: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Failed to fetch staff list: " + e.getMessage()));
         }
     }
 
@@ -270,63 +301,63 @@ public class WarehouseStaffAuthController {
      * Request body:
      * {
      *   "name": "John Doe",
-     *   "email": "john@warehouse.com",
+     *   EMAIL_KEY: "john@warehouse.com",
      *   "mobile": "9876543210",
-     *   "warehouse_id": 1,
-     *   "role": "WAREHOUSE_STAFF"
+     *   WAREHOUSE_ID_KEY: 1,
+     *   ROLE_KEY: "WAREHOUSE_STAFF"
      * }
      *
      * Response includes: staff_id, email, password (plain text), name
      */
     @PostMapping("/staff/create")
-    public ResponseEntity<?> createStaff(@RequestBody Map<String, Object> request, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> createStaff(@RequestBody Map<String, Object> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         // Only managers can create staff
         if (!currentStaff.isManager()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Only warehouse managers can create staff"));
+                .body(Map.of(ERROR_KEY, "Only warehouse managers can create staff"));
         }
 
-        String name = (String) request.get("name");
-        String email = (String) request.get("email");
-        String mobile = (String) request.get("mobile");
-        Integer warehouseId = ((Number) request.get("warehouse_id")).intValue();
-        String role = (String) request.get("role");
+        String name = (String) request.get(NAME_KEY);
+        String email = (String) request.get(EMAIL_KEY);
+        String mobile = (String) request.get(MOBILE_KEY);
+        Integer warehouseId = ((Number) request.get(WAREHOUSE_ID_KEY)).intValue();
+        String role = (String) request.get(ROLE_KEY);
 
         if (name == null || email == null || mobile == null || warehouseId == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Name, email, mobile, and warehouse_id are required"));
+                .body(Map.of(ERROR_KEY, "Name, email, mobile, and warehouse_id are required"));
         }
 
         try {
             Map<String, Object> creationResult = staffService.createStaffAccount(name, email, mobile, warehouseId, role);
             WarehouseStaff newStaff = (WarehouseStaff) creationResult.get("staff");
-            String plainPassword = (String) creationResult.get("password");
+            String plainPassword = (String) creationResult.get(PASSWORD_KEY);
 
             // Return credentials to admin (plain password for display)
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("success", true);
-            response.put("message", "Staff account created successfully");
-            response.put("staff_id", newStaff.getId());
-            response.put("email", newStaff.getEmail());
-            response.put("password", plainPassword);  // Plain text password
-            response.put("name", newStaff.getName());
-            response.put("mobile", newStaff.getMobile());
-            response.put("role", newStaff.getRole());
-            response.put("credentials_sent_to_email", true);
+            response.put(SUCCESS_KEY, true);
+            response.put(MESSAGE_KEY, "Staff account created successfully");
+            response.put(STAFF_ID_KEY, newStaff.getId());
+            response.put(EMAIL_KEY, newStaff.getEmail());
+            response.put(PASSWORD_KEY, plainPassword);  // Plain text password
+            response.put(NAME_KEY, newStaff.getName());
+            response.put(MOBILE_KEY, newStaff.getMobile());
+            response.put(ROLE_KEY, newStaff.getRole());
+            response.put(CREDENTIALS_SENT_TO_EMAIL_KEY, true);
 
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                .body(Map.of(ERROR_KEY, e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Staff creation failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Staff creation failed: " + e.getMessage()));
         }
     }
 
@@ -336,37 +367,37 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5
+     *   STAFF_ID_KEY: 5
      * }
      */
     @PostMapping("/staff/deactivate")
-    public ResponseEntity<?> deactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> deactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         if (!currentStaff.isManager()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Only warehouse managers can deactivate staff"));
+                .body(Map.of(ERROR_KEY, "Only warehouse managers can deactivate staff"));
         }
 
-        Integer staffId = request.get("staff_id");
+        Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Staff ID is required"));
+                .body(Map.of(ERROR_KEY, STAFF_ID_REQUIRED_MESSAGE));
         }
 
         try {
             staffService.deactivateStaff(staffId);
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Staff account deactivated"
+                SUCCESS_KEY, true,
+                MESSAGE_KEY, "Staff account deactivated"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Deactivation failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Deactivation failed: " + e.getMessage()));
         }
     }
 
@@ -376,37 +407,37 @@ public class WarehouseStaffAuthController {
      *
      * Request body:
      * {
-     *   "staff_id": 5
+     *   STAFF_ID_KEY: 5
      * }
      */
     @PostMapping("/staff/reactivate")
-    public ResponseEntity<?> reactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> reactivateStaff(@RequestBody Map<String, Integer> request, HttpSession session) {
         WarehouseStaff currentStaff = staffService.getStaffFromSession(session);
         if (currentStaff == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", "Not logged in"));
+                .body(Map.of(ERROR_KEY, NOT_LOGGED_IN_MESSAGE));
         }
 
         if (!currentStaff.isManager()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Only warehouse managers can reactivate staff"));
+                .body(Map.of(ERROR_KEY, "Only warehouse managers can reactivate staff"));
         }
 
-        Integer staffId = request.get("staff_id");
+        Integer staffId = request.get(STAFF_ID_KEY);
         if (staffId == null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Staff ID is required"));
+                .body(Map.of(ERROR_KEY, STAFF_ID_REQUIRED_MESSAGE));
         }
 
         try {
             staffService.reactivateStaff(staffId);
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Staff account reactivated"
+                SUCCESS_KEY, true,
+                MESSAGE_KEY, "Staff account reactivated"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Reactivation failed: " + e.getMessage()));
+                .body(Map.of(ERROR_KEY, "Reactivation failed: " + e.getMessage()));
         }
     }
 }

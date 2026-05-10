@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,17 +30,33 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/admin")
 public class UserAdminApiController {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    private static final String K_ROLE = "role";
+
+
+    // ── S1192 String constants ──
+    private static final String K_ADMIN_ACCESS_REQUIRED             = "Admin access required";
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_ERROR                             = "error";
+    private static final String K_VERIFIED                          = "verified";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+
+    public UserAdminApiController(
+            CustomerRepository customerRepository) {
+        this.customerRepository = customerRepository;
+    }
+
+
 
     /**
      * GET /api/admin/users - Fetch all registered users
      */
     @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers(HttpSession session) {
+    public ResponseEntity<Object> getAllUsers(HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Admin access required"));
+                .body(Map.of(K_ERROR, K_ADMIN_ACCESS_REQUIRED));
         }
 
         List<Customer> users = customerRepository.findAll();
@@ -52,8 +67,8 @@ public class UserAdminApiController {
             dto.put("id", user.getId());
             dto.put("name", user.getName());
             dto.put("email", user.getEmail());
-            dto.put("role", user.getRole().name());
-            dto.put("verified", user.isVerified());
+            dto.put(K_ROLE, user.getRole().name());
+            dto.put(K_VERIFIED, user.isVerified());
             dto.put("provider", user.getProvider());
             return dto;
         }).toList();
@@ -65,10 +80,10 @@ public class UserAdminApiController {
      * GET /api/admin/users/search - Search users by name or email
      */
     @GetMapping("/users/search")
-    public ResponseEntity<?> searchUsers(@RequestParam String query, HttpSession session) {
+    public ResponseEntity<Object> searchUsers(@RequestParam String query, HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Admin access required"));
+                .body(Map.of(K_ERROR, K_ADMIN_ACCESS_REQUIRED));
         }
 
         String searchQuery = query.toLowerCase().trim();
@@ -84,8 +99,8 @@ public class UserAdminApiController {
             dto.put("id", user.getId());
             dto.put("name", user.getName());
             dto.put("email", user.getEmail());
-            dto.put("role", user.getRole().name());
-            dto.put("verified", user.isVerified());
+            dto.put(K_ROLE, user.getRole().name());
+            dto.put(K_VERIFIED, user.isVerified());
             return dto;
         }).toList();
 
@@ -96,24 +111,24 @@ public class UserAdminApiController {
      * PATCH /api/admin/users/:id/role - Update a user's role
      */
     @PatchMapping("/users/{id}/role")
-    public ResponseEntity<?> updateUserRole(@PathVariable int id, 
+    public ResponseEntity<Object> updateUserRole(@PathVariable int id, 
                                             @RequestBody Map<String, String> body,
                                             HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Admin access required"));
+                .body(Map.of(K_ERROR, K_ADMIN_ACCESS_REQUIRED));
         }
 
-        String newRole = body.get("role");
+        String newRole = body.get(K_ROLE);
         if (newRole == null || newRole.trim().isEmpty()) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Role is required"));
+                .body(Map.of(K_ERROR, "Role is required"));
         }
 
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "User not found"));
+                .body(Map.of(K_ERROR, "User not found"));
         }
 
         try {
@@ -123,9 +138,9 @@ public class UserAdminApiController {
             customerRepository.save(customer);
 
             // If the updated user is currently logged in, update their session
-            Customer sessionCustomer = (Customer) session.getAttribute("customer");
+            Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
             if (sessionCustomer != null && sessionCustomer.getId() == id) {
-                session.setAttribute("customer", customer);
+                session.setAttribute(K_CUSTOMER, customer);
             }
 
             Map<String, Object> response = new HashMap<>();
@@ -139,7 +154,7 @@ public class UserAdminApiController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Invalid role: " + newRole));
+                .body(Map.of(K_ERROR, "Invalid role: " + newRole));
         }
     }
 
@@ -152,7 +167,7 @@ public class UserAdminApiController {
             return true;
         }
         // Check if customer has ADMIN role
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         return customer != null && customer.getRole() == Role.ADMIN;
     }
 }

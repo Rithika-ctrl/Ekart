@@ -1,4 +1,8 @@
 package com.example.ekart.service;
+import com.example.ekart.dto.Address;
+import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // ================================================================
 // LOCATION: src/main/java/com/example/ekart/service/CustomerService.java
@@ -15,11 +19,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 
-import com.example.ekart.dto.Address;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -63,54 +64,97 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Transactional
 public class CustomerService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── S1192 String constants ──
+    private static final String K_CARTEMPTY                         = "cartEmpty";
+    private static final String K_CARTTOTAL                         = "cartTotal";
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_DELIVERYCHARGE                    = "deliveryCharge";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_FREEDELIVERY                      = "freeDelivery";
+    private static final String K_ITEM_NOT_FOUND                    = "Item not found";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_ORDERS                            = "orders";
+    private static final String K_PRODUCTS                          = "products";
+    private static final String K_QUERY                             = "query";
+    private static final String K_REDIRECT_CUSTOMER_RESET_PASSWORD  = "redirect:/customer/reset-password/";
+    private static final String K_REDIRECT_VIEW_ORDERS              = "redirect:/view-orders";
+    private static final String K_SESSION_EXPIRED                   = "Session expired";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE = "This product is no longer available.";
 
-    @Autowired
-    private ProductRepository productRepository;
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomerService.class);
+    private static final Random RANDOM = new Random();
+    private static final String REDIRECT_CUSTOMER_LOGIN = "redirect:/customer/login";
+    private static final String REDIRECT_CUSTOMER_HOME = "redirect:/customer/home";
+    private static final String REDIRECT_VIEW_CART = "redirect:/view-cart";
+    private static final String LOGIN_FIRST = "Login First";
 
-    @Autowired
-    private ItemRepository itemRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final ItemRepository itemRepository;
+    private final OrderRepository orderRepository;
+    private final EmailSender emailSender;
+    private final ReviewRepository reviewRepository;
+    private final AddressRepository addressRepository;
+    private final SearchService searchService;
+    private final BannerService bannerService;
+    private final CategoryService categoryService;
+    private final ReportingService reportingService;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    public CustomerService(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            ItemRepository itemRepository,
+            OrderRepository orderRepository,
+            EmailSender emailSender,
+            ReviewRepository reviewRepository,
+            AddressRepository addressRepository,
+            SearchService searchService,
+            BannerService bannerService,
+            CategoryService categoryService,
+            ReportingService reportingService,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository,
+            WarehouseRepository warehouseRepository,
+            TrackingEventLogRepository trackingEventLogRepository) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.itemRepository = itemRepository;
+        this.orderRepository = orderRepository;
+        this.emailSender = emailSender;
+        this.reviewRepository = reviewRepository;
+        this.addressRepository = addressRepository;
+        this.searchService = searchService;
+        this.bannerService = bannerService;
+        this.categoryService = categoryService;
+        this.reportingService = reportingService;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+        this.warehouseRepository = warehouseRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+    }
 
-    // @Autowired
-    // private StockAlertService stockAlertService; // unused
 
-    @Autowired
-    private EmailSender emailSender;
 
-	@Autowired
-	private ReviewRepository reviewRepository;
 
-	@Autowired
-	private AddressRepository addressRepository;
 
-    @Autowired
-    private SearchService searchService;
 
-    @Autowired
-    private BannerService bannerService;
 
-    @Autowired
-    private CategoryService categoryService;
 
-    @Autowired
-    private ReportingService reportingService;
 
-    @Autowired
-    private WishlistRepository wishlistRepository;
 
-    @Autowired
-    private RefundRepository refundRepository;
+
+
+
+
 
     // ── NEW: for delivery system ──────────────────────────────────
-    @Autowired
-    private WarehouseRepository warehouseRepository;
 
-    @Autowired
-    private TrackingEventLogRepository trackingEventLogRepository;
     // ─────────────────────────────────────────────────────────────
 
     /** Razorpay publishable key — injected from application.properties: razorpay.key.id */
@@ -119,10 +163,11 @@ public class CustomerService {
 
     // ---------------- REGISTER ----------------
     public String loadRegistration(ModelMap map, Customer customer) {
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         return "customer-register.html";
     }
 
+    @SuppressWarnings("deprecation")
     public String registration(Customer customer, BindingResult result, HttpSession session) {
 
         if (!customer.getPassword().equals(customer.getConfirmPassword()))
@@ -140,7 +185,7 @@ public class CustomerService {
         if (result.hasErrors())
             return "customer-register.html";
 
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         customer.setOtp(otp);
         customer.setPassword(AES.encrypt(customer.getPassword()));
         customerRepository.save(customer);
@@ -148,10 +193,10 @@ public class CustomerService {
         try {
             emailSender.send(customer);
         } catch (Exception e) {
-            System.err.println("Customer OTP email failed: " + e.getMessage());
+            LOGGER.error("Customer OTP email failed: {}", e.getMessage(), e);
         }
 
-        session.setAttribute("success", "OTP Sent Successfully to your email");
+        session.setAttribute(K_SUCCESS, "OTP Sent Successfully to your email");
         return "redirect:/customer/otp/" + customer.getId();
     }
 
@@ -161,11 +206,11 @@ public class CustomerService {
         if (customer.getOtp() == otp) {
             customer.setVerified(true);
             customerRepository.save(customer);
-            session.setAttribute("success", "Account verified! Please log in.");
-            return "redirect:/customer/login";
+            session.setAttribute(K_SUCCESS, "Account verified! Please log in.");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
-        session.setAttribute("failure", "OTP Mismatch");
+        session.setAttribute(K_FAILURE, "OTP Mismatch");
         return "redirect:/customer/otp/" + customer.getId();
     }
 
@@ -175,23 +220,23 @@ public class CustomerService {
         Customer customer = customerRepository.findByEmail(email);
 
         if (customer == null) {
-            session.setAttribute("failure", "Invalid Email");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, "Invalid Email");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!AES.decrypt(customer.getPassword()).equals(password)) {
-            session.setAttribute("failure", "Invalid Password");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, "Invalid Password");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!customer.isVerified()) {
-            session.setAttribute("failure", "Verify Email First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, "Verify Email First");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (!customer.isActive()) {
-            session.setAttribute("failure", "Your account has been suspended.");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, "Your account has been suspended.");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (customer.getCart() == null) {
@@ -204,29 +249,30 @@ public class CustomerService {
         customerRepository.save(customer);
 
         session.removeAttribute("guest");
-        session.setAttribute("customer", customer);
-        session.setAttribute("success", "Login Successful");
-        return "redirect:/customer/home";
+        session.setAttribute(K_CUSTOMER, customer);
+        session.setAttribute(K_SUCCESS, "Login Successful");
+        return REDIRECT_CUSTOMER_HOME;
     }
 
     public String loadForgotPasswordPage() {
         return "customer-forgot-password.html";
     }
 
+    @SuppressWarnings("deprecation")
     public String sendResetOtp(String email, HttpSession session) {
         Customer customer = customerRepository.findByEmail(email);
         if (customer == null) {
-            session.setAttribute("failure", "No account found with this email");
+            session.setAttribute(K_FAILURE, "No account found with this email");
             return "redirect:/customer/forgot-password";
         }
 
-        int otp = new Random().nextInt(100000, 1000000);
+        int otp = RANDOM.nextInt(100000, 1000000);
         customer.setOtp(otp);
         customerRepository.save(customer);
         emailSender.send(customer);
 
-        session.setAttribute("success", "OTP sent to your registered email");
-        return "redirect:/customer/reset-password/" + customer.getId();
+        session.setAttribute(K_SUCCESS, "OTP sent to your registered email");
+        return K_REDIRECT_CUSTOMER_RESET_PASSWORD + customer.getId();
     }
 
     public String loadResetPasswordPage(int id, ModelMap map) {
@@ -237,39 +283,39 @@ public class CustomerService {
     public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
-            session.setAttribute("failure", "Invalid reset request");
+            session.setAttribute(K_FAILURE, "Invalid reset request");
             return "redirect:/customer/forgot-password";
         }
 
         if (customer.getOtp() != otp) {
-            session.setAttribute("failure", "Invalid OTP");
-            return "redirect:/customer/reset-password/" + id;
+            session.setAttribute(K_FAILURE, "Invalid OTP");
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
-            session.setAttribute("failure", "Password and Confirm Password should match");
-            return "redirect:/customer/reset-password/" + id;
+            session.setAttribute(K_FAILURE, "Password and Confirm Password should match");
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (!password.matches(passwordRegex)) {
-            session.setAttribute("failure",
+            session.setAttribute(K_FAILURE,
                     "Password must have 8+ characters with uppercase, lowercase, number and special character");
-            return "redirect:/customer/reset-password/" + id;
+            return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
         customer.setPassword(AES.encrypt(password));
         customerRepository.save(customer);
 
-        session.setAttribute("success", "Password reset successful. Please login");
-        return "redirect:/customer/login";
+        session.setAttribute(K_SUCCESS, "Password reset successful. Please login");
+        return REDIRECT_CUSTOMER_LOGIN;
     }
 
     public String loadCustomerHome(HttpSession session, org.springframework.ui.ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
@@ -280,7 +326,7 @@ public class CustomerService {
         map.put("cartCount", cartCount);
 
         List<Product> products = productRepository.findByApprovedTrue();
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
 
         java.util.Map<String, Long> subCatCounts = new java.util.LinkedHashMap<>();
         for (Product p : products) {
@@ -301,20 +347,20 @@ public class CustomerService {
 
     // ---------------- PRODUCT DETAIL ----------------
     public String viewProductDetail(int id, HttpSession session, ModelMap map) {
-        boolean isGuest = session.getAttribute("customer") == null
+        boolean isGuest = session.getAttribute(K_CUSTOMER) == null
                        && session.getAttribute("vendor") == null;
         map.put("isGuestView", isGuest);
 
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || !product.isApproved()) {
-            if (!isGuest) session.setAttribute("failure", "Product not found");
-            return isGuest ? "redirect:/" : "redirect:/customer/home";
+            if (!isGuest) session.setAttribute(K_FAILURE, "Product not found");
+            return isGuest ? "redirect:/" : REDIRECT_CUSTOMER_HOME;
         }
 
         List<Product> similar = productRepository.findByCategoryAndApprovedTrue(product.getCategory())
                 .stream()
                 .filter(p -> p.getId() != product.getId())
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
 
         map.put("product", product);
         map.put("similar", similar);
@@ -324,17 +370,17 @@ public class CustomerService {
     // ---------------- VIEW PRODUCTS ----------------
     public String viewProducts(HttpSession session, ModelMap map) {
 
-        if (session.getAttribute("customer") == null)
-            return "redirect:/customer/login";
+        if (session.getAttribute(K_CUSTOMER) == null)
+            return REDIRECT_CUSTOMER_LOGIN;
 
         List<Product> products = productRepository.findByApprovedTrue();
 
         if (products.isEmpty()) {
-            session.setAttribute("failure", "No Products Available");
-            return "redirect:/customer/home";
+            session.setAttribute(K_FAILURE, "No Products Available");
+            return REDIRECT_CUSTOMER_HOME;
         }
 
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         return "customer-view-products.html";
     }
 
@@ -346,9 +392,9 @@ public class CustomerService {
         } else {
             products = productRepository.findByApprovedTrue();
         }
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
 
-        if (session.getAttribute("customer") != null) {
+        if (session.getAttribute(K_CUSTOMER) != null) {
             return "customer-view-products.html";
         }
         return "guest-browse.html";
@@ -373,26 +419,26 @@ public class CustomerService {
                 products.addAll(productRepository.findByCategoryContainingIgnoreCase(corrected));
                 map.put("correctedQuery", corrected);
                 map.put("originalQuery", query);
-                map.put("query", corrected);
+                map.put(K_QUERY, corrected);
             } else {
-                map.put("query", query);
+                map.put(K_QUERY, query);
             }
         } else {
-            map.put("query", query);
+            map.put(K_QUERY, query);
         }
 
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         return "search.html";
     }
 
     // ---------------- ADD TO CART ----------------
     public String addToCart(int id, HttpSession session) {
 
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
 
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Session Expired, Login Again");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, "Session Expired, Login Again");
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
@@ -407,13 +453,13 @@ public class CustomerService {
                 .anyMatch(i -> i.getName().equals(product.getName()));
 
         if (exists) {
-            session.setAttribute("failure", "Product already in cart");
-            return "redirect:/customer/home";
+            session.setAttribute(K_FAILURE, "Product already in cart");
+            return REDIRECT_CUSTOMER_HOME;
         }
 
         if (product.getStock() <= 0) {
-            session.setAttribute("failure", "Sorry, this product is out of stock.");
-            return "redirect:/customer/home";
+            session.setAttribute(K_FAILURE, "Sorry, this product is out of stock.");
+            return REDIRECT_CUSTOMER_HOME;
         }
 
         Item item = new Item();
@@ -435,16 +481,16 @@ public class CustomerService {
         productRepository.save(product);
         customerRepository.save(customer);
 
-        session.setAttribute("success", "Added to cart");
-        return "redirect:/customer/home";
+        session.setAttribute(K_SUCCESS, "Added to cart");
+        return REDIRECT_CUSTOMER_HOME;
     }
 
     // ---------------- VIEW CART ----------------
     public String viewCart(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         customer = customerRepository.findById(customer.getId()).orElseThrow();
@@ -464,22 +510,22 @@ public class CustomerService {
     }
 
     // ---------------- INCREASE QUANTITY ----------------
-    public String increase(int id, HttpSession session) {
+    public void increase(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
 
         if (item.getProductId() == null) {
-            session.setAttribute("failure", "This product is no longer available.");
-            return "redirect:/view-cart";
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
+            return;
         }
         Product product = productRepository.findById(item.getProductId()).orElse(null);
         if (product == null) {
-            session.setAttribute("failure", "This product is no longer available.");
-            return "redirect:/view-cart";
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
+            return;
         }
 
         if (product.getStock() <= 0) {
-            session.setAttribute("failure", "No more stock available for this product.");
-            return "redirect:/view-cart";
+            session.setAttribute(K_FAILURE, "No more stock available for this product.");
+            return;
         }
 
         int newQty = item.getQuantity() + 1;
@@ -491,12 +537,10 @@ public class CustomerService {
 
         itemRepository.save(item);
         productRepository.save(product);
-
-        return "redirect:/view-cart";
     }
 
     // ---------------- DECREASE QUANTITY ----------------
-    public String decrease(int id, HttpSession session) {
+    public void decrease(int id, HttpSession session) {
         Item item = itemRepository.findById(id).orElseThrow();
 
         Product product = null;
@@ -507,8 +551,8 @@ public class CustomerService {
         if (product == null) {
             item.getCart().getItems().removeIf(i -> i.getId() == item.getId());
             itemRepository.delete(item);
-            session.setAttribute("failure", "This product is no longer available.");
-            return "redirect:/view-cart";
+            session.setAttribute(K_FAILURE, K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE);
+            return;
         }
 
         if (item.getQuantity() > 1) {
@@ -525,8 +569,6 @@ public class CustomerService {
 
         product.setStock(product.getStock() + 1);
         productRepository.save(product);
-
-        return "redirect:/view-cart";
     }
 
     // ---------------- REMOVE FROM CART ----------------
@@ -541,29 +583,29 @@ public class CustomerService {
             });
         }
 
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         customer.getCart().getItems().removeIf(i -> i.getId() == id);
         customerRepository.save(customer);
         itemRepository.deleteById(id);
 
-        session.setAttribute("success", "Item Removed from Cart");
-        return "redirect:/view-cart";
+        session.setAttribute(K_SUCCESS, "Item Removed from Cart");
+        return REDIRECT_VIEW_CART;
     }
 
     // ── AJAX: increase ────────────────────────────────────────────
     public java.util.Map<String, Object> ajaxIncrease(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
-        if (item.getProductId() == null) { res.put("success", false); res.put("message", "Product unavailable"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
+        if (item.getProductId() == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "Product unavailable"); return res; }
         Product product = productRepository.findById(item.getProductId()).orElse(null);
-        if (product == null) { res.put("success", false); res.put("message", "Product no longer available"); return res; }
-        if (product.getStock() <= 0) { res.put("success", false); res.put("message", "No more stock available"); return res; }
+        if (product == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "Product no longer available"); return res; }
+        if (product.getStock() <= 0) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, "No more stock available"); return res; }
 
         int newQty = item.getQuantity() + 1;
         double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
@@ -578,26 +620,26 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("quantity", newQty);
         res.put("lineTotal", unitPrice * newQty);
         res.put("unitPrice", unitPrice);
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", false);
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, false);
         return res;
     }
 
     // ── AJAX: decrease ────────────────────────────────────────────
     public java.util.Map<String, Object> ajaxDecrease(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
 
         Product product = item.getProductId() != null
             ? productRepository.findById(item.getProductId()).orElse(null) : null;
@@ -625,17 +667,17 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("removed", removed);
         if (!removed) {
             res.put("quantity", item.getQuantity());
             res.put("lineTotal", item.getPrice());
             res.put("unitPrice", item.getUnitPrice());
         }
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, customer.getCart().getItems().isEmpty());
         return res;
     }
 
@@ -643,12 +685,12 @@ public class CustomerService {
     @org.springframework.transaction.annotation.Transactional
     public java.util.Map<String, Object> ajaxRemove(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            res.put("success", false); res.put("message", "Session expired"); return res;
+            res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_SESSION_EXPIRED); return res;
         }
         Item item = itemRepository.findById(id).orElse(null);
-        if (item == null) { res.put("success", false); res.put("message", "Item not found"); return res; }
+        if (item == null) { res.put(K_SUCCESS, false); res.put(K_MESSAGE, K_ITEM_NOT_FOUND); return res; }
 
         if (item.getProductId() != null) {
             productRepository.findById(item.getProductId()).ifPresent(p -> {
@@ -665,28 +707,28 @@ public class CustomerService {
         double cartTotal = customer.getCart().getItems().stream()
             .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
 
-        res.put("success", true);
-        res.put("cartTotal", cartTotal);
-        res.put("freeDelivery", cartTotal >= 500);
-        res.put("deliveryCharge", cartTotal >= 500 ? 0 : 40);
-        res.put("cartEmpty", customer.getCart().getItems().isEmpty());
+        res.put(K_SUCCESS, true);
+        res.put(K_CARTTOTAL, cartTotal);
+        res.put(K_FREEDELIVERY, cartTotal >= 500);
+        res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
+        res.put(K_CARTEMPTY, customer.getCart().getItems().isEmpty());
         return res;
     }
 
     // ---------------- PAYMENT PAGE ----------------
     public String payment(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         List<Item> items = customer.getCart().getItems();
 
         if (items == null || items.isEmpty()) {
-            session.setAttribute("failure", "Your cart is empty! Add products before paying.");
-            return "redirect:/view-cart";
+            session.setAttribute(K_FAILURE, "Your cart is empty! Add products before paying.");
+            return REDIRECT_VIEW_CART;
         }
 
         double cartTotal = 0;
@@ -717,10 +759,10 @@ public class CustomerService {
         double deliveryCharge = (cartTotal >= 500) ? 0 : 40;
         double finalAmount = cartTotal + deliveryCharge;
 
-        map.put("cartTotal", cartTotal);
-        map.put("deliveryCharge", deliveryCharge);
+        map.put(K_CARTTOTAL, cartTotal);
+        map.put(K_DELIVERYCHARGE, deliveryCharge);
         map.put("amount", finalAmount);
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         map.put("cartItems", items);
         map.put("recommendedProducts", recommendations);
         map.put("cartItemCategory", categoryLabel);
@@ -752,170 +794,55 @@ public class CustomerService {
     //
     @Transactional
     public String paymentSuccess(Order baseOrder, String deliveryPinCode, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
 
         // ── 1. PIN CODE VALIDATION ───────────────────────────────
-        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
-            String pin = deliveryPinCode.trim();
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && !product.isDeliverableTo(pin)) {
-                    session.setAttribute("failure",
-                        "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
-                        ". Please remove it from your cart or try a different pin code.");
-                    return "redirect:/payment";
-                }
-            }
-        } else {
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && product.isRestrictedByPinCode()) {
-                    session.setAttribute("failure",
-                        "\"" + product.getName() + "\" has delivery restrictions. " +
-                        "Please verify your pin code on the payment page before placing the order.");
-                    return "redirect:/payment";
-                }
-            }
+        String pinValidationError = validatePinCode(customer, deliveryPinCode);
+        if (pinValidationError != null) {
+            session.setAttribute(K_FAILURE, pinValidationError);
+            return "redirect:/payment";
         }
 
         // ── 2. BUILD ADDRESS SNAPSHOT ────────────────────────────
-        String addressSnapshot = null;
-        if (customer.getAddresses() != null && !customer.getAddresses().isEmpty()) {
-            Address addr = customer.getAddresses().get(customer.getAddresses().size() - 1);
-            StringBuilder sb = new StringBuilder();
-            if (addr.getRecipientName() != null && !addr.getRecipientName().isBlank())
-                sb.append(addr.getRecipientName()).append(" | ");
-            if (addr.getHouseStreet() != null && !addr.getHouseStreet().isBlank())
-                sb.append(addr.getHouseStreet()).append(", ");
-            if (addr.getCity() != null && !addr.getCity().isBlank())
-                sb.append(addr.getCity());
-            if (addr.getState() != null && !addr.getState().isBlank())
-                sb.append(", ").append(addr.getState());
-            if (addr.getPostalCode() != null && !addr.getPostalCode().isBlank())
-                sb.append(" - ").append(addr.getPostalCode());
-            String snap = sb.toString().trim().replaceAll("[,\\s]+$", "");
-            if (!snap.isEmpty()) addressSnapshot = snap;
-        }
+        String addressSnapshot = buildAddressSnapshot(customer);
 
         // ── 3. GROUP CART ITEMS BY VENDOR ────────────────────────
-        // Map: vendorId → { vendor, list of cart items }
         java.util.Map<Integer, java.util.List<Item>> vendorItems = new java.util.LinkedHashMap<>();
         java.util.Map<Integer, Vendor>               vendorMap   = new java.util.LinkedHashMap<>();
-
-        for (Item cartItem : customer.getCart().getItems()) {
-            if (cartItem.getProductId() == null) continue;
-            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-
-            int vKey;
-            Vendor vendor = null;
-            if (product != null && product.getVendor() != null) {
-                vendor = product.getVendor();
-                vKey   = vendor.getId();
-            } else {
-                vKey = 0; // unknown vendor — group together
-            }
-
-            vendorItems.computeIfAbsent(vKey, k -> new java.util.ArrayList<>()).add(cartItem);
-            if (vendor != null) vendorMap.put(vKey, vendor);
-        }
+        groupCartItemsByVendor(customer, vendorItems, vendorMap);
 
         // ── 4. CALCULATE OVERALL SUBTOTAL (for delivery charge) ──
-        double subtotal = 0;
-        for (Item cartItem : customer.getCart().getItems()) {
-            subtotal += cartItem.getPrice();
-        }
+        double subtotal    = customer.getCart().getItems().stream().mapToDouble(Item::getPrice).sum();
         double deliveryFee = (subtotal < 500) ? 40.0 : 0.0;
 
         // ── 5. FIND WAREHOUSE FOR THIS PIN ───────────────────────
-        Warehouse matchedWarehouse = null;
-        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
-            java.util.List<Warehouse> matches = warehouseRepository.findByPinCode(deliveryPinCode.trim());
-            if (!matches.isEmpty()) matchedWarehouse = matches.get(0);
-        }
+        Warehouse matchedWarehouse = findWarehouseForPin(deliveryPinCode);
 
         // ── 6. CREATE ONE SUB-ORDER PER VENDOR ──────────────────
         boolean multiVendor = vendorItems.size() > 1;
-        Integer parentId    = null;   // set after first sub-order is saved
+        Integer parentId    = null;
         Order   firstOrder  = null;
-
         java.util.List<Integer> subOrderIds = new java.util.ArrayList<>();
 
         for (java.util.Map.Entry<Integer, java.util.List<Item>> entry : vendorItems.entrySet()) {
-            int vendorKey         = entry.getKey();
-            java.util.List<Item> group = entry.getValue();
-            Vendor vendor         = vendorMap.get(vendorKey);
-
-            // Calculate sub-order total
-            double subTotal = 0;
-            for (Item ci : group) subTotal += ci.getPrice();
-
-            // Only first sub-order carries the delivery charge
+            Vendor vendor = vendorMap.get(entry.getKey());
+            double subTotal    = entry.getValue().stream().mapToDouble(Item::getPrice).sum();
             double subDelivery = (firstOrder == null) ? deliveryFee : 0.0;
 
-            // Clone items
-            java.util.List<Item> orderItems = new java.util.ArrayList<>();
-            for (Item cartItem : group) {
-                Item newItem = new Item();
-                newItem.setName(cartItem.getName());
-                newItem.setPrice(cartItem.getPrice());
-                newItem.setUnitPrice(cartItem.getUnitPrice() > 0
-                        ? cartItem.getUnitPrice()
-                        : cartItem.getPrice() / Math.max(cartItem.getQuantity(), 1));
-                newItem.setQuantity(cartItem.getQuantity());
-                newItem.setCategory(cartItem.getCategory());
-                newItem.setDescription(cartItem.getDescription());
-                newItem.setImageLink(cartItem.getImageLink());
-                newItem.setProductId(cartItem.getProductId());
-                orderItems.add(newItem);
-            }
+            Order subOrder = buildSubOrder(
+                    baseOrder, customer, vendor,
+                    entry.getValue(), subTotal, subDelivery,
+                    deliveryPinCode, matchedWarehouse, addressSnapshot);
 
-            // Build sub-order
-            Order subOrder = new Order();
-            subOrder.setCustomer(customer);
-            subOrder.setOrderDate(java.time.LocalDateTime.now());
-            subOrder.setRazorpay_payment_id(baseOrder.getRazorpay_payment_id());
-            subOrder.setRazorpay_order_id(baseOrder.getRazorpay_order_id());
-            subOrder.setPaymentMode(baseOrder.getPaymentMode());
-            subOrder.setDeliveryTime(baseOrder.getDeliveryTime());
-            subOrder.setTotalPrice(subTotal);
-            subOrder.setDeliveryCharge(subDelivery);
-            subOrder.setAmount(subTotal + subDelivery);
-            subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-            subOrder.setReplacementRequested(false);
-            subOrder.setItems(orderItems);
-
-            // ── Calculate GST from inclusive prices ───────────────
-            double subGst = GstUtil.calculateTotalGst(orderItems);
-            subOrder.setGstAmount(subGst);
-
-
-
-            // Vendor metadata
-            if (vendor != null) {
-                subOrder.setVendor(vendor);
-            }
-
-            // Delivery fields
-            if (deliveryPinCode != null && !deliveryPinCode.isBlank())
-                subOrder.setDeliveryPinCode(deliveryPinCode.trim());
-            if (matchedWarehouse != null)
-                subOrder.setWarehouse(matchedWarehouse);
-            if (addressSnapshot != null)
-                subOrder.setDeliveryAddress(addressSnapshot);
-
-            // Save sub-order
             orderRepository.save(subOrder);
             orderRepository.flush();
 
-            // Set parentOrderId after first sub-order is persisted
             if (firstOrder == null) {
                 firstOrder = subOrder;
                 if (multiVendor) {
@@ -928,7 +855,6 @@ public class CustomerService {
                 orderRepository.save(subOrder);
             }
 
-            // Track event
             String whCity = matchedWarehouse != null ? matchedWarehouse.getCity() : "Processing Center";
             subOrder.setCurrentCity(whCity);
             orderRepository.save(subOrder);
@@ -942,7 +868,6 @@ public class CustomerService {
 
             subOrderIds.add(subOrder.getId());
 
-            // Record in reporting DB (after commit)
             final Order finalSubOrder = subOrder;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -951,31 +876,14 @@ public class CustomerService {
                         Order saved = orderRepository.findById(finalSubOrder.getId()).orElse(finalSubOrder);
                         reportingService.recordOrder(saved);
                     } catch (Exception e) {
-                        System.err.println("[ReportingService] recordOrder failed: " + e.getMessage());
+                        LOGGER.error("recordOrder failed: {}", e.getMessage(), e);
                     }
                 }
             });
         }
 
         // ── 7. SEND CONFIRMATION EMAIL ───────────────────────────
-        // Email uses the first sub-order's total (includes delivery fee)
-        try {
-            String paymentMode = (baseOrder.getPaymentMode() != null && !baseOrder.getPaymentMode().isBlank())
-                    ? baseOrder.getPaymentMode() : "Cash on Delivery";
-            String deliverySlot = (baseOrder.getDeliveryTime() != null && !baseOrder.getDeliveryTime().isBlank())
-                    ? baseOrder.getDeliveryTime() : "";
-            // Collect all items across all sub-orders for email
-            java.util.List<Item> allItems = new java.util.ArrayList<>();
-            for (int sid : subOrderIds) {
-                Order so = orderRepository.findById(sid).orElse(null);
-                if (so != null) allItems.addAll(so.getItems());
-            }
-            emailSender.sendOrderConfirmation(
-                    customer, subtotal + deliveryFee,
-                    firstOrder.getId(), paymentMode, deliverySlot, allItems);
-        } catch (Exception e) {
-            System.err.println("Order confirmation email failed (non-fatal): " + e.getMessage());
-        }
+        sendOrderConfirmationEmail(customer, baseOrder, firstOrder, subOrderIds, subtotal, deliveryFee);
 
         // ── 8. CLEAR CART ────────────────────────────────────────
         java.util.List<Item> cartItems = new java.util.ArrayList<>(customer.getCart().getItems());
@@ -986,9 +894,8 @@ public class CustomerService {
 
         // ── 9. UPDATE SESSION ────────────────────────────────────
         Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
-        session.setAttribute("customer", updatedCustomer);
+        session.setAttribute(K_CUSTOMER, updatedCustomer);
 
-        // Pass sub-order IDs as comma-separated string so order-success can show all
         String subOrderIdsStr = subOrderIds.stream()
                 .map(String::valueOf)
                 .reduce((a, b) -> a + "," + b)
@@ -1001,7 +908,6 @@ public class CustomerService {
         session.setAttribute("lastOrderPaymentMode",
                 baseOrder.getPaymentMode() != null ? baseOrder.getPaymentMode() : "Cash on Delivery");
 
-        // Store total GST across all sub-orders for the success page
         double totalSessionGst = subOrderIds.stream()
                 .mapToDouble(sid -> {
                     try {
@@ -1011,23 +917,154 @@ public class CustomerService {
                 }).sum();
         totalSessionGst = Math.round(totalSessionGst * 100.0) / 100.0;
         session.setAttribute("lastOrderGst", totalSessionGst);
-        session.setAttribute("success", "Order Placed Successfully!");
+        session.setAttribute(K_SUCCESS, "Order Placed Successfully!");
         return "redirect:/order-success";
+    }
+
+    // ── paymentSuccess helpers (S6541 extraction) ────────────────────────────
+
+    /** Returns an error message if a cart item cannot be delivered, null otherwise. */
+    private String validatePinCode(Customer customer, String deliveryPinCode) {
+        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
+            String pin = deliveryPinCode.trim();
+            for (Item cartItem : customer.getCart().getItems()) {
+                if (cartItem.getProductId() == null) continue;
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product != null && !product.isDeliverableTo(pin)) {
+                    return "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
+                           ". Please remove it from your cart or try a different pin code.";
+                }
+            }
+        } else {
+            for (Item cartItem : customer.getCart().getItems()) {
+                if (cartItem.getProductId() == null) continue;
+                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+                if (product != null && product.isRestrictedByPinCode()) {
+                    return "\"" + product.getName() + "\" has delivery restrictions. " +
+                           "Please verify your pin code on the payment page before placing the order.";
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Builds a formatted address snapshot string from the customer's latest saved address. */
+    private String buildAddressSnapshot(Customer customer) {
+        if (customer.getAddresses() == null || customer.getAddresses().isEmpty()) return null;
+        Address addr = customer.getAddresses().get(customer.getAddresses().size() - 1);
+        StringBuilder sb = new StringBuilder();
+        if (addr.getRecipientName() != null && !addr.getRecipientName().isBlank())
+            sb.append(addr.getRecipientName()).append(" | ");
+        if (addr.getHouseStreet() != null && !addr.getHouseStreet().isBlank())
+            sb.append(addr.getHouseStreet()).append(", ");
+        if (addr.getCity() != null && !addr.getCity().isBlank())
+            sb.append(addr.getCity());
+        if (addr.getState() != null && !addr.getState().isBlank())
+            sb.append(", ").append(addr.getState());
+        if (addr.getPostalCode() != null && !addr.getPostalCode().isBlank())
+            sb.append(" - ").append(addr.getPostalCode());
+        String snap = sb.toString().trim().replaceAll("[,\\s]+$", "");
+        return snap.isEmpty() ? null : snap;
+    }
+
+    /** Groups the customer's cart items by vendor into the provided maps. */
+    private void groupCartItemsByVendor(Customer customer,
+            java.util.Map<Integer, java.util.List<Item>> vendorItems,
+            java.util.Map<Integer, Vendor> vendorMap) {
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            Vendor vendor = (product != null) ? product.getVendor() : null;
+            int vKey = (vendor != null) ? vendor.getId() : 0;
+            vendorItems.computeIfAbsent(vKey, k -> new java.util.ArrayList<>()).add(cartItem);
+            if (vendor != null) vendorMap.put(vKey, vendor);
+        }
+    }
+
+    /** Looks up the warehouse that serves the given pin code, or null if none found. */
+    private Warehouse findWarehouseForPin(String deliveryPinCode) {
+        if (deliveryPinCode == null || deliveryPinCode.isBlank()) return null;
+        java.util.List<Warehouse> matches = warehouseRepository.findByPinCode(deliveryPinCode.trim());
+        return matches.isEmpty() ? null : matches.get(0);
+    }
+
+    /** Builds (but does not save) a sub-order for one vendor's group of items. */
+    private Order buildSubOrder(Order baseOrder, Customer customer, Vendor vendor,
+            java.util.List<Item> group, double subTotal, double subDelivery,
+            String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {
+
+        java.util.List<Item> orderItems = new java.util.ArrayList<>();
+        for (Item ci : group) {
+            Item newItem = new Item();
+            newItem.setName(ci.getName());
+            newItem.setPrice(ci.getPrice());
+            newItem.setUnitPrice(ci.getUnitPrice() > 0
+                    ? ci.getUnitPrice()
+                    : ci.getPrice() / Math.max(ci.getQuantity(), 1));
+            newItem.setQuantity(ci.getQuantity());
+            newItem.setCategory(ci.getCategory());
+            newItem.setDescription(ci.getDescription());
+            newItem.setImageLink(ci.getImageLink());
+            newItem.setProductId(ci.getProductId());
+            orderItems.add(newItem);
+        }
+
+        Order subOrder = new Order();
+        subOrder.setCustomer(customer);
+        subOrder.setOrderDate(java.time.LocalDateTime.now());
+        subOrder.setRazorpayPaymentId(baseOrder.getRazorpayPaymentId());
+        subOrder.setRazorpayOrderId(baseOrder.getRazorpayOrderId());
+        subOrder.setPaymentMode(baseOrder.getPaymentMode());
+        subOrder.setDeliveryTime(baseOrder.getDeliveryTime());
+        subOrder.setTotalPrice(subTotal);
+        subOrder.setDeliveryCharge(subDelivery);
+        subOrder.setAmount(subTotal + subDelivery);
+        subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+        subOrder.setReplacementRequested(false);
+        subOrder.setItems(orderItems);
+        subOrder.setGstAmount(GstUtil.calculateTotalGst(orderItems));
+        if (vendor != null)                                       subOrder.setVendor(vendor);
+        if (deliveryPinCode != null && !deliveryPinCode.isBlank()) subOrder.setDeliveryPinCode(deliveryPinCode.trim());
+        if (matchedWarehouse != null)                             subOrder.setWarehouse(matchedWarehouse);
+        if (addressSnapshot != null)                              subOrder.setDeliveryAddress(addressSnapshot);
+        return subOrder;
+    }
+
+    /** Sends the order-confirmation email; logs but does not propagate failures. */
+    private void sendOrderConfirmationEmail(Customer customer, Order baseOrder,
+            Order firstOrder, java.util.List<Integer> subOrderIds,
+            double subtotal, double deliveryFee) {
+        try {
+            String paymentMode  = (baseOrder.getPaymentMode() != null && !baseOrder.getPaymentMode().isBlank())
+                                  ? baseOrder.getPaymentMode() : "Cash on Delivery";
+            String deliverySlot = (baseOrder.getDeliveryTime() != null && !baseOrder.getDeliveryTime().isBlank())
+                                  ? baseOrder.getDeliveryTime() : "";
+            java.util.List<Item> allItems = new java.util.ArrayList<>();
+            for (int sid : subOrderIds) {
+                Order so = orderRepository.findById(sid).orElse(null);
+                if (so != null) allItems.addAll(so.getItems());
+            }
+            emailSender.sendOrderConfirmation(
+                    customer, subtotal + deliveryFee,
+                    firstOrder.getId(), paymentMode, deliverySlot, allItems);
+        } catch (Exception e) {
+            LOGGER.error("Order confirmation email failed (non-fatal): {}", e.getMessage(), e);
+        }
     }
 
     // ---------------- DELETE ACCOUNT ----------------
     @Transactional
     public String deleteAccount(HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
         if (customer == null) {
-            session.setAttribute("failure", "Account not found");
-            return "redirect:/customer/home";
+            session.setAttribute(K_FAILURE, "Account not found");
+            return REDIRECT_CUSTOMER_HOME;
         }
 
         List<Wishlist> wishlistItems = wishlistRepository.findByCustomer(customer);
@@ -1056,10 +1093,10 @@ public class CustomerService {
 
     // ---------------- VIEW ORDERS ----------------
     public String viewOrders(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         List<Order> orders = orderRepository.findByCustomer(customer);
@@ -1077,7 +1114,7 @@ public class CustomerService {
             replacementRequestedMap.put(order.getId(), replaced);
         }
 
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         map.put("returnEligibleMap", returnEligibleMap);
         map.put("replacementRequestedMap", replacementRequestedMap);
         return "view-orders.html";
@@ -1085,10 +1122,10 @@ public class CustomerService {
 
     @Transactional
     public String cancelOrder(int id, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Order order = orderRepository.findById(id).orElseThrow();
@@ -1108,38 +1145,38 @@ public class CustomerService {
         try {
             emailSender.sendOrderCancellation(sessionCustomer, amount, orderId, orderItems);
         } catch (Exception e) {
-            System.err.println("Cancellation email failed to send.");
+            LOGGER.error("Cancellation email failed to send: {}", e.getMessage(), e);
         }
 
         orderRepository.delete(order);
 
-        session.setAttribute("success", "Order #" + orderId + " Cancelled Successfully");
-        return "redirect:/view-orders";
+        session.setAttribute(K_SUCCESS, "Order #" + orderId + " Cancelled Successfully");
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     @Transactional
     public String requestReplacement(int orderId, HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
-            session.setAttribute("failure", "Order not found");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Order not found");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(7);
         if (order.getOrderDate() == null || order.getOrderDate().isBefore(cutoff)) {
-            session.setAttribute("failure", "Replacement window has expired (7 days only)");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Replacement window has expired (7 days only)");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         if (order.isReplacementRequested()) {
-            session.setAttribute("failure", "Replacement already requested for this order");
-            return "redirect:/view-orders";
+            session.setAttribute(K_FAILURE, "Replacement already requested for this order");
+            return K_REDIRECT_VIEW_ORDERS;
         }
 
         order.setReplacementRequested(true);
@@ -1149,15 +1186,15 @@ public class CustomerService {
             emailSender.sendReplacementRequest(sessionCustomer, order.getAmount(),
                     order.getId(), order.getItems());
         } catch (Exception e) {
-            System.err.println("Replacement email failed: " + e.getMessage());
+            LOGGER.error("Replacement email failed: {}", e.getMessage(), e);
         }
 
-        session.setAttribute("success", "Replacement requested for Order #" + orderId + ". Our team will contact you shortly.");
-        return "redirect:/view-orders";
+        session.setAttribute(K_SUCCESS, "Replacement requested for Order #" + orderId + ". Our team will contact you shortly.");
+        return K_REDIRECT_VIEW_ORDERS;
     }
 
     public void addReview(int productId, int rating, String comment, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) return;
 
         Product product = productRepository.findById(productId).orElse(null);
@@ -1185,22 +1222,22 @@ public class CustomerService {
 
     // ---------------- ORDER HISTORY ----------------
     public String viewOrderHistory(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
         List<Order> orders = orderRepository.findByCustomer(customer);
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         return "order-history.html";
     }
 
     // ---------------- TRACK ORDERS ----------------
     public String trackOrders(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Login First");
-            return "redirect:/customer/login";
+            session.setAttribute(K_FAILURE, LOGIN_FIRST);
+            return REDIRECT_CUSTOMER_LOGIN;
         }
         List<Order> orders = orderRepository.findByCustomer(customer);
 
@@ -1216,7 +1253,7 @@ public class CustomerService {
             progressWidthMap.put(order.getId(), width);
         }
 
-        map.put("orders", orders);
+        map.put(K_ORDERS, orders);
         map.put("trackingStepMap", trackingStepMap);
         map.put("progressWidthMap", progressWidthMap);
         return "track-orders.html";
@@ -1224,18 +1261,18 @@ public class CustomerService {
 
     // ---------------- ADDRESS ----------------
     public String loadAddressPage(HttpSession session, ModelMap map) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
-        if (sessionCustomer == null) return "redirect:/customer/login";
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
+        if (sessionCustomer == null) return REDIRECT_CUSTOMER_LOGIN;
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-        map.put("customer", customer);
+        map.put(K_CUSTOMER, customer);
         return "address-page.html";
     }
 
     public String saveAddress(String recipientName, String houseStreet,
                               String city, String state, String postalCode,
                               HttpSession session) {
-        Customer sessionCustomer = (Customer) session.getAttribute("customer");
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
 
         Address newAddress = new Address();

@@ -10,6 +10,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.io.IOException;
+
 /**
  * AuthGuard Interceptor for Role-Based Access Control (RBAC).
  * 
@@ -24,9 +26,13 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class AuthGuard implements HandlerInterceptor {
 
+    private static final String ROLE_ADMIN    = "admin";
+    private static final String ROLE_CUSTOMER = "customer";
+
+
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) 
-            throws Exception {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws IOException {
         
         String path = request.getRequestURI();
         HttpSession session = request.getSession(false);
@@ -35,13 +41,13 @@ public class AuthGuard implements HandlerInterceptor {
         if (isAdminProtectedRoute(path)) {
             
             // Check if admin is logged in (admin uses email in session)
-            if (session != null && session.getAttribute("admin") != null) {
+            if (session != null && session.getAttribute(ROLE_ADMIN) != null) {
                 return true; // Admin has full access
             }
             
             // Check if customer with ADMIN role is logged in
             if (session != null) {
-                Customer customer = (Customer) session.getAttribute("customer");
+                Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
                 if (customer != null && customer.getRole() == Role.ADMIN) {
                     return true; // Customer with ADMIN role has access
                 }
@@ -56,11 +62,11 @@ public class AuthGuard implements HandlerInterceptor {
         if (isOrderManagerRoute(path)) {
             if (session != null) {
                 // Admin has access to everything
-                if (session.getAttribute("admin") != null) {
+                if (session.getAttribute(ROLE_ADMIN) != null) {
                     return true;
                 }
                 
-                Customer customer = (Customer) session.getAttribute("customer");
+                Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
                 if (customer != null && 
                     (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER)) {
                     return true;
@@ -102,12 +108,12 @@ public class AuthGuard implements HandlerInterceptor {
         if (session == null) return false;
         
         // Check admin session
-        if (session.getAttribute("admin") != null) {
+        if (session.getAttribute(ROLE_ADMIN) != null) {
             return true;
         }
         
         // Check customer with ADMIN role
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
         return customer != null && customer.getRole() == Role.ADMIN;
     }
     
@@ -117,11 +123,11 @@ public class AuthGuard implements HandlerInterceptor {
     public static boolean isOrderManagerOrHigher(HttpSession session) {
         if (session == null) return false;
         
-        if (session.getAttribute("admin") != null) {
+        if (session.getAttribute(ROLE_ADMIN) != null) {
             return true;
         }
         
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
         return customer != null && 
             (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER);
     }

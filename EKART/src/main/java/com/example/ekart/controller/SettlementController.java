@@ -20,23 +20,44 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.*;
 import com.example.ekart.service.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class SettlementController {
 
-    @Autowired private CashSettlementService cashSettlementService;
-    @Autowired private CashSettlementRepository cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private OrderRepository orderRepository;
+    // ── S1192 String constants ──
+
+    // ── Dependencies (constructor injection) ──
+    private final CashSettlementService cashSettlementService;
+
+    public SettlementController(CashSettlementService cashSettlementService) {
+        this.cashSettlementService = cashSettlementService;
+    }
+
+    // String constants to avoid duplications (fixes S1192)
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_SETTLEMENT_ID = "settlementId";
+    private static final String KEY_ADMIN_COMMISSION = "adminCommission";
+    private static final String KEY_VENDOR_SHARE = "vendorShare";
+    private static final String KEY_STATUS = "status";
+    private static final String KEY_ORDER_COUNT = "orderCount";
+    private static final String KEY_TOTAL_AMOUNT = "totalAmount";
+    private static final String KEY_TOTAL_CASH_COLLECTED = "totalCashCollected";
+    private static final String KEY_SUBMITTED_AT = "submittedAt";
+    private static final String KEY_SUBMITTED_BY_STAFF_ID = "submittedByStaffId";
+    private static final String KEY_WAREHOUSE_ID = "warehouseId";
+    private static final String KEY_SETTLEMENTS = "settlements";
+    private static final String KEY_COUNT = "count";
+    private static final String KEY_ADMIN_ID = "adminId";
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // WAREHOUSE STAFF: SUBMIT CASH SETTLEMENT BATCH
@@ -48,7 +69,7 @@ public class SettlementController {
      *
      * Request Body:
      *   {
-     *     "warehouseId": 1,
+     *     KEY_WAREHOUSE_ID: 1,
      *     "orderIds": [101, 102, 103],
      *     "staffId": 5,
      *     "notes": "Batch from morning collection"
@@ -56,13 +77,13 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement batch submitted",
-     *     "settlementId": 45,
-     *     "orderCount": 3,
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement batch submitted",
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_ORDER_COUNT: 3,
      *     "totalAmount": 1500.00,
-     *     "adminCommission": 300.00,
-     *     "vendorShare": 1200.00
+     *     KEY_ADMIN_COMMISSION: 300.00,
+     *     KEY_VENDOR_SHARE: 1200.00
      *   }
      */
     @PostMapping("/settlement/submit-batch")
@@ -72,40 +93,40 @@ public class SettlementController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         try {
-            int warehouseId = ((Number) payload.get("warehouseId")).intValue();
+            int warehouseId = ((Number) payload.get(KEY_WAREHOUSE_ID)).intValue();
             @SuppressWarnings("unchecked")
             List<Integer> orderIds = (List<Integer>) payload.get("orderIds");
             int staffId = ((Number) payload.get("staffId")).intValue();
             String notes = (String) payload.getOrDefault("notes", "");
 
             if (orderIds == null || orderIds.isEmpty()) {
-                res.put("success", false);
-                res.put("message", "Order list cannot be empty");
-                return ResponseEntity.ok(res);
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Order list cannot be empty");
+                return ResponseEntity.badRequest().body(res);
             }
 
             // Submit batch
             CashSettlement settlement = cashSettlementService.submitSettlementBatch(
                     warehouseId, orderIds, staffId, notes);
 
-            res.put("success", true);
-            res.put("message", "Settlement batch submitted");
-            res.put("settlementId", settlement.getId());
-            res.put("orderCount", settlement.getOrderCount());
-            res.put("totalAmount", settlement.getTotalCashCollected());
-            res.put("adminCommission", settlement.getAdminCommission());
-            res.put("vendorShare", settlement.getVendorShare());
-            res.put("status", settlement.getSettlementStatus());
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Settlement batch submitted");
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_ORDER_COUNT, settlement.getOrderCount());
+            res.put(KEY_TOTAL_AMOUNT, settlement.getTotalCashCollected());
+            res.put(KEY_ADMIN_COMMISSION, settlement.getAdminCommission());
+            res.put(KEY_VENDOR_SHARE, settlement.getVendorShare());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
 
             return ResponseEntity.ok(res);
 
         } catch (IllegalArgumentException | IllegalStateException e) {
-            res.put("success", false);
-            res.put("message", e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error submitting settlement batch: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error submitting settlement batch: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -120,17 +141,17 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlements": [
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENTS: [
      *       {
-     *         "settlementId": 45,
-     *         "warehouseId": 1,
+     *         KEY_SETTLEMENT_ID: 45,
+     *         KEY_WAREHOUSE_ID: 1,
      *         "submittedAt": "2026-04-14T10:30:00",
-     *         "orderCount": 3,
-     *         "totalCashCollected": 1500.00,
-     *         "adminCommission": 300.00,
-     *         "vendorShare": 1200.00,
-     *         "status": "SUBMITTED"
+     *         KEY_ORDER_COUNT: 3,
+     *         KEY_TOTAL_CASH_COLLECTED: 1500.00,
+     *         KEY_ADMIN_COMMISSION: 300.00,
+     *         KEY_VENDOR_SHARE: 1200.00,
+     *         KEY_STATUS: "SUBMITTED"
      *       }
      *     ]
      *   }
@@ -146,28 +167,28 @@ public class SettlementController {
             List<Map<String, Object>> settlementList = settlements.stream()
                     .map(s -> {
                         Map<String, Object> settlement = new LinkedHashMap<>();
-                        settlement.put("settlementId", s.getId());
-                        settlement.put("warehouseId", s.getWarehouseId());
-                        settlement.put("submittedAt", s.getSubmittedAt());
-                        settlement.put("submittedByStaffId", s.getSubmittedByStaffId());
-                        settlement.put("orderCount", s.getOrderCount());
-                        settlement.put("totalCashCollected", s.getTotalCashCollected());
-                        settlement.put("adminCommission", s.getAdminCommission());
-                        settlement.put("vendorShare", s.getVendorShare());
-                        settlement.put("status", s.getSettlementStatus());
+                        settlement.put(KEY_SETTLEMENT_ID, s.getId());
+                        settlement.put(KEY_WAREHOUSE_ID, s.getWarehouseId());
+                        settlement.put(KEY_SUBMITTED_AT, s.getSubmittedAt());
+                        settlement.put(KEY_SUBMITTED_BY_STAFF_ID, s.getSubmittedByStaffId());
+                        settlement.put(KEY_ORDER_COUNT, s.getOrderCount());
+                        settlement.put(KEY_TOTAL_CASH_COLLECTED, s.getTotalCashCollected());
+                        settlement.put(KEY_ADMIN_COMMISSION, s.getAdminCommission());
+                        settlement.put(KEY_VENDOR_SHARE, s.getVendorShare());
+                        settlement.put(KEY_STATUS, s.getSettlementStatus());
                         return settlement;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
-            res.put("success", true);
-            res.put("count", settlementList.size());
-            res.put("settlements", settlementList);
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_COUNT, settlementList.size());
+            res.put(KEY_SETTLEMENTS, settlementList);
 
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error fetching pending settlements: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error fetching pending settlements: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -178,12 +199,12 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlementId": 45,
-     *     "status": "SUBMITTED",
-     *     "totalCashCollected": 1500.00,
-     *     "adminCommission": 300.00,
-     *     "vendorShare": 1200.00,
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_STATUS: "SUBMITTED",
+     *     KEY_TOTAL_CASH_COLLECTED: 1500.00,
+     *     KEY_ADMIN_COMMISSION: 300.00,
+     *     KEY_VENDOR_SHARE: 1200.00,
      *     "orders": [
      *       {
      *         "orderId": 101,
@@ -203,19 +224,19 @@ public class SettlementController {
         try {
             Map<String, Object> details = cashSettlementService.getSettlementDetails(settlementId);
             if (details == null) {
-                res.put("success", false);
-                res.put("message", "Settlement not found");
-                return ResponseEntity.ok(res);
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Settlement not found");
+                return ResponseEntity.status(404).body(res);
             }
 
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.putAll(details);
 
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error fetching settlement details: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error fetching settlement details: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -230,17 +251,17 @@ public class SettlementController {
      *
      * Request Body:
      *   {
-     *     "adminId": 99,
+     *     KEY_ADMIN_ID: 99,
      *     "approvalNotes": "Verified counts and amounts"
      *   }
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement approved",
-     *     "settlementId": 45,
-     *     "status": "APPROVED",
-     *     "adminCommission": 300.00
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement approved",
+     *     KEY_SETTLEMENT_ID: 45,
+     *     KEY_STATUS: "APPROVED",
+     *     KEY_ADMIN_COMMISSION: 300.00
      *   }
      */
     @PostMapping("/admin/settlement/{settlementId}/approve")
@@ -251,29 +272,29 @@ public class SettlementController {
         Map<String, Object> res = new LinkedHashMap<>();
 
         try {
-            int adminId = ((Number) payload.get("adminId")).intValue();
+            int adminId = ((Number) payload.get(KEY_ADMIN_ID)).intValue();
             String notes = (String) payload.getOrDefault("approvalNotes", "");
 
             CashSettlement settlement = cashSettlementService.approveCashSettlement(
                     settlementId, adminId, notes);
 
-            res.put("success", true);
-            res.put("message", "Settlement approved");
-            res.put("settlementId", settlement.getId());
-            res.put("status", settlement.getSettlementStatus());
-            res.put("adminCommission", settlement.getAdminCommission());
-            res.put("vendorShare", settlement.getVendorShare());
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Settlement approved");
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
+            res.put(KEY_ADMIN_COMMISSION, settlement.getAdminCommission());
+            res.put(KEY_VENDOR_SHARE, settlement.getVendorShare());
             res.put("approvedAt", settlement.getApprovedAt());
 
             return ResponseEntity.ok(res);
 
         } catch (IllegalArgumentException | IllegalStateException e) {
-            res.put("success", false);
-            res.put("message", e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error approving settlement: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error approving settlement: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -289,8 +310,8 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "message": "Settlement rejected"
+     *     KEY_SUCCESS: true,
+     *     KEY_MESSAGE: "Settlement rejected"
      *   }
      */
     @PostMapping("/admin/settlement/{settlementId}/reject")
@@ -305,16 +326,16 @@ public class SettlementController {
 
             CashSettlement settlement = cashSettlementService.rejectCashSettlement(settlementId, reason);
 
-            res.put("success", true);
-            res.put("message", "Settlement rejected");
-            res.put("settlementId", settlement.getId());
-            res.put("status", settlement.getSettlementStatus());
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Settlement rejected");
+            res.put(KEY_SETTLEMENT_ID, settlement.getId());
+            res.put(KEY_STATUS, settlement.getSettlementStatus());
 
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -329,7 +350,7 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "totalCashSettled": 50000.00,
      *     "totalAdminCommission": 10000.00,
      *     "totalVendorPayouts": 40000.00,
@@ -345,14 +366,14 @@ public class SettlementController {
         try {
             Map<String, Object> stats = cashSettlementService.getSettlementStatistics();
 
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.putAll(stats);
 
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error fetching statistics: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error fetching statistics: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -367,15 +388,15 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
-     *     "settlements": [
+     *     KEY_SUCCESS: true,
+     *     KEY_SETTLEMENTS: [
      *       {
-     *         "settlementId": 45,
+     *         KEY_SETTLEMENT_ID: 45,
      *         "approvedAt": "2026-04-14T15:00:00",
      *         "vendorCollected": 1000.00,
-     *         "adminCommission": 200.00,
+     *         KEY_ADMIN_COMMISSION: 200.00,
      *         "vendorPayout": 800.00,
-     *         "orderCount": 2
+     *         KEY_ORDER_COUNT: 2
      *       }
      *     ],
      *     "totalPayout": 8000.00
@@ -390,23 +411,23 @@ public class SettlementController {
         try {
             Vendor vendor = (Vendor) session.getAttribute("vendor");
             if (vendor == null) {
-                res.put("success", false);
-                res.put("message", "Not logged in");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Not logged in");
                 return ResponseEntity.status(401).body(res);
             }
 
             List<Map<String, Object>> history = cashSettlementService.getVendorSettlementHistory(vendor.getId());
             double totalPayout = cashSettlementService.calculateTotalVendorPayout(vendor.getId());
 
-            res.put("success", true);
-            res.put("settlements", history);
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_SETTLEMENTS, history);
             res.put("totalPayout", totalPayout);
 
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error fetching settlement history: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error fetching settlement history: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -417,7 +438,7 @@ public class SettlementController {
      *
      * Response:
      *   {
-     *     "success": true,
+     *     KEY_SUCCESS: true,
      *     "totalCodCollected": 5000.00,
      *     "totalSettled": 4000.00,
      *     "totalCommissionPaid": 1000.00,
@@ -433,8 +454,8 @@ public class SettlementController {
         try {
             Vendor vendor = (Vendor) session.getAttribute("vendor");
             if (vendor == null) {
-                res.put("success", false);
-                res.put("message", "Not logged in");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Not logged in");
                 return ResponseEntity.status(401).body(res);
             }
 
@@ -449,10 +470,10 @@ public class SettlementController {
                     .sum();
 
             double totalCommission = history.stream()
-                    .mapToDouble(s -> (Double) s.get("adminCommission"))
+                    .mapToDouble(s -> (Double) s.get(KEY_ADMIN_COMMISSION))
                     .sum();
 
-            res.put("success", true);
+            res.put(KEY_SUCCESS, true);
             res.put("totalCodCollected", totalCollected);
             res.put("totalSettled", totalSettled);
             res.put("totalCommissionPaid", totalCommission);
@@ -461,8 +482,8 @@ public class SettlementController {
             return ResponseEntity.ok(res);
 
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Error fetching settlement summary: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Error fetching settlement summary: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }

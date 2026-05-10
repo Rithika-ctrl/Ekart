@@ -1,4 +1,5 @@
 package com.example.ekart.repository;
+import java.util.Optional;
 
 import com.example.ekart.dto.BackInStockSubscription;
 import com.example.ekart.dto.Customer;
@@ -8,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface BackInStockRepository extends JpaRepository<BackInStockSubscription, Integer> {
 

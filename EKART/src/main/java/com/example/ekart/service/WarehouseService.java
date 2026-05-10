@@ -1,10 +1,12 @@
 package com.example.ekart.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.WarehouseRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,11 +27,21 @@ import java.util.Map;
 @Transactional
 public class WarehouseService {
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    private static final Logger LOGGER = LoggerFactory.getLogger(WarehouseService.class);
 
-    @Autowired
-    private EmailSender emailSender;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseRepository warehouseRepository;
+    private final EmailSender emailSender;
+
+    public WarehouseService(
+            WarehouseRepository warehouseRepository,
+            EmailSender emailSender) {
+        this.warehouseRepository = warehouseRepository;
+        this.emailSender = emailSender;
+    }
+
+
+
 
     /**
      * Create a new warehouse with auto-generated login credentials.
@@ -107,7 +119,7 @@ public class WarehouseService {
                 emailSender.sendWarehouseCredentials(contactEmail, name, loginId, plainPassword, city);
             } catch (Exception e) {
                 // Log but don't fail the creation
-                System.err.println("[WarehouseService] Failed to send warehouse credentials email: " + e.getMessage());
+                LOGGER.error("Failed to send warehouse credentials email: {}", e.getMessage(), e);
             }
         }
 

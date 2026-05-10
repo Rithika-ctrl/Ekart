@@ -1,15 +1,14 @@
 package com.example.ekart.controller;
 
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
 import com.example.ekart.service.AiAssistantService;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.format.DateTimeFormatter;
-import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -27,14 +26,35 @@ import java.util.stream.Collectors;
 @RestController
 public class ChatController {
 
-    @Autowired private AiAssistantService aiAssistantService;
-    @Autowired private OrderRepository    orderRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private RefundRepository   refundRepository;
+    private static final String K_CUSTOMER = "customer";
+    private static final String K_VENDOR   = "vendor";
+    private static final String K_ADMIN    = "admin";
+
+
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("dd MMM yyyy");
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final AiAssistantService aiAssistantService;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final RefundRepository refundRepository;
+
+    public ChatController(
+            AiAssistantService aiAssistantService,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            RefundRepository refundRepository) {
+        this.aiAssistantService = aiAssistantService;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.refundRepository = refundRepository;
+    }
 
     // ── POST /chat ────────────────────────────────────────────────────────────
 
@@ -54,20 +74,20 @@ public class ChatController {
         String userName = "there";
         Object sessionUser = null;
 
-        if (session.getAttribute("customer") != null) {
-            role = "customer";
-            Customer c = (Customer) session.getAttribute("customer");
+        if (session.getAttribute(K_CUSTOMER) != null) {
+            role = K_CUSTOMER;
+            Customer c = (Customer) session.getAttribute(K_CUSTOMER);
             userName = c.getName();
             sessionUser = c;
-        } else if (session.getAttribute("vendor") != null) {
-            role = "vendor";
-            Vendor v = (Vendor) session.getAttribute("vendor");
+        } else if (session.getAttribute(K_VENDOR) != null) {
+            role = K_VENDOR;
+            Vendor v = (Vendor) session.getAttribute(K_VENDOR);
             userName = v.getName();
             sessionUser = v;
-        } else if (session.getAttribute("admin") != null) {
-            role = "admin";
+        } else if (session.getAttribute(K_ADMIN) != null) {
+            role = K_ADMIN;
             userName = "Admin";
-            sessionUser = session.getAttribute("admin");
+            sessionUser = session.getAttribute(K_ADMIN);
         }
 
         // ── Build context block ───────────────────────────────────────────────
@@ -97,7 +117,7 @@ public class ChatController {
         switch (role) {
 
             // ── CUSTOMER ──────────────────────────────────────────────────────
-            case "customer": {
+            case K_CUSTOMER: {
                 Customer c = customerRepository.findById(
                         ((Customer) sessionUser).getId()).orElse((Customer) sessionUser);
 
@@ -141,7 +161,7 @@ public class ChatController {
                         if (b.getOrderDate() == null) return -1;
                         return b.getOrderDate().compareTo(a.getOrderDate());
                     });
-                    List<Order> recent = orders.stream().limit(10).collect(Collectors.toList());
+                    List<Order> recent = orders.stream().limit(10).toList();
                     ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
                        .append(recent.size()).append("):\n");
                     for (Order o : recent) {
@@ -169,7 +189,7 @@ public class ChatController {
                 List<Refund> refunds = refundRepository.findByCustomer(c);
                 List<Refund> pendingRefunds = refunds.stream()
                         .filter(r -> r.getStatus() == RefundStatus.PENDING)
-                        .collect(Collectors.toList());
+                        .toList();
                 if (!pendingRefunds.isEmpty()) {
                     ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
                     for (Refund r : pendingRefunds) {
@@ -195,7 +215,7 @@ public class ChatController {
             }
 
             // ── VENDOR ────────────────────────────────────────────────────────
-            case "vendor": {
+            case K_VENDOR: {
                 Vendor v = (Vendor) sessionUser;
                 ctx.append("=== VENDOR DATA ===\n");
                 ctx.append("Name: ").append(v.getName()).append("\n");
@@ -215,10 +235,10 @@ public class ChatController {
                     // Show low-stock products first
                     List<Product> lowStock = products.stream()
                             .filter(p -> p.getStock() <= (p.getStockAlertThreshold() != null ? p.getStockAlertThreshold() : 10))
-                            .collect(Collectors.toList());
+                            .toList();
                     if (!lowStock.isEmpty()) {
                         ctx.append("  LOW STOCK ALERT (").append(lowStock.size()).append(" products):\n");
-                        for (Product p : lowStock.stream().limit(5).collect(Collectors.toList())) {
+                        for (Product p : lowStock.stream().limit(5).toList()) {
                             ctx.append("    - ").append(p.getName())
                                .append(" | Stock: ").append(p.getStock())
                                .append(" | ₹").append(String.format("%.0f", p.getPrice())).append("\n");
@@ -226,7 +246,7 @@ public class ChatController {
                     }
                     // Recent products
                     ctx.append("  RECENT PRODUCTS (up to 10):\n");
-                    for (Product p : products.stream().limit(10).collect(Collectors.toList())) {
+                    for (Product p : products.stream().limit(10).toList()) {
                         ctx.append("    - [").append(p.isApproved() ? "LIVE" : "PENDING").append("] ")
                            .append(p.getName())
                            .append(" | ₹").append(String.format("%.0f", p.getPrice()))
@@ -255,7 +275,7 @@ public class ChatController {
                        .append(pendingOrders).append(" pending | Total revenue: ₹")
                        .append(String.format("%.0f", totalRevenue)).append("\n");
                     ctx.append("  RECENT ORDERS (last 5):\n");
-                    for (Order o : vendorOrders.stream().limit(5).collect(Collectors.toList())) {
+                    for (Order o : vendorOrders.stream().limit(5).toList()) {
                         ctx.append("    Order #").append(o.getId())
                            .append(" | ₹").append(String.format("%.0f", o.getAmount()))
                            .append(" | ").append(o.getTrackingStatus().getDisplayName());
@@ -270,7 +290,7 @@ public class ChatController {
             }
 
             // ── ADMIN ─────────────────────────────────────────────────────────
-            case "admin": {
+            case K_ADMIN: {
                 ctx.append("=== ADMIN DASHBOARD DATA ===\n");
 
                 // Pending product approvals

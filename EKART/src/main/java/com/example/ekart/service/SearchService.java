@@ -3,17 +3,22 @@ package com.example.ekart.service;
 import com.example.ekart.controller.SearchSuggestionDTO;
 import com.example.ekart.dto.Product;
 import com.example.ekart.repository.ProductRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class SearchService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+
+    public SearchService(
+            ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+
 
     /**
      * Returns up to 8 product suggestions matching the query,
@@ -28,7 +33,7 @@ public class SearchService {
                           || (p.getCategory() != null && p.getCategory().toLowerCase().contains(q)))
                 .limit(8)
                 .map(p -> new SearchSuggestionDTO(p.getName(), p.getCategory(), p.getImageLink(), 0L))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -114,3 +119,4 @@ public class SearchService {
         return dp[m][n];
     }
 }
+

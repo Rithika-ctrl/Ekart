@@ -1,4 +1,5 @@
 package com.example.ekart.service;
+import java.util.Optional;
 
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Order;
@@ -6,24 +7,31 @@ import com.example.ekart.dto.Wishlist;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class MobileApiReadService {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CustomerRepository customerRepository;
+    private final WishlistRepository wishlistRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private WishlistRepository wishlistRepository;
+    public MobileApiReadService(
+            CustomerRepository customerRepository,
+            WishlistRepository wishlistRepository,
+            OrderRepository orderRepository) {
+        this.customerRepository = customerRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.orderRepository = orderRepository;
+    }
 
-    @Autowired
-    private OrderRepository orderRepository;
+
+
+
 
     @Transactional(readOnly = true)
     public Customer findCustomerWithAddresses(int customerId) {
@@ -45,3 +53,4 @@ public class MobileApiReadService {
         return orderRepository.findWithItemsById(orderId);
     }
 }
+

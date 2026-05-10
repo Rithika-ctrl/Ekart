@@ -4,13 +4,11 @@ import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Review;
 import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.ReviewRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 // import jakarta.servlet.http.HttpSession; // unused
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ✅ REST API — Products
@@ -31,11 +29,22 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class ProductApiController {
 
-    @Autowired
-    private ProductRepository productRepository;
+    private static final String K_SUCCESS = "success";
 
-    @Autowired
-    private ReviewRepository reviewRepository;
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+    private final ReviewRepository reviewRepository;
+
+    public ProductApiController(
+            ProductRepository productRepository,
+            ReviewRepository reviewRepository) {
+        this.productRepository = productRepository;
+        this.reviewRepository = reviewRepository;
+    }
+
+
+
 
     // ── GET ALL / SEARCH / FILTER ──────────────────────────────────────────
     @GetMapping
@@ -54,18 +63,18 @@ public class ProductApiController {
             found.addAll(productRepository.findByCategoryContainingIgnoreCase(q));
             products = found.stream()
                     .filter(Product::isApproved)
-                    .collect(Collectors.toList());
+                    .toList();
         } else if (!cat.isBlank()) {
             products = productRepository.findByCategoryAndApprovedTrue(cat);
         } else {
             products = productRepository.findByApprovedTrue();
         }
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("count", products.size());
         res.put("products", products.stream()
                 .map(this::buildProductMap)
-                .collect(Collectors.toList()));
+                .toList());
         return ResponseEntity.ok(res);
     }
 
@@ -76,7 +85,7 @@ public class ProductApiController {
 
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || !product.isApproved()) {
-            res.put("success", false);
+            res.put(K_SUCCESS, false);
             res.put("message", "Product not found");
             return ResponseEntity.status(404).body(res);
         }
@@ -95,7 +104,7 @@ public class ProductApiController {
         // Add reviews
         List<Review> reviews = reviewRepository.findAll().stream()
                 .filter(r -> r.getProduct() != null && r.getProduct().getId() == id)
-                .collect(Collectors.toList());
+                .toList();
 
         double avgRating = reviews.stream()
                 .mapToInt(Review::getRating)
@@ -108,7 +117,7 @@ public class ProductApiController {
             rv.put("comment",      r.getComment());
             rv.put("customerName", r.getCustomerName());
             return rv;
-        }).collect(Collectors.toList()));
+        }).toList());
 
         p.put("avgRating",    Math.round(avgRating * 10.0) / 10.0);
         p.put("reviewCount",  reviews.size());
@@ -120,7 +129,7 @@ public class ProductApiController {
             p.put("extraImages", List.of());
         }
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("product", p);
         return ResponseEntity.ok(res);
     }
@@ -135,9 +144,9 @@ public class ProductApiController {
                 .filter(c -> c != null && !c.isBlank())
                 .distinct()
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
 
-        res.put("success",    true);
+        res.put(K_SUCCESS,    true);
         res.put("categories", categories);
         return ResponseEntity.ok(res);
     }

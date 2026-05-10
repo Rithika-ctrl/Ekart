@@ -8,7 +8,6 @@ package com.example.ekart.config;
 //     toggle (and other JWT-protected delivery endpoints) work correctly.
 // ================================================================
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -23,12 +22,28 @@ import com.example.ekart.deprecation.ThymeleafDeprecationInterceptor;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Autowired private AuthGuard                  authGuard;
-    @Autowired private IndiaOnlyInterceptor        indiaOnlyInterceptor;
-    @Autowired private DeliveryBoyAuthGuard        deliveryBoyAuthGuard;
-    @Autowired private DeliveryJwtInterceptor      deliveryJwtInterceptor; // FIX: was missing
-    @Autowired(required = false)
-    private ThymeleafDeprecationInterceptor deprecationInterceptor;
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final AuthGuard authGuard;
+    private final IndiaOnlyInterceptor indiaOnlyInterceptor;
+    private final DeliveryBoyAuthGuard deliveryBoyAuthGuard;
+    private final DeliveryJwtInterceptor deliveryJwtInterceptor;
+    private final ThymeleafDeprecationInterceptor deprecationInterceptor;
+
+    public WebMvcConfig(
+            AuthGuard authGuard,
+            IndiaOnlyInterceptor indiaOnlyInterceptor,
+            DeliveryBoyAuthGuard deliveryBoyAuthGuard,
+            DeliveryJwtInterceptor deliveryJwtInterceptor,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            ThymeleafDeprecationInterceptor deprecationInterceptor) {
+        this.authGuard = authGuard;
+        this.indiaOnlyInterceptor = indiaOnlyInterceptor;
+        this.deliveryBoyAuthGuard = deliveryBoyAuthGuard;
+        this.deliveryJwtInterceptor = deliveryJwtInterceptor;
+        this.deprecationInterceptor = deprecationInterceptor;
+    }
+
+
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

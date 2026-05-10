@@ -3,19 +3,31 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.Review;
 import com.example.ekart.repository.ReviewRepository;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Controller
 public class AdminReviewController {
 
-    @Autowired
-    private ReviewRepository reviewRepository;
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_COUNT                             = "count";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_PLEASE_LOGIN_AS_ADMIN             = "Please login as admin";
+    private static final String K_REDIRECT_ADMIN_LOGIN              = "redirect:/admin/login";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ReviewRepository reviewRepository;
+
+    public AdminReviewController(
+            ReviewRepository reviewRepository) {
+        this.reviewRepository = reviewRepository;
+    }
+
+
 
     /**
      * GET /admin/reviews
@@ -28,9 +40,9 @@ public class AdminReviewController {
             HttpSession session,
             ModelMap map) {
 
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Please login as admin");
-            return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, K_PLEASE_LOGIN_AS_ADMIN);
+            return K_REDIRECT_ADMIN_LOGIN;
         }
 
         List<Review> allReviews = reviewRepository.findAll();
@@ -53,8 +65,8 @@ public class AdminReviewController {
                 int starFilter = Integer.parseInt(filter);
                 filtered = filtered.stream()
                         .filter(r -> r.getRating() == starFilter)
-                        .collect(Collectors.toList());
-            } catch (NumberFormatException ignored) {}
+                        .toList();
+            } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
         }
 
         // ── Search by customer name or comment ───────────────────────
@@ -64,7 +76,7 @@ public class AdminReviewController {
                     .filter(r -> (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q))
                               || (r.getComment() != null && r.getComment().toLowerCase().contains(q))
                               || (r.getProduct() != null && r.getProduct().getName().toLowerCase().contains(q)))
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // ── Sort newest first ─────────────────────────────────────────
@@ -90,7 +102,7 @@ public class AdminReviewController {
         for (Map.Entry<String, long[]> entry : productStats.entrySet()) {
             Map<String, Object> stat = new LinkedHashMap<>();
             stat.put("productName", entry.getKey());
-            stat.put("count", entry.getValue()[0]);
+            stat.put(K_COUNT, entry.getValue()[0]);
             double pAvg = entry.getValue()[0] > 0
                     ? Math.round((entry.getValue()[1] / (double) entry.getValue()[0]) * 10.0) / 10.0
                     : 0.0;
@@ -98,7 +110,7 @@ public class AdminReviewController {
             productReviewStats.add(stat);
         }
         // Sort by most reviewed
-        productReviewStats.sort((a, b) -> Long.compare((long) b.get("count"), (long) a.get("count")));
+        productReviewStats.sort((a, b) -> Long.compare((long) b.get(K_COUNT), (long) a.get(K_COUNT)));
 
         // ── Percent widths for star distribution bar ─────────────────
         int total = allReviews.size();
@@ -130,15 +142,15 @@ public class AdminReviewController {
      */
     @GetMapping("/admin/delete-review/{id}")
     public String deleteReview(@PathVariable int id, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Please login as admin");
-            return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, K_PLEASE_LOGIN_AS_ADMIN);
+            return K_REDIRECT_ADMIN_LOGIN;
         }
         try {
             reviewRepository.deleteById(id);
             session.setAttribute("success", "Review deleted successfully");
         } catch (Exception e) {
-            session.setAttribute("failure", "Could not delete review: " + e.getMessage());
+            session.setAttribute(K_FAILURE, "Could not delete review: " + e.getMessage());
         }
         return "redirect:/admin/reviews";
     }
@@ -149,19 +161,19 @@ public class AdminReviewController {
      */
     @PostMapping("/admin/bulk-delete-reviews")
     public String bulkDeleteReviews(@RequestParam String productName, HttpSession session) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Please login as admin");
-            return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, K_PLEASE_LOGIN_AS_ADMIN);
+            return K_REDIRECT_ADMIN_LOGIN;
         }
         try {
             List<Review> toDelete = reviewRepository.findAll().stream()
                     .filter(r -> r.getProduct() != null
                               && r.getProduct().getName().equalsIgnoreCase(productName))
-                    .collect(Collectors.toList());
+                    .toList();
             reviewRepository.deleteAll(toDelete);
             session.setAttribute("success", "Deleted " + toDelete.size() + " reviews for \"" + productName + "\"");
         } catch (Exception e) {
-            session.setAttribute("failure", "Bulk delete failed: " + e.getMessage());
+            session.setAttribute(K_FAILURE, "Bulk delete failed: " + e.getMessage());
         }
         return "redirect:/admin/reviews";
     }

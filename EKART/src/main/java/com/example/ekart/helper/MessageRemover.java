@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpSession;
 
 @Component
 public class MessageRemover {
+    private static final String K_FAILURE = "failure";
 
     public String remove() {
         try {
@@ -21,10 +22,11 @@ public class MessageRemover {
             if (session == null) return "";
 
             session.removeAttribute("success");
-            session.removeAttribute("failure");
+            session.removeAttribute(K_FAILURE);
 
         } catch (Exception e) {
-            // silently ignore — never let this crash a page
+            // Non-critical session attribute removal — suppressed to prevent page crashes
+            if (e.getMessage() != null) { org.slf4j.LoggerFactory.getLogger(MessageRemover.class).trace("Session cleanup error: {}", e.getMessage()); }
         }
         return "";
     }

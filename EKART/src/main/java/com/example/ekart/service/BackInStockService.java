@@ -1,4 +1,6 @@
 package com.example.ekart.service;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.BackInStockSubscription;
 import com.example.ekart.dto.Customer;
@@ -9,24 +11,46 @@ import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.ProductRepository;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @Transactional
 public class BackInStockService {
 
-    @Autowired private BackInStockRepository backInStockRepository;
-    @Autowired private ProductRepository     productRepository;
-    @Autowired private CustomerRepository    customerRepository;
-    @Autowired private EmailSender           emailSender;
-    @Autowired private com.example.ekart.helper.JwtUtil jwtUtil;
+    // ── S1192 String constants ──
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_SUBSCRIBED                        = "subscribed";
+    private static final String K_SUCCESS                           = "success";
+
+    private static final Logger log = LoggerFactory.getLogger(BackInStockService.class);
+
+
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final BackInStockRepository backInStockRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final EmailSender emailSender;
+    private final com.example.ekart.helper.JwtUtil jwtUtil;
+
+    public BackInStockService(
+            BackInStockRepository backInStockRepository,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            EmailSender emailSender,
+            com.example.ekart.helper.JwtUtil jwtUtil) {
+        this.backInStockRepository = backInStockRepository;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.emailSender = emailSender;
+        this.jwtUtil = jwtUtil;
+    }
 
     // ── SUBSCRIBE ──────────────────────────────────────────────────────────
     /**
@@ -36,17 +60,17 @@ public class BackInStockService {
     public Map<String, Object> subscribe(int productId, HttpServletRequest request) {
         Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
-            return Map.of("success", false, "message", "Please log in to subscribe.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Please log in to subscribe.");
         }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            return Map.of("success", false, "message", "Product not found.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product not found.");
         }
 
         // If product is actually in stock, no need to subscribe
         if (product.getStock() > 0) {
-            return Map.of("success", false, "message", "Product is already in stock! Add it to your cart.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product is already in stock! Add it to your cart.");
         }
 
         // Fetch fresh customer from DB
@@ -61,9 +85,9 @@ public class BackInStockService {
             if (!sub.isNotified()) {
                 // Already has an active (unnotified) subscription
                 return Map.of(
-                    "success",    true,
-                    "subscribed", true,
-                    "message",    "You are already subscribed. We'll email you when it's back!"
+                    K_SUCCESS,    true,
+                    K_SUBSCRIBED, true,
+                    K_MESSAGE,    "You are already subscribed. We'll email you when it's back!"
                 );
             }
             // Previously notified — reuse the existing row by resetting it
@@ -72,9 +96,9 @@ public class BackInStockService {
             sub.setSubscribedAt(java.time.LocalDateTime.now());
             backInStockRepository.save(sub);
             return Map.of(
-                "success",    true,
-                "subscribed", true,
-                "message",    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
+                K_SUCCESS,    true,
+                K_SUBSCRIBED, true,
+                K_MESSAGE,    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
             );
         }
 
@@ -83,9 +107,9 @@ public class BackInStockService {
         backInStockRepository.save(sub);
 
         return Map.of(
-            "success",    true,
-            "subscribed", true,
-            "message",    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
+            K_SUCCESS,    true,
+            K_SUBSCRIBED, true,
+            K_MESSAGE,    "Done! We'll email you at " + customer.getEmail() + " when it's back in stock."
         );
     }
 
@@ -93,13 +117,13 @@ public class BackInStockService {
     public Map<String, Object> unsubscribe(int productId, HttpServletRequest request) {
         Customer sessionCustomer = resolveCustomer(request);
         if (sessionCustomer == null) {
-            return Map.of("success", false, "message", "Not logged in.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Not logged in.");
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(sessionCustomer);
         Product product   = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            return Map.of("success", false, "message", "Product not found.");
+            return Map.of(K_SUCCESS, false, K_MESSAGE, "Product not found.");
         }
 
         Optional<BackInStockSubscription> sub =
@@ -107,9 +131,9 @@ public class BackInStockService {
         sub.ifPresent(backInStockRepository::delete);
 
         return Map.of(
-            "success",    true,
-            "subscribed", false,
-            "message",    "Unsubscribed from back-in-stock notifications."
+            K_SUCCESS,    true,
+            K_SUBSCRIBED, false,
+            K_MESSAGE,    "Unsubscribed from back-in-stock notifications."
         );
     }
 
@@ -151,7 +175,7 @@ public class BackInStockService {
                         int cid = jwtUtil.getCustomerId(token);
                         return customerRepository.findById(cid).orElse(null);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) { /* invalid or expired JWT — skip token auth, try next method */ }
             }
 
             // 3) X-Customer-Id header (fallback)
@@ -160,7 +184,7 @@ public class BackInStockService {
                 try {
                     int cid = Integer.parseInt(xcid);
                     return customerRepository.findById(cid).orElse(null);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) { /* non-numeric customer ID header — treat as unauthenticated */ }
             }
         }
         return null;
@@ -185,12 +209,10 @@ public class BackInStockService {
                 sub.setNotifiedAt(LocalDateTime.now());
                 backInStockRepository.save(sub);
             } catch (Exception e) {
-                System.err.println("[BackInStock] Failed to notify customer "
-                        + sub.getCustomer().getEmail() + ": " + e.getMessage());
+                log.error("[BackInStock] Failed to notify customer {}: {}", sub.getCustomer().getEmail(), e.getMessage());
             }
         }
-        System.out.println("[BackInStock] Notified " + subs.size()
-                + " subscriber(s) for product: " + product.getName());
+        log.info("[BackInStock] Notified {} subscriber(s) for product: {}", subs.size(), product.getName());
     }
 
     // ── SUBSCRIBER COUNT (for vendor/admin info) ────────────────────────────

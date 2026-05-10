@@ -1,9 +1,8 @@
 package com.example.ekart.config;
-
-import java.io.IOException;
 import java.time.LocalDateTime;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.io.IOException;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -25,8 +24,8 @@ import jakarta.servlet.http.HttpSession;
  * Handles successful OAuth2 authentication.
  *
  * login_type values stored in session by OAuth2Controller:
- *   "customer"         → Thymeleaf web flow, redirect to /customer/home
- *   "vendor"           → Thymeleaf web flow, redirect to /vendor/home
+ *   K_CUSTOMER         → Thymeleaf web flow, redirect to /customer/home
+ *   K_VENDOR           → Thymeleaf web flow, redirect to /vendor/home
  *   "flutter-customer" → React app flow, redirect to React /oauth2/callback with data in query params
  *   "flutter-vendor"   → React app flow, redirect to React /oauth2/callback with data in query params
  *
@@ -39,20 +38,40 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    @Autowired
-    private SocialAuthService socialAuthService;
+    // ── S1192 String constants ──
+    private static final String K_INSTAGRAM                         = "instagram";
+    private static final String K_CUSTOMER                         = "customer";
+    private static final String K_NAME                              = "name";
+    private static final String K_VENDOR                            = "vendor";
 
-    @Autowired
-    private CustomerRepository customerRepository;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+
 
     /**
      * React dev-server origin for the flutter OAuth callback redirect.
      * In production, change this to wherever the React build is served.
      */
     private static final String REACT_ORIGIN = "http://localhost:3000";
+    public static final String KEY_OAUTH_LOGIN_TYPE = "oauth_login_type";
+    private static final String PROVIDER_GOOGLE = "google";
+    private static final String PROVIDER_GITHUB = "github";
+    private static final String PROVIDER_FACEBOOK = "facebook";
+    private static final String K_FAILURE = "failure";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SocialAuthService socialAuthService;
+    private final CustomerRepository customerRepository;
+    private final JwtUtil jwtUtil;
+
+    public OAuth2LoginSuccessHandler(
+            SocialAuthService socialAuthService,
+            CustomerRepository customerRepository,
+            JwtUtil jwtUtil) {
+        this.socialAuthService = socialAuthService;
+        this.customerRepository = customerRepository;
+        this.jwtUtil = jwtUtil;
+    }
+
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -66,8 +85,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
 
         HttpSession session  = request.getSession();
-        String loginType     = (String) session.getAttribute("oauth_login_type");
-        if (loginType == null) loginType = "customer";
+        String loginType     = (String) session.getAttribute(KEY_OAUTH_LOGIN_TYPE);
+        if (loginType == null) loginType = K_CUSTOMER;
 
         String name          = extractName(oAuth2User, provider);
         String pid           = extractProviderId(oAuth2User, provider);
@@ -78,7 +97,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             // Handle linking flows first (before removing attribute)
             if ("flutter-link-customer".equals(loginType)) {
                 Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
-                session.removeAttribute("oauth_login_type");
+                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
                 session.removeAttribute("oauth_link_customer_id");
                 if (linkId != null) {
                     socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
@@ -88,7 +107,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             }
             if ("flutter-link-vendor".equals(loginType)) {
                 Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
-                session.removeAttribute("oauth_login_type");
+                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
                 session.removeAttribute("oauth_link_vendor_id");
                 if (linkId != null) {
                     socialAuthService.linkOAuthToVendor(linkId, provider, pid);
@@ -97,7 +116,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            session.removeAttribute("oauth_login_type");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
 
             if ("flutter-vendor".equals(loginType)) {
                 Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
@@ -131,27 +150,27 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
 
         // ── Thymeleaf / web flows (unchanged) ────────────────────────────────
-        if ("vendor".equals(loginType)) {
+        if (K_VENDOR.equals(loginType)) {
             Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
-            session.setAttribute("vendor", v);
+            session.setAttribute(K_VENDOR, v);
             session.setAttribute("success", "Login Successful via " + providerDisplay);
-            session.removeAttribute("oauth_login_type");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/vendor/home");
             return;
         }
 
         Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
         if (!c.isActive()) {
-            session.setAttribute("failure", "Your account has been suspended.");
-            session.removeAttribute("oauth_login_type");
+            session.setAttribute(K_FAILURE, "Your account has been suspended.");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/customer/login");
             return;
         }
         c.setLastLogin(LocalDateTime.now());
         customerRepository.save(c);
-        session.setAttribute("customer", c);
+        session.setAttribute(K_CUSTOMER, c);
         session.setAttribute("success", "Login Successful via " + providerDisplay);
-        session.removeAttribute("oauth_login_type");
+        session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
         response.sendRedirect("/customer/home");
     }
 
@@ -163,26 +182,26 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String getProviderDisplayName(String provider) {
         return switch (provider.toLowerCase()) {
-            case "google"    -> "Google";
-            case "github"    -> "GitHub";
-            case "facebook"  -> "Facebook";
-            case "instagram" -> "Instagram";
+            case PROVIDER_GOOGLE   -> "Google";
+            case PROVIDER_GITHUB   -> "GitHub";
+            case PROVIDER_FACEBOOK -> "Facebook";
+            case K_INSTAGRAM -> "Instagram";
             default          -> "Social Login";
         };
     }
 
     private String extractProviderId(OAuth2User u, String provider) {
         return switch (provider.toLowerCase()) {
-            case "google" -> u.getAttribute("sub");
-            case "github" -> {
+            case PROVIDER_GOOGLE -> u.getAttribute("sub");
+            case PROVIDER_GITHUB -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
-            case "facebook" -> {
+            case PROVIDER_FACEBOOK -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
-            case "instagram" -> {
+            case K_INSTAGRAM -> {
                 Object id = u.getAttribute("id");
                 yield id != null ? id.toString() : null;
             }
@@ -192,19 +211,19 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private String extractName(OAuth2User u, String provider) {
         return switch (provider.toLowerCase()) {
-            case "google"   -> u.getAttribute("name");
-            case "github"   -> {
-                String n = u.getAttribute("name");
+            case PROVIDER_GOOGLE   -> u.getAttribute(K_NAME);
+            case PROVIDER_GITHUB   -> {
+                String n = u.getAttribute(K_NAME);
                 if (n == null || n.isEmpty()) n = u.getAttribute("login");
                 yield n;
             }
-            case "facebook" -> u.getAttribute("name");
-            case "instagram" -> {
+            case PROVIDER_FACEBOOK -> u.getAttribute(K_NAME);
+            case K_INSTAGRAM -> {
                 String name = u.getAttribute("username");
-                if (name == null || name.isEmpty()) name = u.getAttribute("name");
+                if (name == null || name.isEmpty()) name = u.getAttribute(K_NAME);
                 yield name;
             }
-            default         -> u.getAttribute("name");
+            default         -> u.getAttribute(K_NAME);
         };
     }
 }

@@ -1,5 +1,4 @@
 package com.example.ekart.dto;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,11 +43,11 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(nullable = true, length = 100)
-    private String razorpay_payment_id;
+    @Column(name = "razorpay_payment_id", nullable = true, length = 100)
+    private String razorpayPaymentId;
 
-    @Column(nullable = true, length = 100)
-    private String razorpay_order_id;
+    @Column(name = "razorpay_order_id", nullable = true, length = 100)
+    private String razorpayOrderId;
 
     @Column(columnDefinition = "FLOAT8 DEFAULT 0")
     private double amount = 0;
@@ -240,6 +239,21 @@ public class Order {
     @Column(name = "in_intermediate_hub", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean inIntermediateHub = false;
 
+    // ─── DELIVERY OTP FOR ORDER CONFIRMATION ──────────────────────
+
+    /**
+     * 6-digit OTP sent to customer when delivery boy is assigned.
+     * Customer must provide this OTP to delivery boy for confirmation.
+     */
+    @Column(name = "delivery_otp", length = 10, nullable = true)
+    private String deliveryOtp;
+
+    /**
+     * Flag indicating if delivery OTP has been verified by customer.
+     */
+    @Column(name = "delivery_otp_verified", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean deliveryOtpVerified = false;
+
     // ─── Getters & Setters ────────────────────────────────────────
 
     public int getId() { return id; }
@@ -248,11 +262,11 @@ public class Order {
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
 
-    public String getRazorpay_payment_id() { return razorpay_payment_id; }
-    public void setRazorpay_payment_id(String razorpay_payment_id) { this.razorpay_payment_id = razorpay_payment_id; }
+    public String getRazorpayPaymentId() { return razorpayPaymentId; }
+    public void setRazorpayPaymentId(String razorpayPaymentId) { this.razorpayPaymentId = razorpayPaymentId; }
 
-    public String getRazorpay_order_id() { return razorpay_order_id; }
-    public void setRazorpay_order_id(String razorpay_order_id) { this.razorpay_order_id = razorpay_order_id; }
+    public String getRazorpayOrderId() { return razorpayOrderId; }
+    public void setRazorpayOrderId(String razorpayOrderId) { this.razorpayOrderId = razorpayOrderId; }
 
     public double getAmount() { return amount; }
     public void setAmount(double amount) { this.amount = amount; }
@@ -354,4 +368,10 @@ public class Order {
 
     public boolean isInIntermediateHub() { return inIntermediateHub; }
     public void setInIntermediateHub(boolean inIntermediateHub) { this.inIntermediateHub = inIntermediateHub; }
+
+    public String getDeliveryOtp() { return deliveryOtp; }
+    public void setDeliveryOtp(String deliveryOtp) { this.deliveryOtp = deliveryOtp; }
+
+    public boolean isDeliveryOtpVerified() { return deliveryOtpVerified; }
+    public void setDeliveryOtpVerified(boolean deliveryOtpVerified) { this.deliveryOtpVerified = deliveryOtpVerified; }
 }

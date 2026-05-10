@@ -1,6 +1,7 @@
 package com.example.ekart.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,16 +12,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-// import java.util.Optional; // unused
 
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class GenericReadOnlyController {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GenericReadOnlyController.class);
+
+
     private final Map<String, JpaRepository<?, ?>> repositories;
 
-    @Autowired
     public GenericReadOnlyController(Map<String, JpaRepository<?, ?>> repositories) {
         this.repositories = repositories;
     }
@@ -34,19 +36,20 @@ public class GenericReadOnlyController {
             }
             // try interface simple name (proxy classes may implement repository interface)
             try {
-                Class<?>[] interfaces = e.getValue().getClass().getInterfaces();
+                Class[] interfaces = e.getValue().getClass().getInterfaces();
                 if (interfaces != null && interfaces.length > 0) {
                     String iface = interfaces[0].getSimpleName().toLowerCase();
                     if (iface.equals(lower) || iface.equals(lower + "repository")) return e.getValue();
                 }
             } catch (Exception ignored) {
+                LOGGER.trace("Interface lookup failed, trying next: {}", ignored.getMessage());
             }
         }
         return null;
     }
 
     @GetMapping("/{entity}")
-    public ResponseEntity<?> list(@PathVariable String entity) {
+    public ResponseEntity<Object> list(@PathVariable String entity) {
         JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         return ResponseEntity.ok(repo.findAll());
@@ -54,13 +57,13 @@ public class GenericReadOnlyController {
 
     @GetMapping("/{entity}/{id}")
     @SuppressWarnings("ALL")
-    public ResponseEntity<?> getOne(@PathVariable String entity, @PathVariable String id) {
+    public ResponseEntity<Object> getOne(@PathVariable String entity, @PathVariable String id) {
         JpaRepository<?, ?> repo = findRepo(entity);
         if (repo == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Repository not found: " + entity);
         Object key = parseId(id);
         try {
             // Use raw type to avoid generic type mismatch warnings
-            @SuppressWarnings("rawtypes")  
+            @SuppressWarnings("rawtypes")
             JpaRepository rawRepo = repo;
             //noinspection unchecked
             @SuppressWarnings("unchecked")
@@ -77,20 +80,21 @@ public class GenericReadOnlyController {
                 Object result = rawRepo.findById(altKey).orElse(null);
                 if (result != null) return ResponseEntity.ok(result);
             } catch (Exception ignored2) {
+                LOGGER.trace("Alt key type lookup failed: {}", ignored2.getMessage());
             }
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not found");
     }
 
     private Object parseId(String id) {
-        try { return Long.valueOf(id); } catch (Exception ignored) {}
-        try { return Integer.valueOf(id); } catch (Exception ignored) {}
+        try { return Long.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
+        try { return Integer.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         return id;
     }
 
     private Object tryOtherIdTypes(String id) {
-        try { return Integer.valueOf(id); } catch (Exception ignored) {}
-        try { return Long.valueOf(id); } catch (Exception ignored) {}
+        try { return Integer.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
+        try { return Long.valueOf(id); } catch (Exception ignored) { /* optional field — use default if missing or malformed */ }
         return id;
     }
 }

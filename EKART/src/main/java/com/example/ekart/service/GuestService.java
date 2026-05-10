@@ -3,7 +3,6 @@ package com.example.ekart.service;
 import java.util.HashSet;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -15,8 +14,17 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class GuestService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    private static final String K_PRODUCTS = "products";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+
+    public GuestService(
+            ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+
 
     // ── Start a guest session ──────────────────────────────────────────────────
     public String startGuestSession(HttpSession session) {
@@ -39,7 +47,7 @@ public class GuestService {
         session.setAttribute("guest", true);
 
         List<Product> products = productRepository.findByApprovedTrue();
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         return "guest-browse.html";
     }
 
@@ -56,7 +64,7 @@ public class GuestService {
             products.addAll(productRepository.findByApprovedTrue());
         }
 
-        map.put("products", products);
+        map.put(K_PRODUCTS, products);
         map.put("query", query);
         map.put("isGuest", true);
         return "guest-browse.html";

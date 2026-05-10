@@ -1,13 +1,12 @@
 package com.example.ekart.service;
 
+import java.time.LocalDateTime;
+
 import com.example.ekart.dto.AdminCredential;
 import com.example.ekart.repository.AdminCredentialRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 /**
  * Secure bootstrap service for initial admin account creation.
@@ -28,13 +27,18 @@ import java.util.Optional;
 @Transactional
 public class AdminBootstrapService {
 
-    @Autowired
-    private AdminCredentialRepository adminCredentialRepository;
-
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final int MAX_PASSWORD_LENGTH = 128;
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminCredentialRepository adminCredentialRepository;
+
+    public AdminBootstrapService(
+            AdminCredentialRepository adminCredentialRepository) {
+        this.adminCredentialRepository = adminCredentialRepository;
+    }
 
     /**
      * Create initial admin account from environment variables.

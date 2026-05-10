@@ -1,11 +1,14 @@
 package com.example.ekart.helper;
+import org.springframework.beans.factory.annotation.Value;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -34,6 +37,12 @@ import java.util.Date;
 @Component
 public class DeliveryRefreshTokenUtil {
 
+    private static final String K_EMAIL = "email";
+    private static final String K_TYPE  = "type";
+
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeliveryRefreshTokenUtil.class);
+
     @Value("${jwt.secret}")
     private String secretValue;
 
@@ -54,11 +63,13 @@ public class DeliveryRefreshTokenUtil {
 
         if ((environment.contains("prod") || environment.contains("production")) &&
             SECRET.equals(DEV_DEFAULT)) {
-            System.err.println("\n" +
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║\n" +
-                "║ Delivery token refresh tokens cannot be securely signed.        ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝\n");
+            LOGGER.error("""
+
+                ╔════════════════════════════════════════════════════════════════╗
+                ║ ⚠️  SECURITY ALERT: JWT SECRET NOT SET FOR PRODUCTION!          ║
+                ║ Delivery token refresh tokens cannot be securely signed.        ║
+                ╚════════════════════════════════════════════════════════════════╝
+                """);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
                 "random value in production. Generate with: openssl rand -base64 32"
@@ -89,8 +100,8 @@ public class DeliveryRefreshTokenUtil {
     private String generateAccessToken(int deliveryBoyId, String email) {
         return Jwts.builder()
                 .setSubject(String.valueOf(deliveryBoyId))
-                .claim("email", email)
-                .claim("type", "access")
+                .claim(K_EMAIL, email)
+                .claim(K_TYPE, "access")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRY_MS))
                 .signWith(getKey(), SignatureAlgorithm.HS256)
@@ -103,8 +114,8 @@ public class DeliveryRefreshTokenUtil {
     private String generateRefreshToken(int deliveryBoyId, String email) {
         return Jwts.builder()
                 .setSubject(String.valueOf(deliveryBoyId))
-                .claim("email", email)
-                .claim("type", "refresh")
+                .claim(K_EMAIL, email)
+                .claim(K_TYPE, "refresh")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRY_MS))
                 .signWith(getKey(), SignatureAlgorithm.HS256)
@@ -125,7 +136,7 @@ public class DeliveryRefreshTokenUtil {
 
         Claims claims = getClaims(refreshToken);
         int deliveryBoyId = Integer.parseInt(claims.getSubject());
-        String email = (String) claims.get("email");
+        String email = (String) claims.get(K_EMAIL);
 
         return generateAccessToken(deliveryBoyId, email);
     }
@@ -141,7 +152,7 @@ public class DeliveryRefreshTokenUtil {
      * Extract email from access token.
      */
     public String getEmail(String token) {
-        return (String) getClaims(token).get("email");
+        return (String) getClaims(token).get(K_EMAIL);
     }
 
     /**
@@ -150,7 +161,7 @@ public class DeliveryRefreshTokenUtil {
     public boolean isValidAccessToken(String token) {
         try {
             Claims claims = getClaims(token);
-            String type = (String) claims.get("type");
+            String type = (String) claims.get(K_TYPE);
             return "access".equals(type);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
@@ -163,7 +174,7 @@ public class DeliveryRefreshTokenUtil {
     public boolean isValidRefreshToken(String token) {
         try {
             Claims claims = getClaims(token);
-            String type = (String) claims.get("type");
+            String type = (String) claims.get(K_TYPE);
             return "refresh".equals(type);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
@@ -212,9 +223,9 @@ public class DeliveryRefreshTokenUtil {
      * DTO for returning token pair from login.
      */
     public static class DeliveryTokenPair {
-        public String accessToken;
-        public String refreshToken;
-        public long expiresIn; // milliseconds
+        private String accessToken;
+        private String refreshToken;
+        private long expiresIn; // milliseconds
 
         public DeliveryTokenPair(String accessToken, String refreshToken) {
             this.accessToken = accessToken;

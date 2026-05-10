@@ -1,6 +1,5 @@
 package com.example.ekart.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,8 +14,15 @@ import java.util.Map;
 @RestController
 public class DbHealthController {
 
-    @Autowired
-    private DataSource dataSource;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final DataSource dataSource;
+
+    public DbHealthController(
+            DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+
 
     @GetMapping("/health/db")
     public ResponseEntity<Map<String, Object>> dbHealth() {

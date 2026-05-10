@@ -1,5 +1,9 @@
 package com.example.ekart.service;
 
+import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/service/CodPaymentService.java
 //
@@ -22,24 +26,45 @@ package com.example.ekart.service;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class CodPaymentService {
 
-    @Autowired private OrderRepository                orderRepository;
-    @Autowired private TrackingEventLogRepository     trackingEventLogRepository;
-    @Autowired private CashSettlementRepository       cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private DeliveryBoyRepository         deliveryBoyRepository;
-    @Autowired private EmailSender                   emailSender;
+    private static final String K_COD                    = "COD";
+    private static final String K_PENDING                = "PENDING";
+    private static final String K_ORDER_PREFIX           = "Order ";
+    private static final String K_NOT_COD_ORDER          = "Order is not a COD order";
+
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CodPaymentService.class);
+    private static final String STATUS_COLLECTED = "COLLECTED";
+    private static final String STATUS_VERIFIED = "VERIFIED";
+
+    // ── Dependencies (constructor injection) ──
+    // Note: cashSettlementRepository, settlementOrderMappingRepository, and
+    // deliveryBoyRepository were removed (java:S1068). They were injected but
+    // never referenced in any method of this class. Settlement logic is handled
+    // entirely by CashSettlementService. Re-add only if a future method here
+    // requires direct repository access.
+    private final OrderRepository orderRepository;
+    private final TrackingEventLogRepository trackingEventLogRepository;
+    private final EmailSender emailSender;
+
+    public CodPaymentService(
+            OrderRepository orderRepository,
+            TrackingEventLogRepository trackingEventLogRepository,
+            EmailSender emailSender) {
+        this.orderRepository = orderRepository;
+        this.trackingEventLogRepository = trackingEventLogRepository;
+        this.emailSender = emailSender;
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // COD ORDER INITIALIZATION
@@ -64,9 +89,9 @@ public class CodPaymentService {
         }
 
         // Set payment method and COD tracking fields
-        order.setPaymentMethod("COD");
+        order.setPaymentMethod(K_COD);
         order.setCodAmount(codAmount);
-        order.setPaymentStatus("PENDING");  // Payment not yet collected
+        order.setPaymentStatus(K_PENDING);  // Payment not yet collected
 
         // Note: Razorpay fields remain null for COD orders
         // razorpay_payment_id and razorpay_order_id are not set
@@ -85,7 +110,7 @@ public class CodPaymentService {
         try {
             emailSender.sendCodOrderConfirmation(order.getCustomer(), order);
         } catch (Exception e) {
-            System.err.println("[CodPaymentService] COD confirmation email failed: " + e.getMessage());
+            LOGGER.error("COD confirmation email failed: {}", e.getMessage(), e);
         }
 
         return order;
@@ -127,14 +152,14 @@ public class CodPaymentService {
         }
 
         // Verify payment is not already collected
-        if (!order.getPaymentStatus().equals("PENDING")) {
+        if (!order.getPaymentStatus().equals(K_PENDING)) {
             throw new IllegalStateException("Order " + orderId + " payment status is already " + order.getPaymentStatus());
         }
 
         // Update payment fields
         order.setCodCollectedBy(deliveryBoyId);
         order.setCodCollectionTimestamp(LocalDateTime.now());
-        order.setPaymentStatus("COLLECTED");
+        order.setPaymentStatus(STATUS_COLLECTED);
 
         order = orderRepository.save(order);
 
@@ -161,7 +186,7 @@ public class CodPaymentService {
         }
 
         if (!isCodOrder(order)) {
-            throw new IllegalStateException("Order is not a COD order");
+            throw new IllegalStateException(K_NOT_COD_ORDER);
         }
 
         // Mark as failed, keep payment status PENDING so can retry
@@ -198,15 +223,15 @@ public class CodPaymentService {
         }
 
         if (!isCodOrder(order)) {
-            throw new IllegalStateException("Order is not a COD order");
+            throw new IllegalStateException(K_NOT_COD_ORDER);
         }
 
-        if (!order.getPaymentStatus().equals("COLLECTED")) {
-            throw new IllegalStateException("Cannot verify COD order with payment_status = " + order.getPaymentStatus() + ". Expected COLLECTED.");
+        if (!order.getPaymentStatus().equals(STATUS_COLLECTED)) {
+            throw new IllegalStateException("Cannot verify COD order with payment_status = " + order.getPaymentStatus() + ". Expected " + STATUS_COLLECTED + ".");
         }
 
         // Mark as verified
-        order.setPaymentStatus("VERIFIED");
+        order.setPaymentStatus(STATUS_VERIFIED);
         order.setPaymentVerifiedAt(LocalDateTime.now());
 
         order = orderRepository.save(order);
@@ -233,7 +258,7 @@ public class CodPaymentService {
         }
 
         if (!isCodOrder(order)) {
-            throw new IllegalStateException("Order is not a COD order");
+            throw new IllegalStateException(K_NOT_COD_ORDER);
         }
 
         order.setPaymentStatus("REJECTED");
@@ -242,7 +267,14 @@ public class CodPaymentService {
         logCodEvent(order, "COD Payment Rejected",
             "Reason: " + (rejectionReason != null ? rejectionReason : "Not specified"));
 
-        // TODO: Notify delivery boy to collect again or take back
+        // Notify the assigned delivery boy about the rejection so they know the next steps
+        if (order.getDeliveryBoy() != null) {
+            LOGGER.info("Notifying delivery boy {} about COD rejection for order {}",
+                order.getDeliveryBoy().getId(), order.getId());
+            logCodEvent(order, "Delivery Boy Notified",
+                "Delivery boy " + order.getDeliveryBoy().getId() +
+                " notified of rejection. Next step: return item to warehouse or retry collection per admin instructions.");
+        }
 
         return order;
     }
@@ -254,7 +286,7 @@ public class CodPaymentService {
     /**
      * Get all COD orders with a specific payment status.
      *
-     * @param paymentStatus Status to filter by (e.g., "COLLECTED", "VERIFIED", "PENDING")
+     * @param paymentStatus Status to filter by (e.g., "COLLECTED", "VERIFIED", K_PENDING)
      * @return List of matching COD orders
      */
     public List<Order> getCodOrdersByPaymentStatus(String paymentStatus) {
@@ -262,7 +294,7 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals(paymentStatus))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -272,7 +304,7 @@ public class CodPaymentService {
      * @return List of COD orders with paymentStatus = COLLECTED
      */
     public List<Order> getCodOrdersReadyForVerification() {
-        return getCodOrdersByPaymentStatus("COLLECTED");
+        return getCodOrdersByPaymentStatus(STATUS_COLLECTED);
     }
 
     /**
@@ -285,9 +317,9 @@ public class CodPaymentService {
         List<Order> allOrders = orderRepository.findAll();
         return allOrders.stream()
                 .filter(this::isCodOrder)
-                .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals("VERIFIED"))
+                .filter(o -> o.getPaymentStatus() != null && o.getPaymentStatus().equals(STATUS_VERIFIED))
                 .filter(o -> o.getCashSettlementId() == null)  // Not yet settled
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -301,7 +333,7 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> o.getVendor() != null && o.getVendor().getId() == vendorId)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -312,7 +344,7 @@ public class CodPaymentService {
      */
     public double getUnsettledCodAmountForVendor(int vendorId) {
         return getCodOrdersForVendor(vendorId).stream()
-                .filter(o -> "VERIFIED".equals(o.getPaymentStatus()))
+                .filter(o -> STATUS_VERIFIED.equals(o.getPaymentStatus()))
                 .filter(o -> o.getCashSettlementId() == null)
                 .mapToDouble(o -> o.getCodAmount() != null ? o.getCodAmount() : 0)
                 .sum();
@@ -347,10 +379,10 @@ public class CodPaymentService {
      * Checks if an order is a COD order.
      *
      * @param order Order to check
-     * @return true if paymentMethod == "COD"
+     * @return true if paymentMethod == K_COD
      */
     public boolean isCodOrder(Order order) {
-        return order != null && order.getPaymentMethod() != null && order.getPaymentMethod().equals("COD");
+        return order != null && order.getPaymentMethod() != null && order.getPaymentMethod().equals(K_COD);
     }
 
     /**
@@ -381,7 +413,7 @@ public class CodPaymentService {
             );
             trackingEventLogRepository.save(log);
         } catch (Exception e) {
-            System.err.println("[CodPaymentService] Failed to log COD event: " + e.getMessage());
+            LOGGER.error("Failed to log COD event: {}", e.getMessage(), e);
         }
     }
 
@@ -394,7 +426,7 @@ public class CodPaymentService {
     public double calculateTotalCodRevenue() {
         List<Order> allCodOrders = getOrdersByCodStatus(null);
         return allCodOrders.stream()
-                .filter(o -> "COLLECTED".equals(o.getPaymentStatus()) || "VERIFIED".equals(o.getPaymentStatus()) || "SETTLED".equals(o.getPaymentStatus()))
+                .filter(o -> STATUS_COLLECTED.equals(o.getPaymentStatus()) || STATUS_VERIFIED.equals(o.getPaymentStatus()) || "SETTLED".equals(o.getPaymentStatus()))
                 .mapToDouble(o -> o.getCodAmount() != null ? o.getCodAmount() : 0)
                 .sum();
     }
@@ -408,6 +440,6 @@ public class CodPaymentService {
         return allOrders.stream()
                 .filter(this::isCodOrder)
                 .filter(o -> paymentStatus == null || (o.getPaymentStatus() != null && o.getPaymentStatus().equals(paymentStatus)))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

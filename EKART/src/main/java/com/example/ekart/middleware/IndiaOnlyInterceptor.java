@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -34,6 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class IndiaOnlyInterceptor implements HandlerInterceptor {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IndiaOnlyInterceptor.class);
 
     // Simple in-memory IP → isIndia cache (resets on restart — fine for a project)
     private static final ConcurrentHashMap<String, Boolean> IP_CACHE = new ConcurrentHashMap<>();
@@ -74,7 +78,7 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
         // Check cache first
         Boolean cachedResult = IP_CACHE.get(ip);
         if (cachedResult != null) {
-            if (!cachedResult) {
+            if (!cachedResult.booleanValue()) {
                 sendBlocked(response, request);
                 return false;
             }
@@ -93,6 +97,15 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Strips newline and carriage-return characters from an IP string before logging
+     * to prevent log-injection attacks (javasecurity:S5145).
+     */
+    private static String sanitizeIpForLog(String ip) {
+        if (ip == null) return "null";
+        return ip.replaceAll("[\r\n]", "_");
+    }
 
     /**
      * Extract the real client IP, honouring X-Forwarded-For set by Railway/nginx.
@@ -160,7 +173,9 @@ public class IndiaOnlyInterceptor implements HandlerInterceptor {
                 return !body.contains("\"countryCode\":\"") || body.contains("\"countryCode\":\"IN\"");
             }
         } catch (IOException e) {
-            System.err.println("[IndiaOnlyInterceptor] IP lookup failed for " + ip + ": " + e.getMessage());
+            // Sanitize ip before logging to prevent log injection (javasecurity:S5145)
+            String safeIp = sanitizeIpForLog(ip);
+            LOGGER.error("IP lookup failed for {}: {}", safeIp, e.getMessage(), e);
             return true; // fail-open on any error
         }
     }

@@ -1,18 +1,18 @@
 package com.example.ekart.controller;
 
+import java.time.LocalDateTime;
+import java.util.*;
+
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.JwtUtil;
 import com.example.ekart.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ⚠️ DEPRECATED — DO NOT USE THIS CONTROLLER
@@ -57,12 +57,42 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class CartOrderApiController {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private OrderRepository    orderRepository;
-    @Autowired private ItemRepository     itemRepository;
-    @Autowired private JwtUtil            jwtUtil;
-    @Autowired private EmailSender        emailSender;
+    // ── S1192 String constants ──
+    private static final String K_AUTHORIZATION                     = "Authorization";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_PRICE                             = "price";
+    private static final String K_QUANTITY                          = "quantity";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_TOTAL                             = "total";
+    private static final String K_ORDERS                            = "orders";
+    private static final String MSG_PRODUCT_NOT_FOUND               = "Product not found";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CartOrderApiController.class);
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
+    private final JwtUtil jwtUtil;
+    private final EmailSender emailSender;
+
+    public CartOrderApiController(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            ItemRepository itemRepository,
+            JwtUtil jwtUtil,
+            EmailSender emailSender) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.jwtUtil = jwtUtil;
+        this.emailSender = emailSender;
+    }
+
+
 
     // ══════════════════════════════════════════════════════════
     //  CART
@@ -71,7 +101,7 @@ public class CartOrderApiController {
     /** GET /api/cart */
     @GetMapping("/api/cart")
     public ResponseEntity<Map<String, Object>> getCart(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Customer customer = getCustomer(authHeader);
         Map<String, Object> res = new HashMap<>();
@@ -86,12 +116,12 @@ public class CartOrderApiController {
         double deliveryCharge = subtotal >= 500 ? 0 : 40;
         double total          = subtotal + deliveryCharge;
 
-        res.put("success",        true);
-        res.put("items",          items.stream().map(this::buildItemMap).collect(Collectors.toList()));
+        res.put(K_SUCCESS,        true);
+        res.put("items",          items.stream().map(this::buildItemMap).toList());
         res.put("itemCount",      items.size());
         res.put("subtotal",       subtotal);
         res.put("deliveryCharge", deliveryCharge);
-        res.put("total",          total);
+        res.put(K_TOTAL,          total);
         res.put("freeDelivery",   subtotal >= 500);
         return ResponseEntity.ok(res);
     }
@@ -101,7 +131,7 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> addToCart(
             @PathVariable int productId,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Customer customer = getCustomer(authHeader);
         Map<String, Object> res = new HashMap<>();
@@ -109,13 +139,13 @@ public class CartOrderApiController {
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null || !product.isApproved()) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, MSG_PRODUCT_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
         if (product.getStock() <= 0) {
-            res.put("success", false);
-            res.put("message", "Product is out of stock");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Product is out of stock");
             return ResponseEntity.status(400).body(res);
         }
 
@@ -131,8 +161,8 @@ public class CartOrderApiController {
                 item.setQuantity(newQty);
                 item.setPrice(unitPrice * newQty); // ✅ FIX: clean multiply, no drift
                 itemRepository.save(item);
-                res.put("success", true);
-                res.put("message", "Quantity increased");
+                res.put(K_SUCCESS, true);
+                res.put(K_MESSAGE, "Quantity increased");
                 res.put("cartCount", cartItems.size());
                 return ResponseEntity.ok(res);
             }
@@ -153,8 +183,8 @@ public class CartOrderApiController {
         customer.getCart().getItems().add(newItem);
         customerRepository.save(customer);
 
-        res.put("success",   true);
-        res.put("message",   "Added to cart");
+        res.put(K_SUCCESS,   true);
+        res.put(K_MESSAGE,   "Added to cart");
         res.put("cartCount", customer.getCart().getItems().size());
         return ResponseEntity.ok(res);
     }
@@ -164,7 +194,7 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> removeFromCart(
             @PathVariable int itemId,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Customer customer = getCustomer(authHeader);
         Map<String, Object> res = new HashMap<>();
@@ -176,8 +206,8 @@ public class CartOrderApiController {
         customerRepository.save(customer);
         itemRepository.deleteById(itemId);
 
-        res.put("success", true);
-        res.put("message", "Item removed");
+        res.put(K_SUCCESS, true);
+        res.put(K_MESSAGE, "Item removed");
         return ResponseEntity.ok(res);
     }
 
@@ -186,14 +216,14 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> increaseQty(
             @PathVariable int itemId,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
         Item item = itemRepository.findById(itemId).orElse(null);
-        if (item == null) { res.put("success", false); return ResponseEntity.status(404).body(res); }
+        if (item == null) { res.put(K_SUCCESS, false); return ResponseEntity.status(404).body(res); }
 
         // ✅ FIX: prefer stored unitPrice, fallback to product price
         double unitPrice = item.getUnitPrice() > 0
@@ -207,9 +237,9 @@ public class CartOrderApiController {
         item.setPrice(unitPrice * newQty); // ✅ FIX: exact multiply, no drift
         itemRepository.save(item);
 
-        res.put("success",  true);
-        res.put("quantity", item.getQuantity());
-        res.put("price",    item.getPrice());
+        res.put(K_SUCCESS,  true);
+        res.put(K_QUANTITY, item.getQuantity());
+        res.put(K_PRICE,    item.getPrice());
         return ResponseEntity.ok(res);
     }
 
@@ -218,14 +248,14 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> decreaseQty(
             @PathVariable int itemId,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
         Item item = itemRepository.findById(itemId).orElse(null);
-        if (item == null) { res.put("success", false); return ResponseEntity.status(404).body(res); }
+        if (item == null) { res.put(K_SUCCESS, false); return ResponseEntity.status(404).body(res); }
 
         if (item.getQuantity() <= 1) {
             // Remove item if qty reaches 0
@@ -233,7 +263,7 @@ public class CartOrderApiController {
             customer.getCart().getItems().removeIf(i -> i.getId() == itemId);
             customerRepository.save(customer);
             itemRepository.deleteById(itemId);
-            res.put("success", true);
+            res.put(K_SUCCESS, true);
             res.put("removed", true);
             return ResponseEntity.ok(res);
         }
@@ -249,10 +279,10 @@ public class CartOrderApiController {
         item.setPrice(unitPrice * newQty);
         itemRepository.save(item);
 
-        res.put("success",  true);
+        res.put(K_SUCCESS,  true);
         res.put("removed",  false);
-        res.put("quantity", item.getQuantity());
-        res.put("price",    item.getPrice());
+        res.put(K_QUANTITY, item.getQuantity());
+        res.put(K_PRICE,    item.getPrice());
         return ResponseEntity.ok(res);
     }
 
@@ -265,7 +295,7 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> placeOrder(
             @RequestBody Map<String, String> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -275,8 +305,8 @@ public class CartOrderApiController {
         List<Item> cartItems = customer.getCart().getItems();
 
         if (cartItems.isEmpty()) {
-            res.put("success", false);
-            res.put("message", "Cart is empty");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Cart is empty");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -297,8 +327,8 @@ public class CartOrderApiController {
         order.setAmount(grandTotal);
         order.setPaymentMode(paymentMode);
         order.setDeliveryTime(deliveryTime);
-        order.setRazorpay_payment_id("COD_NA");
-        order.setRazorpay_order_id("COD_ORDER");
+        order.setRazorpayPaymentId("COD_NA");
+        order.setRazorpayOrderId("COD_ORDER");
         order.setTrackingStatus(TrackingStatus.PROCESSING);
         order.setReplacementRequested(false);
 
@@ -325,10 +355,10 @@ public class CartOrderApiController {
         customerRepository.save(customer);
         itemRepository.deleteAll(toDelete);
 
-        res.put("success",  true);
-        res.put("message",  "Order placed successfully!");
+        res.put(K_SUCCESS,  true);
+        res.put(K_MESSAGE,  "Order placed successfully!");
         res.put("orderId",  order.getId());
-        res.put("total",    grandTotal);
+        res.put(K_TOTAL,    grandTotal);
         res.put("tracking", order.getTrackingStatus().name());
         return ResponseEntity.ok(res);
     }
@@ -336,7 +366,7 @@ public class CartOrderApiController {
     /** GET /api/orders/my — Get all orders for logged-in customer */
     @GetMapping("/api/orders/my")
     public ResponseEntity<Map<String, Object>> myOrders(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -348,9 +378,9 @@ public class CartOrderApiController {
         orders.sort(Comparator.comparing(Order::getOrderDate,
                 Comparator.nullsLast(Comparator.reverseOrder())));
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("count",   orders.size());
-        res.put("orders",  orders.stream().map(this::buildOrderMap).collect(Collectors.toList()));
+        res.put(K_ORDERS,  orders.stream().map(this::buildOrderMap).toList());
         return ResponseEntity.ok(res);
     }
 
@@ -358,7 +388,7 @@ public class CartOrderApiController {
     @GetMapping("/api/orders/{id}")
     public ResponseEntity<Map<String, Object>> getOrder(
             @PathVariable int id,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -366,12 +396,12 @@ public class CartOrderApiController {
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customer.getId()) {
-            res.put("success", false);
-            res.put("message", "Order not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
-        res.put("success", true);
+        res.put(K_SUCCESS, true);
         res.put("order",   buildOrderMap(order));
         return ResponseEntity.ok(res);
     }
@@ -381,7 +411,7 @@ public class CartOrderApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> cancelOrder(
             @PathVariable int id,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -389,14 +419,14 @@ public class CartOrderApiController {
 
         Order order = orderRepository.findById(id).orElse(null);
         if (order == null || order.getCustomer().getId() != customer.getId()) {
-            res.put("success", false);
-            res.put("message", "Order not found");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Order not found");
             return ResponseEntity.status(404).body(res);
         }
 
         if (order.getTrackingStatus() == TrackingStatus.DELIVERED) {
-            res.put("success", false);
-            res.put("message", "Cannot cancel a delivered order");
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "Cannot cancel a delivered order");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -419,12 +449,12 @@ public class CartOrderApiController {
                 new java.util.ArrayList<>(order.getItems())
             );
         } catch (Exception e) {
-            System.err.println("[CartOrderApi] Cancellation email failed for order #"
-                + order.getId() + ": " + e.getMessage());
+            LOGGER.warn("[CartOrderApi] Cancellation email failed for order #{}: {}",
+                order.getId(), e.getMessage(), e);
         }
 
-        res.put("success", true);
-        res.put("message", "Order cancelled successfully");
+        res.put(K_SUCCESS, true);
+        res.put(K_MESSAGE, "Order cancelled successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -441,8 +471,8 @@ public class CartOrderApiController {
     }
 
     private ResponseEntity<Map<String, Object>> unauthorized(Map<String, Object> res) {
-        res.put("success", false);
-        res.put("message", "Unauthorized. Please login.");
+        res.put(K_SUCCESS, false);
+        res.put(K_MESSAGE, "Unauthorized. Please login.");
         return ResponseEntity.status(401).body(res);
     }
 
@@ -452,8 +482,8 @@ public class CartOrderApiController {
         m.put("name",      i.getName());
         m.put("unitPrice", i.getUnitPrice());                                          // ✅ FIX
         m.put("lineTotal", i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice());   // ✅ FIX
-        m.put("price",     i.getPrice());     // kept for backwards compat
-        m.put("quantity",  i.getQuantity());
+        m.put(K_PRICE,     i.getPrice());     // kept for backwards compat
+        m.put(K_QUANTITY,  i.getQuantity());
         m.put("category",  i.getCategory());
         m.put("imageLink", i.getImageLink());
         m.put("productId", i.getProductId());
@@ -471,7 +501,7 @@ public class CartOrderApiController {
         m.put("trackingStatus", o.getTrackingStatus().name());
         m.put("currentCity",    o.getCurrentCity());
         m.put("replacementReq", o.isReplacementRequested());
-        m.put("items",          o.getItems().stream().map(this::buildItemMap).collect(Collectors.toList()));
+        m.put("items",          o.getItems().stream().map(this::buildItemMap).toList());
         return m;
     }
 }

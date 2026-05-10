@@ -1,10 +1,9 @@
 package com.example.ekart.service;
-
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +11,6 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.WarehouseTransferLeg;
 import com.example.ekart.repository.OrderRepository;
-import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.WarehouseTransferLegRepository;
 
 /**
@@ -33,17 +31,28 @@ import com.example.ekart.repository.WarehouseTransferLegRepository;
 @Transactional
 public class WarehouseTransferService {
 
-    @Autowired
-    private WarehouseTransferLegRepository warehouseTransferLegRepository;
+    private static final String K_RECEIVED   = "RECEIVED";
+    private static final String K_IN_TRANSIT = "IN_TRANSIT";
 
-    @Autowired
-    private OrderRepository orderRepository;
 
-    @Autowired
-    private WarehouseRepository warehouseRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WarehouseTransferLegRepository warehouseTransferLegRepository;
+    private final OrderRepository orderRepository;
+    private final OrderTrackingService orderTrackingService;
 
-    @Autowired
-    private OrderTrackingService orderTrackingService;
+    public WarehouseTransferService(
+            WarehouseTransferLegRepository warehouseTransferLegRepository,
+            OrderRepository orderRepository,
+            OrderTrackingService orderTrackingService) {
+        this.warehouseTransferLegRepository = warehouseTransferLegRepository;
+        this.orderRepository = orderRepository;
+        this.orderTrackingService = orderTrackingService;
+    }
+
+
+
+
+
 
     /**
      * Initiates warehouse transfer legs based on the routing path.
@@ -109,7 +118,7 @@ public class WarehouseTransferService {
         }
 
         WarehouseTransferLeg leg = legOpt.get();
-        leg.setStatus("IN_TRANSIT");
+        leg.setStatus(K_IN_TRANSIT);
         leg.setInTransitAt(LocalDateTime.now());
         if (description != null) {
             leg.setDescription(description);
@@ -191,7 +200,7 @@ public class WarehouseTransferService {
         }
 
         WarehouseTransferLeg leg = legOpt.get();
-        leg.setStatus("RECEIVED");
+        leg.setStatus(K_RECEIVED);
         leg.setReceivedAt(LocalDateTime.now());
         leg.setReceivedByWarehouseStaffId(warehouseStaffId);
         if (description != null) {
@@ -206,7 +215,7 @@ public class WarehouseTransferService {
         // Check if there are more pending transfers for this order
         List<WarehouseTransferLeg> allLegs = warehouseTransferLegRepository.findByOrderOrderByLegSequence(order);
         boolean hasMoreTransfers = allLegs.stream()
-            .anyMatch(l -> !l.getStatus().equals("RECEIVED") && l.getId() != legId);
+            .anyMatch(l -> !l.getStatus().equals(K_RECEIVED) && l.getId() != legId);
 
         if (hasMoreTransfers) {
             // More transfers pending, update status to reflect we're at intermediate hub
@@ -246,7 +255,7 @@ public class WarehouseTransferService {
      * @return List of pending transfer legs
      */
     public List<WarehouseTransferLeg> getPendingOutgoingTransfers(Warehouse warehouse) {
-        List<String> pendingStatuses = List.of("INITIATED", "IN_TRANSIT", "ARRIVED_AT_DESTINATION");
+        List<String> pendingStatuses = List.of("INITIATED", K_IN_TRANSIT, "ARRIVED_AT_DESTINATION");
         return warehouseTransferLegRepository.findPendingTransfersFromWarehouse(warehouse, pendingStatuses);
     }
 
@@ -276,7 +285,7 @@ public class WarehouseTransferService {
         List<WarehouseTransferLeg> legs = getOrderTransferLegs(orderId);
         
         return legs.stream()
-            .filter(l -> !l.getStatus().equals("RECEIVED"))
+            .filter(l -> !l.getStatus().equals(K_RECEIVED))
             .findFirst();
     }
 
@@ -291,7 +300,7 @@ public class WarehouseTransferService {
         List<WarehouseTransferLeg> legs = getOrderTransferLegs(orderId);
         
         for (WarehouseTransferLeg leg : legs) {
-            if (!leg.getStatus().equals("RECEIVED")) {
+            if (!leg.getStatus().equals(K_RECEIVED)) {
                 leg.setStatus("CANCELLED");
                 leg.setDescription("Cancelled: " + (cancelReason != null ? cancelReason : "Unknown reason"));
                 warehouseTransferLegRepository.save(leg);
@@ -306,6 +315,6 @@ public class WarehouseTransferService {
      * @return Count of pending transfers
      */
     public long getPendingTransferCount(Warehouse warehouse) {
-        return warehouseTransferLegRepository.countByFromWarehouseAndStatus(warehouse, "IN_TRANSIT");
+        return warehouseTransferLegRepository.countByFromWarehouseAndStatus(warehouse, K_IN_TRANSIT);
     }
 }

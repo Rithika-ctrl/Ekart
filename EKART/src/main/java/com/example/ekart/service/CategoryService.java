@@ -2,18 +2,23 @@ package com.example.ekart.service;
 
 import com.example.ekart.dto.Category;
 import com.example.ekart.repository.CategoryRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-// import org.springframework.transaction.annotation.Transactional; // unused
 
 import java.util.List;
 
 @Service
 public class CategoryService {
 
-    @Autowired
-    private CategoryRepository categoryRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final CategoryRepository categoryRepository;
+
+    public CategoryService(
+            CategoryRepository categoryRepository) {
+        this.categoryRepository = categoryRepository;
+    }
+
+
 
     /** All parent categories with their sub-categories eagerly loaded */
     @Cacheable("categories-parent")
@@ -34,6 +39,6 @@ public class CategoryService {
                 );
                 return parentCompare != 0 ? parentCompare : Integer.compare(a.getDisplayOrder(), b.getDisplayOrder());
             })
-            .collect(java.util.stream.Collectors.toList());
+            .toList();
     }
 }

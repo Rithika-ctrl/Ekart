@@ -3,9 +3,7 @@ package com.example.ekart.controller;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -28,8 +26,25 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class AdminRefundController {
 
-    @Autowired
-    private RefundService refundService;
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_COUNT                           = "count";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_REASON                            = "reason";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_UNAUTHORIZED_ADMIN_LOGIN_REQUIRED = "Unauthorized - Admin login required";
+    private static final String K_FAILURE = "failure";
+    private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final RefundService refundService;
+
+    public AdminRefundController(
+            RefundService refundService) {
+        this.refundService = refundService;
+    }
+
+
 
     // ───────────────────────────────────────────────────────────────────────────
     // PAGE ENDPOINT
@@ -41,9 +56,9 @@ public class AdminRefundController {
      */
     @GetMapping("/admin/refunds")
     public String refundsPage(HttpSession session, ModelMap map) {
-        if (session.getAttribute("admin") == null) {
-            session.setAttribute("failure", "Please login as Admin");
-            return "redirect:/admin/login";
+        if (session.getAttribute(K_ADMIN) == null) {
+            session.setAttribute(K_FAILURE, "Please login as Admin");
+            return REDIRECT_ADMIN_LOGIN;
         }
 
         // Migrate any existing replacement requests on first load
@@ -70,11 +85,11 @@ public class AdminRefundController {
      */
     @GetMapping("/api/admin/refunds")
     @ResponseBody
-    public ResponseEntity<?> getPendingRefunds(HttpSession session) {
-        if (session.getAttribute("admin") == null) {
+    public ResponseEntity<Object> getPendingRefunds(HttpSession session) {
+        if (session.getAttribute(K_ADMIN) == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Unauthorized - Admin login required"
+                K_SUCCESS, false,
+                K_MESSAGE, K_UNAUTHORIZED_ADMIN_LOGIN_REQUIRED
             ));
         }
 
@@ -83,12 +98,12 @@ public class AdminRefundController {
         // Convert to serializable format
         List<Map<String, Object>> refundsData = pendingRefunds.stream()
                 .map(this::refundToMap)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(Map.of(
-            "success", true,
+            K_SUCCESS, true,
             "refunds", refundsData,
-            "count", pendingRefunds.size(),
+            K_COUNT, pendingRefunds.size(),
             "totalAmount", refundService.getTotalPendingAmount()
         ));
     }
@@ -99,26 +114,26 @@ public class AdminRefundController {
      */
     @PutMapping("/api/admin/refunds/{id}/status")
     @ResponseBody
-    public ResponseEntity<?> updateRefundStatus(
+    public ResponseEntity<Object> updateRefundStatus(
             @PathVariable("id") int refundId,
             @RequestBody Map<String, String> payload,
             HttpSession session) {
 
-        if (session.getAttribute("admin") == null) {
+        if (session.getAttribute(K_ADMIN) == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Unauthorized - Admin login required"
+                K_SUCCESS, false,
+                K_MESSAGE, K_UNAUTHORIZED_ADMIN_LOGIN_REQUIRED
             ));
         }
 
         String action = payload.get("action");
         String rejectionReason = payload.get("rejectionReason");
-        String adminEmail = (String) session.getAttribute("admin");
+        String adminEmail = (String) session.getAttribute(K_ADMIN);
 
         if (action == null || action.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Action is required (approve or reject)"
+                K_SUCCESS, false,
+                K_MESSAGE, "Action is required (approve or reject)"
             ));
         }
 
@@ -130,12 +145,12 @@ public class AdminRefundController {
             result = refundService.rejectRefund(refundId, rejectionReason, adminEmail);
         } else {
             return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Invalid action. Use 'approve' or 'reject'"
+                K_SUCCESS, false,
+                K_MESSAGE, "Invalid action. Use 'approve' or 'reject'"
             ));
         }
 
-        if ((boolean) result.get("success")) {
+        if ((boolean) result.get(K_SUCCESS)) {
             return ResponseEntity.ok(result);
         } else {
             return ResponseEntity.badRequest().body(result);
@@ -148,11 +163,11 @@ public class AdminRefundController {
      */
     @GetMapping("/api/admin/refunds/history")
     @ResponseBody
-    public ResponseEntity<?> getRefundHistory(HttpSession session) {
-        if (session.getAttribute("admin") == null) {
+    public ResponseEntity<Object> getRefundHistory(HttpSession session) {
+        if (session.getAttribute(K_ADMIN) == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Unauthorized - Admin login required"
+                K_SUCCESS, false,
+                K_MESSAGE, K_UNAUTHORIZED_ADMIN_LOGIN_REQUIRED
             ));
         }
 
@@ -160,12 +175,12 @@ public class AdminRefundController {
 
         List<Map<String, Object>> refundsData = processedRefunds.stream()
                 .map(this::refundToMap)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(Map.of(
-            "success", true,
+            K_SUCCESS, true,
             "refunds", refundsData,
-            "count", processedRefunds.size()
+            K_COUNT, processedRefunds.size()
         ));
     }
 
@@ -184,7 +199,7 @@ public class AdminRefundController {
         map.put("customerEmail", refund.getCustomer().getEmail());
         map.put("amount", refund.getAmount());
         map.put("orderTotal", refund.getOrder().getTotalPrice());
-        map.put("reason", refund.getReason());
+        map.put(K_REASON, refund.getReason());
         map.put("status", refund.getStatus().getDisplayName());
         map.put("statusCode", refund.getStatus().name());
         map.put("requestedAt", refund.getRequestedAt() != null ? refund.getRequestedAt().toString() : null);

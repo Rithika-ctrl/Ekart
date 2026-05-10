@@ -1,15 +1,14 @@
 package com.example.ekart.controller;
+import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +24,7 @@ import com.example.ekart.repository.ProductRepository;
 
 import jakarta.servlet.http.HttpSession;
 
+
 /**
  * REST API controller for Recently Viewed Products feature.
  * 
@@ -36,13 +36,26 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/recently-viewed")
 public class RecentlyViewedController {
 
+    private static final String K_PRODUCT_IDS = "productIds";
+
+
     private static final int MAX_RECENTLY_VIEWED = 10;
+    private static final String K_COUNT = "count";
+    private static final String K_SYNCED = "synced";
 
-    @Autowired
-    private ProductRepository productRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    public RecentlyViewedController(
+            ProductRepository productRepository,
+            CustomerRepository customerRepository) {
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+    }
+
+
+
 
     /**
      * Get products by IDs (for recently viewed bar rendering).
@@ -64,7 +77,7 @@ public class RecentlyViewedController {
                     .map(Integer::parseInt)
                     .distinct()
                     .limit(MAX_RECENTLY_VIEWED)
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (productIds.isEmpty()) {
                 return ResponseEntity.ok(new ArrayList<>());
@@ -82,7 +95,7 @@ public class RecentlyViewedController {
                             p.getPrice(),
                             p.getImageLink(),
                             p.getStock()))
-                    .collect(Collectors.toList());
+                    .toList();
 
             return ResponseEntity.ok(summaries);
 
@@ -102,20 +115,20 @@ public class RecentlyViewedController {
 
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
-            return ResponseEntity.ok(Map.of("synced", false, "message", "Not logged in"));
+            return ResponseEntity.ok(Map.of(K_SYNCED, false, "message", "Not logged in"));
         }
 
         try {
             List<Integer> productIds = request.getProductIds();
             if (productIds == null || productIds.isEmpty()) {
-                return ResponseEntity.ok(Map.of("synced", true, "count", 0));
+                return ResponseEntity.ok(Map.of(K_SYNCED, true, K_COUNT, 0));
             }
 
             // Remove duplicates and limit to MAX
             Set<Integer> uniqueIds = new LinkedHashSet<>(productIds);
             List<Integer> limitedIds = uniqueIds.stream()
                     .limit(MAX_RECENTLY_VIEWED)
-                    .collect(Collectors.toList());
+                    .toList();
 
             // Store as comma-separated string in customer profile
             String idsString = limitedIds.stream()
@@ -130,10 +143,10 @@ public class RecentlyViewedController {
                 customerRepository.save(cust);
             }
 
-            return ResponseEntity.ok(Map.of("synced", true, "count", limitedIds.size()));
+            return ResponseEntity.ok(Map.of(K_SYNCED, true, K_COUNT, limitedIds.size()));
 
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("synced", false, "message", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of(K_SYNCED, false, "message", e.getMessage()));
         }
     }
 
@@ -146,7 +159,7 @@ public class RecentlyViewedController {
 
         Customer customer = (Customer) session.getAttribute("customer");
         if (customer == null) {
-            return ResponseEntity.ok(Map.of("productIds", new ArrayList<>()));
+            return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
         }
 
         try {
@@ -160,14 +173,14 @@ public class RecentlyViewedController {
                             .map(String::trim)
                             .filter(s -> !s.isEmpty())
                             .map(Integer::parseInt)
-                            .collect(Collectors.toList());
-                    return ResponseEntity.ok(Map.of("productIds", productIds));
+                            .toList();
+                    return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, productIds));
                 }
             }
-            return ResponseEntity.ok(Map.of("productIds", new ArrayList<>()));
+            return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
 
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("productIds", new ArrayList<>()));
+            return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
         }
     }
 

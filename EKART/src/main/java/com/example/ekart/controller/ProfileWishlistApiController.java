@@ -1,4 +1,5 @@
 package com.example.ekart.controller;
+import java.time.LocalDateTime;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.JwtUtil;
@@ -6,14 +7,11 @@ import com.example.ekart.repository.*;
 import com.example.ekart.helper.CloudinaryHelper;
 import com.example.ekart.service.MobileApiReadService;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * ✅ REST API — Profile & Wishlist
@@ -39,14 +37,44 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class ProfileWishlistApiController {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private ProductRepository  productRepository;
-    @Autowired private WishlistRepository wishlistRepository;
-    // @Autowired private AddressRepository  addressRepository; // unused
-    @Autowired private ReviewRepository   reviewRepository;
-    @Autowired private JwtUtil            jwtUtil;
-    @Autowired private CloudinaryHelper   cloudinaryHelper;
-    @Autowired private MobileApiReadService mobileApiReadService;
+    // ── S1192 String constants ──
+    private static final String K_AUTHORIZATION                     = "Authorization";
+    private static final String K_MOBILE                            = "mobile";
+    private static final String K_NAME                              = "name";
+    private static final String K_PRODUCTID                         = "productId";
+    private static final String K_PROFILEIMAGE                      = "profileImage";
+
+    private static final String KEY_SUCCESS = "success";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_VERIFIED = "verified";
+    private static final String MSG_PRODUCT_NOT_FOUND = "Product not found";
+
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final WishlistRepository wishlistRepository;
+    private final ReviewRepository reviewRepository;
+    private final JwtUtil jwtUtil;
+    private final CloudinaryHelper cloudinaryHelper;
+    private final MobileApiReadService mobileApiReadService;
+
+    public ProfileWishlistApiController(
+            CustomerRepository customerRepository,
+            ProductRepository productRepository,
+            WishlistRepository wishlistRepository,
+            ReviewRepository reviewRepository,
+            JwtUtil jwtUtil,
+            CloudinaryHelper cloudinaryHelper,
+            MobileApiReadService mobileApiReadService) {
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.reviewRepository = reviewRepository;
+        this.jwtUtil = jwtUtil;
+        this.cloudinaryHelper = cloudinaryHelper;
+        this.mobileApiReadService = mobileApiReadService;
+    }
+
 
     // ══════════════════════════════════════════════════════════
     //  PROFILE
@@ -55,7 +83,7 @@ public class ProfileWishlistApiController {
     /** GET /api/profile */
     @GetMapping("/api/profile")
     public ResponseEntity<Map<String, Object>> getProfile(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -66,12 +94,12 @@ public class ProfileWishlistApiController {
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id",           customer.getId());
-        profile.put("name",         customer.getName());
+        profile.put(K_NAME,         customer.getName());
         profile.put("email",        customer.getEmail());
-        profile.put("mobile",       customer.getMobile());
-        profile.put("profileImage", customer.getProfileImage());
+        profile.put(K_MOBILE,       customer.getMobile());
+        profile.put(K_PROFILEIMAGE, customer.getProfileImage());
         profile.put("provider",     customer.getProvider());
-        profile.put("verified",     customer.isVerified());
+        profile.put(KEY_VERIFIED,     customer.isVerified());
 
         // Addresses
         profile.put("addresses", customer.getAddresses().stream().map(a -> {
@@ -79,9 +107,9 @@ public class ProfileWishlistApiController {
             am.put("id",      a.getId());
             am.put("details", a.getDetails());
             return am;
-        }).collect(Collectors.toList()));
+        }).toList());
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("profile", profile);
         return ResponseEntity.ok(res);
     }
@@ -91,7 +119,7 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> updateProfile(
             @RequestBody Map<String, Object> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -99,13 +127,13 @@ public class ProfileWishlistApiController {
 
         customer = customerRepository.findById(customer.getId()).orElseThrow();
 
-        if (body.containsKey("name"))   customer.setName((String) body.get("name"));
-        if (body.containsKey("mobile")) customer.setMobile(Long.parseLong(body.get("mobile").toString()));
+        if (body.containsKey(K_NAME))   customer.setName((String) body.get(K_NAME));
+        if (body.containsKey(K_MOBILE)) customer.setMobile(Long.parseLong(body.get(K_MOBILE).toString()));
 
         customerRepository.save(customer);
 
-        res.put("success", true);
-        res.put("message", "Profile updated successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Profile updated successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -114,7 +142,7 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> addAddress(
             @RequestBody Map<String, String> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -122,8 +150,8 @@ public class ProfileWishlistApiController {
 
         String details = body.get("address");
         if (details == null || details.isBlank()) {
-            res.put("success", false);
-            res.put("message", "Address cannot be empty");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Address cannot be empty");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -135,8 +163,8 @@ public class ProfileWishlistApiController {
         customer.getAddresses().add(address);
         customerRepository.save(customer);
 
-        res.put("success", true);
-        res.put("message", "Address added");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Address added");
         return ResponseEntity.ok(res);
     }
 
@@ -148,7 +176,7 @@ public class ProfileWishlistApiController {
     /** GET /api/mobile/wishlist */
     @GetMapping("/api/mobile/wishlist")
     public ResponseEntity<Map<String, Object>> getWishlist(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -161,65 +189,65 @@ public class ProfileWishlistApiController {
             Product p = w.getProduct();
             m.put("wishlistId",  w.getId());
             m.put("addedAt",     w.getAddedAt() != null ? w.getAddedAt().toString() : null);
-            m.put("productId",   p.getId());
-            m.put("name",        p.getName());
+            m.put(K_PRODUCTID,   p.getId());
+            m.put(K_NAME,        p.getName());
             m.put("price",       p.getPrice());
             m.put("imageLink",   p.getImageLink());
             m.put("category",    p.getCategory());
             m.put("inStock",     p.getStock() > 0);
             return m;
-        }).collect(Collectors.toList());
+        }).toList();
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("count",   items.size());
         res.put("items",   items);
         return ResponseEntity.ok(res);
     }
 
-    /** POST /api/mobile/wishlist/toggle — { "productId": 5 } */
+    /** POST /api/mobile/wishlist/toggle — { K_PRODUCTID: 5 } */
     @PostMapping("/api/mobile/wishlist/toggle")
     @Transactional
     public ResponseEntity<Map<String, Object>> toggleWishlist(
             @RequestBody Map<String, Integer> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        Integer productId = body.get("productId");
+        Integer productId = body.get(K_PRODUCTID);
         if (productId == null) {
-            res.put("success", false);
-            res.put("message", "productId is required");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "productId is required");
             return ResponseEntity.badRequest().body(res);
         }
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_PRODUCT_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
         // Check if already wishlisted
         List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
                 .filter(w -> w.getProduct().getId() == productId)
-                .collect(Collectors.toList());
+                .toList();
 
         if (!existing.isEmpty()) {
             wishlistRepository.deleteAll(existing);
-            res.put("success",     true);
+            res.put(KEY_SUCCESS,     true);
             res.put("wishlisted",  false);
-            res.put("message",     "Removed from wishlist");
+            res.put(KEY_MESSAGE,     "Removed from wishlist");
         } else {
             Wishlist w = new Wishlist();
             w.setCustomer(customer);
             w.setProduct(product);
             w.setAddedAt(LocalDateTime.now());
             wishlistRepository.save(w);
-            res.put("success",     true);
+            res.put(KEY_SUCCESS,     true);
             res.put("wishlisted",  true);
-            res.put("message",     "Added to wishlist");
+            res.put(KEY_MESSAGE,     "Added to wishlist");
         }
 
         return ResponseEntity.ok(res);
@@ -231,16 +259,16 @@ public class ProfileWishlistApiController {
     @PostMapping("/api/profile/upload-image")
     @Transactional
     public ResponseEntity<Map<String, Object>> uploadProfileImageApi(
-            @RequestParam("profileImage") MultipartFile file,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestParam(K_PROFILEIMAGE) MultipartFile file,
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
         if (file == null || file.isEmpty()) {
-            res.put("success", false);
-            res.put("message", "No file uploaded");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "No file uploaded");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -251,13 +279,13 @@ public class ProfileWishlistApiController {
                 db.setProfileImage(url);
                 customerRepository.save(db);
             }
-            res.put("success", true);
-            res.put("profileImage", url);
-            res.put("message", "Profile photo updated");
+            res.put(KEY_SUCCESS, true);
+            res.put(K_PROFILEIMAGE, url);
+            res.put(KEY_MESSAGE, "Profile photo updated");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Upload failed: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Upload failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -267,7 +295,7 @@ public class ProfileWishlistApiController {
      */
     @GetMapping("/api/profile/remove-image")
     @Transactional
-    public ResponseEntity<Map<String, Object>> removeProfileImageApi(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<Map<String, Object>> removeProfileImageApi(@RequestHeader(K_AUTHORIZATION) String authHeader) {
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
@@ -277,12 +305,12 @@ public class ProfileWishlistApiController {
                 db.setProfileImage(null);
                 customerRepository.save(db);
             }
-            res.put("success", true);
-            res.put("message", "Profile photo removed");
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, "Profile photo removed");
             return ResponseEntity.ok(res);
         } catch (Exception e) {
-            res.put("success", false);
-            res.put("message", "Failed to remove photo: " + e.getMessage());
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Failed to remove photo: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
     }
@@ -290,7 +318,7 @@ public class ProfileWishlistApiController {
     /** GET /api/mobile/wishlist/ids — returns just the product IDs */
     @GetMapping("/api/mobile/wishlist/ids")
     public ResponseEntity<Map<String, Object>> getWishlistIds(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
@@ -298,9 +326,9 @@ public class ProfileWishlistApiController {
 
         List<Integer> ids = mobileApiReadService.findWishlistWithProducts(customer).stream()
                 .map(w -> w.getProduct().getId())
-                .collect(Collectors.toList());
+                .toList();
 
-        res.put("success", true);
+        res.put(KEY_SUCCESS, true);
         res.put("ids",     ids);
         return ResponseEntity.ok(res);
     }
@@ -314,26 +342,26 @@ public class ProfileWishlistApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> addReview(
             @RequestBody Map<String, Object> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(K_AUTHORIZATION) String authHeader) {
 
         Map<String, Object> res = new HashMap<>();
         Customer customer = getCustomer(authHeader);
         if (customer == null) return unauthorized(res);
 
-        int productId = Integer.parseInt(body.get("productId").toString());
+        int productId = Integer.parseInt(body.get(K_PRODUCTID).toString());
         int rating    = Integer.parseInt(body.get("rating").toString());
         String comment = (String) body.get("comment");
 
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            res.put("success", false);
-            res.put("message", "Product not found");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, MSG_PRODUCT_NOT_FOUND);
             return ResponseEntity.status(404).body(res);
         }
 
         if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
-            res.put("success", false);
-            res.put("message", "You have already reviewed this product");
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "You have already reviewed this product");
             return ResponseEntity.badRequest().body(res);
         }
 
@@ -346,8 +374,8 @@ public class ProfileWishlistApiController {
         review.setCustomer(customer);
         reviewRepository.save(review);
 
-        res.put("success", true);
-        res.put("message", "Review added successfully");
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Review added successfully");
         return ResponseEntity.ok(res);
     }
 
@@ -363,8 +391,8 @@ public class ProfileWishlistApiController {
     }
 
     private ResponseEntity<Map<String, Object>> unauthorized(Map<String, Object> res) {
-        res.put("success", false);
-        res.put("message", "Unauthorized. Please login.");
+        res.put(KEY_SUCCESS, false);
+        res.put(KEY_MESSAGE, "Unauthorized. Please login.");
         return ResponseEntity.status(401).body(res);
     }
 }

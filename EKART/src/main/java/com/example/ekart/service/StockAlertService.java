@@ -3,7 +3,8 @@ package com.example.ekart.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -21,14 +22,35 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class StockAlertService {
 
-	@Autowired
-	private StockAlertRepository stockAlertRepository;
+    private static final String K_VENDOR  = "vendor";
+    private static final String K_FAILURE = "failure";
 
-	@Autowired
-	private ProductRepository productRepository;
 
-	@Autowired
-	private EmailSender emailSender;
+	private static final Logger LOGGER = LoggerFactory.getLogger(StockAlertService.class);
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// String constants (S1192 — eliminates duplicate-literal violations)
+	// ═══════════════════════════════════════════════════════════════════════════
+	private static final String MSG_STOCK_THRESHOLD_SUFFIX = " units). Threshold: ";
+    private static final String LOGIN_FIRST = "Login First";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final StockAlertRepository stockAlertRepository;
+    private final ProductRepository productRepository;
+    private final EmailSender emailSender;
+
+    public StockAlertService(
+            StockAlertRepository stockAlertRepository,
+            ProductRepository productRepository,
+            EmailSender emailSender) {
+        this.stockAlertRepository = stockAlertRepository;
+        this.productRepository = productRepository;
+        this.emailSender = emailSender;
+    }
+
+
+
+
 
 	// 🔥 CHECK AND CREATE ALERT IF STOCK IS LOW
 	public void checkStockLevel(Product product) {
@@ -54,7 +76,7 @@ public class StockAlertService {
 					alert.setStockLevel(product.getStock());
 					alert.setAlertTime(LocalDateTime.now());
 					alert.setMessage("Stock level for '" + product.getName() + "' is low (" 
-							+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
+							+ product.getStock() + MSG_STOCK_THRESHOLD_SUFFIX + product.getStockAlertThreshold());
 					stockAlertRepository.save(alert);
 				}
 			}
@@ -84,8 +106,7 @@ public class StockAlertService {
 		alert.setEmailSent(false);
 		alert.setAcknowledged(false);
 		alert.setMessage("Stock level for '" + product.getName() + "' is low (" 
-				+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
-
+						+ product.getStock() + MSG_STOCK_THRESHOLD_SUFFIX + product.getStockAlertThreshold());
 		stockAlertRepository.save(alert);
 
 		// Send email notification
@@ -94,7 +115,7 @@ public class StockAlertService {
 			alert.setEmailSent(true);
 			stockAlertRepository.save(alert);
 		} catch (Exception e) {
-			System.err.println("Failed to send stock alert email: " + e.getMessage());
+			LOGGER.warn("Failed to send stock alert email: {}", e.getMessage(), e);
 		}
 	}
 
@@ -110,16 +131,16 @@ public class StockAlertService {
 
 	// 🔥 ACKNOWLEDGE AN ALERT
 	public String acknowledgeAlert(int alertId, HttpSession session) {
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
 			return "redirect:/vendor/login";
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		StockAlert alert = stockAlertRepository.findById(alertId).orElse(null);
 
 		if (alert == null || alert.getVendor().getId() != vendor.getId()) {
-			session.setAttribute("failure", "Invalid Alert");
+			session.setAttribute(K_FAILURE, "Invalid Alert");
 			return "redirect:/stock-alerts";
 		}
 
@@ -132,12 +153,12 @@ public class StockAlertService {
 
 	// 🔥 VIEW ALL STOCK ALERTS
 	public String viewStockAlerts(HttpSession session, ModelMap map) {
-		if (session.getAttribute("vendor") == null) {
-			session.setAttribute("failure", "Login First");
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
 			return "redirect:/vendor/login";
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute("vendor");
+		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
 		List<StockAlert> alerts = getVendorAlerts(vendor);
 		List<StockAlert> unacknowledged = getUnacknowledgedAlerts(vendor);
 

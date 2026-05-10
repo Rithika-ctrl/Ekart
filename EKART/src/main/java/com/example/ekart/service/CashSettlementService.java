@@ -1,4 +1,7 @@
 package com.example.ekart.service;
+import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 // ================================================================
 // NEW FILE: src/main/java/com/example/ekart/service/CashSettlementService.java
@@ -28,30 +31,46 @@ package com.example.ekart.service;
 import com.example.ekart.dto.*;
 import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class CashSettlementService {
 
+    private static final Logger log = LoggerFactory.getLogger(CashSettlementService.class);
+
+
+    // ── Dependencies (constructor injection) ──
+    private final CashSettlementRepository cashSettlementRepository;
+    private final SettlementOrderMappingRepository settlementOrderMappingRepository;
+    private final OrderRepository orderRepository;
+    private final CodPaymentService codPaymentService;
+
+    public CashSettlementService(
+            CashSettlementRepository cashSettlementRepository,
+            SettlementOrderMappingRepository settlementOrderMappingRepository,
+            OrderRepository orderRepository,
+            CodPaymentService codPaymentService) {
+        this.cashSettlementRepository = cashSettlementRepository;
+        this.settlementOrderMappingRepository = settlementOrderMappingRepository;
+        this.orderRepository = orderRepository;
+        this.codPaymentService = codPaymentService;
+    }
+
     // Commission split: 20% to admin (platform), 80% to vendor
     public static final double ADMIN_COMMISSION_RATE = 0.20;
     public static final double VENDOR_SHARE_RATE = 0.80;
+    
+    // Settlement status constants
+    private static final String STATUS_SUBMITTED = "SUBMITTED";
+    private static final String STATUS_APPROVED = "APPROVED";
+    private static final String APPROVED_AT_KEY = "approvedAt";
 
-    @Autowired private CashSettlementRepository          cashSettlementRepository;
-    @Autowired private SettlementOrderMappingRepository settlementOrderMappingRepository;
-    @Autowired private OrderRepository                   orderRepository;
-    @Autowired private VendorRepository                  vendorRepository;
-    @Autowired private WarehouseRepository              warehouseRepository;
-    @Autowired private TrackingEventLogRepository       trackingEventLogRepository;
-    @Autowired private CodPaymentService                codPaymentService;
-    @Autowired private EmailSender                      emailSender;
 
     // ─────────────────────────────────────────────────────────────────────────
     // SETTLEMENT BATCH SUBMISSION (by Warehouse Staff)
@@ -120,7 +139,7 @@ public class CashSettlementService {
         settlement.setWarehouseId(warehouseId);
         settlement.setSubmittedByStaffId(submittedByStaffId);
         settlement.setSubmittedAt(LocalDateTime.now());
-        settlement.setSettlementStatus("SUBMITTED");  // Awaiting admin approval
+        settlement.setSettlementStatus(STATUS_SUBMITTED);  // Awaiting admin approval
         settlement.setTotalCashCollected(totalCashCollected);
         settlement.setAdminCommission(adminCommission);
         settlement.setVendorShare(vendorShare);
@@ -142,7 +161,7 @@ public class CashSettlementService {
         }
 
         // Log event
-        logSettlementEvent(settlement, "Settlement batch submitted",
+        logSettlementEvent("Settlement batch submitted",
             "Warehouse staff submitted " + orderIds.size() + " orders. Total: ₹" + totalCashCollected +
             " (Admin: ₹" + adminCommission + ", Vendor: ₹" + vendorShare + ")");
 
@@ -169,13 +188,13 @@ public class CashSettlementService {
             throw new IllegalArgumentException("Settlement not found: " + settlementId);
         }
 
-        if (!settlement.getSettlementStatus().equals("SUBMITTED")) {
+        if (!settlement.getSettlementStatus().equals(STATUS_SUBMITTED)) {
             throw new IllegalStateException("Settlement " + settlementId + " status is " +
                     settlement.getSettlementStatus() + ", expected SUBMITTED");
         }
 
         // Mark as approved
-        settlement.setSettlementStatus("APPROVED");
+        settlement.setSettlementStatus(STATUS_APPROVED);
         settlement.setApprovedAt(LocalDateTime.now());
         settlement.setApprovedByAdminId(approvedByAdminId);
         settlement = cashSettlementRepository.save(settlement);
@@ -184,12 +203,12 @@ public class CashSettlementService {
         List<SettlementOrderMapping> mappings = settlementOrderMappingRepository.findBySettlementId(settlementId);
         List<Integer> orderIds = mappings.stream()
                 .map(SettlementOrderMapping::getOrderId)
-                .collect(Collectors.toList());
+                .toList();
 
         codPaymentService.markOrdersAsSettled(settlementId, orderIds);
 
         // Log event
-        logSettlementEvent(settlement, "Settlement approved",
+        logSettlementEvent("Settlement approved",
             "Admin approved settlement. Admin commission: ₹" + settlement.getAdminCommission() +
             ". Vendor share: ₹" + settlement.getVendorShare() + ". " +
             (approvalNotes != null ? approvalNotes : ""));
@@ -212,7 +231,7 @@ public class CashSettlementService {
             throw new IllegalArgumentException("Settlement not found: " + settlementId);
         }
 
-        if (!settlement.getSettlementStatus().equals("SUBMITTED")) {
+        if (!settlement.getSettlementStatus().equals(STATUS_SUBMITTED)) {
             throw new IllegalStateException("Can only reject SUBMITTED settlements");
         }
 
@@ -222,7 +241,7 @@ public class CashSettlementService {
 
         settlement = cashSettlementRepository.save(settlement);
 
-        logSettlementEvent(settlement, "Settlement rejected",
+        logSettlementEvent("Settlement rejected",
             "Admin rejected settlement. Reason: " + rejectionReason);
 
         return settlement;
@@ -238,7 +257,7 @@ public class CashSettlementService {
      * @return List of settlements with status=SUBMITTED
      */
     public List<CashSettlement> getPendingSettlements() {
-        return cashSettlementRepository.findBySettlementStatus("SUBMITTED");
+        return cashSettlementRepository.findBySettlementStatus(STATUS_SUBMITTED);
     }
 
     /**
@@ -247,7 +266,7 @@ public class CashSettlementService {
      * @return List of settlements with status=APPROVED
      */
     public List<CashSettlement> getApprovedSettlements() {
-        return cashSettlementRepository.findBySettlementStatus("APPROVED");
+        return cashSettlementRepository.findBySettlementStatus(STATUS_APPROVED);
     }
 
     /**
@@ -279,7 +298,7 @@ public class CashSettlementService {
     public Map<String, Object> getSettlementDetails(int settlementId) {
         CashSettlement settlement = cashSettlementRepository.findById(settlementId).orElse(null);
         if (settlement == null) {
-            return null;
+            return new LinkedHashMap<>();
         }
 
         Map<String, Object> details = new LinkedHashMap<>();
@@ -289,7 +308,7 @@ public class CashSettlementService {
         details.put("warehouseId", settlement.getWarehouseId());
         details.put("status", settlement.getSettlementStatus());
         details.put("submittedAt", settlement.getSubmittedAt());
-        details.put("approvedAt", settlement.getApprovedAt());
+        details.put(APPROVED_AT_KEY, settlement.getApprovedAt());
         details.put("totalCashCollected", settlement.getTotalCashCollected());
         details.put("adminCommission", settlement.getAdminCommission());
         details.put("vendorShare", settlement.getVendorShare());
@@ -336,7 +355,7 @@ public class CashSettlementService {
 
         for (Integer settlementId : settlementIds) {
             CashSettlement settlement = cashSettlementRepository.findById(settlementId).orElse(null);
-            if (settlement != null && "APPROVED".equals(settlement.getSettlementStatus())) {
+            if (settlement != null && STATUS_APPROVED.equals(settlement.getSettlementStatus())) {
                 // Calculate this vendor's share in this settlement
                 double vendorAmount = mappings.stream()
                         .filter(m -> m.getSettlementId() == settlementId && m.getVendorId() == vendorId)
@@ -348,7 +367,7 @@ public class CashSettlementService {
 
                 Map<String, Object> settlementRecord = new LinkedHashMap<>();
                 settlementRecord.put("settlementId", settlementId);
-                settlementRecord.put("approvedAt", settlement.getApprovedAt());
+                settlementRecord.put(APPROVED_AT_KEY, settlement.getApprovedAt());
                 settlementRecord.put("vendorCollected", vendorAmount);
                 settlementRecord.put("adminCommission", vendorAmount * ADMIN_COMMISSION_RATE);
                 settlementRecord.put("vendorPayout", vendorPayout);
@@ -362,8 +381,8 @@ public class CashSettlementService {
 
         // Sort by approval date (newest first)
         history.sort((a, b) -> {
-            LocalDateTime aTime = (LocalDateTime) a.get("approvedAt");
-            LocalDateTime bTime = (LocalDateTime) b.get("approvedAt");
+            LocalDateTime aTime = (LocalDateTime) a.get(APPROVED_AT_KEY);
+            LocalDateTime bTime = (LocalDateTime) b.get(APPROVED_AT_KEY);
             return bTime.compareTo(aTime);
         });
 
@@ -420,16 +439,15 @@ public class CashSettlementService {
     /**
      * Logs a settlement-related event to TrackingEventLog.
      *
-     * @param settlement Settlement
      * @param eventTitle Event title
      * @param eventDescription Event description
      */
-    private void logSettlementEvent(CashSettlement settlement, String eventTitle, String eventDescription) {
+    private void logSettlementEvent(String eventTitle, String eventDescription) {
         try {
             // Log to CashSettlement audit trail (future: add settlement_audit_log table)
-            System.out.println("[SETTLEMENT] " + eventTitle + ": " + eventDescription);
+            log.info("[SETTLEMENT] {}: {}", eventTitle, eventDescription);
         } catch (Exception e) {
-            System.err.println("[CashSettlementService] Failed to log settlement event: " + e.getMessage());
+            log.error("[CashSettlementService] Failed to log settlement event: {}", e.getMessage());
         }
     }
 

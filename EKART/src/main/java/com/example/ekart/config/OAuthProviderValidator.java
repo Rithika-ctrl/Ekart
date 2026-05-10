@@ -17,21 +17,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class OAuthProviderValidator {
 
+    private static final String PROVIDER_GOOGLE   = "google";
+    private static final String PROVIDER_FACEBOOK  = "facebook";
+    private static final String PROVIDER_GITHUB    = "github";
+
+
     // Provider access map by role type
     private static final Map<String, List<String>> ALLOWED_PROVIDERS = new HashMap<>();
 
     static {
         // Customer can use: Google, Facebook
         // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
-        ALLOWED_PROVIDERS.put("customer", Arrays.asList("google", "facebook"));
+        ALLOWED_PROVIDERS.put("customer", Arrays.asList(PROVIDER_GOOGLE, PROVIDER_FACEBOOK));
         
         // Vendor can use: Google, Facebook
         // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
-        ALLOWED_PROVIDERS.put("vendor", Arrays.asList("google", "facebook"));
+        ALLOWED_PROVIDERS.put("vendor", Arrays.asList(PROVIDER_GOOGLE, PROVIDER_FACEBOOK));
         
         // Admin can use: Google, GitHub, Facebook
         // NOTE: Instagram disabled — non-standard Graph API, not compatible with Spring OAuth2
-        ALLOWED_PROVIDERS.put("admin", Arrays.asList("google", "github", "facebook"));
+        ALLOWED_PROVIDERS.put("admin", Arrays.asList(PROVIDER_GOOGLE, PROVIDER_GITHUB, PROVIDER_FACEBOOK));
     }
 
     /**
@@ -70,10 +75,10 @@ public class OAuthProviderValidator {
      */
     public String getProviderDisplayName(String provider) {
         switch (provider.toLowerCase()) {
-            case "google": return "Google";
-            case "facebook": return "Facebook";
+            case PROVIDER_GOOGLE: return "Google";
+            case PROVIDER_FACEBOOK: return "Facebook";
             case "instagram": return "Instagram";
-            case "github": return "GitHub";
+            case PROVIDER_GITHUB: return "GitHub";
             default: return provider;
         }
     }
@@ -83,7 +88,7 @@ public class OAuthProviderValidator {
      * Returns error message if not allowed, null if allowed.
      */
     public String validateGitHubAccess(String roleType) {
-        if ("github".equals(roleType) || isProviderAllowed("github", roleType)) {
+        if (PROVIDER_GITHUB.equals(roleType) || isProviderAllowed(PROVIDER_GITHUB, roleType)) {
             return null;
         }
         return "GitHub login is only available for Admin accounts";

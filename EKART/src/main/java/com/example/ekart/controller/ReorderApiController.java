@@ -2,7 +2,6 @@ package com.example.ekart.controller;
 
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,8 +24,15 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/orders")
 public class ReorderApiController {
 
-    @Autowired
-    private ReorderService reorderService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ReorderService reorderService;
+
+    public ReorderApiController(
+            ReorderService reorderService) {
+        this.reorderService = reorderService;
+    }
+
+
 
     /**
      * POST /api/orders/:id/reorder

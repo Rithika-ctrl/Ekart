@@ -17,7 +17,6 @@ package com.example.ekart.service;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +26,21 @@ import java.util.*;
 @Transactional
 public class PaymentMethodService {
 
-    @Autowired private CustomerRepository customerRepository;
-    @Autowired private WarehouseRepository warehouseRepository;
+    private static final String K_COD = "COD";
+
+
+    // ── Constants ──
+    private static final String PAYMENT_METHOD_RAZORPAY = "RAZORPAY";
+
+    // ── Dependencies ──
+    // Note: customerRepository and warehouseRepository were removed (java:S1068).
+    // They were injected but never referenced in any method of this class.
+    // Re-add via constructor injection only if a future method requires them.
+
+    public PaymentMethodService() {
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // PAYMENT METHOD VALIDATION
@@ -48,11 +60,11 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 // Razorpay always available
                 return true;
 
-            case "COD":
+            case K_COD:
                 // COD availability rules:
                 // 1. Only for orders within specific PIN codes (optional blacklist check)
                 // 2. Only for customers with good delivery history (or waive for new customers)
@@ -70,17 +82,17 @@ public class PaymentMethodService {
      *
      * @param customer Customer
      * @param deliveryPinCode Delivery PIN code
-     * @return List of available payment methods (e.g., ["RAZORPAY", "COD"])
+     * @return List of available payment methods (e.g., ["RAZORPAY", K_COD])
      */
     public List<String> getAvailablePaymentMethods(Customer customer, String deliveryPinCode) {
         List<String> methods = new ArrayList<>();
 
         // Always offer Razorpay
-        methods.add("RAZORPAY");
+        methods.add(PAYMENT_METHOD_RAZORPAY);
 
         // Conditionally offer COD
         if (isCodAvailableForPinCode(deliveryPinCode) && isCodAvailableForCustomer(customer)) {
-            methods.add("COD");
+            methods.add(K_COD);
         }
 
         return methods;
@@ -93,7 +105,7 @@ public class PaymentMethodService {
      * @return Default payment method (RAZORPAY)
      */
     public String getDefaultPaymentMethod(Customer customer) {
-        return "RAZORPAY";  // Default to prepaid
+        return PAYMENT_METHOD_RAZORPAY;  // Default to prepaid
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -168,9 +180,9 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "Online Payment (Razorpay)";
-            case "COD":
+            case K_COD:
                 return "Cash On Delivery";
             default:
                 return paymentMethod;
@@ -189,9 +201,9 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "Pay securely online using credit card, debit card, or digital wallet. Payment is processed immediately.";
-            case "COD":
+            case K_COD:
                 return "Pay in cash when your order is delivered. Our delivery partner will collect payment at your doorstep.";
             default:
                 return "";
@@ -210,9 +222,9 @@ public class PaymentMethodService {
         }
 
         switch (paymentMethod.toUpperCase()) {
-            case "RAZORPAY":
+            case PAYMENT_METHOD_RAZORPAY:
                 return "credit-card";
-            case "COD":
+            case K_COD:
                 return "cash";
             default:
                 return "question";
@@ -230,7 +242,7 @@ public class PaymentMethodService {
             return "Payment method is required";
         }
 
-        if (!paymentMethod.toUpperCase().matches("RAZORPAY|COD")) {
+        if (!paymentMethod.toUpperCase().matches(PAYMENT_METHOD_RAZORPAY + "|COD")) {
             return "Invalid payment method: " + paymentMethod;
         }
 

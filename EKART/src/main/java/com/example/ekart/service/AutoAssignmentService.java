@@ -25,28 +25,27 @@ package com.example.ekart.service;
 // ================================================================
 
 import com.example.ekart.dto.*;
-import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class AutoAssignmentService {
 
+    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    private final OrderRepository orderRepository;
+
+    public AutoAssignmentService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+
     /** Maximum number of concurrent active orders per delivery boy */
     public static final int MAX_CONCURRENT_ORDERS = 3;
 
-    @Autowired private OrderRepository            orderRepository;
-    @Autowired private DeliveryBoyRepository      deliveryBoyRepository;
-    @Autowired private TrackingEventLogRepository trackingEventLogRepository;
-    @Autowired private AutoAssignLogRepository    autoAssignLogRepository;
-    @Autowired private EmailSender                emailSender;
 
     // ─────────────────────────────────────────────────────────────────────────
     // LOAD BALANCING HELPER — used by manual assignment
@@ -103,32 +102,4 @@ public class AutoAssignmentService {
     // 
     // Manual assignment is now handled by WarehouseReceivingService.assignDeliveryBoy()
     // Warehouse staff manually selects delivery boy from list with load information
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered on order PACKED.
-     */
-    @Deprecated
-    public void onOrderPacked(Order order) {
-        System.out.println("[DEPRECATED] onOrderPacked called (Phase 3 — auto-assign disabled)");
-    }
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered when delivery boy comes online.
-     */
-    @Deprecated
-    public void onDeliveryBoyOnline(DeliveryBoy deliveryBoy) {
-        System.out.println("[DEPRECATED] onDeliveryBoyOnline called (Phase 3 — auto-assign disabled)");
-    }
-
-    /**
-     * DEPRECATED: Trigger removed (Phase 3)
-     * Called manually if needed only. No longer triggered when order delivered.
-     */
-    @Deprecated
-    public void onOrderDelivered(DeliveryBoy deliveryBoy) {
-        System.out.println("[DEPRECATED] onOrderDelivered called (Phase 3 — auto-assign disabled)");
-    }
 }

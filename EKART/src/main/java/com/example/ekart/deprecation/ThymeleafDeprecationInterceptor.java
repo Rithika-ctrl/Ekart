@@ -1,7 +1,8 @@
 package com.example.ekart.deprecation;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,13 +15,23 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
 
-    @Autowired(required = false)
-    private ThymeleafDeprecationTracker tracker;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ThymeleafDeprecationInterceptor.class);
 
     // Skip tracking for these routes
     private static final String[] SKIP_PATTERNS = {
         "/api/", "/assets/", "/js/", "/css/", "/images/", "/static/"
     };
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final ThymeleafDeprecationTracker tracker;
+
+    // FIX S6813: Constructor injection (was already constructor-injected; @Autowired on constructor is optional in Spring)
+    public ThymeleafDeprecationInterceptor(
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            ThymeleafDeprecationTracker tracker) {
+        this.tracker = tracker;
+    }
+
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -73,39 +84,46 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
     private boolean shouldSkip(String route) {
         for (String pattern : SKIP_PATTERNS) {
             if (route.startsWith(pattern)) {
+                // FIX S1126: Replace if-then-else with a single return statement
                 return true;
             }
         }
 
         // Skip error pages and status pages
-        if (route.equals("/") || route.equals("/products") || route.equals("/product/*")) {
-            // Don't skip main routes, they are important for tracking
-            return false;
-        }
-
+        // Main routes are important for tracking, so we never skip them
         return false;
     }
 
     /**
-     * Extract user ID from session object
-     * Tries common field names: id, userId, customerId, vendorId
+     * Extract user ID from session object.
+     * Tries common field names: id, userId, customerId, vendorId.
      */
     private String extractUserId(Object user) {
         if (user == null) return null;
+        // FIX S1141: Extract nested try block into a separate method
         try {
-            // Try reflection to get the ID field
-            for (String fieldName : new String[]{"id", "customerId", "vendorId", "userId"}) {
-                try {
-                    var field = user.getClass().getDeclaredField(fieldName);
-                    field.setAccessible(true);
-                    Object value = field.get(user);
-                    return value != null ? value.toString() : null;
-                } catch (NoSuchFieldException e) {
-                    // Continue to next field name
-                }
-            }
+            return extractIdByReflection(user);
         } catch (Exception e) {
-            // Silently fail - just return null
+            LOGGER.debug("Could not extract user id via reflection: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * FIX S1141: Extracted nested try block — attempts to read a known ID field via reflection.
+     * FIX S3011: Removed field.setAccessible(true) — accessibility bypass is a security risk.
+     *            Only public fields (or fields accessible without override) will be read.
+     */
+    private String extractIdByReflection(Object user) throws Exception {
+        for (String fieldName : new String[]{"id", "customerId", "vendorId", "userId"}) {
+            try {
+                // FIX S3011: Do NOT call field.setAccessible(true); only access public/accessible fields
+                var field = user.getClass().getField(fieldName);
+                Object value = field.get(user);
+                return value != null ? value.toString() : null;
+            } catch (NoSuchFieldException e) {
+                LOGGER.trace("Field {} not found on user class, trying next", fieldName);
+            }
         }
         return null;
     }

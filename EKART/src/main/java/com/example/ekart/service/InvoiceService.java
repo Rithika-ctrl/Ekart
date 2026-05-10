@@ -1,7 +1,10 @@
 package com.example.ekart.service;
 
+import java.io.ByteArrayOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import com.example.ekart.dto.Order;
-import com.example.ekart.dto.Address;
 import com.example.ekart.helper.GstUtil;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.colors.ColorConstants;
@@ -21,10 +24,6 @@ import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 /**
  * InvoiceService.java
  * ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +40,9 @@ import java.util.Date;
  */
 @Service
 public class InvoiceService {
+
+    private static final String K_NA = "N/A";
+
 
     /**
      * Generate invoice PDF for an order.
@@ -85,8 +87,8 @@ public class InvoiceService {
         Table addressTable = new Table(2);
         addressTable.setWidth(UnitValue.createPercentValue(100));
 
-        String customerName = order.getCustomer() != null ? order.getCustomer().getName() : "N/A";
-        String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : "N/A";
+        String customerName = order.getCustomer() != null ? order.getCustomer().getName() : K_NA;
+        String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : K_NA;
 
         // Bill To
         Cell billTo = new Cell()
@@ -102,7 +104,7 @@ public class InvoiceService {
         // Ship To
         String deliveryAddr = order.getDeliveryAddress();
         if (deliveryAddr == null || deliveryAddr.trim().isEmpty()) {
-            deliveryAddr = "N/A";
+            deliveryAddr = K_NA;
             if (order.getCustomer() != null && order.getCustomer().getAddresses() != null && !order.getCustomer().getAddresses().isEmpty()) {
                 com.example.ekart.dto.Address addr = order.getCustomer().getAddresses().get(order.getCustomer().getAddresses().size() - 1);
                 StringBuilder sb = new StringBuilder();
@@ -149,7 +151,7 @@ public class InvoiceService {
             int itemNumber = 1;
             for (com.example.ekart.dto.Item item : order.getItems()) {
                 addItemCell(itemsTable, String.valueOf(itemNumber), normalFont);
-                addItemCell(itemsTable, item.getName() != null ? item.getName() : "N/A", normalFont);
+                addItemCell(itemsTable, item.getName() != null ? item.getName() : K_NA, normalFont);
                 addItemCell(itemsTable, String.valueOf(item.getQuantity()), normalFont);
                 double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : item.getPrice();
                 addItemCell(itemsTable, "₹" + String.format("%.2f", unitPrice), normalFont);
@@ -207,9 +209,9 @@ public class InvoiceService {
         Paragraph paymentInfo = new Paragraph()
                 .setFont(normalFont)
                 .setFontSize(9)
-                .add("Payment Method: " + (order.getPaymentMode() != null ? order.getPaymentMode() : "N/A") + "\n")
-                .add("Order Status: " + (order.getTrackingStatus() != null ? order.getTrackingStatus().toString() : "N/A") + "\n")
-                .add("Order Date: " + (order.getOrderDate() != null ? formatDate(java.sql.Timestamp.valueOf(order.getOrderDate())) : "N/A"));
+                .add("Payment Method: " + (order.getPaymentMode() != null ? order.getPaymentMode() : K_NA) + "\n")
+                .add("Order Status: " + (order.getTrackingStatus() != null ? order.getTrackingStatus().toString() : K_NA) + "\n")
+                .add("Order Date: " + (order.getOrderDate() != null ? formatDate(java.sql.Timestamp.valueOf(order.getOrderDate())) : K_NA));
         document.add(paymentInfo);
 
         document.add(new Paragraph("\n"));

@@ -1,7 +1,9 @@
 package com.example.ekart.dto;
 
-import jakarta.persistence.*;
+import java.io.Serializable;
 import java.util.Random;
+
+import jakarta.persistence.*;
 
 /**
  * LOCATION: src/main/java/com/example/ekart/dto/Warehouse.java
@@ -14,7 +16,9 @@ import java.util.Random;
  */
 @Entity
 @Table(name = "warehouse")
-public class Warehouse {
+public class Warehouse implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private static final Random RANDOM = new Random();
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -177,15 +181,13 @@ public class Warehouse {
 
     /** Generate a random 8-digit numeric string for warehouse login ID. */
     public static String generateLoginId() {
-        Random rng = new Random();
-        int num = 10000000 + rng.nextInt(90000000);
+        int num = 10000000 + RANDOM.nextInt(90000000);
         return String.valueOf(num);
     }
 
     /** Generate a random 6-digit numeric string for warehouse login password. */
     public static String generateLoginPassword() {
-        Random rng = new Random();
-        int num = 100000 + rng.nextInt(900000);
+        int num = 100000 + RANDOM.nextInt(900000);
         return String.valueOf(num);
     }
 }

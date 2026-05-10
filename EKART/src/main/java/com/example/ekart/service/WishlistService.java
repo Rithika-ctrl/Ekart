@@ -1,11 +1,10 @@
 package com.example.ekart.service;
-
 import java.time.LocalDateTime;
+
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,15 +20,30 @@ import jakarta.servlet.http.HttpSession;
 @Service
 @Transactional
 public class WishlistService {
+
+    private static final String K_CUSTOMER = "customer";
+
+
+    private static final String MSG_CUSTOMER_NOT_FOUND = "Customer not found";
+    private static final String MSG_PRODUCT_NOT_FOUND  = "Product not found";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WishlistRepository wishlistRepository;
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+
+    public WishlistService(
+            WishlistRepository wishlistRepository,
+            CustomerRepository customerRepository,
+            ProductRepository productRepository) {
+        this.wishlistRepository = wishlistRepository;
+        this.customerRepository = customerRepository;
+        this.productRepository = productRepository;
+    }
+
     
-    @Autowired
-    private WishlistRepository wishlistRepository;
     
-    @Autowired
-    private CustomerRepository customerRepository;
     
-    @Autowired
-    private ProductRepository productRepository;
     
     /**
      * Toggle a product in the customer's wishlist.
@@ -38,7 +52,7 @@ public class WishlistService {
      */
     @Transactional
     public ToggleResult toggleWishlistItem(int productId, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return new ToggleResult(false, false, "Not logged in");
         }
@@ -46,12 +60,12 @@ public class WishlistService {
         // Re-fetch customer from DB
         customer = customerRepository.findById(customer.getId()).orElse(null);
         if (customer == null) {
-            return new ToggleResult(false, false, "Customer not found");
+            return new ToggleResult(false, false, MSG_CUSTOMER_NOT_FOUND);
         }
         
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) {
-            return new ToggleResult(false, false, "Product not found");
+            return new ToggleResult(false, false, MSG_PRODUCT_NOT_FOUND);
         }
         
         // Check if already in wishlist
@@ -74,7 +88,7 @@ public class WishlistService {
      * Get all products in the customer's wishlist
      */
     public List<Product> getWishlistProducts(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return List.of();
         }
@@ -87,14 +101,14 @@ public class WishlistService {
         List<Wishlist> wishlistItems = wishlistRepository.findByCustomer(customer);
         return wishlistItems.stream()
                 .map(Wishlist::getProduct)
-                .collect(Collectors.toList());
+                .toList();
     }
     
     /**
      * Get all wishlist items with full details
      */
     public List<Wishlist> getWishlistItems(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return List.of();
         }
@@ -111,7 +125,7 @@ public class WishlistService {
      * Check if a product is in the customer's wishlist
      */
     public boolean isInWishlist(int productId, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return false;
         }
@@ -133,7 +147,7 @@ public class WishlistService {
      * Get a set of product IDs in the customer's wishlist (for efficient lookup in views)
      */
     public Set<Integer> getWishlistProductIds(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return Set.of();
         }
@@ -153,7 +167,7 @@ public class WishlistService {
      */
     @Transactional
     public boolean removeFromWishlist(int productId, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return false;
         }
@@ -179,7 +193,7 @@ public class WishlistService {
      * Get wishlist count for a customer
      */
     public long getWishlistCount(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return 0;
         }

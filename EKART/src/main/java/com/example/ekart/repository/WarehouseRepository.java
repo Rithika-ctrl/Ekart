@@ -9,12 +9,12 @@
 // ================================================================
 package com.example.ekart.repository;
 
+import java.util.List;
+import java.util.Optional;
 import com.example.ekart.dto.Warehouse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.util.List;
-import java.util.Optional;
 
 public interface WarehouseRepository extends JpaRepository<Warehouse, Integer> {
 
@@ -55,4 +55,10 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Integer> {
      * Used for warehouse staff authentication.
      */
     Optional<Warehouse> findByWarehouseLoginId(String warehouseLoginId);
+
+    /**
+     * Find all active warehouses in a specific city.
+     * Used for auto-assigning source warehouse when marking order as PACKED.
+     */
+    List<Warehouse> findByCityIgnoreCaseAndActiveTrue(String city);
 }

@@ -1,11 +1,9 @@
 package com.example.ekart.service;
+import java.time.LocalDateTime;
 
 import java.util.List;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 
@@ -22,7 +20,6 @@ import com.example.ekart.repository.ProductRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.WishlistRepository;
 import com.example.ekart.repository.RefundRepository;
-// import com.example.ekart.repository.ItemRepository; // unused
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -31,26 +28,55 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AdminService {
 
-	@Autowired
-	private AdminAuthService adminAuthService;
+    // ── S1192 String constants ──
+    private static final String K_ADMIN                             = "admin";
+    private static final String K_ADMINID                           = "adminId";
+    private static final String K_FAILURE                           = "failure";
+    private static final String K_PRODUCTS                          = "products";
+    private static final String K_REDIRECT_ADMIN_SEARCH_USERS       = "redirect:/admin/search-users";
+    private static final String K_REDIRECT_SECURITY_SETTINGS        = "redirect:/security-settings";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_TOTAL_REVENUE                     = "totalRevenue";
+    private static final String K_VERIFIED                          = "verified";
+    private static final String MSG_CUSTOMER_NOT_FOUND              = "Customer not found";
+    private static final String MSG_VENDOR_NOT_FOUND                = "Vendor not found";
 
-	@Autowired
-	private ProductRepository productRepository;
+	private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+	private static final String LOGIN_FIRST = "Login First";
 
-	@Autowired
-	private CustomerRepository customerRepository;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final AdminAuthService adminAuthService;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
+    private final OrderRepository orderRepository;
+    private final WishlistRepository wishlistRepository;
+    private final RefundRepository refundRepository;
 
-	@Autowired
-	private VendorRepository vendorRepository;
+    public AdminService(
+            AdminAuthService adminAuthService,
+            ProductRepository productRepository,
+            CustomerRepository customerRepository,
+            VendorRepository vendorRepository,
+            OrderRepository orderRepository,
+            WishlistRepository wishlistRepository,
+            RefundRepository refundRepository) {
+        this.adminAuthService = adminAuthService;
+        this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
+        this.orderRepository = orderRepository;
+        this.wishlistRepository = wishlistRepository;
+        this.refundRepository = refundRepository;
+    }
 
-	@Autowired
-	private OrderRepository orderRepository;
 
-	@Autowired
-	private WishlistRepository wishlistRepository;
 
-	@Autowired
-	private RefundRepository refundRepository;
+
+
+
+
+
 
 	// private ItemRepository itemRepository; // unused
 
@@ -78,69 +104,69 @@ public class AdminService {
 		com.example.ekart.dto.AuthenticationResult authResult = adminAuthService.authenticate(email, password);
 		
 		if (!authResult.isSuccess()) {
-			session.setAttribute("failure", authResult.getMessage());
-			return "redirect:/admin/login";
+			session.setAttribute(K_FAILURE, authResult.getMessage());
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Check if 2FA is required
 		if (authResult.isRequires2FA()) {
 			// In a web session context, we'd store adminId and require 2FA verification
 			// For now, store in session and redirect to 2FA verification page
-			session.setAttribute("adminId", authResult.getAdminId());
+			session.setAttribute(K_ADMINID, authResult.getAdminId());
 			session.setAttribute("requires2FA", true);
 			session.setAttribute("info", "Please provide 2FA code from your authenticator app");
 			return "redirect:/admin/verify-2fa";
 		}
 
 		// Authentication successful without 2FA
-		session.setAttribute("admin", email);
-		session.setAttribute("adminId", authResult.getAdminId());
-		session.setAttribute("success", "Login Success as Admin");
+		session.setAttribute(K_ADMIN, email);
+		session.setAttribute(K_ADMINID, authResult.getAdminId());
+		session.setAttribute(K_SUCCESS, "Login Success as Admin");
 		return "redirect:/admin/home";
 	}
 
 	// ---------------- HOME ----------------
 	public String loadAdminHome(HttpSession session) {
 
-		if (session.getAttribute("admin") != null)
+		if (session.getAttribute(K_ADMIN) != null)
 			return "admin-home.html";
 
-		session.setAttribute("failure", "Login First");
-		return "redirect:/admin/login";
+		session.setAttribute(K_FAILURE, LOGIN_FIRST);
+		return REDIRECT_ADMIN_LOGIN;
 	}
 
 	// ---------------- APPROVE PRODUCTS ----------------
 	public String approveProducts(HttpSession session, ModelMap map) {
 
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// 🔥 show all products (approved + unapproved)
 		List<Product> products = productRepository.findAll();
 
 		if (products.isEmpty()) {
-			session.setAttribute("failure", "No Products Present");
+			session.setAttribute(K_FAILURE, "No Products Present");
 			return "redirect:/admin/home";
 		}
 
-		map.put("products", products);
+		map.put(K_PRODUCTS, products);
 		return "admin-view-products.html";
 	}
 
 	// ---------------- CHANGE STATUS ----------------
 	public String changeStatus(int id, HttpSession session) {
 
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Product product = productRepository.findById(id).orElse(null);
 
 		if (product == null) {
-			session.setAttribute("failure", "Product Not Found");
+			session.setAttribute(K_FAILURE, "Product Not Found");
 			return "redirect:/approve-products";
 		}
 
@@ -148,15 +174,15 @@ public class AdminService {
 		product.setApproved(!product.isApproved());
 		productRepository.save(product);
 
-		session.setAttribute("success", "Product Approval Status Updated");
+		session.setAttribute(K_SUCCESS, "Product Approval Status Updated");
 		return "redirect:/approve-products";
 	}
 
 	// 🔥 SEARCH USERS/VENDORS
 	public String searchUsers(HttpSession session, org.springframework.ui.ModelMap map) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		java.util.List<Customer> customers = customerRepository.findAll();
@@ -173,7 +199,7 @@ public class AdminService {
 				java.util.Map<String,Object> m = new java.util.HashMap<>();
 				m.put("id", c.getId()); m.put("name", c.getName());
 				m.put("email", c.getEmail()); m.put("mobile", c.getMobile());
-				m.put("verified", c.isVerified());
+				m.put(K_VERIFIED, c.isVerified());
 				cList.add(m);
 			}
 			// Build simplified vendor list
@@ -182,7 +208,7 @@ public class AdminService {
 				java.util.Map<String,Object> m = new java.util.HashMap<>();
 				m.put("id", v.getId()); m.put("name", v.getName());
 				m.put("email", v.getEmail()); m.put("mobile", v.getMobile());
-				m.put("verified", v.isVerified());
+				m.put(K_VERIFIED, v.isVerified());
 				vList.add(m);
 			}
 			customersJson = mapper.writeValueAsString(cList);
@@ -197,15 +223,15 @@ public class AdminService {
 	// ============ DELETE CUSTOMER ============
 	@Transactional
 	public String deleteCustomer(int id, HttpSession session) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Customer customer = customerRepository.findById(id).orElse(null);
 		if (customer == null) {
-			session.setAttribute("failure", "Customer not found");
-			return "redirect:/admin/search-users";
+			session.setAttribute(K_FAILURE, MSG_CUSTOMER_NOT_FOUND);
+			return K_REDIRECT_ADMIN_SEARCH_USERS;
 		}
 
 		// 1. Delete wishlist entries
@@ -223,29 +249,29 @@ public class AdminService {
 		// 4. Delete customer (CascadeType.ALL handles cart + addresses)
 		customerRepository.delete(customer);
 
-		session.setAttribute("success", "Customer account deleted successfully");
-		return "redirect:/admin/search-users";
+		session.setAttribute(K_SUCCESS, "Customer account deleted successfully");
+		return K_REDIRECT_ADMIN_SEARCH_USERS;
 	}
 
 	// ============ DELETE VENDOR ============
 	@Transactional
 	public String deleteVendor(int id, HttpSession session) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Vendor vendor = vendorRepository.findById(id).orElse(null);
 		if (vendor == null) {
-			session.setAttribute("failure", "Vendor not found");
-			return "redirect:/admin/search-users";
+			session.setAttribute(K_FAILURE, MSG_VENDOR_NOT_FOUND);
+			return K_REDIRECT_ADMIN_SEARCH_USERS;
 		}
 
 		// 1. Nullify vendor reference on products (don't delete products, just unlink)
 		//    Products remain on platform but become unowned — admin can then delete them separately
 		List<Product> products = productRepository.findAll().stream()
 				.filter(p -> p.getVendor() != null && p.getVendor().getId() == vendor.getId())
-				.collect(java.util.stream.Collectors.toList());
+				.toList();
 		for (Product p : products) {
 			p.setVendor(null);
 			p.setApproved(false);
@@ -255,15 +281,15 @@ public class AdminService {
 		// 2. Delete vendor
 		vendorRepository.delete(vendor);
 
-		session.setAttribute("success", "Vendor account deleted successfully");
-		return "redirect:/admin/search-users";
+		session.setAttribute(K_SUCCESS, "Vendor account deleted successfully");
+		return K_REDIRECT_ADMIN_SEARCH_USERS;
 	}
 
 	// ============ REFUND MANAGEMENT ============
 	public String refundManagement(HttpSession session, ModelMap map) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Get all orders with replacement/refund requests
@@ -285,14 +311,14 @@ public class AdminService {
 	}
 
 	public String processRefund(int orderId, String action, HttpSession session) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		Order order = orderRepository.findById(orderId).orElse(null);
 		if (order == null) {
-			session.setAttribute("failure", "Order not found");
+			session.setAttribute(K_FAILURE, "Order not found");
 			return "redirect:/refund-management";
 		}
 
@@ -303,12 +329,12 @@ public class AdminService {
 			order.setReplacementRequested(false);
 			order.setTrackingStatus(TrackingStatus.REFUNDED);
 			orderRepository.save(order);
-			session.setAttribute("success", "Refund approved for Order #" + orderId);
+			session.setAttribute(K_SUCCESS, "Refund approved for Order #" + orderId);
 		} else if ("deny".equals(action)) {
 			order.setReplacementRequested(false);
 			// Status stays as-is when denied — order is not refunded
 			orderRepository.save(order);
-			session.setAttribute("success", "Refund request denied for Order #" + orderId);
+			session.setAttribute(K_SUCCESS, "Refund request denied for Order #" + orderId);
 		}
 
 		return "redirect:/refund-management";
@@ -316,9 +342,9 @@ public class AdminService {
 
 	// ============ CONTENT MANAGEMENT ============
 	public String contentManagement(HttpSession session, ModelMap map) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("bannerTitle", bannerTitle);
@@ -332,22 +358,22 @@ public class AdminService {
 	}
 
 	public String updateBanner(String title, String subtitle, HttpSession session) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 		// Update instance fields (survives current session; restart resets to .properties defaults)
 		this.bannerTitle = (title != null && !title.isBlank()) ? title : this.bannerTitle;
 		this.bannerSubtitle = (subtitle != null && !subtitle.isBlank()) ? subtitle : this.bannerSubtitle;
-		session.setAttribute("success", "Banner content updated successfully");
+		session.setAttribute(K_SUCCESS, "Banner content updated successfully");
 		return "redirect:/content-management";
 	}
 
 	// ============ SECURITY SETTINGS ============
 	public String securitySettings(HttpSession session, ModelMap map) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		map.put("adminEmail", adminEmail);
@@ -359,26 +385,26 @@ public class AdminService {
 
 	public String updateAdminPassword(String currentPassword, String newPassword, 
 									   String confirmPassword, HttpSession session) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		if (!newPassword.equals(confirmPassword)) {
-			session.setAttribute("failure", "New passwords do not match");
-			return "redirect:/security-settings";
+			session.setAttribute(K_FAILURE, "New passwords do not match");
+			return K_REDIRECT_SECURITY_SETTINGS;
 		}
 
 		if (newPassword.length() < 6) {
-			session.setAttribute("failure", "Password must be at least 6 characters");
-			return "redirect:/security-settings";
+			session.setAttribute(K_FAILURE, "Password must be at least 6 characters");
+			return K_REDIRECT_SECURITY_SETTINGS;
 		}
 
 		// Get adminId from session (set during login)
-		Integer adminId = (Integer) session.getAttribute("adminId");
+		Integer adminId = (Integer) session.getAttribute(K_ADMINID);
 		if (adminId == null) {
-			session.setAttribute("failure", "Admin ID not found. Please login again.");
-			return "redirect:/admin/login";
+			session.setAttribute(K_FAILURE, "Admin ID not found. Please login again.");
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Use AdminAuthService to change password (validates current password via BCrypt)
@@ -386,19 +412,19 @@ public class AdminService {
 			adminAuthService.changePassword(adminId, currentPassword, newPassword);
 
 		if (!changeResult.isSuccess()) {
-			session.setAttribute("failure", changeResult.getMessage());
-			return "redirect:/security-settings";
+			session.setAttribute(K_FAILURE, changeResult.getMessage());
+			return K_REDIRECT_SECURITY_SETTINGS;
 		}
 
-		session.setAttribute("success", "Password changed successfully");
-		return "redirect:/security-settings";
+		session.setAttribute(K_SUCCESS, "Password changed successfully");
+		return K_REDIRECT_SECURITY_SETTINGS;
 	}
 
 	// ============ ANALYTICS & REPORTS ============
 	public String analytics(HttpSession session, ModelMap map) {
-		if (session.getAttribute("admin") == null) {
-			session.setAttribute("failure", "Login First");
-			return "redirect:/admin/login";
+		if (session.getAttribute(K_ADMIN) == null) {
+			session.setAttribute(K_FAILURE, LOGIN_FIRST);
+			return REDIRECT_ADMIN_LOGIN;
 		}
 
 		// Gather platform statistics
@@ -455,7 +481,7 @@ public class AdminService {
 		map.put("approvedProducts", approvedProducts);
 		map.put("pendingProducts", pendingProducts);
 		map.put("totalOrders", totalOrders);
-		map.put("totalRevenue", totalRevenue);
+		map.put(K_TOTAL_REVENUE, totalRevenue);
 		map.put("processingOrders", processingOrders);
 		map.put("shippedOrders", shippedOrders);
 		map.put("deliveredOrders", deliveredOrders);

@@ -1,9 +1,7 @@
 package com.example.ekart.controller;
 
 import com.example.ekart.service.BackInStockService;
-// import jakarta.servlet.http.HttpSession; // unused
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -19,8 +17,15 @@ import java.util.Map;
 @RequestMapping("/api/notify-me")
 public class BackInStockController {
 
-    @Autowired
-    private BackInStockService backInStockService;
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final BackInStockService backInStockService;
+
+    public BackInStockController(
+            BackInStockService backInStockService) {
+        this.backInStockService = backInStockService;
+    }
+
+
 
     /** Subscribe the logged-in customer to back-in-stock alerts for a product */
     @PostMapping("/{productId}")

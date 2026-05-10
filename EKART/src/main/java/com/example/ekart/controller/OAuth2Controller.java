@@ -1,6 +1,5 @@
 package com.example.ekart.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,11 +21,26 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class OAuth2Controller {
 
-    @Autowired
-    private SocialAuthService socialAuthService;
+    private static final String K_FAILURE   = "failure";
+    private static final String K_CUSTOMER  = "customer";
+    private static final String K_VENDOR    = "vendor";
+    private static final String K_FLUTTER   = "flutter-";
+    private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
 
-    @Autowired
-    private OAuthProviderValidator providerValidator;
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final SocialAuthService socialAuthService;
+    private final OAuthProviderValidator providerValidator;
+
+    public OAuth2Controller(
+            SocialAuthService socialAuthService,
+            OAuthProviderValidator providerValidator) {
+        this.socialAuthService = socialAuthService;
+        this.providerValidator = providerValidator;
+    }
+
+
+
 
     /**
      * Initiates OAuth flow by setting the login type before redirecting to provider.
@@ -37,23 +51,23 @@ public class OAuth2Controller {
      */
     @GetMapping("/oauth2/authorize/{provider}")
     public String initiateOAuth(@PathVariable String provider,
-                                @RequestParam(defaultValue = "customer") String type,
+                                @RequestParam(defaultValue = K_CUSTOMER) String type,
                                 HttpSession session) {
         
-        // Strip "flutter-" prefix for validation — flutter-customer/flutter-vendor
+        // Strip K_FLUTTER prefix for validation — flutter-customer/flutter-vendor
         // share the same provider allowlist as their base roles.
         // The full type is stored in the session so OAuth2LoginSuccessHandler
         // can redirect back to the React app instead of a Thymeleaf page.
-        String baseType = type.startsWith("flutter-") ? type.substring("flutter-".length()) : type;
+        String baseType = type.startsWith(K_FLUTTER) ? type.substring(K_FLUTTER.length()) : type;
 
         // Validate provider access using middleware
         if (!providerValidator.isProviderAllowed(provider, baseType)) {
             String providerName = providerValidator.getProviderDisplayName(provider);
-            session.setAttribute("failure", providerName + " login is not available for " + baseType + " accounts");
+            session.setAttribute(K_FAILURE, providerName + " login is not available for " + baseType + " accounts");
             return getRedirectForType(baseType);
         }
 
-        session.setAttribute("oauth_login_type", type);   // preserve full type e.g. "flutter-customer"
+        session.setAttribute(com.example.ekart.config.OAuth2LoginSuccessHandler.KEY_OAUTH_LOGIN_TYPE, type);   // preserve full type e.g. "flutter-customer"
         return "redirect:/oauth2/authorization/" + provider;
     }
 
@@ -63,20 +77,20 @@ public class OAuth2Controller {
      */
     @GetMapping("/customer/link-oauth/{provider}")
     public String linkCustomerOAuth(@PathVariable String provider, HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Please login first to link your social account");
+            session.setAttribute(K_FAILURE, "Please login first to link your social account");
             return "redirect:/customer/login";
         }
         
         // Validate provider is allowed for customers
-        if (!providerValidator.isProviderAllowed(provider, "customer")) {
-            session.setAttribute("failure", providerValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
+        if (!providerValidator.isProviderAllowed(provider, K_CUSTOMER)) {
+            session.setAttribute(K_FAILURE, providerValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
             return "redirect:/customer/home";
         }
         
         // Set a flag so success handler knows this is a linking operation
-        session.setAttribute("oauth_link_mode", "customer");
+        session.setAttribute("oauth_link_mode", K_CUSTOMER);
         session.setAttribute("oauth_link_customer_id", customer.getId());
         return "redirect:/oauth2/authorization/" + provider;
     }
@@ -86,19 +100,19 @@ public class OAuth2Controller {
      */
     @GetMapping("/vendor/link-oauth/{provider}")
     public String linkVendorOAuth(@PathVariable String provider, HttpSession session) {
-        Vendor vendor = (Vendor) session.getAttribute("vendor");
+        Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
         if (vendor == null) {
-            session.setAttribute("failure", "Please login first to link your social account");
+            session.setAttribute(K_FAILURE, "Please login first to link your social account");
             return "redirect:/vendor/login";
         }
         
         // Validate provider is allowed for vendors
-        if (!providerValidator.isProviderAllowed(provider, "vendor")) {
-            session.setAttribute("failure", providerValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
+        if (!providerValidator.isProviderAllowed(provider, K_VENDOR)) {
+            session.setAttribute(K_FAILURE, providerValidator.getProviderDisplayName(provider) + " is not available for vendor accounts");
             return "redirect:/vendor/home";
         }
         
-        session.setAttribute("oauth_link_mode", "vendor");
+        session.setAttribute("oauth_link_mode", K_VENDOR);
         session.setAttribute("oauth_link_vendor_id", vendor.getId());
         return "redirect:/oauth2/authorization/" + provider;
     }
@@ -109,14 +123,14 @@ public class OAuth2Controller {
      */
     @PostMapping("/customer/unlink-oauth")
     public String unlinkCustomerOAuth(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Please login first");
+            session.setAttribute(K_FAILURE, "Please login first");
             return "redirect:/customer/login";
         }
 
         if (customer.getPassword() == null) {
-            session.setAttribute("failure", "Cannot unlink - you need to set a password first");
+            session.setAttribute(K_FAILURE, "Cannot unlink - you need to set a password first");
             return "redirect:/customer/home";
         }
 
@@ -124,10 +138,10 @@ public class OAuth2Controller {
             // Update session with unlinked customer
             customer.setProvider(null);
             customer.setProviderId(null);
-            session.setAttribute("customer", customer);
+            session.setAttribute(K_CUSTOMER, customer);
             session.setAttribute("success", "Social account unlinked successfully");
         } else {
-            session.setAttribute("failure", "Failed to unlink social account");
+            session.setAttribute(K_FAILURE, "Failed to unlink social account");
         }
 
         return "redirect:/customer/home";
@@ -138,8 +152,8 @@ public class OAuth2Controller {
      */
     private String getRedirectForType(String type) {
         switch (type.toLowerCase()) {
-            case "vendor": return "redirect:/vendor/login";
-            case "admin": return "redirect:/admin/login";
+            case K_VENDOR: return "redirect:/vendor/login";
+            case "admin": return REDIRECT_ADMIN_LOGIN;
             default: return "redirect:/customer/login";
         }
     }

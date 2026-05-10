@@ -4,9 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -26,9 +24,24 @@ import jakarta.servlet.http.HttpSession;
 
 @Controller
 public class WishlistController {
+
+    // ── S1192 String constants ──
+    private static final String K_CUSTOMER                          = "customer";
+    private static final String K_MESSAGE                           = "message";
+    private static final String K_PRODUCTS                          = "products";
+    private static final String K_SUCCESS                           = "success";
+    private static final String K_WISHLISTCOUNT                     = "wishlistCount";
+    private static final String K_FAILURE = "failure";
+
+    // ── Injected dependencies ────────────────────────────────────────────────
+    private final WishlistService wishlistService;
+
+    public WishlistController(
+            WishlistService wishlistService) {
+        this.wishlistService = wishlistService;
+    }
+
     
-    @Autowired
-    private WishlistService wishlistService;
     
     // ───────────────────────────────────────────────────────────────────────────
     // REST API ENDPOINTS
@@ -44,29 +57,29 @@ public class WishlistController {
             @RequestBody Map<String, Integer> body,
             HttpSession session) {
         
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Please login to add items to wishlist"
+                K_SUCCESS, false,
+                K_MESSAGE, "Please login to add items to wishlist"
             ));
         }
         
         Integer productId = body.get("productId");
         if (productId == null) {
             return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Product ID is required"
+                K_SUCCESS, false,
+                K_MESSAGE, "Product ID is required"
             ));
         }
         
         ToggleResult result = wishlistService.toggleWishlistItem(productId, session);
         
         Map<String, Object> response = new HashMap<>();
-        response.put("success", result.isSuccess());
+        response.put(K_SUCCESS, result.isSuccess());
         response.put("added", result.isAdded());
-        response.put("message", result.getMessage());
-        response.put("wishlistCount", wishlistService.getWishlistCount(session));
+        response.put(K_MESSAGE, result.getMessage());
+        response.put(K_WISHLISTCOUNT, wishlistService.getWishlistCount(session));
         
         return ResponseEntity.ok(response);
     }
@@ -77,12 +90,12 @@ public class WishlistController {
      */
     @GetMapping("/api/wishlist")
     @ResponseBody
-    public ResponseEntity<?> getWishlist(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+    public ResponseEntity<Object> getWishlist(HttpSession session) {
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Please login to view wishlist"
+                K_SUCCESS, false,
+                K_MESSAGE, "Please login to view wishlist"
             ));
         }
         
@@ -101,11 +114,11 @@ public class WishlistController {
                 item.put("category", p.getCategory());
                 return item;
             })
-            .collect(Collectors.toList());
+            .toList();
         
         return ResponseEntity.ok(Map.of(
-            "success", true,
-            "products", productList,
+            K_SUCCESS, true,
+            K_PRODUCTS, productList,
             "count", productList.size()
         ));
     }
@@ -116,18 +129,18 @@ public class WishlistController {
      */
     @GetMapping("/api/wishlist/ids")
     @ResponseBody
-    public ResponseEntity<?> getWishlistIds(HttpSession session) {
-        Customer customer = (Customer) session.getAttribute("customer");
+    public ResponseEntity<Object> getWishlistIds(HttpSession session) {
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
+                K_SUCCESS, false,
                 "productIds", Set.of()
             ));
         }
         
         Set<Integer> productIds = wishlistService.getWishlistProductIds(session);
         return ResponseEntity.ok(Map.of(
-            "success", true,
+            K_SUCCESS, true,
             "productIds", productIds
         ));
     }
@@ -142,20 +155,20 @@ public class WishlistController {
             @PathVariable int productId,
             HttpSession session) {
         
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             return ResponseEntity.status(401).body(Map.of(
-                "success", false,
-                "message", "Please login"
+                K_SUCCESS, false,
+                K_MESSAGE, "Please login"
             ));
         }
         
         boolean removed = wishlistService.removeFromWishlist(productId, session);
         
         return ResponseEntity.ok(Map.of(
-            "success", removed,
-            "message", removed ? "Removed from wishlist" : "Item not found in wishlist",
-            "wishlistCount", wishlistService.getWishlistCount(session)
+            K_SUCCESS, removed,
+            K_MESSAGE, removed ? "Removed from wishlist" : "Item not found in wishlist",
+            K_WISHLISTCOUNT, wishlistService.getWishlistCount(session)
         ));
     }
     
@@ -169,15 +182,15 @@ public class WishlistController {
      */
     @GetMapping("/account/wishlist")
     public String wishlistPage(HttpSession session, ModelMap map) {
-        Customer customer = (Customer) session.getAttribute("customer");
+        Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
-            session.setAttribute("failure", "Please login to view your wishlist");
+            session.setAttribute(K_FAILURE, "Please login to view your wishlist");
             return "redirect:/customer/login";
         }
         
         List<Product> products = wishlistService.getWishlistProducts(session);
-        map.put("products", products);
-        map.put("wishlistCount", products.size());
+        map.put(K_PRODUCTS, products);
+        map.put(K_WISHLISTCOUNT, products.size());
         
         return "wishlist.html";
     }

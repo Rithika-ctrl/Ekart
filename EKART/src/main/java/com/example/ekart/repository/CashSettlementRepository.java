@@ -1,8 +1,8 @@
 package com.example.ekart.repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
+
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -103,3 +103,4 @@ public interface CashSettlementRepository extends JpaRepository<CashSettlement, 
            "ORDER BY cs.submittedAt DESC")
     List<CashSettlement> findBySubmittedByStaffId(@Param("staffId") int staffId);
 }
+
