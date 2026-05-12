@@ -43,6 +43,13 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
         String contextPath = request.getContextPath();
         String route = path.startsWith(contextPath) ? path.substring(contextPath.length()) : path;
 
+        // Block deprecated routes if a replacement exists
+        String replacement = tracker.getReplacementRoute(route);
+        if (replacement != null) {
+            response.sendError(HttpServletResponse.SC_GONE, "This route is deprecated. Please use the new API: " + replacement);
+            return false;
+        }
+
         // Skip non-Thymeleaf & asset routes
         if (shouldSkip(route)) {
             return true;

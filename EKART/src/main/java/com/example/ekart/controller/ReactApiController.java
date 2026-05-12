@@ -533,7 +533,7 @@ public class ReactApiController {
 
     /** POST /api/react/auth/customer/send-register-otp */
     @PostMapping("/auth/customer/send-register-otp")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("java:S1874")
     public ResponseEntity<Map<String, Object>> customerSendRegisterOtp(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -699,7 +699,7 @@ public class ReactApiController {
 
     /** POST /api/react/auth/vendor/send-register-otp */
     @PostMapping("/auth/vendor/send-register-otp")
-    @SuppressWarnings({"deprecation", "java:S1874"})
+    @SuppressWarnings("java:S1874")
     public ResponseEntity<Map<String, Object>> vendorSendRegisterOtp(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -914,14 +914,12 @@ public class ReactApiController {
      * the legacy email template; EmailSender.send(Customer) reads {@code getOtp()}
      * internally. Once EmailSender accepts a plain OTP string this call can be removed.
      */
-    @SuppressWarnings("java:S1874") // setOtp() required by legacy EmailSender until it is migrated
+    /**
+     * Sends a customer registration OTP email using the new EmailSender method (no deprecated setOtp).
+     */
     private void trySendCustomerRegisterOtp(String email, String name, String otp) {
         try {
-            com.example.ekart.dto.Customer tempForEmail = new com.example.ekart.dto.Customer();
-            tempForEmail.setEmail(email);
-            tempForEmail.setName(name);
-            tempForEmail.setOtp(Integer.parseInt(otp));
-            emailSender.send(tempForEmail);
+            emailSender.sendCustomerOtp(email, name, otp);
         } catch (Exception e) {
             LOGGER.error("Customer register OTP email failed", e);
         }
@@ -1035,7 +1033,7 @@ public class ReactApiController {
      *   - Pending admin approval  → 403 + message
      */
     @PostMapping("/auth/delivery/login")
-    @SuppressWarnings("deprecation")
+
     public ResponseEntity<Map<String, Object>> deliveryLogin(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1614,7 +1612,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/customer/reset-password */
     @PostMapping("/auth/customer/reset-password")
-    @SuppressWarnings("deprecation")
+
     public ResponseEntity<Map<String, Object>> customerResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1677,7 +1675,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/forgot-password */
     @PostMapping("/auth/vendor/forgot-password")
-    @SuppressWarnings("deprecation")
+
     public ResponseEntity<Map<String, Object>> vendorForgotPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -1763,7 +1761,7 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/vendor/reset-password */
     @PostMapping("/auth/vendor/reset-password")
-    @SuppressWarnings("deprecation")
+
     public ResponseEntity<Map<String, Object>> vendorResetPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -2409,32 +2407,48 @@ public class ReactApiController {
         Warehouse warehouse = null;
         Object addressIdObj = body.get("addressId");
 
-        if (addressIdObj != null) {
-            try {
-                Integer addressId = Integer.parseInt(addressIdObj.toString());
-                Address selectedAddress = null;
-                for (Address address : customer.getAddresses()) {
-                    if (address.getId() == addressId) {
-                        selectedAddress = address;
-                        break;
-                    }
-                }
-                if (selectedAddress != null && selectedAddress.getPostalCode() != null) {
-                    String digitsOnlyPin = selectedAddress.getPostalCode().replaceAll("\\D", "");
-                    deliveryPin = digitsOnlyPin.substring(0, Math.min(6, digitsOnlyPin.length()));
-                    for (Warehouse candidate : warehouseRepository.findAll()) {
-                        if (candidate.serves(deliveryPin)) {
-                            warehouse = candidate;
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception ignored) {
-                // Keep empty pin and null warehouse if address resolution fails.
-            }
+        if (addressIdObj == null) {
+            return new DeliveryLocation("", null);
         }
 
+        try {
+            Integer addressId = Integer.parseInt(addressIdObj.toString());
+            Address selectedAddress = findAddressById(customer, addressId);
+            if (selectedAddress == null || selectedAddress.getPostalCode() == null) {
+                return new DeliveryLocation("", null);
+            }
+            deliveryPin = extractDeliveryPin(selectedAddress.getPostalCode());
+            warehouse = findWarehouseForPin(deliveryPin);
+        } catch (Exception ignored) {
+            // Keep empty pin and null warehouse if address resolution fails.
+        }
         return new DeliveryLocation(deliveryPin, warehouse);
+    }
+
+    // Helper: Find address by ID
+    private Address findAddressById(Customer customer, int addressId) {
+        for (Address address : customer.getAddresses()) {
+            if (address.getId() == addressId) {
+                return address;
+            }
+        }
+        return null;
+    }
+
+    // Helper: Extract 6-digit delivery pin
+    private String extractDeliveryPin(String postalCode) {
+        String digitsOnlyPin = postalCode.replaceAll("\\D", "");
+        return digitsOnlyPin.substring(0, Math.min(6, digitsOnlyPin.length()));
+    }
+
+    // Helper: Find warehouse serving the pin
+    private Warehouse findWarehouseForPin(String deliveryPin) {
+        for (Warehouse candidate : warehouseRepository.findAll()) {
+            if (candidate.serves(deliveryPin)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static class SubOrderResult {
@@ -3821,33 +3835,13 @@ public class ReactApiController {
      * Attempts to upload to Cloudinary; falls back to provided imageLink if upload fails or is not provided.
      * Returns the resolved image URL (may be empty string if no image provided).
      */
-    private String resolveProductImage(MultipartFile image, String imageLink) {
-        if (image != null && !image.isEmpty()) {
-            try {
-                return cloudinaryHelper.saveToCloudinary(image);
-            } catch (Exception e) {
-                // Fall back to provided imageLink if upload fails
-                return (imageLink != null && !imageLink.isBlank()) ? imageLink : "";
-            }
-        }
-        return (imageLink != null && !imageLink.isBlank()) ? imageLink : "";
-    }
+
     
     /**
      * Safely parses an optional numeric string parameter.
      * Returns the parsed double value if parameter is provided and valid; returns defaultValue otherwise.
      */
-    private double parseOptionalDouble(String value, double defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
-        }
-        try {
-            double parsed = Double.parseDouble(value);
-            return parsed > 0 ? parsed : defaultValue;
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
+
     
     /**
      * Safely parses an optional integer string parameter.
@@ -4103,14 +4097,7 @@ public class ReactApiController {
      * @param fallbackUrl URL to use when Cloudinary upload fails (may be null/blank)
      * @return the Cloudinary URL on success, or fallbackUrl (or empty string) on failure
      */
-    private String uploadImageToCloudinary(MultipartFile image, String fallbackUrl) {
-        try {
-            return cloudinaryHelper.saveToCloudinary(image);
-        } catch (Exception e) {
-            LOGGER.warn("Cloudinary upload failed, using fallback URL: {}", e.getMessage());
-            return (fallbackUrl != null && !fallbackUrl.isBlank()) ? fallbackUrl : "";
-        }
-    }
+
 
     /**
      * Processes a single CSV row for vendor bulk product import.

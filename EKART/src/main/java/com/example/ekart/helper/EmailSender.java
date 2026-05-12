@@ -1,4 +1,4 @@
-package com.example.ekart.helper;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +26,28 @@ import jakarta.mail.internet.MimeMessage;
 
 @Component
 public class EmailSender {
+
+    /**
+     * Sends a customer OTP email using plain OTP string (no deprecated Customer.setOtp).
+     */
+    @Async
+    public void sendCustomerOtp(String email, String name, String otp) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail, EKART_SENDER);
+            helper.setTo(email);
+            helper.setSubject("OTP for Email Verification - Ekart");
+            Context context = new Context();
+            context.setVariable(K_NAME, name);
+            context.setVariable(K_OTP, String.format("%06d", Integer.parseInt(otp)));
+            String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
+            logger.error("Customer OTP email failed: ", e);
+        }
+    }
 
     // S1192 String constants
     private static final String K_NAME     = "name";
