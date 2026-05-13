@@ -38,6 +38,8 @@ public class PaymentMethodService {
     // Re-add via constructor injection only if a future method requires them.
 
     public PaymentMethodService() {
+        // No dependencies required — all methods use only their arguments
+        // or class-level constants. Spring can instantiate this with no-arg.
     }
 
 

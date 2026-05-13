@@ -131,22 +131,22 @@ public class CustomerImageUploadController {
 
         for (int i = 0; i < Math.min(files.size(), slots); i++) {
             MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) continue;
-
-            if (!isValidImage(file)) {
-                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            if (file == null || file.isEmpty()) {
                 continue;
             }
-
-            try {
-                String url = cloudinaryHelper.saveToCloudinary(file);
-                ReviewImage img = new ReviewImage();
-                img.setReview(review);
-                img.setImageUrl(url);
-                reviewImageRepository.save(img);
-                uploaded++;
-            } catch (Exception e) {
-                errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+            if (!isValidImage(file)) {
+                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            } else {
+                try {
+                    String url = cloudinaryHelper.saveToCloudinary(file);
+                    ReviewImage img = new ReviewImage();
+                    img.setReview(review);
+                    img.setImageUrl(url);
+                    reviewImageRepository.save(img);
+                    uploaded++;
+                } catch (Exception e) {
+                    errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+                }
             }
         }
 
@@ -280,22 +280,22 @@ public class CustomerImageUploadController {
 
         for (int i = 0; i < Math.min(files.size(), slots); i++) {
             MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) continue;
-
-            if (!isValidImage(file)) {
-                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            if (file == null || file.isEmpty()) {
                 continue;
             }
-
-            try {
-                String url = cloudinaryHelper.saveToCloudinary(file);
-                RefundImage img = new RefundImage();
-                img.setRefund(refund);
-                img.setImageUrl(url);
-                refundImageRepository.save(img);
-                uploaded++;
-            } catch (Exception e) {
-                errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+            if (!isValidImage(file)) {
+                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            } else {
+                try {
+                    String url = cloudinaryHelper.saveToCloudinary(file);
+                    RefundImage img = new RefundImage();
+                    img.setRefund(refund);
+                    img.setImageUrl(url);
+                    refundImageRepository.save(img);
+                    uploaded++;
+                } catch (Exception e) {
+                    errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+                }
             }
         }
 
@@ -431,8 +431,9 @@ public class CustomerImageUploadController {
         int uploaded = 0;
         for (int i = 0; i < Math.min(files.size(), slots); i++) {
             MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) continue;
-            if (!isValidImage(file)) continue;
+            if (file == null || file.isEmpty() || !isValidImage(file)) {
+                continue;
+            }
 
             try {
                 String url = cloudinaryHelper.saveToCloudinary(file);

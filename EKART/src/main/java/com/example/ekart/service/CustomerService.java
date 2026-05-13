@@ -618,7 +618,10 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+            .mapToDouble(i -> {
+                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
+                return itemTotal;
+            }).sum();
 
         res.put(K_SUCCESS, true);
         res.put("quantity", newQty);
@@ -632,6 +635,8 @@ public class CustomerService {
     }
 
     // ── AJAX: decrease ────────────────────────────────────────────
+    // FIX (java:S3776 issue 200): ajaxDecrease CC reduced from 22 to ≤15 by
+    //   extracting removeItemWhenQtyOne() and decreaseItemQty() private helpers.
     public java.util.Map<String, Object> ajaxDecrease(int id, HttpSession session) {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
         Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
@@ -644,28 +649,21 @@ public class CustomerService {
         Product product = item.getProductId() != null
             ? productRepository.findById(item.getProductId()).orElse(null) : null;
 
-        boolean removed = false;
+        boolean removed;
         if (item.getQuantity() <= 1) {
-            Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
-            customer.getCart().getItems().removeIf(i -> i.getId() == id);
-            customerRepository.save(customer);
-            itemRepository.deleteById(id);
-            if (product != null) { product.setStock(product.getStock() + 1); productRepository.save(product); }
+            removeItemWhenQtyOne(id, sessionCustomer, product);
             removed = true;
         } else {
-            int newQty = item.getQuantity() - 1;
-            double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice()
-                : (product != null ? product.getPrice() : item.getPrice());
-            item.setUnitPrice(unitPrice);
-            item.setQuantity(newQty);
-            item.setPrice(unitPrice * newQty);
-            itemRepository.save(item);
-            if (product != null) { product.setStock(product.getStock() + 1); productRepository.save(product); }
+            decreaseItemQty(item, product);
+            removed = false;
         }
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+            .mapToDouble(i -> {
+                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
+                return itemTotal;
+            }).sum();
 
         res.put(K_SUCCESS, true);
         res.put("removed", removed);
@@ -679,6 +677,33 @@ public class CustomerService {
         res.put(K_DELIVERYCHARGE, cartTotal >= 500 ? 0 : 40);
         res.put(K_CARTEMPTY, customer.getCart().getItems().isEmpty());
         return res;
+    }
+
+    /** Removes the item from the cart and restores stock when qty would drop to 0. */
+    private void removeItemWhenQtyOne(int id, Customer sessionCustomer, Product product) {
+        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
+        customer.getCart().getItems().removeIf(i -> i.getId() == id);
+        customerRepository.save(customer);
+        itemRepository.deleteById(id);
+        if (product != null) {
+            product.setStock(product.getStock() + 1);
+            productRepository.save(product);
+        }
+    }
+
+    /** Decrements the item quantity by 1 and restores one unit of stock. */
+    private void decreaseItemQty(Item item, Product product) {
+        int newQty = item.getQuantity() - 1;
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice()
+            : (product != null ? product.getPrice() : item.getPrice());
+        item.setUnitPrice(unitPrice);
+        item.setQuantity(newQty);
+        item.setPrice(unitPrice * newQty);
+        itemRepository.save(item);
+        if (product != null) {
+            product.setStock(product.getStock() + 1);
+            productRepository.save(product);
+        }
     }
 
     // ── AJAX: remove ──────────────────────────────────────────────
@@ -705,7 +730,10 @@ public class CustomerService {
         itemRepository.deleteById(id);
 
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice()).sum();
+            .mapToDouble(i -> {
+                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
+                return itemTotal;
+            }).sum();
 
         res.put(K_SUCCESS, true);
         res.put(K_CARTTOTAL, cartTotal);
@@ -716,6 +744,8 @@ public class CustomerService {
     }
 
     // ---------------- PAYMENT PAGE ----------------
+    // FIX (java:S3776 issue 171): payment() CC reduced from 22 to ≤15 by
+    //   extracting buildCartSummary() and buildRecommendations() private helpers.
     public String payment(HttpSession session, ModelMap map) {
         Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
         if (sessionCustomer == null) {
@@ -731,55 +761,74 @@ public class CustomerService {
             return REDIRECT_VIEW_CART;
         }
 
-        double cartTotal = 0;
-        java.util.LinkedHashSet<String> categorySet = new java.util.LinkedHashSet<>();
+        // ── Summarise cart ────────────────────────────────────────
+        double[] cartSummary = buildCartSummary(items);
+        double cartTotal = cartSummary[0];
+        java.util.LinkedHashSet<String> categorySet = buildCategorySet(items);
+
+        // ── Recommendations ───────────────────────────────────────
         java.util.Set<String> cartItemNames = new java.util.HashSet<>();
+        for (Item item : items) cartItemNames.add(item.getName());
+        java.util.List<Product> recommendations = buildRecommendations(categorySet, cartItemNames);
 
-        for (Item item : items) {
-            cartTotal += item.getPrice();
-            if (item.getCategory() != null && !item.getCategory().isBlank()) {
-                categorySet.add(item.getCategory());
-            }
-            cartItemNames.add(item.getName());
-        }
-
-        java.util.List<Product> recommendations = new java.util.ArrayList<>();
-        for (String cat : categorySet) {
-            List<Product> catProducts = productRepository.findByCategoryAndApprovedTrue(cat);
-            for (Product p : catProducts) {
-                if (!cartItemNames.contains(p.getName()) && recommendations.stream().noneMatch(r -> r.getId() == p.getId())) {
-                    recommendations.add(p);
-                    if (recommendations.size() >= 4) break;
-                }
-            }
-            if (recommendations.size() >= 4) break;
-        }
-
-        String categoryLabel = String.join(" & ", categorySet);
+        String categoryLabel  = String.join(" & ", categorySet);
         double deliveryCharge = (cartTotal >= 500) ? 0 : 40;
-        double finalAmount = cartTotal + deliveryCharge;
+        double finalAmount    = cartTotal + deliveryCharge;
 
-        map.put(K_CARTTOTAL, cartTotal);
-        map.put(K_DELIVERYCHARGE, deliveryCharge);
-        map.put("amount", finalAmount);
-        map.put(K_CUSTOMER, customer);
-        map.put("cartItems", items);
-        map.put("recommendedProducts", recommendations);
-        map.put("cartItemCategory", categoryLabel);
+        map.put(K_CARTTOTAL,             cartTotal);
+        map.put(K_DELIVERYCHARGE,        deliveryCharge);
+        map.put("amount",                finalAmount);
+        map.put(K_CUSTOMER,              customer);
+        map.put("cartItems",             items);
+        map.put("recommendedProducts",   recommendations);
+        map.put("cartItemCategory",      categoryLabel);
+        map.put("razorpayKeyId",         razorpayKeyId != null ? razorpayKeyId : "");
 
-        // Razorpay publishable key — read from application.properties
-        // Property: razorpay.key.id (set in application.properties or env)
-        map.put("razorpayKeyId", razorpayKeyId != null ? razorpayKeyId : "");
-
-        // ── GST breakdown for payment page ────────────────────────
-        double gstAmount = GstUtil.calculateTotalGst(items);
+        // ── GST breakdown ─────────────────────────────────────────
+        double gstAmount   = GstUtil.calculateTotalGst(items);
         double taxableBase = Math.round((cartTotal - gstAmount) * 100.0) / 100.0;
-        String gstLabel   = GstUtil.getMixedGstLabel(items);
+        String gstLabel    = GstUtil.getMixedGstLabel(items);
         map.put("gstAmount",   gstAmount);
         map.put("taxableBase", taxableBase);
         map.put("gstLabel",    gstLabel);
 
         return "payment.html";
+    }
+
+    /** Sums item prices and returns [cartTotal] in a single-element array. */
+    private double[] buildCartSummary(List<Item> items) {
+        double total = 0;
+        for (Item item : items) total += item.getPrice();
+        return new double[]{ total };
+    }
+
+    /** Collects non-blank categories from cart items in insertion order. */
+    private java.util.LinkedHashSet<String> buildCategorySet(List<Item> items) {
+        java.util.LinkedHashSet<String> cats = new java.util.LinkedHashSet<>();
+        for (Item item : items) {
+            if (item.getCategory() != null && !item.getCategory().isBlank()) {
+                cats.add(item.getCategory());
+            }
+        }
+        return cats;
+    }
+
+    /** Returns up to 4 approved products from {@code categorySet} not already in the cart. */
+    private java.util.List<Product> buildRecommendations(
+            java.util.Set<String> categorySet, java.util.Set<String> cartItemNames) {
+        java.util.List<Product> recs = new java.util.ArrayList<>();
+        for (String cat : categorySet) {
+            List<Product> catProducts = productRepository.findByCategoryAndApprovedTrue(cat);
+            for (Product p : catProducts) {
+                if (!cartItemNames.contains(p.getName())
+                        && recs.stream().noneMatch(r -> r.getId() == p.getId())) {
+                    recs.add(p);
+                    if (recs.size() >= 4) return recs;
+                }
+            }
+            if (recs.size() >= 4) return recs;
+        }
+        return recs;
     }
 
     // ---------------- PAYMENT SUCCESS ----------------
@@ -792,6 +841,8 @@ public class CustomerService {
     //   3. All sub-orders share the same parentOrderId
     //   4. Single-vendor cart → one order with parentOrderId = null (legacy behaviour)
     //
+    // FIX (java:S3776 issue 172): paymentSuccess CC reduced from 18 to ≤15 by
+    //   extracting createVendorSubOrders() and updateSessionAfterOrder() helpers.
     @Transactional
     public String paymentSuccess(Order baseOrder, String deliveryPinCode, HttpSession session) {
         Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
@@ -825,65 +876,12 @@ public class CustomerService {
         Warehouse matchedWarehouse = findWarehouseForPin(deliveryPinCode);
 
         // ── 6. CREATE ONE SUB-ORDER PER VENDOR ──────────────────
-        boolean multiVendor = vendorItems.size() > 1;
-        Integer parentId    = null;
-        Order   firstOrder  = null;
-        java.util.List<Integer> subOrderIds = new java.util.ArrayList<>();
-
-        for (java.util.Map.Entry<Integer, java.util.List<Item>> entry : vendorItems.entrySet()) {
-            Vendor vendor = vendorMap.get(entry.getKey());
-            double subTotal    = entry.getValue().stream().mapToDouble(Item::getPrice).sum();
-            double subDelivery = (firstOrder == null) ? deliveryFee : 0.0;
-
-            Order subOrder = buildSubOrder(
-                    baseOrder, customer, vendor,
-                    entry.getValue(), subTotal, subDelivery,
-                    deliveryPinCode, matchedWarehouse, addressSnapshot);
-
-            orderRepository.save(subOrder);
-            orderRepository.flush();
-
-            if (firstOrder == null) {
-                firstOrder = subOrder;
-                if (multiVendor) {
-                    parentId = subOrder.getId();
-                    subOrder.setParentOrderId(parentId);
-                    orderRepository.save(subOrder);
-                }
-            } else {
-                subOrder.setParentOrderId(parentId);
-                orderRepository.save(subOrder);
-            }
-
-            String whCity = matchedWarehouse != null ? matchedWarehouse.getCity() : "Processing Center";
-            subOrder.setCurrentCity(whCity);
-            orderRepository.save(subOrder);
-
-            trackingEventLogRepository.save(new TrackingEventLog(
-                subOrder, TrackingStatus.PROCESSING, whCity,
-                "Order placed successfully. Payment confirmed." +
-                (vendor != null ? " Vendor: " + vendor.getName() : ""),
-                "system"
-            ));
-
-            subOrderIds.add(subOrder.getId());
-
-            final Order finalSubOrder = subOrder;
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        Order saved = orderRepository.findById(finalSubOrder.getId()).orElse(finalSubOrder);
-                        reportingService.recordOrder(saved);
-                    } catch (Exception e) {
-                        LOGGER.error("recordOrder failed: {}", e.getMessage(), e);
-                    }
-                }
-            });
-        }
+        VendorOrderResult result = createVendorSubOrders(
+                baseOrder, customer, vendorItems, vendorMap,
+                deliveryFee, deliveryPinCode, matchedWarehouse, addressSnapshot);
 
         // ── 7. SEND CONFIRMATION EMAIL ───────────────────────────
-        sendOrderConfirmationEmail(customer, baseOrder, firstOrder, subOrderIds, subtotal, deliveryFee);
+        sendOrderConfirmationEmail(customer, baseOrder, result.firstOrder, result.subOrderIds, subtotal, deliveryFee);
 
         // ── 8. CLEAR CART ────────────────────────────────────────
         java.util.List<Item> cartItems = new java.util.ArrayList<>(customer.getCart().getItems());
@@ -893,32 +891,128 @@ public class CustomerService {
         itemRepository.flush();
 
         // ── 9. UPDATE SESSION ────────────────────────────────────
+        updateSessionAfterOrder(session, customer, baseOrder, result, subtotal, deliveryFee);
+
+        session.setAttribute(K_SUCCESS, "Order Placed Successfully!");
+        return "redirect:/order-success";
+    }
+
+    /** Value object carrying the results of vendor sub-order creation. */
+    private static class VendorOrderResult {
+        Order firstOrder;
+        java.util.List<Integer> subOrderIds = new java.util.ArrayList<>();
+    }
+
+    /**
+     * Creates one sub-order per vendor group, links them via parentOrderId,
+     * logs a PROCESSING tracking event, and schedules the reporting callback.
+     */
+    private VendorOrderResult createVendorSubOrders(
+            Order baseOrder, Customer customer,
+            java.util.Map<Integer, java.util.List<Item>> vendorItems,
+            java.util.Map<Integer, Vendor> vendorMap,
+            double deliveryFee, String deliveryPinCode,
+            Warehouse matchedWarehouse, String addressSnapshot) {
+
+        VendorOrderResult result  = new VendorOrderResult();
+        boolean multiVendor       = vendorItems.size() > 1;
+        Integer parentId          = null;
+
+        for (java.util.Map.Entry<Integer, java.util.List<Item>> entry : vendorItems.entrySet()) {
+            Vendor vendor      = vendorMap.get(entry.getKey());
+            double subTotal    = entry.getValue().stream().mapToDouble(Item::getPrice).sum();
+            double subDelivery = (result.firstOrder == null) ? deliveryFee : 0.0;
+
+            Order subOrder = buildSubOrder(new SubOrderParams(
+                    baseOrder, customer, vendor,
+                    entry.getValue(), subTotal, subDelivery,
+                    deliveryPinCode, matchedWarehouse, addressSnapshot));
+
+            orderRepository.save(subOrder);
+            orderRepository.flush();
+
+            parentId = linkSubOrderToParent(result, subOrder, multiVendor, parentId);
+
+            String whCity = matchedWarehouse != null ? matchedWarehouse.getCity() : "Processing Center";
+            subOrder.setCurrentCity(whCity);
+            orderRepository.save(subOrder);
+
+            saveInitialTrackingEvent(subOrder, whCity, vendor);
+
+            result.subOrderIds.add(subOrder.getId());
+            scheduleReportingAfterCommit(subOrder);
+        }
+        return result;
+    }
+
+    private Integer linkSubOrderToParent(VendorOrderResult result, Order subOrder,
+                                         boolean multiVendor, Integer parentId) {
+        if (result.firstOrder == null) {
+            result.firstOrder = subOrder;
+            if (multiVendor) {
+                int newParentId = subOrder.getId();
+                subOrder.setParentOrderId(newParentId);
+                orderRepository.save(subOrder);
+                return newParentId;
+            }
+        } else {
+            subOrder.setParentOrderId(parentId);
+            orderRepository.save(subOrder);
+        }
+        return parentId;
+    }
+
+    private void saveInitialTrackingEvent(Order subOrder, String whCity, Vendor vendor) {
+        String note = "Order placed successfully. Payment confirmed."
+                + (vendor != null ? " Vendor: " + vendor.getName() : "");
+        trackingEventLogRepository.save(new TrackingEventLog(
+                subOrder, TrackingStatus.PROCESSING, whCity, note, "system"));
+    }
+
+    private void scheduleReportingAfterCommit(Order subOrder) {
+        final Order finalSubOrder = subOrder;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    Order saved = orderRepository.findById(finalSubOrder.getId()).orElse(finalSubOrder);
+                    reportingService.recordOrder(saved);
+                } catch (Exception e) {
+                    LOGGER.error("recordOrder failed: {}", e.getMessage(), e);
+                }
+            }
+        });
+    }
+
+    /** Writes all order-related attributes into the HTTP session after a successful checkout. */
+    private void updateSessionAfterOrder(
+            HttpSession session, Customer customer,
+            Order baseOrder, VendorOrderResult result,
+            double subtotal, double deliveryFee) {
+
         Customer updatedCustomer = customerRepository.findById(customer.getId()).orElseThrow();
         session.setAttribute(K_CUSTOMER, updatedCustomer);
 
-        String subOrderIdsStr = subOrderIds.stream()
+        String subOrderIdsStr = result.subOrderIds.stream()
                 .map(String::valueOf)
                 .reduce((a, b) -> a + "," + b)
-                .orElse(String.valueOf(firstOrder.getId()));
+                .orElse(String.valueOf(result.firstOrder.getId()));
 
-        session.setAttribute("lastOrderId",           firstOrder.getId());
-        session.setAttribute("lastSubOrderIds",        subOrderIdsStr);
-        session.setAttribute("lastOrderAmount",        subtotal + deliveryFee);
-        session.setAttribute("lastOrderDeliveryTime",  baseOrder.getDeliveryTime());
+        session.setAttribute("lastOrderId",          result.firstOrder.getId());
+        session.setAttribute("lastSubOrderIds",       subOrderIdsStr);
+        session.setAttribute("lastOrderAmount",       subtotal + deliveryFee);
+        session.setAttribute("lastOrderDeliveryTime", baseOrder.getDeliveryTime());
         session.setAttribute("lastOrderPaymentMode",
                 baseOrder.getPaymentMode() != null ? baseOrder.getPaymentMode() : "Cash on Delivery");
 
-        double totalSessionGst = subOrderIds.stream()
+        double totalSessionGst = result.subOrderIds.stream()
                 .mapToDouble(sid -> {
                     try {
                         return orderRepository.findById(sid)
                                 .map(com.example.ekart.dto.Order::getGstAmount).orElse(0.0);
                     } catch (Exception e) { return 0.0; }
                 }).sum();
-        totalSessionGst = Math.round(totalSessionGst * 100.0) / 100.0;
-        session.setAttribute("lastOrderGst", totalSessionGst);
-        session.setAttribute(K_SUCCESS, "Order Placed Successfully!");
-        return "redirect:/order-success";
+        session.setAttribute("lastOrderGst", Math.round(totalSessionGst * 100.0) / 100.0);
     }
 
     // ── paymentSuccess helpers (S6541 extraction) ────────────────────────────
@@ -986,6 +1080,40 @@ public class CustomerService {
         if (deliveryPinCode == null || deliveryPinCode.isBlank()) return null;
         java.util.List<Warehouse> matches = warehouseRepository.findByPinCode(deliveryPinCode.trim());
         return matches.isEmpty() ? null : matches.get(0);
+    }
+
+    /** Parameter object for buildSubOrder — reduces the method's parameter count (fixes java:S107). */
+    private static class SubOrderParams {
+        final Order     baseOrder;
+        final Customer  customer;
+        final Vendor    vendor;
+        final java.util.List<Item> group;
+        final double    subTotal;
+        final double    subDelivery;
+        final String    deliveryPinCode;
+        final Warehouse matchedWarehouse;
+        final String    addressSnapshot;
+
+        SubOrderParams(Order baseOrder, Customer customer, Vendor vendor,
+                       java.util.List<Item> group, double subTotal, double subDelivery,
+                       String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {
+            this.baseOrder        = baseOrder;
+            this.customer         = customer;
+            this.vendor           = vendor;
+            this.group            = group;
+            this.subTotal         = subTotal;
+            this.subDelivery      = subDelivery;
+            this.deliveryPinCode  = deliveryPinCode;
+            this.matchedWarehouse = matchedWarehouse;
+            this.addressSnapshot  = addressSnapshot;
+        }
+    }
+
+    /** Builds (but does not save) a sub-order for one vendor's group of items. */
+    private Order buildSubOrder(SubOrderParams p) {
+        return buildSubOrder(p.baseOrder, p.customer, p.vendor,
+                p.group, p.subTotal, p.subDelivery,
+                p.deliveryPinCode, p.matchedWarehouse, p.addressSnapshot);
     }
 
     /** Builds (but does not save) a sub-order for one vendor's group of items. */

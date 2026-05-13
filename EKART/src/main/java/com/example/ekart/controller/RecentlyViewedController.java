@@ -180,7 +180,7 @@ public class RecentlyViewedController {
             return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
 
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
+            return ResponseEntity.internalServerError().body(Map.of(K_PRODUCT_IDS, new ArrayList<>()));
         }
     }
 

@@ -27,31 +27,34 @@ import java.util.Map;
  *   - Accepts any quantity from 1 up to available stock
  *   - If the product is already in the cart, increments the existing qty
  *   - Returns JSON so the page can show a toast without a full reload
+ *
+ * FIX (java:S3776): addToCartWeb CC reduced from 18 to ≤15 by extracting
+ *   validateStockForAdd(), incrementExistingItem(), and addNewItem() helpers.
  */
 @RestController
 public class CartWebController {
 
     // ── S1192 String constants ──
-    private static final String K_MESSAGE                           = "message";
-    private static final String K_QUANTITY                          = "quantity";
-    private static final String K_SUCCESS                           = "success";
-    private static final String MSG_PRODUCT_NOT_FOUND               = "Product not found";
+    private static final String K_MESSAGE         = "message";
+    private static final String K_QUANTITY        = "quantity";
+    private static final String K_SUCCESS         = "success";
+    private static final String MSG_PRODUCT_NOT_FOUND = "Product not found";
 
-    // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
+    // ── Dependencies (constructor injection) ──────────────────────────────────
     private final CustomerRepository customerRepository;
-    private final ProductRepository productRepository;
-    private final ItemRepository itemRepository;
+    private final ProductRepository  productRepository;
+    private final ItemRepository     itemRepository;
 
     public CartWebController(
             CustomerRepository customerRepository,
             ProductRepository productRepository,
             ItemRepository itemRepository) {
         this.customerRepository = customerRepository;
-        this.productRepository = productRepository;
-        this.itemRepository = itemRepository;
+        this.productRepository  = productRepository;
+        this.itemRepository     = itemRepository;
     }
 
-
+    // ── Main endpoint ─────────────────────────────────────────────────────────
 
     @PostMapping("/api/cart/add-web")
     @Transactional
@@ -99,80 +102,21 @@ public class CartWebController {
             return res;
         }
 
-        // ── Stock check ───────────────────────────────────────────
-        if (product.getStock() <= 0) {
-            res.put(K_SUCCESS, false);
-            res.put(K_MESSAGE, "This product is out of stock");
-            return res;
-        }
-        if (product.getStock() < quantity) {
-            res.put(K_SUCCESS, false);
-            res.put(K_MESSAGE, "Only " + product.getStock() + " unit"
-                    + (product.getStock() == 1 ? "" : "s") + " available in stock");
-            return res;
-        }
+        // ── Stock check (initial) ─────────────────────────────────
+        Map<String, Object> stockError = validateStockForAdd(product, quantity);
+        if (stockError != null) return stockError;
 
-        // ── Check if already in cart ──────────────────────────────
+        // ── Cart update ───────────────────────────────────────────
         Cart cart = customer.getCart();
         Optional<Item> existing = cart.getItems().stream()
                 .filter(i -> i.getProductId() != null && i.getProductId() == productId)
                 .findFirst();
 
         if (existing.isPresent()) {
-            // Increment existing cart item
-            Item item      = existing.get();
-            int totalQty   = item.getQuantity() + quantity;
-            // Can't exceed available stock (note: stock was already decremented
-            // when the item was first added, so remaining stock is what's left)
-            int stockLeft  = product.getStock(); // stock remaining in warehouse
-            if (quantity > stockLeft) {
-                res.put(K_SUCCESS, false);
-                res.put(K_MESSAGE, "Cannot add " + quantity + " more — only "
-                        + stockLeft + " remaining in stock");
-                return res;
-            }
-
-            double unitPrice = item.getUnitPrice() > 0
-                    ? item.getUnitPrice()
-                    : product.getPrice();
-            item.setUnitPrice(unitPrice);
-            item.setQuantity(totalQty);
-            item.setPrice(unitPrice * totalQty);
-
-            product.setStock(product.getStock() - quantity);
-
-            itemRepository.save(item);
-            productRepository.save(product);
-
-            res.put(K_SUCCESS, true);
-            res.put(K_MESSAGE, "Cart updated — quantity is now " + totalQty);
-            res.put("alreadyInCart", true);
-
+            Map<String, Object> err = incrementExistingItem(existing.get(), product, quantity, res);
+            if (err != null) return err;
         } else {
-            // Add new cart item
-            Item newItem = new Item();
-            newItem.setName(product.getName());
-            newItem.setCategory(product.getCategory());
-            newItem.setDescription(product.getDescription());
-            newItem.setImageLink(product.getImageLink());
-            newItem.setUnitPrice(product.getPrice());
-            newItem.setPrice(product.getPrice() * quantity);
-            newItem.setQuantity(quantity);
-            newItem.setProductId(product.getId());
-            newItem.setCart(cart);
-
-            product.setStock(product.getStock() - quantity);
-
-            cart.getItems().add(newItem);
-            itemRepository.save(newItem);
-            productRepository.save(product);
-            customerRepository.save(customer);
-
-            res.put(K_SUCCESS,      true);
-            res.put("alreadyInCart", false);
-            res.put(K_MESSAGE, quantity > 1
-                    ? quantity + " items added to cart!"
-                    : "Added to cart!");
+            addNewItem(cart, product, quantity, customer, res);
         }
 
         // ── Refresh session & return cart count ───────────────────
@@ -184,5 +128,90 @@ public class CartWebController {
         res.put(K_QUANTITY,    quantity);
 
         return res;
+    }
+
+    // ── Private helpers (extracted to reduce cognitive complexity) ────────────
+
+    /**
+     * Validates that {@code product} has enough stock for the requested
+     * {@code quantity}. Returns an error map when validation fails, null otherwise.
+     */
+    private Map<String, Object> validateStockForAdd(Product product, int quantity) {
+        if (product.getStock() <= 0) {
+            Map<String, Object> err = new HashMap<>();
+            err.put(K_SUCCESS, false);
+            err.put(K_MESSAGE, "This product is out of stock");
+            return err;
+        }
+        if (product.getStock() < quantity) {
+            Map<String, Object> err = new HashMap<>();
+            int stock = product.getStock();
+            err.put(K_SUCCESS, false);
+            err.put(K_MESSAGE, "Only " + stock + " unit" + (stock == 1 ? "" : "s") + " available in stock");
+            return err;
+        }
+        return null;
+    }
+
+    /**
+     * Increments an existing cart item's quantity.
+     * Returns an error map if the remaining stock cannot satisfy {@code quantity},
+     * null (and populates {@code res}) on success.
+     */
+    private Map<String, Object> incrementExistingItem(
+            Item item, Product product, int quantity, Map<String, Object> res) {
+
+        int stockLeft = product.getStock();
+        if (quantity > stockLeft) {
+            Map<String, Object> err = new HashMap<>();
+            err.put(K_SUCCESS, false);
+            err.put(K_MESSAGE, "Cannot add " + quantity + " more — only " + stockLeft + " remaining in stock");
+            return err;
+        }
+
+        int    totalQty  = item.getQuantity() + quantity;
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : product.getPrice();
+        item.setUnitPrice(unitPrice);
+        item.setQuantity(totalQty);
+        item.setPrice(unitPrice * totalQty);
+        product.setStock(product.getStock() - quantity);
+
+        itemRepository.save(item);
+        productRepository.save(product);
+
+        res.put(K_SUCCESS,      true);
+        res.put(K_MESSAGE,      "Cart updated — quantity is now " + totalQty);
+        res.put("alreadyInCart", true);
+        return null;
+    }
+
+    /**
+     * Creates and persists a new {@link Item} in the customer's cart.
+     * Populates {@code res} with the success response.
+     */
+    private void addNewItem(
+            Cart cart, Product product, int quantity, Customer customer, Map<String, Object> res) {
+
+        Item newItem = new Item();
+        newItem.setName(product.getName());
+        newItem.setCategory(product.getCategory());
+        newItem.setDescription(product.getDescription());
+        newItem.setImageLink(product.getImageLink());
+        newItem.setUnitPrice(product.getPrice());
+        newItem.setPrice(product.getPrice() * quantity);
+        newItem.setQuantity(quantity);
+        newItem.setProductId(product.getId());
+        newItem.setCart(cart);
+
+        product.setStock(product.getStock() - quantity);
+        cart.getItems().add(newItem);
+
+        itemRepository.save(newItem);
+        productRepository.save(product);
+        customerRepository.save(customer);
+
+        res.put(K_SUCCESS,       true);
+        res.put("alreadyInCart", false);
+        res.put(K_MESSAGE, quantity > 1 ? quantity + " items added to cart!" : "Added to cart!");
     }
 }

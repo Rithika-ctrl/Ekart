@@ -37,7 +37,6 @@ public class CodPaymentService {
 
     private static final String K_COD                    = "COD";
     private static final String K_PENDING                = "PENDING";
-    private static final String K_ORDER_PREFIX           = "Order ";
     private static final String K_NOT_COD_ORDER          = "Order is not a COD order";
 
 

@@ -29,6 +29,11 @@ import java.util.Map;
  */
 public class GstUtil {
 
+    // FIX: Issue 162 — S1118: private constructor prevents instantiation of this utility class
+    private GstUtil() {
+        throw new UnsupportedOperationException("GstUtil is a utility class and cannot be instantiated");
+    }
+
     // FIX: Issue 163 — S1192: constant replaces the 3 duplicate "GST (" literals
     private static final String GST_PREFIX = "GST (";
 

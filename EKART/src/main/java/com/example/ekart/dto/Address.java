@@ -44,28 +44,37 @@ public class Address {
 
     /**
      * Returns a neatly formatted address string.
-     * Uses structured fields when present; falls back to legacy `details`.
+     * Uses structured fields when present; falls back to legacy {@code details}.
      */
     public String getFormattedAddress() {
-        boolean hasStructured = recipientName != null && !recipientName.isBlank();
-        if (hasStructured) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(recipientName.trim());
-            if (houseStreet != null && !houseStreet.isBlank())
-                sb.append("\n").append(houseStreet.trim());
-            if (city != null && !city.isBlank())
-                sb.append("\n").append(city.trim());
-            if (state != null && !state.isBlank()) {
-                if (postalCode != null && !postalCode.isBlank())
-                    sb.append(", ").append(state.trim()).append(" — ").append(postalCode.trim());
-                else
-                    sb.append(", ").append(state.trim());
-            } else if (postalCode != null && !postalCode.isBlank()) {
-                sb.append(" — ").append(postalCode.trim());
-            }
-            return sb.toString();
+        if (recipientName == null || recipientName.isBlank()) {
+            return details != null ? details : "";
         }
-        return details != null ? details : "";
+        StringBuilder sb = new StringBuilder(recipientName.trim());
+        appendIfPresent(sb, houseStreet);
+        appendIfPresent(sb, city);
+        appendStatePostal(sb);
+        return sb.toString();
+    }
+
+    /** Appends a newline + trimmed value when the field is non-blank. */
+    private void appendIfPresent(StringBuilder sb, String value) {
+        if (value != null && !value.isBlank()) {
+            sb.append("\n").append(value.trim());
+        }
+    }
+
+    /** Appends the state / postal-code line in the correct format. */
+    private void appendStatePostal(StringBuilder sb) {
+        boolean hasState  = state      != null && !state.isBlank();
+        boolean hasPostal = postalCode != null && !postalCode.isBlank();
+        if (hasState && hasPostal) {
+            sb.append(", ").append(state.trim()).append(" — ").append(postalCode.trim());
+        } else if (hasState) {
+            sb.append(", ").append(state.trim());
+        } else if (hasPostal) {
+            sb.append(" — ").append(postalCode.trim());
+        }
     }
 
     // ── Getters & Setters ─────────────────────────────────────────────────────

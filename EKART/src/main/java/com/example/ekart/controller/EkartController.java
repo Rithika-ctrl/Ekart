@@ -114,51 +114,53 @@ public class EkartController {
     // Returns null on success, or an error message string on failure.
     private String processCsvRow(String[] row, Map<String, Integer> colIdx, Vendor vendor) {
         try {
-            String name       = getCsvValue(row, colIdx, "product name");
-            String desc       = getCsvValue(row, colIdx, "description");
-            String mrpStr     = getCsvValue(row, colIdx, "mrp");
-            String priceStr   = getCsvValue(row, colIdx, "price");
-            String qtyStr     = getCsvValue(row, colIdx, "stock");
-            String category   = getCsvValue(row, colIdx, "category");
-            String alertStr   = getCsvValue(row, colIdx, "stock alert threshold");
-            String pinCodes   = getCsvValue(row, colIdx, "allowed pin codes");
-            String imageUrl   = getCsvValue(row, colIdx, "image url");
-
+            String name     = getCsvValue(row, colIdx, "product name");
+            String priceStr = getCsvValue(row, colIdx, "price");
+            String qtyStr   = getCsvValue(row, colIdx, "stock");
             if (name == null || priceStr == null || qtyStr == null ||
                 name.trim().isEmpty() || priceStr.trim().isEmpty() || qtyStr.trim().isEmpty()) {
                 return "Missing required fields (Product Name, Price, Stock)";
             }
-
             double price = Double.parseDouble(priceStr);
             int qty      = Integer.parseInt(qtyStr);
-
-            double mrp = 0;
-            if (mrpStr != null && !mrpStr.isBlank()) {
-                try { mrp = Double.parseDouble(mrpStr); } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
-            }
-
-            int alertThreshold = 10;
-            if (alertStr != null && !alertStr.isBlank()) {
-                try { alertThreshold = Integer.parseInt(alertStr); } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
-            }
-
-            Product p = new Product();
-            p.setName(name.trim());
-            p.setDescription(desc != null ? desc.trim() : "");
-            p.setCategory(category != null && !category.isBlank() ? category.trim() : "General");
-            p.setPrice(price);
-            if (mrp > price) p.setMrp(mrp);
-            p.setStock(qty);
-            p.setStockAlertThreshold(alertThreshold);
-            if (pinCodes != null && !pinCodes.isBlank()) p.setAllowedPinCodes(pinCodes.trim());
-            if (imageUrl != null && !imageUrl.isBlank()) p.setImageLink(imageUrl.trim());
-            p.setVendor(vendor);
-            p.setApproved(false);
-            productRepository.save(p);
+            double mrp   = parseCsvMrp(getCsvValue(row, colIdx, "mrp"));
+            int alertThreshold = parseCsvAlertThreshold(getCsvValue(row, colIdx, "stock alert threshold"));
+            buildAndSaveProduct(row, colIdx, vendor, name, price, qty, mrp, alertThreshold);
             return null; // success
         } catch (Exception ex) {
             return ex.getMessage();
         }
+    }
+
+    private double parseCsvMrp(String mrpStr) {
+        if (mrpStr == null || mrpStr.isBlank()) return 0;
+        try { return Double.parseDouble(mrpStr); } catch (NumberFormatException ignored) { return 0; }
+    }
+
+    private int parseCsvAlertThreshold(String alertStr) {
+        if (alertStr == null || alertStr.isBlank()) return 10;
+        try { return Integer.parseInt(alertStr); } catch (NumberFormatException ignored) { return 10; }
+    }
+
+    private void buildAndSaveProduct(String[] row, Map<String, Integer> colIdx, Vendor vendor,
+                                     String name, double price, int qty, double mrp, int alertThreshold) {
+        String desc     = getCsvValue(row, colIdx, "description");
+        String category = getCsvValue(row, colIdx, "category");
+        String pinCodes = getCsvValue(row, colIdx, "allowed pin codes");
+        String imageUrl = getCsvValue(row, colIdx, "image url");
+        Product p = new Product();
+        p.setName(name.trim());
+        p.setDescription(desc != null ? desc.trim() : "");
+        p.setCategory(category != null && !category.isBlank() ? category.trim() : "General");
+        p.setPrice(price);
+        if (mrp > price) p.setMrp(mrp);
+        p.setStock(qty);
+        p.setStockAlertThreshold(alertThreshold);
+        if (pinCodes != null && !pinCodes.isBlank()) p.setAllowedPinCodes(pinCodes.trim());
+        if (imageUrl != null && !imageUrl.isBlank()) p.setImageLink(imageUrl.trim());
+        p.setVendor(vendor);
+        p.setApproved(false);
+        productRepository.save(p);
     }
 
     // Helper for safe CSV value extraction (case-insensitive)

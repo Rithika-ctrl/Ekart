@@ -25,20 +25,16 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
     // ── Injected dependencies ────────────────────────────────────────────────
     private final ThymeleafDeprecationTracker tracker;
 
-    // FIX S6813: Constructor injection (was already constructor-injected; @Autowired on constructor is optional in Spring)
-    public ThymeleafDeprecationInterceptor(
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
-            ThymeleafDeprecationTracker tracker) {
+    // Constructor injection — tracker is required (ThymeleafDeprecationTracker is a @Component).
+    // Making it required lets SonarQube (and the compiler) see that the tracker is never null,
+    // so preHandle's 'return false' branch (when a deprecated route is matched) is reachable.
+    public ThymeleafDeprecationInterceptor(ThymeleafDeprecationTracker tracker) {
         this.tracker = tracker;
     }
 
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if (tracker == null) {
-            return true;
-        }
-
         String path = request.getRequestURI();
         String contextPath = request.getContextPath();
         String route = path.startsWith(contextPath) ? path.substring(contextPath.length()) : path;
@@ -110,7 +106,7 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
         // FIX S1141: Extract nested try block into a separate method
         try {
             return extractIdByReflection(user);
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException e) {
             LOGGER.debug("Could not extract user id via reflection: {}", e.getMessage());
         }
         return null;
@@ -121,7 +117,7 @@ public class ThymeleafDeprecationInterceptor implements HandlerInterceptor {
      * FIX S3011: Removed field.setAccessible(true) — accessibility bypass is a security risk.
      *            Only public fields (or fields accessible without override) will be read.
      */
-    private String extractIdByReflection(Object user) throws Exception {
+    private String extractIdByReflection(Object user) throws ReflectiveOperationException {
         for (String fieldName : new String[]{"id", "customerId", "vendorId", "userId"}) {
             try {
                 // FIX S3011: Do NOT call field.setAccessible(true); only access public/accessible fields

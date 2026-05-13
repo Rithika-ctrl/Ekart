@@ -59,6 +59,7 @@ public class EmailSender {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
     private static final String EKART_SENDER = "Ekart";
+    private static final String TD_TR_CLOSE  = "</td></tr>";
     private static final String OTP_EMAIL_TEMPLATE = "otp-email.html";
 
     // ── Injected dependencies ────────────────────────────────────────────────
@@ -821,14 +822,14 @@ public class EmailSender {
                     + "<p style='color:#555;'>Your refund request for Order <strong>#" + orderId + "</strong> has been reviewed.</p>"
                     + "<table style='border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #e0e0e0;border-radius:4px;overflow:hidden;'>"
                     + "<tr style='background:#f5f5f5;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Status</td>"
-                    + "  <td style='padding:12px 14px;font-weight:700;color:" + statusColor + ";'>" + statusText + "</td></tr>"
+                    + "  <td style='padding:12px 14px;font-weight:700;color:" + statusColor + ";'>" + statusText + TD_TR_CLOSE
                     + "<tr style='border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Order ID</td>"
-                    + "  <td style='padding:12px 14px;font-weight:600;'>#" + orderId + "</td></tr>"
+                    + "  <td style='padding:12px 14px;font-weight:600;'>#" + orderId + TD_TR_CLOSE
                     + (approved ? "<tr style='background:#f5f5f5;border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Refund Amount</td>"
-                               + "  <td style='padding:12px 14px;font-weight:600;color:#4CAF50;'>&#8377;" + String.format("%.2f", amount) + "</td></tr>" : "")
+                               + "  <td style='padding:12px 14px;font-weight:600;color:#4CAF50;'>&#8377;" + String.format("%.2f", amount) + TD_TR_CLOSE : "")
                     + ((!approved && rejectionReason != null && !rejectionReason.isBlank())
                                ? "<tr style='background:#f5f5f5;border-top:1px solid #e0e0e0;'><td style='padding:12px 14px;color:#888;font-size:0.85rem;'>Reason</td>"
-                               + "  <td style='padding:12px 14px;color:#555;'>" + rejectionReason + "</td></tr>" : "")
+                               + "  <td style='padding:12px 14px;color:#555;'>" + rejectionReason + TD_TR_CLOSE : "")
                     + "</table>"
                     + (approved ? "<p style='color:#555;'>The refund of <strong>&#8377;" + String.format("%.2f", amount) + "</strong> will be credited to your original payment method within 5-7 business days.</p>" : "")
                     + "<p style='color:#555;'>If you have questions, please contact our support team.</p>"

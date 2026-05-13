@@ -184,7 +184,7 @@ public class FlutterApiController {
             }
  
             // Generate 6-digit OTP and hash it
-            int plainOtp = new java.util.Random().nextInt(100000, 1000000);
+            int plainOtp = RANDOM.nextInt(100000, 1000000);
             String otpHash = BCrypt.hashpw(String.valueOf(plainOtp), BCrypt.gensalt());
  
             // Save unverified customer (verified=false until OTP confirmed)
@@ -1079,7 +1079,12 @@ public class FlutterApiController {
             res.put(KEY_COUPON_APPLIED, false); res.put(KEY_COUPON_CODE, ""); res.put(K_COUPON_DISCOUNT, 0.0);
         }
         double discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-        double deliveryCharge = discountedSubtotal >= 500 ? 0.0 : (discountedSubtotal == 0 ? 0.0 : 40.0);
+        double deliveryCharge;
+        if (discountedSubtotal >= 500 || discountedSubtotal == 0) {
+            deliveryCharge = 0.0;
+        } else {
+            deliveryCharge = 40.0;
+        }
         double total = discountedSubtotal + deliveryCharge;
         res.put(KEY_SUCCESS, true); res.put(KEY_ITEMS, items); res.put("itemCount", items.size());
         res.put("subtotal", subtotal); res.put(K_COUPON_DISCOUNT, couponDiscount);
@@ -2063,7 +2068,7 @@ public class FlutterApiController {
         v.put(KEY_VENDOR_CODE, vendor.getVendorCode()); v.put(K_VERIFIED, vendor.isVerified());
         // Include description and has-password flag (needed by profile/storefront screens)
         v.put(K_DESCRIPTION, vendor.getDescription() != null ? vendor.getDescription() : "");
-        v.put("password", vendor.getPassword() != null && !vendor.getPassword().isBlank());
+        v.put(KEY_PASSWORD, vendor.getPassword() != null && !vendor.getPassword().isBlank());
         res.put(KEY_SUCCESS, true); res.put("vendor", v);
         return ResponseEntity.ok(res);
     }
@@ -2096,20 +2101,22 @@ public class FlutterApiController {
             return Integer.compare(b.getId(), a.getId());
         });
         int unacknowledged = (int) alerts.stream().filter(a -> !a.isAcknowledged()).count();
-        List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put(KEY_ID, a.getId());
-            m.put(KEY_PRODUCT_NAME,  a.getProduct() != null ? a.getProduct().getName()  : "Unknown");
-            m.put(K_PRODUCT_ID,    a.getProduct() != null ? a.getProduct().getId()    : 0);
-            m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
-            m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null ? a.getProduct().getStockAlertThreshold() : 10);
-            m.put(KEY_MESSAGE,      a.getMessage());
-            m.put("acknowledged", a.isAcknowledged());
-            m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
-            return m;
-        }).toList();
+        List<Map<String, Object>> alertMaps = alerts.stream().map(this::stockAlertToMap).toList();
         res.put(KEY_SUCCESS, true); res.put("alerts", alertMaps); res.put("unacknowledgedCount", unacknowledged);
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Object> stockAlertToMap(StockAlert a) {
+        Map<String, Object> m = new HashMap<>();
+        m.put(KEY_ID, a.getId());
+        m.put(KEY_PRODUCT_NAME,  a.getProduct() != null ? a.getProduct().getName()  : "Unknown");
+        m.put(K_PRODUCT_ID,    a.getProduct() != null ? a.getProduct().getId()    : 0);
+        m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
+        m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null ? a.getProduct().getStockAlertThreshold() : 10);
+        m.put(KEY_MESSAGE,      a.getMessage());
+        m.put("acknowledged", a.isAcknowledged());
+        m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
+        return m;
     }
 
     /** POST /api/flutter/vendor/stock-alerts/{id}/acknowledge */
@@ -2249,64 +2256,99 @@ public class FlutterApiController {
         Vendor vendor = deps.vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         if (file == null || file.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No file uploaded"); return ResponseEntity.badRequest().body(res); }
-        int created = 0, updated = 0;
+        int[] counts = {0, 0}; // [created, updated]
         List<String> errors = new ArrayList<>();
         try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(file.getInputStream()))) {
             String headerLine = reader.readLine();
             if (headerLine == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Empty CSV file"); return ResponseEntity.badRequest().body(res); }
-            String[] headers = headerLine.split(",");
-            Map<String, Integer> idx = new HashMap<>();
-            for (int i = 0; i < headers.length; i++) idx.put(headers[i].trim().toLowerCase().replaceAll("[^a-z0-9]", ""), i);
-            String line; int row = 1;
+            Map<String, Integer> idx = buildCsvIndex(headerLine);
+            String line;
+            int row = 1;
             while ((line = reader.readLine()) != null && errors.size() <= 50) {
                 row++;
-                if (line.isBlank()) continue;
-                String[] cells = line.split(",", -1);
-                try {
-                    String idStr    = getCell(cells, idx, "id", "productid");
-                    String name     = getCell(cells, idx, "name", "productname");
-                    String desc     = getCell(cells, idx, K_DESCRIPTION, "productdescription");
-                    String priceStr = getCell(cells, idx, K_PRICE, "sellingprice", "saleprice");
-                    String mrpStr   = getCell(cells, idx, K_MRP, "originalprice");
-                    String category = getCell(cells, idx, K_CATEGORY, "productcategory");
-                    String stockStr = getCell(cells, idx, K_STOCK, "quantity");
-                    String imgLink  = getCell(cells, idx, "imagelink", "imageurl", "image");
-                    String threshStr= getCell(cells, idx, "stockalertthreshold", "alertthreshold");
-                    String pinCodes = getCell(cells, idx, "allowedpincodes", "pincodes");
-                    if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
-                    if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
-                    double price = Double.parseDouble(priceStr.trim());
-                    double mrp   = (mrpStr == null || mrpStr.isBlank()) ? 0 : Double.parseDouble(mrpStr.trim());
-                    int stock    = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr.trim());
-                    if (idStr != null && !idStr.isBlank()) {
-                        int pid = Integer.parseInt(idStr.trim());
-                        com.example.ekart.dto.Product p = deps.productRepository.findById(pid).orElse(null);
-                        if (p == null) throw new IllegalArgumentException("Product id " + pid + " not found");
-                        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException("Product id " + pid + " does not belong to you");
-                        p.setName(name.trim()); p.setPrice(price); p.setMrp(mrp); p.setStock(stock);
-                        if (desc != null) p.setDescription(desc.trim());
-                        if (category != null) p.setCategory(category.trim());
-                        if (imgLink != null) p.setImageLink(imgLink.trim());
-                        if (threshStr != null && !threshStr.isBlank()) p.setStockAlertThreshold(Integer.parseInt(threshStr.trim()));
-                        if (pinCodes != null) p.setAllowedPinCodes(pinCodes.trim());
-                        deps.productRepository.save(p); updated++;
-                    } else {
-                        com.example.ekart.dto.Product p = new com.example.ekart.dto.Product();
-                        p.setName(name.trim()); p.setDescription(desc != null ? desc.trim() : "");
-                        p.setPrice(price); p.setMrp(mrp); p.setStock(stock);
-                        p.setCategory(category != null ? category.trim() : "General");
-                        p.setImageLink(imgLink != null ? imgLink.trim() : "");
-                        p.setVendor(vendor); p.setApproved(false);
-                        if (threshStr != null && !threshStr.isBlank()) p.setStockAlertThreshold(Integer.parseInt(threshStr.trim()));
-                        if (pinCodes != null) p.setAllowedPinCodes(pinCodes.trim());
-                        deps.productRepository.save(p); created++;
-                    }
-                } catch (Exception e) { errors.add("Row " + row + ": " + e.getMessage()); }
+                if (!line.isBlank()) {
+                    processCsvProductRow(line, idx, vendorId, vendor, counts, errors, row);
+                }
             }
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Failed to process CSV: " + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
-        res.put(KEY_SUCCESS, true); res.put("created", created); res.put("updated", updated); res.put("errors", errors);
-        res.put(KEY_MESSAGE, String.format("Processed: %d created, %d updated, %d error(s)", created, updated, errors.size()));
+        res.put(KEY_SUCCESS, true); res.put("created", counts[0]); res.put("updated", counts[1]); res.put("errors", errors);
+        res.put(KEY_MESSAGE, String.format("Processed: %d created, %d updated, %d error(s)", counts[0], counts[1], errors.size()));
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Integer> buildCsvIndex(String headerLine) {
+        String[] headers = headerLine.split(",");
+        Map<String, Integer> idx = new HashMap<>();
+        for (int i = 0; i < headers.length; i++) {
+            idx.put(headers[i].trim().toLowerCase().replaceAll("[^a-z0-9]", ""), i);
+        }
+        return idx;
+    }
+
+    private void processCsvProductRow(String line, Map<String, Integer> idx, int vendorId,
+                                      Vendor vendor, int[] counts, List<String> errors, int row) {
+        try {
+            String[] cells  = line.split(",", -1);
+            String name     = getCell(cells, idx, "name", "productname");
+            String priceStr = getCell(cells, idx, K_PRICE, "sellingprice", "saleprice");
+            if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing name");
+            if (priceStr == null || priceStr.isBlank()) throw new IllegalArgumentException("Missing price");
+            double price    = Double.parseDouble(priceStr.trim());
+            String mrpStr   = getCell(cells, idx, K_MRP, "originalprice");
+            double mrp      = (mrpStr == null || mrpStr.isBlank()) ? 0 : Double.parseDouble(mrpStr.trim());
+            String stockStr = getCell(cells, idx, K_STOCK, KEY_QUANTITY);
+            int stock       = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr.trim());
+            String idStr    = getCell(cells, idx, "id", "productid");
+            if (idStr != null && !idStr.isBlank()) {
+                updateExistingProduct(cells, idx, idStr, name, price, mrp, stock, vendorId, counts);
+            } else {
+                createNewProduct(cells, idx, name, price, mrp, stock, vendor, counts);
+            }
+        } catch (Exception e) {
+            errors.add("Row " + row + ": " + e.getMessage());
+        }
+    }
+
+    private void updateExistingProduct(String[] cells, Map<String, Integer> idx,
+                                       String idStr, String name, double price, double mrp,
+                                       int stock, int vendorId, int[] counts) {
+        int pid = Integer.parseInt(idStr.trim());
+        com.example.ekart.dto.Product p = deps.productRepository.findById(pid).orElse(null);
+        if (p == null) throw new IllegalArgumentException("Product id " + pid + " not found");
+        if (p.getVendor() == null || p.getVendor().getId() != vendorId) throw new IllegalArgumentException("Product id " + pid + " does not belong to you");
+        p.setName(name.trim()); p.setPrice(price); p.setMrp(mrp); p.setStock(stock);
+        String desc     = getCell(cells, idx, K_DESCRIPTION, "productdescription");
+        String category = getCell(cells, idx, K_CATEGORY, "productcategory");
+        String imgLink  = getCell(cells, idx, "imagelink", "imageurl", "image");
+        String threshStr= getCell(cells, idx, "stockalertthreshold", "alertthreshold");
+        String pinCodes = getCell(cells, idx, "allowedpincodes", "pincodes");
+        if (desc != null) p.setDescription(desc.trim());
+        if (category != null) p.setCategory(category.trim());
+        if (imgLink != null) p.setImageLink(imgLink.trim());
+        if (threshStr != null && !threshStr.isBlank()) p.setStockAlertThreshold(Integer.parseInt(threshStr.trim()));
+        if (pinCodes != null) p.setAllowedPinCodes(pinCodes.trim());
+        deps.productRepository.save(p);
+        counts[1]++;
+    }
+
+    private void createNewProduct(String[] cells, Map<String, Integer> idx,
+                                  String name, double price, double mrp,
+                                  int stock, Vendor vendor, int[] counts) {
+        String desc     = getCell(cells, idx, K_DESCRIPTION, "productdescription");
+        String category = getCell(cells, idx, K_CATEGORY, "productcategory");
+        String imgLink  = getCell(cells, idx, "imagelink", "imageurl", "image");
+        String threshStr= getCell(cells, idx, "stockalertthreshold", "alertthreshold");
+        String pinCodes = getCell(cells, idx, "allowedpincodes", "pincodes");
+        com.example.ekart.dto.Product p = new com.example.ekart.dto.Product();
+        p.setName(name.trim()); p.setDescription(desc != null ? desc.trim() : "");
+        p.setPrice(price); p.setMrp(mrp); p.setStock(stock);
+        p.setCategory(category != null ? category.trim() : "General");
+        p.setImageLink(imgLink != null ? imgLink.trim() : "");
+        p.setVendor(vendor); p.setApproved(false);
+        if (threshStr != null && !threshStr.isBlank()) p.setStockAlertThreshold(Integer.parseInt(threshStr.trim()));
+        if (pinCodes != null) p.setAllowedPinCodes(pinCodes.trim());
+        deps.productRepository.save(p);
+        counts[0]++;
     }
 
     /** Helper: get CSV cell by trying multiple header name aliases */
@@ -2330,7 +2372,7 @@ public class FlutterApiController {
             String name  = ((String) body.getOrDefault("name", "Vendor")).trim();
             if (email.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required"); return ResponseEntity.badRequest().body(res); }
             Vendor existing = deps.vendorRepository.findByEmail(email);
-            if (existing != null && existing.isVerified()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email already registered"); return ResponseEntity.badRequest().body(res); }
+            if (existing != null && existing.isVerified()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED); return ResponseEntity.badRequest().body(res); }
             String plainOtp = deps.otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
             // Use existing EmailSender.sendVendorOtpSecure for consistent email formatting
             Vendor temp = new Vendor();
@@ -2720,7 +2762,7 @@ public class FlutterApiController {
             @PathVariable int id, @RequestBody Map<String, Object> body) {
         boolean activate = Boolean.TRUE.equals(body.get("isActive"));
         Map<String, Object> result = deps.adminAccountService.toggleAccountStatus(id, activate);
-        return Boolean.TRUE.equals(result.get("success"))
+        return Boolean.TRUE.equals(result.get(KEY_SUCCESS))
                 ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
@@ -2728,7 +2770,7 @@ public class FlutterApiController {
     @PostMapping("/admin/accounts/{id}/reset-password")
     public ResponseEntity<Map<String, Object>> adminResetPassword(@PathVariable int id) {
         Map<String, Object> result = deps.adminAccountService.generatePasswordResetLink(id);
-        return Boolean.TRUE.equals(result.get("success"))
+        return Boolean.TRUE.equals(result.get(KEY_SUCCESS))
                 ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
@@ -2737,7 +2779,7 @@ public class FlutterApiController {
     @Transactional
     public ResponseEntity<Map<String, Object>> adminDeleteAccount(@PathVariable int id) {
         Map<String, Object> result = deps.adminAccountService.deleteAccount(id);
-        return Boolean.TRUE.equals(result.get("success"))
+        return Boolean.TRUE.equals(result.get(KEY_SUCCESS))
                 ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 

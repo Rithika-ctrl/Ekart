@@ -4134,26 +4134,6 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * Uploads an image to Cloudinary, falling back to {@code fallbackUrl} if upload fails.
-     * Extracted to avoid nested try blocks (SonarQube S1141).
-     *
-     * @param image       the multipart image file to upload
-     * @param fallbackUrl URL to use when Cloudinary upload fails (may be null/blank)
-     * @return the Cloudinary URL on success, or fallbackUrl (or empty string) on failure
-     */
-
-
-    /**
-     * Processes a single CSV row for vendor bulk product import.
-     * Extracted to avoid a nested try block inside the file-reading try-with-resources (SonarQube S1141).
-     *
-     * @param cells   the parsed CSV cells for this row
-     * @param idx     header-name-to-column-index mapping
-     * @param vendor  the owning vendor entity
-     * @param vendorId the vendor's ID (for ownership checks)
-     * @param counts  two-element array: counts[0]=created, counts[1]=updated (mutated in place)
-     */
     /** Bundles the common string fields for a vendor CSV product row, reducing parameter count. */
     private static class VendorProductFields {
         final String name;
@@ -4280,7 +4260,7 @@ public class ReactApiController {
         AdminCsvProductData data = parseAdminCsvProductData(priceStr, mrpStr, stockStr, threshStr, gstRateStr, approvedStr, autoApprove);
 
         if (idStr != null && !idStr.isBlank()) {
-            updateAdminProduct(idStr, name, desc, category, imageLink, vendor, data, counts);
+            updateAdminProduct(new AdminProductUpdateParams(idStr, name, desc, category, imageLink, vendor, data, counts));
         } else {
             createAdminProduct(name, desc, category, imageLink, vendor, data, counts);
         }
@@ -4322,16 +4302,40 @@ public class ReactApiController {
         if (vendor    != null) p.setVendor(vendor);
     }
 
-    private void updateAdminProduct(String idStr, String name, String desc, String category,
-                                     String imageLink, Vendor vendor, AdminCsvProductData d, int[] counts) {
-        int id = Integer.parseInt(idStr.trim());
-        Product p = productRepository.findById(id).orElse(null);
-        if (p == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
-        p.setName(name); p.setDescription(desc); p.setPrice(d.price); p.setMrp(d.mrp);
-        p.setCategory(category); p.setStock(d.stock); p.setApproved(d.approved);
-        applyOptionalAdminProductFields(p, imageLink, vendor, d);
-        productRepository.save(p);
-        counts[1]++;
+    /** Parameter object for updateAdminProduct — reduces the method’s parameter count (fixes java:S107). */
+    private static class AdminProductUpdateParams {
+        final String              idStr;
+        final String              name;
+        final String              desc;
+        final String              category;
+        final String              imageLink;
+        final Vendor              vendor;
+        final AdminCsvProductData data;
+        final int[]               counts;
+
+        AdminProductUpdateParams(String idStr, String name, String desc, String category,
+                                 String imageLink, Vendor vendor, AdminCsvProductData data, int[] counts) {
+            this.idStr     = idStr;
+            this.name      = name;
+            this.desc      = desc;
+            this.category  = category;
+            this.imageLink = imageLink;
+            this.vendor    = vendor;
+            this.data      = data;
+            this.counts    = counts;
+        }
+    }
+
+    private void updateAdminProduct(AdminProductUpdateParams p) {
+        int id = Integer.parseInt(p.idStr.trim());
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
+        product.setName(p.name); product.setDescription(p.desc);
+        product.setPrice(p.data.price); product.setMrp(p.data.mrp);
+        product.setCategory(p.category); product.setStock(p.data.stock); product.setApproved(p.data.approved);
+        applyOptionalAdminProductFields(product, p.imageLink, p.vendor, p.data);
+        productRepository.save(product);
+        p.counts[1]++;
     }
 
     private void createAdminProduct(String name, String desc, String category,
@@ -4618,7 +4622,7 @@ public class ReactApiController {
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) (11 - offset));
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
@@ -4639,7 +4643,7 @@ public class ReactApiController {
             return ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) (11 - offset));
             return ym.getMonth().name().substring(0, 3) + " '" + String.valueOf(ym.getYear()).substring(2);
         }
         // week

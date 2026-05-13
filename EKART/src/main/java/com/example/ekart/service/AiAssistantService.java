@@ -52,6 +52,7 @@ public class AiAssistantService {
     private static final String KW_WHAT_CAN_YOU_DO = "what can you do";
     private static final String KW_OPTIONS         = "options";
     private static final String KW_FEATURES        = "features";
+    private static final String KW_ADMIN_PANEL      = "admin panel";  // S1192 — replaces 4× literal
 
     @Value("${gemini.api.key:}")
     private String apiKey;
@@ -146,8 +147,11 @@ public class AiAssistantService {
             String text = extractText(res.body());
             if (text != null && !text.isBlank()) return text.trim();
         } else {
-            log.error("Gemini {} → {}", res.statusCode(),
-                    res.body().substring(0, Math.min(200, res.body().length())));
+            // FIX: Issue 164 — S2629: substring() is only evaluated when ERROR logging is active
+            if (log.isErrorEnabled()) {
+                log.error("Gemini {} → {}", res.statusCode(),
+                        res.body().substring(0, Math.min(200, res.body().length())));
+            }
         }
         return null;
     }
@@ -155,40 +159,43 @@ public class AiAssistantService {
     // ── System prompts ────────────────────────────────────────────────────────
 
     private String buildSystemPrompt(String role, String userName, String contextBlock) {
-        String base =
-            "You are the Ekart Assistant — the official AI support agent for Ekart, " +
-            "an Indian e-commerce platform.\n\n" +
+        // FIX: Issue 165 — S6126: text block replaces multi-line String concatenation
+        String base = """
+                You are the Ekart Assistant — the official AI support agent for Ekart, \
+                an Indian e-commerce platform.
 
-            "═══ CRITICAL RULES ═══\n" +
-            "1. ALWAYS use the LIVE USER DATA provided below to give SPECIFIC answers.\n" +
-            "   - If the user asks about their orders → list their actual orders from the data.\n" +
-            "   - If they ask about their cart → tell them exactly what's in it.\n" +
-            "   - If they ask about a specific order → find it in the data and describe it.\n" +
-            "   - If they ask about their products → use the vendor's actual product list.\n" +
-            "   - Never say 'go to this page to check' when you can answer from the data.\n" +
-            "2. STRICT ROLE ISOLATION — this is the most important rule:\n" +
-            "   - You are ONLY the assistant for the CURRENT ROLE stated below.\n" +
-            "   - CUSTOMER features (cart, wishlist, track order, buy products, COD) → ONLY for customers.\n" +
-            "   - VENDOR features (add/edit products, sales report, stock alerts, approve orders) → ONLY for vendors.\n" +
-            "   - ADMIN features (approve products, ban users, refund management, analytics) → ONLY for admins.\n" +
-            "   - If a VENDOR asks 'how do I track my order' like a customer → reply: 'Order tracking for purchases is a customer feature. As a vendor, you can view orders placed for your products from your Vendor Orders page.'\n" +
-            "   - If a CUSTOMER asks 'how do I add a product' → reply: 'Adding products is a vendor feature. As a customer you can browse and buy products.'\n" +
-            "   - If a CUSTOMER asks 'how do I approve products' → reply: 'Product approval is an admin feature and is not available to customers.'\n" +
-            "   - NEVER explain features that belong to a different role as if they apply to the current user.\n" +
-            "3. Keep responses CONCISE (3–6 lines max) unless step-by-step is needed.\n" +
-            "4. Use ₹ for all prices. Format order IDs as #ID.\n" +
-            "5. 1–2 relevant emojis per reply maximum.\n" +
-            "6. ONLY answer Ekart-related questions.\n" +
-            "7. Never mention competitor platforms (Amazon, Flipkart, Meesho etc.).\n" +
-            "8. If data is not in the context block, say so — never guess or hallucinate.\n\n" +
+                ═══ CRITICAL RULES ═══
+                1. ALWAYS use the LIVE USER DATA provided below to give SPECIFIC answers.
+                   - If the user asks about their orders → list their actual orders from the data.
+                   - If they ask about their cart → tell them exactly what's in it.
+                   - If they ask about a specific order → find it in the data and describe it.
+                   - If they ask about their products → use the vendor's actual product list.
+                   - Never say 'go to this page to check' when you can answer from the data.
+                2. STRICT ROLE ISOLATION — this is the most important rule:
+                   - You are ONLY the assistant for the CURRENT ROLE stated below.
+                   - CUSTOMER features (cart, wishlist, track order, buy products, COD) → ONLY for customers.
+                   - VENDOR features (add/edit products, sales report, stock alerts, approve orders) → ONLY for vendors.
+                   - ADMIN features (approve products, ban users, refund management, analytics) → ONLY for admins.
+                   - If a VENDOR asks 'how do I track my order' like a customer → reply: 'Order tracking for purchases is a customer feature. As a vendor, you can view orders placed for your products from your Vendor Orders page.'
+                   - If a CUSTOMER asks 'how do I add a product' → reply: 'Adding products is a vendor feature. As a customer you can browse and buy products.'
+                   - If a CUSTOMER asks 'how do I approve products' → reply: 'Product approval is an admin feature and is not available to customers.'
+                   - NEVER explain features that belong to a different role as if they apply to the current user.
+                3. Keep responses CONCISE (3–6 lines max) unless step-by-step is needed.
+                4. Use ₹ for all prices. Format order IDs as #ID.
+                5. 1–2 relevant emojis per reply maximum.
+                6. ONLY answer Ekart-related questions.
+                7. Never mention competitor platforms (Amazon, Flipkart, Meesho etc.).
+                8. If data is not in the context block, say so — never guess or hallucinate.
 
-            "═══ EKART PLATFORM FACTS ═══\n" +
-            "- Free delivery on orders above ₹500, else ₹40 charge.\n" +
-            "- Order stages: Processing → Packed → Shipped → Out for Delivery → Delivered\n" +
-            "- Returns/replacements: within 7 days of order.\n" +
-            "- Refunds: 5–7 business days after approval.\n" +
-            "- Password: 8+ chars with uppercase, lowercase, number, special character.\n" +
-            "- OTP verification required on registration.\n\n";
+                ═══ EKART PLATFORM FACTS ═══
+                - Free delivery on orders above ₹500, else ₹40 charge.
+                - Order stages: Processing → Packed → Shipped → Out for Delivery → Delivered
+                - Returns/replacements: within 7 days of order.
+                - Refunds: 5–7 business days after approval.
+                - Password: 8+ chars with uppercase, lowercase, number, special character.
+                - OTP verification required on registration.
+
+                """;
 
         String roleSection = buildRoleSection(role, userName);
         String dataSection = contextBlock != null && !contextBlock.isBlank()
@@ -199,35 +206,51 @@ public class AiAssistantService {
     }
 
     // FIX: Issues 166 & 167 — uses ROLE_CUSTOMER / ROLE_VENDOR / ROLE_ADMIN constants
+    // FIX: Issues 169 & 170 — S6126: text blocks replace multi-line String concatenation
     private String buildRoleSection(String role, String userName) {
         switch (role) {
             case ROLE_CUSTOMER:
-                return "═══ CURRENT USER ═══\n" +
-                       "Role: CUSTOMER | Name: " + userName + "\n" +
-                       "The customer can: browse & buy products, manage cart, place orders, " +
-                       "track deliveries, cancel orders, request refunds/replacements, " +
-                       "manage wishlist, write reviews, manage delivery addresses.\n\n";
+                return """
+                        ═══ CURRENT USER ═══
+                        Role: CUSTOMER | Name: \
+                        """ + userName + "\n" + """
+                        The customer can: browse & buy products, manage cart, place orders, \
+                        track deliveries, cancel orders, request refunds/replacements, \
+                        manage wishlist, write reviews, manage delivery addresses.
+
+                        """;
 
             case ROLE_VENDOR:
-                return "═══ CURRENT USER ═══\n" +
-                       "Role: VENDOR | Name: " + userName + "\n" +
-                       "The vendor can: add/edit/delete products (pending admin approval), " +
-                       "upload product images & videos, set stock alert thresholds, " +
-                       "view sales reports (daily/weekly/monthly), manage storefront, " +
-                       "mark orders as Packed.\n\n";
+                return """
+                        ═══ CURRENT USER ═══
+                        Role: VENDOR | Name: \
+                        """ + userName + "\n" + """
+                        The vendor can: add/edit/delete products (pending admin approval), \
+                        upload product images & videos, set stock alert thresholds, \
+                        view sales reports (daily/weekly/monthly), manage storefront, \
+                        mark orders as Packed.
+
+                        """;
 
             case ROLE_ADMIN:
-                return "═══ CURRENT USER ═══\n" +
-                       "Role: ADMIN\n" +
-                       "The admin can: approve/reject products, manage all users (ban, role changes), " +
-                       "process refunds, manage banners, view platform analytics, " +
-                       "moderate reviews, manage coupons, manage delivery boys and warehouses.\n\n";
+                // FIX: Issue 169 — S6126: text block replaces String concatenation
+                return """
+                        ═══ CURRENT USER ═══
+                        Role: ADMIN
+                        The admin can: approve/reject products, manage all users (ban, role changes), \
+                        process refunds, manage banners, view platform analytics, \
+                        moderate reviews, manage coupons, manage delivery boys and warehouses.
+
+                        """;
 
             default:
-                return "═══ CURRENT USER ═══\n" +
-                       "Role: GUEST (not logged in)\n" +
-                       "Guest can browse products without logging in. " +
-                       "Encourage them to register for full access.\n\n";
+                return """
+                        ═══ CURRENT USER ═══
+                        Role: GUEST (not logged in)
+                        Guest can browse products without logging in. \
+                        Encourage them to register for full access.
+
+                        """;
         }
     }
 
@@ -351,7 +374,7 @@ public class AiAssistantService {
         if (role.equals(ROLE_ADMIN)) {
             return null;
         }
-        if (any(msg, "approve product", "approve vendor", "ban user", "admin panel", "manage user", "admin refund", "user role")) {
+        if (any(msg, "approve product", "approve vendor", "ban user", KW_ADMIN_PANEL, "manage user", "admin refund", "user role")) {
             return role.equals(ROLE_CUSTOMER)
                 ? "🔧 Product and user management is an **admin** feature. As a customer, you can browse approved products and manage your own account."
                 : "🔧 Admin functions like user management and approvals are restricted to Ekart admins. As a vendor, contact admin if you need help with your account.";
@@ -604,7 +627,7 @@ public class AiAssistantService {
 
         private String extractAdminApprovalBlock(String ctx) {
             if (ctx == null || !ctx.contains("PENDING APPROVALS")) {
-                return "✅ Visit **Approve Products** in the admin panel to review pending listings.";
+                return "✅ Visit **Approve Products** in the " + KW_ADMIN_PANEL + " to review pending listings.";
             }
             int start = ctx.indexOf("PRODUCTS: ");
             int end = ctx.indexOf("\nREFUNDS:");
@@ -615,7 +638,7 @@ public class AiAssistantService {
 
         private String extractAdminRefundBlock(String ctx) {
             if (ctx == null || !ctx.contains("REFUNDS:")) {
-                return "💰 Visit **Refund Management** in the admin panel to process pending refunds.";
+                return "💰 Visit **Refund Management** in the " + KW_ADMIN_PANEL + " to process pending refunds.";
             }
             int start = ctx.indexOf("\nREFUNDS:");
             int end = ctx.indexOf("\nALL ORDERS:");
@@ -626,7 +649,7 @@ public class AiAssistantService {
 
         private String extractAdminStatsBlock(String ctx) {
             if (ctx == null || ctx.isBlank()) {
-                return "📊 Check the Analytics section in the admin panel for full platform statistics.";
+                return "📊 Check the Analytics section in the " + KW_ADMIN_PANEL + " for full platform statistics.";
             }
             String trimmed = ctx.length() > 800 ? ctx.substring(0, 800) + "..." : ctx;
             return "📊 Here's the current platform snapshot:\n\n" + trimmed;

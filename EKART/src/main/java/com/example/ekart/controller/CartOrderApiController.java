@@ -226,10 +226,10 @@ public class CartOrderApiController {
         if (item == null) { res.put(K_SUCCESS, false); return ResponseEntity.status(404).body(res); }
 
         // ✅ FIX: prefer stored unitPrice, fallback to product price
-        double unitPrice = item.getUnitPrice() > 0
-                ? item.getUnitPrice()
-                : productRepository.findById(item.getProductId() != null ? item.getProductId() : -1)
-                        .map(Product::getPrice).orElse(item.getPrice());
+        long productLookupId = item.getProductId() != null ? item.getProductId() : -1;
+        double fallbackPrice = productRepository.findById((int) productLookupId)
+                .map(Product::getPrice).orElse(item.getPrice());
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : fallbackPrice;
 
         int newQty = item.getQuantity() + 1;
         item.setUnitPrice(unitPrice);

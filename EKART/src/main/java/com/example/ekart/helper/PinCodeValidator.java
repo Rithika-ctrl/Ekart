@@ -31,6 +31,10 @@ import java.util.Set;
  */
 public class PinCodeValidator {
 
+    private PinCodeValidator() {
+        // Utility class — do not instantiate
+    }
+
     private static final Set<String> VALID_PREFIXES = Set.of(
         "11","12","13","14","15","16","17","18","19",
         "20","21","22","23","24","25","26","27","28",

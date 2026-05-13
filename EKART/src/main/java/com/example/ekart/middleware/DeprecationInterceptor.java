@@ -1,5 +1,6 @@
 package com.example.ekart.middleware;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -37,6 +38,13 @@ import java.util.Map;
 public class DeprecationInterceptor implements HandlerInterceptor {
 
     private static final Logger logger = LoggerFactory.getLogger(DeprecationInterceptor.class);
+
+    /**
+     * Controls Phase 2 deprecation behaviour.
+     * Set deprecation.phase2.active=true in application.properties to activate permanent redirects.
+     */
+    @Value("${deprecation.phase2.active:false}")
+    private boolean phase2Active;
 
     /**
      * Map of legacy routes → React SPA routes
@@ -96,7 +104,7 @@ public class DeprecationInterceptor implements HandlerInterceptor {
                 "redirected to the React SPA in Q2 2025. No action needed now."
             );
 
-            if (isPhase2Active()) {
+            if (phase2Active) {
                 // Phase 2: redirect permanently to SPA equivalent
                 response.sendRedirect(spaPath);
                 return false;
@@ -106,14 +114,6 @@ public class DeprecationInterceptor implements HandlerInterceptor {
         }
 
         return true;
-    }
-
-    /**
-     * Returns true when Phase 2 deprecation redirects should be enforced.
-     * Flip this to true in Q2 2025 to activate permanent redirects.
-     */
-    private boolean isPhase2Active() {
-        return false; // Phase 1: warning-only mode
     }
 
     /**
