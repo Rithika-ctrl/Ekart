@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class PolicyControllerTest {
+class PolicyControllerTest {
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -33,18 +33,16 @@ public class PolicyControllerTest {
 
     @Test
     void testCreateAndGetPolicy() throws Exception {
-        Policy policy = new Policy();
-        policy.setTitle("Test Policy");
-        policy.setContent("Test content");
-        policy.setCategory("General");
-        policy.setSlug("test-policy");
-        policy.setLastUpdated(LocalDateTime.now());
-        policy.setAuthorAdminId("admin1");
+        PolicyController.PolicyDTO dto = new PolicyController.PolicyDTO();
+        dto.setTitle("Test Policy");
+        dto.setContent("Test content");
+        dto.setCategory("General");
+        dto.setSlug("test-policy");
 
         // Create
         mockMvc.perform(post("/api/policies")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(policy)))
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Test Policy"));
 
@@ -62,13 +60,17 @@ public class PolicyControllerTest {
         policy.setCategory("General");
         policy.setSlug("policy-1");
         policy.setLastUpdated(LocalDateTime.now());
-        policy.setAuthorAdminId("admin1");
-        policy = policyRepository.save(policy);
+        policyRepository.save(policy);
 
-        policy.setTitle("Updated Policy");
+        PolicyController.PolicyDTO dto = new PolicyController.PolicyDTO();
+        dto.setTitle("Updated Policy");
+        dto.setContent("Content");
+        dto.setCategory("General");
+        dto.setSlug("policy-1");
+
         mockMvc.perform(put("/api/policies/policy-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(policy)))
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Updated Policy"));
     }
@@ -81,7 +83,6 @@ public class PolicyControllerTest {
         policy.setCategory("General");
         policy.setSlug("delete-policy");
         policy.setLastUpdated(LocalDateTime.now());
-        policy.setAuthorAdminId("admin1");
         policyRepository.save(policy);
 
         mockMvc.perform(delete("/api/policies/delete-policy"))

@@ -87,7 +87,7 @@ public class DeliveryBoyService {
     }
 
     public String selfRegister(String name, String email, long mobile,
-                                String password, String confirmPassword,
+                                String newCredential, String credentialConfirm,
                                 int warehouseId, HttpSession session) {
 
         if (name == null || name.trim().length() < 3) {
@@ -106,12 +106,12 @@ public class DeliveryBoyService {
             }
             // Allow updating unverified account
         }
-        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+        if (newCredential == null || credentialConfirm == null || !newCredential.equals(credentialConfirm)) {
             session.setAttribute(KEY_FAILURE, "Password and Confirm Password must match");
             return K_REDIRECT_DELIVERY_REGISTER;
         }
-        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
-        if (!password.matches(passwordRegex)) {
+        String credentialStrengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+        if (!newCredential.matches(credentialStrengthRegex)) {
             session.setAttribute(KEY_FAILURE, "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
             return K_REDIRECT_DELIVERY_REGISTER;
         }
@@ -132,7 +132,7 @@ public class DeliveryBoyService {
         db.setName(name.trim());
         db.setEmail(email.trim().toLowerCase());
         db.setMobile(mobile);
-        db.setPassword(AES.encrypt(password));
+        db.setPassword(AES.encrypt(newCredential));
         db.setVerified(false);
         db.setAdminApproved(false);
         db.setActive(true);

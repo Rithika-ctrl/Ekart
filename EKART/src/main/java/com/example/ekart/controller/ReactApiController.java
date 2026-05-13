@@ -168,8 +168,8 @@ public class ReactApiController {
         return localPart.charAt(0) + "***" + localPart.charAt(localPart.length() - 1) + domainPart;
     }
 
-    private static final String STRONG_PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
-    private static final String STRONG_PASSWORD_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
+    private static final String CREDENTIAL_STRENGTH_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+    private static final String CREDENTIAL_STRENGTH_MESSAGE = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // String constants (S1192 — eliminates duplicate-literal violations)
@@ -492,7 +492,7 @@ public class ReactApiController {
     }
 
     private boolean isStrongPassword(String password) {
-        return password != null && password.matches(STRONG_PASSWORD_REGEX);
+        return password != null && password.matches(CREDENTIAL_STRENGTH_REGEX);
     }
 
     /** POST /api/flutter/auth/customer/register */
@@ -615,7 +615,7 @@ public class ReactApiController {
             }
             if (!isStrongPassword(password)) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             com.example.ekart.dto.Customer existing = customerRepository.findByEmail(email);
@@ -782,7 +782,7 @@ public class ReactApiController {
             }
             if (!isStrongPassword(password)) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             com.example.ekart.dto.Vendor existing = vendorRepository.findByEmail(email);
@@ -1250,7 +1250,7 @@ public class ReactApiController {
             DeliveryBoy existingDb = deliveryBoyRepository.findByEmail(email);
             if (existingDb != null && existingDb.isVerified()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "This email is already verified. Please login instead."); return ResponseEntity.badRequest().body(res); }
             if (!password.equals(confirmPassword))     { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Passwords do not match"); return ResponseEntity.badRequest().body(res); }
-            if (!isStrongPassword(password))           { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(password))           { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE); return ResponseEntity.badRequest().body(res); }
             if (warehouseId <= 0)                      { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
 
             long mobile = parseMobileNumber(mobileStr);
@@ -1637,7 +1637,7 @@ public class ReactApiController {
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             customer.setPassword(AES.encrypt(newPassword));
@@ -1786,7 +1786,7 @@ public class ReactApiController {
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             vendor.setPassword(AES.encrypt(newPassword));
@@ -2262,9 +2262,8 @@ public class ReactApiController {
 
             DeliveryLocation deliveryLocation = resolveDeliveryLocation(customer, body);
 
-            SubOrderResult subOrderResult = createSubOrders(
+            SubOrderContext subOrderCtx = new SubOrderContext(
                 customer,
-                grouping,
                 couponApplication.couponDiscount,
                 deliveryCharge,
                 paymentMode,
@@ -2273,6 +2272,7 @@ public class ReactApiController {
                 deliveryLocation.deliveryPin,
                 deliveryLocation.warehouse
             );
+            SubOrderResult subOrderResult = createSubOrders(subOrderCtx, grouping);
 
             // Clear cart
             cart.getItems().clear();
@@ -2461,16 +2461,80 @@ public class ReactApiController {
         }
     }
 
-    private SubOrderResult createSubOrders(
+    // Helper: copy cart items into fresh order-item instances
+    private List<Item> buildOrderItems(List<Item> cartItems) {
+        List<Item> orderItems = new ArrayList<>();
+        for (Item cartItem : cartItems) {
+            Item orderItem = new Item();
+            orderItem.setName(cartItem.getName());
+            orderItem.setDescription(cartItem.getDescription());
+            orderItem.setPrice(cartItem.getPrice());
+            orderItem.setCategory(cartItem.getCategory());
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setImageLink(cartItem.getImageLink());
+            orderItem.setProductId(cartItem.getProductId());
+            orderItems.add(orderItem);
+        }
+        return orderItems;
+    }
+
+    // Helper: assemble a single Order entity (does not save)
+    private Order buildSubOrder(
             Customer customer,
-            VendorGrouping grouping,
-            double couponDiscount,
-            double deliveryCharge,
+            List<Item> orderItems,
+            double subTotal,
+            double subDiscount,
+            double subDelivery,
             String paymentMode,
             String deliveryTime,
             String city,
             String deliveryPin,
-            Warehouse warehouse) {
+            Warehouse warehouse,
+            Vendor vendor) {
+        Order subOrder = new Order();
+        subOrder.setCustomer(customer);
+        subOrder.setItems(orderItems);
+        subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
+        subOrder.setDeliveryCharge(subDelivery);
+        subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
+        subOrder.setPaymentMode(paymentMode);
+        subOrder.setDeliveryTime(deliveryTime);
+        subOrder.setDateTime(LocalDateTime.now());
+        subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
+        subOrder.setReplacementRequested(false);
+        subOrder.setCurrentCity(city);
+        subOrder.setDeliveryPinCode(deliveryPin);
+        if (warehouse != null) { subOrder.setWarehouse(warehouse); }
+        if (vendor != null)    { subOrder.setVendor(vendor); }
+        return subOrder;
+    }
+
+    // Parameter object for createSubOrders (fixes S107 — was 9 params)
+    private static class SubOrderContext {
+        final Customer  customer;
+        final double    couponDiscount;
+        final double    deliveryCharge;
+        final String    paymentMode;
+        final String    deliveryTime;
+        final String    city;
+        final String    deliveryPin;
+        final Warehouse warehouse;
+
+        SubOrderContext(Customer customer, double couponDiscount, double deliveryCharge,
+                        String paymentMode, String deliveryTime, String city,
+                        String deliveryPin, Warehouse warehouse) {
+            this.customer       = customer;
+            this.couponDiscount = couponDiscount;
+            this.deliveryCharge = deliveryCharge;
+            this.paymentMode    = paymentMode;
+            this.deliveryTime   = deliveryTime;
+            this.city           = city;
+            this.deliveryPin    = deliveryPin;
+            this.warehouse      = warehouse;
+        }
+    }
+
+    private SubOrderResult createSubOrders(SubOrderContext ctx, VendorGrouping grouping) {
         boolean multiVendor = grouping.vendorItems.size() > 1;
         Integer parentId = null;
         Order firstOrder = null;
@@ -2485,41 +2549,12 @@ public class ReactApiController {
             for (Item item : groupedItems) {
                 subTotal += item.getPrice() * item.getQuantity();
             }
-            double subDiscount = (grouping.grandTotal > 0) ? couponDiscount * (subTotal / grouping.grandTotal) : 0;
-            double subDelivery = (firstOrder == null) ? deliveryCharge : 0.0;
+            double subDiscount = (grouping.grandTotal > 0) ? ctx.couponDiscount * (subTotal / grouping.grandTotal) : 0;
+            double subDelivery = (firstOrder == null) ? ctx.deliveryCharge : 0.0;
 
-            List<Item> orderItems = new ArrayList<>();
-            for (Item cartItem : groupedItems) {
-                Item orderItem = new Item();
-                orderItem.setName(cartItem.getName());
-                orderItem.setDescription(cartItem.getDescription());
-                orderItem.setPrice(cartItem.getPrice());
-                orderItem.setCategory(cartItem.getCategory());
-                orderItem.setQuantity(cartItem.getQuantity());
-                orderItem.setImageLink(cartItem.getImageLink());
-                orderItem.setProductId(cartItem.getProductId());
-                orderItems.add(orderItem);
-            }
-
-            Order subOrder = new Order();
-            subOrder.setCustomer(customer);
-            subOrder.setItems(orderItems);
-            subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
-            subOrder.setDeliveryCharge(subDelivery);
-            subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
-            subOrder.setPaymentMode(paymentMode);
-            subOrder.setDeliveryTime(deliveryTime);
-            subOrder.setDateTime(LocalDateTime.now());
-            subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
-            subOrder.setReplacementRequested(false);
-            subOrder.setCurrentCity(city);
-            subOrder.setDeliveryPinCode(deliveryPin);
-            if (warehouse != null) {
-                subOrder.setWarehouse(warehouse);
-            }
-            if (vendor != null) {
-                subOrder.setVendor(vendor);
-            }
+            List<Item> orderItems = buildOrderItems(groupedItems);
+            Order subOrder = buildSubOrder(ctx.customer, orderItems, subTotal, subDiscount, subDelivery,
+                    ctx.paymentMode, ctx.deliveryTime, ctx.city, ctx.deliveryPin, ctx.warehouse, vendor);
 
             orderRepository.save(subOrder);
 
@@ -3023,16 +3058,18 @@ public class ReactApiController {
         // ── 5. Structured audit log ────────────────────────────────────────
         String customerEmail = customer.getEmail();
         String adminEmail = adminAuthService.getPrimaryAdminEmail();
-        LOGGER.info(
-            "[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
-            id,
-            customerId,
-            maskEmailForLog(customerEmail),
-            sanitizeForLog(reason),
-            sanitizeForLog(description != null ? description : ""),
-            sanitizeForLog(req.getRemoteAddr()),
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        );
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(
+                "[DISPUTE] orderId={} customerId={} customerEmail={} reason=\"{}\" description=\"{}\" ip={} at={}",
+                id,
+                customerId,
+                maskEmailForLog(customerEmail),
+                sanitizeForLog(reason),
+                sanitizeForLog(description != null ? description : ""),
+                sanitizeForLog(req.getRemoteAddr()),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            );
+        }
 
         // ── 6. Admin notification email (async — failure won't break API) ──
         try {
@@ -3156,6 +3193,22 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    // Helper: perform the actual wishlist add-or-remove and populate response map
+    private boolean performWishlistToggle(Customer customer, Product product, int productId) {
+        List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
+                .filter(w -> w.getProduct().getId() == productId).toList();
+        if (!existing.isEmpty()) {
+            wishlistRepository.deleteAll(existing);
+            return false; // removed
+        }
+        Wishlist w = new Wishlist();
+        w.setCustomer(customer);
+        w.setProduct(product);
+        w.setAddedAt(LocalDateTime.now());
+        wishlistRepository.save(w);
+        return true; // added
+    }
+
     /** POST /api/flutter/wishlist/toggle */
     @PostMapping("/wishlist/toggle")
     public ResponseEntity<Map<String, Object>> toggleWishlist(
@@ -3169,16 +3222,10 @@ public class ReactApiController {
         if (productId == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "productId is required"); return ResponseEntity.badRequest().body(res); }
         Product product = productRepository.findById(productId).orElse(null);
         if (product == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_PRODUCT_NOT_FOUND); return ResponseEntity.status(404).body(res); }
-        List<Wishlist> existing = wishlistRepository.findByCustomer(customer).stream()
-                .filter(w -> w.getProduct().getId() == productId).toList();
-        if (!existing.isEmpty()) {
-            wishlistRepository.deleteAll(existing);
-            res.put(KEY_SUCCESS, true); res.put("wishlisted", false); res.put(KEY_MESSAGE, "Removed from wishlist");
-        } else {
-            Wishlist w = new Wishlist(); w.setCustomer(customer); w.setProduct(product); w.setAddedAt(LocalDateTime.now());
-            wishlistRepository.save(w);
-            res.put(KEY_SUCCESS, true); res.put("wishlisted", true); res.put(KEY_MESSAGE, "Added to wishlist");
-        }
+        boolean wishlisted = performWishlistToggle(customer, product, productId);
+        res.put(KEY_SUCCESS, true);
+        res.put("wishlisted", wishlisted);
+        res.put(KEY_MESSAGE, wishlisted ? "Added to wishlist" : "Removed from wishlist");
         return ResponseEntity.ok(res);
     }
 
@@ -3835,14 +3882,17 @@ public class ReactApiController {
      * Attempts to upload to Cloudinary; falls back to provided imageLink if upload fails or is not provided.
      * Returns the resolved image URL (may be empty string if no image provided).
      */
+    private String resolveProductImage(org.springframework.web.multipart.MultipartFile image, String imageLink) {
+        if (image != null && !image.isEmpty()) {
+            try {
+                return cloudinaryHelper.saveToCloudinary(image);
+            } catch (Exception e) {
+                return imageLink != null && !imageLink.isBlank() ? imageLink : "";
+            }
+        }
+        return imageLink != null && !imageLink.isBlank() ? imageLink : "";
+    }
 
-    
-    /**
-     * Safely parses an optional numeric string parameter.
-     * Returns the parsed double value if parameter is provided and valid; returns defaultValue otherwise.
-     */
-
-    
     /**
      * Safely parses an optional integer string parameter.
      * Returns the parsed int value if parameter is provided and valid; returns null otherwise.
@@ -3890,12 +3940,7 @@ public class ReactApiController {
             p.setStock(Integer.parseInt(stock));
             
             if (image != null && !image.isEmpty()) {
-                try {
-                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
-                    p.setImageLink(imageUrl);
-                } catch (Exception e) {
-                    p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
-                }
+                p.setImageLink(resolveProductImage(image, imageLink));
             } else {
                 p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
             }
@@ -5164,8 +5209,10 @@ public class ReactApiController {
         orderRepository.save(order);
 
         // Audit log
-        LOGGER.info("[ADMIN-CANCEL] orderId={} reason=\"{}\" at={}",
-    id, sanitizeForLog(reason), java.time.LocalDateTime.now());
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[ADMIN-CANCEL] orderId={} reason=\"{}\" at={}",
+                id, sanitizeForLog(reason), java.time.LocalDateTime.now());
+        }
 
         // Send cancellation email to customer (fire-and-forget — never fails the response)
         if (order.getCustomer() != null) {
@@ -6056,7 +6103,9 @@ public class ReactApiController {
                 db.setActive(true);
                 deliveryBoyRepository.save(db);
                 count++;
-                LOGGER.info("[FIX] Verified delivery boy: {} ({})", sanitizeForLog(db.getName()), maskEmailForLog(db.getEmail()));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("[FIX] Verified delivery boy: {} ({})", sanitizeForLog(db.getName()), maskEmailForLog(db.getEmail()));
+                }
             }
             
             res.put(KEY_SUCCESS, true);
@@ -6162,7 +6211,9 @@ public class ReactApiController {
             // Previously: if (newStatus) autoAssignmentService.onDeliveryBoyOnline(db);
             // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
             if (newStatus) {
-                LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
+                }
             }
 
             res.put(KEY_SUCCESS, true);
@@ -6225,7 +6276,7 @@ public class ReactApiController {
             // AUTO-ASSIGN DISABLED (Phase 3)
             // Previously: autoAssignmentService.onOrderPacked(order);
             // Now: Warehouse staff manually assigns delivery boy via WarehouseReceivingService
-            LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", orderId);
+            LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", sanitizeForLog(String.valueOf(orderId)));
 
             // Re-fetch for response (delivery boy will be null until manual assignment)
             Order refreshed = orderRepository.findById(orderId).orElse(order);
@@ -7373,7 +7424,7 @@ public class ReactApiController {
             }
             if (!isStrongPassword(newPassword)) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
                 return ResponseEntity.badRequest().body(res);
             }
             
@@ -7385,7 +7436,7 @@ public class ReactApiController {
 
             // Use AdminAuthService to change password (validates current password via BCrypt)
             com.example.ekart.dto.PasswordChangeResult changeResult = 
-                adminAuthService.changePassword(adminId, currentPassword, newPassword);
+                adminAuthService.changePassword(currentPassword, newPassword);
 
             if (!changeResult.isSuccess()) {
                 res.put(KEY_SUCCESS, false);
@@ -7473,7 +7524,7 @@ public class ReactApiController {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE); return ResponseEntity.badRequest().body(res); }
             customer.setPassword(AES.encrypt(newPwd));
             customerRepository.save(customer);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
@@ -7596,7 +7647,7 @@ public class ReactApiController {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, STRONG_PASSWORD_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE); return ResponseEntity.badRequest().body(res); }
             vendor.setPassword(AES.encrypt(newPwd));
             vendorRepository.save(vendor);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);

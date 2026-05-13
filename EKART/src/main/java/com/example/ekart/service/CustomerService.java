@@ -280,7 +280,7 @@ public class CustomerService {
         return "customer-reset-password.html";
     }
 
-    public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
+    public String resetPassword(int id, int otp, String newCredential, String credentialConfirm, HttpSession session) {
         Customer customer = customerRepository.findById(id).orElse(null);
         if (customer == null) {
             session.setAttribute(K_FAILURE, "Invalid reset request");
@@ -292,19 +292,19 @@ public class CustomerService {
             return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
-        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+        if (newCredential == null || credentialConfirm == null || !newCredential.equals(credentialConfirm)) {
             session.setAttribute(K_FAILURE, "Password and Confirm Password should match");
             return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
-        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
-        if (!password.matches(passwordRegex)) {
+        String credentialStrengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+        if (!newCredential.matches(credentialStrengthRegex)) {
             session.setAttribute(K_FAILURE,
                     "Password must have 8+ characters with uppercase, lowercase, number and special character");
             return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }
 
-        customer.setPassword(AES.encrypt(password));
+        customer.setPassword(AES.encrypt(newCredential));
         customerRepository.save(customer);
 
         session.setAttribute(K_SUCCESS, "Password reset successful. Please login");

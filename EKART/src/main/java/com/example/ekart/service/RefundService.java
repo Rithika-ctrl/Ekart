@@ -231,8 +231,10 @@ public class RefundService {
     private void sendRefundStatusNotification(Customer customer, Refund refund, boolean approved, String rejectionReason) {
         // Log notification (stub for email - can be expanded later)
         String status = approved ? "APPROVED" : "REJECTED";
-        log.info("📬 REFUND NOTIFICATION: customerId={}, orderId={}, amount=₹{}, status={}",
-            customer.getId(), refund.getOrder().getId(), String.format("%.2f", refund.getAmount()), status);
+        if (log.isInfoEnabled()) {
+            log.info("📬 REFUND NOTIFICATION: customerId={}, orderId={}, amount=₹{}, status={}",
+                customer.getId(), refund.getOrder().getId(), String.format("%.2f", refund.getAmount()), status);
+        }
         if (rejectionReason != null) {
             log.info("   Rejection reason provided (content omitted)");
         }

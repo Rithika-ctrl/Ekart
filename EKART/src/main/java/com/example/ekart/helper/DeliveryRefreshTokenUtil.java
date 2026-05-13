@@ -54,15 +54,10 @@ public class DeliveryRefreshTokenUtil {
     private static final long REFRESH_TOKEN_EXPIRY_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
     private static final String DEV_DEFAULT = "ekart-dev-default-256bit-key-change-in-production!!";
 
-    // Static holder for use in static methods
-    private static String SECRET;
-
     @PostConstruct
     private void initSecret() {
-        SECRET = this.secretValue;
-
         if ((environment.contains("prod") || environment.contains("production")) &&
-            SECRET.equals(DEV_DEFAULT)) {
+            secretValue.equals(DEV_DEFAULT)) {
             LOGGER.error("""
 
                 ╔════════════════════════════════════════════════════════════════╗
@@ -78,7 +73,7 @@ public class DeliveryRefreshTokenUtil {
     }
 
     private Key getKey() {
-        return Keys.hmacShaKeyFor(SECRET.getBytes());
+        return Keys.hmacShaKeyFor(secretValue.getBytes());
     }
 
     /**

@@ -52,7 +52,7 @@ public class AdminAuthService {
     /**
      * Change admin password (not supported with .env based auth)
      */
-    public PasswordChangeResult changePassword(Integer adminId, String currentPassword, String newPassword) {
+    public PasswordChangeResult changePassword(String currentPassword, String newPassword) {
         // Parameters unused in .env-based authentication
         return new PasswordChangeResult(false, "Cannot change password with environment variable based authentication. Update ADMIN_PASSWORD in .env file manually.");
     }
@@ -72,4 +72,3 @@ public class AdminAuthService {
         return envAdminEmail;
     }
 }
-

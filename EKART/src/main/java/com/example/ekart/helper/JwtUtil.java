@@ -58,15 +58,15 @@ public class JwtUtil {
             """;
 
     // Static holder so getKey() can be used — initialised by @PostConstruct
-    private static String SECRET;
+    private static String jwtSecret;
 
     @PostConstruct
     private void initSecret() {
-        SECRET = this.secretValue;
+        jwtSecret = this.secretValue;
         
         // ⚠️ SECURITY CHECK: Warn if using default secret in production
         if ((environment.contains("prod") || environment.contains("production")) && 
-            SECRET.equals(DEV_DEFAULT)) {
+            jwtSecret.equals(DEV_DEFAULT)) {
             log.error(SECURITY_ALERT_MSG);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
@@ -75,13 +75,13 @@ public class JwtUtil {
         }
         
         // Warn in development
-        if (!environment.contains("prod") && SECRET.equals(DEV_DEFAULT)) {
+        if (!environment.contains("prod") && jwtSecret.equals(DEV_DEFAULT)) {
             log.warn("⚠️  JWT using development default (not secure). Set JWT_SECRET env var for production.");
         }
     }
 
     private Key getKey() {
-        return Keys.hmacShaKeyFor(SECRET.getBytes());
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
     /** Generate JWT token for a customer */

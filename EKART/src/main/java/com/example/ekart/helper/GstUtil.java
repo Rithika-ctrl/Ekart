@@ -29,6 +29,9 @@ import java.util.Map;
  */
 public class GstUtil {
 
+    // FIX: Issue 163 — S1192: constant replaces the 3 duplicate "GST (" literals
+    private static final String GST_PREFIX = "GST (";
+
     /**
      * Category keyword → GST rate mapping.
      * Checked in insertion order; first match wins.
@@ -244,15 +247,19 @@ public class GstUtil {
     /**
      * Returns a human-readable GST label for display.
      * e.g. "GST (18%)" or "GST (5%)"
+     *
+     * FIX: Issue 163 — S1192: uses GST_PREFIX constant instead of duplicating "GST ("
      */
     public static String getGstLabel(String category) {
         int pct = getGstRatePercent(category);
-        return "GST (" + pct + "%)";
+        return GST_PREFIX + pct + "%)";
     }
 
     /**
      * Returns a mixed-rate label when items span multiple GST slabs.
      * e.g. "GST (5–18%)" or "GST (18%)" if all same.
+     *
+     * FIX: Issue 163 — S1192: uses GST_PREFIX constant instead of duplicating "GST ("
      */
     public static String getMixedGstLabel(java.util.List<com.example.ekart.dto.Item> items) {
         if (items == null || items.isEmpty()) return "GST";
@@ -260,9 +267,9 @@ public class GstUtil {
         for (com.example.ekart.dto.Item item : items) {
             rates.add(getGstRatePercent(item.getCategory()));
         }
-        if (rates.size() == 1) return "GST (" + rates.iterator().next() + "%)";
+        if (rates.size() == 1) return GST_PREFIX + rates.iterator().next() + "%)";
         int min = rates.stream().min(Integer::compareTo).orElse(0);
         int max = rates.stream().max(Integer::compareTo).orElse(18);
-        return "GST (" + min + "–" + max + "%)";
+        return GST_PREFIX + min + "–" + max + "%)";
     }
 }

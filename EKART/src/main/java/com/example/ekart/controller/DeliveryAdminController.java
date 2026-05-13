@@ -76,9 +76,16 @@ public class DeliveryAdminController {
             @RequestParam String confirmPassword, @RequestParam int warehouseId,
             @RequestParam(required = false, defaultValue = "") String assignedPinCodes,
             HttpSession session) {
-        return deliveryAdminService.registerDeliveryBoy(
-                name, email, mobile, password, confirmPassword,
-                warehouseId, assignedPinCodes, session);
+        com.example.ekart.service.DeliveryAdminService.RegisterDeliveryBoyRequest req =
+                new com.example.ekart.service.DeliveryAdminService.RegisterDeliveryBoyRequest();
+        req.setName(name);
+        req.setEmail(email);
+        req.setMobile(mobile);
+        req.setCredential(password);
+        req.setCredentialConfirm(confirmPassword);
+        req.setWarehouseId(warehouseId);
+        req.setAssignedPinCodes(assignedPinCodes);
+        return deliveryAdminService.registerDeliveryBoy(req, session);
     }
 
     @PostMapping("/admin/delivery/boy/approve")

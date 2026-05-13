@@ -74,7 +74,8 @@ public class EkartController {
             return ResponseEntity.status(401).body(res);
         }
         Vendor vendor = (Vendor) session.getAttribute("vendor");
-        int added = 0, failed = 0;
+        int added = 0;
+        int failed = 0;
         List<String> errors = new ArrayList<>();
         try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream()))) {
             String[] header = reader.readNext();

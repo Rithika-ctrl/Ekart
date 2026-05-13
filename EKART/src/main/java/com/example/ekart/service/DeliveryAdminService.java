@@ -169,16 +169,49 @@ public class DeliveryAdminService {
             "Warehouse '" + name + "' added (" + wh.getWarehouseCode() + ")", wh.getId()));
     }
 
+    // ── Parameter object for registerDeliveryBoy (fixes S107 — was 8 params) ─
+
+    public static class RegisterDeliveryBoyRequest {
+        private String name;
+        private String email;
+        private long   mobile;
+        private String credential;
+        private String credentialConfirm;
+        private int    warehouseId;
+        private String assignedPinCodes;
+
+        public String getName()             { return name; }
+        public void   setName(String v)     { this.name = v; }
+        public String getEmail()            { return email; }
+        public void   setEmail(String v)    { this.email = v; }
+        public long   getMobile()           { return mobile; }
+        public void   setMobile(long v)     { this.mobile = v; }
+        public String getCredential()         { return credential; }
+        public void   setCredential(String v) { this.credential = v; }
+        public String getCredentialConfirm()          { return credentialConfirm; }
+        public void   setCredentialConfirm(String v)  { this.credentialConfirm = v; }
+        public int    getWarehouseId()      { return warehouseId; }
+        public void   setWarehouseId(int v) { this.warehouseId = v; }
+        public String getAssignedPinCodes()         { return assignedPinCodes; }
+        public void   setAssignedPinCodes(String v) { this.assignedPinCodes = v; }
+    }
+
     // ── Admin creates delivery boy (immediately approved) ─────────
 
     public ResponseEntity<AdminEntityCreateResponse> registerDeliveryBoy(
-            String name, String email, long mobile,
-            String password, String confirmPassword,
-            int warehouseId, String assignedPinCodes,
+            RegisterDeliveryBoyRequest req,
             HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(403).body(AdminEntityCreateResponse.failure(K_UNAUTHORIZED));
         }
+
+        String name            = req.getName();
+        String email           = req.getEmail();
+        long   mobile          = req.getMobile();
+        String newCredential   = req.getCredential();
+        String credentialConfirm = req.getCredentialConfirm();
+        int    warehouseId     = req.getWarehouseId();
+        String assignedPinCodes = req.getAssignedPinCodes();
 
         if (name == null || name.trim().length() < 3) {
             return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Name must be at least 3 characters"));
@@ -189,11 +222,11 @@ public class DeliveryAdminService {
         if (deliveryBoyRepository.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Email already registered"));
         }
-        if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+        if (newCredential == null || credentialConfirm == null || !newCredential.equals(credentialConfirm)) {
             return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure("Passwords do not match"));
         }
-        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
-        if (!password.matches(passwordRegex)) {
+        String credentialStrengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+        if (!newCredential.matches(credentialStrengthRegex)) {
             return ResponseEntity.badRequest().body(AdminEntityCreateResponse.failure(
                     "Password must be at least 8 characters and include uppercase, lowercase, number and special character"));
         }
@@ -207,10 +240,10 @@ public class DeliveryAdminService {
         db.setName(name.trim());
         db.setEmail(email.trim().toLowerCase());
         db.setMobile(mobile);
-        db.setPassword(com.example.ekart.helper.AES.encrypt(password));
+        db.setPassword(com.example.ekart.helper.AES.encrypt(newCredential));
         db.setWarehouse(warehouse);
         db.setAssignedPinCodes(assignedPinCodes != null ? assignedPinCodes.trim() : "");
-        db.setVerified(true);  // ← FIXED: Admin-created boys are immediately verified
+        db.setVerified(true);  // ← Admin-created boys are immediately verified
         db.setAdminApproved(true);
         db.setActive(true);
 

@@ -102,7 +102,7 @@ public class AdminBootstrapService {
                 "Admin created: " + adminEmail
             );
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create initial admin account: " + e.getMessage(), e);
+            throw new AdminBootstrapException("Failed to create initial admin account: " + e.getMessage(), e);
         }
     }
 

@@ -409,7 +409,7 @@ public class AdminService {
 
 		// Use AdminAuthService to change password (validates current password via BCrypt)
 		com.example.ekart.dto.PasswordChangeResult changeResult = 
-			adminAuthService.changePassword(adminId, currentPassword, newPassword);
+			adminAuthService.changePassword(currentPassword, newPassword);
 
 		if (!changeResult.isSuccess()) {
 			session.setAttribute(K_FAILURE, changeResult.getMessage());

@@ -33,18 +33,25 @@ public class AiAssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(AiAssistantService.class);
 
-    // ── String constants (S1192 — avoid duplicate literals) ──────────────────
-    private static final String KW_RAZORPAY       = "razorpay";
-    private static final String KW_HELLO          = "hello";
-    private static final String KW_GOOD_MORNING   = "good morning";
-    private static final String KW_GOOD_EVENING   = "good evening";
-    private static final String KW_NAMASTE        = "namaste";
-    private static final String KW_HOWDY          = "howdy";
-    private static final String KW_RECENT_ORDER   = "recent order";
-    private static final String KW_ORDER_STATUS   = "order status";
+    // ── Role constants ────────────────────────────────────────────────────────
+    // FIX: Issues 166 & 167 — S1192: constants replace the 7× "customer" and 8× "vendor" literals
+    private static final String ROLE_CUSTOMER = "customer";
+    private static final String ROLE_VENDOR   = "vendor";
+    private static final String ROLE_ADMIN    = "admin";
+    private static final String ROLE_GUEST    = "guest";
+
+    // ── Keyword constants (S1192 — avoid duplicate literals) ──────────────────
+    private static final String KW_RAZORPAY        = "razorpay";
+    private static final String KW_HELLO           = "hello";
+    private static final String KW_GOOD_MORNING    = "good morning";
+    private static final String KW_GOOD_EVENING    = "good evening";
+    private static final String KW_NAMASTE         = "namaste";
+    private static final String KW_HOWDY           = "howdy";
+    private static final String KW_RECENT_ORDER    = "recent order";
+    private static final String KW_ORDER_STATUS    = "order status";
     private static final String KW_WHAT_CAN_YOU_DO = "what can you do";
-    private static final String KW_OPTIONS        = "options";
-    private static final String KW_FEATURES       = "features";
+    private static final String KW_OPTIONS         = "options";
+    private static final String KW_FEATURES        = "features";
 
     @Value("${gemini.api.key:}")
     private String apiKey;
@@ -191,16 +198,17 @@ public class AiAssistantService {
         return base + roleSection + dataSection;
     }
 
+    // FIX: Issues 166 & 167 — uses ROLE_CUSTOMER / ROLE_VENDOR / ROLE_ADMIN constants
     private String buildRoleSection(String role, String userName) {
         switch (role) {
-            case "customer":
+            case ROLE_CUSTOMER:
                 return "═══ CURRENT USER ═══\n" +
                        "Role: CUSTOMER | Name: " + userName + "\n" +
                        "The customer can: browse & buy products, manage cart, place orders, " +
                        "track deliveries, cancel orders, request refunds/replacements, " +
                        "manage wishlist, write reviews, manage delivery addresses.\n\n";
 
-            case "vendor":
+            case ROLE_VENDOR:
                 return "═══ CURRENT USER ═══\n" +
                        "Role: VENDOR | Name: " + userName + "\n" +
                        "The vendor can: add/edit/delete products (pending admin approval), " +
@@ -208,7 +216,7 @@ public class AiAssistantService {
                        "view sales reports (daily/weekly/monthly), manage storefront, " +
                        "mark orders as Packed.\n\n";
 
-            case "admin":
+            case ROLE_ADMIN:
                 return "═══ CURRENT USER ═══\n" +
                        "Role: ADMIN\n" +
                        "The admin can: approve/reject products, manage all users (ban, role changes), " +
@@ -223,17 +231,18 @@ public class AiAssistantService {
         }
     }
 
+    // FIX: Issues 166 & 167 — uses ROLE_CUSTOMER / ROLE_VENDOR / ROLE_ADMIN constants
     private String getRoleAck(String role, String userName) {
         switch (role) {
-            case "customer":
+            case ROLE_CUSTOMER:
                 return "Understood. I'm Ekart Assistant for " + userName +
                        ". I have their live order history, cart, and refund data and will " +
                        "answer specifically from that data.";
-            case "vendor":
+            case ROLE_VENDOR:
                 return "Understood. I'm Ekart Assistant for vendor " + userName +
                        ". I have their live product list and order data and will answer " +
                        "specifically from it.";
-            case "admin":
+            case ROLE_ADMIN:
                 return "Understood. I'm Ekart Admin Assistant. I have live platform stats " +
                        "(pending approvals, refunds, orders) and will give specific counts.";
             default:
@@ -269,8 +278,9 @@ public class AiAssistantService {
         return handleAdminFeatureBoundary(msg, role);
     }
 
+    // FIX: Issues 166 & 167 — uses ROLE_CUSTOMER / ROLE_VENDOR constants throughout
     private String handleCustomerFeatureBoundary(String msg, String role) {
-        if (role.equals("customer") || role.equals("guest")) {
+        if (role.equals(ROLE_CUSTOMER) || role.equals(ROLE_GUEST)) {
             return null;
         }
         String cartReply = getCartBoundaryReply(msg, role);
@@ -289,7 +299,7 @@ public class AiAssistantService {
         if (!any(msg, "my cart", "what's in my cart", "view cart", "add to cart", "basket")) {
             return null;
         }
-        return "vendor".equals(role)
+        return ROLE_VENDOR.equals(role)
             ? "🛒 The cart is a customer feature for shopping. As a vendor, you manage products and fulfil orders — not add items to a cart. Check **Vendor Orders** to see what customers have ordered from you."
             : "🛒 Cart management is a customer feature. As an admin, you manage the platform — not individual carts.";
     }
@@ -298,7 +308,7 @@ public class AiAssistantService {
         if (!any(msg, "wishlist", "favourite", "saved item")) {
             return null;
         }
-        return "vendor".equals(role)
+        return ROLE_VENDOR.equals(role)
             ? "❤️ Wishlist is a customer feature for saving products they want to buy. As a vendor, focus on your product listings and stock management."
             : "❤️ Wishlists are a customer feature — admins manage the platform, not personal shopping lists.";
     }
@@ -307,7 +317,7 @@ public class AiAssistantService {
         if (!any(msg, "track my order", "where is my order", "when will my order arrive")) {
             return null;
         }
-        return "vendor".equals(role)
+        return ROLE_VENDOR.equals(role)
             ? "📦 Order tracking for purchases is a customer feature. As a vendor, you can view orders placed for YOUR products under **Vendor Orders**, and mark them as Packed."
             : "📦 Customer order tracking is a customer feature. As an admin, view all orders from the admin dashboard.";
     }
@@ -316,13 +326,13 @@ public class AiAssistantService {
         if (!any(msg, "checkout", "cash on delivery", "cod", KW_RAZORPAY, "place order", "buy now")) {
             return null;
         }
-        return "vendor".equals(role)
+        return ROLE_VENDOR.equals(role)
             ? "💳 Checkout and payment is a customer feature for purchasing. As a vendor, you receive payments when customers place orders for your products."
             : "💳 The checkout flow is for customers. Admin manages the platform and refunds, not purchases.";
     }
 
     private String handleVendorFeatureBoundary(String msg, String role) {
-        if (!role.equals("customer") && !role.equals("guest")) {
+        if (!role.equals(ROLE_CUSTOMER) && !role.equals(ROLE_GUEST)) {
             return null;
         }
         if (any(msg, "add product", "new product", "list product", "upload product", "edit product", "delete product")) {
@@ -338,11 +348,11 @@ public class AiAssistantService {
     }
 
     private String handleAdminFeatureBoundary(String msg, String role) {
-        if (role.equals("admin")) {
+        if (role.equals(ROLE_ADMIN)) {
             return null;
         }
         if (any(msg, "approve product", "approve vendor", "ban user", "admin panel", "manage user", "admin refund", "user role")) {
-            return role.equals("customer")
+            return role.equals(ROLE_CUSTOMER)
                 ? "🔧 Product and user management is an **admin** feature. As a customer, you can browse approved products and manage your own account."
                 : "🔧 Admin functions like user management and approvals are restricted to Ekart admins. As a vendor, contact admin if you need help with your account.";
         }
@@ -350,12 +360,13 @@ public class AiAssistantService {
     }
 
     // ─── HANDLER FACTORY ──────────────────────────────────────────────────────
+    // FIX: Issues 166 & 167 — uses ROLE_CUSTOMER / ROLE_VENDOR / ROLE_ADMIN constants
     private MessageHandler getHandlerForRole(String role) {
         return switch (role) {
-            case "customer" -> new CustomerMessageHandler();
-            case "vendor" -> new VendorMessageHandler();
-            case "admin" -> new AdminMessageHandler();
-            default -> new GuestMessageHandler();
+            case ROLE_CUSTOMER -> new CustomerMessageHandler();
+            case ROLE_VENDOR   -> new VendorMessageHandler();
+            case ROLE_ADMIN    -> new AdminMessageHandler();
+            default            -> new GuestMessageHandler();
         };
     }
 
@@ -582,7 +593,7 @@ public class AiAssistantService {
             if (any(msg, "order", "all order", KW_RECENT_ORDER, KW_ORDER_STATUS, "processing order", "delivered order")) {
                 return extractAdminStatsBlock(ctx);
             }
-            if (any(msg, "user", "customer", "vendor", "manage", "ban", "role", "permission", "account")) {
+            if (any(msg, "user", ROLE_CUSTOMER, ROLE_VENDOR, "manage", "ban", "role", "permission", "account")) {
                 return "👥 User management is in the **Admin Panel → User Management** section.\n\nYou can:\n• Search customers and vendors by email\n• Change user roles (CUSTOMER / ORDER_MANAGER / ADMIN)\n• Suspend or reactivate accounts\n• Delete accounts if needed\n\n" + extractAdminStatsBlock(ctx);
             }
             if (any(msg, "help", KW_WHAT_CAN_YOU_DO, KW_OPTIONS, KW_FEATURES)) {

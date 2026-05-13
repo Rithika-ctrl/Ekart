@@ -272,7 +272,7 @@ public class VendorService {
 		return "vendor-reset-password.html";
 	}
 
-	public String resetPassword(int id, int otp, String password, String confirmPassword, HttpSession session) {
+	public String resetPassword(int id, int otp, String newCredential, String credentialConfirm, HttpSession session) {
 		Vendor vendor = vendorRepository.findById(id).orElse(null);
 		if (vendor == null) {
 			session.setAttribute(KEY_FAILURE, "Invalid reset request");
@@ -286,19 +286,19 @@ public class VendorService {
 			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
-		if (password == null || confirmPassword == null || !password.equals(confirmPassword)) {
+		if (newCredential == null || credentialConfirm == null || !newCredential.equals(credentialConfirm)) {
 			session.setAttribute(KEY_FAILURE, "Password and Confirm Password should match");
 			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
-		String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
-		if (!password.matches(passwordRegex)) {
+		String credentialStrengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
+		if (!newCredential.matches(credentialStrengthRegex)) {
 			session.setAttribute(KEY_FAILURE,
 					"Password must have 8+ characters with uppercase, lowercase, number and special character");
 			return K_REDIRECT_VENDOR_RESET_PASSWORD + id;
 		}
 
-		vendor.setPassword(AES.encrypt(password));
+		vendor.setPassword(AES.encrypt(newCredential));
 		vendorRepository.save(vendor);
 
 		session.setAttribute(KEY_SUCCESS, "Password reset successful. Please login");

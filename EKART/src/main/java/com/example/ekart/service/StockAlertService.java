@@ -90,7 +90,7 @@ public class StockAlertService {
 			for (StockAlert alert : activeAlerts) {
 				alert.setAcknowledged(true);
 				alert.setMessage("Stock has recovered for '" + product.getName() + "' (" 
-						+ product.getStock() + " units). Threshold: " + product.getStockAlertThreshold());
+						+ product.getStock() + MSG_STOCK_THRESHOLD_SUFFIX + product.getStockAlertThreshold());
 				stockAlertRepository.save(alert);
 			}
 		}
