@@ -4258,7 +4258,7 @@ public class ReactApiController {
         AdminCsvProductData data = parseAdminCsvProductData(priceStr, mrpStr, stockStr, threshStr, gstRateStr, approvedStr, autoApprove);
 
         if (idStr != null && !idStr.isBlank()) {
-            updateAdminProduct(new AdminProductUpdateParams(idStr, name, desc, category, imageLink, vendor, data, counts));
+            updateAdminProduct(new AdminProductUpdateParams(idStr, new AdminProductStrings(name, desc, category, imageLink), vendor, data, counts));
         } else {
             createAdminProduct(name, desc, category, imageLink, vendor, data, counts);
         }
@@ -4300,27 +4300,24 @@ public class ReactApiController {
         if (vendor    != null) p.setVendor(vendor);
     }
 
+    /** Groups string product fields to keep AdminProductUpdateParams constructor within S107 limits. */
+    private record AdminProductStrings(String name, String desc, String category, String imageLink) {}
+
     /** Parameter object for updateAdminProduct — reduces the method’s parameter count (fixes java:S107). */
     private static class AdminProductUpdateParams {
         final String              idStr;
-        final String              name;
-        final String              desc;
-        final String              category;
-        final String              imageLink;
+        final AdminProductStrings strings;
         final Vendor              vendor;
         final AdminCsvProductData data;
         final int[]               counts;
 
-        AdminProductUpdateParams(String idStr, String name, String desc, String category,
-                                 String imageLink, Vendor vendor, AdminCsvProductData data, int[] counts) {
-            this.idStr     = idStr;
-            this.name      = name;
-            this.desc      = desc;
-            this.category  = category;
-            this.imageLink = imageLink;
-            this.vendor    = vendor;
-            this.data      = data;
-            this.counts    = counts;
+        AdminProductUpdateParams(String idStr, AdminProductStrings strings,
+                                 Vendor vendor, AdminCsvProductData data, int[] counts) {
+            this.idStr   = idStr;
+            this.strings = strings;
+            this.vendor  = vendor;
+            this.data    = data;
+            this.counts  = counts;
         }
     }
 
@@ -4328,10 +4325,10 @@ public class ReactApiController {
         int id = Integer.parseInt(p.idStr.trim());
         Product product = productRepository.findById(id).orElse(null);
         if (product == null) throw new IllegalArgumentException(K_PRODUCT_ID + id + K_NOT_FOUND);
-        product.setName(p.name); product.setDescription(p.desc);
+        product.setName(p.strings.name()); product.setDescription(p.strings.desc());
         product.setPrice(p.data.price); product.setMrp(p.data.mrp);
-        product.setCategory(p.category); product.setStock(p.data.stock); product.setApproved(p.data.approved);
-        applyOptionalAdminProductFields(product, p.imageLink, p.vendor, p.data);
+        product.setCategory(p.strings.category()); product.setStock(p.data.stock); product.setApproved(p.data.approved);
+        applyOptionalAdminProductFields(product, p.strings.imageLink(), p.vendor, p.data);
         productRepository.save(product);
         p.counts[1]++;
     }
@@ -4620,7 +4617,7 @@ public class ReactApiController {
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) (11 - offset));
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
@@ -4641,7 +4638,7 @@ public class ReactApiController {
             return ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) (11 - offset));
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
             return ym.getMonth().name().substring(0, 3) + " '" + String.valueOf(ym.getYear()).substring(2);
         }
         // week
