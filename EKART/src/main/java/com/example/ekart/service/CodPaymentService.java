@@ -37,6 +37,7 @@ public class CodPaymentService {
 
     private static final String K_COD                    = "COD";
     private static final String K_PENDING                = "PENDING";
+    private static final String K_ORDER_PREFIX           = "Order ";
     private static final String K_NOT_COD_ORDER          = "Order is not a COD order";
 
 
@@ -142,17 +143,17 @@ public class CodPaymentService {
 
         // Verify it's a COD order
         if (!isCodOrder(order)) {
-            throw new IllegalStateException("Order " + orderId + " is not a COD order");
+            throw new IllegalStateException(K_ORDER_PREFIX + orderId + " is not a COD order");
         }
 
         // Verify order is currently being delivered
         if (order.getTrackingStatus() != TrackingStatus.OUT_FOR_DELIVERY) {
-            throw new IllegalStateException("Order " + orderId + " is not OUT_FOR_DELIVERY. Current status: " + order.getTrackingStatus());
+            throw new IllegalStateException(K_ORDER_PREFIX + orderId + " is not OUT_FOR_DELIVERY. Current status: " + order.getTrackingStatus());
         }
 
         // Verify payment is not already collected
         if (!order.getPaymentStatus().equals(K_PENDING)) {
-            throw new IllegalStateException("Order " + orderId + " payment status is already " + order.getPaymentStatus());
+            throw new IllegalStateException(K_ORDER_PREFIX + orderId + " payment status is already " + order.getPaymentStatus());
         }
 
         // Update payment fields
