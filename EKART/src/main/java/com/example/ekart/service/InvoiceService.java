@@ -1,6 +1,7 @@
 package com.example.ekart.service;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -48,7 +49,7 @@ public class InvoiceService {
      * Generate invoice PDF for an order.
      * Returns PDF as byte array for download/storage.
      */
-    public byte[] generateInvoicePdf(Order order) throws Exception {
+    public byte[] generateInvoicePdf(Order order) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PdfWriter writer = new PdfWriter(outputStream);
         PdfDocument pdfDoc = new PdfDocument(writer);
@@ -75,7 +76,7 @@ public class InvoiceService {
     }
 
     private void addInvoiceHeader(Document document, Order order,
-                                   PdfFont titleFont, PdfFont normalFont, PdfFont smallFont) throws Exception {
+                                   PdfFont titleFont, PdfFont normalFont, PdfFont smallFont) {
         document.add(new Paragraph("EKART")
                 .setFont(titleFont).setFontSize(24)
                 .setTextAlignment(TextAlignment.CENTER)
@@ -91,7 +92,7 @@ public class InvoiceService {
     }
 
     private void addAddressSection(Document document, Order order,
-                                    PdfFont headerFont, PdfFont normalFont, PdfFont smallFont) throws Exception {
+                                    PdfFont headerFont, PdfFont normalFont, PdfFont smallFont) {
         String customerName  = order.getCustomer() != null ? order.getCustomer().getName()  : K_NA;
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : K_NA;
 
@@ -161,7 +162,7 @@ public class InvoiceService {
 
     /** Adds the items table and returns the subtotal before GST. */
     private double addItemsTable(Document document, Order order,
-                                  PdfFont headerFont, PdfFont normalFont) throws Exception {
+                                  PdfFont headerFont, PdfFont normalFont) {
         Table itemsTable = new Table(UnitValue.createPercentArray(new float[]{10, 30, 10, 15, 15, 20}));
         itemsTable.setWidth(UnitValue.createPercentValue(100));
 
@@ -211,7 +212,7 @@ public class InvoiceService {
     }
 
     private void addTotalsSection(Document document, Order order, PdfFont normalFont, PdfFont headerFont,
-                                   double subTotalBeforeGST, double gstTotal) throws Exception {
+                                   double subTotalBeforeGST, double gstTotal) {
         Table totalsTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}));
         totalsTable.setWidth(UnitValue.createPercentValue(100));
         totalsTable.setHorizontalAlignment(HorizontalAlignment.RIGHT);
@@ -233,7 +234,7 @@ public class InvoiceService {
         document.add(new Paragraph("\n"));
     }
 
-    private void addPaymentInfo(Document document, Order order, PdfFont normalFont) throws Exception {
+    private void addPaymentInfo(Document document, Order order, PdfFont normalFont) {
         String paymentMode  = order.getPaymentMode()      != null ? order.getPaymentMode()               : K_NA;
         String orderStatus  = order.getTrackingStatus()   != null ? order.getTrackingStatus().toString() : K_NA;
         String orderDate    = order.getOrderDate()         != null
@@ -247,7 +248,7 @@ public class InvoiceService {
         document.add(new Paragraph("\n"));
     }
 
-    private void addInvoiceFooter(Document document, PdfFont smallFont) throws Exception {
+    private void addInvoiceFooter(Document document, PdfFont smallFont) {
         document.add(new Paragraph("Thank you for your purchase!\nFor queries, contact support@ekart.dev")
                 .setFont(smallFont).setFontSize(8)
                 .setTextAlignment(TextAlignment.CENTER)
