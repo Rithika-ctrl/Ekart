@@ -33,6 +33,7 @@ import java.util.*;
 public class WarehouseStaffService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WarehouseStaffService.class);
+    private static final String K_WAREHOUSE_STAFF_ID = "warehouse_staff_id";
 
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final WarehouseStaffRepository staffRepository;
@@ -259,7 +260,7 @@ public class WarehouseStaffService {
      * @param staff Authenticated staff
      */
     public void setStaffInSession(HttpSession session, WarehouseStaff staff) {
-        session.setAttribute("warehouse_staff_id", staff.getId());
+        session.setAttribute(K_WAREHOUSE_STAFF_ID, staff.getId());
         session.setAttribute("warehouse_staff_name", staff.getName());
         session.setAttribute("warehouse_staff_email", staff.getEmail());
         session.setAttribute("warehouse_staff_role", staff.getRole());
@@ -274,7 +275,7 @@ public class WarehouseStaffService {
      * @return Staff if in session, null otherwise
      */
     public WarehouseStaff getStaffFromSession(HttpSession session) {
-        Integer staffId = (Integer) session.getAttribute("warehouse_staff_id");
+        Integer staffId = (Integer) session.getAttribute(K_WAREHOUSE_STAFF_ID);
         if (staffId == null) {
             return null;
         }
@@ -288,7 +289,7 @@ public class WarehouseStaffService {
      * @param session HTTP session
      */
     public void clearStaffSession(HttpSession session) {
-        session.removeAttribute("warehouse_staff_id");
+        session.removeAttribute(K_WAREHOUSE_STAFF_ID);
         session.removeAttribute("warehouse_staff_name");
         session.removeAttribute("warehouse_staff_email");
         session.removeAttribute("warehouse_staff_role");
@@ -385,4 +386,3 @@ public class WarehouseStaffService {
         return staffRepository.countByWarehouseAndActive(warehouse, true);
     }
 }
-

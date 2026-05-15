@@ -2857,12 +2857,6 @@ public class ReactApiController {
         }
     }
 
-    /**
-     * GET /api/react/customer/orders/{orderId}/tracking
-     * 
-     * Comprehensive order tracking endpoint with visual timeline data.
-     * Returns: orderId, status, payment info, warehouse routing, progress percent
-     */
     @GetMapping("/customer/orders/{orderId}/tracking")
     public ResponseEntity<Map<String, Object>> customerOrderTracking(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
@@ -2873,32 +2867,22 @@ public class ReactApiController {
             );
 
             Map<String, Object> res = new LinkedHashMap<>();
-            res.put(KEY_ORDER_ID, orderId);
-            res.put(K_STATUS, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
-            res.put(KEY_STATUS_DISPLAY, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : K_UNKNOWN);
-            res.put(K_PAYMENT_METHOD, order.getPaymentMethod());
-            res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
-            res.put(KEY_ROUTING_PATH, order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
-            res.put(K_SOURCEWAREHOUSE, order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : K_N_A);
-            res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : K_N_A);
+            res.put(KEY_ORDER_ID,            orderId);
+            res.put(K_STATUS,                safeStatusName(order, "UNKNOWN"));
+            res.put(KEY_STATUS_DISPLAY,      safeStatusName(order, K_UNKNOWN));
+            res.put(K_PAYMENT_METHOD,        order.getPaymentMethod());
+            res.put(KEY_PAYMENT_STATUS,      order.getPaymentStatus());
+            res.put(KEY_ROUTING_PATH,        order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
+            res.put(K_SOURCEWAREHOUSE,       order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : K_N_A);
+            res.put("sourceWarehouseCity",   order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : K_N_A);
             res.put(K_DESTINATION_WAREHOUSE, order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : K_N_A);
             res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : K_N_A);
-            res.put(K_ORDERDATE, order.getOrderDate() != null ? order.getOrderDate().toString() : K_N_A);
-            res.put(KEY_DELIVERY_ADDRESS, order.getDeliveryAddress());
-            res.put(K_TOTALPRICE, order.getAmount());
-            res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
-            
-            // Estimated delivery: +48 hours from order date if still in transit
-            if (order.getOrderDate() != null && order.getTrackingStatus() != null) {
-                TrackingStatus status = order.getTrackingStatus();
-                if (status != TrackingStatus.DELIVERED && status != TrackingStatus.CANCELLED 
-                    && status != TrackingStatus.REFUNDED) {
-                    res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
-                } else {
-                    res.put(KEY_ESTIMATED_DELIVERY, null);
-                }
-            }
-            
+            res.put(K_ORDERDATE,             order.getOrderDate() != null ? order.getOrderDate().toString() : K_N_A);
+            res.put(KEY_DELIVERY_ADDRESS,    order.getDeliveryAddress());
+            res.put(K_TOTALPRICE,            order.getAmount());
+            res.put("progressPercent",       order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
+            putTrackingEstimatedDelivery(res, order);
+
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
@@ -2906,6 +2890,24 @@ public class ReactApiController {
             error.put(KEY_MESSAGE, "Order not found or fetch failed");
             return ResponseEntity.status(404).body(error);
         }
+    }
+
+    /** Returns the tracking status name, or {@code fallback} when status is null. */
+    private String safeStatusName(Order order, String fallback) {
+        return order.getTrackingStatus() != null ? order.getTrackingStatus().name() : fallback;
+    }
+
+    /** Adds KEY_ESTIMATED_DELIVERY to res when the order is still in transit; null otherwise. */
+    private void putTrackingEstimatedDelivery(Map<String, Object> res, Order order) {
+        if (order.getOrderDate() == null || order.getTrackingStatus() == null) {
+            return;
+        }
+        TrackingStatus status = order.getTrackingStatus();
+        boolean isTerminal = status == TrackingStatus.DELIVERED
+                || status == TrackingStatus.CANCELLED
+                || status == TrackingStatus.REFUNDED;
+        res.put(KEY_ESTIMATED_DELIVERY,
+                isTerminal ? null : order.getOrderDate().plusHours(48).toString());
     }
 
     /** POST /api/flutter/orders/{id}/cancel */
@@ -6358,20 +6360,6 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * GET /api/react/admin/delivery/boys/for-order/{orderId}
-     * Returns delivery boys eligible for a specific packed order.
-     * Eligibility: adminApproved=true, active=true, and either:
-     *   (a) assignedPinCodes covers the order's deliveryPinCode via covers(), OR
-     *   (b) the delivery boy belongs to a warehouse that serves that PIN.
-     * Falls back to ALL approved+active boys if no match found, so admin is never blocked.
-     * Response includes isAvailable so the frontend can show Online/Offline status.
-     *
-     * FIX: The old implementation only used db.covers(pin), which returns false when
-     * assignedPinCodes is null. Boys registered at the right warehouse but with a null
-     * assignedPinCodes were silently excluded. Now uses union strategy matching
-     * DeliveryAdminService.getEligibleDeliveryBoys().
-     */
     @GetMapping("/admin/delivery/boys/for-order/{orderId}")
     public ResponseEntity<Map<String, Object>> adminGetEligibleDeliveryBoys(
             @PathVariable int orderId, HttpServletRequest request) {
@@ -6385,60 +6373,74 @@ public class ReactApiController {
             return ResponseEntity.status(404).body(res);
         }
 
-        String pin = (order.getDeliveryPinCode() != null) ? order.getDeliveryPinCode().trim() : null;
+        String pin = order.getDeliveryPinCode() != null ? order.getDeliveryPinCode().trim() : null;
 
-        // Step 1: find all eligible boys using union strategy
         Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> eligible = new ArrayList<>();
 
-        // 1a: boys whose assignedPinCodes explicitly covers the pin (covers() handles null safely)
-        if (pin != null && !pin.isBlank()) {
-            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                if (!db.isAdminApproved() || !db.isActive()) continue;
-                if (db.covers(pin) && seen.add(db.getId())) eligible.add(db);
-            }
-        }
-
-        // 1b: boys assigned to the warehouse that serves this pin
-        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
-        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
-            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
-            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
-        }
-        if (orderWarehouse != null) {
-            for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
-                if (!db.isAdminApproved() || !db.isActive()) continue;
-                if (seen.add(db.getId())) eligible.add(db);
-            }
-        }
-
-        // Step 2: last-resort — show all approved+active boys so admin is never blocked
+        collectEligibleByPin(pin, seen, eligible);
+        collectEligibleByWarehouse(order, pin, seen, eligible);
         if (eligible.isEmpty()) {
-            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) eligible.add(db);
-            }
+            collectAllApprovedActive(seen, eligible);
         }
 
-        // Step 3: map to response DTOs, sort online first
         List<Map<String, Object>> boys = eligible.stream()
-            .map(db -> {
-                Map<String, Object> m = new HashMap<>();
-                m.put("id",          db.getId());
-                m.put(K_NAME,        db.getName());
-                m.put(K_CODE,        db.getDeliveryBoyCode());
-                m.put(KEY_MOBILE,      db.getMobile());
-                m.put(KEY_IS_AVAILABLE, db.isAvailable());
-                m.put(K_WAREHOUSE,   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
-                m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
-                return m;
-            })
-            .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE)))) // online first
+            .map(this::mapDeliveryBoyToDto)
+            .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE))))
             .toList();
 
         res.put(KEY_SUCCESS, true);
         res.put(K_DELIVERYBOYS, boys);
         res.put("orderPin", pin != null ? pin : K_N_A);
         return ResponseEntity.ok(res);
+    }
+
+    /** 1a: boys whose assignedPinCodes explicitly covers the pin. */
+    private void collectEligibleByPin(String pin, Set<Integer> seen, List<DeliveryBoy> eligible) {
+        if (pin == null || pin.isBlank()) return;
+        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+            if (db.isAdminApproved() && db.isActive() && db.covers(pin) && seen.add(db.getId())) {
+                eligible.add(db);
+            }
+        }
+    }
+
+    /** 1b: boys assigned to the warehouse that serves this pin. */
+    private void collectEligibleByWarehouse(Order order, String pin,
+                                             Set<Integer> seen, List<DeliveryBoy> eligible) {
+        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
+        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
+            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
+            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
+        }
+        if (orderWarehouse == null) return;
+        for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
+            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) {
+                eligible.add(db);
+            }
+        }
+    }
+
+    /** Last-resort fallback: all approved + active boys so admin is never blocked. */
+    private void collectAllApprovedActive(Set<Integer> seen, List<DeliveryBoy> eligible) {
+        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) {
+                eligible.add(db);
+            }
+        }
+    }
+
+    /** Maps a DeliveryBoy entity to the response DTO shape. */
+    private Map<String, Object> mapDeliveryBoyToDto(DeliveryBoy db) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",             db.getId());
+        m.put(K_NAME,           db.getName());
+        m.put(K_CODE,           db.getDeliveryBoyCode());
+        m.put(KEY_MOBILE,       db.getMobile());
+        m.put(KEY_IS_AVAILABLE, db.isAvailable());
+        m.put(K_WAREHOUSE,      db.getWarehouse() != null ? db.getWarehouse().getName() : null);
+        m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
+        return m;
     }
 
     /**
@@ -8984,78 +8986,64 @@ public class ReactApiController {
             }
 
             Order order = orderOpt.get();
-
             if (order.getTrackingStatus() != TrackingStatus.PACKED) {
                 return ResponseEntity.badRequest()
                     .body(Map.of(KEY_ERROR, "Order must be in PACKED status. Current: " + order.getTrackingStatus()));
             }
 
-            // Mark received - set this warehouse as the receiving warehouse
             order.setTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
             order.setSourceWarehouse(warehouseRepository.findById(warehouseId).orElse(null));
 
-            // Calculate destination warehouse based on delivery pin code
-            String deliveryPin = order.getDeliveryPinCode();
-            Warehouse destinationWarehouse = null;
-            if (deliveryPin != null) {
-                List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
-                for (Warehouse wh : allWarehouses) {
-                    if (wh.serves(deliveryPin)) {
-                        destinationWarehouse = wh;
-                        break;
-                    }
-                }
-            }
-
+            Warehouse destinationWarehouse = findDestinationWarehouse(order.getDeliveryPinCode());
             if (destinationWarehouse != null) {
                 order.setDestinationWarehouse(destinationWarehouse);
             }
 
-            // Calculate routing path using WarehouseRoutingService
-            // This builds a path: SourceCity -> (IntermediateHub?) -> DestinationCity
             String routingPath = warehouseRoutingService.calculateRoutingPath(order);
             order.setWarehouseRoutingPath(routingPath);
 
-            // IMPORTANT: Initiate warehouse transfer if source != destination
-            if (destinationWarehouse != null && 
-                order.getSourceWarehouse() != null &&
-                order.getSourceWarehouse().getId() != destinationWarehouse.getId()) {
-                
-                // Calculate optimal route between warehouses
-                List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
-                    order.getSourceWarehouse(), 
-                    destinationWarehouse
-                );
-                
-                // Create transfer legs for each warehouse hop
-                warehouseTransferService.initiateTransferLegs(order, transferRoute);
-
-                LOGGER.info(
-                    "Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
-                    orderId,
-                    order.getSourceWarehouse().getCity(),
-                    destinationWarehouse.getCity(),
-                    transferRoute.size() - 1
-                );
-            }
-
+            boolean transferInitiated = initiateTransferIfRequired(order, destinationWarehouse, orderId);
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
-                KEY_SUCCESS, true,
-                KEY_ORDER_ID, orderId,
-                KEY_NEW_STATUS, order.getTrackingStatus().toString(),
+                KEY_SUCCESS,           true,
+                KEY_ORDER_ID,          orderId,
+                KEY_NEW_STATUS,        order.getTrackingStatus().toString(),
                 K_DESTINATION_WAREHOUSE, destinationWarehouse != null ? destinationWarehouse.getName() : K_UNKNOWN,
-                KEY_ROUTING_PATH, routingPath != null ? routingPath : "Direct",
-                "transferInitiated", destinationWarehouse != null && 
-                    order.getSourceWarehouse() != null &&
-                    order.getSourceWarehouse().getId() != destinationWarehouse.getId()
+                KEY_ROUTING_PATH,      routingPath != null ? routingPath : "Direct",
+                "transferInitiated",   transferInitiated
             ));
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName() + ": Unknown error";
             LOGGER.error("[ReactApiController] warehouseMarkReceived error for orderId={}: {}", orderId, errorMsg, e);
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, errorMsg));
         }
+    }
+
+    /** Finds the first active warehouse that serves the given delivery PIN, or null. */
+    private Warehouse findDestinationWarehouse(String deliveryPin) {
+        if (deliveryPin == null) return null;
+        for (Warehouse wh : warehouseRepository.findByActiveTrue()) {
+            if (wh.serves(deliveryPin)) return wh;
+        }
+        return null;
+    }
+
+    /**
+     * Initiates warehouse transfer legs when source and destination differ.
+     * Returns true if a transfer was started.
+     */
+    private boolean initiateTransferIfRequired(Order order, Warehouse destination, int orderId) {
+        if (destination == null || order.getSourceWarehouse() == null) return false;
+        if (order.getSourceWarehouse().getId() == destination.getId()) return false;
+
+        List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
+            order.getSourceWarehouse(), destination);
+        warehouseTransferService.initiateTransferLegs(order, transferRoute);
+        LOGGER.info("Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
+            orderId, order.getSourceWarehouse().getCity(),
+            destination.getCity(), transferRoute.size() - 1);
+        return true;
     }
 
     /**
