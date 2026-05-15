@@ -130,24 +130,7 @@ public class CustomerImageUploadController {
         List<String> errors = new ArrayList<>();
 
         for (int i = 0; i < Math.min(files.size(), slots); i++) {
-            MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) {
-                continue;
-            }
-            if (!isValidImage(file)) {
-                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
-            } else {
-                try {
-                    String url = cloudinaryHelper.saveToCloudinary(file);
-                    ReviewImage img = new ReviewImage();
-                    img.setReview(review);
-                    img.setImageUrl(url);
-                    reviewImageRepository.save(img);
-                    uploaded++;
-                } catch (Exception e) {
-                    errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
-                }
-            }
+            uploaded += processReviewImageFile(files.get(i), review, errors);
         }
 
         if (uploaded > 0) {
@@ -218,6 +201,28 @@ public class CustomerImageUploadController {
         return K_REDIRECT_PRODUCT + img.getReview().getProduct().getId();
     }
 
+
+    /** Uploads a single review image file; returns 1 on success, 0 on skip/failure. */
+    private int processReviewImageFile(MultipartFile file, Review review, List<String> errors) {
+        if (file == null || file.isEmpty()) {
+            return 0;
+        }
+        if (!isValidImage(file)) {
+            errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            return 0;
+        }
+        try {
+            String url = cloudinaryHelper.saveToCloudinary(file);
+            ReviewImage img = new ReviewImage();
+            img.setReview(review);
+            img.setImageUrl(url);
+            reviewImageRepository.save(img);
+            return 1;
+        } catch (Exception e) {
+            errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+            return 0;
+        }
+    }
     // ══════════════════════════════════════════════════════════
     //  2. REFUND / ISSUE REPORT — EVIDENCE IMAGE UPLOADS
     // ══════════════════════════════════════════════════════════

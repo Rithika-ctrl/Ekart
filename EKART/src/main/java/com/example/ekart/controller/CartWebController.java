@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,7 +105,7 @@ public class CartWebController {
 
         // ── Stock check (initial) ─────────────────────────────────
         Map<String, Object> stockError = validateStockForAdd(product, quantity);
-        if (stockError != null) return stockError;
+        if (!stockError.isEmpty()) return stockError;
 
         // ── Cart update ───────────────────────────────────────────
         Cart cart = customer.getCart();
@@ -114,7 +115,7 @@ public class CartWebController {
 
         if (existing.isPresent()) {
             Map<String, Object> err = incrementExistingItem(existing.get(), product, quantity, res);
-            if (err != null) return err;
+            if (!err.isEmpty()) return err;
         } else {
             addNewItem(cart, product, quantity, customer, res);
         }
@@ -134,7 +135,7 @@ public class CartWebController {
 
     /**
      * Validates that {@code product} has enough stock for the requested
-     * {@code quantity}. Returns an error map when validation fails, null otherwise.
+     * {@code quantity}. Returns an error map when validation fails, empty map otherwise.
      */
     private Map<String, Object> validateStockForAdd(Product product, int quantity) {
         if (product.getStock() <= 0) {
@@ -150,13 +151,13 @@ public class CartWebController {
             err.put(K_MESSAGE, "Only " + stock + " unit" + (stock == 1 ? "" : "s") + " available in stock");
             return err;
         }
-        return null;
+        return Collections.emptyMap();
     }
 
     /**
      * Increments an existing cart item's quantity.
      * Returns an error map if the remaining stock cannot satisfy {@code quantity},
-     * null (and populates {@code res}) on success.
+     * empty map (and populates {@code res}) on success.
      */
     private Map<String, Object> incrementExistingItem(
             Item item, Product product, int quantity, Map<String, Object> res) {
@@ -182,7 +183,7 @@ public class CartWebController {
         res.put(K_SUCCESS,      true);
         res.put(K_MESSAGE,      "Cart updated — quantity is now " + totalQty);
         res.put("alreadyInCart", true);
-        return null;
+        return Collections.emptyMap();
     }
 
     /**
