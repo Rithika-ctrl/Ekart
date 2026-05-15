@@ -125,7 +125,7 @@ public class EkartController {
             int qty      = Integer.parseInt(qtyStr);
             double mrp   = parseCsvMrp(getCsvValue(row, colIdx, "mrp"));
             int alertThreshold = parseCsvAlertThreshold(getCsvValue(row, colIdx, "stock alert threshold"));
-            buildAndSaveProduct(row, colIdx, vendor, name, price, qty, mrp, alertThreshold);
+            buildAndSaveProduct(row, colIdx, vendor, new CsvProductData(name, price, qty, mrp, alertThreshold));
             return null; // success
         } catch (Exception ex) {
             return ex.getMessage();
@@ -142,8 +142,13 @@ public class EkartController {
         try { return Integer.parseInt(alertStr); } catch (NumberFormatException ignored) { return 10; }
     }
 
+    /** Groups the parsed scalar fields from a CSV product row. */
+    private record CsvProductData(String name, double price, int qty, double mrp, int alertThreshold) {}
+
     private void buildAndSaveProduct(String[] row, Map<String, Integer> colIdx, Vendor vendor,
-                                     String name, double price, int qty, double mrp, int alertThreshold) {
+                                     CsvProductData data) {
+        String name = data.name(); double price = data.price(); int qty = data.qty();
+        double mrp = data.mrp(); int alertThreshold = data.alertThreshold();
         String desc     = getCsvValue(row, colIdx, "description");
         String category = getCsvValue(row, colIdx, "category");
         String pinCodes = getCsvValue(row, colIdx, "allowed pin codes");

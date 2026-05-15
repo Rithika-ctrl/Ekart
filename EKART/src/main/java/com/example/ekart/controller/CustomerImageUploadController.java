@@ -284,24 +284,7 @@ public class CustomerImageUploadController {
         List<String> errors = new ArrayList<>();
 
         for (int i = 0; i < Math.min(files.size(), slots); i++) {
-            MultipartFile file = files.get(i);
-            if (file == null || file.isEmpty()) {
-                continue;
-            }
-            if (!isValidImage(file)) {
-                errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
-            } else {
-                try {
-                    String url = cloudinaryHelper.saveToCloudinary(file);
-                    RefundImage img = new RefundImage();
-                    img.setRefund(refund);
-                    img.setImageUrl(url);
-                    refundImageRepository.save(img);
-                    uploaded++;
-                } catch (Exception e) {
-                    errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
-                }
-            }
+            uploaded += processRefundImageFile(files.get(i), refund, errors);
         }
 
         if (uploaded > 0) {
@@ -314,6 +297,28 @@ public class CustomerImageUploadController {
         return K_REDIRECT_VIEW_ORDERS;
     }
 
+
+    /** Uploads a single refund evidence image file; returns 1 on success, 0 on skip/failure. */
+    private int processRefundImageFile(MultipartFile file, Refund refund, List<String> errors) {
+        if (file == null || file.isEmpty()) {
+            return 0;
+        }
+        if (!isValidImage(file)) {
+            errors.add(file.getOriginalFilename() + " is not a valid image (JPG/PNG/WEBP only, max 5MB)");
+            return 0;
+        }
+        try {
+            String url = cloudinaryHelper.saveToCloudinary(file);
+            RefundImage img = new RefundImage();
+            img.setRefund(refund);
+            img.setImageUrl(url);
+            refundImageRepository.save(img);
+            return 1;
+        } catch (Exception e) {
+            errors.add("Failed to upload " + file.getOriginalFilename() + ": " + e.getMessage());
+            return 0;
+        }
+    }
     /**
      * GET /customer/refund/{refundId}/images   (AJAX / JSON)
      * Returns all evidence images for a refund — used by admin refund page too.

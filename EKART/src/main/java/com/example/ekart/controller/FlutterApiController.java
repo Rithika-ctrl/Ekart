@@ -2300,18 +2300,21 @@ public class FlutterApiController {
             int stock       = (stockStr == null || stockStr.isBlank()) ? 0 : Integer.parseInt(stockStr.trim());
             String idStr    = getCell(cells, idx, "id", "productid");
             if (idStr != null && !idStr.isBlank()) {
-                updateExistingProduct(cells, idx, idStr, name, price, mrp, stock, vendorId, counts);
+                updateExistingProduct(cells, idx, idStr, new CsvProductFields(name, price, mrp, stock), vendorId, counts);
             } else {
-                createNewProduct(cells, idx, name, price, mrp, stock, vendor, counts);
+                createNewProduct(cells, idx, new CsvProductFields(name, price, mrp, stock), vendor, counts);
             }
         } catch (Exception e) {
             errors.add("Row " + row + ": " + e.getMessage());
         }
     }
 
+    /** Groups core product CSV fields to keep method parameter counts within S107 limits. */
+    private record CsvProductFields(String name, double price, double mrp, int stock) {}
+
     private void updateExistingProduct(String[] cells, Map<String, Integer> idx,
-                                       String idStr, String name, double price, double mrp,
-                                       int stock, int vendorId, int[] counts) {
+                                       String idStr, CsvProductFields fields, int vendorId, int[] counts) {
+        String name = fields.name(); double price = fields.price(); double mrp = fields.mrp(); int stock = fields.stock();
         int pid = Integer.parseInt(idStr.trim());
         com.example.ekart.dto.Product p = deps.productRepository.findById(pid).orElse(null);
         if (p == null) throw new IllegalArgumentException("Product id " + pid + " not found");
@@ -2332,8 +2335,8 @@ public class FlutterApiController {
     }
 
     private void createNewProduct(String[] cells, Map<String, Integer> idx,
-                                  String name, double price, double mrp,
-                                  int stock, Vendor vendor, int[] counts) {
+                                  CsvProductFields fields, Vendor vendor, int[] counts) {
+        String name = fields.name(); double price = fields.price(); double mrp = fields.mrp(); int stock = fields.stock();
         String desc     = getCell(cells, idx, K_DESCRIPTION, "productdescription");
         String category = getCell(cells, idx, K_CATEGORY, "productcategory");
         String imgLink  = getCell(cells, idx, "imagelink", "imageurl", "image");
