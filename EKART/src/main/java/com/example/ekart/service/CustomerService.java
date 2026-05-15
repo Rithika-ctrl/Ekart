@@ -618,10 +618,8 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> {
-                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
-                return itemTotal;
-            }).sum();
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice())
+            .sum();
 
         res.put(K_SUCCESS, true);
         res.put("quantity", newQty);
@@ -660,10 +658,8 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(sessionCustomer.getId()).orElseThrow();
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> {
-                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
-                return itemTotal;
-            }).sum();
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice())
+            .sum();
 
         res.put(K_SUCCESS, true);
         res.put("removed", removed);
@@ -730,10 +726,8 @@ public class CustomerService {
         itemRepository.deleteById(id);
 
         double cartTotal = customer.getCart().getItems().stream()
-            .mapToDouble(i -> {
-                double itemTotal = i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice();
-                return itemTotal;
-            }).sum();
+            .mapToDouble(i -> i.getUnitPrice() > 0 ? i.getLineTotal() : i.getPrice())
+            .sum();
 
         res.put(K_SUCCESS, true);
         res.put(K_CARTTOTAL, cartTotal);
@@ -878,7 +872,7 @@ public class CustomerService {
         // ── 6. CREATE ONE SUB-ORDER PER VENDOR ──────────────────
         VendorOrderResult result = createVendorSubOrders(
                 baseOrder, customer, vendorItems, vendorMap,
-                deliveryFee, deliveryPinCode, matchedWarehouse, addressSnapshot);
+                new VendorOrderContext(deliveryFee, deliveryPinCode, matchedWarehouse, addressSnapshot));
 
         // ── 7. SEND CONFIRMATION EMAIL ───────────────────────────
         sendOrderConfirmationEmail(customer, baseOrder, result.firstOrder, result.subOrderIds, subtotal, deliveryFee);
@@ -907,12 +901,17 @@ public class CustomerService {
      * Creates one sub-order per vendor group, links them via parentOrderId,
      * logs a PROCESSING tracking event, and schedules the reporting callback.
      */
+    /** Groups delivery-related fields to keep createVendorSubOrders within S107 limits. */
+    private record VendorOrderContext(double deliveryFee, String deliveryPinCode,
+                                      Warehouse matchedWarehouse, String addressSnapshot) {}
+
     private VendorOrderResult createVendorSubOrders(
             Order baseOrder, Customer customer,
             java.util.Map<Integer, java.util.List<Item>> vendorItems,
             java.util.Map<Integer, Vendor> vendorMap,
-            double deliveryFee, String deliveryPinCode,
-            Warehouse matchedWarehouse, String addressSnapshot) {
+            VendorOrderContext ctx) {
+        double deliveryFee = ctx.deliveryFee(); String deliveryPinCode = ctx.deliveryPinCode();
+        Warehouse matchedWarehouse = ctx.matchedWarehouse(); String addressSnapshot = ctx.addressSnapshot();
 
         VendorOrderResult result  = new VendorOrderResult();
         boolean multiVendor       = vendorItems.size() > 1;
@@ -1082,38 +1081,18 @@ public class CustomerService {
         return matches.isEmpty() ? null : matches.get(0);
     }
 
-    /** Parameter object for buildSubOrder — reduces the method's parameter count (fixes java:S107). */
-    private static class SubOrderParams {
-        final Order     baseOrder;
-        final Customer  customer;
-        final Vendor    vendor;
-        final java.util.List<Item> group;
-        final double    subTotal;
-        final double    subDelivery;
-        final String    deliveryPinCode;
-        final Warehouse matchedWarehouse;
-        final String    addressSnapshot;
-
-        SubOrderParams(Order baseOrder, Customer customer, Vendor vendor,
-                       java.util.List<Item> group, double subTotal, double subDelivery,
-                       String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {
-            this.baseOrder        = baseOrder;
-            this.customer         = customer;
-            this.vendor           = vendor;
-            this.group            = group;
-            this.subTotal         = subTotal;
-            this.subDelivery      = subDelivery;
-            this.deliveryPinCode  = deliveryPinCode;
-            this.matchedWarehouse = matchedWarehouse;
-            this.addressSnapshot  = addressSnapshot;
-        }
-    }
+    /** Parameter object for buildSubOrder — reduces the method's parameter count (fixes java:S107).
+     *  Using a record eliminates the explicit 9-parameter constructor (java:S107 on constructor). */
+    private record SubOrderParams(
+            Order baseOrder, Customer customer, Vendor vendor,
+            java.util.List<Item> group, double subTotal, double subDelivery,
+            String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {}
 
     /** Builds (but does not save) a sub-order for one vendor's group of items. */
     private Order buildSubOrder(SubOrderParams p) {
-        return buildSubOrder(p.baseOrder, p.customer, p.vendor,
-                p.group, p.subTotal, p.subDelivery,
-                p.deliveryPinCode, p.matchedWarehouse, p.addressSnapshot);
+        return buildSubOrder(p.baseOrder(), p.customer(), p.vendor(),
+                p.group(), p.subTotal(), p.subDelivery(),
+                p.deliveryPinCode(), p.matchedWarehouse(), p.addressSnapshot());
     }
 
     /** Builds (but does not save) a sub-order for one vendor's group of items. */

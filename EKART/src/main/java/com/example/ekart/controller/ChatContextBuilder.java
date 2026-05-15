@@ -109,30 +109,35 @@ public class ChatContextBuilder {
            .append(recent.size()).append("):\n");
 
         for (Order o : recent) {
-            ctx.append("  Order #").append(o.getId())
-               .append(" | ₹").append(String.format("%.0f", o.getAmount()))
-               .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
-               .append(" | Items: ");
-
-            if (o.getItems() != null && !o.getItems().isEmpty()) {
-                ctx.append(o.getItems().stream()
-                        .map(i -> i.getName() + " ×" + i.getQuantity())
-                        .collect(Collectors.joining(", ")));
-            }
-            if (o.getOrderDate() != null) {
-                ctx.append(" | Placed: ").append(o.getOrderDate().format(DATE_FMT));
-            }
-            if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank()) {
-                ctx.append(" | ETA: ").append(o.getDeliveryTime());
-            }
-            if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
-                    && o.getTrackingStatus() != TrackingStatus.DELIVERED) {
-                ctx.append(" | Currently at: ").append(o.getCurrentCity());
-            }
-            ctx.append("\n");
+            appendOrderLine(ctx, o);
         }
     }
 
+
+    /** Appends a single order summary line to ctx — extracted to reduce appendOrders cognitive complexity. */
+    private void appendOrderLine(StringBuilder ctx, Order o) {
+        ctx.append("  Order #").append(o.getId())
+           .append(" | ₹").append(String.format("%.0f", o.getAmount()))
+           .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
+           .append(" | Items: ");
+
+        if (o.getItems() != null && !o.getItems().isEmpty()) {
+            ctx.append(o.getItems().stream()
+                    .map(i -> i.getName() + " ×" + i.getQuantity())
+                    .collect(Collectors.joining(", ")));
+        }
+        if (o.getOrderDate() != null) {
+            ctx.append(" | Placed: ").append(o.getOrderDate().format(DATE_FMT));
+        }
+        if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank()) {
+            ctx.append(" | ETA: ").append(o.getDeliveryTime());
+        }
+        if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
+                && o.getTrackingStatus() != TrackingStatus.DELIVERED) {
+            ctx.append(" | Currently at: ").append(o.getCurrentCity());
+        }
+        ctx.append("\n");
+    }
     private void appendPendingRefunds(StringBuilder ctx, Customer c) {
         List<Refund> pendingRefunds = refundRepository.findByCustomer(c).stream()
                 .filter(r -> r.getStatus() == RefundStatus.PENDING)

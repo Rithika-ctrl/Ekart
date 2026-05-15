@@ -50,11 +50,13 @@ public class PolicyController {
     @GetMapping
     public List<Policy> getAllPolicies() {
         List<Policy> policies = policyRepository.findAll();
-        logger.info("[GET] /api/policies - {} policies returned", policies.size());
-        for (Policy p : policies) {
-            logger.info("Policy: id={}, title={}, slug={}, category={}, author={}, lastUpdated={}",
-                p.getId(), sanitizeForLog(p.getTitle()), sanitizeForLog(p.getSlug()),
-                sanitizeForLog(p.getCategory()), p.getAuthorAdminId(), p.getLastUpdated());
+        if (logger.isInfoEnabled()) {
+            logger.info("[GET] /api/policies - {} policies returned", policies.size());
+            for (Policy p : policies) {
+                logger.info("Policy: id={}, title={}, slug={}, category={}, author={}, lastUpdated={}",
+                    p.getId(), sanitizeForLog(p.getTitle()), sanitizeForLog(p.getSlug()),
+                    sanitizeForLog(p.getCategory()), p.getAuthorAdminId(), p.getLastUpdated());
+            }
         }
         return policies;
     }
@@ -62,53 +64,71 @@ public class PolicyController {
     @GetMapping("/{slug}")
     public Policy getPolicyBySlug(@PathVariable String slug) {
         Policy policy = policyRepository.findBySlug(slug).orElse(null);
-        logger.info("[GET] /api/policies/{} - {}", sanitizeForLog(slug), policy != null ? "FOUND" : "NOT FOUND");
+        if (logger.isInfoEnabled()) {
+            logger.info("[GET] /api/policies/{} - {}", sanitizeForLog(slug), policy != null ? "FOUND" : "NOT FOUND");
+        }
         return policy;
     }
 
     @PostMapping
     public Policy createPolicy(@RequestBody PolicyDTO dto) {
-        logger.info("[POST] /api/policies - Incoming: title={}, slug={}, category={}, author={}",
-            sanitizeForLog(dto.getTitle()), sanitizeForLog(dto.getSlug()),
-            sanitizeForLog(dto.getCategory()), dto.getAuthorAdminId());
+        if (logger.isInfoEnabled()) {
+            logger.info("[POST] /api/policies - Incoming: title={}, slug={}, category={}, author={}",
+                sanitizeForLog(dto.getTitle()), sanitizeForLog(dto.getSlug()),
+                sanitizeForLog(dto.getCategory()), dto.getAuthorAdminId());
+        }
         Policy policy = toEntity(dto);
         Policy savedPolicy = savePolicyWithAudit("CREATED", policy);
-        logger.info("[POST] /api/policies - Saved: id={}, title={}, slug={}",
-            savedPolicy.getId(), sanitizeForLog(savedPolicy.getTitle()), sanitizeForLog(savedPolicy.getSlug()));
+        if (logger.isInfoEnabled()) {
+            logger.info("[POST] /api/policies - Saved: id={}, title={}, slug={}",
+                savedPolicy.getId(), sanitizeForLog(savedPolicy.getTitle()), sanitizeForLog(savedPolicy.getSlug()));
+        }
         return savedPolicy;
     }
 
     @PutMapping("/{slug}")
     public Policy updatePolicy(@PathVariable String slug, @RequestBody PolicyDTO dto) {
-        logger.info("[PUT] /api/policies/{} - Incoming: title={}, slug={}, category={}, author={}",
-            sanitizeForLog(slug), sanitizeForLog(dto.getTitle()), sanitizeForLog(dto.getSlug()),
-            sanitizeForLog(dto.getCategory()), dto.getAuthorAdminId());
+        if (logger.isInfoEnabled()) {
+            logger.info("[PUT] /api/policies/{} - Incoming: title={}, slug={}, category={}, author={}",
+                sanitizeForLog(slug), sanitizeForLog(dto.getTitle()), sanitizeForLog(dto.getSlug()),
+                sanitizeForLog(dto.getCategory()), dto.getAuthorAdminId());
+        }
         Optional<Policy> existingPolicy = policyRepository.findBySlug(slug);
         if (existingPolicy.isPresent()) {
             Policy updatedPolicy = copyPolicyChanges(existingPolicy.get(), dto);
-            logger.info("[PUT] /api/policies/{} - Updated: id={}, title={}, slug={}",
-                sanitizeForLog(slug), updatedPolicy.getId(),
-                sanitizeForLog(updatedPolicy.getTitle()), sanitizeForLog(updatedPolicy.getSlug()));
+            if (logger.isInfoEnabled()) {
+                logger.info("[PUT] /api/policies/{} - Updated: id={}, title={}, slug={}",
+                    sanitizeForLog(slug), updatedPolicy.getId(),
+                    sanitizeForLog(updatedPolicy.getTitle()), sanitizeForLog(updatedPolicy.getSlug()));
+            }
             auditLogService.logPolicyAction("UPDATED", updatedPolicy.getTitle(), String.valueOf(updatedPolicy.getAuthorAdminId()));
             return updatedPolicy;
         }
-        logger.warn("[PUT] /api/policies/{} - Policy not found", sanitizeForLog(slug));
+        if (logger.isWarnEnabled()) {
+            logger.warn("[PUT] /api/policies/{} - Policy not found", sanitizeForLog(slug));
+        }
         return null;
     }
 
     @DeleteMapping("/{slug}")
     public void deletePolicy(@PathVariable String slug) {
-        logger.info("[DELETE] /api/policies/{}", sanitizeForLog(slug));
+        if (logger.isInfoEnabled()) {
+            logger.info("[DELETE] /api/policies/{}", sanitizeForLog(slug));
+        }
         Optional<Policy> existingPolicy = policyRepository.findBySlug(slug);
         if (existingPolicy.isPresent()) {
             Policy policyToDelete = existingPolicy.get();
             policyRepository.deleteBySlug(slug);
-            logger.info("[DELETE] /api/policies/{} - Deleted: id={}, title={}",
-                sanitizeForLog(slug), policyToDelete.getId(), sanitizeForLog(policyToDelete.getTitle()));
+            if (logger.isInfoEnabled()) {
+                logger.info("[DELETE] /api/policies/{} - Deleted: id={}, title={}",
+                    sanitizeForLog(slug), policyToDelete.getId(), sanitizeForLog(policyToDelete.getTitle()));
+            }
             auditLogService.logPolicyAction("DELETED", policyToDelete.getTitle(), String.valueOf(policyToDelete.getAuthorAdminId()));
         } else {
             policyRepository.deleteBySlug(slug);
-            logger.warn("[DELETE] /api/policies/{} - Not found in DB, but deleteBySlug called", sanitizeForLog(slug));
+            if (logger.isWarnEnabled()) {
+                logger.warn("[DELETE] /api/policies/{} - Not found in DB, but deleteBySlug called", sanitizeForLog(slug));
+            }
         }
     }
 
