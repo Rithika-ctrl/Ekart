@@ -84,12 +84,14 @@ public class Vendor implements Serializable {
 	private String description;
 
 	// Stock alerts for products - cascade delete when vendor is deleted
+	// transient: excluded from Java serialization (java:S1948); JPA loads this via its own mechanism
 	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<StockAlert> stockAlerts;
+	private transient List<StockAlert> stockAlerts;
 
 	// Products - cascade delete when vendor is deleted
+	// transient: excluded from Java serialization (java:S1948); JPA loads this via its own mechanism
 	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<Product> products;
+	private transient List<Product> products;
 
 	// Sales reports - cascade delete when vendor is deleted
 	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)

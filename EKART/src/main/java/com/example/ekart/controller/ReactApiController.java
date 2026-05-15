@@ -2857,6 +2857,12 @@ public class ReactApiController {
         }
     }
 
+    /**
+     * GET /api/react/customer/orders/{orderId}/tracking
+     * 
+     * Comprehensive order tracking endpoint with visual timeline data.
+     * Returns: orderId, status, payment info, warehouse routing, progress percent
+     */
     @GetMapping("/customer/orders/{orderId}/tracking")
     public ResponseEntity<Map<String, Object>> customerOrderTracking(
             @RequestHeader(HEADER_AUTHORIZATION) String authHeader,
@@ -2867,22 +2873,32 @@ public class ReactApiController {
             );
 
             Map<String, Object> res = new LinkedHashMap<>();
-            res.put(KEY_ORDER_ID,            orderId);
-            res.put(K_STATUS,                safeStatusName(order, "UNKNOWN"));
-            res.put(KEY_STATUS_DISPLAY,      safeStatusName(order, K_UNKNOWN));
-            res.put(K_PAYMENT_METHOD,        order.getPaymentMethod());
-            res.put(KEY_PAYMENT_STATUS,      order.getPaymentStatus());
-            res.put(KEY_ROUTING_PATH,        order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
-            res.put(K_SOURCEWAREHOUSE,       order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : K_N_A);
-            res.put("sourceWarehouseCity",   order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : K_N_A);
+            res.put(KEY_ORDER_ID, orderId);
+            res.put(K_STATUS, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : "UNKNOWN");
+            res.put(KEY_STATUS_DISPLAY, order.getTrackingStatus() != null ? order.getTrackingStatus().name() : K_UNKNOWN);
+            res.put(K_PAYMENT_METHOD, order.getPaymentMethod());
+            res.put(KEY_PAYMENT_STATUS, order.getPaymentStatus());
+            res.put(KEY_ROUTING_PATH, order.getWarehouseRoutingPath() != null ? order.getWarehouseRoutingPath() : "Not yet routed");
+            res.put(K_SOURCEWAREHOUSE, order.getSourceWarehouse() != null ? order.getSourceWarehouse().getName() : K_N_A);
+            res.put("sourceWarehouseCity", order.getSourceWarehouse() != null ? order.getSourceWarehouse().getCity() : K_N_A);
             res.put(K_DESTINATION_WAREHOUSE, order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getName() : K_N_A);
             res.put("destinationWarehouseCity", order.getDestinationWarehouse() != null ? order.getDestinationWarehouse().getCity() : K_N_A);
-            res.put(K_ORDERDATE,             order.getOrderDate() != null ? order.getOrderDate().toString() : K_N_A);
-            res.put(KEY_DELIVERY_ADDRESS,    order.getDeliveryAddress());
-            res.put(K_TOTALPRICE,            order.getAmount());
-            res.put("progressPercent",       order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
-            putTrackingEstimatedDelivery(res, order);
-
+            res.put(K_ORDERDATE, order.getOrderDate() != null ? order.getOrderDate().toString() : K_N_A);
+            res.put(KEY_DELIVERY_ADDRESS, order.getDeliveryAddress());
+            res.put(K_TOTALPRICE, order.getAmount());
+            res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
+            
+            // Estimated delivery: +48 hours from order date if still in transit
+            if (order.getOrderDate() != null && order.getTrackingStatus() != null) {
+                TrackingStatus status = order.getTrackingStatus();
+                if (status != TrackingStatus.DELIVERED && status != TrackingStatus.CANCELLED 
+                    && status != TrackingStatus.REFUNDED) {
+                    res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
+                } else {
+                    res.put(KEY_ESTIMATED_DELIVERY, null);
+                }
+            }
+            
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
@@ -2890,24 +2906,6 @@ public class ReactApiController {
             error.put(KEY_MESSAGE, "Order not found or fetch failed");
             return ResponseEntity.status(404).body(error);
         }
-    }
-
-    /** Returns the tracking status name, or {@code fallback} when status is null. */
-    private String safeStatusName(Order order, String fallback) {
-        return order.getTrackingStatus() != null ? order.getTrackingStatus().name() : fallback;
-    }
-
-    /** Adds KEY_ESTIMATED_DELIVERY to res when the order is still in transit; null otherwise. */
-    private void putTrackingEstimatedDelivery(Map<String, Object> res, Order order) {
-        if (order.getOrderDate() == null || order.getTrackingStatus() == null) {
-            return;
-        }
-        TrackingStatus status = order.getTrackingStatus();
-        boolean isTerminal = status == TrackingStatus.DELIVERED
-                || status == TrackingStatus.CANCELLED
-                || status == TrackingStatus.REFUNDED;
-        res.put(KEY_ESTIMATED_DELIVERY,
-                isTerminal ? null : order.getOrderDate().plusHours(48).toString());
     }
 
     /** POST /api/flutter/orders/{id}/cancel */
@@ -3934,44 +3932,39 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
-            Product p = new Product();
-            p.setName(name);
-            p.setDescription(description);
-            p.setPrice(Double.parseDouble(price));
-            p.setCategory(category);
-            p.setStock(Integer.parseInt(stock));
-            
-            if (image != null && !image.isEmpty()) {
-                p.setImageLink(resolveProductImage(image, imageLink));
-            } else {
-                p.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
-            }
-            p.setApproved(false);
-            p.setVendor(vendor);
-            
-            if (mrp != null && !mrp.isBlank()) {
-                double mrpVal = Double.parseDouble(mrp);
-                if (mrpVal > 0) p.setMrp(mrpVal);
-            }
-            if (gstRate != null && !gstRate.isBlank()) {
-                double gstVal = Double.parseDouble(gstRate);
-                if (gstVal > 0) p.setGstRate(gstVal);
-            }
-            if (allowedPinCodes != null && !allowedPinCodes.isBlank()) {
-                p.setAllowedPinCodes(allowedPinCodes.trim());
-            }
-            
-            Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
-            if (alertThreshold != null) {
-                p.setStockAlertThreshold(alertThreshold);
-            }
-            
+            Product p = buildNewProduct(vendor, name, description, price, category, stock,
+                                        image, imageLink, mrp, gstRate, allowedPinCodes, stockAlertThreshold);
             productRepository.save(p);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Product added. Pending admin approval.");
             res.put(KEY_PRODUCT_ID, p.getId());
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+    }
+
+    /**
+     * Constructs a new {@link Product} from the supplied vendor-add parameters.
+     * Extracted from {@code vendorAddProduct} to reduce its cognitive complexity (java:S3776).
+     */
+    private Product buildNewProduct(Vendor vendor, String name, String description, String price,
+                                     String category, String stock,
+                                     org.springframework.web.multipart.MultipartFile image, String imageLink,
+                                     String mrp, String gstRate, String allowedPinCodes, String stockAlertThreshold) {
+        Product p = new Product();
+        p.setName(name);
+        p.setDescription(description);
+        p.setPrice(Double.parseDouble(price));
+        p.setCategory(category);
+        p.setStock(Integer.parseInt(stock));
+        p.setImageLink(resolveProductImage(image, imageLink));
+        p.setApproved(false);
+        p.setVendor(vendor);
+        applyOptionalDoubleField(mrp,     v -> { if (v > 0) p.setMrp(v); });
+        applyOptionalDoubleField(gstRate, v -> { if (v > 0) p.setGstRate(v); });
+        if (allowedPinCodes != null && !allowedPinCodes.isBlank()) p.setAllowedPinCodes(allowedPinCodes.trim());
+        Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
+        if (alertThreshold != null) p.setStockAlertThreshold(alertThreshold);
+        return p;
     }
 
     /** PUT /api/react/vendor/products/{id}/update — Accepts multipart/form-data */
@@ -3995,45 +3988,48 @@ public class ReactApiController {
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || product.getVendor() == null || product.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
-            // Update basic product fields if provided
-            if (name != null && !name.isBlank()) product.setName(name);
-            if (description != null && !description.isBlank()) product.setDescription(description);
-            if (price != null && !price.isBlank()) product.setPrice(Double.parseDouble(price));
-            if (category != null && !category.isBlank()) product.setCategory(category);
-            if (stock != null && !stock.isBlank()) product.setStock(Integer.parseInt(stock));
-            
-            // Handle image update with fallback to provided URL
-            if (image != null && !image.isEmpty()) {
-                try {
-                    String imageUrl = cloudinaryHelper.saveToCloudinary(image);
-                    product.setImageLink(imageUrl);
-                } catch (Exception e) {
-                    product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
-                }
-            } else {
-                product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
-            }
+            applyBasicProductFields(product, name, description, price, category, stock);
+            applyProductImageLink(product, image, imageLink);
             product.setApproved(false);
             product.setVendor(vendor);
-            
-            if (mrp != null && !mrp.isBlank()) {
-                double mrpVal = Double.parseDouble(mrp);
-                if (mrpVal > 0) product.setMrp(mrpVal);
-            }
-            if (gstRate != null && !gstRate.isBlank()) {
-                double gstVal = Double.parseDouble(gstRate);
-                if (gstVal > 0) product.setGstRate(gstVal);
-            }
-            // Update stock alert threshold if provided
+            applyOptionalDoubleField(mrp, v -> { if (v > 0) product.setMrp(v); });
+            applyOptionalDoubleField(gstRate, v -> { if (v > 0) product.setGstRate(v); });
             Integer alertThreshold = parseOptionalInteger(stockAlertThreshold);
-            if (alertThreshold != null) {
-                product.setStockAlertThreshold(alertThreshold);
-            }
-            
+            if (alertThreshold != null) product.setStockAlertThreshold(alertThreshold);
             productRepository.save(product);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
         } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+    }
+
+    /** Updates basic text/number fields on a product if the supplied value is non-blank. */
+    private void applyBasicProductFields(Product product, String name, String description,
+                                          String price, String category, String stock) {
+        if (name != null && !name.isBlank())        product.setName(name);
+        if (description != null && !description.isBlank()) product.setDescription(description);
+        if (price != null && !price.isBlank())      product.setPrice(Double.parseDouble(price));
+        if (category != null && !category.isBlank()) product.setCategory(category);
+        if (stock != null && !stock.isBlank())      product.setStock(Integer.parseInt(stock));
+    }
+
+    /** Resolves the product image: uploads to Cloudinary when a file is present, falls back to URL otherwise. */
+    private void applyProductImageLink(Product product,
+                                        org.springframework.web.multipart.MultipartFile image,
+                                        String imageLink) {
+        if (image != null && !image.isEmpty()) {
+            try {
+                product.setImageLink(cloudinaryHelper.saveToCloudinary(image));
+            } catch (Exception e) {
+                product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+            }
+        } else {
+            product.setImageLink(imageLink != null && !imageLink.isBlank() ? imageLink : "");
+        }
+    }
+
+    /** Parses a nullable string as double and calls the setter only when the string is non-blank. */
+    private void applyOptionalDoubleField(String raw, java.util.function.DoubleConsumer setter) {
+        if (raw != null && !raw.isBlank()) setter.accept(Double.parseDouble(raw));
     }
 
     /** DELETE /api/flutter/vendor/products/{id}/delete */
@@ -6360,6 +6356,20 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
+    /**
+     * GET /api/react/admin/delivery/boys/for-order/{orderId}
+     * Returns delivery boys eligible for a specific packed order.
+     * Eligibility: adminApproved=true, active=true, and either:
+     *   (a) assignedPinCodes covers the order's deliveryPinCode via covers(), OR
+     *   (b) the delivery boy belongs to a warehouse that serves that PIN.
+     * Falls back to ALL approved+active boys if no match found, so admin is never blocked.
+     * Response includes isAvailable so the frontend can show Online/Offline status.
+     *
+     * FIX: The old implementation only used db.covers(pin), which returns false when
+     * assignedPinCodes is null. Boys registered at the right warehouse but with a null
+     * assignedPinCodes were silently excluded. Now uses union strategy matching
+     * DeliveryAdminService.getEligibleDeliveryBoys().
+     */
     @GetMapping("/admin/delivery/boys/for-order/{orderId}")
     public ResponseEntity<Map<String, Object>> adminGetEligibleDeliveryBoys(
             @PathVariable int orderId, HttpServletRequest request) {
@@ -6373,74 +6383,60 @@ public class ReactApiController {
             return ResponseEntity.status(404).body(res);
         }
 
-        String pin = order.getDeliveryPinCode() != null ? order.getDeliveryPinCode().trim() : null;
+        String pin = (order.getDeliveryPinCode() != null) ? order.getDeliveryPinCode().trim() : null;
 
+        // Step 1: find all eligible boys using union strategy
         Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> eligible = new ArrayList<>();
 
-        collectEligibleByPin(pin, seen, eligible);
-        collectEligibleByWarehouse(order, pin, seen, eligible);
-        if (eligible.isEmpty()) {
-            collectAllApprovedActive(seen, eligible);
+        // 1a: boys whose assignedPinCodes explicitly covers the pin (covers() handles null safely)
+        if (pin != null && !pin.isBlank()) {
+            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+                if (!db.isAdminApproved() || !db.isActive()) continue;
+                if (db.covers(pin) && seen.add(db.getId())) eligible.add(db);
+            }
         }
 
+        // 1b: boys assigned to the warehouse that serves this pin
+        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
+        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
+            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
+            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
+        }
+        if (orderWarehouse != null) {
+            for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
+                if (!db.isAdminApproved() || !db.isActive()) continue;
+                if (seen.add(db.getId())) eligible.add(db);
+            }
+        }
+
+        // Step 2: last-resort — show all approved+active boys so admin is never blocked
+        if (eligible.isEmpty()) {
+            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+                if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) eligible.add(db);
+            }
+        }
+
+        // Step 3: map to response DTOs, sort online first
         List<Map<String, Object>> boys = eligible.stream()
-            .map(this::mapDeliveryBoyToDto)
-            .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE))))
+            .map(db -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id",          db.getId());
+                m.put(K_NAME,        db.getName());
+                m.put(K_CODE,        db.getDeliveryBoyCode());
+                m.put(KEY_MOBILE,      db.getMobile());
+                m.put(KEY_IS_AVAILABLE, db.isAvailable());
+                m.put(K_WAREHOUSE,   db.getWarehouse() != null ? db.getWarehouse().getName() : null);
+                m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
+                return m;
+            })
+            .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE)))) // online first
             .toList();
 
         res.put(KEY_SUCCESS, true);
         res.put(K_DELIVERYBOYS, boys);
         res.put("orderPin", pin != null ? pin : K_N_A);
         return ResponseEntity.ok(res);
-    }
-
-    /** 1a: boys whose assignedPinCodes explicitly covers the pin. */
-    private void collectEligibleByPin(String pin, Set<Integer> seen, List<DeliveryBoy> eligible) {
-        if (pin == null || pin.isBlank()) return;
-        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-            if (db.isAdminApproved() && db.isActive() && db.covers(pin) && seen.add(db.getId())) {
-                eligible.add(db);
-            }
-        }
-    }
-
-    /** 1b: boys assigned to the warehouse that serves this pin. */
-    private void collectEligibleByWarehouse(Order order, String pin,
-                                             Set<Integer> seen, List<DeliveryBoy> eligible) {
-        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
-        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
-            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
-            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
-        }
-        if (orderWarehouse == null) return;
-        for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
-            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) {
-                eligible.add(db);
-            }
-        }
-    }
-
-    /** Last-resort fallback: all approved + active boys so admin is never blocked. */
-    private void collectAllApprovedActive(Set<Integer> seen, List<DeliveryBoy> eligible) {
-        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) {
-                eligible.add(db);
-            }
-        }
-    }
-
-    /** Maps a DeliveryBoy entity to the response DTO shape. */
-    private Map<String, Object> mapDeliveryBoyToDto(DeliveryBoy db) {
-        Map<String, Object> m = new HashMap<>();
-        m.put("id",             db.getId());
-        m.put(K_NAME,           db.getName());
-        m.put(K_CODE,           db.getDeliveryBoyCode());
-        m.put(KEY_MOBILE,       db.getMobile());
-        m.put(KEY_IS_AVAILABLE, db.isAvailable());
-        m.put(K_WAREHOUSE,      db.getWarehouse() != null ? db.getWarehouse().getName() : null);
-        m.put(KEY_WAREHOUSE_ID, db.getWarehouse() != null ? db.getWarehouse().getId()   : null);
-        return m;
     }
 
     /**
@@ -8986,64 +8982,78 @@ public class ReactApiController {
             }
 
             Order order = orderOpt.get();
+
             if (order.getTrackingStatus() != TrackingStatus.PACKED) {
                 return ResponseEntity.badRequest()
                     .body(Map.of(KEY_ERROR, "Order must be in PACKED status. Current: " + order.getTrackingStatus()));
             }
 
+            // Mark received - set this warehouse as the receiving warehouse
             order.setTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
             order.setSourceWarehouse(warehouseRepository.findById(warehouseId).orElse(null));
 
-            Warehouse destinationWarehouse = findDestinationWarehouse(order.getDeliveryPinCode());
+            // Calculate destination warehouse based on delivery pin code
+            String deliveryPin = order.getDeliveryPinCode();
+            Warehouse destinationWarehouse = null;
+            if (deliveryPin != null) {
+                List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
+                for (Warehouse wh : allWarehouses) {
+                    if (wh.serves(deliveryPin)) {
+                        destinationWarehouse = wh;
+                        break;
+                    }
+                }
+            }
+
             if (destinationWarehouse != null) {
                 order.setDestinationWarehouse(destinationWarehouse);
             }
 
+            // Calculate routing path using WarehouseRoutingService
+            // This builds a path: SourceCity -> (IntermediateHub?) -> DestinationCity
             String routingPath = warehouseRoutingService.calculateRoutingPath(order);
             order.setWarehouseRoutingPath(routingPath);
 
-            boolean transferInitiated = initiateTransferIfRequired(order, destinationWarehouse, orderId);
+            // IMPORTANT: Initiate warehouse transfer if source != destination
+            if (destinationWarehouse != null && 
+                order.getSourceWarehouse() != null &&
+                order.getSourceWarehouse().getId() != destinationWarehouse.getId()) {
+                
+                // Calculate optimal route between warehouses
+                List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
+                    order.getSourceWarehouse(), 
+                    destinationWarehouse
+                );
+                
+                // Create transfer legs for each warehouse hop
+                warehouseTransferService.initiateTransferLegs(order, transferRoute);
+
+                LOGGER.info(
+                    "Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
+                    orderId,
+                    order.getSourceWarehouse().getCity(),
+                    destinationWarehouse.getCity(),
+                    transferRoute.size() - 1
+                );
+            }
+
             orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of(
-                KEY_SUCCESS,           true,
-                KEY_ORDER_ID,          orderId,
-                KEY_NEW_STATUS,        order.getTrackingStatus().toString(),
+                KEY_SUCCESS, true,
+                KEY_ORDER_ID, orderId,
+                KEY_NEW_STATUS, order.getTrackingStatus().toString(),
                 K_DESTINATION_WAREHOUSE, destinationWarehouse != null ? destinationWarehouse.getName() : K_UNKNOWN,
-                KEY_ROUTING_PATH,      routingPath != null ? routingPath : "Direct",
-                "transferInitiated",   transferInitiated
+                KEY_ROUTING_PATH, routingPath != null ? routingPath : "Direct",
+                "transferInitiated", destinationWarehouse != null && 
+                    order.getSourceWarehouse() != null &&
+                    order.getSourceWarehouse().getId() != destinationWarehouse.getId()
             ));
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName() + ": Unknown error";
             LOGGER.error("[ReactApiController] warehouseMarkReceived error for orderId={}: {}", orderId, errorMsg, e);
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, errorMsg));
         }
-    }
-
-    /** Finds the first active warehouse that serves the given delivery PIN, or null. */
-    private Warehouse findDestinationWarehouse(String deliveryPin) {
-        if (deliveryPin == null) return null;
-        for (Warehouse wh : warehouseRepository.findByActiveTrue()) {
-            if (wh.serves(deliveryPin)) return wh;
-        }
-        return null;
-    }
-
-    /**
-     * Initiates warehouse transfer legs when source and destination differ.
-     * Returns true if a transfer was started.
-     */
-    private boolean initiateTransferIfRequired(Order order, Warehouse destination, int orderId) {
-        if (destination == null || order.getSourceWarehouse() == null) return false;
-        if (order.getSourceWarehouse().getId() == destination.getId()) return false;
-
-        List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
-            order.getSourceWarehouse(), destination);
-        warehouseTransferService.initiateTransferLegs(order, transferRoute);
-        LOGGER.info("Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
-            orderId, order.getSourceWarehouse().getCity(),
-            destination.getCity(), transferRoute.size() - 1);
-        return true;
     }
 
     /**

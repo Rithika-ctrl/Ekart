@@ -173,7 +173,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> customerSendOtp(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = (String) body.get("email");
+            String email = (String) body.get(KEY_EMAIL);
             if (email == null || email.isBlank()) {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required");
                 return ResponseEntity.badRequest().body(res);
@@ -232,7 +232,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> customerVerifyOtp(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email    = (String) body.get("email");
+            String email    = (String) body.get(KEY_EMAIL);
             String otpInput = body.getOrDefault(K_OTP, "").toString().trim();
 
             Customer c = deps.customerRepository.findByEmail(email);
@@ -292,7 +292,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> customerRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = (String) body.get("email");
+            String email = (String) body.get(KEY_EMAIL);
             if (deps.customerRepository.existsByEmail(email)) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED);
@@ -323,7 +323,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> customerLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email    = (String) body.get("email");
+            String email    = (String) body.get(KEY_EMAIL);
             String password = (String) body.get(KEY_PASSWORD);
             Customer c = deps.customerRepository.findByEmail(email);
             String decryptedCustomerPwd = c != null ? AES.decrypt(c.getPassword()) : null;
@@ -357,7 +357,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> vendorRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             // Require OTP pre-verification
             if (!Boolean.TRUE.equals(vendorRegisterOtpVerified.get(email))) {
                 res.put(KEY_SUCCESS, false);
@@ -397,7 +397,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> vendorLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email    = (String) body.get("email");
+            String email    = (String) body.get(KEY_EMAIL);
             String password = (String) body.get(KEY_PASSWORD);
             Vendor v = deps.vendorRepository.findByEmail(email);
             if (v == null || !AES.decrypt(v.getPassword()).equals(password)) {
@@ -426,7 +426,7 @@ public class FlutterApiController {
     @PostMapping("/auth/admin/login")
     public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        String email    = (String) body.get("email");
+        String email    = (String) body.get(KEY_EMAIL);
         String password = (String) body.get(KEY_PASSWORD);
         if (email == null || password == null) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email and password are required");
@@ -466,7 +466,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> deliveryBoyLogin(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            String email    = (String) body.get("email");
+            String email    = (String) body.get(KEY_EMAIL);
             String password = (String) body.get(KEY_PASSWORD);
 
             if (email == null || password == null) {
@@ -549,7 +549,7 @@ public class FlutterApiController {
         Map<String, Object> res = new LinkedHashMap<>();
         try {
             String name     = (String) body.get("name");
-            String email    = (String) body.get("email");
+            String email    = (String) body.get(KEY_EMAIL);
             String password = (String) body.get(KEY_PASSWORD);
             Object mob      = body.get(KEY_MOBILE);
 
@@ -2368,7 +2368,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> vendorSendRegisterOtp(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String name  = ((String) body.getOrDefault("name", "Vendor")).trim();
             if (email.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required"); return ResponseEntity.badRequest().body(res); }
             Vendor existing = deps.vendorRepository.findByEmail(email);
@@ -2392,7 +2392,7 @@ public class FlutterApiController {
     public ResponseEntity<Map<String, Object>> vendorVerifyRegisterOtp(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         try {
-            String email  = ((String) body.getOrDefault("email", "")).trim().toLowerCase();
+            String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             if (email.isEmpty() || otpStr.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "email and otp are required"); return ResponseEntity.badRequest().body(res); }
             String formattedOtp = String.format("%06d", Integer.parseInt(otpStr));
