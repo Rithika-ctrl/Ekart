@@ -2268,9 +2268,7 @@ public class ReactApiController {
                 deliveryCharge,
                 paymentMode,
                 deliveryTime,
-                (String) body.getOrDefault(K_CITY, ""),
-                deliveryLocation.deliveryPin,
-                deliveryLocation.warehouse
+                deliveryLocation
             );
             SubOrderResult subOrderResult = createSubOrders(subOrderCtx, grouping);
 
@@ -2393,36 +2391,39 @@ public class ReactApiController {
     }
 
     private static class DeliveryLocation {
+        final String city;
         final String deliveryPin;
         final Warehouse warehouse;
 
-        DeliveryLocation(String deliveryPin, Warehouse warehouse) {
+        DeliveryLocation(String city, String deliveryPin, Warehouse warehouse) {
+            this.city        = city;
             this.deliveryPin = deliveryPin;
-            this.warehouse = warehouse;
+            this.warehouse   = warehouse;
         }
     }
 
     private DeliveryLocation resolveDeliveryLocation(Customer customer, Map<String, Object> body) {
+        String city        = (String) body.getOrDefault(K_CITY, "");
         String deliveryPin = "";
         Warehouse warehouse = null;
         Object addressIdObj = body.get("addressId");
 
         if (addressIdObj == null) {
-            return new DeliveryLocation("", null);
+            return new DeliveryLocation(city, "", null);
         }
 
         try {
             Integer addressId = Integer.parseInt(addressIdObj.toString());
             Address selectedAddress = findAddressById(customer, addressId);
             if (selectedAddress == null || selectedAddress.getPostalCode() == null) {
-                return new DeliveryLocation("", null);
+                return new DeliveryLocation(city, "", null);
             }
             deliveryPin = extractDeliveryPin(selectedAddress.getPostalCode());
             warehouse = findWarehouseForPin(deliveryPin);
         } catch (Exception ignored) {
             // Keep empty pin and null warehouse if address resolution fails.
         }
-        return new DeliveryLocation(deliveryPin, warehouse);
+        return new DeliveryLocation(city, deliveryPin, warehouse);
     }
 
     // Helper: Find address by ID
@@ -2480,57 +2481,47 @@ public class ReactApiController {
 
     // Helper: assemble a single Order entity (does not save)
     private Order buildSubOrder(
-            Customer customer,
+            SubOrderContext ctx,
             List<Item> orderItems,
             double subTotal,
             double subDiscount,
             double subDelivery,
-            String paymentMode,
-            String deliveryTime,
-            String city,
-            String deliveryPin,
-            Warehouse warehouse,
             Vendor vendor) {
         Order subOrder = new Order();
-        subOrder.setCustomer(customer);
+        subOrder.setCustomer(ctx.customer);
         subOrder.setItems(orderItems);
         subOrder.setAmount(Math.max(0, subTotal - subDiscount) + subDelivery);
         subOrder.setDeliveryCharge(subDelivery);
         subOrder.setTotalPrice(Math.max(0, subTotal - subDiscount) + subDelivery);
-        subOrder.setPaymentMode(paymentMode);
-        subOrder.setDeliveryTime(deliveryTime);
+        subOrder.setPaymentMode(ctx.paymentMode);
+        subOrder.setDeliveryTime(ctx.deliveryTime);
         subOrder.setDateTime(LocalDateTime.now());
         subOrder.setTrackingStatus(TrackingStatus.PROCESSING);
         subOrder.setReplacementRequested(false);
-        subOrder.setCurrentCity(city);
-        subOrder.setDeliveryPinCode(deliveryPin);
-        if (warehouse != null) { subOrder.setWarehouse(warehouse); }
-        if (vendor != null)    { subOrder.setVendor(vendor); }
+        subOrder.setCurrentCity(ctx.location.city);
+        subOrder.setDeliveryPinCode(ctx.location.deliveryPin);
+        if (ctx.location.warehouse != null) { subOrder.setWarehouse(ctx.location.warehouse); }
+        if (vendor != null)                 { subOrder.setVendor(vendor); }
         return subOrder;
     }
 
     // Parameter object for createSubOrders (fixes S107 — was 9 params)
     private static class SubOrderContext {
-        final Customer  customer;
-        final double    couponDiscount;
-        final double    deliveryCharge;
-        final String    paymentMode;
-        final String    deliveryTime;
-        final String    city;
-        final String    deliveryPin;
-        final Warehouse warehouse;
+        final Customer         customer;
+        final double           couponDiscount;
+        final double           deliveryCharge;
+        final String           paymentMode;
+        final String           deliveryTime;
+        final DeliveryLocation location;
 
         SubOrderContext(Customer customer, double couponDiscount, double deliveryCharge,
-                        String paymentMode, String deliveryTime, String city,
-                        String deliveryPin, Warehouse warehouse) {
+                        String paymentMode, String deliveryTime, DeliveryLocation location) {
             this.customer       = customer;
             this.couponDiscount = couponDiscount;
             this.deliveryCharge = deliveryCharge;
             this.paymentMode    = paymentMode;
             this.deliveryTime   = deliveryTime;
-            this.city           = city;
-            this.deliveryPin    = deliveryPin;
-            this.warehouse      = warehouse;
+            this.location       = location;
         }
     }
 
@@ -2553,8 +2544,7 @@ public class ReactApiController {
             double subDelivery = (firstOrder == null) ? ctx.deliveryCharge : 0.0;
 
             List<Item> orderItems = buildOrderItems(groupedItems);
-            Order subOrder = buildSubOrder(ctx.customer, orderItems, subTotal, subDiscount, subDelivery,
-                    ctx.paymentMode, ctx.deliveryTime, ctx.city, ctx.deliveryPin, ctx.warehouse, vendor);
+            Order subOrder = buildSubOrder(ctx, orderItems, subTotal, subDiscount, subDelivery, vendor);
 
             orderRepository.save(subOrder);
 
@@ -6209,10 +6199,8 @@ public class ReactApiController {
             // AUTO-ASSIGN DISABLED (Phase 3)
             // Previously: if (newStatus) autoAssignmentService.onDeliveryBoyOnline(db);
             // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
-            if (newStatus) {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
-                }
+            if (newStatus && LOGGER.isInfoEnabled()) {
+                LOGGER.info("[API] Delivery boy {} is now online (manual assignment enabled)", sanitizeForLog(db.getName()));
             }
 
             res.put(KEY_SUCCESS, true);
