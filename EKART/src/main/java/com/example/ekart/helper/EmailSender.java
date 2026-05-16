@@ -37,7 +37,7 @@ public class EmailSender {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(email);
-            helper.setSubject("OTP for Email Verification - Ekart");
+            helper.setSubject(SUBJECT_OTP_VERIFICATION);
             Context context = new Context();
             context.setVariable(K_NAME, name);
             context.setVariable(K_OTP, String.format("%06d", Integer.parseInt(otp)));
@@ -55,6 +55,7 @@ public class EmailSender {
     private static final String K_ORDER_ID = "orderId";
     private static final String K_ITEMS    = "items";
     private static final String K_AMOUNT   = "amount";
+    private static final String SUBJECT_OTP_VERIFICATION = "OTP for Email Verification - Ekart";
 
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
@@ -97,7 +98,7 @@ public class EmailSender {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(vendor.getEmail());
-            helper.setSubject("OTP for Email Verification - Ekart");
+            helper.setSubject(SUBJECT_OTP_VERIFICATION);
             Context context = new Context();
             context.setVariable(K_NAME, vendor.getName());
             context.setVariable(K_OTP, plainOtp);  // 🔒 Use plainOtp String (6-digit formatted)
@@ -129,7 +130,7 @@ public class EmailSender {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(fromEmail, EKART_SENDER);
             helper.setTo(customer.getEmail());
-            helper.setSubject("OTP for Email Verification - Ekart");
+            helper.setSubject(SUBJECT_OTP_VERIFICATION);
             Context context = new Context();
             context.setVariable(K_NAME, customer.getName());
             context.setVariable(K_OTP, String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string

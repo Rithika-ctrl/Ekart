@@ -7857,10 +7857,9 @@ public class ReactApiController {
         return ResponseEntity.ok(res);
     }
 
-    /**
-     * Builds the personalised context block for a customer —
-     * mirrors the K_CUSTOMER case in ChatController.buildContext().
-     */
+    // Builds the personalised context block for a customer —
+    // mirrors the K_CUSTOMER case in ChatController.buildContext().
+
     // ═══════════════════════════════════════════════════════════════════
     // DELIVERY BOY — Flutter API  (X-Delivery-Id header)
     // ═══════════════════════════════════════════════════════════════════
