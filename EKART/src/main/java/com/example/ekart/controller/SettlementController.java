@@ -19,7 +19,6 @@ package com.example.ekart.controller;
 
 import com.example.ekart.dto.*;
 import com.example.ekart.service.*;
-import com.example.ekart.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

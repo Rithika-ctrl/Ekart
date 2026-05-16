@@ -1019,23 +1019,32 @@ public class CustomerService {
     /** Returns an error message if a cart item cannot be delivered, null otherwise. */
     private String validatePinCode(Customer customer, String deliveryPinCode) {
         if (deliveryPinCode != null && !deliveryPinCode.isBlank()) {
-            String pin = deliveryPinCode.trim();
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && !product.isDeliverableTo(pin)) {
-                    return "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
-                           ". Please remove it from your cart or try a different pin code.";
-                }
+            return checkPinDeliverability(customer, deliveryPinCode.trim());
+        }
+        return checkPinRestrictions(customer);
+    }
+
+    /** Returns an error if any cart product cannot be delivered to the given pin, null otherwise. */
+    private String checkPinDeliverability(Customer customer, String pin) {
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null && !product.isDeliverableTo(pin)) {
+                return "\"" + product.getName() + "\" cannot be delivered to pin code " + pin +
+                       ". Please remove it from your cart or try a different pin code.";
             }
-        } else {
-            for (Item cartItem : customer.getCart().getItems()) {
-                if (cartItem.getProductId() == null) continue;
-                Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product != null && product.isRestrictedByPinCode()) {
-                    return "\"" + product.getName() + "\" has delivery restrictions. " +
-                           "Please verify your pin code on the payment page before placing the order.";
-                }
+        }
+        return null;
+    }
+
+    /** Returns an error if any cart product has pin-code restrictions and no pin was provided, null otherwise. */
+    private String checkPinRestrictions(Customer customer) {
+        for (Item cartItem : customer.getCart().getItems()) {
+            if (cartItem.getProductId() == null) continue;
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null && product.isRestrictedByPinCode()) {
+                return "\"" + product.getName() + "\" has delivery restrictions. " +
+                       "Please verify your pin code on the payment page before placing the order.";
             }
         }
         return null;
@@ -1090,15 +1099,10 @@ public class CustomerService {
 
     /** Builds (but does not save) a sub-order for one vendor's group of items. */
     private Order buildSubOrder(SubOrderParams p) {
-        return buildSubOrder(p.baseOrder(), p.customer(), p.vendor(),
-                p.group(), p.subTotal(), p.subDelivery(),
-                p.deliveryPinCode(), p.matchedWarehouse(), p.addressSnapshot());
-    }
-
-    /** Builds (but does not save) a sub-order for one vendor's group of items. */
-    private Order buildSubOrder(Order baseOrder, Customer customer, Vendor vendor,
-            java.util.List<Item> group, double subTotal, double subDelivery,
-            String deliveryPinCode, Warehouse matchedWarehouse, String addressSnapshot) {
+        Order baseOrder = p.baseOrder(); Customer customer = p.customer(); Vendor vendor = p.vendor();
+        java.util.List<Item> group = p.group(); double subTotal = p.subTotal(); double subDelivery = p.subDelivery();
+        String deliveryPinCode = p.deliveryPinCode(); Warehouse matchedWarehouse = p.matchedWarehouse();
+        String addressSnapshot = p.addressSnapshot();
 
         java.util.List<Item> orderItems = new java.util.ArrayList<>();
         for (Item ci : group) {

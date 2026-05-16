@@ -3,9 +3,7 @@ package com.example.ekart.controller;
 import com.example.ekart.dto.*;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.ekart.helper.AES;
-import com.example.ekart.helper.EmailSender;
 import com.example.ekart.helper.PinCodeValidator;
-import com.example.ekart.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
  
@@ -288,6 +286,7 @@ public class FlutterApiController {
     }
  
     /** @deprecated Use /api/flutter/auth/customer/send-otp + verify-otp instead */
+    @Deprecated
     @PostMapping("/auth/customer/register")
     public ResponseEntity<Map<String, Object>> customerRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();

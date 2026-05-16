@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 // ================================================================
 
 import com.example.ekart.dto.*;
-import com.example.ekart.helper.EmailSender;
 import com.example.ekart.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
