@@ -906,15 +906,6 @@ public class ReactApiController {
     }
 
     /**
-     * Sends registration OTP email to a customer, swallowing exceptions so the
-     * caller (inside a try block) is not interrupted. Extracted to avoid nested
-     * try blocks (SonarQube S1141).
-     * <p>
-     * Note: {@code setOtp()} is used on a transient Customer solely to populate
-     * the legacy email template; EmailSender.send(Customer) reads {@code getOtp()}
-     * internally. Once EmailSender accepts a plain OTP string this call can be removed.
-     */
-    /**
      * Sends a customer registration OTP email using the new EmailSender method (no deprecated setOtp).
      */
     private void trySendCustomerRegisterOtp(String email, String name, String otp) {
@@ -6263,7 +6254,9 @@ public class ReactApiController {
             // AUTO-ASSIGN DISABLED (Phase 3)
             // Previously: autoAssignmentService.onOrderPacked(order);
             // Now: Warehouse staff manually assigns delivery boy via WarehouseReceivingService
-            LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", sanitizeForLog(String.valueOf(orderId)));
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("[API] Order #{} marked as PACKED (manual assignment enabled)", sanitizeForLog(String.valueOf(orderId)));
+            }
 
             // Re-fetch for response (delivery boy will be null until manual assignment)
             Order refreshed = orderRepository.findById(orderId).orElse(order);
