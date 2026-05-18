@@ -52,12 +52,15 @@ public class PaymentController {
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final PaymentMethodService paymentMethodService;
     private final CodPaymentService codPaymentService;
+    private final RazorpayService razorpayService;
 
     public PaymentController(
             PaymentMethodService paymentMethodService,
-            CodPaymentService codPaymentService) {
+            CodPaymentService codPaymentService,
+            RazorpayService razorpayService) {
         this.paymentMethodService = paymentMethodService;
         this.codPaymentService = codPaymentService;
+        this.razorpayService = razorpayService;
     }
 
 
@@ -241,9 +244,6 @@ public class PaymentController {
             Map<String, Object> res) {
 
         try {
-            // Note: Order creation service integration pending (see #TODO-PAYMENT)
-            // Currently returns order placeholder response
-
             double totalAmount = itemAmount + deliveryCharge;
 
             res.put(KEY_SUCCESS, true);
@@ -276,15 +276,17 @@ public class PaymentController {
             Map<String, Object> res) {
 
         try {
-            // Note: Razorpay gateway integration pending (see #TODO-PAYMENT)
-
             double totalAmount = itemAmount + deliveryCharge;
+
+            Map<String, Object> razorpayOrder = razorpayService.createOrder(totalAmount, 0, null, null);
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Proceed to Razorpay payment");
             res.put(KEY_PAYMENT_METHOD, K_RAZORPAY);
-            res.put(KEY_AMOUNT, (int) (totalAmount * 100));  // In paise
+            res.put(KEY_AMOUNT, razorpayOrder.get("amount"));
             res.put("currency", "INR");
+            res.put("razorpayOrderId", razorpayOrder.get("razorpayOrderId"));
+            res.put("razorpayKey", razorpayOrder.get("razorpayKeyId"));
 
             return ResponseEntity.ok(res);
 

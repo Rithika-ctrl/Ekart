@@ -442,11 +442,20 @@ public class CashSettlementService {
      */
     private void logSettlementEvent(String eventTitle, String eventDescription) {
         try {
-            // Log to CashSettlement audit trail (future: add settlement_audit_log table)
-            log.info("[SETTLEMENT] {}: {}", eventTitle, eventDescription);
+            // Sanitize user-controlled inputs before logging (javasecurity:S5145).
+            // Strip CR/LF to prevent log-injection attacks that could forge log entries.
+            String safeTitle       = sanitizeForLog(eventTitle);
+            String safeDescription = sanitizeForLog(eventDescription);
+            log.info("[SETTLEMENT] {}: {}", safeTitle, safeDescription);
         } catch (Exception e) {
             log.error("[CashSettlementService] Failed to log settlement event: {}", e.getMessage());
         }
+    }
+
+    /** Removes CR and LF characters to prevent log-injection. */
+    private static String sanitizeForLog(String value) {
+        if (value == null) return "(null)";
+        return value.replace("\r", "").replace("\n", "").replace("\t", " ");
     }
 
     /**

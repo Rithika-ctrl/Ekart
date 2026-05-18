@@ -44,9 +44,19 @@ public class AdminAuthService {
     /**
      * Verify TOTP code for 2FA (not used for .env based auth)
      */
-    public VerificationResult verify2FA(int adminId, String totpCode) {
-        // Parameters unused in .env-based authentication
+    public VerificationResult verify2FA() {
+        // No parameters needed for .env-based authentication
         return new VerificationResult(true, "2FA not required");
+    }
+
+    /**
+     * Verify TOTP code for 2FA — overload accepting adminId and totpCode for
+     * callers that pass those arguments. Parameters are unused in env-based auth.
+     */
+    @SuppressWarnings("java:S1172") // adminId and totpCode unused in env-based auth
+    public VerificationResult verify2FA(Integer adminId, String totpCode) {
+        // Delegate to no-arg version — env-based auth doesn't require 2FA
+        return verify2FA();
     }
 
     /**
@@ -59,11 +69,20 @@ public class AdminAuthService {
     }
 
     /**
-     * Get admin email by ID
+     * Get admin email (env-based auth has a single admin)
      */
-    public String getAdminEmailById(int adminId) {
-        // Parameter unused in .env-based authentication
+    public String getAdminEmailById() {
+        // No adminId parameter needed for .env-based authentication
         return envAdminEmail;
+    }
+
+    /**
+     * Get admin email by ID — overload accepting adminId for callers that pass it.
+     * Parameter is unused in env-based auth since there is only one admin.
+     */
+    @SuppressWarnings("java:S1172") // adminId unused in env-based auth
+    public String getAdminEmailById(Integer adminId) {
+        return getAdminEmailById();
     }
 
     /**

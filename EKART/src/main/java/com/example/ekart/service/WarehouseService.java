@@ -57,7 +57,11 @@ public class WarehouseService {
      * @param address Physical address
      * @return Map containing warehouse details and plain-text credentials (shown once only)
      */
-    public Map<String, Object> createWarehouse(
+    /**
+     * Parameter object for warehouse creation (resolves java:S107 — too many parameters).
+     * All fields map 1-to-1 to the original method parameters.
+     */
+    public record WarehouseCreateRequest(
             String name,
             String city,
             String state,
@@ -66,7 +70,23 @@ public class WarehouseService {
             Double longitude,
             String contactEmail,
             String contactPhone,
-            String address) {
+            String address
+    ) {}
+
+    /**
+     * Creates a warehouse using a parameter object. Accepts a single
+     * {@link WarehouseCreateRequest} instead of 9 individual parameters.
+     */
+    public Map<String, Object> createWarehouse(WarehouseCreateRequest req) {
+        String name          = req.name();
+        String city          = req.city();
+        String state         = req.state();
+        String servedPinCodes = req.servedPinCodes();
+        Double latitude      = req.latitude();
+        Double longitude     = req.longitude();
+        String contactEmail  = req.contactEmail();
+        String contactPhone  = req.contactPhone();
+        String address       = req.address();
 
         // 1. Generate unique 8-digit login ID (retry if collision)
         String loginId;
@@ -75,7 +95,7 @@ public class WarehouseService {
             loginId = Warehouse.generateLoginId();
             attempts++;
             if (attempts > 100) {
-                throw new RuntimeException("Could not generate unique warehouse login ID after 100 attempts");
+                throw new IllegalStateException("Could not generate unique warehouse login ID after 100 attempts");
             }
         } while (warehouseRepository.existsByWarehouseLoginId(loginId));
 
@@ -87,7 +107,7 @@ public class WarehouseService {
         try {
             encryptedPassword = AES.encrypt(plainPassword);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to encrypt warehouse password: " + e.getMessage());
+            throw new IllegalStateException("Failed to encrypt warehouse password: " + e.getMessage(), e);
         }
 
         // 4. Auto-generate warehouse code

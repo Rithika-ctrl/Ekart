@@ -16,7 +16,6 @@ package com.example.ekart.service;
 // ================================================================
 
 import com.example.ekart.dto.*;
-import com.example.ekart.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -122,19 +121,8 @@ public class PaymentMethodService {
      * @return true if COD is supported in this PIN code
      */
     private boolean isCodAvailableForPinCode(String pinCode) {
-        if (pinCode == null || pinCode.isBlank()) {
-            return false;
-        }
-
-        // For now, allow COD everywhere
-        // In future, can check against a blacklist of difficult PIN codes
-        // where COD has high failure rate or no warehouse coverage
-
-        // Example check (if database had PIN blacklist):
-        // CodBlacklistedPin blacklisted = codBlacklistedPinRepository.findByPinCode(pinCode);
-        // return blacklisted == null;
-
-        return true;
+        // Allow COD for any valid PIN code; extend with blacklist check if needed
+        return pinCode != null && !pinCode.isBlank();
     }
 
     /**
@@ -145,25 +133,9 @@ public class PaymentMethodService {
      * @return true if customer is eligible for COD
      */
     private boolean isCodAvailableForCustomer(Customer customer) {
-        if (customer == null) {
-            return false;
-        }
-
-        // Rule 1: Account must be active and verified
-        if (!customer.isAccountStatus() || !customer.isVerified()) {
-            return false;
-        }
-
+        // Account must be non-null, active, and verified
         // Rule 2: No fraud/blacklist flags (future: add fraud check)
-
-        // Rule 3: If we track COD refusal rate, fail if > 50%
-        // int totalCodOrders = getCodOrderCountForCustomer(customer.getId());
-        // int refusedCodOrders = getRefusedCodOrderCountForCustomer(customer.getId());
-        // if (totalCodOrders > 0 && (refusedCodOrders / totalCodOrders) > 0.5) {
-        //     return false;  // Too many refusals
-        // }
-
-        return true;
+        return customer != null && customer.isAccountStatus() && customer.isVerified();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 package com.example.ekart.dto;
+import java.io.Serializable;
 import java.time.LocalDateTime;
-
-import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Column;
@@ -21,8 +20,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import java.io.Serializable;
-import java.util.List;
 
 @Entity
 @Data
@@ -63,7 +60,7 @@ public class Vendor implements Serializable {
 	@Column(nullable = true)
 	private LocalDateTime otpExpiry;
 
-	@Deprecated // Use otpHash field instead
+	@Deprecated(since = "Phase 4", forRemoval = true) // Use otpHash field instead
 	private int otp;
 
 	private boolean verified;
@@ -94,8 +91,9 @@ public class Vendor implements Serializable {
 	private transient List<Product> products;
 
 	// Sales reports - cascade delete when vendor is deleted
+	// transient: excluded from Java serialization (java:S1948); JPA loads this via its own mechanism
 	@OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<SalesReport> salesReports;
+	private transient List<SalesReport> salesReports;
 
 	// ── Getters & Setters ──────────────────────────────────────
 	public int getId() { return id; }
@@ -122,7 +120,7 @@ public class Vendor implements Serializable {
 	public LocalDateTime getOtpExpiry() { return otpExpiry; }
 	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 
-	@Deprecated // Use setOtpHash() instead
+	@Deprecated(since = "Phase 4", forRemoval = true) // Use setOtpHash() instead
 	public void setOtp(int otp) { this.otp = otp; }
 
 	public boolean isVerified() { return verified; }

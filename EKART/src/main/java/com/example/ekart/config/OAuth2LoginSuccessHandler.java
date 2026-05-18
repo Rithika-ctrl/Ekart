@@ -88,68 +88,105 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String loginType     = (String) session.getAttribute(KEY_OAUTH_LOGIN_TYPE);
         if (loginType == null) loginType = K_CUSTOMER;
 
-        String name          = extractName(oAuth2User, provider);
-        String pid           = extractProviderId(oAuth2User, provider);
+        String name            = extractName(oAuth2User, provider);
+        String pid             = extractProviderId(oAuth2User, provider);
         String providerDisplay = getProviderDisplayName(provider);
 
         // ── React / Flutter flows ─────────────────────────────────────────────
         if (loginType.startsWith("flutter-")) {
-            // Handle linking flows first (before removing attribute)
-            if ("flutter-link-customer".equals(loginType)) {
-                Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
-                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
-                session.removeAttribute("oauth_link_customer_id");
-                if (linkId != null) {
-                    socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
-                }
-                response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
-                return;
-            }
-            if ("flutter-link-vendor".equals(loginType)) {
-                Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
-                session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
-                session.removeAttribute("oauth_link_vendor_id");
-                if (linkId != null) {
-                    socialAuthService.linkOAuthToVendor(linkId, provider, pid);
-                }
-                response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
-                return;
-            }
-
-            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
-
-            if ("flutter-vendor".equals(loginType)) {
-                Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
-                String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
-                response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
-                        + "?role=VENDOR"
-                        + "&id="       + v.getId()
-                        + "&name="     + enc(v.getName())
-                        + "&email="    + enc(v.getEmail())
-                        + "&token="    + token
-                        + "&provider=" + enc(providerDisplay));
-            } else {
-                // flutter-customer (default)
-                Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
-                if (!c.isActive()) {
-                    response.sendRedirect(REACT_ORIGIN + "/oauth2/callback?error=suspended");
-                    return;
-                }
-                c.setLastLogin(LocalDateTime.now());
-                customerRepository.save(c);
-                String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
-                response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
-                        + "?role=CUSTOMER"
-                        + "&id="       + c.getId()
-                        + "&name="     + enc(c.getName())
-                        + "&email="    + enc(c.getEmail())
-                        + "&token="    + token
-                        + "&provider=" + enc(providerDisplay));
-            }
+            handleFlutterFlow(request, response, session, loginType,
+                    email, name, provider, pid, providerDisplay);
             return;
         }
 
         // ── Thymeleaf / web flows (unchanged) ────────────────────────────────
+        handleThymeleafFlow(response, session, loginType, email, name, provider, pid, providerDisplay);
+    }
+
+    /**
+     * Handles all React/Flutter OAuth2 login flows.
+     * Extracted from {@code onAuthenticationSuccess} to reduce its cognitive complexity (java:S3776).
+     */
+    private void handleFlutterFlow(HttpServletRequest request, HttpServletResponse response,
+            HttpSession session, String loginType,
+            String email, String name, String provider, String pid,
+            String providerDisplay) throws IOException {
+
+        if ("flutter-link-customer".equals(loginType)) {
+            Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
+            session.removeAttribute("oauth_link_customer_id");
+            if (linkId != null) socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
+            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+            return;
+        }
+        if ("flutter-link-vendor".equals(loginType)) {
+            Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
+            session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
+            session.removeAttribute("oauth_link_vendor_id");
+            if (linkId != null) socialAuthService.linkOAuthToVendor(linkId, provider, pid);
+            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+            return;
+        }
+
+        session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
+
+        if ("flutter-vendor".equals(loginType)) {
+            handleFlutterVendorLogin(response, email, name, provider, pid, providerDisplay);
+        } else {
+            handleFlutterCustomerLogin(response, email, name, provider, pid, providerDisplay);
+        }
+    }
+
+    /**
+     * Handles the Flutter vendor OAuth2 login redirect.
+     * Extracted from {@code handleFlutterFlow} to reduce cognitive complexity (java:S3776).
+     */
+    private void handleFlutterVendorLogin(HttpServletResponse response,
+            String email, String name, String provider, String pid,
+            String providerDisplay) throws IOException {
+        Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
+        String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
+        response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
+                + "?role=VENDOR"
+                + "&id="       + v.getId()
+                + "&name="     + enc(v.getName())
+                + "&email="    + enc(v.getEmail())
+                + "&token="    + token
+                + "&provider=" + enc(providerDisplay));
+    }
+
+    /**
+     * Handles the Flutter customer OAuth2 login redirect.
+     * Extracted from {@code handleFlutterFlow} to reduce cognitive complexity (java:S3776).
+     */
+    private void handleFlutterCustomerLogin(HttpServletResponse response,
+            String email, String name, String provider, String pid,
+            String providerDisplay) throws IOException {
+        Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
+        if (!c.isActive()) {
+            response.sendRedirect(REACT_ORIGIN + "/oauth2/callback?error=suspended");
+            return;
+        }
+        c.setLastLogin(LocalDateTime.now());
+        customerRepository.save(c);
+        String token = jwtUtil.generateToken(c.getId(), c.getEmail(), "CUSTOMER");
+        response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
+                + "?role=CUSTOMER"
+                + "&id="       + c.getId()
+                + "&name="     + enc(c.getName())
+                + "&email="    + enc(c.getEmail())
+                + "&token="    + token
+                + "&provider=" + enc(providerDisplay));
+    }
+
+    /**
+     * Handles Thymeleaf/web OAuth2 login flows (vendor and customer).
+     * Extracted from {@code onAuthenticationSuccess} to reduce cognitive complexity (java:S3776).
+     */
+    private void handleThymeleafFlow(HttpServletResponse response, HttpSession session,
+            String loginType, String email, String name, String provider, String pid,
+            String providerDisplay) throws IOException {
         if (K_VENDOR.equals(loginType)) {
             Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
             session.setAttribute(K_VENDOR, v);

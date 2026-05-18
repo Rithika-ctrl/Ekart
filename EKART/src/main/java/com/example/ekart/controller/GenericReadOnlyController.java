@@ -81,6 +81,8 @@ public class GenericReadOnlyController {
                 if (result != null) return ResponseEntity.ok(result);
             } catch (Exception ignored2) {
                 LOGGER.trace("Alt key type lookup failed: {}", ignored2.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Lookup failed: " + ignored2.getMessage());
             }
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not found");

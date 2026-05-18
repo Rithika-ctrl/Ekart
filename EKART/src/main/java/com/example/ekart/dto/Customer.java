@@ -65,7 +65,7 @@ public class Customer implements Serializable {
 	@Column(nullable = true)
 	private LocalDateTime otpExpiry;
 
-	@Deprecated // Use otpHash field instead
+	@Deprecated(since = "Phase 4", forRemoval = true) // Use otpHash field instead
 	private int otp;
 
 	private boolean verified;
@@ -148,7 +148,7 @@ public class Customer implements Serializable {
 	public LocalDateTime getOtpExpiry() { return otpExpiry; }
 	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 
-	@Deprecated // Use setOtpHash() instead
+	@Deprecated(since = "Phase 4", forRemoval = true) // Use setOtpHash() instead
 	public void setOtp(int otp) { this.otp = otp; }
 	public void setVerified(boolean verified) { this.verified = verified; }
 	public void setRole(Role role) { this.role = role; }

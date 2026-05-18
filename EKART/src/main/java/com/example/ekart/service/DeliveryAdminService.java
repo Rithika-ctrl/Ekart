@@ -400,43 +400,52 @@ public class DeliveryAdminService {
         return ResponseEntity.ok(DeliveryBoyLoadResponse.success(data, MAX_CONCURRENT_ORDERS));
     }
 
-    // ── Get ELIGIBLE delivery boys for an order ─────────────────;
+    // ── Get ELIGIBLE delivery boys for an order ──────────────────
 
     public ResponseEntity<EligibleDeliveryBoysResponse> getEligibleDeliveryBoys(int orderId,
                                                                                 HttpSession session) {
         if (!isAdmin(session)) {
             return ResponseEntity.status(403).body(EligibleDeliveryBoysResponse.failure(K_UNAUTHORIZED));
         }
-
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             return ResponseEntity.badRequest().body(EligibleDeliveryBoysResponse.failure(K_ORDER_NOT_FOUND));
         }
-
         String pin = order.getDeliveryPinCode();
+        List<DeliveryBoy> boys = collectEligibleDeliveryBoys(order, pin);
+        List<EligibleDeliveryBoyItem> data = buildEligibleItems(boys);
+        return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : K_N_A));
+    }
 
-        // ── FIX: Use a union strategy to find ALL eligible delivery boys ──
-        // Problem: findByPinCode() only matched boys with explicit assignedPinCodes entries.
-        // Boys registered at a warehouse that serves the PIN were missed when
-        // the order had no warehouse set, or when DB-level REPLACE() failed on
-        // edge-case whitespace/encoding.  We now:
-        //   1. Collect boys via DB pin-code query  (catches explicit assignments)
-        //   2. Collect boys via warehouse lookup   (catches warehouse-assigned boys)
-        //   3. Merge & deduplicate by id
-        //   4. Java-side covers() + warehouse-pin re-check as safety net
-        //   5. If still empty, show ALL approved+active boys so admin is never blocked
-
+    /**
+     * Collects all eligible delivery boys for an order using a union strategy:
+     * 1. DB-level pin-code match (explicit assignments)
+     * 2. Warehouse-based match (warehouse-assigned boys)
+     * 3. Java-side covers() safety-net (whitespace/encoding edge cases)
+     * 4. Last-resort: all approved+active boys so admin is never blocked
+     */
+    private List<DeliveryBoy> collectEligibleDeliveryBoys(Order order, String pin) {
         Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> boys = new ArrayList<>();
-
-        // Step 1: DB-level pin-code match
-        if (pin != null && !pin.isBlank()) {
-            for (DeliveryBoy b : deliveryBoyRepository.findByPinCode(pin.trim())) {
-                if (seen.add(b.getId())) boys.add(b);
-            }
+        addByPinCode(pin, seen, boys);
+        addByWarehouse(order, pin, seen, boys);
+        addByCoversSafetyNet(pin, seen, boys);
+        if (boys.isEmpty()) {
+            return deliveryBoyRepository.findByActiveTrue().stream()
+                    .filter(b -> b.isVerified() && b.isAdminApproved())
+                    .toList();
         }
+        return boys;
+    }
 
-        // Step 2: Warehouse-based match (always run, not just as fallback)
+    private void addByPinCode(String pin, Set<Integer> seen, List<DeliveryBoy> boys) {
+        if (pin == null || pin.isBlank()) return;
+        for (DeliveryBoy b : deliveryBoyRepository.findByPinCode(pin.trim())) {
+            if (seen.add(b.getId())) boys.add(b);
+        }
+    }
+
+    private void addByWarehouse(Order order, String pin, Set<Integer> seen, List<DeliveryBoy> boys) {
         Warehouse orderWarehouse = order.getWarehouse();
         if (orderWarehouse == null && pin != null && !pin.isBlank()) {
             List<Warehouse> whs = warehouseRepository.findByPinCode(pin.trim());
@@ -447,24 +456,17 @@ public class DeliveryAdminService {
                 if (seen.add(b.getId())) boys.add(b);
             }
         }
+    }
 
-        // Step 3: Java-side safety-net — also include any active+verified boys whose
-        //         covers() returns true for this pin (catches whitespace/encoding edge cases)
-        if (pin != null && !pin.isBlank()) {
-            for (DeliveryBoy b : deliveryBoyRepository.findByActiveTrue()) {
-                if (!b.isVerified() || !b.isAdminApproved()) continue;
-                if (b.covers(pin.trim()) && seen.add(b.getId())) boys.add(b);
-            }
+    private void addByCoversSafetyNet(String pin, Set<Integer> seen, List<DeliveryBoy> boys) {
+        if (pin == null || pin.isBlank()) return;
+        for (DeliveryBoy b : deliveryBoyRepository.findByActiveTrue()) {
+            if (!b.isVerified() || !b.isAdminApproved()) continue;
+            if (b.covers(pin.trim()) && seen.add(b.getId())) boys.add(b);
         }
+    }
 
-        // Step 4: Last-resort — if still nobody found, show all approved boys
-        //         so admin is never completely blocked from assigning
-        if (boys.isEmpty()) {
-            boys = deliveryBoyRepository.findByActiveTrue().stream()
-                    .filter(b -> b.isVerified() && b.isAdminApproved())
-                    .toList();
-        }
-
+    private List<EligibleDeliveryBoyItem> buildEligibleItems(List<DeliveryBoy> boys) {
         List<EligibleDeliveryBoyItem> data = new ArrayList<>();
         for (DeliveryBoy b : boys) {
             if (!b.isActive() || !b.isVerified() || !b.isAdminApproved()) continue;
@@ -478,8 +480,7 @@ public class DeliveryAdminService {
                     .atCap(active >= MAX_CONCURRENT_ORDERS)
                     .build());
         }
-
-        return ResponseEntity.ok(EligibleDeliveryBoysResponse.success(data, pin != null ? pin : K_N_A));
+        return data;
     }
 
     // ── Get delivery boys for a warehouse (AJAX dropdown) ─────────

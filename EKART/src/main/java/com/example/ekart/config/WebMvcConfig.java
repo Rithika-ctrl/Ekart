@@ -22,6 +22,12 @@ import com.example.ekart.deprecation.ThymeleafDeprecationInterceptor;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    // ── Static resource path constants (S1192) ──
+    private static final String PATH_CSS     = "/css/**";
+    private static final String PATH_JS      = "/js/**";
+    private static final String PATH_IMAGES  = "/images/**";
+    private static final String PATH_STATIC  = "/static/**";
+
     // ── Dependencies (constructor injection, replaces @Autowired field injection) ──
     private final AuthGuard authGuard;
     private final IndiaOnlyInterceptor indiaOnlyInterceptor;
@@ -53,7 +59,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             .addPathPatterns("/**")
             .excludePathPatterns(
                 "/blocked",
-                "/css/**", "/js/**", "/images/**", "/static/**",
+                PATH_CSS, PATH_JS, PATH_IMAGES, PATH_STATIC,
                 "/api/flutter/**"
             )
             .order(1);
@@ -71,7 +77,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             )
             .excludePathPatterns(
                 "/admin/login",
-                "/css/**", "/js/**", "/images/**", "/static/**"
+                PATH_CSS, PATH_JS, PATH_IMAGES, PATH_STATIC
             )
             .order(2);
 
@@ -84,7 +90,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 "/delivery/pending",
                 "/delivery/warehouses",
                 "/delivery/otp/**",
-                "/css/**", "/js/**", "/images/**", "/static/**"
+                PATH_CSS, PATH_JS, PATH_IMAGES, PATH_STATIC
             )
             .order(3);
 
@@ -96,7 +102,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             .addPathPatterns("/api/react/delivery/**")
             .excludePathPatterns(
                 "/api/react/auth/delivery/**",
-                "/css/**", "/js/**", "/images/**", "/static/**"
+                PATH_CSS, PATH_JS, PATH_IMAGES, PATH_STATIC
             )
             .order(4);
 
@@ -126,7 +132,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 )
                 .excludePathPatterns(
                     "/api/**",
-                    "/css/**", "/js/**", "/images/**", "/static/**"
+                    PATH_CSS, PATH_JS, PATH_IMAGES, PATH_STATIC
                 )
                 .order(5);
         }
@@ -137,7 +143,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // Static resources (CSS, JS, images, media) cached for 1 year
         // Vite includes content hash in filenames, so aggressive caching is safe
         registry
-                .addResourceHandler("/static/**", "/css/**", "/js/**", "/media/**", "/images/**")
+                .addResourceHandler(PATH_STATIC, PATH_CSS, PATH_JS, "/media/**", PATH_IMAGES)
                 .addResourceLocations("classpath:/static/", "classpath:/public/")
                 .setCachePeriod(31536000);
 

@@ -86,37 +86,42 @@ public class DeliveryBoyService {
         return "delivery-register.html";
     }
 
-    public String selfRegister(String name, String email, long mobile,
-                                String newCredential, String credentialConfirm,
-                                int warehouseId, HttpSession session) {
-
+    /** Validates selfRegister inputs; returns an error message string, or null if all valid. */
+    private String validateSelfRegisterInputs(String name, String email,
+                                               String newCredential, String credentialConfirm,
+                                               int warehouseId) {
         if (name == null || name.trim().length() < 3) {
-            session.setAttribute(KEY_FAILURE, "Name must be at least 3 characters");
-            return K_REDIRECT_DELIVERY_REGISTER;
+            return "Name must be at least 3 characters";
         }
         if (email == null || !email.contains("@")) {
-            session.setAttribute(KEY_FAILURE, "Enter a valid email address");
-            return K_REDIRECT_DELIVERY_REGISTER;
+            return "Enter a valid email address";
         }
         if (deliveryBoyRepository.existsByEmail(email.trim().toLowerCase())) {
             DeliveryBoy existing = deliveryBoyRepository.findByEmail(email.trim().toLowerCase());
             if (existing != null && existing.isVerified()) {
-                session.setAttribute(KEY_FAILURE, "This email is already verified. Please login instead.");
-                return K_REDIRECT_DELIVERY_REGISTER;
+                return "This email is already verified. Please login instead.";
             }
-            // Allow updating unverified account
         }
         if (newCredential == null || credentialConfirm == null || !newCredential.equals(credentialConfirm)) {
-            session.setAttribute(KEY_FAILURE, "Password and Confirm Password must match");
-            return K_REDIRECT_DELIVERY_REGISTER;
+            return "Password and Confirm Password must match";
         }
         String credentialStrengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
         if (!newCredential.matches(credentialStrengthRegex)) {
-            session.setAttribute(KEY_FAILURE, "Password must be at least 8 characters and include uppercase, lowercase, number and special character");
-            return K_REDIRECT_DELIVERY_REGISTER;
+            return "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
         }
         if (warehouseId <= 0) {
-            session.setAttribute(KEY_FAILURE, "Please select a warehouse");
+            return "Please select a warehouse";
+        }
+        return null;
+    }
+
+    public String selfRegister(String name, String email, long mobile,
+                                String newCredential, String credentialConfirm,
+                                int warehouseId, HttpSession session) {
+
+        String validationError = validateSelfRegisterInputs(name, email, newCredential, credentialConfirm, warehouseId);
+        if (validationError != null) {
+            session.setAttribute(KEY_FAILURE, validationError);
             return K_REDIRECT_DELIVERY_REGISTER;
         }
 
@@ -338,9 +343,6 @@ public class DeliveryBoyService {
         db.setAvailable(isAvailable);
         deliveryBoyRepository.save(db);
 
-        // AUTO-ASSIGN DISABLED (Phase 3)
-        // Previously: if (isAvailable) autoAssignmentService.onDeliveryBoyOnline(db);
-        // Now: Warehouse staff manually assigns orders via WarehouseReceivingService
         if (isAvailable) {
             log.info("[DELIVERY BOY] {} is now online (manual assignment enabled)", db.getName());
         }
@@ -453,9 +455,6 @@ public class DeliveryBoyService {
         try { emailSender.sendDeliveryConfirmation(order.getCustomer(), order); }
         catch (Exception e) { log.error("Delivery confirmation email failed: {}", e.getMessage(), e); }
 
-        // AUTO-ASSIGN DISABLED (Phase 3)
-        // Previously: autoAssignmentService.onOrderDelivered(db);
-        // Now: Warehouse staff will manually assign next order for delivery boy
         log.info("[DELIVERY] Order delivered by delivery_boy (auto-fill disabled), delivery_boy_id={}", db.getId());
 
         res.put(KEY_SUCCESS, true);

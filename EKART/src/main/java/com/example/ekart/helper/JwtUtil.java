@@ -163,7 +163,7 @@ public class JwtUtil {
     public int extractDeliveryBoyId(String token) {
         Claims claims = extractAllClaims(token);
         Object dbid = claims.getSubject();
-        if (dbid == null) throw new RuntimeException("No delivery boy ID in token");
+        if (dbid == null) throw new IllegalArgumentException("No delivery boy ID in token");
         return Integer.parseInt(dbid.toString());
     }
 
@@ -171,7 +171,7 @@ public class JwtUtil {
     public int extractAdminId(String token) {
         Claims claims = extractAllClaims(token);
         Object adminId = claims.getSubject();
-        if (adminId == null) throw new RuntimeException("No admin ID in token");
+        if (adminId == null) throw new IllegalArgumentException("No admin ID in token");
         return Integer.parseInt(adminId.toString());
     }
 }

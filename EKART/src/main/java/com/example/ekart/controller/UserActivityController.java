@@ -62,7 +62,7 @@ public class UserActivityController {
             res.put("success", false);
             res.put("message", "Error retrieving activities: " + e.getMessage());
             res.put("activities", new java.util.ArrayList<>());
-            return ResponseEntity.ok(res);
+            return ResponseEntity.status(500).body(res);
         }
     }
 }

@@ -122,7 +122,7 @@ public class SettlementController {
         } catch (IllegalArgumentException | IllegalStateException e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, e.getMessage());
-            return ResponseEntity.ok(res);
+            return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "Error submitting settlement batch: " + e.getMessage());
@@ -290,7 +290,7 @@ public class SettlementController {
         } catch (IllegalArgumentException | IllegalStateException e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, e.getMessage());
-            return ResponseEntity.ok(res);
+            return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "Error approving settlement: " + e.getMessage());

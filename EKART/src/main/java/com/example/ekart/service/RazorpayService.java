@@ -107,7 +107,7 @@ public class RazorpayService {
             String payload = razorpayOrderId + "|" + razorpayPaymentId;
             String computedSignature = hmacSHA256(payload, razorpayKeySecret);
             return computedSignature.equals(signature);
-        } catch (Exception e) {
+        } catch (java.security.NoSuchAlgorithmException | java.security.InvalidKeyException e) {
             LOGGER.error("Signature verification failed: {}", e.getMessage(), e);
             return false;
         }
@@ -116,7 +116,8 @@ public class RazorpayService {
     /**
      * HMAC-SHA256 hash for signature verification
      */
-    private String hmacSHA256(String data, String secret) throws Exception {
+    private String hmacSHA256(String data, String secret)
+            throws java.security.NoSuchAlgorithmException, java.security.InvalidKeyException {
         javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
         javax.crypto.spec.SecretKeySpec secretKeySpec = new javax.crypto.spec.SecretKeySpec(
                 secret.getBytes(), "HmacSHA256");

@@ -86,7 +86,7 @@ public class EmailSender {
     // ===================== SEND OTP TO VENDOR =====================
     @Async
     public void send(Vendor vendor) {
-        sendVendorOtpSecure(vendor, String.format("%06d", vendor.getOtp()));
+        self.sendVendorOtpSecure(vendor, String.format("%06d", vendor.getOtp()));
     }
 
     /** Secure OTP sender - displays OTP as 6-digit formatted string */
@@ -305,7 +305,7 @@ public class EmailSender {
     // ===================== SEND OTP TO DELIVERY BOY =====================
     @Async
     public void sendDeliveryBoyOtp(DeliveryBoy db) {
-        sendDeliveryBoyOtpSecure(db, String.format("%06d", db.getOtp()));
+        self.sendDeliveryBoyOtpSecure(db, String.format("%06d", db.getOtp()));
     }
 
     /** Secure OTP sender - displays OTP as 6-digit formatted string */

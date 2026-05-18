@@ -50,6 +50,8 @@ public class DeprecationInterceptor implements HandlerInterceptor {
      * Map of legacy routes → React SPA routes
      * NOTE: React SPA handled by SpaRouteController catch-all forwarding to /index.html
      */
+    private static final String ADMIN_REVIEWS_PATH = "/admin/reviews";
+
     private static final Map<String, String> LEGACY_TO_SPA = new HashMap<>();
 
     static {
@@ -57,12 +59,12 @@ public class DeprecationInterceptor implements HandlerInterceptor {
         LEGACY_TO_SPA.put("/admin/accounts", "/admin/accounts");
         LEGACY_TO_SPA.put("/admin/refunds", "/admin/refunds");
         LEGACY_TO_SPA.put("/admin/coupons", "/admin/coupons");
-        LEGACY_TO_SPA.put("/admin/reviews", "/admin/reviews");
+        LEGACY_TO_SPA.put(ADMIN_REVIEWS_PATH, ADMIN_REVIEWS_PATH);
         LEGACY_TO_SPA.put("/admin/policies", "/admin/policies");
         LEGACY_TO_SPA.put("/admin/delivery", "/admin/delivery");
         LEGACY_TO_SPA.put("/admin/warehouses", "/admin/warehouses");
-        LEGACY_TO_SPA.put("/admin/delete-review/", "/admin/reviews");
-        LEGACY_TO_SPA.put("/admin/bulk-delete-reviews", "/admin/reviews");
+        LEGACY_TO_SPA.put("/admin/delete-review/", ADMIN_REVIEWS_PATH);
+        LEGACY_TO_SPA.put("/admin/bulk-delete-reviews", ADMIN_REVIEWS_PATH);
 
         // Customer routes → SPA equivalent
         LEGACY_TO_SPA.put("/customer/profile", "/shop/profile");

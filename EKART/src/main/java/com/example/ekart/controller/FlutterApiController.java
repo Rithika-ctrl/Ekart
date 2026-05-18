@@ -80,6 +80,7 @@ public class FlutterApiController {
     private static final String MSG_NOT_AUTHENTICATED   = "Not authenticated";
     private static final String MSG_ORDER_NOT_FOUND     = "Order not found";
     private static final String MSG_WAREHOUSE_NOT_FOUND = "Warehouse not found";
+    private static final String MSG_EMAIL_REQUIRED       = "Email is required";
     private static final String MSG_EMAIL_REGISTERED    = "Email already registered";
     private static final String MSG_REGISTRATION_FAILED = "Registration failed: ";
     private static final String MSG_LOGIN_FAILED        = "Login failed: ";
@@ -173,7 +174,7 @@ public class FlutterApiController {
         try {
             String email = (String) body.get(KEY_EMAIL);
             if (email == null || email.isBlank()) {
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required");
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             if (deps.customerRepository.existsByEmail(email)) {
@@ -1220,56 +1221,17 @@ public class FlutterApiController {
             if (cart == null || cart.getItems().isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Cart is empty"); return ResponseEntity.badRequest().body(res); }
 
             List<Item> orderItems = new ArrayList<>();
-            double total = 0;
-            for (Item cartItem : cart.getItems()) {
-                Product product = deps.productRepository.findById(cartItem.getProductId()).orElse(null);
-                if (product == null || product.getStock() < cartItem.getQuantity()) {
-                    res.put(KEY_SUCCESS, false);
-                    res.put(KEY_MESSAGE, "Insufficient stock for: " + cartItem.getName());
-                    return ResponseEntity.badRequest().body(res);
-                }
-                product.setStock(product.getStock() - cartItem.getQuantity());
-                deps.productRepository.save(product);
-                Item oi = new Item();
-                oi.setName(cartItem.getName()); oi.setDescription(cartItem.getDescription());
-                oi.setPrice(cartItem.getPrice()); oi.setCategory(cartItem.getCategory());
-                oi.setQuantity(cartItem.getQuantity()); oi.setImageLink(cartItem.getImageLink());
-                oi.setProductId(cartItem.getProductId());
-                orderItems.add(oi);
-                total += cartItem.getPrice() * cartItem.getQuantity();
+            double total = buildOrderItems(cart.getItems(), orderItems, res);
+            if (!orderItems.isEmpty() && res.containsKey(KEY_SUCCESS) && Boolean.FALSE.equals(res.get(KEY_SUCCESS))) {
+                return ResponseEntity.badRequest().body(res);
             }
 
             String deliveryTime   = (String) body.getOrDefault(KEY_DELIVERY_TIME, "STANDARD");
             double deliveryCharge = "EXPRESS".equals(deliveryTime) ? 50.0 : 0.0;
 
-            // ── Structured address support ──────────────────────────────────
-            // If recipientName is provided use the structured address fields;
-            // otherwise fall back to legacy flat K_CITY string.
-            String deliveryAddress;
-            String recipientName = (String) body.get(K_RECIPIENT_NAME);
-            if (recipientName != null && !recipientName.isBlank()) {
-                String houseStreet = (String) body.getOrDefault(K_HOUSE_STREET, "");
-                String city        = (String) body.getOrDefault(K_CITY,        "");
-                String state       = (String) body.getOrDefault(K_STATE,       "");
-                String postalCode  = (String) body.getOrDefault(K_POSTAL_CODE,  "");
-
-                // Validate PIN if provided
-                if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
-                    res.put(KEY_SUCCESS, false);
-                    res.put(KEY_MESSAGE, PinCodeValidator.ERROR_MESSAGE);
-                    return ResponseEntity.badRequest().body(res);
-                }
-
-                // Build a formatted address string for the Order record
-                deliveryAddress = recipientName.trim()
-                        + (houseStreet.isBlank() ? "" : ", " + houseStreet.trim())
-                        + (city.isBlank()        ? "" : ", " + city.trim())
-                        + (state.isBlank()       ? "" : ", " + state.trim())
-                        + (postalCode.isBlank()  ? "" : " - " + postalCode.trim());
-            } else {
-                // Legacy: just a city string
-                deliveryAddress = (String) body.getOrDefault(K_CITY, "");
-            }
+            ResponseEntity<Map<String, Object>> addrError = resolveDeliveryAddress(body, res);
+            if (addrError != null) return addrError;
+            String deliveryAddress = (String) res.remove("_resolvedAddress");
 
             Order order = new Order();
             order.setCustomer(customer);
@@ -1281,9 +1243,6 @@ public class FlutterApiController {
             order.setDeliveryTime(deliveryTime);
             order.setDateTime(LocalDateTime.now());
             order.setTrackingStatus(TrackingStatus.PROCESSING);
-            // FIX: store the delivery address in both fields.
-            // currentCity is used as a "location display" (mutated as order moves),
-            // deliveryAddress is the immutable destination address.
             order.setDeliveryAddress(deliveryAddress);
             order.setCurrentCity(deliveryAddress);
             deps.orderRepository.save(order);
@@ -1300,6 +1259,62 @@ public class FlutterApiController {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, e.getMessage());
             return ResponseEntity.internalServerError().body(res);
         }
+    }
+
+    /**
+     * Deducts stock and builds order items from cart. Returns total amount.
+     * On stock failure, populates res with error and returns -1.
+     */
+    private double buildOrderItems(List<Item> cartItems, List<Item> orderItems, Map<String, Object> res) {
+        double total = 0;
+        for (Item cartItem : cartItems) {
+            Product product = deps.productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product == null || product.getStock() < cartItem.getQuantity()) {
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Insufficient stock for: " + cartItem.getName());
+                return -1;
+            }
+            product.setStock(product.getStock() - cartItem.getQuantity());
+            deps.productRepository.save(product);
+            Item oi = new Item();
+            oi.setName(cartItem.getName()); oi.setDescription(cartItem.getDescription());
+            oi.setPrice(cartItem.getPrice()); oi.setCategory(cartItem.getCategory());
+            oi.setQuantity(cartItem.getQuantity()); oi.setImageLink(cartItem.getImageLink());
+            oi.setProductId(cartItem.getProductId());
+            orderItems.add(oi);
+            total += cartItem.getPrice() * cartItem.getQuantity();
+        }
+        return total;
+    }
+
+    /**
+     * Resolves the delivery address from structured fields or legacy city fallback.
+     * Stores the resolved address in res under "_resolvedAddress".
+     * Returns a 400 ResponseEntity on PIN validation failure, null on success.
+     */
+    private ResponseEntity<Map<String, Object>> resolveDeliveryAddress(
+            Map<String, Object> body, Map<String, Object> res) {
+        String recipientName = (String) body.get(K_RECIPIENT_NAME);
+        if (recipientName != null && !recipientName.isBlank()) {
+            String postalCode = (String) body.getOrDefault(K_POSTAL_CODE, "");
+            if (!postalCode.isBlank() && !PinCodeValidator.isValid(postalCode)) {
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, PinCodeValidator.ERROR_MESSAGE);
+                return ResponseEntity.badRequest().body(res);
+            }
+            String houseStreet = (String) body.getOrDefault(K_HOUSE_STREET, "");
+            String city        = (String) body.getOrDefault(K_CITY,        "");
+            String state       = (String) body.getOrDefault(K_STATE,       "");
+            String address = recipientName.trim()
+                    + (houseStreet.isBlank() ? "" : ", " + houseStreet.trim())
+                    + (city.isBlank()        ? "" : ", " + city.trim())
+                    + (state.isBlank()       ? "" : ", " + state.trim())
+                    + (postalCode.isBlank()  ? "" : " - " + postalCode.trim());
+            res.put("_resolvedAddress", address);
+        } else {
+            res.put("_resolvedAddress", body.getOrDefault(K_CITY, ""));
+        }
+        return null;
     }
 
     /** GET /api/flutter/orders */
@@ -2372,7 +2387,7 @@ public class FlutterApiController {
         try {
             String email = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String name  = ((String) body.getOrDefault("name", "Vendor")).trim();
-            if (email.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email is required"); return ResponseEntity.badRequest().body(res); }
+            if (email.isEmpty()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REQUIRED); return ResponseEntity.badRequest().body(res); }
             Vendor existing = deps.vendorRepository.findByEmail(email);
             if (existing != null && existing.isVerified()) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, MSG_EMAIL_REGISTERED); return ResponseEntity.badRequest().body(res); }
             String plainOtp = deps.otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
