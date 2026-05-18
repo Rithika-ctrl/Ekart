@@ -60,7 +60,11 @@ public class Vendor implements Serializable {
 	@Column(nullable = true)
 	private LocalDateTime otpExpiry;
 
-	@Deprecated(since = "Phase 4", forRemoval = true) // Use otpHash field instead
+	/**
+	 * @deprecated Since Phase 4. Use {@code otpHash} and the secure OTP service instead.
+	 *             Will be removed once all callers are migrated.
+	 */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	private int otp;
 
 	private boolean verified;
@@ -120,7 +124,8 @@ public class Vendor implements Serializable {
 	public LocalDateTime getOtpExpiry() { return otpExpiry; }
 	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 
-	@Deprecated(since = "Phase 4", forRemoval = true) // Use setOtpHash() instead
+	/** @deprecated Since Phase 4. Use {@link #setOtpHash(String)} instead. */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	public void setOtp(int otp) { this.otp = otp; }
 
 	public boolean isVerified() { return verified; }

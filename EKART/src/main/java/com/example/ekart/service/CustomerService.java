@@ -37,6 +37,7 @@ import com.example.ekart.dto.Vendor;
 import com.example.ekart.dto.Warehouse;
 import com.example.ekart.dto.TrackingEventLog;
 import com.example.ekart.dto.TrackingStatus;
+import com.example.ekart.form.CustomerRegistrationForm;
 
 import com.example.ekart.helper.AES;
 import com.example.ekart.helper.EmailSender;
@@ -162,13 +163,19 @@ public class CustomerService {
     private String razorpayKeyId;
 
     // ---------------- REGISTER ----------------
-    public String loadRegistration(ModelMap map, Customer customer) {
-        map.put(K_CUSTOMER, customer);
+    public String loadRegistration(ModelMap map, CustomerRegistrationForm form) {
+        map.put(K_CUSTOMER, form);
         return "customer-register.html";
     }
 
     @SuppressWarnings("deprecation")
-    public String registration(Customer customer, BindingResult result, HttpSession session) {
+    public String registration(CustomerRegistrationForm form, BindingResult result, HttpSession session) {
+        Customer customer = new Customer();
+        customer.setName(form.getName());
+        customer.setEmail(form.getEmail());
+        customer.setMobile(form.getMobile());
+        customer.setPassword(form.getPassword());
+        customer.setConfirmPassword(form.getConfirmPassword());
 
         if (!customer.getPassword().equals(customer.getConfirmPassword()))
             result.rejectValue("confirmPassword", "error.confirmPassword",
@@ -690,8 +697,8 @@ public class CustomerService {
     /** Decrements the item quantity by 1 and restores one unit of stock. */
     private void decreaseItemQty(Item item, Product product) {
         int newQty = item.getQuantity() - 1;
-        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice()
-            : (product != null ? product.getPrice() : item.getPrice());
+        double fallbackPrice = (product != null) ? product.getPrice() : item.getPrice();
+        double unitPrice = item.getUnitPrice() > 0 ? item.getUnitPrice() : fallbackPrice;
         item.setUnitPrice(unitPrice);
         item.setQuantity(newQty);
         item.setPrice(unitPrice * newQty);

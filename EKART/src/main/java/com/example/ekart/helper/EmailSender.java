@@ -60,7 +60,8 @@ public class EmailSender {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
     private static final String EKART_SENDER = "Ekart";
-    private static final String TD_TR_CLOSE  = "</td></tr>";
+    private static final String TD_TR_CLOSE       = "</td></tr>";
+    private static final String P_DIV_CLOSE       = "</p></div>";
     private static final String OTP_EMAIL_TEMPLATE = "otp-email.html";
 
     // ── Injected dependencies ────────────────────────────────────────────────
@@ -278,7 +279,7 @@ public class EmailSender {
             helper.setText(html, true);
             mailSender.send(message);
         } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
-            logger.error("Back-in-stock email failed for {}", customer.getEmail(), e);
+            logger.error("Back-in-stock email failed for a customer", e);
         }
     }
 
@@ -529,7 +530,7 @@ public class EmailSender {
 
             String noteHtml = (adminNote != null && !adminNote.isBlank())
                 ? "<div style='background:#f0fff4;border-left:3px solid #22c55e;padding:10px 14px;border-radius:4px;margin:12px 0;'>"
-                  + "<p style='color:#16a34a;margin:0;font-size:0.85rem;'><strong>Admin note:</strong> " + adminNote + "</p></div>"
+                  + "<p style='color:#16a34a;margin:0;font-size:0.85rem;'><strong>Admin note:</strong> " + adminNote + P_DIV_CLOSE
                 : "";
 
             String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:500px;'>"
@@ -565,7 +566,7 @@ public class EmailSender {
 
             String noteHtml = (adminNote != null && !adminNote.isBlank())
                 ? "<div style='background:#fff5f5;border-left:3px solid #ff8060;padding:10px 14px;border-radius:4px;margin:12px 0;'>"
-                  + "<p style='color:#cc4444;margin:0;font-size:0.85rem;'><strong>Reason:</strong> " + adminNote + "</p></div>"
+                  + "<p style='color:#cc4444;margin:0;font-size:0.85rem;'><strong>Reason:</strong> " + adminNote + P_DIV_CLOSE
                 : "";
 
             String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:500px;'>"
@@ -601,7 +602,7 @@ public class EmailSender {
                 ? "<div style='background:#fff8e1;border-left:3px solid #f5a800;padding:10px 14px;"
                   + "border-radius:4px;margin:12px 0;'>"
                   + "<p style='color:#555;margin:0;font-size:0.9rem;'><strong>Details:</strong> "
-                  + description + "</p></div>"
+                  + description + P_DIV_CLOSE
                 : "";
 
             String html = "<div style='font-family:Arial,sans-serif;padding:24px;max-width:560px;'>"

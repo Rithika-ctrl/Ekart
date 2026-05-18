@@ -21,11 +21,14 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class OAuth2Controller {
 
-    private static final String K_FAILURE   = "failure";
-    private static final String K_CUSTOMER  = "customer";
-    private static final String K_VENDOR    = "vendor";
-    private static final String K_FLUTTER   = "flutter-";
-    private static final String REDIRECT_ADMIN_LOGIN = "redirect:/admin/login";
+    private static final String K_FAILURE             = "failure";
+    private static final String K_CUSTOMER            = "customer";
+    private static final String K_VENDOR              = "vendor";
+    private static final String K_FLUTTER             = "flutter-";
+    private static final String REDIRECT_ADMIN_LOGIN  = "redirect:/admin/login";
+    private static final String REDIRECT_OAUTH2_BASE  = "redirect:/oauth2/authorization/";
+    private static final String REDIRECT_CUSTOMER_LOGIN = "redirect:/customer/login";
+    private static final String REDIRECT_CUSTOMER_HOME  = "redirect:/customer/home";
 
 
     // ── Injected dependencies ────────────────────────────────────────────────
@@ -68,7 +71,7 @@ public class OAuth2Controller {
         }
 
         session.setAttribute(com.example.ekart.config.OAuth2LoginSuccessHandler.KEY_OAUTH_LOGIN_TYPE, type);   // preserve full type e.g. "flutter-customer"
-        return "redirect:/oauth2/authorization/" + provider;
+        return REDIRECT_OAUTH2_BASE + provider;
     }
 
     /**
@@ -80,19 +83,19 @@ public class OAuth2Controller {
         Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             session.setAttribute(K_FAILURE, "Please login first to link your social account");
-            return "redirect:/customer/login";
+            return REDIRECT_CUSTOMER_LOGIN;
         }
         
         // Validate provider is allowed for customers
         if (!providerValidator.isProviderAllowed(provider, K_CUSTOMER)) {
             session.setAttribute(K_FAILURE, providerValidator.getProviderDisplayName(provider) + " is not available for customer accounts");
-            return "redirect:/customer/home";
+            return REDIRECT_CUSTOMER_HOME;
         }
         
         // Set a flag so success handler knows this is a linking operation
         session.setAttribute("oauth_link_mode", K_CUSTOMER);
         session.setAttribute("oauth_link_customer_id", customer.getId());
-        return "redirect:/oauth2/authorization/" + provider;
+        return REDIRECT_OAUTH2_BASE + provider;
     }
 
     /**
@@ -114,7 +117,7 @@ public class OAuth2Controller {
         
         session.setAttribute("oauth_link_mode", K_VENDOR);
         session.setAttribute("oauth_link_vendor_id", vendor.getId());
-        return "redirect:/oauth2/authorization/" + provider;
+        return REDIRECT_OAUTH2_BASE + provider;
     }
 
     /**
@@ -126,12 +129,12 @@ public class OAuth2Controller {
         Customer customer = (Customer) session.getAttribute(K_CUSTOMER);
         if (customer == null) {
             session.setAttribute(K_FAILURE, "Please login first");
-            return "redirect:/customer/login";
+            return REDIRECT_CUSTOMER_LOGIN;
         }
 
         if (customer.getPassword() == null) {
             session.setAttribute(K_FAILURE, "Cannot unlink - you need to set a password first");
-            return "redirect:/customer/home";
+            return REDIRECT_CUSTOMER_HOME;
         }
 
         if (socialAuthService.unlinkOAuthFromCustomer(customer.getId())) {
@@ -144,7 +147,7 @@ public class OAuth2Controller {
             session.setAttribute(K_FAILURE, "Failed to unlink social account");
         }
 
-        return "redirect:/customer/home";
+        return REDIRECT_CUSTOMER_HOME;
     }
 
     /**
@@ -154,7 +157,7 @@ public class OAuth2Controller {
         switch (type.toLowerCase()) {
             case K_VENDOR: return "redirect:/vendor/login";
             case "admin": return REDIRECT_ADMIN_LOGIN;
-            default: return "redirect:/customer/login";
+            default: return REDIRECT_CUSTOMER_LOGIN;
         }
     }
 }

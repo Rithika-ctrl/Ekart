@@ -11,6 +11,8 @@ package com.example.ekart.service;
 // ================================================================
 
 import com.example.ekart.helper.PinCodeValidator;
+import com.example.ekart.form.VendorRegistrationForm;
+import com.example.ekart.form.ProductForm;
 
 import java.io.IOException;
 import java.util.List;
@@ -139,8 +141,8 @@ public class VendorService {
     // ─────────────────────────────────────────────────────────────
 
 	// ---------------- REGISTER ----------------
-	public String loadRegistration(ModelMap map, Vendor vendor) {
-		map.put(K_VENDOR, vendor);
+	public String loadRegistration(ModelMap map, VendorRegistrationForm form) {
+		map.put(K_VENDOR, form);
 		return "vendor-register.html";
 	}
 
@@ -148,7 +150,13 @@ public class VendorService {
         return String.format("VND-%05d", vendorId);
     }
 
-	public String registration(@Valid Vendor vendor, BindingResult result, HttpSession session) {
+	public String registration(@Valid VendorRegistrationForm form, BindingResult result, HttpSession session) {
+		Vendor vendor = new Vendor();
+		vendor.setName(form.getName());
+		vendor.setEmail(form.getEmail());
+		vendor.setMobile(form.getMobile());
+		vendor.setPassword(form.getPassword());
+		vendor.setConfirmPassword(form.getConfirmPassword());
 
 		if (!vendor.getPassword().equals(vendor.getConfirmPassword()))
 			result.rejectValue("confirmPassword", "error.confirmPassword",
@@ -394,7 +402,20 @@ public class VendorService {
 		return REDIRECT_VENDOR_LOGIN;
 	}
 
-	public String laodAddProduct(Product product, HttpSession session) throws IOException {
+	public String laodAddProduct(ProductForm form, HttpSession session) throws IOException {
+		Product product = new Product();
+		product.setName(form.getName());
+		product.setDescription(form.getDescription());
+		product.setPrice(form.getPrice());
+		product.setMrp(form.getMrp());
+		product.setGstRate(form.getGstRate());
+		product.setCategory(form.getCategory());
+		product.setStock(form.getStock());
+		product.setStockAlertThreshold(form.getStockAlertThreshold());
+		product.setAllowedPinCodes(form.getAllowedPinCodes());
+		product.setImage(form.getImage());
+		product.setExtraImages(form.getExtraImages());
+		product.setVideo(form.getVideo());
 
 		if (session.getAttribute(K_VENDOR) == null) {
 			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
@@ -507,7 +528,21 @@ public class VendorService {
 	}
 
 	// ---------------- UPDATE PRODUCT ----------------
-	public String updateProduct(Product product, HttpSession session) throws IOException {
+	public String updateProduct(ProductForm form, HttpSession session) throws IOException {
+		Product product = new Product();
+		product.setId(form.getId());
+		product.setName(form.getName());
+		product.setDescription(form.getDescription());
+		product.setPrice(form.getPrice());
+		product.setMrp(form.getMrp());
+		product.setGstRate(form.getGstRate());
+		product.setCategory(form.getCategory());
+		product.setStock(form.getStock());
+		product.setStockAlertThreshold(form.getStockAlertThreshold());
+		product.setAllowedPinCodes(form.getAllowedPinCodes());
+		product.setImage(form.getImage());
+		product.setExtraImages(form.getExtraImages());
+		product.setVideo(form.getVideo());
 
 		if (session.getAttribute(K_VENDOR) == null) {
 			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
@@ -525,6 +560,25 @@ public class VendorService {
 
 		int oldStock = existingProduct.getStock();
 
+		applyProductFields(existingProduct, product);
+		updateProductMedia(existingProduct, product);
+
+		productRepository.save(existingProduct);
+		stockAlertService.checkStockLevel(existingProduct);
+
+		if (oldStock == 0 && existingProduct.getStock() > 0) {
+			backInStockService.notifySubscribers(existingProduct);
+		}
+
+		session.setAttribute(KEY_SUCCESS, "Product Updated Successfully");
+		return K_REDIRECT_MANAGE_PRODUCTS;
+	}
+
+	/**
+	 * Extracted from updateProduct: copies scalar fields and stock threshold from the
+	 * incoming product form object onto the persisted entity.
+	 */
+	private void applyProductFields(Product existingProduct, Product product) {
 		existingProduct.setName(product.getName());
 		existingProduct.setDescription(product.getDescription());
 		existingProduct.setPrice(product.getPrice());
@@ -540,7 +594,13 @@ public class VendorService {
 		} else if (existingProduct.getStockAlertThreshold() == null) {
 			existingProduct.setStockAlertThreshold(10);
 		}
+	}
 
+	/**
+	 * Extracted from updateProduct: uploads main image, extra images, and video to
+	 * Cloudinary when the form includes new files.
+	 */
+	private void updateProductMedia(Product existingProduct, Product product) throws IOException {
 		if (product.getImage() != null && !product.getImage().isEmpty()) {
 			existingProduct.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 		}
@@ -560,16 +620,6 @@ public class VendorService {
 		if (product.getVideo() != null && !product.getVideo().isEmpty()) {
 			existingProduct.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
 		}
-
-		productRepository.save(existingProduct);
-		stockAlertService.checkStockLevel(existingProduct);
-
-		if (oldStock == 0 && existingProduct.getStock() > 0) {
-			backInStockService.notifySubscribers(existingProduct);
-		}
-
-		session.setAttribute(KEY_SUCCESS, "Product Updated Successfully");
-		return K_REDIRECT_MANAGE_PRODUCTS;
 	}
 
 	// ── NEW: Vendor views orders containing their products ────────
@@ -641,32 +691,14 @@ public class VendorService {
 			}
 
 			// Safe access of lazy warehouse field
-			String city = "Warehouse";
-			try {
-				if (order.getWarehouse() != null) {
-					city = order.getWarehouse().getCity();
-				} else if (order.getCurrentCity() != null && !order.getCurrentCity().isBlank()) {
-					city = order.getCurrentCity();
-				}
-			} catch (Exception lazyEx) {
-				LOGGER.warn("[VendorService] Warehouse lazy load (non-fatal): {}", lazyEx.getMessage(), lazyEx);
-			}
+			String city = resolveOrderCity(order);
 
 			order.setTrackingStatus(TrackingStatus.PACKED);
 			order.setCurrentCity(city);
 			orderRepository.save(order);
 
 			// Log tracking event — non-fatal if it fails
-			try {
-				TrackingEventLog log = new TrackingEventLog(
-					order, TrackingStatus.PACKED, city,
-					"Order packed and ready for pickup by delivery team",
-					K_VENDOR
-				);
-				trackingEventLogRepository.save(log);
-			} catch (Exception logEx) {
-				LOGGER.warn("[VendorService] TrackingEventLog save (non-fatal): {}", logEx.getMessage(), logEx);
-			}
+			savePackedTrackingEvent(order, city);
 
 			res.put(KEY_SUCCESS, true);
 			res.put(K_MESSAGE, "Order #" + orderId + " marked as Packed. Admin will assign delivery boy.");
@@ -741,38 +773,34 @@ public class VendorService {
         return "vendor-sales-report.html";
     }
 
-    // Unused helper method - kept for potential future use
-    /*
-    private java.util.Map<String, Object> buildSummary(
-            List<com.example.ekart.dto.Order> orders,
-            java.util.Set<Integer> vendorProductIds) {
-
-        double revenue   = 0;
-        int    itemsSold = 0;
-        int    vendorOrderCount = 0;
-
-        for (com.example.ekart.dto.Order o : orders) {
-            boolean hasVendorItem = false;
-            for (Item item : o.getItems()) {
-                if (item.getProductId() != null && vendorProductIds.contains(item.getProductId())) {
-                    revenue   += item.getPrice();
-                    itemsSold += item.getQuantity();
-                    hasVendorItem = true;
-                }
+    /** Extracted from markOrderReady: resolves the city from the order's warehouse (non-fatal lazy-load). */
+    private String resolveOrderCity(Order order) {
+        String city = "Warehouse";
+        try {
+            if (order.getWarehouse() != null) {
+                city = order.getWarehouse().getCity();
+            } else if (order.getCurrentCity() != null && !order.getCurrentCity().isBlank()) {
+                city = order.getCurrentCity();
             }
-            if (hasVendorItem) vendorOrderCount++;
+        } catch (Exception lazyEx) {
+            LOGGER.warn("[VendorService] Warehouse lazy load (non-fatal): {}", lazyEx.getMessage(), lazyEx);
         }
-
-        double avg = vendorOrderCount == 0 ? 0 : revenue / vendorOrderCount;
-
-        java.util.Map<String, Object> summary = new java.util.HashMap<>();
-        summary.put(K_TOTAL_REVENUE,   revenue);
-        summary.put("totalOrders",    vendorOrderCount);
-        summary.put("totalItemsSold", itemsSold);
-        summary.put("avgOrderValue",  Math.round(avg * 100.0) / 100.0);
-        return summary;
+        return city;
     }
-    */
+
+    /** Extracted from markOrderReady: saves a PACKED tracking event log entry (non-fatal). */
+    private void savePackedTrackingEvent(Order order, String city) {
+        try {
+            TrackingEventLog log = new TrackingEventLog(
+                order, TrackingStatus.PACKED, city,
+                "Order packed and ready for pickup by delivery team",
+                K_VENDOR
+            );
+            trackingEventLogRepository.save(log);
+        } catch (Exception logEx) {
+            LOGGER.warn("[VendorService] TrackingEventLog save (non-fatal): {}", logEx.getMessage(), logEx);
+        }
+    }
 
     private void saveSalesReport(Vendor vendor, String type,
             java.time.LocalDate date, java.util.Map<String, Object> summary) {

@@ -136,12 +136,10 @@ public class ReactAuthFilter extends OncePerRequestFilter {
         // Any request to /api/react/admin/** MUST carry an ADMIN token.
         // A valid CUSTOMER, VENDOR, or DELIVERY token is explicitly rejected here
         // so that non-admin roles can never reach admin data even with a valid JWT.
-        if (isAdminPath(sub)) {
-            if (!"ADMIN".equals(role)) {
-                reject(response, 403,
-                    "Admin access required — your token role is '" + role + "'");
-                return;
-            }
+        if (isAdminPath(sub) && !"ADMIN".equals(role)) {
+            reject(response, 403,
+                "Admin access required — your token role is '" + role + "'");
+            return;
         }
 
         // ── Header-ID spoofing check ──────────────────────────────────────────
@@ -188,53 +186,36 @@ public class ReactAuthFilter extends OncePerRequestFilter {
      */
     private String checkSpoofing(HttpServletRequest request, int tokenUserId, String tokenRole) {
         switch (tokenRole) {
-            case "CUSTOMER": {
-                String h = request.getHeader("X-Customer-Id");
-                if (h != null && !h.isBlank()) {
-                    try {
-                        if (Integer.parseInt(h) != tokenUserId) {
-                            return "X-Customer-Id does not match your token identity";
-                        }
-                    } catch (NumberFormatException e) {
-                        return "X-Customer-Id header is not a valid integer";
-                    }
-                }
-                break;
-            }
-            case "VENDOR": {
-                String h = request.getHeader("X-Vendor-Id");
-                if (h != null && !h.isBlank()) {
-                    try {
-                        if (Integer.parseInt(h) != tokenUserId) {
-                            return "X-Vendor-Id does not match your token identity";
-                        }
-                    } catch (NumberFormatException e) {
-                        return "X-Vendor-Id header is not a valid integer";
-                    }
-                }
-                break;
-            }
-            case "DELIVERY": {
-                String h = request.getHeader("X-Delivery-Id");
-                if (h != null && !h.isBlank()) {
-                    try {
-                        if (Integer.parseInt(h) != tokenUserId) {
-                            return "X-Delivery-Id does not match your token identity";
-                        }
-                    } catch (NumberFormatException e) {
-                        return "X-Delivery-Id header is not a valid integer";
-                    }
-                }
-                break;
-            }
+            case "CUSTOMER":
+                return checkIdentityHeader(request, "X-Customer-Id", tokenUserId);
+            case "VENDOR":
+                return checkIdentityHeader(request, "X-Vendor-Id", tokenUserId);
+            case "DELIVERY":
+                return checkIdentityHeader(request, "X-Delivery-Id", tokenUserId);
             case "ADMIN":
-                // Admin token: no identity header to check
-                break;
             case "WAREHOUSE":
-                // Warehouse token: no identity header to check
-                break;
+                // These roles operate on arbitrary IDs — no identity header to check.
+                return null;
             default:
                 return "Unknown role in token: " + tokenRole;
+        }
+    }
+
+    /**
+     * Validates that the given request header, if present, matches the token user ID.
+     * Returns an error message on mismatch or bad format; null if valid or header absent.
+     */
+    private String checkIdentityHeader(HttpServletRequest request, String headerName, int tokenUserId) {
+        String h = request.getHeader(headerName);
+        if (h == null || h.isBlank()) {
+            return null;
+        }
+        try {
+            if (Integer.parseInt(h) != tokenUserId) {
+                return headerName + " does not match your token identity";
+            }
+        } catch (NumberFormatException e) {
+            return headerName + " header is not a valid integer";
         }
         return null;
     }

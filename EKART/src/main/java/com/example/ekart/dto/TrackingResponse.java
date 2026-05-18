@@ -16,7 +16,13 @@ public class TrackingResponse {
     private List<TrackingEvent> history;
     private int progressPercent;
 
-    public TrackingResponse() {}
+    /**
+     * No-arg constructor required by Jackson (JSON deserialisation)
+     * and JPA/Spring MVC model binding.
+     */
+    public TrackingResponse() {
+        // Intentionally empty — required by Jackson and Spring for deserialisation
+    }
 
     // ─── Getters & Setters ───────────────────────────────────────
 

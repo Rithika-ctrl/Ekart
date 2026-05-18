@@ -61,8 +61,8 @@ public class AES {
     private String saltValue;
 
     // Static holder so static methods can access the Spring-injected values
-    private static String SECRET_KEY;
-    private static String SALT_VALUE;
+    private static String aesSecretKey;
+    private static String aesSaltValue;
 
     /**
      * After Spring injects the @Value fields, copy them into the static fields
@@ -70,8 +70,10 @@ public class AES {
      */
     @PostConstruct
     private void initStaticKeys() {
-        SECRET_KEY = this.secretKeyValue;
-        SALT_VALUE = this.saltValue;
+        String sk = this.secretKeyValue;
+        String sv = this.saltValue;
+        aesSecretKey = sk;
+        aesSaltValue = sv;
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ public class AES {
             byte[] iv = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             IvParameterSpec ivspec = new IvParameterSpec(iv);
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            KeySpec spec = new PBEKeySpec(SECRET_KEY.toCharArray(), SALT_VALUE.getBytes(), 65536, 256);
+            KeySpec spec = new PBEKeySpec(aesSecretKey.toCharArray(), aesSaltValue.getBytes(), 65536, 256);
             SecretKey tmp = factory.generateSecret(spec);
             SecretKeySpec secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -102,7 +104,7 @@ public class AES {
             byte[] iv = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             IvParameterSpec ivspec = new IvParameterSpec(iv);
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            KeySpec spec = new PBEKeySpec(SECRET_KEY.toCharArray(), SALT_VALUE.getBytes(), 65536, 256);
+            KeySpec spec = new PBEKeySpec(aesSecretKey.toCharArray(), aesSaltValue.getBytes(), 65536, 256);
             SecretKey tmp = factory.generateSecret(spec);
             SecretKeySpec secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");

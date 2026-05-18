@@ -72,10 +72,9 @@ public class Coupon {
 
     // Computed: is this coupon currently valid?
     public boolean isValid() {
-        if (!active) return false;
-        if (expiryDate != null && LocalDate.now().isAfter(expiryDate)) return false;
-        if (usageLimit > 0 && usedCount >= usageLimit) return false;
-        return true;
+        return active
+            && !(expiryDate != null && LocalDate.now().isAfter(expiryDate))
+            && !(usageLimit > 0 && usedCount >= usageLimit);
     }
 
     // Calculate discount for a given order amount

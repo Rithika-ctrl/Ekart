@@ -94,7 +94,7 @@ public class Order {
     private boolean returnEligible;
 
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Item> items = new ArrayList<Item>();
+    private List<Item> items = new ArrayList<>();
 
     @ManyToOne
     private Customer customer;

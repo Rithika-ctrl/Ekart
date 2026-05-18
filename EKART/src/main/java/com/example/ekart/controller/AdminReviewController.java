@@ -46,59 +46,87 @@ public class AdminReviewController {
         }
 
         List<Review> allReviews = reviewRepository.findAll();
+        List<Review> filtered   = applyFilters(allReviews, filter, search);
+        filtered.sort(this::compareByCreatedAtDesc);
 
-        // ── Star distribution ────────────────────────────────────────
-        long fiveStars  = allReviews.stream().filter(r -> r.getRating() == 5).count();
-        long fourStars  = allReviews.stream().filter(r -> r.getRating() == 4).count();
-        long threeStars = allReviews.stream().filter(r -> r.getRating() == 3).count();
-        long twoStars   = allReviews.stream().filter(r -> r.getRating() == 2).count();
-        long oneStar    = allReviews.stream().filter(r -> r.getRating() == 1).count();
+        populateStarStats(map, allReviews);
+        map.put("reviews",            filtered);
+        map.put("totalReviews",       allReviews.size());
+        map.put("filteredCount",      filtered.size());
+        map.put("activeFilter",       filter);
+        map.put("searchQuery",        search);
+        map.put("productReviewStats", buildProductStats(allReviews));
 
-        OptionalDouble avg = allReviews.stream().mapToInt(Review::getRating).average();
-        double avgRating = avg.isPresent() ? Math.round(avg.getAsDouble() * 10.0) / 10.0 : 0.0;
+        return "admin-review-managment.html";
+    }
 
-        // ── Filter by rating ─────────────────────────────────────────
-        List<Review> filtered = new ArrayList<>(allReviews);
-
+    /** Apply rating-filter then keyword search to produce the display list. */
+    private List<Review> applyFilters(List<Review> all, String filter, String search) {
+        List<Review> result = new ArrayList<>(all);
         if (!filter.equals("all")) {
             try {
                 int starFilter = Integer.parseInt(filter);
-                filtered = filtered.stream()
-                        .filter(r -> r.getRating() == starFilter)
-                        .toList();
-            } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
+                result = result.stream().filter(r -> r.getRating() == starFilter).toList();
+            } catch (NumberFormatException ignored) { /* non-numeric value — keep all */ }
         }
-
-        // ── Search by customer name or comment ───────────────────────
         if (!search.isBlank()) {
             String q = search.toLowerCase();
-            filtered = filtered.stream()
-                    .filter(r -> (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q))
-                              || (r.getComment() != null && r.getComment().toLowerCase().contains(q))
-                              || (r.getProduct() != null && r.getProduct().getName().toLowerCase().contains(q)))
+            result = result.stream()
+                    .filter(r -> matchesSearch(r, q))
                     .toList();
         }
+        return result;
+    }
 
-        // ── Sort newest first ─────────────────────────────────────────
-        filtered.sort((a, b) -> {
-            if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
-            if (a.getCreatedAt() == null) return 1;
-            if (b.getCreatedAt() == null) return -1;
-            return b.getCreatedAt().compareTo(a.getCreatedAt());
-        });
+    private boolean matchesSearch(Review r, String q) {
+        return (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q))
+            || (r.getComment()      != null && r.getComment().toLowerCase().contains(q))
+            || (r.getProduct()      != null && r.getProduct().getName().toLowerCase().contains(q));
+    }
 
-        // ── Product-wise review stats ─────────────────────────────────
-        // Map: productName → {count, avgRating}
+    private int compareByCreatedAtDesc(Review a, Review b) {
+        if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+        if (a.getCreatedAt() == null) return 1;
+        if (b.getCreatedAt() == null) return -1;
+        return b.getCreatedAt().compareTo(a.getCreatedAt());
+    }
+
+    /** Populate the per-star count and percentage model attributes. */
+    private void populateStarStats(ModelMap map, List<Review> all) {
+        long five  = all.stream().filter(r -> r.getRating() == 5).count();
+        long four  = all.stream().filter(r -> r.getRating() == 4).count();
+        long three = all.stream().filter(r -> r.getRating() == 3).count();
+        long two   = all.stream().filter(r -> r.getRating() == 2).count();
+        long one   = all.stream().filter(r -> r.getRating() == 1).count();
+        int  total = all.size();
+
+        OptionalDouble avg = all.stream().mapToInt(Review::getRating).average();
+        double avgRating   = avg.isPresent() ? Math.round(avg.getAsDouble() * 10.0) / 10.0 : 0.0;
+
+        map.put("fiveStars",  (int) five);
+        map.put("fourStars",  (int) four);
+        map.put("threeStars", (int) three);
+        map.put("twoStars",   (int) two);
+        map.put("oneStar",    (int) one);
+        map.put("avgRating",  avgRating);
+        map.put("pct5", total > 0 ? (int)(five  * 100 / total) : 0);
+        map.put("pct4", total > 0 ? (int)(four  * 100 / total) : 0);
+        map.put("pct3", total > 0 ? (int)(three * 100 / total) : 0);
+        map.put("pct2", total > 0 ? (int)(two   * 100 / total) : 0);
+        map.put("pct1", total > 0 ? (int)(one   * 100 / total) : 0);
+    }
+
+    /** Build per-product review count + average, sorted by review count desc. */
+    private List<Map<String, Object>> buildProductStats(List<Review> all) {
         Map<String, long[]> productStats = new LinkedHashMap<>();
-        for (Review r : allReviews) {
+        for (Review r : all) {
             if (r.getProduct() == null) continue;
             String pName = r.getProduct().getName();
             productStats.computeIfAbsent(pName, k -> new long[]{0, 0});
-            productStats.get(pName)[0]++;                    // count
-            productStats.get(pName)[1] += r.getRating();     // sum of ratings
+            productStats.get(pName)[0]++;
+            productStats.get(pName)[1] += r.getRating();
         }
-        // Convert to list of maps for Thymeleaf
-        List<Map<String, Object>> productReviewStats = new ArrayList<>();
+        List<Map<String, Object>> stats = new ArrayList<>();
         for (Map.Entry<String, long[]> entry : productStats.entrySet()) {
             Map<String, Object> stat = new LinkedHashMap<>();
             stat.put("productName", entry.getKey());
@@ -107,33 +135,10 @@ public class AdminReviewController {
                     ? Math.round((entry.getValue()[1] / (double) entry.getValue()[0]) * 10.0) / 10.0
                     : 0.0;
             stat.put("avgRating", pAvg);
-            productReviewStats.add(stat);
+            stats.add(stat);
         }
-        // Sort by most reviewed
-        productReviewStats.sort((a, b) -> Long.compare((long) b.get(K_COUNT), (long) a.get(K_COUNT)));
-
-        // ── Percent widths for star distribution bar ─────────────────
-        int total = allReviews.size();
-        map.put("pct5", total > 0 ? (int)(fiveStars  * 100 / total) : 0);
-        map.put("pct4", total > 0 ? (int)(fourStars  * 100 / total) : 0);
-        map.put("pct3", total > 0 ? (int)(threeStars * 100 / total) : 0);
-        map.put("pct2", total > 0 ? (int)(twoStars   * 100 / total) : 0);
-        map.put("pct1", total > 0 ? (int)(oneStar    * 100 / total) : 0);
-
-        map.put("reviews",            filtered);
-        map.put("totalReviews",       total);
-        map.put("filteredCount",      filtered.size());
-        map.put("fiveStars",          (int) fiveStars);
-        map.put("fourStars",          (int) fourStars);
-        map.put("threeStars",         (int) threeStars);
-        map.put("twoStars",           (int) twoStars);
-        map.put("oneStar",            (int) oneStar);
-        map.put("avgRating",          avgRating);
-        map.put("activeFilter",       filter);
-        map.put("searchQuery",        search);
-        map.put("productReviewStats", productReviewStats);
-
-        return "admin-review-managment.html";
+        stats.sort((a, b) -> Long.compare((long) b.get(K_COUNT), (long) a.get(K_COUNT)));
+        return stats;
     }
 
     /**

@@ -8,11 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +44,7 @@ public class GeocodingController {
     private static final String K_PIN                               = "pin";
     private static final String K_STATE                             = "state";
     private static final String K_SUCCESS                           = "success";
+    private static final String K_SOURCE                            = "source";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GeocodingController.class);
 
@@ -72,65 +75,8 @@ public class GeocodingController {
         }
 
         try {
-            // ip-api.com returns city, region, zip, country — free, no key needed
-            // Fields: status,country,countryCode,region,regionName,city,zip,lat,lon
-            String url = "http://ip-api.com/json/" + ip + "?fields=status,country,countryCode,regionName,city,zip";
-            String body = httpGet(url, K_USER_AGENT, "en");
-
-            if (body == null || !body.contains("\"success\"")) {
-                res.put(K_SUCCESS, false);
-                res.put(K_MESSAGE, "IP lookup failed.");
-                return ResponseEntity.ok(res);
-            }
-
-            String countryCode = extractJson(body, "countryCode");
-            if (!"IN".equalsIgnoreCase(countryCode)) {
-                res.put(K_SUCCESS, false);
-                res.put("outsideIndia", true);
-                res.put("country", extractJson(body, "country"));
-                res.put(K_MESSAGE, "Location outside India.");
-                return ResponseEntity.ok(res);
-            }
-
-            String city  = extractJson(body, K_CITY);
-            String state = extractJson(body, "regionName");
-            String zip   = extractJson(body, "zip");
-
-            // ip-api.com returns Indian PIN in the "zip" field
-            if (zip != null) {
-                String pin = zip.replaceAll("[^0-9]", "").trim();
-                if (pin.length() >= 6) pin = pin.substring(0, 6);
-                if (PinCodeValidator.isValid(pin)) {
-                    res.put(K_SUCCESS, true);
-                    res.put(K_PIN,    pin);
-                    res.put(K_CITY,   city  != null ? city  : "");
-                    res.put(K_STATE,  state != null ? state : "");
-                    res.put("source", "ip-api");
-                    return ResponseEntity.ok(res);
-                }
-            }
-
-            // ip-api gave city but no valid zip — try postalpincode.in with city name
-            if (city != null && !city.isBlank()) {
-                Map<String, Object> postal = callPostalPincode(city);
-                if (postal != null) {
-                    res.put(K_SUCCESS, true);
-                    res.put(K_PIN,    postal.get(K_PIN));
-                    res.put(K_CITY,   city);
-                    res.put(K_STATE,  state != null ? state : "");
-                    res.put("source", "ip-api+postalpincode");
-                    return ResponseEntity.ok(res);
-                }
-            }
-
-            // At least return city/state even if no PIN
-            res.put(K_SUCCESS, false);
-            res.put("pinMissing", true);
-            res.put(K_CITY,   city  != null ? city  : "");
-            res.put(K_STATE,  state != null ? state : "");
-            res.put(K_MESSAGE, "Detected " + city + " but could not find PIN. Please enter manually.");
-
-        } catch (Exception e) {
+            populateFromIpApi(ip, res);
+        } catch (IOException e) {
             res.put(K_SUCCESS, false);
             res.put(K_MESSAGE, "Auto-detection failed: " + e.getMessage());
         }
@@ -182,32 +128,32 @@ public class GeocodingController {
         // ── Stage 1: Nominatim (OpenStreetMap) ───────────────────────────────
         try {
             Map<String, Object> nominatim = callNominatim(lat, lon);
-            if (nominatim != null) {
+            if (!nominatim.isEmpty()) {
                 res.putAll(nominatim);
                 res.put(K_SUCCESS, true);
-                res.put("source", "nominatim");
+                res.put(K_SOURCE, "nominatim");
                 return ResponseEntity.ok(res);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.warn("[Geocoding] Nominatim failed: {}", e.getMessage(), e);
         }
 
         // ── Stage 2: BigDataCloud (free, no key) ──────────────────────────────
         try {
             Map<String, Object> bdc = callBigDataCloud(lat, lon);
-            if (bdc != null) {
+            if (!bdc.isEmpty()) {
                 String city = (String) bdc.getOrDefault(K_CITY, "");
                 String state = (String) bdc.getOrDefault(K_STATE, "");
 
                 // Stage 2b: use city name to look up PIN via postalpincode.in
                 if (!city.isBlank()) {
                     Map<String, Object> postal = callPostalPincode(city);
-                    if (postal != null) {
+                    if (!postal.isEmpty()) {
                         res.put(K_PIN,   postal.get(K_PIN));
                         res.put(K_CITY,  city);
                         res.put(K_STATE, state);
                         res.put(K_SUCCESS, true);
-                        res.put("source", "bigdatacloud+postalpincode");
+                        res.put(K_SOURCE, "bigdatacloud+postalpincode");
                         return ResponseEntity.ok(res);
                     }
                 }
@@ -220,7 +166,7 @@ public class GeocodingController {
                 res.put(K_MESSAGE, "Could not find PIN code for your area. City detected: " + city + ". Please enter PIN manually.");
                 return ResponseEntity.ok(res);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.warn("[Geocoding] BigDataCloud failed: {}", e.getMessage(), e);
         }
 
@@ -240,14 +186,14 @@ public class GeocodingController {
         Map<String, Object> res = new HashMap<>();
         try {
             Map<String, Object> result = callPostalPincode(city);
-            if (result != null) {
+            if (!result.isEmpty()) {
                 res.put(K_SUCCESS, true);
                 res.putAll(result);
             } else {
                 res.put(K_SUCCESS, false);
                 res.put(K_MESSAGE, "No PIN found for: " + city);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             res.put(K_SUCCESS, false);
             res.put(K_MESSAGE, "Lookup failed: " + e.getMessage());
         }
@@ -256,15 +202,15 @@ public class GeocodingController {
 
     // ── Private API callers ───────────────────────────────────────────────────
 
-    private Map<String, Object> callNominatim(double lat, double lon) throws Exception {
+    private Map<String, Object> callNominatim(double lat, double lon) throws IOException {
         String url = "https://nominatim.openstreetmap.org/reverse?format=json&lat="
                 + lat + "&lon=" + lon + "&addressdetails=1";
         String body = httpGet(url, K_USER_AGENT, "en");
-        if (body == null || body.isBlank()) return null;
+        if (body == null || body.isBlank()) return Collections.emptyMap();
 
         // Parse manually — no Jackson dependency needed for this simple response
         String countryCode = extractJson(body, "country_code");
-        if (!"in".equalsIgnoreCase(countryCode)) return null; // outside India
+        if (!"in".equalsIgnoreCase(countryCode)) return Collections.emptyMap(); // outside India
 
         String postcode = extractJson(body, "postcode");
         String city     = firstNonBlank(
@@ -275,42 +221,105 @@ public class GeocodingController {
         );
         String state = extractJson(body, K_STATE);
 
-        // Clean postcode — Nominatim sometimes returns ranges like "560001-560010"
-        if (postcode != null) {
-            String cleaned = postcode.replaceAll("[^0-9]", "");
-            if (cleaned.length() >= 6) {
-                String pin = cleaned.substring(0, 6);
-                if (PinCodeValidator.isValid(pin)) {
-                    Map<String, Object> r = new HashMap<>();
-                    r.put(K_PIN,   pin);
-                    r.put(K_CITY,  city != null ? city : "");
-                    r.put(K_STATE, state != null ? state : "");
-                    return r;
-                }
-            }
-        }
+        Map<String, Object> fromPostcode = parseNominatimPostcode(postcode, city, state);
+        if (!fromPostcode.isEmpty()) return fromPostcode;
 
-        // Nominatim connected but no valid postcode — try city fallback
-        if (city != null && !city.isBlank()) {
-            Map<String, Object> postal = callPostalPincode(city);
-            if (postal != null) {
-                postal.put(K_CITY,  city);
-                postal.put(K_STATE, state != null ? state : "");
-                return postal;
-            }
-        }
-
-        return null;
+        return nominatimCityFallback(city, state);
     }
 
-    private Map<String, Object> callBigDataCloud(double lat, double lon) throws Exception {
+    /**
+     * Calls ip-api.com for the given IP and populates the result map.
+     * Extracted from autoDetectFromIp to reduce cognitive complexity (S3776).
+     */
+    private void populateFromIpApi(String ip, Map<String, Object> res) throws IOException {
+        String url = "http://ip-api.com/json/" + ip + "?fields=status,country,countryCode,regionName,city,zip";
+        String body = httpGet(url, K_USER_AGENT, "en");
+
+        if (body == null || !body.contains("\"success\"")) {
+            res.put(K_SUCCESS, false);
+            res.put(K_MESSAGE, "IP lookup failed.");
+            return;
+        }
+
+        String countryCode = extractJson(body, "countryCode");
+        if (!"IN".equalsIgnoreCase(countryCode)) {
+            res.put(K_SUCCESS, false);
+            res.put("outsideIndia", true);
+            res.put("country", extractJson(body, "country"));
+            res.put(K_MESSAGE, "Location outside India.");
+            return;
+        }
+
+        String city  = extractJson(body, K_CITY);
+        String state = extractJson(body, "regionName");
+        String zip   = extractJson(body, "zip");
+
+        if (zip != null) {
+            String pin = zip.replaceAll("\\D", "").trim();
+            if (pin.length() >= 6) pin = pin.substring(0, 6);
+            if (PinCodeValidator.isValid(pin)) {
+                res.put(K_SUCCESS, true);
+                res.put(K_PIN,    pin);
+                res.put(K_CITY,   city  != null ? city  : "");
+                res.put(K_STATE,  state != null ? state : "");
+                res.put(K_SOURCE, "ip-api");
+                return;
+            }
+        }
+
+        if (city != null && !city.isBlank()) {
+            Map<String, Object> postal = callPostalPincode(city);
+            if (!postal.isEmpty()) {
+                res.put(K_SUCCESS, true);
+                res.put(K_PIN,    postal.get(K_PIN));
+                res.put(K_CITY,   city);
+                res.put(K_STATE,  state != null ? state : "");
+                res.put(K_SOURCE, "ip-api+postalpincode");
+                return;
+            }
+        }
+
+        res.put(K_SUCCESS, false);
+        res.put("pinMissing", true);
+        res.put(K_CITY,   city  != null ? city  : "");
+        res.put(K_STATE,  state != null ? state : "");
+        res.put(K_MESSAGE, "Detected " + city + " but could not find PIN. Please enter manually.");
+    }
+
+    /** Extracted from callNominatim: parse and validate postcode string into a result map. */
+    private Map<String, Object> parseNominatimPostcode(String postcode, String city, String state) {
+        if (postcode == null) return Collections.emptyMap();
+        String cleaned = postcode.replaceAll("\\D", "");
+        if (cleaned.length() < 6) return Collections.emptyMap();
+        String pin = cleaned.substring(0, 6);
+        if (!PinCodeValidator.isValid(pin)) return Collections.emptyMap();
+        Map<String, Object> r = new HashMap<>();
+        r.put(K_PIN,   pin);
+        r.put(K_CITY,  city  != null ? city  : "");
+        r.put(K_STATE, state != null ? state : "");
+        return r;
+    }
+
+    /** Extracted from callNominatim: fall back to postalpincode.in lookup using city name. */
+    private Map<String, Object> nominatimCityFallback(String city, String state) throws IOException {
+        if (city == null || city.isBlank()) return Collections.emptyMap();
+        Map<String, Object> postal = callPostalPincode(city);
+        if (!postal.isEmpty()) {
+            postal.put(K_CITY,  city);
+            postal.put(K_STATE, state != null ? state : "");
+            return postal;
+        }
+        return Collections.emptyMap();
+    }
+
+    private Map<String, Object> callBigDataCloud(double lat, double lon) throws IOException {
         String url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="
                 + lat + "&longitude=" + lon + "&localityLanguage=en";
         String body = httpGet(url, K_USER_AGENT, "en");
-        if (body == null || body.isBlank()) return null;
+        if (body == null || body.isBlank()) return Collections.emptyMap();
 
         String countryCode = extractJson(body, "countryCode");
-        if (!"IN".equalsIgnoreCase(countryCode)) return null;
+        if (!"IN".equalsIgnoreCase(countryCode)) return Collections.emptyMap();
 
         String city  = firstNonBlank(extractJson(body, K_CITY), extractJson(body, "locality"));
         String state = extractJson(body, "principalSubdivision");
@@ -321,14 +330,14 @@ public class GeocodingController {
         return r;
     }
 
-    private Map<String, Object> callPostalPincode(String cityName) throws Exception {
+    private Map<String, Object> callPostalPincode(String cityName) throws IOException {
         String encoded = URLEncoder.encode(cityName.trim(), StandardCharsets.UTF_8);
         String url = "https://api.postalpincode.in/postoffice/" + encoded;
         String body = httpGet(url, K_USER_AGENT, "en");
-        if (body == null || body.isBlank()) return null;
+        if (body == null || body.isBlank()) return Collections.emptyMap();
 
         // Response: [{"Status":"Success","PostOffice":[{"Name":"...","Pincode":"560001",...}]}]
-        if (!body.contains("\"Success\"")) return null;
+        if (!body.contains("\"Success\"")) return Collections.emptyMap();
 
         // Extract first Pincode value
         String pin = extractJson(body, "Pincode");
@@ -340,12 +349,12 @@ public class GeocodingController {
             r.put("postOffice", officeName != null ? officeName : cityName);
             return r;
         }
-        return null;
+        return Collections.emptyMap();
     }
 
     // ── HTTP helper ───────────────────────────────────────────────────────────
 
-    private String httpGet(String urlStr, String userAgent, String acceptLang) throws Exception {
+    private String httpGet(String urlStr, String userAgent, String acceptLang) throws IOException {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setConnectTimeout(CONNECT_TIMEOUT);

@@ -158,34 +158,50 @@ public class BackInStockService {
      * Resolve the customer from (in order): HTTP session attribute, Authorization Bearer token, X-Customer-Id header
      */
     private Customer resolveCustomer(HttpServletRequest request) {
-        // 1) Session
-        if (request != null) {
-            HttpSession session = request.getSession(false);
-            if (session != null) {
-                Object o = session.getAttribute("customer");
-                if (o instanceof Customer) return (Customer) o;
-            }
+        if (request == null) return null;
 
-            // 2) Authorization: Bearer <token>
-            String auth = request.getHeader("Authorization");
-            if (auth != null && auth.startsWith("Bearer ")) {
-                String token = auth.substring(7);
-                try {
-                    if (jwtUtil.isValid(token)) {
-                        int cid = jwtUtil.getCustomerId(token);
-                        return customerRepository.findById(cid).orElse(null);
-                    }
-                } catch (Exception ignored) { /* invalid or expired JWT — skip token auth, try next method */ }
-            }
+        Customer fromSession = resolveFromSession(request);
+        if (fromSession != null) return fromSession;
 
-            // 3) X-Customer-Id header (fallback)
-            String xcid = request.getHeader("X-Customer-Id");
-            if (xcid != null) {
-                try {
-                    int cid = Integer.parseInt(xcid);
+        Customer fromToken = resolveFromBearerToken(request);
+        if (fromToken != null) return fromToken;
+
+        return resolveFromCustomerIdHeader(request);
+    }
+
+    /** 1) Try to resolve customer from the HTTP session. */
+    private Customer resolveFromSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            Object o = session.getAttribute("customer");
+            if (o instanceof Customer customer) return customer;
+        }
+        return null;
+    }
+
+    /** 2) Try to resolve customer from Authorization: Bearer token. */
+    private Customer resolveFromBearerToken(HttpServletRequest request) {
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            String token = auth.substring(7);
+            try {
+                if (jwtUtil.isValid(token)) {
+                    int cid = jwtUtil.getCustomerId(token);
                     return customerRepository.findById(cid).orElse(null);
-                } catch (NumberFormatException ignored) { /* non-numeric customer ID header — treat as unauthenticated */ }
-            }
+                }
+            } catch (Exception ignored) { /* invalid or expired JWT — skip token auth, try next method */ }
+        }
+        return null;
+    }
+
+    /** 3) Try to resolve customer from the X-Customer-Id header (fallback). */
+    private Customer resolveFromCustomerIdHeader(HttpServletRequest request) {
+        String xcid = request.getHeader("X-Customer-Id");
+        if (xcid != null) {
+            try {
+                int cid = Integer.parseInt(xcid);
+                return customerRepository.findById(cid).orElse(null);
+            } catch (NumberFormatException ignored) { /* non-numeric customer ID header — treat as unauthenticated */ }
         }
         return null;
     }

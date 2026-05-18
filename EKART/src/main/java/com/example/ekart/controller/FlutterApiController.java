@@ -2669,15 +2669,10 @@ public class FlutterApiController {
         m.put(KEY_ID, i.getId()); m.put(KEY_NAME, i.getName()); m.put(K_DESCRIPTION, i.getDescription());
         m.put(K_PRICE, i.getPrice()); m.put(K_CATEGORY, i.getCategory());
         m.put(KEY_QUANTITY, i.getQuantity()); m.put(K_IMAGE_LINK, i.getImageLink()); m.put(K_PRODUCT_ID, i.getProductId());
-        // FIX: Flutter OrderItem.returnsAccepted gates the "Request Refund / Replacement"
-        // button and the "Returnable / Non-returnable" badge on the orders screen.
-        // Product.java has no returnsAccepted column yet so we default to true
-        // (all items returnable).  Once you add @Column boolean returnsAccepted
-        // to Product, swap the literal true for p.isReturnsAccepted().
         boolean returnsAccepted = true;
         if (i.getProductId() != null) {
             returnsAccepted = deps.productRepository.findById(i.getProductId())
-                    .map(p -> true)   // replace with: p.isReturnsAccepted()
+                    .map(p -> true)
                     .orElse(true);
         }
         m.put("returnsAccepted", returnsAccepted);
@@ -2695,47 +2690,48 @@ public class FlutterApiController {
         m.put(KEY_TRACKING_STATUS,        o.getTrackingStatus().name());
         m.put("trackingStatusDisplay", o.getTrackingStatus().getDisplayName());
         m.put(K_CURRENT_CITY,           o.getCurrentCity());
-        // FIX: emit the immutable destination address separately from currentCity
-        // (currentCity is mutated as the order moves; deliveryAddress never changes).
         m.put("deliveryAddress",       o.getDeliveryAddress() != null ? o.getDeliveryAddress() : "");
         m.put("orderDate",             o.getOrderDate() != null ? o.getOrderDate().toString() : null);
         m.put("replacementRequested",  o.isReplacementRequested());
         m.put(KEY_ITEMS,                 o.getItems().stream().map(this::mapItem).toList());
         if (o.getCustomer() != null) m.put(K_CUSTOMER_NAME, o.getCustomer().getName());
-
-        // ── deliveredAt ───────────────────────────────────────────────────────
-        // Looks up the DELIVERED event log entry and returns its exact timestamp.
-        // The Flutter app uses this to enforce the 7-day refund/report window
-        // client-side: if deliveredAt is null the window defaults to closed.
-        if (o.getTrackingStatus() == TrackingStatus.DELIVERED) {
-            deps.trackingEventLogRepository.findByOrderOrderByEventTimeAsc(o)
-                .stream()
-                .filter(e -> e.getStatus() == TrackingStatus.DELIVERED)
-                .findFirst()
-                .ifPresent(e -> m.put("deliveredAt",
-                        e.getEventTime() != null ? e.getEventTime().toString() : null));
-        }
-
-        // ── reviewedProductIds ────────────────────────────────────────────────
-        // Returns the list of productIds this customer has already reviewed for
-        // this order, so the Flutter app can hide the ★ Rate button per item and
-        // show a "Reviewed" badge instead. Always present (empty list for
-        // non-delivered orders) so the app never needs a null-check.
-        if (o.getTrackingStatus() == TrackingStatus.DELIVERED
-                && o.getCustomer() != null) {
-            String customerName = o.getCustomer().getName();
-            List<Integer> reviewedIds = o.getItems().stream()
-                .filter(i -> i.getProductId() != null)
-                .filter(i -> deps.reviewRepository.existsByProductIdAndCustomerName(
-                        i.getProductId(), customerName))
-                .map(Item::getProductId)
-                .toList();
-            m.put("reviewedProductIds", reviewedIds);
-        } else {
-            m.put("reviewedProductIds", Collections.emptyList());
-        }
-
+        enrichDeliveredAt(o, m);
+        enrichReviewedProductIds(o, m);
         return m;
+    }
+
+    /**
+     * Looks up the DELIVERED event log entry and stores its timestamp in the map.
+     * The Flutter app uses this to enforce the 7-day refund/report window client-side.
+     */
+    private void enrichDeliveredAt(Order o, Map<String, Object> m) {
+        if (o.getTrackingStatus() != TrackingStatus.DELIVERED) return;
+        deps.trackingEventLogRepository.findByOrderOrderByEventTimeAsc(o)
+            .stream()
+            .filter(e -> e.getStatus() == TrackingStatus.DELIVERED)
+            .findFirst()
+            .ifPresent(e -> m.put("deliveredAt",
+                    e.getEventTime() != null ? e.getEventTime().toString() : null));
+    }
+
+    /**
+     * Populates reviewedProductIds so the Flutter app can hide the Rate button
+     * for already-reviewed items and show a "Reviewed" badge instead.
+     * Always present (empty list for non-delivered orders).
+     */
+    private void enrichReviewedProductIds(Order o, Map<String, Object> m) {
+        if (o.getTrackingStatus() != TrackingStatus.DELIVERED || o.getCustomer() == null) {
+            m.put("reviewedProductIds", Collections.emptyList());
+            return;
+        }
+        String customerName = o.getCustomer().getName();
+        List<Integer> reviewedIds = o.getItems().stream()
+            .filter(i -> i.getProductId() != null)
+            .filter(i -> deps.reviewRepository.existsByProductIdAndCustomerName(
+                    i.getProductId(), customerName))
+            .map(Item::getProductId)
+            .toList();
+        m.put("reviewedProductIds", reviewedIds);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

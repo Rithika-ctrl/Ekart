@@ -1482,17 +1482,8 @@ public class ReactApiController {
 
     // ═══════════════════════════════════════════════════════
     // AUTH — FORGOT PASSWORD  (Customer + Vendor)
-    //
-    // Flow driven by AuthPage.jsx:
-    //   Step 1 — POST /auth/{role}/forgot-password   body: { email }
-    //            → generates OTP, emails it, returns { success }
-    //   Step 2 — POST /auth/{role}/verify-otp        body: { email, otp }  (otp is a STRING "123456")
-    //            → validates OTP, marks email as verified in otpVerified map
-    //   Step 3 — POST /auth/{role}/reset-password    body: { email, newPassword }
-    //            → checks otpVerified map, sets new password, clears flag
-    //
-    // The frontend never sends customerId/vendorId — email is the key throughout.
-    // OTP is transmitted as a string from the 6-box input widget.
+    // Three-step OTP flow: send-otp → verify-otp → reset-password.
+    // Email is the key throughout; OTP is transmitted as a 6-digit string.
     // ═══════════════════════════════════════════════════════
 
     /** POST /api/flutter/auth/customer/forgot-password */
@@ -5513,7 +5504,6 @@ public class ReactApiController {
         ResponseEntity<Map<String, Object>> guard = requireAdmin(request);
         if (guard != null) return guard;
 
-
         String role = (String) request.getAttribute(CLAIM_ROLE);
         if (!ROLE_ADMIN.equals(role)) {
             return ResponseEntity.status(403)
@@ -5528,41 +5518,23 @@ public class ReactApiController {
                 .filter(com.example.ekart.dto.Product::isApproved).count();
         long pendingProducts   = totalProducts - approvedProducts;
         long totalReviews      = reviewRepository.count();
-
-        double avgRating = totalReviews > 0 ? reviewRepository.getOverallAverageRating() : 0.0;
+        double avgRating       = totalReviews > 0 ? reviewRepository.getOverallAverageRating() : 0.0;
 
         // ── Order aggregates ─────────────────────────────────────────────────
         List<Order> allOrders = orderRepository.findAll();
         long totalOrders = allOrders.size();
-
-        double totalRevenue = allOrders.stream()
-                .mapToDouble(Order::getTotalPrice).sum();
-
+        double totalRevenue = allOrders.stream().mapToDouble(Order::getTotalPrice).sum();
         double avgOrderValue = totalOrders > 0
-                ? Math.round((totalRevenue / totalOrders) * 100.0) / 100.0
-                : 0.0;
+                ? Math.round((totalRevenue / totalOrders) * 100.0) / 100.0 : 0.0;
 
-        // Status counts
-        Map<String, Long> statusBreakdown = new java.util.LinkedHashMap<>();
-        for (Order o : allOrders) {
-            String status = o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "UNKNOWN";
-            statusBreakdown.merge(status, 1L, Long::sum);
-        }
-        long deliveredOrders  = statusBreakdown.getOrDefault(STATUS_DELIVERED,    0L);
-        long processingOrders = statusBreakdown.getOrDefault(STATUS_PROCESSING,   0L);
-        long shippedOrders    = statusBreakdown.getOrDefault(STATUS_SHIPPED,      0L);
-        long cancelledOrders  = statusBreakdown.getOrDefault("CANCELLED",    0L);
+        Map<String, Long> statusBreakdown = buildStatusBreakdown(allOrders);
 
-        // ── Daily orders — last 7 days ───────────────────────────────────────
-        Map<String, Long> dailyOrders = buildDailyOrderCounts(allOrders);
-
-        // ── Monthly revenue — last 6 months ─────────────────────────────────
+        // ── Time-series ──────────────────────────────────────────────────────
+        Map<String, Long>   dailyOrders    = buildDailyOrderCounts(allOrders);
         Map<String, Double> monthlyRevenue = buildMonthlyRevenue(allOrders);
 
-        // ── Top 5 products by revenue ────────────────────────────────────────
+        // ── Product analytics ────────────────────────────────────────────────
         List<Map<String, Object>> topProducts = buildTopProductsByRevenue(allOrders);
-
-        // ── Category distribution ────────────────────────────────────────────
         Map<String, Long> categoryStats = productRepository.findAll().stream()
                 .filter(p -> p.getCategory() != null)
                 .collect(Collectors.groupingBy(
@@ -5580,10 +5552,10 @@ public class ReactApiController {
         res.put(K_TOTALORDERS,      totalOrders);
         res.put(K_TOTALREVENUE,     Math.round(totalRevenue * 100.0) / 100.0);
         res.put(K_AVGORDERVALUE,    avgOrderValue);
-        res.put("deliveredOrders",  deliveredOrders);
-        res.put("processingOrders", processingOrders);
-        res.put("shippedOrders",    shippedOrders);
-        res.put("cancelledOrders",  cancelledOrders);
+        res.put("deliveredOrders",  statusBreakdown.getOrDefault(STATUS_DELIVERED,    0L));
+        res.put("processingOrders", statusBreakdown.getOrDefault(STATUS_PROCESSING,   0L));
+        res.put("shippedOrders",    statusBreakdown.getOrDefault(STATUS_SHIPPED,      0L));
+        res.put("cancelledOrders",  statusBreakdown.getOrDefault("CANCELLED",    0L));
         res.put("totalReviews",     totalReviews);
         res.put(K_AVGRATING,        Math.round(avgRating * 10.0) / 10.0);
         res.put("dailyOrders",      dailyOrders);
@@ -5592,6 +5564,15 @@ public class ReactApiController {
         res.put("categoryStats",    categoryStats);
         res.put("statusBreakdown",  statusBreakdown);
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Long> buildStatusBreakdown(List<Order> allOrders) {
+        Map<String, Long> statusBreakdown = new java.util.LinkedHashMap<>();
+        for (Order o : allOrders) {
+            String status = o.getTrackingStatus() != null ? o.getTrackingStatus().name() : "UNKNOWN";
+            statusBreakdown.merge(status, 1L, Long::sum);
+        }
+        return statusBreakdown;
     }
 
 
@@ -5685,58 +5666,9 @@ public class ReactApiController {
             List<Order> delivered = orderRepository.findByCustomer(customer).stream()
                     .filter(o -> o.getTrackingStatus() == TrackingStatus.DELIVERED)
                     .toList();
-
-            Map<String, Object> entry = new HashMap<>();
-            entry.put("id",    customer.getId());
-            entry.put(K_NAME,  customer.getName());
-            entry.put(KEY_EMAIL, customer.getEmail());
-
-            if (delivered.isEmpty()) {
-                entry.put(K_TOTALSPENT,       0.0);
-                entry.put(K_TOTALORDERS,      0);
-                entry.put(K_AVGORDERVALUE,    0.0);
-                entry.put(K_TOPCATEGORY,      "—");
-                entry.put(K_CATEGORY_SPENDING, new HashMap<>());
-                entry.put(K_MONTHLY_SPENDING,  new LinkedHashMap<>());
-                spendingList.add(entry);
-                continue;
-            }
-
-            double totalSpent  = delivered.stream().mapToDouble(Order::getAmount).sum();
-            int    totalOrders = delivered.size();
-
-            // Category breakdown
-            Map<String, Double> catSpend = new HashMap<>();
-            for (Order o : delivered) {
-                for (Item item : o.getItems()) {
-                    String cat = item.getCategory() != null && !item.getCategory().isBlank()
-                            ? item.getCategory() : "Uncategorized";
-                    catSpend.merge(cat, item.getPrice() * item.getQuantity(), Double::sum);
-                }
-            }
-            String topCategory = catSpend.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey).orElse("—");
-
-            // Monthly spending for current year
-            Map<String, Double> monthly = new LinkedHashMap<>();
-            for (Order o : delivered) {
-                if (o.getOrderDate() != null && o.getOrderDate().getYear() == currentYear) {
-                    String key = currentYear + "-" + String.format("%02d", o.getOrderDate().getMonthValue());
-                    monthly.merge(key, o.getAmount(), Double::sum);
-                }
-            }
-
-            entry.put(K_TOTALSPENT,       Math.round(totalSpent * 100.0) / 100.0);
-            entry.put(K_TOTALORDERS,      totalOrders);
-            entry.put(K_AVGORDERVALUE,    Math.round((totalSpent / totalOrders) * 100.0) / 100.0);
-            entry.put(K_TOPCATEGORY,      topCategory);
-            entry.put(K_CATEGORY_SPENDING, catSpend);
-            entry.put(K_MONTHLY_SPENDING,  monthly);
-            spendingList.add(entry);
+            spendingList.add(buildCustomerSpendingEntry(customer, delivered, currentYear));
         }
 
-        // Sort by totalSpent descending — top spenders first
         spendingList.sort((a, b) -> Double.compare(
                 ((Number) b.get(K_TOTALSPENT)).doubleValue(),
                 ((Number) a.get(K_TOTALSPENT)).doubleValue()));
@@ -5745,6 +5677,64 @@ public class ReactApiController {
         res.put(KEY_SUCCESS,   true);
         res.put("customers", spendingList);
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Object> buildCustomerSpendingEntry(
+            Customer customer, List<Order> delivered, int currentYear) {
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("id",     customer.getId());
+        entry.put(K_NAME,   customer.getName());
+        entry.put(KEY_EMAIL, customer.getEmail());
+
+        if (delivered.isEmpty()) {
+            entry.put(K_TOTALSPENT,        0.0);
+            entry.put(K_TOTALORDERS,       0);
+            entry.put(K_AVGORDERVALUE,     0.0);
+            entry.put(K_TOPCATEGORY,       "—");
+            entry.put(K_CATEGORY_SPENDING, new HashMap<>());
+            entry.put(K_MONTHLY_SPENDING,  new LinkedHashMap<>());
+            return entry;
+        }
+
+        double totalSpent  = delivered.stream().mapToDouble(Order::getAmount).sum();
+        int    totalOrders = delivered.size();
+
+        Map<String, Double> catSpend = buildCategorySpending(delivered);
+        String topCategory = catSpend.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey).orElse("—");
+        Map<String, Double> monthly = buildMonthlySpending(delivered, currentYear);
+
+        entry.put(K_TOTALSPENT,        Math.round(totalSpent * 100.0) / 100.0);
+        entry.put(K_TOTALORDERS,       totalOrders);
+        entry.put(K_AVGORDERVALUE,     Math.round((totalSpent / totalOrders) * 100.0) / 100.0);
+        entry.put(K_TOPCATEGORY,       topCategory);
+        entry.put(K_CATEGORY_SPENDING, catSpend);
+        entry.put(K_MONTHLY_SPENDING,  monthly);
+        return entry;
+    }
+
+    private Map<String, Double> buildCategorySpending(List<Order> delivered) {
+        Map<String, Double> catSpend = new HashMap<>();
+        for (Order o : delivered) {
+            for (Item item : o.getItems()) {
+                String cat = item.getCategory() != null && !item.getCategory().isBlank()
+                        ? item.getCategory() : "Uncategorized";
+                catSpend.merge(cat, item.getPrice() * item.getQuantity(), Double::sum);
+            }
+        }
+        return catSpend;
+    }
+
+    private Map<String, Double> buildMonthlySpending(List<Order> delivered, int currentYear) {
+        Map<String, Double> monthly = new LinkedHashMap<>();
+        for (Order o : delivered) {
+            if (o.getOrderDate() != null && o.getOrderDate().getYear() == currentYear) {
+                String key = currentYear + "-" + String.format("%02d", o.getOrderDate().getMonthValue());
+                monthly.merge(key, o.getAmount(), Double::sum);
+            }
+        }
+        return monthly;
     }
 
         // ═══════════════════════════════════════════════════════
@@ -6279,8 +6269,7 @@ public class ReactApiController {
             db.setActive(true);
             deliveryBoyRepository.save(db);
 
-            try { emailSender.sendDeliveryBoyApproved(db); }
-            catch (Exception e) { LOGGER.error("Approval email failed", e); }
+            sendDeliveryBoyApprovedEmail(db);
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, db.getName() + " approved for " + db.getWarehouse().getName() + " (" + db.getAssignedPinCodes() + ")");
@@ -6792,44 +6781,7 @@ public class ReactApiController {
 
             List<Map<String, Object>> list = new ArrayList<>();
             for (WarehouseChangeRequest r : requests) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id",          r.getId());
-                m.put(K_STATUS,      r.getStatus().name());
-                m.put(K_REASON,      r.getReason());
-                m.put(KEY_ADMIN_NOTE,   r.getAdminNote());
-                m.put(KEY_REQUESTED_AT, r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
-                m.put("resolvedAt",  r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
-
-                // Delivery boy summary
-                DeliveryBoy db = r.getDeliveryBoy();
-                Map<String, Object> dbMap = new LinkedHashMap<>();
-                dbMap.put("id",              db.getId());
-                dbMap.put(K_NAME,            db.getName());
-                dbMap.put(KEY_EMAIL,           db.getEmail());
-                dbMap.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
-                // Current warehouse (where they are now)
-                if (db.getWarehouse() != null) {
-                    Map<String, Object> cw = new LinkedHashMap<>();
-                    cw.put("id",            db.getWarehouse().getId());
-                    cw.put(K_NAME,          db.getWarehouse().getName());
-                    cw.put(K_CITY,          db.getWarehouse().getCity());
-                    cw.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
-                    dbMap.put("currentWarehouse", cw);
-                } else {
-                    dbMap.put("currentWarehouse", null);
-                }
-                m.put(K_DELIVERYBOY, dbMap);
-
-                // Requested warehouse (where they want to move TO)
-                Warehouse rw = r.getRequestedWarehouse();
-                Map<String, Object> rwMap = new LinkedHashMap<>();
-                rwMap.put("id",            rw.getId());
-                rwMap.put(K_NAME,          rw.getName());
-                rwMap.put(K_CITY,          rw.getCity());
-                rwMap.put(KEY_WAREHOUSE_CODE, rw.getWarehouseCode());
-                m.put("requestedWarehouse", rwMap);
-
-                list.add(m);
+                list.add(mapWarehouseTransferRequest(r));
             }
 
             res.put(KEY_SUCCESS,   true);
@@ -6914,8 +6866,7 @@ public class ReactApiController {
             req.setResolvedAt(java.time.LocalDateTime.now());
             warehouseChangeRequestRepository.save(req);
 
-            try { emailSender.sendWarehouseChangeApproved(db, newWarehouse, adminNote); }
-            catch (Exception e) { LOGGER.error("Warehouse change approval email failed", e); }
+            sendWarehouseChangeApprovedEmail(db, newWarehouse, adminNote);
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, db.getName() + " has been transferred to " + newWarehouse.getName());
@@ -6970,8 +6921,7 @@ public class ReactApiController {
             warehouseChangeRequestRepository.save(req);
 
             DeliveryBoy db = req.getDeliveryBoy();
-            try { emailSender.sendWarehouseChangeRejected(db, req.getRequestedWarehouse(), adminNote); }
-            catch (Exception e) { LOGGER.error("Warehouse change rejection email failed", e); }
+            sendWarehouseChangeRejectedEmail(db, req.getRequestedWarehouse(), adminNote);
 
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Warehouse transfer request rejected");
@@ -7749,21 +7699,44 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
-        if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
+        if (vendor == null) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND);
+            return ResponseEntity.badRequest().body(res);
+        }
         String current = (String) body.get(KEY_CURRENT_PASSWORD);
         String newPwd  = (String) body.get(KEY_NEW_PASSWORD);
-        if (current == null || newPwd == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Both passwords required"); return ResponseEntity.badRequest().body(res); }
+        if (current == null || newPwd == null) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Both passwords required");
+            return ResponseEntity.badRequest().body(res);
+        }
+        return applyVendorPasswordChange(vendor, current, newPwd, res);
+    }
+
+    private ResponseEntity<Map<String, Object>> applyVendorPasswordChange(
+            Vendor vendor, String current, String newPwd, Map<String, Object> res) {
         try {
             if (!AES.decrypt(vendor.getPassword()).equals(current)) {
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Current password is incorrect");
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, "Current password is incorrect");
                 return ResponseEntity.badRequest().body(res);
             }
-            if (!isStrongPassword(newPwd)) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE); return ResponseEntity.badRequest().body(res); }
+            if (!isStrongPassword(newPwd)) {
+                res.put(KEY_SUCCESS, false);
+                res.put(KEY_MESSAGE, CREDENTIAL_STRENGTH_MESSAGE);
+                return ResponseEntity.badRequest().body(res);
+            }
             vendor.setPassword(AES.encrypt(newPwd));
             vendorRepository.save(vendor);
-            res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
+            res.put(KEY_SUCCESS, true);
+            res.put(KEY_MESSAGE, MSG_PASSWORD_CHANGED);
             return ResponseEntity.ok(res);
-        } catch (Exception e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, K_FAILED + e.getMessage()); return ResponseEntity.internalServerError().body(res); }
+        } catch (Exception e) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, K_FAILED + e.getMessage());
+            return ResponseEntity.internalServerError().body(res);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -8315,41 +8288,91 @@ public class ReactApiController {
             HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
-        
-        // Extract delivery ID from JWT token
+
+        DeliveryBoy db = resolveDeliveryBoyFromRequest(request, res);
+        if (db == null) return buildDeliveryAuthErrorResponse(request, res);
+
+        int warehouseId = parseWarehouseId(body, res);
+        if (warehouseId < 0) return ResponseEntity.badRequest().body(res);
+        if (warehouseId == 0) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Please select a warehouse");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        ResponseEntity<Map<String, Object>> pendingGuard = checkNoPendingTransfer(db, res);
+        if (pendingGuard != null) return pendingGuard;
+
+        Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
+        if (requested == null) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, ERR_WAREHOUSE_NOT_FOUND);
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "You are already assigned to this warehouse");
+            return ResponseEntity.ok(res);
+        }
+
+        saveWarehouseChangeRequest(db, requested, body);
+        res.put(KEY_SUCCESS, true);
+        res.put(KEY_MESSAGE, "Transfer request submitted. Admin will review it shortly.");
+        return ResponseEntity.ok(res);
+    }
+
+    /** Resolves a DeliveryBoy from JWT token attribute; returns null if missing. */
+    private DeliveryBoy resolveDeliveryBoyFromRequest(HttpServletRequest request, Map<String, Object> res) {
+        Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
+        if (deliveryId == null) return null;
+        return deliveryBoyRepository.findById(deliveryId).orElse(null);
+    }
+
+    /** Builds the correct 401/404 error response when resolveDeliveryBoyFromRequest returns null. */
+    private ResponseEntity<Map<String, Object>> buildDeliveryAuthErrorResponse(
+            HttpServletRequest request, Map<String, Object> res) {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, ERR_AUTH_FAILED);
             return ResponseEntity.status(401).body(res);
         }
-        
-        DeliveryBoy db = deliveryBoyRepository.findById(deliveryId).orElse(null);
-        if (db == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND); return ResponseEntity.status(404).body(res); }
+        res.put(KEY_SUCCESS, false);
+        res.put(KEY_MESSAGE, ERR_DELIVERY_BOY_NOT_FOUND);
+        return ResponseEntity.status(404).body(res);
+    }
 
-        int warehouseId;
-        try { warehouseId = Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString()); }
-        catch (NumberFormatException e) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid warehouseId"); return ResponseEntity.badRequest().body(res); }
+    /**
+     * Parses warehouseId from body.
+     * Returns -1 (and populates res) on parse error; 0 if missing/zero.
+     */
+    private int parseWarehouseId(Map<String, Object> body, Map<String, Object> res) {
+        try {
+            return Integer.parseInt(body.getOrDefault(KEY_WAREHOUSE_ID, "0").toString());
+        } catch (NumberFormatException e) {
+            res.put(KEY_SUCCESS, false);
+            res.put(KEY_MESSAGE, "Invalid warehouseId");
+            return -1;
+        }
+    }
 
-        if (warehouseId <= 0) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Please select a warehouse"); return ResponseEntity.badRequest().body(res); }
-
-        // One pending request at a time
-        java.util.Optional<WarehouseChangeRequest> existing =
-                warehouseChangeRequestRepository.findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING);
-        if (existing.isPresent()) {
+    /** Returns a conflict response if a pending transfer already exists; null otherwise. */
+    private ResponseEntity<Map<String, Object>> checkNoPendingTransfer(
+            DeliveryBoy db, Map<String, Object> res) {
+        boolean hasPending = warehouseChangeRequestRepository
+                .findByDeliveryBoyAndStatus(db, WarehouseChangeRequest.Status.PENDING)
+                .isPresent();
+        if (hasPending) {
             res.put(KEY_SUCCESS, false);
             res.put(KEY_MESSAGE, "You already have a pending transfer request. Please wait for admin to review it.");
             return ResponseEntity.ok(res);
         }
+        return null;
+    }
 
-        Warehouse requested = warehouseRepository.findById(warehouseId).orElse(null);
-        if (requested == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_WAREHOUSE_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
-
-        if (db.getWarehouse() != null && db.getWarehouse().getId() == warehouseId) {
-            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "You are already assigned to this warehouse");
-            return ResponseEntity.ok(res);
-        }
-
+    /** Creates and persists a new PENDING WarehouseChangeRequest. */
+    private void saveWarehouseChangeRequest(DeliveryBoy db, Warehouse requested, Map<String, Object> body) {
         WarehouseChangeRequest req = new WarehouseChangeRequest();
         req.setDeliveryBoy(db);
         req.setRequestedWarehouse(requested);
@@ -8357,10 +8380,6 @@ public class ReactApiController {
         req.setStatus(WarehouseChangeRequest.Status.PENDING);
         req.setRequestedAt(java.time.LocalDateTime.now());
         warehouseChangeRequestRepository.save(req);
-
-        res.put(KEY_SUCCESS, true);
-        res.put(KEY_MESSAGE, "Transfer request submitted. Admin will review it shortly.");
-        return ResponseEntity.ok(res);
     }
 
     /**
@@ -8471,6 +8490,95 @@ public class ReactApiController {
         m.put(K_TOTALPRICE,      o.getTotalPrice());
         m.put("isCod",           o.getPaymentMode() != null && (o.getPaymentMode().equalsIgnoreCase(K_COD) || o.getPaymentMode().equalsIgnoreCase("Cash on Delivery")));
         return m;
+    }
+
+    /** Maps a WarehouseChangeRequest to a flat response map (reduces cognitive complexity in adminGetWarehouseTransfers). */
+    private Map<String, Object> mapWarehouseTransferRequest(WarehouseChangeRequest r) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id",             r.getId());
+        m.put(K_STATUS,         r.getStatus().name());
+        m.put(K_REASON,         r.getReason());
+        m.put(KEY_ADMIN_NOTE,   r.getAdminNote());
+        m.put(KEY_REQUESTED_AT, r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+        m.put("resolvedAt",     r.getResolvedAt()  != null ? r.getResolvedAt().toString()  : null);
+        m.put(K_DELIVERYBOY,    mapDeliveryBoyForTransfer(r.getDeliveryBoy()));
+        Warehouse rw = r.getRequestedWarehouse();
+        Map<String, Object> rwMap = new LinkedHashMap<>();
+        rwMap.put("id",              rw.getId());
+        rwMap.put(K_NAME,            rw.getName());
+        rwMap.put(K_CITY,            rw.getCity());
+        rwMap.put(KEY_WAREHOUSE_CODE, rw.getWarehouseCode());
+        m.put("requestedWarehouse", rwMap);
+        return m;
+    }
+
+    /** Maps a DeliveryBoy summary for warehouse-transfer responses. */
+    private Map<String, Object> mapDeliveryBoyForTransfer(DeliveryBoy db) {
+        Map<String, Object> dbMap = new LinkedHashMap<>();
+        dbMap.put("id",                db.getId());
+        dbMap.put(K_NAME,              db.getName());
+        dbMap.put(KEY_EMAIL,           db.getEmail());
+        dbMap.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
+        if (db.getWarehouse() != null) {
+            Map<String, Object> cw = new LinkedHashMap<>();
+            cw.put("id",              db.getWarehouse().getId());
+            cw.put(K_NAME,            db.getWarehouse().getName());
+            cw.put(K_CITY,            db.getWarehouse().getCity());
+            cw.put(KEY_WAREHOUSE_CODE, db.getWarehouse().getWarehouseCode());
+            dbMap.put("currentWarehouse", cw);
+        } else {
+            dbMap.put("currentWarehouse", null);
+        }
+        return dbMap;
+    }
+
+    /** Sends warehouse credentials email; logs and swallows failures (non-fatal). */
+    private void sendWarehouseCredentialsEmail(com.example.ekart.dto.Warehouse wh, String newPlainPassword) {
+        try {
+            emailSender.sendWarehouseCredentials(
+                wh.getContactEmail(), wh.getName(),
+                wh.getWarehouseLoginId(), newPlainPassword, wh.getCity()
+            );
+        } catch (Exception e) {
+            LOGGER.error("Failed to send credentials email", e);
+        }
+    }
+
+    /** Sends delivery-boy rejection email; logs and swallows failures (non-fatal). */
+    private void sendDeliveryBoyRejectedEmail(DeliveryBoy db, String reason) {
+        if (reason == null) return;
+        try {
+            emailSender.sendDeliveryBoyRejected(db, reason);
+        } catch (Exception e) {
+            LOGGER.error("Failed to send rejection email", e);
+        }
+    }
+
+    /** Sends the delivery-boy approval email; logs and swallows failures (non-fatal). */
+    private void sendDeliveryBoyApprovedEmail(DeliveryBoy db) {
+        try {
+            emailSender.sendDeliveryBoyApproved(db);
+        } catch (Exception e) {
+            LOGGER.error("Approval email failed", e);
+        }
+    }
+
+    /** Sends the warehouse-change approved email; logs and swallows failures (non-fatal). */
+    private void sendWarehouseChangeApprovedEmail(DeliveryBoy db, Warehouse newWarehouse, String adminNote) {
+        try {
+            emailSender.sendWarehouseChangeApproved(db, newWarehouse, adminNote);
+        } catch (Exception e) {
+            LOGGER.error("Warehouse change approval email failed", e);
+        }
+    }
+
+    /** Sends the warehouse-change rejected email; logs and swallows failures (non-fatal). */
+    private void sendWarehouseChangeRejectedEmail(DeliveryBoy db, Warehouse requestedWarehouse, String adminNote) {
+        try {
+            emailSender.sendWarehouseChangeRejected(db, requestedWarehouse, adminNote);
+        } catch (Exception e) {
+            LOGGER.error("Warehouse change rejection email failed", e);
+        }
     }
 
 
@@ -9901,14 +10009,7 @@ public class ReactApiController {
 
             // Email new password to warehouse contact
             if (wh.getContactEmail() != null) {
-                try { 
-                    emailSender.sendWarehouseCredentials(
-                        wh.getContactEmail(), wh.getName(), 
-                        wh.getWarehouseLoginId(), newPlainPassword, wh.getCity()
-                    ); 
-                } catch (Exception e) { 
-                    LOGGER.error("Failed to send credentials email", e);
-                }
+                sendWarehouseCredentialsEmail(wh, newPlainPassword);
             }
 
             return ResponseEntity.ok(Map.of(
@@ -10036,12 +10137,8 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
             
             // Optional: Send approval email
-            try {
-                if (db.getEmail() != null) {
-                    emailSender.sendDeliveryBoyApproved(db);
-                }
-            } catch (Exception e) {
-                LOGGER.error("Failed to send approval email", e);
+            if (db.getEmail() != null) {
+                sendDeliveryBoyApprovedEmail(db);
             }
             
             return ResponseEntity.ok(Map.of(
@@ -10076,15 +10173,9 @@ public class ReactApiController {
             deliveryBoyRepository.save(db);
 
             // Optional: Send rejection email
-            try {
-                if (db.getEmail() != null) {
-                    String reason = body != null ? (String) body.get(K_REASON) : null;
-                    if (reason != null) {
-                        emailSender.sendDeliveryBoyRejected(db, reason);
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.error("Failed to send rejection email", e);
+            if (db.getEmail() != null) {
+                String reason = body != null ? (String) body.get(K_REASON) : null;
+                sendDeliveryBoyRejectedEmail(db, reason);
             }
             
             return ResponseEntity.ok(Map.of(

@@ -35,7 +35,7 @@ public class DeliveryBoyController {
 
     @GetMapping("/delivery/register")
     public String registerPage(ModelMap map) {
-        return deliveryBoyService.loadRegisterPage(map);
+        return deliveryBoyService.loadRegisterPage();
     }
 
     @PostMapping("/delivery/register")

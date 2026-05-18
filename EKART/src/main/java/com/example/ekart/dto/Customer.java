@@ -65,7 +65,11 @@ public class Customer implements Serializable {
 	@Column(nullable = true)
 	private LocalDateTime otpExpiry;
 
-	@Deprecated(since = "Phase 4", forRemoval = true) // Use otpHash field instead
+	/**
+	 * @deprecated Since Phase 4. Use {@code otpHash} and the secure OTP service instead.
+	 *             Will be removed once all callers are migrated.
+	 */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	private int otp;
 
 	private boolean verified;
@@ -87,7 +91,7 @@ public class Customer implements Serializable {
 	private String providerId;
 
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<Address> addresses = new ArrayList<>();
+	private transient List<Address> addresses = new ArrayList<>();
 
 	@Column(length = 200)
 	private String recentlyViewedProducts;
@@ -107,6 +111,10 @@ public class Customer implements Serializable {
 	public long getMobile() { return mobile; }
 	public String getPassword() { return password; }
 	public String getConfirmPassword() { return confirmPassword; }
+	/**
+	 * @deprecated Use {@link #getOtpHash()} instead. This field will be removed in a future release.
+	 */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	public int getOtp() { return otp; }
 	public boolean isVerified() { return verified; }
 	public Role getRole() { return role; }
@@ -148,7 +156,10 @@ public class Customer implements Serializable {
 	public LocalDateTime getOtpExpiry() { return otpExpiry; }
 	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 
-	@Deprecated(since = "Phase 4", forRemoval = true) // Use setOtpHash() instead
+	/**
+	 * @deprecated Use {@link #setOtpHash(String)} instead. This method will be removed in a future release.
+	 */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	public void setOtp(int otp) { this.otp = otp; }
 	public void setVerified(boolean verified) { this.verified = verified; }
 	public void setRole(Role role) { this.role = role; }

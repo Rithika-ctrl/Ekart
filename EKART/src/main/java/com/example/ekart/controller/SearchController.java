@@ -25,7 +25,7 @@ public class SearchController {
     public ResponseEntity<List<SearchSuggestionDTO>> getSuggestions(
             @RequestParam(value = "q", defaultValue = "") String query) {
 
-        if (query.trim().length() < 1) {
+        if (query.trim().isEmpty()) {   // S7158: use isEmpty() instead of .length() < 1
             return ResponseEntity.ok(List.of());
         }
 

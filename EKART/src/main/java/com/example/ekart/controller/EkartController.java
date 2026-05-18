@@ -29,6 +29,9 @@ import com.example.ekart.dto.Order;
 import com.example.ekart.service.RefundService;
 import com.example.ekart.dto.Product;
 import com.example.ekart.dto.Vendor;
+import com.example.ekart.form.CustomerRegistrationForm;
+import com.example.ekart.form.ProductForm;
+import com.example.ekart.form.VendorRegistrationForm;
 import com.example.ekart.repository.CustomerRepository;
 import com.example.ekart.repository.OrderRepository;
 import com.example.ekart.repository.ProductRepository;
@@ -284,12 +287,12 @@ public class EkartController {
     // ── VENDOR ───────────────────────────────────────────────────────────────
 
     @GetMapping("/vendor/register")
-    public String loadVendorRegistration(ModelMap map, Vendor vendor) {
+    public String loadVendorRegistration(ModelMap map, VendorRegistrationForm vendor) {
         return vendorService.loadRegistration(map, vendor);
     }
 
     @PostMapping("/vendor/register")
-    public String vendorRegistration(@Valid Vendor vendor, BindingResult result, HttpSession session) {
+    public String vendorRegistration(@Valid VendorRegistrationForm vendor, BindingResult result, HttpSession session) {
         return vendorService.registration(vendor, result, session);
     }
 
@@ -356,7 +359,7 @@ public class EkartController {
     }
 
     @PostMapping("/add-product")
-    public String addProduct(Product product, HttpSession session) throws IOException {
+    public String addProduct(ProductForm product, HttpSession session) throws IOException {
         return vendorService.laodAddProduct(product, session);
     }
 
@@ -377,7 +380,7 @@ public class EkartController {
     }
 
     @PostMapping("/update-product")
-    public String updateProduct(Product product, HttpSession session) throws IOException {
+    public String updateProduct(ProductForm product, HttpSession session) throws IOException {
         return vendorService.updateProduct(product, session);
     }
 
@@ -415,12 +418,12 @@ public class EkartController {
     // ── CUSTOMER ─────────────────────────────────────────────────────────────
 
     @GetMapping("/customer/register")
-    public String loadCustomerRegistration(ModelMap map, Customer customer) {
+    public String loadCustomerRegistration(ModelMap map, CustomerRegistrationForm customer) {
         return customerService.loadRegistration(map, customer);
     }
 
     @PostMapping("/customer/register")
-    public String customerRegistration(@Valid Customer customer, BindingResult result, HttpSession session) {
+    public String customerRegistration(@Valid CustomerRegistrationForm customer, BindingResult result, HttpSession session) {
         return customerService.registration(customer, result, session);
     }
 
@@ -665,10 +668,11 @@ public class EkartController {
         List<String> blockedItems = new ArrayList<>();
 
         for (Item item : customer.getCart().getItems()) {
-            if (item.getProductId() == null) continue;
+            if (item.getProductId() == null) {
+                continue;
+            }
             Product product = productRepository.findById(item.getProductId()).orElse(null);
-            if (product == null) continue;
-            if (product.isRestrictedByPinCode()) {
+            if (product != null && product.isRestrictedByPinCode()) {
                 hasRestrictions = true;
                 if (!product.isDeliverableTo(pin)) {
                     blockedItems.add(product.getName());

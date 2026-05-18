@@ -62,11 +62,11 @@ public class JwtUtil {
 
     @PostConstruct
     private void initSecret() {
-        jwtSecret = this.secretValue;
+        String secret = this.secretValue;
         
         // ⚠️ SECURITY CHECK: Warn if using default secret in production
         if ((environment.contains("prod") || environment.contains("production")) && 
-            jwtSecret.equals(DEV_DEFAULT)) {
+            secret.equals(DEV_DEFAULT)) {
             log.error(SECURITY_ALERT_MSG);
             throw new IllegalStateException(
                 "SECURITY: JWT_SECRET environment variable must be set with a strong " +
@@ -75,9 +75,10 @@ public class JwtUtil {
         }
         
         // Warn in development
-        if (!environment.contains("prod") && jwtSecret.equals(DEV_DEFAULT)) {
+        if (!environment.contains("prod") && secret.equals(DEV_DEFAULT)) {
             log.warn("⚠️  JWT using development default (not secure). Set JWT_SECRET env var for production.");
         }
+        jwtSecret = secret;
     }
 
     private Key getKey() {

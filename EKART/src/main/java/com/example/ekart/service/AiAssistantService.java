@@ -102,7 +102,7 @@ public class AiAssistantService {
 
     private String callGemini(String userMessage, String role, String userName,
                               String contextBlock, List<Map<String, String>> history)
-            throws Exception {
+            throws java.io.IOException, InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException {
 
         String systemPrompt = buildSystemPrompt(role, userName, contextBlock);
 

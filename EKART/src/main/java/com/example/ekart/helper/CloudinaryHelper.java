@@ -12,6 +12,10 @@ import com.cloudinary.Cloudinary;
 
 @Component
 public class CloudinaryHelper {
+
+	private static final String CLOUDINARY_URL_PREFIX = "cloudinary://";
+	private static final String KEY_FOLDER            = "folder";
+
 	@Value("${cloudinary.cloud}")
 	private String cloudname;
 	@Value("${cloudinary.key}")
@@ -22,9 +26,9 @@ public class CloudinaryHelper {
 	// 🔥 Add this annotation to hide the warning from the library's raw Map
 @SuppressWarnings("rawtypes")
 public String saveToCloudinary(MultipartFile file) throws IOException {
-    Cloudinary cloudinary = new Cloudinary("cloudinary://" + key + ":" + secret + "@" + cloudname + "");
+    Cloudinary cloudinary = new Cloudinary(CLOUDINARY_URL_PREFIX + key + ":" + secret + "@" + cloudname);
     Map<String, Object> uploadOptions = new HashMap<>();
-    uploadOptions.put("folder", "Products");
+    uploadOptions.put(KEY_FOLDER, "Products");
 
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
     return (String) map.get("url");
@@ -33,9 +37,9 @@ public String saveToCloudinary(MultipartFile file) throws IOException {
 // 🔥 Upload banner image to Cloudinary
 @SuppressWarnings("rawtypes")
 public String saveBannerToCloudinary(MultipartFile file) throws IOException {
-    Cloudinary cloudinary = new Cloudinary("cloudinary://" + key + ":" + secret + "@" + cloudname);
+    Cloudinary cloudinary = new Cloudinary(CLOUDINARY_URL_PREFIX + key + ":" + secret + "@" + cloudname);
     Map<String, Object> uploadOptions = new HashMap<>();
-    uploadOptions.put("folder", "Banners");
+    uploadOptions.put(KEY_FOLDER, "Banners");
     uploadOptions.put("transformation", "w_1200,h_375,c_fill,q_auto,f_auto");
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
     return (String) map.get("secure_url");
@@ -44,9 +48,9 @@ public String saveBannerToCloudinary(MultipartFile file) throws IOException {
 // 🔥 Upload video to Cloudinary
 @SuppressWarnings("rawtypes")
 public String saveVideoToCloudinary(MultipartFile file) throws IOException {
-    Cloudinary cloudinary = new Cloudinary("cloudinary://" + key + ":" + secret + "@" + cloudname + "");
+    Cloudinary cloudinary = new Cloudinary(CLOUDINARY_URL_PREFIX + key + ":" + secret + "@" + cloudname);
     Map<String, Object> uploadOptions = new HashMap<>();
-    uploadOptions.put("folder", "Products/Videos");
+    uploadOptions.put(KEY_FOLDER, "Products/Videos");
     uploadOptions.put("resource_type", "video");
 
     Map map = cloudinary.uploader().upload(file.getBytes(), uploadOptions);

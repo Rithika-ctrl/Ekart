@@ -82,7 +82,7 @@ public class DeliveryBoyService {
 
     // ── SELF REGISTRATION ─────────────────────────────────────────
 
-    public String loadRegisterPage(ModelMap map) {
+    public String loadRegisterPage() {
         return "delivery-register.html";
     }
 
