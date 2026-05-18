@@ -299,7 +299,7 @@ public class EmailSender {
             mailSender.send(message);
         } catch (MessagingException | RuntimeException | java.io.UnsupportedEncodingException e) {
             logger.error("Password reset email failed: ", e);
-            throw new RuntimeException("Email sending failed: " + e.getMessage());
+            throw new EmailSendException("Email sending failed: " + e.getMessage(), e);
         }
     }
 

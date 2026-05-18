@@ -14,14 +14,18 @@ import java.io.IOException;
 
 /**
  * AuthGuard Interceptor for Role-Based Access Control (RBAC).
- * 
+ *
  * Protects admin routes and ensures only users with appropriate roles
  * can access restricted features.
- * 
+ *
  * Route Protection:
  * - /admin/* routes: Require admin session
- * - /refund-management/*, /content-management/*, /security-settings/*: 
+ * - /refund-management/*, /content-management/*, /security-settings/*:
  *   Require ADMIN role or admin session
+ *
+ * FIX (java:S3776): Cognitive complexity reduced from 21 → ≤15 by extracting
+ *   hasAdminSession(), hasAdminRole(), hasOrderManagerRole() helpers and
+ *   consolidating the duplicated session checks into single-purpose methods.
  */
 @Component
 public class AuthGuard implements HandlerInterceptor {
@@ -29,61 +33,31 @@ public class AuthGuard implements HandlerInterceptor {
     private static final String ROLE_ADMIN    = "admin";
     private static final String ROLE_CUSTOMER = "customer";
 
-
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws IOException {
-        
+
         String path = request.getRequestURI();
         HttpSession session = request.getSession(false);
-        
-        // Check if accessing admin-protected routes
+
         if (isAdminProtectedRoute(path)) {
-            
-            // Check if admin is logged in (admin uses email in session)
-            if (session != null && session.getAttribute(ROLE_ADMIN) != null) {
-                return true; // Admin has full access
-            }
-            
-            // Check if customer with ADMIN role is logged in
-            if (session != null) {
-                Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
-                if (customer != null && customer.getRole() == Role.ADMIN) {
-                    return true; // Customer with ADMIN role has access
-                }
-            }
-            
-            // Unauthorized - redirect to 403
+            if (hasAdminAccess(session)) return true;
             response.sendRedirect("/403");
             return false;
         }
-        
-        // Check Order Manager protected routes
+
         if (isOrderManagerRoute(path)) {
-            if (session != null) {
-                // Admin has access to everything
-                if (session.getAttribute(ROLE_ADMIN) != null) {
-                    return true;
-                }
-                
-                Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
-                if (customer != null && 
-                    (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER)) {
-                    return true;
-                }
-            }
-            
-            // Unauthorized
+            if (hasOrderManagerAccess(session)) return true;
             response.sendRedirect("/403");
             return false;
         }
-        
-        return true; // Allow all other routes
+
+        return true;
     }
-    
-    /**
-     * Check if the route requires ADMIN role.
-     */
+
+    // ── Route matchers ────────────────────────────────────────────
+
+    /** Returns true if the route requires ADMIN role or higher. */
     private boolean isAdminProtectedRoute(String path) {
         return path.startsWith("/admin/") && !path.equals("/admin/login")
             || path.startsWith("/api/admin/")
@@ -91,44 +65,56 @@ public class AuthGuard implements HandlerInterceptor {
             || path.startsWith("/content-management/")
             || path.startsWith("/security-settings/");
     }
-    
-    /**
-     * Check if the route requires ORDER_MANAGER or higher role.
-     */
+
+    /** Returns true if the route requires ORDER_MANAGER role or higher. */
     private boolean isOrderManagerRoute(String path) {
         return path.startsWith("/order-management/")
             || path.startsWith("/reports/");
     }
-    
-    /**
-     * Utility method to check if a user has admin privileges.
-     * Can be called from controllers/services.
-     */
-    public static boolean isAdmin(HttpSession session) {
-        if (session == null) return false;
-        
-        // Check admin session
-        if (session.getAttribute(ROLE_ADMIN) != null) {
-            return true;
-        }
-        
-        // Check customer with ADMIN role
+
+    // ── Access checks (extracted to reduce CC) ────────────────────
+
+    /** True if session holds a logged-in admin or a customer with ADMIN role. */
+    private boolean hasAdminAccess(HttpSession session) {
+        return session != null
+            && (hasAdminSession(session) || hasAdminRole(session));
+    }
+
+    /** True if session allows ORDER_MANAGER-level access or higher. */
+    private boolean hasOrderManagerAccess(HttpSession session) {
+        return session != null
+            && (hasAdminSession(session) || hasOrderManagerRole(session));
+    }
+
+    /** True if the session has a direct admin login attribute. */
+    private static boolean hasAdminSession(HttpSession session) {
+        return session.getAttribute(ROLE_ADMIN) != null;
+    }
+
+    /** True if the session's customer has the ADMIN role. */
+    private static boolean hasAdminRole(HttpSession session) {
         Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
         return customer != null && customer.getRole() == Role.ADMIN;
     }
-    
-    /**
-     * Utility method to check if a user has order manager or higher privileges.
-     */
-    public static boolean isOrderManagerOrHigher(HttpSession session) {
-        if (session == null) return false;
-        
-        if (session.getAttribute(ROLE_ADMIN) != null) {
-            return true;
-        }
-        
+
+    /** True if the session's customer has ORDER_MANAGER or ADMIN role. */
+    private static boolean hasOrderManagerRole(HttpSession session) {
         Customer customer = (Customer) session.getAttribute(ROLE_CUSTOMER);
-        return customer != null && 
-            (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER);
+        return customer != null
+            && (customer.getRole() == Role.ADMIN || customer.getRole() == Role.ORDER_MANAGER);
+    }
+
+    // ── Public utility methods ────────────────────────────────────
+
+    /** Returns true if the session belongs to an admin or ADMIN-role customer. */
+    public static boolean isAdmin(HttpSession session) {
+        return session != null
+            && (hasAdminSession(session) || hasAdminRole(session));
+    }
+
+    /** Returns true if the session belongs to an ORDER_MANAGER, ADMIN, or admin login. */
+    public static boolean isOrderManagerOrHigher(HttpSession session) {
+        return session != null
+            && (hasAdminSession(session) || hasOrderManagerRole(session));
     }
 }

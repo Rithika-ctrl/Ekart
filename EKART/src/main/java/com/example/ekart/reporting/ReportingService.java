@@ -68,6 +68,8 @@ public class ReportingService {
      * Idempotent: if the orderId already exists in reporting DB, it is skipped
      * to prevent double-counting on retries.
      */
+    // FIX (java:S3776): recordOrder CC reduced from 21 → ≤15 by extracting
+    //   buildSalesRecord(), applyCustomerFields(), and applyVendorFields() helpers.
     @Transactional(value = "mainTransactionManager", propagation = Propagation.REQUIRES_NEW)
     public void recordOrder(Order order) {
         if (order == null || order.getItems() == null || order.getItems().isEmpty()) return;
@@ -76,41 +78,47 @@ public class ReportingService {
         if (salesRecordRepository.existsByOrderId(order.getId())) return;
 
         for (Item item : order.getItems()) {
-            SalesRecord record = new SalesRecord();
+            SalesRecord salesRec = buildSalesRecord(order, item);
+            applyCustomerFields(salesRec, order);
+            applyVendorFields(salesRec, item);
+            salesRecordRepository.save(salesRec);
+        }
+    }
 
-            // Order-level fields
-            record.setOrderId(order.getId());
-            record.setOrderDate(order.getOrderDate() != null ? order.getOrderDate() : LocalDateTime.now());
-            record.setOrderTotal(order.getAmount());
-            record.setDeliveryCharge(order.getDeliveryCharge());
+    /** Populates order-level and item-level fields on a new SalesRecord. */
+    private SalesRecord buildSalesRecord(Order order, Item item) {
+        SalesRecord salesRec = new SalesRecord();
+        salesRec.setOrderId(order.getId());
+        salesRec.setOrderDate(order.getOrderDate() != null ? order.getOrderDate() : LocalDateTime.now());
+        salesRec.setOrderTotal(order.getAmount());
+        salesRec.setDeliveryCharge(order.getDeliveryCharge());
+        salesRec.setProductId(item.getProductId());
+        salesRec.setProductName(item.getName());
+        salesRec.setCategory(item.getCategory() != null ? item.getCategory() : "Uncategorized");
+        salesRec.setItemPrice(item.getPrice());
+        salesRec.setQuantity(item.getQuantity() > 0 ? item.getQuantity() : 1);
+        return salesRec;
+    }
 
-            // Item-level fields
-            record.setProductId(item.getProductId());
-            record.setProductName(item.getName());
-            record.setCategory(item.getCategory() != null ? item.getCategory() : "Uncategorized");
-            record.setItemPrice(item.getPrice());
-            record.setQuantity(item.getQuantity() > 0 ? item.getQuantity() : 1);
+    /** Copies customer id/name from the order onto the record, if present. */
+    private static void applyCustomerFields(SalesRecord salesRec, Order order) {
+        if (order.getCustomer() != null) {
+            salesRec.setCustomerId(order.getCustomer().getId());
+            salesRec.setCustomerName(order.getCustomer().getName());
+        }
+    }
 
-            // Customer fields
-            if (order.getCustomer() != null) {
-                record.setCustomerId(order.getCustomer().getId());
-                record.setCustomerName(order.getCustomer().getName());
+    /** Looks up vendor info via productId and copies it onto the record. */
+    private void applyVendorFields(SalesRecord salesRec, Item item) {
+        if (item.getProductId() == null) return;
+        try {
+            Product product = productRepository.findById(item.getProductId()).orElse(null);
+            if (product != null && product.getVendor() != null) {
+                salesRec.setVendorId(product.getVendor().getId());
+                salesRec.setVendorName(product.getVendor().getName());
             }
-
-            // Vendor fields — look up by productId (faster & more reliable than findByName)
-            if (item.getProductId() != null) {
-                try {
-                    Product product = productRepository.findById(item.getProductId()).orElse(null);
-                    if (product != null && product.getVendor() != null) {
-                        record.setVendorId(product.getVendor().getId());
-                        record.setVendorName(product.getVendor().getName());
-                    }
-                } catch (Exception e) {
-                    LOGGER.warn("Product not found when recording sale, vendor info omitted: {}", e.getMessage());
-                }
-            }
-
-            salesRecordRepository.save(record);
+        } catch (Exception e) {
+            LOGGER.warn("Product not found when recording sale, vendor info omitted: {}", e.getMessage());
         }
     }
 
