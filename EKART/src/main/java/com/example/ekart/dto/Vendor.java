@@ -118,13 +118,18 @@ public class Vendor implements Serializable {
 	public String getConfirmPassword() { return confirmPassword; }
 	public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
 
+	/** @deprecated Since Phase 4. Use {@link #getOtpHash()} instead. */
+	@Deprecated(since = "Phase 4", forRemoval = true)
 	public int getOtp() { return otp; }
 	public String getOtpHash() { return otpHash; }
 	public void setOtpHash(String otpHash) { this.otpHash = otpHash; }
 	public LocalDateTime getOtpExpiry() { return otpExpiry; }
 	public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 
-	/** @deprecated Since Phase 4. Use {@link #setOtpHash(String)} instead. */
+	/**
+	 * @deprecated Since Phase 4. Use {@link #setOtpHash(String)} instead.
+	 * @param otp the plain OTP value (legacy)
+	 */
 	@Deprecated(since = "Phase 4", forRemoval = true)
 	public void setOtp(int otp) { this.otp = otp; }
 
