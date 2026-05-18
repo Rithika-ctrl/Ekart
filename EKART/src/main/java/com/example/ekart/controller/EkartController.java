@@ -483,14 +483,14 @@ public class EkartController {
     public String searchProducts(@RequestParam(required = false) String query,
                                  HttpSession session, ModelMap map) {
         if (query != null && !query.isBlank()) {
-            return customerService.search(query, session, map);
+            return customerService.search(query, map);
         }
-        return customerService.searchProducts(session);
+        return customerService.searchProducts();
     }
 
     @PostMapping("/search-products")
     public String search(@RequestParam String query, HttpSession session, ModelMap map) {
-        return customerService.search(query, session, map);
+        return customerService.search(query, map);
     }
 
     @GetMapping({"/view-cart", "/customer/view-cart"})
@@ -795,7 +795,7 @@ public class EkartController {
 
     @GetMapping("/customer/delete-address/{id}")
     public String deleteAddress(@PathVariable int id, HttpSession session) {
-        return customerService.deleteAddress(id, session);
+        return customerService.deleteAddress(id);
     }
 
     // ── ADMIN ─────────────────────────────────────────────────────────────────

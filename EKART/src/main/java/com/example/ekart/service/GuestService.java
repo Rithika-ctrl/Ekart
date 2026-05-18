@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpSession;
 public class GuestService {
 
     private static final String K_PRODUCTS = "products";
+    private static final String K_GUEST     = "guest";
 
     // ── Injected dependencies ────────────────────────────────────────────────
     private final ProductRepository productRepository;
@@ -30,7 +31,7 @@ public class GuestService {
     public String startGuestSession(HttpSession session) {
         // Mark this session as a guest (don't overwrite existing customer session)
         if (session.getAttribute("customer") == null) {
-            session.setAttribute("guest", true);
+            session.setAttribute(K_GUEST, true);
         }
         session.setAttribute("success", "Browsing as Guest — Login to add items to cart");
         return "redirect:/guest/browse";
@@ -44,7 +45,7 @@ public class GuestService {
         }
 
         // Mark as guest if not already
-        session.setAttribute("guest", true);
+        session.setAttribute(K_GUEST, true);
 
         List<Product> products = productRepository.findByApprovedTrue();
         map.put(K_PRODUCTS, products);
@@ -53,7 +54,7 @@ public class GuestService {
 
     // ── Guest search ───────────────────────────────────────────────────────────
     public String guestSearch(String query, HttpSession session, ModelMap map) {
-        session.setAttribute("guest", true);
+        session.setAttribute(K_GUEST, true);
 
         HashSet<Product> products = new HashSet<>();
         if (query != null && !query.isBlank()) {
@@ -72,6 +73,6 @@ public class GuestService {
 
     // ── End guest session (on login) ───────────────────────────────────────────
     public static void endGuestSession(HttpSession session) {
-        session.removeAttribute("guest");
+        session.removeAttribute(K_GUEST);
     }
 }

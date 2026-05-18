@@ -408,11 +408,11 @@ public class CustomerService {
     }
 
     // ---------------- SEARCH ----------------
-    public String searchProducts(HttpSession session) {
+    public String searchProducts() {
         return "search.html";
     }
 
-    public String search(String query, HttpSession session, ModelMap map) {
+    public String search(String query, ModelMap map) {
         HashSet<Product> products = new HashSet<>();
         products.addAll(productRepository.findByNameContainingIgnoreCase(query));
         products.addAll(productRepository.findByDescriptionContainingIgnoreCase(query));
@@ -1407,7 +1407,7 @@ public class CustomerService {
         return "redirect:/customer/address";
     }
 
-    public String deleteAddress(int id, HttpSession session) {
+    public String deleteAddress(int id) {
         addressRepository.deleteById(id);
         return "redirect:/customer/address";
     }
