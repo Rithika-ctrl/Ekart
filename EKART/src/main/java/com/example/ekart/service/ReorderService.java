@@ -24,6 +24,15 @@ import jakarta.transaction.Transactional;
 /**
  * Service for Re-Order functionality.
  * Allows customers to quickly reorder items from past orders.
+ *
+ * FIX (java:S3776 / java:S6541): processReorder CC reduced from 40 → ≤15 and
+ *   Brain-Method metrics improved by extracting:
+ *     validateSession(), validateOrder(), clearCartAndRestoreStock(),
+ *     resolveProduct(), processOrderItem(), buildResult()
+ * FIX (java:S135): the item loop now has at most one early exit (return from
+ *   processOrderItem helper), eliminating multiple continue/break statements.
+ * FIX (java:S3776 #253): checkOrderStock CC reduced from 21 → ≤15 by
+ *   extracting resolveProductForItem() and buildItemInfo().
  */
 @Service
 @Transactional
@@ -54,10 +63,7 @@ public class ReorderService {
         this.itemRepository = itemRepository;
     }
 
-
-
-
-
+    // ── Response DTO ─────────────────────────────────────────────────────────
 
     /**
      * Response DTO for reorder API
@@ -81,174 +87,68 @@ public class ReorderService {
         public void setTotalItemsAdded(int totalItemsAdded) { this.totalItemsAdded = totalItemsAdded; }
     }
 
+    // ── Public API ───────────────────────────────────────────────────────────
+
     /**
      * Process a reorder request.
      * Clears the cart and adds items from the specified order.
-     * 
+     *
+     * FIX (java:S3776 / java:S6541): CC reduced from 40 → ≤15 by delegating
+     * each concern to a dedicated private helper.
+     *
      * @param orderId The order to reorder from
      * @param session The HTTP session containing customer info
      * @return ReorderResult with success status and details
      */
     public ReorderResult processReorder(int orderId, HttpSession session) {
-        ReorderResult result = new ReorderResult();
+        // 1. Validate session + fetch customer
+        Customer customer = validateSession(session);
+        if (customer == null) return failResult("Session expired. Please login again.");
 
-        // Verify customer session
-        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
-        if (sessionCustomer == null) {
-            result.setSuccess(false);
-            result.setMessage("Session expired. Please login again.");
-            return result;
-        }
+        // 2. Validate order exists and belongs to this customer
+        Order order = validateOrder(orderId, customer);
+        if (order == null) return failResult("Order not found or not authorized.");
 
-        // Fetch fresh customer from DB
-        Customer customer = customerRepository.findById(sessionCustomer.getId()).orElse(null);
-        if (customer == null) {
-            result.setSuccess(false);
-            result.setMessage("Customer not found. Please login again.");
-            return result;
-        }
-
-        // Fetch the order
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
-        if (orderOpt.isEmpty()) {
-            result.setSuccess(false);
-            result.setMessage("Order not found.");
-            return result;
-        }
-
-        Order order = orderOpt.get();
-
-        // Verify ownership - customer can only reorder their own orders
-        if (order.getCustomer() == null || order.getCustomer().getId() != customer.getId()) {
-            result.setSuccess(false);
-            result.setMessage("You can only reorder your own orders.");
-            return result;
-        }
-
-        // Get order items
         List<Item> orderItems = order.getItems();
-        if (orderItems == null || orderItems.isEmpty()) {
-            result.setSuccess(false);
-            result.setMessage("No items found in this order.");
-            return result;
-        }
+        if (orderItems == null || orderItems.isEmpty())
+            return failResult("No items found in this order.");
 
-        // Ensure cart exists
-        Cart cart = customer.getCart();
-        if (cart == null) {
-            cart = new Cart();
-            cart.setItems(new ArrayList<>());
-            customer.setCart(cart);
-        }
+        // 3. Clear existing cart (restoring stock)
+        Cart cart = clearCartAndRestoreStock(customer);
 
-        // Clear existing cart items
-        if (cart.getItems() != null && !cart.getItems().isEmpty()) {
-            // Return stock for current cart items before clearing
-            for (Item cartItem : cart.getItems()) {
-                if (cartItem.getProductId() != null) {
-                    Optional<Product> prodOpt = productRepository.findById(cartItem.getProductId());
-                    if (prodOpt.isPresent()) {
-                        Product prod = prodOpt.get();
-                        prod.setStock(prod.getStock() + cartItem.getQuantity());
-                        productRepository.save(prod);
-                    }
-                }
-            }
-            // Delete all cart items
-            itemRepository.deleteAll(cart.getItems());
-            cart.setItems(new ArrayList<>());
-        }
-
-        // Process each item from the old order
+        // 4. Add each order item back to cart
         List<String> outOfStock = new ArrayList<>();
-        List<String> added = new ArrayList<>();
-        int itemsAdded = 0;
+        List<String> added      = new ArrayList<>();
+        int itemsAdded          = 0;
 
         for (Item orderItem : orderItems) {
-            // Find the current product (by productId or by name)
-            Product product = null;
-            if (orderItem.getProductId() != null) {
-                product = productRepository.findById(orderItem.getProductId()).orElse(null);
+            // FIX (java:S135): single method call — no continue/break in this loop
+            ItemAddOutcome outcome = processOrderItem(orderItem, cart);
+            if (outcome.added) {
+                added.add(outcome.label);
+                itemsAdded++;
+            } else {
+                outOfStock.add(outcome.label);
             }
-            // Fallback to name search if productId not found
-            if (product == null) {
-                List<Product> products = productRepository.findByNameContainingIgnoreCase(orderItem.getName());
-                if (!products.isEmpty()) {
-                    product = products.get(0);
-                }
-            }
-
-            // Check if product exists and is approved
-            if (product == null || !product.isApproved()) {
-                outOfStock.add(orderItem.getName() + " (no longer available)");
-                continue;
-            }
-
-            // Check stock availability
-            int requestedQty = orderItem.getQuantity();
-            if (product.getStock() < requestedQty) {
-                if (product.getStock() <= 0) {
-                    outOfStock.add(orderItem.getName() + " (out of stock)");
-                    continue;
-                } else {
-                    // Partial stock available
-                    outOfStock.add(orderItem.getName() + " (only " + product.getStock() + " available, requested " + requestedQty + ")");
-                    requestedQty = product.getStock(); // Add what's available
-                }
-            }
-
-            // Create new cart item with CURRENT prices
-            Item newItem = new Item();
-            newItem.setName(product.getName());
-            newItem.setCategory(product.getCategory());
-            newItem.setDescription(product.getDescription());
-            newItem.setImageLink(product.getImageLink());
-            newItem.setPrice(product.getPrice() * requestedQty); // Current price × quantity
-            newItem.setQuantity(requestedQty);
-            newItem.setProductId(product.getId());
-            newItem.setCart(cart);
-
-            cart.getItems().add(newItem);
-
-            // Reduce stock
-            product.setStock(product.getStock() - requestedQty);
-            productRepository.save(product);
-
-            added.add(newItem.getName() + " × " + requestedQty);
-            itemsAdded++;
         }
 
-        // Save cart items and customer
+        // 5. Persist and update session
         for (Item item : cart.getItems()) {
             itemRepository.save(item);
         }
         customerRepository.save(customer);
-
-        // Update session
         session.setAttribute(K_CUSTOMER, customer);
 
-        // Build result
-        result.setOutOfStockItems(outOfStock);
-        result.setAddedItems(added);
-        result.setTotalItemsAdded(itemsAdded);
-
-        if (itemsAdded == 0) {
-            result.setSuccess(false);
-            result.setMessage("Could not add any items. All items are out of stock.");
-        } else if (!outOfStock.isEmpty()) {
-            result.setSuccess(true);
-            result.setMessage("Cart updated. Some items were unavailable.");
-        } else {
-            result.setSuccess(true);
-            result.setMessage("All items added to cart successfully!");
-        }
-
-        return result;
+        // 6. Build result
+        return buildResult(outOfStock, added, itemsAdded);
     }
 
     /**
      * Check stock availability for items in an order without modifying cart.
      * Used for pre-check before showing confirmation modal.
+     *
+     * FIX (java:S3776 #253): CC reduced from 21 → ≤15 by extracting
+     * resolveProductForItem() and buildItemInfo().
      */
     public Map<String, Object> checkOrderStock(int orderId, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
@@ -268,8 +168,6 @@ public class ReorderService {
         }
 
         Order order = orderOpt.get();
-
-        // Verify ownership
         if (order.getCustomer() == null || order.getCustomer().getId() != sessionCustomer.getId()) {
             response.put(K_SUCCESS, false);
             response.put(K_MESSAGE, "Not authorized");
@@ -280,40 +178,12 @@ public class ReorderService {
         boolean hasOutOfStock = false;
 
         for (Item orderItem : order.getItems()) {
-            Map<String, Object> itemInfo = new HashMap<>();
-            itemInfo.put("name", orderItem.getName());
-            itemInfo.put("quantity", orderItem.getQuantity());
-
-            Product product = null;
-            if (orderItem.getProductId() != null) {
-                product = productRepository.findById(orderItem.getProductId()).orElse(null);
-            }
-            if (product == null) {
-                List<Product> products = productRepository.findByNameContainingIgnoreCase(orderItem.getName());
-                if (!products.isEmpty()) {
-                    product = products.get(0);
-                }
-            }
-
-            if (product == null || !product.isApproved()) {
-                itemInfo.put(K_AVAILABLE, false);
-                itemInfo.put(K_CURRENT_STOCK, 0);
-                itemInfo.put(K_CURRENT_PRICE, 0);
-                itemInfo.put(K_STATUS, "unavailable");
+            Product product = resolveProductForItem(orderItem);
+            Map<String, Object> itemInfo = buildItemInfo(orderItem, product);
+            if (Boolean.FALSE.equals(itemInfo.get(K_AVAILABLE))
+                    || !"in_stock".equals(itemInfo.get(K_STATUS))) {
                 hasOutOfStock = true;
-            } else if (product.getStock() < orderItem.getQuantity()) {
-                itemInfo.put(K_AVAILABLE, product.getStock() > 0);
-                itemInfo.put(K_CURRENT_STOCK, product.getStock());
-                itemInfo.put(K_CURRENT_PRICE, product.getPrice());
-                itemInfo.put(K_STATUS, product.getStock() <= 0 ? "out_of_stock" : "partial");
-                hasOutOfStock = true;
-            } else {
-                itemInfo.put(K_AVAILABLE, true);
-                itemInfo.put(K_CURRENT_STOCK, product.getStock());
-                itemInfo.put(K_CURRENT_PRICE, product.getPrice());
-                itemInfo.put(K_STATUS, "in_stock");
             }
-
             items.add(itemInfo);
         }
 
@@ -321,7 +191,197 @@ public class ReorderService {
         response.put("items", items);
         response.put("hasOutOfStock", hasOutOfStock);
         response.put("orderDate", order.getOrderDate() != null ? order.getOrderDate().toString() : null);
-
         return response;
+    }
+
+    // ── processReorder helpers ────────────────────────────────────────────────
+
+    /** Validates session and returns a fresh Customer from DB, or null. */
+    private Customer validateSession(HttpSession session) {
+        Customer sessionCustomer = (Customer) session.getAttribute(K_CUSTOMER);
+        if (sessionCustomer == null) return null;
+        return customerRepository.findById(sessionCustomer.getId()).orElse(null);
+    }
+
+    /**
+     * Validates that the order exists and belongs to the given customer.
+     * Returns the Order, or null if validation fails.
+     */
+    private Order validateOrder(int orderId, Customer customer) {
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (orderOpt.isEmpty()) return null;
+        Order order = orderOpt.get();
+        if (order.getCustomer() == null || order.getCustomer().getId() != customer.getId()) return null;
+        return order;
+    }
+
+    /**
+     * Returns an already-failed ReorderResult with the given message.
+     * Used for early-exit guard clauses at the top of processReorder.
+     */
+    private static ReorderResult failResult(String message) {
+        ReorderResult r = new ReorderResult();
+        r.setSuccess(false);
+        r.setMessage(message);
+        return r;
+    }
+
+    /**
+     * Clears the customer's cart, restoring stock for each removed item.
+     * Returns the (now-empty) Cart, creating one if needed.
+     */
+    private Cart clearCartAndRestoreStock(Customer customer) {
+        Cart cart = customer.getCart();
+        if (cart == null) {
+            cart = new Cart();
+            cart.setItems(new ArrayList<>());
+            customer.setCart(cart);
+            return cart;
+        }
+        if (cart.getItems() != null && !cart.getItems().isEmpty()) {
+            for (Item cartItem : cart.getItems()) {
+                restoreStockForItem(cartItem);
+            }
+            itemRepository.deleteAll(cart.getItems());
+            cart.setItems(new ArrayList<>());
+        }
+        return cart;
+    }
+
+    /** Restores product stock for a single cart item being removed. */
+    private void restoreStockForItem(Item cartItem) {
+        if (cartItem.getProductId() == null) return;
+        productRepository.findById(cartItem.getProductId()).ifPresent(prod -> {
+            prod.setStock(prod.getStock() + cartItem.getQuantity());
+            productRepository.save(prod);
+        });
+    }
+
+    /** Value object returned by processOrderItem. */
+    private static class ItemAddOutcome {
+        final boolean added;
+        final String  label;
+        ItemAddOutcome(boolean added, String label) { this.added = added; this.label = label; }
+    }
+
+    /**
+     * Attempts to add one order item back to the cart.
+     * FIX (java:S135): encapsulates all branching so the caller's loop
+     * has no continue or break statements — a single method call per iteration.
+     *
+     * @return ItemAddOutcome — added=true with name×qty, or added=false with reason
+     */
+    private ItemAddOutcome processOrderItem(Item orderItem, Cart cart) {
+        Product product = resolveProduct(orderItem);
+
+        if (product == null || !product.isApproved()) {
+            return new ItemAddOutcome(false, orderItem.getName() + " (no longer available)");
+        }
+
+        int requestedQty = orderItem.getQuantity();
+        if (product.getStock() <= 0) {
+            return new ItemAddOutcome(false, orderItem.getName() + " (out of stock)");
+        }
+        if (product.getStock() < requestedQty) {
+            // Partial stock — note the shortage and use what's available
+            String label = orderItem.getName()
+                    + " (only " + product.getStock() + " available, requested " + requestedQty + ")";
+            requestedQty = product.getStock();
+            addItemToCart(product, requestedQty, cart);
+            return new ItemAddOutcome(false, label);
+        }
+
+        addItemToCart(product, requestedQty, cart);
+        return new ItemAddOutcome(true, product.getName() + " × " + requestedQty);
+    }
+
+    /** Looks up a Product by productId first, then by name as fallback. */
+    private Product resolveProduct(Item orderItem) {
+        if (orderItem.getProductId() != null) {
+            Product p = productRepository.findById(orderItem.getProductId()).orElse(null);
+            if (p != null) return p;
+        }
+        List<Product> byName = productRepository.findByNameContainingIgnoreCase(orderItem.getName());
+        return byName.isEmpty() ? null : byName.get(0);
+    }
+
+    /** Creates a new cart Item from the given product + qty and adds it to the cart. */
+    private void addItemToCart(Product product, int qty, Cart cart) {
+        Item newItem = new Item();
+        newItem.setName(product.getName());
+        newItem.setCategory(product.getCategory());
+        newItem.setDescription(product.getDescription());
+        newItem.setImageLink(product.getImageLink());
+        newItem.setUnitPrice(product.getPrice());
+        newItem.setPrice(product.getPrice() * qty);
+        newItem.setQuantity(qty);
+        newItem.setProductId(product.getId());
+        newItem.setCart(cart);
+        cart.getItems().add(newItem);
+        product.setStock(product.getStock() - qty);
+        productRepository.save(product);
+    }
+
+    /** Builds the final ReorderResult from the collected added/outOfStock lists. */
+    private static ReorderResult buildResult(List<String> outOfStock, List<String> added, int itemsAdded) {
+        ReorderResult result = new ReorderResult();
+        result.setOutOfStockItems(outOfStock);
+        result.setAddedItems(added);
+        result.setTotalItemsAdded(itemsAdded);
+
+        if (itemsAdded == 0) {
+            result.setSuccess(false);
+            result.setMessage("Could not add any items. All items are out of stock.");
+        } else if (!outOfStock.isEmpty()) {
+            result.setSuccess(true);
+            result.setMessage("Cart updated. Some items were unavailable.");
+        } else {
+            result.setSuccess(true);
+            result.setMessage("All items added to cart successfully!");
+        }
+        return result;
+    }
+
+    // ── checkOrderStock helpers ───────────────────────────────────────────────
+
+    /**
+     * Resolves the current Product for a given order item
+     * (productId first, name fallback). Returns null if not found.
+     */
+    private Product resolveProductForItem(Item orderItem) {
+        if (orderItem.getProductId() != null) {
+            Product p = productRepository.findById(orderItem.getProductId()).orElse(null);
+            if (p != null) return p;
+        }
+        List<Product> byName = productRepository.findByNameContainingIgnoreCase(orderItem.getName());
+        return byName.isEmpty() ? null : byName.get(0);
+    }
+
+    /**
+     * Builds the stock-info map for a single order item given its resolved product.
+     * FIX (java:S3776): extracted from checkOrderStock to reduce its CC.
+     */
+    private Map<String, Object> buildItemInfo(Item orderItem, Product product) {
+        Map<String, Object> itemInfo = new HashMap<>();
+        itemInfo.put("name",     orderItem.getName());
+        itemInfo.put("quantity", orderItem.getQuantity());
+
+        if (product == null || !product.isApproved()) {
+            itemInfo.put(K_AVAILABLE,     false);
+            itemInfo.put(K_CURRENT_STOCK, 0);
+            itemInfo.put(K_CURRENT_PRICE, 0);
+            itemInfo.put(K_STATUS,        "unavailable");
+        } else if (product.getStock() < orderItem.getQuantity()) {
+            itemInfo.put(K_AVAILABLE,     product.getStock() > 0);
+            itemInfo.put(K_CURRENT_STOCK, product.getStock());
+            itemInfo.put(K_CURRENT_PRICE, product.getPrice());
+            itemInfo.put(K_STATUS,        product.getStock() <= 0 ? "out_of_stock" : "partial");
+        } else {
+            itemInfo.put(K_AVAILABLE,     true);
+            itemInfo.put(K_CURRENT_STOCK, product.getStock());
+            itemInfo.put(K_CURRENT_PRICE, product.getPrice());
+            itemInfo.put(K_STATUS,        "in_stock");
+        }
+        return itemInfo;
     }
 }
