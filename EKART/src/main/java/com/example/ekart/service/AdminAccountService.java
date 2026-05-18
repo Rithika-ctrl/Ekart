@@ -36,6 +36,8 @@ public class AdminAccountService {
     private static final String K_MESSAGE                           = "message";
     private static final String K_SUCCESS                           = "success";
     private static final String K_VERIFIED                          = "verified";
+    private static final String K_EMAIL                             = "email";
+    private static final String K_IS_ACTIVE                         = "isActive";
 
     private static final Logger log = LoggerFactory.getLogger(AdminAccountService.class);
     private static final Random RANDOM = new Random();
@@ -100,10 +102,10 @@ public class AdminAccountService {
         
         data.put("id", customer.getId());
         data.put("name", customer.getName());
-        data.put("email", customer.getEmail());
+        data.put(K_EMAIL, customer.getEmail());
         data.put("mobile", customer.getMobile());
         data.put("role", customer.getRole().name());
-        data.put("isActive", customer.isActive());
+        data.put(K_IS_ACTIVE, customer.isActive());
         data.put(K_VERIFIED, customer.isVerified());
         data.put("provider", customer.getProvider()); // OAuth provider if any
         data.put("lastLogin", customer.getLastLogin());
@@ -140,7 +142,7 @@ public class AdminAccountService {
         
         result.put(K_SUCCESS, true);
         result.put(K_MESSAGE, activate ? "Account activated successfully" : "Account deactivated successfully");
-        result.put("isActive", customer.isActive());
+        result.put(K_IS_ACTIVE, customer.isActive());
         
         // Log the action
         log.info("[ADMIN] Account {} {} by admin", customer.getEmail(), (activate ? "activated" : "deactivated"));
@@ -163,10 +165,10 @@ public class AdminAccountService {
         // Basic info
         profile.put("id", customer.getId());
         profile.put("name", customer.getName());
-        profile.put("email", customer.getEmail());
+        profile.put(K_EMAIL, customer.getEmail());
         profile.put("mobile", customer.getMobile());
         profile.put("role", customer.getRole().name());
-        profile.put("isActive", customer.isActive());
+        profile.put(K_IS_ACTIVE, customer.isActive());
         profile.put(K_VERIFIED, customer.isVerified());
         profile.put("lastLogin", customer.getLastLogin());
         profile.put("provider", customer.getProvider());
@@ -272,7 +274,7 @@ public class AdminAccountService {
         result.put(K_SUCCESS, true);
         result.put("resetUrl", resetUrl);
         result.put("otp", otp);
-        result.put("email", customer.getEmail());
+        result.put(K_EMAIL, customer.getEmail());
         
         // Send email notification (optional)
         try {

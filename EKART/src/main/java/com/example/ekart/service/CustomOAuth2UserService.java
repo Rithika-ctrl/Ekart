@@ -20,6 +20,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     // ── Injected dependencies ────────────────────────────────────────────────
     private final SocialAuthService socialAuthService;
 
+    // ── S1192 String constants ──
+    private static final String PROVIDER_INSTAGRAM = "instagram";
+
     public CustomOAuth2UserService(SocialAuthService socialAuthService) {
         this.socialAuthService = socialAuthService;
     }
@@ -55,7 +58,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 return githubId != null ? githubId.toString() : null;
             case "facebook":
                 return (String) attributes.get("id");
-            case "instagram":
+            case PROVIDER_INSTAGRAM:
                 Object instaId = attributes.get("id");
                 return instaId != null ? instaId.toString() : null;
             default:
@@ -65,7 +68,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private String extractEmail(OAuth2User oAuth2User, String provider) {
         // Instagram requires app approval to access email
-        if ("instagram".equals(provider.toLowerCase())) {
+        if (provider.equalsIgnoreCase(PROVIDER_INSTAGRAM)) {
             // Try to get email if app is approved for email access
             String email = oAuth2User.getAttribute("email");
             if (email != null && !email.isEmpty()) {
@@ -101,7 +104,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 return name;
             case "facebook":
                 return (String) attributes.get("name");
-            case "instagram":
+            case PROVIDER_INSTAGRAM:
                 return (String) attributes.get("username");
             default:
                 return null;
