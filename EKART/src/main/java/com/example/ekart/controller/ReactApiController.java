@@ -557,13 +557,11 @@ public class ReactApiController {
                 res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Email already registered");
                 return ResponseEntity.badRequest().body(res);
             }
-            // Generate OTP and store in TEMPORARY cache only (not in DB)
-            String otp = String.format(FMT_OTP, RANDOM.nextInt(1000000));
-            registerOtpCache.put(email, new OtpData(otp));
-            registerOtpVerified.remove(email);
+            // 🔒 NEW: Use secure OTP service (like delivery boy & vendor registration)
+            // S1141: extracted nested try block into helper method
+            trySendCustomerRegisterOtp(email, name);
             
-            // Send OTP via email (S1141: extracted to avoid nested try block)
-            trySendCustomerRegisterOtp(email, name, otp);
+            registerOtpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "OTP sent to " + email);
             return ResponseEntity.ok(res);
@@ -582,26 +580,29 @@ public class ReactApiController {
             String email  = ((String) body.getOrDefault(KEY_EMAIL, "")).trim().toLowerCase();
             String otpStr = body.getOrDefault(K_OTP, "").toString().trim();
             
-            // Get OTP from temporary cache (not from DB)
-            OtpData otpData = registerOtpCache.get(email);
-            if (otpData == null) {
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "No pending OTP. Please request a new one.");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (otpData.isExpired()) {
-                registerOtpCache.remove(email);
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP expired. Please request a new one.");
-                return ResponseEntity.badRequest().body(res);
-            }
-            if (!otpData.otp.equals(otpStr)) {
-                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Invalid OTP");
+            if (email.isEmpty() || otpStr.isEmpty()) {
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_EMAIL_OTP_REQUIRED);
                 return ResponseEntity.badRequest().body(res);
             }
             
-            // Mark email as verified in registration map
+            // 🔒 Format OTP with leading zeros (e.g., 1234 → "001234")
+            String formattedOtp = String.format(FMT_OTP, Integer.parseInt(otpStr));
+            
+            // Verify OTP using secure service (hashed comparison)
+            com.example.ekart.service.OtpService.VerificationResult result = otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_CUSTOMER_REGISTER);
+            
+            if (!result.success) {
+                res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, result.message);
+                return ResponseEntity.badRequest().body(res);
+            }
+            
+            // Mark this email as OTP-verified (for the next registration step)
             registerOtpVerified.put(email, Boolean.TRUE);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "OTP verified successfully");
             return ResponseEntity.ok(res);
+        } catch (NumberFormatException e) {
+            res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "OTP must be a 6-digit number");
+            return ResponseEntity.badRequest().body(res);
         } catch (Exception e) {
             res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VERIFICATION_FAILED + e.getMessage());
             return ResponseEntity.internalServerError().body(res);
@@ -911,9 +912,23 @@ public class ReactApiController {
     /**
      * Sends a customer registration OTP email using the new EmailSender method (no deprecated setOtp).
      */
-    private void trySendCustomerRegisterOtp(String email, String name, String otp) {
+    /**
+     * Generates and sends a registration OTP email to a customer via the secure
+     * OTP service, swallowing exceptions so the caller is not interrupted.
+     * Extracted to avoid nested try blocks (SonarQube S1141).
+     * <p>
+     * Note: {@code setOtp()} is called on a transient Customer object used only
+     * for the legacy email template; will be removed once EmailSender is migrated.
+     */
+    @SuppressWarnings({"deprecation", "java:S1874"}) // setOtp() required by legacy EmailSender template
+    private void trySendCustomerRegisterOtp(String email, String name) {
         try {
-            emailSender.sendCustomerOtp(email, name, otp);
+            String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_CUSTOMER_REGISTER);
+            com.example.ekart.dto.Customer tempForEmail = new com.example.ekart.dto.Customer();
+            tempForEmail.setName(name);
+            tempForEmail.setEmail(email);
+            tempForEmail.setOtp(Integer.parseInt(plainOtp));
+            emailSender.sendCustomerOtp(email, name, plainOtp);
         } catch (Exception e) {
             LOGGER.error("Customer register OTP email failed", e);
         }

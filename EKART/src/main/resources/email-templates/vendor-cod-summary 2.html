@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 700px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #9b59b6; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .summary-box { background: #e8d5f2; border: 2px solid #9b59b6; border-radius: 8px; padding: 20px; margin: 15px 0; text-align: center; }
+        .summary-stat { display: inline-block; margin: 10px 20px; text-align: center; }
+        .stat-number { font-size: 28px; font-weight: bold; color: #9b59b6; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0; }
+        .metric-card { background: #f8f9fa; border-left: 4px solid #3498db; padding: 15px; border-radius: 4px; }
+        .metric-card strong { display: block; color: #2c3e50; font-size: 14px; }
+        .metric-card .value { font-size: 20px; color: #3498db; font-weight: bold; margin-top: 5px; }
+        .growth-positive { color: #27ae60; font-weight: bold; }
+        .growth-negative { color: #e74c3c; font-weight: bold; }
+        .settlement-table { background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 4px; padding: 15px; margin: 15px 0; }
+        .action-box { background: #d5f4e6; border-left: 4px solid #27ae60; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #ecf0f1; font-weight: bold; }
+        .button { background: #9b59b6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 COD Performance Summary</h1>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">{{MONTH_YEAR}}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{VENDOR_NAME}},</p>
+            
+            <p>Here's your comprehensive COD (Cash-on-Delivery) performance summary for {{MONTH_YEAR}}. Review your metrics and settlement status below:</p>
+            
+            <div class="summary-box">
+                <div class="summary-stat">
+                    <div class="stat-number">{{TOTAL_COD_ORDERS}}</div>
+                    <div class="stat-label">COD Orders</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="stat-number">₹{{TOTAL_COLLECTED}}</div>
+                    <div class="stat-label">Amount Collected</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="stat-number">{{SUCCESS_RATE}}%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+            
+            <p style="text-align: center; color: #27ae60; font-weight: bold; font-size: 14px;">
+                Growth: <span class="growth-positive">{{GROWTH_PERCENTAGE}}%</span> from {{PREVIOUS_MONTH}}
+            </p>
+            
+            <p><strong>📈 Key Performance Metrics:</strong></p>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <strong>Settlement Batches</strong>
+                    <div class="value">{{SETTLEMENT_COUNT}}</div>
+                    <p style="font-size: 12px; margin: 5px 0 0 0; color: #7f8c8d;">Submitted & Processed</p>
+                </div>
+                <div class="metric-card">
+                    <strong>Avg Settlement Time</strong>
+                    <div class="value">{{AVG_SETTLEMENT_DAYS}} days</div>
+                    <p style="font-size: 12px; margin: 5px 0 0 0; color: #7f8c8d;">From Collection to Payout</p>
+                </div>
+                <div class="metric-card">
+                    <strong>Failed/Refused</strong>
+                    <div class="value">{{FAILED_ORDERS_COUNT}}</div>
+                    <p style="font-size: 12px; margin: 5px 0 0 0; color: #7f8c8d;">Orders</p>
+                </div>
+                <div class="metric-card">
+                    <strong>Refund Rate</strong>
+                    <div class="value">{{REFUND_RATE}}%</div>
+                    <p style="font-size: 12px; margin: 5px 0 0 0; color: #7f8c8d;">Avg Across Orders</p>
+                </div>
+            </div>
+            
+            <p><strong>💰 Revenue Summary:</strong></p>
+            <div class="settlement-table">
+                <table>
+                    <tr>
+                        <td>Total Amount Collected</td>
+                        <td style="text-align: right; font-weight: bold;">₹{{TOTAL_COLLECTED}}</td>
+                    </tr>
+                    <tr style="background: #fff9e6;">
+                        <td>Admin Commission (20%)</td>
+                        <td style="text-align: right; color: #d35400; font-weight: bold;">-₹{{ADMIN_COMMISSION}}</td>
+                    </tr>
+                    <tr style="background: #d5f4e6;">
+                        <td><strong>Your Earnings (80%)</strong></td>
+                        <td style="text-align: right; color: #27ae60; font-weight: bold; font-size: 16px;">₹{{VENDOR_PAYOUT}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>📋 Settlement Status:</strong></p>
+            <div style="background: #ecf0f1; padding: 15px; border-radius: 4px; margin: 15px 0;">
+                <table style="border: none;">
+                    <tr>
+                        <td>Pending Settlement</td>
+                        <td style="text-align: right; font-weight: bold;">₹{{PENDING_SETTLEMENT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Processed This Month</td>
+                        <td style="text-align: right; font-weight: bold; color: #27ae60;">₹{{PROCESSED_SETTLEMENT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Cumulative Payout</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 14px;">₹{{CUMULATIVE_PAYOUT}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>📊 Order Breakdown by Status:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th style="text-align: center;">Count</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Successfully Collected & Settled</td>
+                        <td style="text-align: center;">{{SETTLED_COUNT}}</td>
+                        <td style="text-align: right;">₹{{SETTLED_AMOUNT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Pending Settlement (In Transit)</td>
+                        <td style="text-align: center;">{{PENDING_COUNT}}</td>
+                        <td style="text-align: right;">₹{{PENDING_AMOUNT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Refunded to Customers</td>
+                        <td style="text-align: center;">{{REFUNDED_COUNT}}</td>
+                        <td style="text-align: right;">-₹{{REFUNDED_AMOUNT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Failed/Refused Deliveries</td>
+                        <td style="text-align: center;">{{FAILED_COUNT}}</td>
+                        <td style="text-align: right;">₹{{FAILED_AMOUNT}}</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="action-box">
+                <strong>✓ Next Steps:</strong>
+                <ul style="margin: 10px 0;">
+                    <li>Review your settlement history and verify all transactions</li>
+                    <li>Check pending payouts and expected settlement dates</li>
+                    <li>Identify high-refund products and optimize offerings</li>
+                    <li>Analyze regional performance to improve targeting</li>
+                    <li>Download detailed reports for accounting/audit purposes</li>
+                </ul>
+            </div>
+            
+            <p><strong>💡 Tips to Improve COD Performance:</strong></p>
+            <ul>
+                <li><strong>Faster Settlement:</strong> Submit settlement batches within 24 hours for next-day payouts</li>
+                <li><strong>Reduce Refunds:</strong> Monitor product quality and customer reviews</li>
+                <li><strong>Increase Success Rate:</strong> Offer COD for products with high refund risk</li>
+                <li><strong>Regional Expansion:</strong> Focus on regions with growth potential</li>
+            </ul>
+            
+            <center>
+                <a href="{{VENDOR_DASHBOARD_URL}}" class="button">View Detailed Analytics</a>
+            </center>
+            
+            <p><strong>Questions or Issues?</strong></p>
+            <ul>
+                <li>View all settlements: <a href="{{SETTLEMENTS_URL}}">Settlement History</a></li>
+                <li>Download reports: <a href="{{REPORTS_URL}}">Export Data</a></li>
+                <li>Contact support: <a href="{{SUPPORT_URL}}">Open Support Ticket</a></li>
+            </ul>
+            
+            <p>Thank you for partnering with EKART! We're committed to your success.</p>
+            
+            <p>Best regards,<br><strong>EKART Vendor Management Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated report. For detailed queries, contact your account manager.</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

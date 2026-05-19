@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #27ae60; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .order-details { background: #d4edda; padding: 15px; margin: 15px 0; border-left: 4px solid #28a745; border-radius: 4px; }
+        .amount { font-size: 18px; font-weight: bold; color: #28a745; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✓ COD Payment Collected</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{DELIVERY_BOY_NAME}},</p>
+            
+            <p>COD cash payment has been successfully collected for Order #{{ORDER_ID}}.</p>
+            
+            <div class="order-details">
+                <strong>Collection Details:</strong>
+                <table>
+                    <tr>
+                        <td>Order ID</td>
+                        <td>#{{ORDER_ID}}</td>
+                    </tr>
+                    <tr>
+                        <td>Customer</td>
+                        <td>{{CUSTOMER_NAME}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Location</td>
+                        <td>{{DELIVERY_ADDRESS}}</td>
+                    </tr>
+                    <tr>
+                        <td>Amount Collected</td>
+                        <td class="amount">₹{{COLLECTED_AMOUNT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Collection Time</td>
+                        <td>{{COLLECTION_TIME}}</td>
+                    </tr>
+                    <tr>
+                        <td>OTP Verified</td>
+                        <td>✓ Yes</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ul>
+                <li>Submit your cash batch at the warehouse</li>
+                <li>Warehouse staff will verify and count the cash</li>
+                <li>You'll receive payment settlement confirmation</li>
+                <li>Admin will approve the batch for vendor payout</li>
+            </ul>
+            
+            <p><strong>Note:</strong> Keep all collection receipts and documentation for audit trail purposes.</p>
+            
+            <p>Thank you for your excellent service!</p>
+            
+            <p>Best regards,<br><strong>EKART Delivery Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated email. Do not reply. For support, contact warehouse managers.</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

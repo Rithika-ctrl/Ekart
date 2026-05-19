@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Back in Stock — Ekart</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0c1e;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0c1e;padding:40px 20px;">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="background:linear-gradient(135deg,#111327,#0d1025);border:1px solid rgba(255,255,255,0.12);border-radius:20px;overflow:hidden;max-width:600px;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#f5a800,#d48f00);padding:32px 40px;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:6px;">🎉</div>
+            <h1 style="margin:0;color:#1a1000;font-size:1.5rem;font-weight:800;letter-spacing:0.04em;">
+              It's Back in Stock!
+            </h1>
+            <p style="margin:6px 0 0;color:rgba(26,16,0,0.75);font-size:0.9rem;">
+              Great news — you asked, we delivered.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px;">
+
+            <p style="margin:0 0 20px;color:rgba(255,255,255,0.85);font-size:0.95rem;line-height:1.6;">
+              Hi <strong th:text="${customerName}">Customer</strong>,
+            </p>
+            <p style="margin:0 0 28px;color:rgba(255,255,255,0.7);font-size:0.9rem;line-height:1.7;">
+              The item you subscribed to is now available again on Ekart.
+              Grab it before it sells out again — stock is limited!
+            </p>
+
+            <!-- Product Card -->
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;margin-bottom:28px;">
+              <tr>
+                <!-- Product image -->
+                <td width="110" style="padding:16px 0 16px 16px;vertical-align:middle;">
+                  <img th:src="${productImage}" src=""
+                       alt="Product Image"
+                       width="90" height="90"
+                       style="width:90px;height:90px;object-fit:cover;border-radius:10px;display:block;border:1px solid rgba(255,255,255,0.1);">
+                </td>
+                <!-- Product info -->
+                <td style="padding:16px 20px;vertical-align:middle;">
+                  <div style="color:rgba(245,168,0,0.9);font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:5px;">
+                    Now Available
+                  </div>
+                  <div style="color:#ffffff;font-size:1rem;font-weight:700;margin-bottom:6px;"
+                       th:text="${productName}">Product Name</div>
+                  <div style="color:#f5a800;font-size:1.1rem;font-weight:800;">
+                    ₹<span th:text="${#numbers.formatDecimal(productPrice,1,'COMMA',2,'POINT')}">0.00</span>
+                  </div>
+                  <div style="margin-top:5px;font-size:0.75rem;color:#22c55e;font-weight:600;">
+                    ✓ <span th:text="${productStock}">0</span> units available now
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- CTA Button -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <tr>
+                <td align="center">
+                  <a th:href="@{/product/{id}(id=${productId})}"
+                     href="#"
+                     style="display:inline-block;background:linear-gradient(135deg,#f5a800,#d48f00);color:#1a1000;text-decoration:none;font-weight:800;font-size:0.95rem;letter-spacing:0.06em;text-transform:uppercase;padding:14px 40px;border-radius:50px;box-shadow:0 8px 24px rgba(245,168,0,0.35);">
+                    🛒 Add to Cart Now
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Urgency note -->
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:14px 18px;">
+                  <p style="margin:0;color:rgba(239,68,68,0.9);font-size:0.82rem;line-height:1.5;">
+                    <strong>⚡ Act fast!</strong> Other customers who subscribed are being notified at the same time. Stock may sell out quickly.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;color:rgba(255,255,255,0.4);font-size:0.78rem;line-height:1.6;">
+              You're receiving this email because you clicked "Notify Me" on this product at Ekart.
+              If you no longer wish to receive these alerts, you can unsubscribe from the product page.
+            </p>
+
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:rgba(0,0,0,0.3);padding:20px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);">
+            <p style="margin:0;color:rgba(255,255,255,0.3);font-size:0.72rem;">
+              © 2026 <strong style="color:#f5a800;">Ekart</strong> — Your one-stop shopping destination
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

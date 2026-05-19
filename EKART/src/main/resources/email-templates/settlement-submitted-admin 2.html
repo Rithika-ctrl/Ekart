@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #f39c12; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .alert { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .settlement-info { background: #f0f0f0; padding: 15px; margin: 15px 0; border-left: 4px solid #f39c12; border-radius: 4px; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .button { background: #f39c12; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏳ Settlement Batch Awaiting Review</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello Administrator,</p>
+            
+            <p>A new COD cash settlement batch has been submitted and is awaiting your review and approval.</p>
+            
+            <div class="alert">
+                <strong>⚠️ Action Required:</strong> Please review and approve/reject this settlement batch within 24 hours.
+            </div>
+            
+            <div class="settlement-info">
+                <strong>Batch Details:</strong>
+                <table>
+                    <tr>
+                        <td>Settlement ID</td>
+                        <td>#{{SETTLEMENT_ID}}</td>
+                    </tr>
+                    <tr>
+                        <td>Submitted By</td>
+                        <td>{{WAREHOUSE_NAME}} (Staff: {{STAFF_NAME}})</td>
+                    </tr>
+                    <tr>
+                        <td>Submission Time</td>
+                        <td>{{SUBMITTED_AT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Order Count</td>
+                        <td>{{ORDER_COUNT}} orders</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #ddd; font-weight: bold;">
+                        <td>Total Cash Collected</td>
+                        <td style="font-size: 16px; color: #f39c12;">₹{{TOTAL_AMOUNT}}</td>
+                    </tr>
+                    <tr>
+                        <td>Admin Commission (20%)</td>
+                        <td>₹{{ADMIN_COMMISSION}}</td>
+                    </tr>
+                    <tr>
+                        <td>Vendor Share (80%)</td>
+                        <td>₹{{VENDOR_SHARE}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>Vendor Breakdown:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vendor Name</th>
+                        <th style="text-align: right;">Collected</th>
+                        <th style="text-align: right;">Their Share (80%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{VENDOR_BREAKDOWN_ROWS}}
+                </tbody>
+            </table>
+            
+            <p><strong>Warehouse Notes:</strong></p>
+            <p style="background: #f9f9f9; padding: 10px; border-radius: 4px;">{{SUBMISSION_NOTES}}</p>
+            
+            <center>
+                <a href="{{ADMIN_PANEL_URL}}/settlement/{{SETTLEMENT_ID}}" class="button">Review Settlement Details</a>
+            </center>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+                <li>Review order list and amounts</li>
+                <li>Verify warehouse staff signature/verification</li>
+                <li>Approve or reject the batch in the admin panel</li>
+                <li>Vendors will be notified of approval</li>
+            </ol>
+            
+            <p>Best regards,<br><strong>EKART Settlement System</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated email. Please do not reply. Log in to admin panel for actions.</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

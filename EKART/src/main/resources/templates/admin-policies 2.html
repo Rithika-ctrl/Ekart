@@ -1,0 +1,256 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Policy Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --yellow:       #f5a800;
+            --yellow-d:     #d48f00;
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --glass-card:   rgba(255, 255, 255, 0.13);
+            --glass-nav:    rgba(0, 0, 0, 0.25);
+            --text-white:   #ffffff;
+            --text-light:   rgba(255,255,255,0.80);
+            --text-dim:     rgba(255,255,255,0.50);
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: var(--text-white);
+            display: flex;
+            flex-direction: column;
+        }
+        .bg-layer { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+        .bg-layer::before {
+            content: '';
+            position: absolute; inset: -20px;
+            background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;
+            filter: blur(6px);
+            transform: scale(1.08);
+        }
+        .bg-layer::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(5,8,20,0.82) 0%, rgba(8,12,28,0.78) 40%, rgba(5,8,20,0.88) 100%);
+        }
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--glass-nav);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.3s;
+        }
+        nav.scrolled { background: rgba(0,0,0,0.45); }
+        .nav-brand {
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-white); text-decoration: none;
+            letter-spacing: 0.04em;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-brand span { color: var(--yellow); }
+        .nav-links {
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--text-light); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500;
+            padding: 0.45rem 0.9rem; border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { color: var(--yellow); border-color: rgba(245,168,0,0.3); background: rgba(245,168,0,0.08); }
+        .nav-link.active {
+            color: var(--yellow);
+            background: rgba(245,168,0,0.12);
+            border-color: rgba(245,168,0,0.4);
+        }
+        .page {
+            flex: 1;
+            padding: 7rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .glass-card {
+            background: var(--glass-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .policy-list h2, .policy-editor h2, .policy-editor h3 {
+            margin-bottom: 1rem;
+        }
+        .policy-item {
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 0.7em 0;
+            color: var(--text-light);
+        }
+        .policy-item:last-child { border-bottom: none; }
+        .editor { width: 100%; min-height: 120px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.07); color: #222; font-family: inherit; font-size: 1rem; padding: 0.7em; }
+        .markdown-preview { border: 1px solid var(--glass-border); padding: 1em; background: rgba(255,255,255,0.10); min-height: 100px; border-radius: 10px; color: #222; }
+        .btn-yellow {
+            background: var(--yellow); color: #1a1000;
+            text-decoration: none; font-weight: 700;
+            font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 0.55rem 1.5rem; border-radius: 50px;
+            transition: all 0.25s; border: none; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .btn-yellow:hover { background: var(--yellow-d); transform: translateY(-1px); box-shadow: 0 6px 24px rgba(245,168,0,0.45); }
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-light); text-decoration: none;
+            font-weight: 600; font-size: 0.9rem; letter-spacing: 0.06em;
+            padding: 0.55rem 1.5rem; border-radius: 50px;
+            transition: all 0.25s; cursor: pointer;
+            margin-left: 0.5rem;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); color: var(--yellow); }
+        @media(max-width: 700px) {
+            nav { padding: 0.875rem 1.25rem; }
+            .page { padding: 5.5rem 1.25rem 2rem; }
+            .glass-card { padding: 1.5rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-layer"></div>
+<nav id="nav">
+    <a href="/admin/home" class="nav-brand">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i>
+        Ekart
+    </a>
+    <div class="nav-links">
+        <a href="/admin/home" class="nav-link"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/admin/policies" class="nav-link active"><i class="fas fa-book"></i> Policies & SOPs</a>
+    </div>
+</nav>
+<main class="page">
+    <div class="glass-card policy-list">
+        <h2>Existing Policies</h2>
+        <div id="policies" style="display: flex; flex-direction: column; gap: 1.5rem;"></div>
+    </div>
+    <div class="glass-card policy-editor">
+        <h2 id="editor-title">Create New Policy</h2>
+        <form id="policyForm">
+            <input type="hidden" id="policy-slug">
+            <label>Title:<br><input type="text" id="policy-title" required style="width:100%;margin-bottom:0.7em;"></label><br>
+            <label>Category:<br><input type="text" id="policy-category" style="width:100%;margin-bottom:0.7em;"></label><br>
+            <label>Content (Markdown):<br>
+                <textarea id="policy-content" class="editor" required></textarea>
+            </label><br>
+            <label>Author Admin ID:<br><input type="text" id="policy-author" style="width:100%;margin-bottom:0.7em;"></label><br>
+            <button type="submit" class="btn-yellow"><i class="fas fa-save"></i> Save Policy</button>
+            <button type="button" id="cancelEdit" class="btn-secondary" style="display:none;">Cancel</button>
+        </form>
+        <h3>Preview</h3>
+        <div class="markdown-preview" id="markdownPreview"></div>
+    </div>
+</main>
+<script>
+    // Fetch and display all policies
+    function fetchPolicies() {
+        fetch('/api/policies')
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('policies');
+                container.innerHTML = '';
+                data.forEach(policy => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-card policy-item';
+                    card.style.margin = '0';
+                    card.innerHTML = `<b>${policy.title}</b> [${policy.category || ''}] <br> <small>Last updated: ${policy.lastUpdated || ''}</small><br>
+                        <button class='btn-yellow' style='padding:0.3em 1em;font-size:0.85em;' onclick="editPolicy('${policy.slug}')"><i class='fas fa-edit'></i> Edit</button>
+                        <button class='btn-secondary' style='padding:0.3em 1em;font-size:0.85em;' onclick="deletePolicy('${policy.slug}')"><i class='fas fa-trash'></i> Delete</button>`;
+                    container.appendChild(card);
+                });
+            });
+    }
+    // Edit policy
+    function editPolicy(slug) {
+        fetch(`/api/policies/${slug}`)
+            .then(res => res.json())
+            .then(policy => {
+                document.getElementById('editor-title').innerText = 'Edit Policy';
+                document.getElementById('policy-slug').value = policy.slug;
+                document.getElementById('policy-title').value = policy.title;
+                document.getElementById('policy-category').value = policy.category || '';
+                document.getElementById('policy-content').value = policy.content;
+                document.getElementById('policy-author').value = policy.authorAdminId || '';
+                document.getElementById('cancelEdit').style.display = '';
+                updatePreview();
+            });
+    }
+    // Delete policy
+    function deletePolicy(slug) {
+        if (confirm('Delete this policy?')) {
+            fetch(`/api/policies/${slug}`, { method: 'DELETE' })
+                .then(() => fetchPolicies());
+        }
+    }
+    // Save or update policy
+    document.getElementById('policyForm').onsubmit = function(e) {
+        e.preventDefault();
+        let slug = document.getElementById('policy-slug').value;
+        const title = document.getElementById('policy-title').value;
+        // Auto-generate slug if creating new
+        if (!slug) {
+            slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        }
+        const method = document.getElementById('policy-slug').value ? 'PUT' : 'POST';
+        const url = document.getElementById('policy-slug').value ? `/api/policies/${slug}` : '/api/policies';
+        const body = JSON.stringify({
+            title: title,
+            category: document.getElementById('policy-category').value,
+            content: document.getElementById('policy-content').value,
+            authorAdminId: document.getElementById('policy-author').value,
+            slug: slug
+        });
+        fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body
+        }).then(() => {
+            fetchPolicies();
+            this.reset();
+            document.getElementById('editor-title').innerText = 'Create New Policy';
+            document.getElementById('cancelEdit').style.display = 'none';
+            document.getElementById('markdownPreview').innerHTML = '';
+        });
+    };
+    // Cancel edit
+    document.getElementById('cancelEdit').onclick = function() {
+        document.getElementById('policyForm').reset();
+        document.getElementById('editor-title').innerText = 'Create New Policy';
+        this.style.display = 'none';
+        document.getElementById('markdownPreview').innerHTML = '';
+    };
+    // Markdown live preview
+    document.getElementById('policy-content').addEventListener('input', updatePreview);
+    function updatePreview() {
+        const md = document.getElementById('policy-content').value;
+        document.getElementById('markdownPreview').innerHTML = marked.parse(md || '');
+    }
+    // Initial load
+    fetchPolicies();
+</script>
+</body>
+</html>

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekart - Delivery Management</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath fill='%23f5a800' d='M528.12 301.319l47.273-208C578.806 78.301 567.391 64 551.99 64H159.208l-9.166-44.81C147.758 8.021 137.93 0 126.529 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24h69.883l70.248 343.435C147.325 417.1 136 435.222 136 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-15.674-6.447-29.835-16.824-40h209.647C430.447 426.165 424 440.326 424 456c0 30.928 25.072 56 56 56s56-25.072 56-56c0-22.172-12.888-41.332-31.579-50.405l5.517-24.276c3.413-15.018-8.002-29.319-23.403-29.319H218.117l-6.545-32h293.145c11.206 0 20.92-7.754 23.403-18.681z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root{--yellow:#f5a800;--yellow-d:#d48f00;--glass-border:rgba(255,255,255,0.22);--glass-card:rgba(255,255,255,0.13);--glass-nav:rgba(0,0,0,0.25);--text-white:#ffffff;--text-light:rgba(255,255,255,0.80);--text-dim:rgba(255,255,255,0.50);}
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Poppins',sans-serif;min-height:100vh;color:var(--text-white);display:flex;flex-direction:column;}
+        .bg-layer{position:fixed;inset:0;z-index:-1;overflow:hidden;}
+        .bg-layer::before{content:'';position:absolute;inset:-20px;background:url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80') center/cover no-repeat;filter:blur(6px);transform:scale(1.08);}
+        .bg-layer::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,20,0.82) 0%,rgba(8,12,28,0.78) 40%,rgba(5,8,20,0.88) 100%);}
+
+        nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--glass-nav);backdrop-filter:blur(14px);border-bottom:1px solid var(--glass-border);}
+        .nav-brand{font-size:1.4rem;font-weight:700;color:var(--text-white);text-decoration:none;display:flex;align-items:center;gap:0.5rem;}
+        .nav-brand span{color:var(--yellow);}
+        .nav-right{display:flex;align-items:center;gap:0.75rem;}
+        .nav-badge{display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;font-weight:700;padding:0.3rem 0.8rem;border-radius:50px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);color:var(--yellow);text-transform:uppercase;letter-spacing:0.06em;}
+        .nav-link{display:flex;align-items:center;gap:0.4rem;color:var(--text-light);text-decoration:none;font-size:0.82rem;font-weight:500;padding:0.45rem 0.9rem;border-radius:6px;border:1px solid var(--glass-border);transition:all 0.2s;}
+        .nav-link:hover{color:white;background:rgba(255,255,255,0.08);}
+        .btn-logout{display:flex;align-items:center;gap:0.4rem;color:var(--text-light);text-decoration:none;font-size:0.82rem;font-weight:500;padding:0.45rem 0.9rem;border-radius:6px;border:1px solid rgba(255,100,80,0.3);transition:all 0.2s;}
+        .btn-logout:hover{color:#ff8060;border-color:rgba(255,100,80,0.6);}
+
+        .alert-stack{position:fixed;top:5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;gap:0.5rem;}
+        .alert{padding:0.875rem 1.25rem;background:rgba(10,12,30,0.88);backdrop-filter:blur(16px);border:1px solid;border-radius:10px;display:flex;align-items:center;gap:0.625rem;font-size:0.825rem;min-width:260px;animation:slideIn 0.3s ease both;}
+        .alert-success{border-color:rgba(34,197,94,0.45);color:#22c55e;}
+        .alert-danger{border-color:rgba(255,100,80,0.45);color:#ff8060;}
+        .alert-close{margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;opacity:0.6;font-size:1rem;}
+
+        .page{flex:1;padding:7rem 2rem 3rem;display:flex;flex-direction:column;gap:1.5rem;}
+
+        .page-header{background:var(--glass-card);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;padding:1.75rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+        .page-header h1{font-size:1.5rem;font-weight:700;}
+        .page-header h1 span{color:var(--yellow);}
+        .page-header p{font-size:0.8rem;color:var(--text-dim);margin-top:0.2rem;}
+        .page-header-icon{width:56px;height:56px;background:rgba(245,168,0,0.15);border:2px solid rgba(245,168,0,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
+
+        .layout-grid{display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start;}
+
+        /* Panel */
+        .panel{background:var(--glass-card);backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:18px;overflow:hidden;margin-bottom:1.25rem;}
+        .panel:last-child{margin-bottom:0;}
+        .panel-header{padding:1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:0.75rem;}
+        .panel-header h3{font-size:0.9rem;font-weight:600;}
+        .panel-icon{width:34px;height:34px;background:rgba(245,168,0,0.15);border:1px solid rgba(245,168,0,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--yellow);flex-shrink:0;}
+        .panel-body{padding:1.25rem 1.5rem;}
+
+        /* Pending panel — special highlight */
+        .panel.pending-panel{border-color:rgba(245,168,0,0.4);}
+        .panel.pending-panel .panel-header{background:rgba(245,168,0,0.08);border-bottom-color:rgba(245,168,0,0.2);}
+
+        /* Form */
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;}
+        .form-group{margin-bottom:0.9rem;}
+        .form-group:last-child{margin-bottom:0;}
+        .form-label{display:block;font-size:0.72rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;}
+        .form-control{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:10px;padding:0.65rem 0.9rem;color:white;font-family:'Poppins',sans-serif;font-size:0.82rem;outline:none;transition:all 0.2s;}
+        .form-control::placeholder{color:var(--text-dim);}
+        .form-control:focus{border-color:rgba(245,168,0,0.5);background:rgba(255,255,255,0.09);}
+        textarea.form-control{resize:vertical;min-height:70px;}
+        select.form-control option{background:#0d0f1e;color:white;}
+        .btn-action{width:100%;background:var(--yellow);color:#1a1000;border:none;border-radius:10px;padding:0.75rem;font-family:'Poppins',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-top:0.75rem;}
+        .btn-action:hover{background:var(--yellow-d);}
+
+        /* Table */
+        .tbl-wrap{overflow-x:auto;}
+        table{width:100%;border-collapse:collapse;}
+        thead tr{background:rgba(0,0,0,0.2);}
+        th{padding:0.75rem 1rem;text-align:left;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.08);}
+        td{padding:0.875rem 1rem;font-size:0.82rem;color:var(--text-light);border-bottom:1px solid rgba(255,255,255,0.06);}
+        tr:last-child td{border-bottom:none;}
+        tr:hover td{background:rgba(255,255,255,0.03);}
+        .order-id-cell{color:var(--yellow);font-weight:700;}
+        .amount-cell{color:#22c55e;font-weight:600;}
+        .empty-row td{text-align:center;padding:2rem;color:var(--text-dim);}
+
+        /* Badges */
+        .badge{padding:0.25rem 0.7rem;border-radius:20px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+        .badge-packed{background:rgba(245,168,0,0.15);color:var(--yellow);border:1px solid rgba(245,168,0,0.3);}
+        .badge-shipped{background:rgba(99,179,237,0.15);color:#63b3ed;border:1px solid rgba(99,179,237,0.3);}
+        .badge-out{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
+        .badge-pending{background:rgba(245,168,0,0.15);color:var(--yellow);border:1px solid rgba(245,168,0,0.4);animation:pulse 2s ease-in-out infinite;}
+
+        /* Assign row */
+        .assign-select{background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:8px;padding:0.5rem 0.75rem;color:white;font-family:'Poppins',sans-serif;font-size:0.78rem;outline:none;width:100%;}
+        .assign-select:focus{border-color:rgba(245,168,0,0.5);}
+        .assign-select option{background:#0d0f1e;}
+        .btn-assign{background:var(--yellow);color:#1a1000;border:none;border-radius:8px;padding:0.5rem 0.9rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:background 0.2s;white-space:nowrap;}
+        .btn-assign:hover{background:var(--yellow-d);}
+        .btn-approve{background:rgba(34,197,94,0.2);color:#22c55e;border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:0.45rem 0.85rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+        .btn-approve:hover{background:rgba(34,197,94,0.35);}
+        .btn-reject{background:rgba(255,100,80,0.15);color:#ff8060;border:1px solid rgba(255,100,80,0.35);border-radius:8px;padding:0.45rem 0.85rem;font-family:'Poppins',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+        .btn-reject:hover{background:rgba(255,100,80,0.25);}
+
+        /* Toast */
+        .toast-wrap{position:fixed;bottom:2rem;right:2rem;z-index:9999;display:none;}
+        .toast{background:rgba(10,12,30,0.95);backdrop-filter:blur(16px);border:1px solid;border-radius:12px;padding:1rem 1.25rem;font-size:0.85rem;min-width:240px;display:flex;align-items:center;gap:0.6rem;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+        .toast.success{border-color:rgba(34,197,94,0.5);color:#22c55e;}
+        .toast.error{border-color:rgba(255,100,80,0.5);color:#ff8060;}
+
+        footer{background:rgba(0,0,0,0.5);backdrop-filter:blur(16px);border-top:1px solid var(--glass-border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .footer-brand{font-size:1.1rem;font-weight:700;color:white;}
+        .footer-brand span{color:var(--yellow);}
+        .footer-copy{font-size:0.72rem;color:var(--text-dim);}
+
+        @keyframes fadeUp{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes slideIn{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:translateX(0);}}
+        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,168,0,0.3);}50%{box-shadow:0 0 0 6px rgba(245,168,0,0);}}
+        @media(max-width:1024px){.layout-grid{grid-template-columns:1fr;}}
+        @media(max-width:600px){.form-row{grid-template-columns:1fr;}.page{padding:6rem 1rem 2rem;}}
+    </style>
+</head>
+<body>
+<div class="bg-layer"></div>
+
+<div class="alert-stack" id="alertStack">
+    <div class="alert alert-success" th:if="${session.success}">
+        <i class="fas fa-check-circle"></i><span th:text="${session.success}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <div class="alert alert-danger" th:if="${session.failure}">
+        <i class="fas fa-exclamation-circle"></i><span th:text="${session.failure}"></span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    </div>
+    <th:block th:text="${@messageRemover.remove()}"></th:block>
+</div>
+
+<nav>
+    <a class="nav-brand" href="/admin/home">
+        <i class="fas fa-shopping-cart" style="font-size:1.1rem;"></i><span>Ekart</span>
+    </a>
+    <div class="nav-right">
+        <span class="nav-badge"><i class="fas fa-user-shield"></i>&nbsp; Admin</span>
+        <a href="/admin/home" class="nav-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+        <a href="/admin/login" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</nav>
+
+<main class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>Delivery <span>Management</span></h1>
+            <p>Approve delivery partners and assign orders for delivery</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+            <a href="/admin/warehouses"
+               style="display:inline-flex;align-items:center;gap:0.5rem;background:rgba(245,168,0,0.15);
+                      border:1px solid rgba(245,168,0,0.4);color:var(--yellow);text-decoration:none;
+                      font-size:0.82rem;font-weight:600;padding:0.6rem 1.1rem;border-radius:10px;
+                      transition:all 0.2s;">
+                <i class="fas fa-warehouse"></i> Manage Warehouses
+            </a>
+            <div class="page-header-icon"><i class="fas fa-truck" style="color:var(--yellow);"></i></div>
+        </div>
+    </div>
+
+    <div class="layout-grid">
+
+        <!-- Pending Approvals + Orders -->
+        <div>
+
+            <!--
+            ╔══════════════════════════════════════════════════════════╗
+            ║  PENDING APPROVALS SECTION                               ║
+            ║  Shows when delivery boys self-register and verify OTP.  ║
+            ║  Admin selects warehouse + pins, then approves/rejects.  ║
+            ╚══════════════════════════════════════════════════════════╝
+            Only shows if there are pending requests (th:if check).
+            -->
+            <div class="panel pending-panel" th:if="${!pendingApprovals.isEmpty()}">
+                <div class="panel-header">
+                    <div class="panel-icon" style="background:rgba(245,168,0,0.2);border-color:rgba(245,168,0,0.5);">
+                        <i class="fas fa-user-clock"></i>
+                    </div>
+                    <h3 style="color:var(--yellow);">
+                        Pending Approval Requests
+                    </h3>
+                    <!-- Pulsing count badge -->
+                    <span style="margin-left:auto;background:var(--yellow);color:#1a1000;font-size:0.7rem;font-weight:700;padding:0.2rem 0.65rem;border-radius:20px;animation:pulse 2s ease-in-out infinite;"
+                          th:text="${pendingApprovals.size()}">0</span>
+                </div>
+                <div style="padding:0.75rem 1.5rem;background:rgba(245,168,0,0.05);border-bottom:1px solid rgba(245,168,0,0.12);">
+                    <p style="font-size:0.78rem;color:var(--text-dim);margin:0;">
+                        <i class="fas fa-info-circle" style="color:var(--yellow);margin-right:6px;"></i>
+                        These delivery boys have verified their email and are waiting for your approval.
+                        Select a warehouse and enter their pin codes before approving.
+                    </p>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email / Mobile</th>
+                            <th>Code</th>
+                            <th>Assign Warehouse</th>
+                            <th>Pin Codes</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="db : ${pendingApprovals}">
+                            <td>
+                                <span style="font-weight:600;color:var(--text-white);" th:text="${db.name}"></span>
+                            </td>
+                            <td>
+                                <span style="color:var(--text-dim);" th:text="${db.email}"></span><br>
+                                <small style="color:var(--text-dim);" th:text="${db.mobile}"></small>
+                            </td>
+                            <td>
+                                <span class="badge badge-pending" th:text="${db.deliveryBoyCode}"></span>
+                            </td>
+                            <td style="min-width:180px;">
+                                <!--
+                                    Admin picks which warehouse this delivery boy belongs to.
+                                    Required before approving.
+                                -->
+                                <select class="assign-select" th:id="'wh-approve-' + ${db.id}">
+                                    <option value="">Select warehouse</option>
+                                    <option th:each="wh : ${warehouses}"
+                                            th:value="${wh.id}"
+                                            th:text="${wh.name + ' — ' + wh.city}"></option>
+                                </select>
+                            </td>
+                            <td style="min-width:150px;">
+                                <!--
+                                    Admin enters the pin codes this delivery boy will cover.
+                                    Should be a subset of the chosen warehouse's pin codes.
+                                -->
+                                <input type="text" class="assign-select"
+                                       th:id="'pins-approve-' + ${db.id}"
+                                       placeholder="e.g. 600001,600002"/>
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                    <button class="btn-approve"
+                                            th:attr="onclick='approveDB(' + ${db.id} + ')'">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                    <button class="btn-reject"
+                                            th:attr="onclick='rejectDB(' + ${db.id} + ')'">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- End Pending Approvals Section -->
+            <!-- Warehouse Transfer Requests -->
+            <div class="panel pending-panel" th:if="${pendingWarehouseChanges != null and !pendingWarehouseChanges.isEmpty()}" style="border-color:rgba(99,179,237,0.4);">
+                <div class="panel-header" style="background:rgba(99,179,237,0.08);border-bottom-color:rgba(99,179,237,0.2);">
+                    <div class="panel-icon" style="background:rgba(99,179,237,0.15);border-color:rgba(99,179,237,0.3);color:#63b3ed;"><i class="fas fa-exchange-alt"></i></div>
+                    <div class="panel-title">
+                        <h3>Warehouse Transfer Requests</h3>
+                        <p>Delivery boys requesting to move to a different warehouse</p>
+                    </div>
+                    <span class="badge" style="background:rgba(99,179,237,0.15);color:#63b3ed;border:1px solid rgba(99,179,237,0.4);" th:text="${pendingWarehouseChanges.size()}">0</span>
+                </div>
+                <div class="panel-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Delivery Boy</th>
+                                <th>Current Warehouse</th>
+                                <th>Requested Warehouse</th>
+                                <th>Reason</th>
+                                <th>Requested At</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="req : ${pendingWarehouseChanges}">
+                                <td>
+                                    <div style="font-weight:600;" th:text="${req.deliveryBoy.name}"></div>
+                                    <div style="font-size:0.72rem;color:var(--text-dim);" th:text="${req.deliveryBoy.deliveryBoyCode}"></div>
+                                </td>
+                                <td>
+                                    <span th:if="${req.deliveryBoy.warehouse != null}" th:text="${req.deliveryBoy.warehouse.name + ' · ' + req.deliveryBoy.warehouse.city}"></span>
+                                    <span th:if="${req.deliveryBoy.warehouse == null}" style="color:var(--text-dim);">None</span>
+                                </td>
+                                <td>
+                                    <div style="font-weight:600;color:#63b3ed;" th:text="${req.requestedWarehouse.name}"></div>
+                                    <div style="font-size:0.72rem;color:var(--text-dim);" th:text="${req.requestedWarehouse.city + ', ' + req.requestedWarehouse.state}"></div>
+                                </td>
+                                <td style="max-width:180px;font-size:0.78rem;color:var(--text-dim);"
+                                    th:text="${req.reason != null and !req.reason.isEmpty() ? req.reason : '—'}"></td>
+                                <td style="font-size:0.78rem;color:var(--text-dim);"
+                                    th:text="${#temporals.format(req.requestedAt, 'dd MMM, hh:mm a')}"></td>
+                                <td>
+                                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                        <button class="btn-action btn-approve"
+                                                th:attr="onclick='approveWarehouseChange(' + ${req.id} + ', \'' + ${req.deliveryBoy.name} + '\')'">
+                                            <i class="fas fa-check"></i> Approve
+                                        </button>
+                                        <button class="btn-action btn-reject"
+                                                th:attr="onclick='rejectWarehouseChange(' + ${req.id} + ', \'' + ${req.deliveryBoy.name} + '\')'">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- End Warehouse Transfer Requests -->
+
+
+
+            <!-- Packed Orders — Assign Delivery Boy -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="fas fa-box"></i></div>
+                    <h3>Packed Orders — Assign Delivery Boy</h3>
+                    <span style="margin-left:auto;background:var(--yellow);color:#1a1000;font-size:0.7rem;font-weight:700;padding:0.2rem 0.6rem;border-radius:20px;"
+                          th:text="${packedOrders.size()}">0</span>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Customer</th>
+                            <th>Pin</th>
+                            <th>Warehouse</th>
+                            <th>Amount</th>
+                            <th>Assign To</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="order : ${packedOrders}">
+                            <td>
+                                <span class="order-id-cell" th:text="'#' + ${order.id}"></span><br>
+                                <span class="badge badge-packed">PACKED</span>
+                            </td>
+                            <td>
+                                <span th:text="${order.customer.name}"></span><br>
+                                <small style="color:var(--text-dim);" th:text="${order.customer.mobile}"></small>
+                            </td>
+                            <td style="color:var(--text-dim);" th:text="${order.deliveryPinCode != null ? order.deliveryPinCode : 'N/A'}"></td>
+                            <td>
+                                <span th:if="${order.warehouse != null}" th:text="${order.warehouse.name}"></span>
+                                <span th:if="${order.warehouse == null}" style="color:#ff8060;">Not assigned</span>
+                            </td>
+                            <td class="amount-cell" th:text="'₹' + ${#numbers.formatDecimal(order.amount,1,2)}"></td>
+                            <td style="min-width:200px;">
+                                <select class="assign-select delivery-boy-select"
+                                        th:id="'db-select-' + ${order.id}"
+                                        th:attr="data-order-id=${order.id}">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </td>
+                            <td>
+                                <button class="btn-assign"
+                                        th:attr="onclick='assignDeliveryBoy(' + ${order.id} + ')'">
+                                    <i class="fas fa-check"></i> Assign
+                                </button>
+                            </td>
+                        </tr>
+                        <tr th:if="${packedOrders.isEmpty()}" class="empty-row">
+                            <td colspan="7">
+                                <i class="fas fa-check-circle" style="color:#22c55e;margin-right:0.5rem;"></i>
+                                All packed orders have been assigned.
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- In Progress -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="fas fa-truck"></i></div>
+                    <h3>In Progress</h3>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                        <tr><th>Order</th><th>Customer</th><th>Pin</th><th>Delivery Boy</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="order : ${shippedOrders}">
+                            <td class="order-id-cell" th:text="'#' + ${order.id}"></td>
+                            <td th:text="${order.customer.name}"></td>
+                            <td th:text="${order.deliveryPinCode}"></td>
+                            <td th:text="${order.deliveryBoy != null ? order.deliveryBoy.name : '—'}"></td>
+                            <td><span class="badge badge-shipped">SHIPPED</span></td>
+                        </tr>
+                        <tr th:each="order : ${outOrders}">
+                            <td class="order-id-cell" th:text="'#' + ${order.id}"></td>
+                            <td th:text="${order.customer.name}"></td>
+                            <td th:text="${order.deliveryPinCode}"></td>
+                            <td th:text="${order.deliveryBoy != null ? order.deliveryBoy.name : '—'}"></td>
+                            <td><span class="badge badge-out">OUT FOR DELIVERY</span></td>
+                        </tr>
+                        <tr th:if="${shippedOrders.isEmpty() && outOrders.isEmpty()}" class="empty-row">
+                            <td colspan="5">No orders in transit right now.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="footer-brand"><span>Ekart</span></div>
+    <div class="footer-copy">&#169; 2026 Ekart. All rights reserved.</div>
+</footer>
+
+<!-- Toast notification -->
+<div class="toast-wrap" id="toastWrap">
+    <div class="toast" id="toastBox">
+        <i class="fas fa-check-circle" id="toastIcon"></i>
+        <span id="toastMsg"></span>
+    </div>
+</div>
+
+<script>
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('#alertStack .alert').forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+        });
+    }, 2500);
+
+    // Toast helper
+    function showToast(msg, success) {
+        const box  = document.getElementById('toastBox');
+        box.className = 'toast ' + (success ? 'success' : 'error');
+        document.getElementById('toastIcon').className = success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+        document.getElementById('toastMsg').textContent = msg;
+        document.getElementById('toastWrap').style.display = 'block';
+        setTimeout(() => { document.getElementById('toastWrap').style.display = 'none'; }, 3500);
+    }
+
+    // ── Load eligible delivery boys for each packed order (filtered by pin code) ──
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.delivery-boy-select').forEach(select => {
+            const orderId = select.dataset.orderId;
+            if (!orderId) {
+                select.innerHTML = '<option value="">No order ID</option>';
+                return;
+            }
+            fetch('/admin/delivery/boys/for-order/' + orderId)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.deliveryBoys.length > 0) {
+                        select.innerHTML = '<option value="">Select delivery boy</option>'
+                            + data.deliveryBoys.map(b =>
+                                `<option value="${b.id}">${b.name} (${b.code}) — ${b.warehouse}</option>`
+                            ).join('');
+                    } else {
+                        const pin = data.orderPin || 'N/A';
+                        select.innerHTML = `<option value="">No delivery boys for pin ${pin}</option>`;
+                    }
+                })
+                .catch(() => { select.innerHTML = '<option value="">Failed to load</option>'; });
+        });
+    });
+
+    // ── Assign delivery boy to a packed order ─────────────────────
+    function assignDeliveryBoy(orderId) {
+        const sel = document.getElementById('db-select-' + orderId);
+        if (!sel || !sel.value) { showToast('Select a delivery boy first', false); return; }
+
+        const fd = new FormData();
+        fd.append('orderId', orderId);
+        fd.append('deliveryBoyId', sel.value);
+
+        fetch('/admin/delivery/assign', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) setTimeout(() => location.reload(), 1800);
+            })
+            .catch(() => showToast('Request failed', false));
+    }
+
+    // ── APPROVE a self-registered delivery boy ────────────────────
+    function approveDB(dbId) {
+        const pins = document.getElementById('pins-approve-' + dbId).value.trim();
+        if (!confirm('Approve this delivery boy for their requested warehouse?')) return;
+
+        const fd = new FormData();
+        fd.append('deliveryBoyId', dbId);
+        fd.append('assignedPinCodes', pins);
+
+        fetch('/admin/delivery/boy/approve', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) setTimeout(() => location.reload(), 1800);
+            })
+            .catch(() => showToast('Request failed', false));
+    }
+
+    // ── REJECT a self-registered delivery boy ─────────────────────
+    function rejectDB(dbId) {
+        const reason = prompt('Enter rejection reason (optional — will be emailed to them):') || '';
+        if (!confirm('Reject this delivery boy application? This cannot be undone easily.')) return;
+
+        const fd = new FormData();
+        fd.append('deliveryBoyId', dbId);
+        fd.append('reason', reason);
+
+        fetch('/admin/delivery/boy/reject', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) setTimeout(() => location.reload(), 1800);
+            })
+            .catch(() => showToast('Request failed', false));
+    }
+
+    function approveWarehouseChange(requestId, name) {
+        const note = prompt('Approve warehouse transfer for ' + name + '?\nOptional note for delivery boy (leave blank to skip):') ;
+        if (note === null) return; // cancelled
+        const fd = new FormData();
+        fd.append('requestId', requestId);
+        fd.append('adminNote', note || '');
+        fetch('/admin/delivery/warehouse-change/approve', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) setTimeout(() => location.reload(), 1800);
+            })
+            .catch(() => showToast('Request failed. Try again.', false));
+    }
+
+    function rejectWarehouseChange(requestId, name) {
+        const note = prompt('Reject warehouse transfer for ' + name + '.\nReason (will be emailed to delivery boy):');
+        if (note === null) return; // cancelled
+        const fd = new FormData();
+        fd.append('requestId', requestId);
+        fd.append('adminNote', note || '');
+        fetch('/admin/delivery/warehouse-change/reject', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) setTimeout(() => location.reload(), 1800);
+            })
+            .catch(() => showToast('Request failed. Try again.', false));
+    }
+
+</script>
+</body>
+</html>

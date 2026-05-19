@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 650px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #3498db; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .assignment-box { background: #d4edda; border: 2px solid #28a745; border-radius: 8px; padding: 15px; margin: 15px 0; }
+        .assignment-box strong { color: #155724; font-size: 16px; }
+        .order-details { background: #e7f3ff; border-left: 4px solid #3498db; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .delivery-boy-info { background: #fff3cd; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .action-required { background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .button { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+        .location-badge { background: #ff6b6b; color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 New Delivery Assignment</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{STAFF_NAME}},</p>
+            
+            <p>New delivery order has been assigned and is ready for dispatch from {{WAREHOUSE_NAME}}.</p>
+            
+            <div class="assignment-box">
+                <strong>✓ Assignment Confirmed</strong>
+                <table style="margin-top: 10px;">
+                    <tr>
+                        <td>Assigned Delivery Boy</td>
+                        <td><strong>{{DELIVERY_BOY_NAME}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Boy Contact</td>
+                        <td>{{DELIVERY_BOY_PHONE}}</td>
+                    </tr>
+                    <tr style="background: #d4edda;">
+                        <td><strong>Assignment ID</strong></td>
+                        <td><strong>#{{ASSIGNMENT_ID}}</strong></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="order-details">
+                <strong>📋 Order Details:</strong>
+                <table>
+                    <tr>
+                        <td>Order ID</td>
+                        <td><strong>#{{ORDER_ID}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Customer Name</td>
+                        <td>{{CUSTOMER_NAME}}</td>
+                    </tr>
+                    <tr>
+                        <td>Customer Contact</td>
+                        <td>{{CUSTOMER_PHONE}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Address</td>
+                        <td>{{DELIVERY_ADDRESS}}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Location</td>
+                        <td><span class="location-badge">{{DELIVERY_DISTRICT}}</span></td>
+                    </tr>
+                    <tr style="background: #fff9e6;">
+                        <td><strong>Order Value</strong></td>
+                        <td><strong>₹{{ORDER_AMOUNT}}</strong></td>
+                    </tr>
+                    <tr style="background: #fff9e6;">
+                        <td><strong>Payment Method</strong></td>
+                        <td><strong>{{PAYMENT_METHOD}}</strong></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="delivery-boy-info">
+                <strong>🚴 Assigned Delivery Executor:</strong>
+                <table>
+                    <tr>
+                        <td>Name</td>
+                        <td>{{DELIVERY_BOY_NAME}}</td>
+                    </tr>
+                    <tr>
+                        <td>Phone</td>
+                        <td>{{DELIVERY_BOY_PHONE}}</td>
+                    </tr>
+                    <tr>
+                        <td>Current Zone</td>
+                        <td>{{DELIVERY_BOY_ZONE}}</td>
+                    </tr>
+                    <tr>
+                        <td>Active Orders</td>
+                        <td>{{ACTIVE_ORDERS_COUNT}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="action-required">
+                <strong>⚠ Warehouse Staff Actions:</strong>
+                <ol style="margin: 10px 0;">
+                    <li><strong>Prepare Package:</strong> Verify order contents match manifest</li>
+                    <li><strong>Quality Check:</strong> Inspect packaging integrity and sealing</li>
+                    <li><strong>Handoff:</strong> Confirm and hand package to {{DELIVERY_BOY_NAME}}</li>
+                    <li><strong>Scan QR Code:</strong> Get delivery boy's app confirmation</li>
+                    <li><strong>Mark in System:</strong> Update status to "HANDED_OVER_TO_DELIVERY_BOY" in warehouse dashboard</li>
+                    <li><strong>Document Issues:</strong> If any damage/discrepancy, report immediately</li>
+                </ol>
+            </div>
+            
+            <p><strong>Important Notes:</strong></p>
+            <ul>
+                <li>Ensure package is sealed properly before handing over</li>
+                <li>Verify delivery boy identity and app status before handoff</li>
+                <li>If delivery boy is not at warehouse, contact supervisor</li>
+                <li>Keep documentation for COD payment tracking</li>
+                <li>Report any issues within 30 minutes of assignment</li>
+            </ul>
+            
+            <center>
+                <a href="{{WAREHOUSE_DASHBOARD_URL}}" class="button">Open Warehouse Dashboard</a>
+            </center>
+            
+            <p><strong>Support Contacts:</strong></p>
+            <ul>
+                <li><strong>Warehouse Supervisor:</strong> {{SUPERVISOR_PHONE}}</li>
+                <li><strong>Operations Team:</strong> {{OPERATIONS_PHONE}}</li>
+                <li><strong>Help Desk:</strong> {{SUPPORT_URL}}</li>
+            </ul>
+            
+            <p>Ensure smooth order flow by completing the handoff process immediately.</p>
+            
+            <p>Best regards,<br><strong>EKART Warehouse Management System</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated notification. For urgent issues, contact warehouse supervisor immediately.</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

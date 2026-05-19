@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .header { background: #27ae60; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { background: white; padding: 20px; }
+        .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .payout-info { background: #f0f0f0; padding: 15px; margin: 15px 0; border-left: 4px solid #27ae60; border-radius: 4px; }
+        .amount-highlight { font-size: 20px; font-weight: bold; color: #27ae60; }
+        .footer { background: #ecf0f1; padding: 15px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 8px 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .button { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✓ Payment Settlement Approved</h1>
+        </div>
+        
+        <div class="content">
+            <p>Dear {{VENDOR_NAME}},</p>
+            
+            <div class="success-box">
+                <strong>✓ Great News!</strong> Your settlement batch has been approved by our admin team. Payment will be processed shortly.
+            </div>
+            
+            <div class="payout-info">
+                <strong>Settlement Summary:</strong>
+                <table>
+                    <tr>
+                        <td>Settlement ID</td>
+                        <td>#{{SETTLEMENT_ID}}</td>
+                    </tr>
+                    <tr>
+                        <td>Approved On</td>
+                        <td>{{APPROVAL_DATE}}</td>
+                    </tr>
+                    <tr>
+                        <td>Number of Orders</td>
+                        <td>{{ORDER_COUNT}}</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #666;">
+                        <td><strong>Total Collected</strong></td>
+                        <td style="font-size: 16px;"><strong>₹{{TOTAL_COLLECTED}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Platform Commission (20%)</td>
+                        <td style="color: #e74c3c;">- ₹{{ADMIN_COMMISSION}}</td>
+                    </tr>
+                    <tr style="border-bottom: 2px solid #28a745; border-top: 2px solid #28a745; font-weight: bold;">
+                        <td><strong>Your Payout (80%)</strong></td>
+                        <td class="amount-highlight">₹{{VENDOR_PAYOUT}}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p><strong>Order Details Included in This Settlement:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ORDER_DETAILS_ROWS}}
+                </tbody>
+            </table>
+            
+            <p><strong>💳 Payment Processing:</strong></p>
+            <ul>
+                <li>Your payout of <span class="amount-highlight">₹{{VENDOR_PAYOUT}}</span> will be transferred within 2-3 business days</li>
+                <li>Transfer will be made to your registered bank account</li>
+                <li>You will receive a separate confirmation email with transaction details</li>
+                <li>Download the settlement receipt from your dashboard for accounting purposes</li>
+            </ul>
+            
+            <center>
+                <a href="{{VENDOR_DASHBOARD_URL}}/settlement/{{SETTLEMENT_ID}}" class="button">View Settlement Details</a>
+            </center>
+            
+            <p><strong>📊 Your Settlement History:</strong></p>
+            <p>Total COD payments settled to date: <strong>₹{{CUMULATIVE_PAYOUT}}</strong></p>
+            <p style="font-size: 12px; color: #7f8c8d;">Use this information for your accounting and tax filing.</p>
+            
+            <p>If you have any questions or concerns about this settlement, please reply to this email or contact our vendor support team.</p>
+            
+            <p>Thank you for being part of the EKART marketplace!<br><strong>EKART Vendor Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated email. For support, visit {{VENDOR_SUPPORT_URL}}</p>
+            <p>&copy; {{CURRENT_YEAR}} EKART. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
