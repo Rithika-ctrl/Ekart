@@ -1,6 +1,6 @@
 package com.example.ekart.service;
 import com.example.ekart.dto.Address;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +84,7 @@ public class CustomerService {
     private static final String K_THIS_PRODUCT_IS_NO_LONGER_AVAILABLE = "This product is no longer available.";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CustomerService.class);
-    private static final Random RANDOM = new Random();
+    
     private static final String REDIRECT_CUSTOMER_LOGIN = "redirect:/customer/login";
     private static final String REDIRECT_CUSTOMER_HOME = "redirect:/customer/home";
     private static final String REDIRECT_VIEW_CART = "redirect:/view-cart";
@@ -168,7 +168,6 @@ public class CustomerService {
         return "customer-register.html";
     }
 
-    @SuppressWarnings("deprecation")
     public String registration(CustomerRegistrationForm form, BindingResult result, HttpSession session) {
         Customer customer = new Customer();
         customer.setName(form.getName());
@@ -192,7 +191,7 @@ public class CustomerService {
         if (result.hasErrors())
             return "customer-register.html";
 
-        int otp = RANDOM.nextInt(100000, 1000000);
+        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         customer.setOtp(otp);
         customer.setPassword(AES.encrypt(customer.getPassword()));
         customerRepository.save(customer);
@@ -265,7 +264,6 @@ public class CustomerService {
         return "customer-forgot-password.html";
     }
 
-    @SuppressWarnings("deprecation")
     public String sendResetOtp(String email, HttpSession session) {
         Customer customer = customerRepository.findByEmail(email);
         if (customer == null) {
@@ -273,7 +271,7 @@ public class CustomerService {
             return "redirect:/customer/forgot-password";
         }
 
-        int otp = RANDOM.nextInt(100000, 1000000);
+        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         customer.setOtp(otp);
         customerRepository.save(customer);
         emailSender.send(customer, String.format("%06d", otp));

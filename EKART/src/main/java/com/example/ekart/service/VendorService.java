@@ -403,6 +403,31 @@ public class VendorService {
 	}
 
 	public String laodAddProduct(ProductForm form, HttpSession session) throws IOException {
+		if (session.getAttribute(K_VENDOR) == null) {
+			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
+			return REDIRECT_VENDOR_LOGIN;
+		}
+
+		Product product = buildProductFromForm(form);
+		product.setVendor((Vendor) session.getAttribute(K_VENDOR));
+		product.setApproved(false);
+
+		try {
+			uploadProductMedia(product, session);
+		} catch (Exception e) {
+			LOGGER.error("Cloudinary upload error: {}", e.getMessage(), e);
+			session.setAttribute(KEY_FAILURE, "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
+			return "redirect:/add-product";
+		}
+
+		productRepository.save(product);
+		stockAlertService.checkStockLevel(product);
+
+		session.setAttribute(KEY_SUCCESS, "Product added successfully! Waiting for admin approval.");
+		return REDIRECT_VENDOR_HOME;
+	}
+
+	private Product buildProductFromForm(ProductForm form) {
 		Product product = new Product();
 		product.setName(form.getName());
 		product.setDescription(form.getDescription());
@@ -416,54 +441,43 @@ public class VendorService {
 		product.setImage(form.getImage());
 		product.setExtraImages(form.getExtraImages());
 		product.setVideo(form.getVideo());
+		return product;
+	}
 
-		if (session.getAttribute(K_VENDOR) == null) {
-			session.setAttribute(KEY_FAILURE, LOGIN_FIRST);
-			return REDIRECT_VENDOR_LOGIN;
+	private void uploadProductMedia(Product product, HttpSession session) throws IOException {
+		if (product.getImage() != null && !product.getImage().isEmpty()) {
+			product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
 		}
 
-		Vendor vendor = (Vendor) session.getAttribute(K_VENDOR);
+		uploadExtraImages(product);
+		uploadVideo(product, session);
+	}
 
-		product.setVendor(vendor);
-		product.setApproved(false);
+	private void uploadExtraImages(Product product) throws IOException {
+		if (product.getExtraImages() == null || product.getExtraImages().isEmpty()) {
+			return;
+		}
+		java.util.List<String> extraUrls = new java.util.ArrayList<>();
+		for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
+			if (img != null && !img.isEmpty()) {
+				extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
+			}
+		}
+		if (!extraUrls.isEmpty()) {
+			product.setExtraImageLinks(String.join(",", extraUrls));
+		}
+	}
 
+	private void uploadVideo(Product product, HttpSession session) {
+		if (product.getVideo() == null || product.getVideo().isEmpty()) {
+			return;
+		}
 		try {
-			if (product.getImage() != null && !product.getImage().isEmpty()) {
-				product.setImageLink(cloudinaryHelper.saveToCloudinary(product.getImage()));
-			}
-
-			if (product.getExtraImages() != null && !product.getExtraImages().isEmpty()) {
-				java.util.List<String> extraUrls = new java.util.ArrayList<>();
-				for (org.springframework.web.multipart.MultipartFile img : product.getExtraImages()) {
-					if (img != null && !img.isEmpty()) {
-						extraUrls.add(cloudinaryHelper.saveToCloudinary(img));
-					}
-				}
-				if (!extraUrls.isEmpty()) {
-					product.setExtraImageLinks(String.join(",", extraUrls));
-				}
-			}
-
-			if (product.getVideo() != null && !product.getVideo().isEmpty()) {
-				try {
-					product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
-				} catch (Exception videoEx) {
-					LOGGER.warn("Video upload failed (skipped): {}", videoEx.getMessage(), videoEx);
-					session.setAttribute("warning", "Product saved but video upload failed. You can add a video later by editing the product.");
-				}
-			}
-
-		} catch (Exception e) {
-			LOGGER.error("Cloudinary upload error: {}", e.getMessage(), e);
-			session.setAttribute(KEY_FAILURE, "Image upload failed: " + e.getMessage() + ". Check your Cloudinary credentials.");
-			return "redirect:/add-product";
+			product.setVideoLink(cloudinaryHelper.saveVideoToCloudinary(product.getVideo()));
+		} catch (Exception videoEx) {
+			LOGGER.warn("Video upload failed (skipped): {}", videoEx.getMessage(), videoEx);
+			session.setAttribute("warning", "Product saved but video upload failed. You can add a video later by editing the product.");
 		}
-
-		productRepository.save(product);
-		stockAlertService.checkStockLevel(product);
-
-		session.setAttribute(KEY_SUCCESS, "Product added successfully! Waiting for admin approval.");
-		return REDIRECT_VENDOR_HOME;
 	}
 
 	// ---------------- MANAGE PRODUCTS ----------------
