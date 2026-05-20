@@ -78,7 +78,7 @@ public class GenericReadOnlyController {
                 //noinspection unchecked
                 @SuppressWarnings("unchecked")
                 Object result = rawRepo.findById(altKey).orElse(null);
-                if (result != null) return ResponseEntity.ok(result);
+                if (result != null) return ResponseEntity.status(HttpStatus.OK).body(result);
             } catch (Exception ignored2) {
                 LOGGER.trace("Alt key type lookup failed: {}", ignored2.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

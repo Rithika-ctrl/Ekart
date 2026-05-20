@@ -511,15 +511,15 @@ public class ReactApiController {
         return password != null && password.matches(CREDENTIAL_STRENGTH_REGEX);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // AUTH — CUSTOMER REGISTRATION (OTP-verified)
-    //   Step 1 — POST /auth/customer/send-register-otp  body: { email, name }
-    //            → validates email uniqueness, generates OTP, emails it
-    //   Step 2 — POST /auth/customer/verify-register-otp body: { email, otp }
-    //            → validates OTP, marks email as register-verified in map
-    //   Step 3 — POST /auth/customer/register           body: { name, email, mobile, password, … }
-    //            → checks register-verified map, creates account with verified=true
-    // ═══════════════════════════════════════════════════════
+    /**
+     * AUTH — CUSTOMER REGISTRATION (OTP-verified)
+     * Step 1 — POST /auth/customer/send-register-otp  body: { email, name }
+     *           validates email uniqueness, generates OTP, emails it
+     * Step 2 — POST /auth/customer/verify-register-otp body: { email, otp }
+     *           validates OTP, marks email as register-verified in map
+     * Step 3 — POST /auth/customer/register           body: { name, email, mobile, password, … }
+     *           checks register-verified map, creates account with verified=true
+     */
 
     /**
      * Pending registrations: email → partially-built Customer awaiting OTP.
@@ -699,12 +699,12 @@ public class ReactApiController {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
-    // AUTH — VENDOR REGISTRATION (OTP-verified)
-    //   Step 1 — POST /auth/vendor/send-register-otp  body: { email, name }
-    //   Step 2 — POST /auth/vendor/verify-register-otp body: { email, otp }
-    //   Step 3 — POST /auth/vendor/register            body: { name, email, mobile, password }
-    // ═══════════════════════════════════════════════════════
+    /**
+     * AUTH — VENDOR REGISTRATION (OTP-verified)
+     * Step 1 — POST /auth/vendor/send-register-otp  body: { email, name }
+     * Step 2 — POST /auth/vendor/verify-register-otp body: { email, otp }
+     * Step 3 — POST /auth/vendor/register            body: { name, email, mobile, password }
+     */
 
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> vendorRegisterOtpVerified =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -2899,18 +2899,10 @@ public class ReactApiController {
             res.put(KEY_DELIVERY_ADDRESS, order.getDeliveryAddress());
             res.put(K_TOTALPRICE, order.getAmount());
             res.put("progressPercent", order.getTrackingStatus() != null ? order.getTrackingStatus().getProgressPercent() : 0);
-            
-            // Estimated delivery: +48 hours from order date if still in transit
-            if (order.getOrderDate() != null && order.getTrackingStatus() != null) {
-                TrackingStatus status = order.getTrackingStatus();
-                if (status != TrackingStatus.DELIVERED && status != TrackingStatus.CANCELLED 
-                    && status != TrackingStatus.REFUNDED) {
-                    res.put(KEY_ESTIMATED_DELIVERY, order.getOrderDate().plusHours(48).toString());
-                } else {
-                    res.put(KEY_ESTIMATED_DELIVERY, null);
-                }
-            }
-            
+
+            TrackingStatus status = order.getTrackingStatus();
+            putEstimatedDeliveryIfInTransit(res, order, status);
+
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
@@ -3953,8 +3945,9 @@ public class ReactApiController {
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
-            Product p = buildNewProduct(vendor, name, description, price, category, stock,
-                                        image, imageLink, mrp, gstRate, allowedPinCodes, stockAlertThreshold);
+            Product p = buildNewProduct(new NewProductParams(vendor, name, description, price,
+                                        category, stock, image, imageLink, mrp, gstRate,
+                                        allowedPinCodes, stockAlertThreshold));
             productRepository.save(p);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Product added. Pending admin approval.");
@@ -3967,24 +3960,27 @@ public class ReactApiController {
      * Constructs a new {@link Product} from the supplied vendor-add parameters.
      * Extracted from {@code vendorAddProduct} to reduce its cognitive complexity (java:S3776).
      */
-    private Product buildNewProduct(Vendor vendor, String name, String description, String price,
-                                     String category, String stock,
-                                     org.springframework.web.multipart.MultipartFile image, String imageLink,
-                                     String mrp, String gstRate, String allowedPinCodes, String stockAlertThreshold) {
-        Product p = new Product();
-        p.setName(name);
-        p.setDescription(description);
-        p.setPrice(Double.parseDouble(price));
-        p.setCategory(category);
-        p.setStock(Integer.parseInt(stock));
-        p.setImageLink(resolveProductImage(image, imageLink));
-        p.setApproved(false);
-        p.setVendor(vendor);
-        applyMrpField(p, mrp);
-        applyGstRateField(p, gstRate);
-        applyAllowedPinCodes(p, allowedPinCodes);
-        applyStockAlertThreshold(p, stockAlertThreshold);
-        return p;
+    private record NewProductParams(
+            Vendor vendor, String name, String description, String price,
+            String category, String stock,
+            org.springframework.web.multipart.MultipartFile image, String imageLink,
+            String mrp, String gstRate, String allowedPinCodes, String stockAlertThreshold) {}
+
+    private Product buildNewProduct(NewProductParams p) {
+        Product prod = new Product();
+        prod.setName(p.name());
+        prod.setDescription(p.description());
+        prod.setPrice(Double.parseDouble(p.price()));
+        prod.setCategory(p.category());
+        prod.setStock(Integer.parseInt(p.stock()));
+        prod.setImageLink(resolveProductImage(p.image(), p.imageLink()));
+        prod.setApproved(false);
+        prod.setVendor(p.vendor());
+        applyMrpField(prod, p.mrp());
+        applyGstRateField(prod, p.gstRate());
+        applyAllowedPinCodes(prod, p.allowedPinCodes());
+        applyStockAlertThreshold(prod, p.stockAlertThreshold());
+        return prod;
     }
 
     /** Applies MRP to a product if the value is non-blank and positive. */
@@ -6512,12 +6508,21 @@ public class ReactApiController {
         }
 
         String pin = (order.getDeliveryPinCode() != null) ? order.getDeliveryPinCode().trim() : null;
+        List<DeliveryBoy> eligible = resolveEligibleDeliveryBoys(order, pin);
+        List<Map<String, Object>> boys = mapDeliveryBoysToResponse(eligible);
 
-        // Step 1: find all eligible boys using union strategy
+        res.put(KEY_SUCCESS, true);
+        res.put(K_DELIVERYBOYS, boys);
+        res.put("orderPin", pin != null ? pin : K_N_A);
+        return ResponseEntity.ok(res);
+    }
+
+    /** Resolves eligible delivery boys using a pin-covers → warehouse → fallback union strategy. */
+    private List<DeliveryBoy> resolveEligibleDeliveryBoys(Order order, String pin) {
         Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> eligible = new ArrayList<>();
 
-        // 1a: boys whose assignedPinCodes explicitly covers the pin (covers() handles null safely)
+        // Step 1a: boys whose assignedPinCodes explicitly covers the pin
         if (pin != null && !pin.isBlank()) {
             for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
                 if (!db.isAdminApproved() || !db.isActive()) continue;
@@ -6525,12 +6530,8 @@ public class ReactApiController {
             }
         }
 
-        // 1b: boys assigned to the warehouse that serves this pin
-        com.example.ekart.dto.Warehouse orderWarehouse = order.getWarehouse();
-        if (orderWarehouse == null && pin != null && !pin.isBlank()) {
-            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
-            if (!whs.isEmpty()) orderWarehouse = whs.get(0);
-        }
+        // Step 1b: boys assigned to the warehouse that serves this pin
+        com.example.ekart.dto.Warehouse orderWarehouse = resolveOrderWarehouse(order, pin);
         if (orderWarehouse != null) {
             for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
                 if (!db.isAdminApproved() || !db.isActive()) continue;
@@ -6545,8 +6546,22 @@ public class ReactApiController {
             }
         }
 
-        // Step 3: map to response DTOs, sort online first
-        List<Map<String, Object>> boys = eligible.stream()
+        return eligible;
+    }
+
+    /** Returns the warehouse associated with an order, falling back to a pin-code lookup. */
+    private com.example.ekart.dto.Warehouse resolveOrderWarehouse(Order order, String pin) {
+        if (order.getWarehouse() != null) return order.getWarehouse();
+        if (pin != null && !pin.isBlank()) {
+            List<com.example.ekart.dto.Warehouse> whs = warehouseRepository.findByPinCode(pin);
+            if (!whs.isEmpty()) return whs.get(0);
+        }
+        return null;
+    }
+
+    /** Maps a list of delivery boys to the response DTO shape, sorted online-first. */
+    private List<Map<String, Object>> mapDeliveryBoysToResponse(List<DeliveryBoy> eligible) {
+        return eligible.stream()
             .map(db -> {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id",          db.getId());
@@ -6560,11 +6575,6 @@ public class ReactApiController {
             })
             .sorted(Comparator.comparing(m -> !((Boolean) m.get(KEY_IS_AVAILABLE)))) // online first
             .toList();
-
-        res.put(KEY_SUCCESS, true);
-        res.put(K_DELIVERYBOYS, boys);
-        res.put("orderPin", pin != null ? pin : K_N_A);
-        return ResponseEntity.ok(res);
     }
 
     /**
@@ -9240,54 +9250,18 @@ public class ReactApiController {
                     .body(Map.of(KEY_ERROR, "Order must be in PACKED status. Current: " + order.getTrackingStatus()));
             }
 
-            // Mark received - set this warehouse as the receiving warehouse
             order.setTrackingStatus(TrackingStatus.WAREHOUSE_RECEIVED);
             order.setSourceWarehouse(warehouseRepository.findById(warehouseId).orElse(null));
 
-            // Calculate destination warehouse based on delivery pin code
-            String deliveryPin = order.getDeliveryPinCode();
-            Warehouse destinationWarehouse = null;
-            if (deliveryPin != null) {
-                List<Warehouse> allWarehouses = warehouseRepository.findByActiveTrue();
-                for (Warehouse wh : allWarehouses) {
-                    if (wh.serves(deliveryPin)) {
-                        destinationWarehouse = wh;
-                        break;
-                    }
-                }
-            }
-
+            Warehouse destinationWarehouse = findDestinationWarehouse(order.getDeliveryPinCode());
             if (destinationWarehouse != null) {
                 order.setDestinationWarehouse(destinationWarehouse);
             }
 
-            // Calculate routing path using WarehouseRoutingService
-            // This builds a path: SourceCity -> (IntermediateHub?) -> DestinationCity
             String routingPath = warehouseRoutingService.calculateRoutingPath(order);
             order.setWarehouseRoutingPath(routingPath);
 
-            // IMPORTANT: Initiate warehouse transfer if source != destination
-            if (destinationWarehouse != null && 
-                order.getSourceWarehouse() != null &&
-                order.getSourceWarehouse().getId() != destinationWarehouse.getId()) {
-                
-                // Calculate optimal route between warehouses
-                List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
-                    order.getSourceWarehouse(), 
-                    destinationWarehouse
-                );
-                
-                // Create transfer legs for each warehouse hop
-                warehouseTransferService.initiateTransferLegs(order, transferRoute);
-
-                LOGGER.info(
-                    "Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
-                    orderId,
-                    order.getSourceWarehouse().getCity(),
-                    destinationWarehouse.getCity(),
-                    transferRoute.size() - 1
-                );
-            }
+            boolean transferInitiated = initiateTransferIfNeeded(order, destinationWarehouse, orderId);
 
             orderRepository.save(order);
 
@@ -9297,15 +9271,40 @@ public class ReactApiController {
                 KEY_NEW_STATUS, order.getTrackingStatus().toString(),
                 K_DESTINATION_WAREHOUSE, destinationWarehouse != null ? destinationWarehouse.getName() : K_UNKNOWN,
                 KEY_ROUTING_PATH, routingPath != null ? routingPath : "Direct",
-                "transferInitiated", destinationWarehouse != null && 
-                    order.getSourceWarehouse() != null &&
-                    order.getSourceWarehouse().getId() != destinationWarehouse.getId()
+                "transferInitiated", transferInitiated
             ));
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName() + ": Unknown error";
             LOGGER.error("[ReactApiController] warehouseMarkReceived error for orderId={}: {}", orderId, errorMsg, e);
             return ResponseEntity.status(500).body(Map.of(KEY_ERROR, errorMsg));
         }
+    }
+
+    /** Finds the active warehouse that serves the given delivery pin code, or null if none matches. */
+    private Warehouse findDestinationWarehouse(String deliveryPin) {
+        if (deliveryPin == null) return null;
+        for (Warehouse wh : warehouseRepository.findByActiveTrue()) {
+            if (wh.serves(deliveryPin)) return wh;
+        }
+        return null;
+    }
+
+    /**
+     * Initiates inter-warehouse transfer legs when source and destination differ.
+     * Returns true if a transfer was initiated, false if the order is already at the right warehouse.
+     */
+    private boolean initiateTransferIfNeeded(Order order, Warehouse destinationWarehouse, int orderId) {
+        if (destinationWarehouse == null || order.getSourceWarehouse() == null) return false;
+        if (order.getSourceWarehouse().getId() == destinationWarehouse.getId()) return false;
+
+        List<Warehouse> transferRoute = warehouseRoutingService.calculateOptimalRoute(
+            order.getSourceWarehouse(), destinationWarehouse);
+        warehouseTransferService.initiateTransferLegs(order, transferRoute);
+
+        LOGGER.info("Warehouse transfer initiated for Order #{}: {} -> {} via {} leg(s)",
+            orderId, order.getSourceWarehouse().getCity(),
+            destinationWarehouse.getCity(), transferRoute.size() - 1);
+        return true;
     }
 
     /**
