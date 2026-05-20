@@ -52,6 +52,7 @@ import com.example.ekart.repository.RefundRepository;
 import com.example.ekart.repository.WarehouseRepository;
 import com.example.ekart.repository.TrackingEventLogRepository;
 import com.example.ekart.helper.GstUtil;
+import com.example.ekart.service.OtpService;
 import com.example.ekart.reporting.ReportingService;
 
 import jakarta.servlet.http.HttpSession;
@@ -106,6 +107,7 @@ public class CustomerService {
     private final RefundRepository refundRepository;
     private final WarehouseRepository warehouseRepository;
     private final TrackingEventLogRepository trackingEventLogRepository;
+    private final OtpService otpService;
 
     public CustomerService(
             CustomerRepository customerRepository,
@@ -122,7 +124,8 @@ public class CustomerService {
             WishlistRepository wishlistRepository,
             RefundRepository refundRepository,
             WarehouseRepository warehouseRepository,
-            TrackingEventLogRepository trackingEventLogRepository) {
+            TrackingEventLogRepository trackingEventLogRepository,
+            OtpService otpService) {
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
         this.itemRepository = itemRepository;
@@ -138,6 +141,7 @@ public class CustomerService {
         this.refundRepository = refundRepository;
         this.warehouseRepository = warehouseRepository;
         this.trackingEventLogRepository = trackingEventLogRepository;
+        this.otpService = otpService;
     }
 
 
@@ -191,13 +195,13 @@ public class CustomerService {
         if (result.hasErrors())
             return "customer-register.html";
 
-        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
-        customer.setOtp(otp);
         customer.setPassword(AES.encrypt(customer.getPassword()));
         customerRepository.save(customer);
 
+        String plainOtp = otpService.generateAndStoreOtp(customer.getEmail(), OtpService.PURPOSE_CUSTOMER_REGISTER);
+
         try {
-            emailSender.send(customer, String.format("%06d", otp));
+            emailSender.send(customer, plainOtp);
         } catch (Exception e) {
             LOGGER.error("Customer OTP email failed: {}", e.getMessage(), e);
         }
@@ -209,7 +213,10 @@ public class CustomerService {
     public String verifyOtp(int id, int otp, HttpSession session) {
         Customer customer = customerRepository.findById(id).orElseThrow();
 
-        if (customer.getOtp() == otp) {
+        OtpService.VerificationResult result = otpService.verifyOtp(
+                customer.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_CUSTOMER_REGISTER);
+
+        if (result.success) {
             customer.setVerified(true);
             customerRepository.save(customer);
             session.setAttribute(K_SUCCESS, "Account verified! Please log in.");
@@ -271,10 +278,8 @@ public class CustomerService {
             return "redirect:/customer/forgot-password";
         }
 
-        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
-        customer.setOtp(otp);
-        customerRepository.save(customer);
-        emailSender.send(customer, String.format("%06d", otp));
+        String plainOtp = otpService.generateAndStoreOtp(customer.getEmail(), OtpService.PURPOSE_PASSWORD_RESET);
+        emailSender.send(customer, plainOtp);
 
         session.setAttribute(K_SUCCESS, "OTP sent to your registered email");
         return K_REDIRECT_CUSTOMER_RESET_PASSWORD + customer.getId();
@@ -292,7 +297,9 @@ public class CustomerService {
             return "redirect:/customer/forgot-password";
         }
 
-        if (customer.getOtp() != otp) {
+        OtpService.VerificationResult otpResult = otpService.verifyOtp(
+                customer.getEmail(), String.format("%06d", otp), OtpService.PURPOSE_PASSWORD_RESET);
+        if (!otpResult.success) {
             session.setAttribute(K_FAILURE, "Invalid OTP");
             return K_REDIRECT_CUSTOMER_RESET_PASSWORD + id;
         }

@@ -44,32 +44,23 @@ public class SearchService {
      */
     public String findFuzzyMatch(String query) {
         if (query == null || query.trim().isEmpty()) return null;
-
         String q = query.trim().toLowerCase();
-
-        // Adaptive threshold: stricter for short words to avoid false matches
-        int threshold = (q.length() <= 3) ? 1 : (q.length() <= 5) ? 2 : Math.max(2, q.length() / 3);
-
+        int threshold = computeThreshold(q.length());
         List<Product> all = productRepository.findByApprovedTrue();
+        return findBestOverall(all, q, threshold);
+    }
 
+    private int computeThreshold(int len) {
+        if (len <= 3) return 1;
+        if (len <= 5) return 2;
+        return Math.max(2, len / 3);
+    }
+
+    private String findBestOverall(List<Product> products, String q, int threshold) {
         String bestMatch = null;
         int bestDist = Integer.MAX_VALUE;
         int bestPrefix = -1;
-
-        for (Product p : all) {
-            // Build list of strings to match against: product name words + category
-            java.util.List<String> candidates = new java.util.ArrayList<>();
-            if (p.getName() != null) {
-                candidates.add(p.getName().toLowerCase());
-                for (String w : p.getName().toLowerCase().split("[\\s\\-]+"))
-                    if (w.length() >= 2) candidates.add(w);
-            }
-            if (p.getCategory() != null) {
-                candidates.add(p.getCategory().toLowerCase());
-                for (String w : p.getCategory().toLowerCase().split("[\\s\\-]+"))
-                    if (w.length() >= 2) candidates.add(w);
-            }
-
+        for (Product p : products) {
             CandidateMatch cm = findBestCandidateForProduct(p, q, threshold);
             if (cm == null) continue;
             if (cm.dist < bestDist || (cm.dist == bestDist && cm.prefix > bestPrefix)) {
@@ -78,7 +69,6 @@ public class SearchService {
                 bestMatch = cm.match;
             }
         }
-
         return bestMatch;
     }
 
@@ -148,4 +138,3 @@ public class SearchService {
         return dp[m][n];
     }
 }
-

@@ -83,27 +83,35 @@ public class AiAssistantService {
      */
     public String getReply(String userMessage, String role, String userName,
                            String contextBlock, List<Map<String, String>> history) {
-
-        if (userMessage == null || userMessage.isBlank())
+        if (userMessage == null || userMessage.isBlank()) {
             return "Please type a message so I can help! 😊";
-
+        }
         if (apiKey != null && !apiKey.isBlank()) {
-            try {
-                String reply = callGemini(userMessage, role, userName, contextBlock, history);
-                if (reply != null && !reply.isBlank()) return reply;
-            } catch (java.util.concurrent.ExecutionException e) {
-                if (e.getCause() instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-                log.warn("Gemini API failed ({}), using local fallback", e.getMessage());
-            } catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-                log.warn("Gemini API failed ({}), using local fallback", e.getMessage());
-            }
+            String geminiReply = tryCallGemini(userMessage, role, userName, contextBlock, history);
+            if (geminiReply != null) return geminiReply;
         }
         return localReply(userMessage, role, userName, contextBlock);
+    }
+
+    /**
+     * Attempts to get a reply from the Gemini API.
+     * Returns the reply string if successful, or null if Gemini is unavailable or fails.
+     * Handles interrupt restoration on InterruptedException.
+     */
+    private String tryCallGemini(String userMessage, String role, String userName,
+                                  String contextBlock, List<Map<String, String>> history) {
+        try {
+            String reply = callGemini(userMessage, role, userName, contextBlock, history);
+            if (reply != null && !reply.isBlank()) return reply;
+        } catch (java.util.concurrent.ExecutionException e) {
+            if (e.getCause() instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.warn("Gemini API failed ({}), using local fallback", e.getMessage());
+        } catch (Exception e) {
+            log.warn("Gemini API failed ({}), using local fallback", e.getMessage());
+        }
+        return null;
     }
 
     // ── Gemini API ────────────────────────────────────────────────────────────

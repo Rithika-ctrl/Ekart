@@ -1,6 +1,7 @@
 package com.example.ekart.dto;
 
 import jakarta.persistence.*;
+import java.io.Serializable;
 
 /**
  * Structured delivery address.
@@ -10,7 +11,8 @@ import jakarta.persistence.*;
  * otherwise falls back to the old flat details string.
  */
 @Entity
-public class Address {
+public class Address implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

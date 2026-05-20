@@ -85,7 +85,13 @@ public class EmailSender {
     private String fromEmail;
 
     // ===================== SEND OTP TO VENDOR =====================
+    /**
+     * @deprecated Use {@link #sendVendorOtpSecure(Vendor, String)} with a plain OTP string instead.
+     *             This method reads the deprecated {@code vendor.getOtp()} int field.
+     */
     @Async
+    @Deprecated(since = "Phase 4", forRemoval = true)
+    @SuppressWarnings("deprecation")
     public void send(Vendor vendor) {
         self.sendVendorOtpSecure(vendor, String.format("%06d", vendor.getOtp()));
     }

@@ -86,9 +86,10 @@ public class AdminAuthService {
     }
 
     /**
-     * Get primary admin email
+     * Get primary admin email.
+     * Delegates to {@link #getAdminEmailById()} — both return the single env-based admin email.
      */
     public String getPrimaryAdminEmail() {
-        return envAdminEmail;
+        return getAdminEmailById();
     }
 }

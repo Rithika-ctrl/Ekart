@@ -280,7 +280,7 @@ public class FlutterApiController {
     }
  
     /** @deprecated Use /api/flutter/auth/customer/send-otp + verify-otp instead */
-    @Deprecated
+    @Deprecated(since = "1.0", forRemoval = true)
     @PostMapping("/auth/customer/register")
     public ResponseEntity<Map<String, Object>> customerRegister(@RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
@@ -2806,59 +2806,70 @@ public class FlutterApiController {
             @RequestParam(required = false, defaultValue = "") String search) {
         Map<String, Object> res = new LinkedHashMap<>();
         List<com.example.ekart.dto.Review> all = deps.reviewRepository.findAll();
-
-        // Star distribution
-        long five  = all.stream().filter(r -> r.getRating() == 5).count();
-        long four  = all.stream().filter(r -> r.getRating() == 4).count();
-        long three = all.stream().filter(r -> r.getRating() == 3).count();
-        long two   = all.stream().filter(r -> r.getRating() == 2).count();
-        long one   = all.stream().filter(r -> r.getRating() == 1).count();
         double avg = all.stream().mapToInt(com.example.ekart.dto.Review::getRating).average().orElse(0.0);
 
-        List<com.example.ekart.dto.Review> filtered = new ArrayList<>(all);
+        List<com.example.ekart.dto.Review> filtered = filterReviews(all, filter, search);
+        List<Map<String, Object>> reviewMaps = mapReviews(filtered);
+
+        res.put(KEY_SUCCESS,   true);
+        res.put(K_REVIEWS,     reviewMaps);
+        res.put(KEY_TOTAL,     all.size());
+        res.put("filtered",    filtered.size());
+        res.put(K_AVG_RATING,  Math.round(avg * 10.0) / 10.0);
+        res.put("fiveStars",   countByStar(all, 5));
+        res.put("fourStars",   countByStar(all, 4));
+        res.put("threeStars",  countByStar(all, 3));
+        res.put("twoStars",    countByStar(all, 2));
+        res.put("oneStar",     countByStar(all, 1));
+        return ResponseEntity.ok(res);
+    }
+
+    private long countByStar(List<com.example.ekart.dto.Review> reviews, int star) {
+        return reviews.stream().filter(r -> r.getRating() == star).count();
+    }
+
+    private List<com.example.ekart.dto.Review> filterReviews(
+            List<com.example.ekart.dto.Review> all, String filter, String search) {
+        List<com.example.ekart.dto.Review> result = new ArrayList<>(all);
         if (!filter.equals("all")) {
             try {
                 int star = Integer.parseInt(filter);
-                filtered = filtered.stream().filter(r -> r.getRating() == star).toList();
+                result = result.stream().filter(r -> r.getRating() == star).toList();
             } catch (NumberFormatException ignored) { /* non-numeric value — use default */ }
         }
         if (!search.isBlank()) {
-            String q = search.toLowerCase();
-            filtered = filtered.stream().filter(r ->
-                (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q)) ||
-                (r.getComment()      != null && r.getComment().toLowerCase().contains(q)) ||
-                (r.getProduct()      != null && r.getProduct().getName().toLowerCase().contains(q))
-            ).toList();
+            result = applySearchFilter(result, search.toLowerCase());
         }
-        filtered.sort((a, b) -> {
+        result = new ArrayList<>(result);
+        result.sort((a, b) -> {
             if (a.getCreatedAt() == null) return 1;
             if (b.getCreatedAt() == null) return -1;
             return b.getCreatedAt().compareTo(a.getCreatedAt());
         });
+        return result;
+    }
 
-        List<Map<String, Object>> reviewMaps = filtered.stream().map(r -> {
+    private List<com.example.ekart.dto.Review> applySearchFilter(
+            List<com.example.ekart.dto.Review> reviews, String q) {
+        return reviews.stream().filter(r ->
+            (r.getCustomerName() != null && r.getCustomerName().toLowerCase().contains(q)) ||
+            (r.getComment()      != null && r.getComment().toLowerCase().contains(q)) ||
+            (r.getProduct()      != null && r.getProduct().getName().toLowerCase().contains(q))
+        ).toList();
+    }
+
+    private List<Map<String, Object>> mapReviews(List<com.example.ekart.dto.Review> reviews) {
+        return reviews.stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put(KEY_ID,           r.getId());
-            m.put(K_RATING,       r.getRating());
-            m.put(K_COMMENT,      r.getComment() != null ? r.getComment() : "");
+            m.put(KEY_ID,          r.getId());
+            m.put(K_RATING,        r.getRating());
+            m.put(K_COMMENT,       r.getComment() != null ? r.getComment() : "");
             m.put(K_CUSTOMER_NAME, r.getCustomerName() != null ? r.getCustomerName() : "");
-            m.put(KEY_PRODUCT_NAME,  r.getProduct() != null ? r.getProduct().getName() : "");
+            m.put(KEY_PRODUCT_NAME, r.getProduct() != null ? r.getProduct().getName() : "");
             m.put(K_PRODUCT_ID,    r.getProduct() != null ? r.getProduct().getId() : 0);
-            m.put("createdAt",    r.getCreatedAt() != null ? r.getCreatedAt().toString() : "");
+            m.put("createdAt",     r.getCreatedAt() != null ? r.getCreatedAt().toString() : "");
             return m;
         }).toList();
-
-        res.put(KEY_SUCCESS,      true);
-        res.put(K_REVIEWS,      reviewMaps);
-        res.put(KEY_TOTAL,        all.size());
-        res.put("filtered",     filtered.size());
-        res.put(K_AVG_RATING,    Math.round(avg * 10.0) / 10.0);
-        res.put("fiveStars",    five);
-        res.put("fourStars",    four);
-        res.put("threeStars",   three);
-        res.put("twoStars",     two);
-        res.put("oneStar",      one);
-        return ResponseEntity.ok(res);
     }
 
     /** DELETE /api/flutter/admin/reviews/{id} */

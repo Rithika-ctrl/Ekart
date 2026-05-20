@@ -901,9 +901,6 @@ public class ReactApiController {
     }
 
     /**
-     * Sends a customer registration OTP email using the new EmailSender method (no deprecated setOtp).
-     */
-    /**
      * Generates and sends a registration OTP email to a customer via the secure
      * OTP service, swallowing exceptions so the caller is not interrupted.
      * Extracted to avoid nested try blocks (SonarQube S1141).
@@ -1054,14 +1051,8 @@ public class ReactApiController {
                 return ResponseEntity.badRequest().body(res);
             }
             if (!db.isVerified()) {
-                // Resend OTP exactly like the web flow does
-                int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
-                // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
-                // For backward compatibility, we save temporarily for email notification only
-                DeliveryBoy tempDb = new DeliveryBoy();
-                tempDb.setId(db.getId());
-                tempDb.setOtp(otp);  // Temporary for email template only, not persisted
-                trySendDeliveryBoyOtp(tempDb);
+                // Resend OTP using secure OTP service (no deprecated setOtp)
+                trySendDeliveryBoyOtpSecure(db);
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Please verify your email first — OTP resent to " + email);
                 return ResponseEntity.status(403).body(res);
@@ -1507,13 +1498,9 @@ public class ReactApiController {
                 res.put(KEY_MESSAGE, "If that email is registered, an OTP has been sent");
                 return ResponseEntity.ok(res);
             }
-            int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
-            // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
-            // For backward compatibility with forgot password flow, we prepare temp object for email
-            Customer tempCustomer = new Customer();
-            tempCustomer.setEmail(email);
-            tempCustomer.setName(customer.getName());
-            emailSender.send(tempCustomer, String.format(FMT_OTP, otp));   // reuses existing OTP email template
+            // Use OtpService to generate and store secure OTP for password reset
+            String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_PASSWORD_RESET);
+            emailSender.sendCustomerOtp(email, customer.getName(), plainOtp);
             // Clear any previously-verified flag for this email so a fresh verify is required
             otpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
@@ -3904,28 +3891,37 @@ public class ReactApiController {
     // VENDOR — PRODUCT CRUD  (X-Vendor-Id)
     // ═══════════════════════════════════════════════════════
 
+    /**
+     * Parameter object for the vendor add-product endpoint.
+     * Groups all multipart/form-data fields so {@code vendorAddProduct} stays within
+     * the S107 7-parameter limit; Spring MVC binds each field by name via {@code @ModelAttribute}.
+     */
+    public static class VendorAddProductForm {
+        public String name;
+        public String description;
+        public String price;
+        public String category;
+        public String stock;
+        public String imageLink;
+        public MultipartFile image;
+        public String mrp;
+        public String gstRate;
+        public String allowedPinCodes;
+        public String stockAlertThreshold;
+    }
+
     /** POST /api/react/vendor/products/add — Accepts multipart/form-data */
     @PostMapping(value = "/vendor/products/add", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> vendorAddProduct(
             @RequestHeader(HEADER_VENDOR_ID) int vendorId,
-            @RequestParam(K_NAME) String name,
-            @RequestParam(K_DESCRIPTION) String description,
-            @RequestParam(K_PRICE) String price,
-            @RequestParam(K_CATEGORY) String category,
-            @RequestParam(K_STOCK) String stock,
-            @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
-            @RequestParam(value = K_IMAGE, required = false) org.springframework.web.multipart.MultipartFile image,
-            @RequestParam(value = K_MRP, required = false) String mrp,
-            @RequestParam(value = K_GST_RATE, required = false) String gstRate,
-            @RequestParam(value = "allowedPinCodes", required = false) String allowedPinCodes,
-            @RequestParam(value = K_STOCK_ALERT_THRESHOLD, required = false) String stockAlertThreshold) {
+            @ModelAttribute VendorAddProductForm form) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         try {
-            Product p = buildNewProduct(new NewProductParams(vendor, name, description, price,
-                                        category, stock, image, imageLink, mrp, gstRate,
-                                        allowedPinCodes, stockAlertThreshold));
+            Product p = buildNewProduct(new NewProductParams(vendor, form.name, form.description, form.price,
+                                        form.category, form.stock, form.image, form.imageLink, form.mrp, form.gstRate,
+                                        form.allowedPinCodes, form.stockAlertThreshold));
             productRepository.save(p);
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Product added. Pending admin approval.");
@@ -5846,26 +5842,29 @@ public class ReactApiController {
         }
         Map<String, Object> res = new HashMap<>();
         List<Map<String, Object>> list = refundRepository.findAllByOrderByRequestedAtDesc().stream()
-                .map(r -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id",              r.getId());
-                    m.put(KEY_ORDER_ID,         r.getOrder() != null ? r.getOrder().getId() : null);
-                    m.put(KEY_CUSTOMER_NAME,    r.getCustomer() != null ? r.getCustomer().getName() : null);
-                    m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
-                    m.put(KEY_AMOUNT,          r.getAmount());
-                    m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
-                    m.put(K_REASON,          r.getReason());
-                    m.put(K_STATUS,          r.getStatus() != null ? r.getStatus().name() : null);
-                    m.put(KEY_STATUS_DISPLAY,   r.getStatus() != null ? r.getStatus().getDisplayName() : null);
-                    m.put(KEY_REQUESTED_AT,  r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
-                    m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
-                    m.put("processedBy",     r.getProcessedBy());
-                    m.put("rejectionReason", r.getRejectionReason());
-                    return m;
-                }).toList();
+                .map(this::toRefundMap)
+                .toList();
         res.put(KEY_SUCCESS, true);
         res.put("refunds", list);
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Object> toRefundMap(Refund r) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",              r.getId());
+        m.put(KEY_ORDER_ID,      r.getOrder() != null ? r.getOrder().getId() : null);
+        m.put(KEY_CUSTOMER_NAME, r.getCustomer() != null ? r.getCustomer().getName() : null);
+        m.put("customerEmail",   r.getCustomer() != null ? r.getCustomer().getEmail() : null);
+        m.put(KEY_AMOUNT,        r.getAmount());
+        m.put("orderTotal",      r.getOrder() != null ? r.getOrder().getTotalPrice() : null);
+        m.put(K_REASON,          r.getReason());
+        m.put(K_STATUS,          r.getStatus() != null ? r.getStatus().name() : null);
+        m.put(KEY_STATUS_DISPLAY, r.getStatus() != null ? r.getStatus().getDisplayName() : null);
+        m.put(KEY_REQUESTED_AT,  r.getRequestedAt() != null ? r.getRequestedAt().toString() : null);
+        m.put("processedAt",     r.getProcessedAt() != null ? r.getProcessedAt().toString() : null);
+        m.put("processedBy",     r.getProcessedBy());
+        m.put("rejectionReason", r.getRejectionReason());
+        return m;
     }
 
     /**
@@ -6499,32 +6498,40 @@ public class ReactApiController {
     private List<DeliveryBoy> resolveEligibleDeliveryBoys(Order order, String pin) {
         Set<Integer> seen = new LinkedHashSet<>();
         List<DeliveryBoy> eligible = new ArrayList<>();
-
-        // Step 1a: boys whose assignedPinCodes explicitly covers the pin
-        if (pin != null && !pin.isBlank()) {
-            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                if (!db.isAdminApproved() || !db.isActive()) continue;
-                if (db.covers(pin) && seen.add(db.getId())) eligible.add(db);
-            }
-        }
-
-        // Step 1b: boys assigned to the warehouse that serves this pin
-        com.example.ekart.dto.Warehouse orderWarehouse = resolveOrderWarehouse(order, pin);
-        if (orderWarehouse != null) {
-            for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
-                if (!db.isAdminApproved() || !db.isActive()) continue;
-                if (seen.add(db.getId())) eligible.add(db);
-            }
-        }
-
-        // Step 2: last-resort — show all approved+active boys so admin is never blocked
+        addPinCoveringDeliveryBoys(pin, seen, eligible);
+        addWarehouseDeliveryBoys(order, pin, seen, eligible);
         if (eligible.isEmpty()) {
-            for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) eligible.add(db);
+            addAllApprovedDeliveryBoys(seen, eligible);
+        }
+        return eligible;
+    }
+
+    /** Step 1a: adds delivery boys whose assigned PIN codes cover the given pin. */
+    private void addPinCoveringDeliveryBoys(String pin, Set<Integer> seen, List<DeliveryBoy> eligible) {
+        if (pin == null || pin.isBlank()) return;
+        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+            if (db.isAdminApproved() && db.isActive() && db.covers(pin) && seen.add(db.getId())) {
+                eligible.add(db);
             }
         }
+    }
 
-        return eligible;
+    /** Step 1b: adds delivery boys from the warehouse that serves this order's pin. */
+    private void addWarehouseDeliveryBoys(Order order, String pin, Set<Integer> seen, List<DeliveryBoy> eligible) {
+        com.example.ekart.dto.Warehouse orderWarehouse = resolveOrderWarehouse(order, pin);
+        if (orderWarehouse == null) return;
+        for (DeliveryBoy db : deliveryBoyRepository.findActiveByWarehouse(orderWarehouse)) {
+            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) {
+                eligible.add(db);
+            }
+        }
+    }
+
+    /** Step 2 fallback: adds all approved+active boys so admin is never blocked. */
+    private void addAllApprovedDeliveryBoys(Set<Integer> seen, List<DeliveryBoy> eligible) {
+        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+            if (db.isAdminApproved() && db.isActive() && seen.add(db.getId())) eligible.add(db);
+        }
     }
 
     /** Returns the warehouse associated with an order, falling back to a pin-code lookup. */
@@ -6991,63 +6998,17 @@ public class ReactApiController {
         try {
             String term = q.toLowerCase().trim();
             String typeFilter = type.toLowerCase().trim();
-
             List<Map<String, Object>> results = new ArrayList<>();
-
-            // ── Customers ──────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals(K_CUSTOMER)) {
-                for (Customer c : customerRepository.findAll()) {
-                    if (matchesQuery(term, c.getName(), c.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",       c.getId());
-                        m.put(K_NAME,     c.getName());
-                        m.put(KEY_EMAIL,    c.getEmail());
-                        m.put(K_TYPE,     K_CUSTOMER);
-                        m.put(K_VERIFIED, c.isVerified());
-                        m.put(K_ACTIVE,   c.isActive());
-                        results.add(m);
-                    }
-                }
-            }
-
-            // ── Vendors ────────────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals(KEY_VENDOR)) {
-                for (Vendor v : vendorRepository.findAll()) {
-                    if (matchesQuery(term, v.getName(), v.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",         v.getId());
-                        m.put(K_NAME,       v.getName());
-                        m.put(KEY_EMAIL,      v.getEmail());
-                        m.put(K_TYPE,       KEY_VENDOR);
-                        m.put(K_VENDORCODE, v.getVendorCode());
-                        m.put(K_VERIFIED,   v.isVerified());
-                        results.add(m);
-                    }
-                }
-            }
-
-            // ── Delivery Boys ──────────────────────────────────────────────
-            if (typeFilter.isEmpty() || typeFilter.equals(ROLE_DELIVERY_BOY)) {
-                for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
-                    if (matchesQuery(term, db.getName(), db.getEmail())) {
-                        Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id",              db.getId());
-                        m.put(K_NAME,            db.getName());
-                        m.put(KEY_EMAIL,           db.getEmail());
-                        m.put(K_TYPE,            ROLE_DELIVERY_BOY);
-                        m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
-                        m.put(K_VERIFIED,        db.isVerified());
-                        m.put(KEY_ADMIN_APPROVED,   db.isAdminApproved());
-                        m.put(K_ACTIVE,          db.isActive());
-                        results.add(m);
-                    }
-                }
-            }
-
+            if (typeFilter.isEmpty() || typeFilter.equals(K_CUSTOMER))
+                results.addAll(searchCustomers(term));
+            if (typeFilter.isEmpty() || typeFilter.equals(KEY_VENDOR))
+                results.addAll(searchVendors(term));
+            if (typeFilter.isEmpty() || typeFilter.equals(ROLE_DELIVERY_BOY))
+                results.addAll(searchDeliveryBoys(term));
             res.put(KEY_SUCCESS, true);
             res.put("query",   q);
             res.put(K_TYPE,    type);
-            res.put(KEY_COUNT,   results.size());
+            res.put(KEY_COUNT, results.size());
             res.put("users",   results);
             return ResponseEntity.ok(res);
         } catch (Exception e) {
@@ -7055,6 +7016,59 @@ public class ReactApiController {
             res.put(KEY_MESSAGE, "Search failed: " + e.getMessage());
             return ResponseEntity.status(500).body(res);
         }
+    }
+
+    private List<Map<String, Object>> searchCustomers(String term) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (Customer c : customerRepository.findAll()) {
+            if (matchesQuery(term, c.getName(), c.getEmail())) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",       c.getId());
+                m.put(K_NAME,     c.getName());
+                m.put(KEY_EMAIL,  c.getEmail());
+                m.put(K_TYPE,     K_CUSTOMER);
+                m.put(K_VERIFIED, c.isVerified());
+                m.put(K_ACTIVE,   c.isActive());
+                results.add(m);
+            }
+        }
+        return results;
+    }
+
+    private List<Map<String, Object>> searchVendors(String term) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (Vendor v : vendorRepository.findAll()) {
+            if (matchesQuery(term, v.getName(), v.getEmail())) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",         v.getId());
+                m.put(K_NAME,       v.getName());
+                m.put(KEY_EMAIL,    v.getEmail());
+                m.put(K_TYPE,       KEY_VENDOR);
+                m.put(K_VENDORCODE, v.getVendorCode());
+                m.put(K_VERIFIED,   v.isVerified());
+                results.add(m);
+            }
+        }
+        return results;
+    }
+
+    private List<Map<String, Object>> searchDeliveryBoys(String term) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (DeliveryBoy db : deliveryBoyRepository.findAll()) {
+            if (matchesQuery(term, db.getName(), db.getEmail())) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",                  db.getId());
+                m.put(K_NAME,                db.getName());
+                m.put(KEY_EMAIL,             db.getEmail());
+                m.put(K_TYPE,                ROLE_DELIVERY_BOY);
+                m.put(KEY_DELIVERY_BOY_CODE, db.getDeliveryBoyCode());
+                m.put(K_VERIFIED,            db.isVerified());
+                m.put(KEY_ADMIN_APPROVED,    db.isAdminApproved());
+                m.put(K_ACTIVE,              db.isActive());
+                results.add(m);
+            }
+        }
+        return results;
     }
 
     /** True if the search term matches either field (case-insensitive substring). Empty term matches all. */
@@ -7889,29 +7903,30 @@ public class ReactApiController {
         productRepository.findByVendor(vendor).forEach(stockAlertService::checkStockLevel);
 
         List<StockAlert> alerts = stockAlertRepository.findByVendor(vendor);
-        // Sort: unacknowledged first, then by id desc
         alerts.sort((a, b) -> {
             if (a.isAcknowledged() != b.isAcknowledged()) return a.isAcknowledged() ? 1 : -1;
             return Integer.compare(b.getId(), a.getId());
         });
         int unacknowledged = (int) alerts.stream().filter(a -> !a.isAcknowledged()).count();
-        List<Map<String, Object>> alertMaps = alerts.stream().map(a -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", a.getId());
-            m.put("productName", a.getProduct() != null ? a.getProduct().getName() : K_UNKNOWN);
-            m.put(KEY_PRODUCT_ID,   a.getProduct() != null ? a.getProduct().getId()   : 0);
-            m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
-            m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
-                    ? a.getProduct().getStockAlertThreshold() : 10);
-            m.put(KEY_MESSAGE,      a.getMessage());
-            m.put("acknowledged", a.isAcknowledged());
-            m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
-            return m;
-        }).toList();
+        List<Map<String, Object>> alertMaps = alerts.stream().map(this::toAlertMap).toList();
         res.put(KEY_SUCCESS, true);
         res.put("alerts", alertMaps);
         res.put("unacknowledgedCount", unacknowledged);
         return ResponseEntity.ok(res);
+    }
+
+    private Map<String, Object> toAlertMap(StockAlert a) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",           a.getId());
+        m.put("productName",  a.getProduct() != null ? a.getProduct().getName() : K_UNKNOWN);
+        m.put(KEY_PRODUCT_ID, a.getProduct() != null ? a.getProduct().getId() : 0);
+        m.put("currentStock", a.getProduct() != null ? a.getProduct().getStock() : 0);
+        m.put("threshold",    a.getProduct() != null && a.getProduct().getStockAlertThreshold() != null
+                ? a.getProduct().getStockAlertThreshold() : 10);
+        m.put(KEY_MESSAGE,    a.getMessage());
+        m.put("acknowledged", a.isAcknowledged());
+        m.put("alertTime",    a.getAlertTime() != null ? a.getAlertTime().toString() : null);
+        return m;
     }
 
     /**
@@ -8613,94 +8628,103 @@ public class ReactApiController {
         ctx.append("Name: ").append(c.getName()).append("\n");
         ctx.append("Email: ").append(c.getEmail()).append("\n");
         ctx.append("Customer ID: ").append(c.getId()).append("\n");
+        appendCartContext(ctx, c);
+        appendOrdersContext(ctx, c);
+        appendPendingRefundsContext(ctx, c);
+        appendAddressesContext(ctx, c);
+        return ctx.toString();
+    }
 
-        // Cart
-        if (c.getCart() != null && c.getCart().getItems() != null
-                && !c.getCart().getItems().isEmpty()) {
-            List<Item> cartItems = c.getCart().getItems();
-            double cartTotal = cartItems.stream()
-                    .mapToDouble(i -> i.getUnitPrice() > 0
-                            ? i.getUnitPrice() * i.getQuantity()
-                            : i.getPrice())
-                    .sum();
-            ctx.append("\nCART (").append(cartItems.size()).append(" items, ₹")
-               .append(String.format("%.0f", cartTotal)).append(" total):\n");
-            for (Item item : cartItems) {
-                double unitP = item.getUnitPrice() > 0
-                        ? item.getUnitPrice()
-                        : item.getPrice() / Math.max(item.getQuantity(), 1);
-                ctx.append("  - ").append(item.getName())
-                   .append(" × ").append(item.getQuantity())
-                   .append(" @ ₹").append(String.format("%.0f", unitP))
-                   .append(" [category: ").append(item.getCategory()).append("]\n");
-            }
-            ctx.append("  Delivery: ").append(cartTotal >= 500 ? "FREE" : "₹40").append("\n");
-        } else {
+    private void appendCartContext(StringBuilder ctx, Customer c) {
+        if (c.getCart() == null || c.getCart().getItems() == null
+                || c.getCart().getItems().isEmpty()) {
             ctx.append("\nCART: Empty\n");
+            return;
         }
+        List<Item> cartItems = c.getCart().getItems();
+        double cartTotal = cartItems.stream()
+                .mapToDouble(i -> i.getUnitPrice() > 0
+                        ? i.getUnitPrice() * i.getQuantity()
+                        : i.getPrice())
+                .sum();
+        ctx.append("\nCART (").append(cartItems.size()).append(" items, ₹")
+           .append(String.format("%.0f", cartTotal)).append(" total):\n");
+        for (Item item : cartItems) {
+            double unitP = item.getUnitPrice() > 0
+                    ? item.getUnitPrice()
+                    : item.getPrice() / Math.max(item.getQuantity(), 1);
+            ctx.append("  - ").append(item.getName())
+               .append(" × ").append(item.getQuantity())
+               .append(" @ ₹").append(String.format("%.0f", unitP))
+               .append(" [category: ").append(item.getCategory()).append("]\n");
+        }
+        ctx.append("  Delivery: ").append(cartTotal >= 500 ? "FREE" : "₹40").append("\n");
+    }
 
-        // Orders (last 10, newest first)
+    private void appendOrdersContext(StringBuilder ctx, Customer c) {
         List<Order> orders = orderRepository.findByCustomer(c);
         if (orders.isEmpty()) {
             ctx.append("\nORDERS: No orders placed yet.\n");
-        } else {
-            orders.sort((a, b) -> {
-                if (a.getOrderDate() == null) return 1;
-                if (b.getOrderDate() == null) return -1;
-                return b.getOrderDate().compareTo(a.getOrderDate());
-            });
-            List<Order> recent = orders.stream().limit(10).toList();
-            ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
-               .append(recent.size()).append("):\n");
-            for (Order o : recent) {
-                ctx.append("  Order #").append(o.getId())
-                   .append(" | ₹").append(String.format("%.0f", o.getAmount()))
-                   .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
-                   .append(" | Items: ");
-                if (o.getItems() != null && !o.getItems().isEmpty()) {
-                    ctx.append(o.getItems().stream()
-                                .map(i -> i.getName() + " ×" + i.getQuantity())
-                                .collect(Collectors.joining(", ")));
-                }
-                if (o.getOrderDate() != null)
-                    ctx.append(" | Placed: ").append(o.getOrderDate().format(CHAT_DATE_FMT));
-                if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank())
-                    ctx.append(" | ETA: ").append(o.getDeliveryTime());
-                if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
-                        && o.getTrackingStatus() != TrackingStatus.DELIVERED)
-                    ctx.append(" | Currently at: ").append(o.getCurrentCity());
-                ctx.append("\n");
-            }
+            return;
         }
+        orders.sort((a, b) -> {
+            if (a.getOrderDate() == null) return 1;
+            if (b.getOrderDate() == null) return -1;
+            return b.getOrderDate().compareTo(a.getOrderDate());
+        });
+        List<Order> recent = orders.stream().limit(10).toList();
+        ctx.append("\nORDERS (").append(orders.size()).append(" total, showing last ")
+           .append(recent.size()).append("):\n");
+        for (Order o : recent) {
+            appendOrderLine(ctx, o);
+        }
+    }
 
-        // Pending refunds
+    private void appendOrderLine(StringBuilder ctx, Order o) {
+        ctx.append("  Order #").append(o.getId())
+           .append(" | ₹").append(String.format("%.0f", o.getAmount()))
+           .append(" | Status: ").append(o.getTrackingStatus().getDisplayName())
+           .append(" | Items: ");
+        if (o.getItems() != null && !o.getItems().isEmpty()) {
+            ctx.append(o.getItems().stream()
+                        .map(i -> i.getName() + " ×" + i.getQuantity())
+                        .collect(Collectors.joining(", ")));
+        }
+        if (o.getOrderDate() != null)
+            ctx.append(" | Placed: ").append(o.getOrderDate().format(CHAT_DATE_FMT));
+        if (o.getDeliveryTime() != null && !o.getDeliveryTime().isBlank())
+            ctx.append(" | ETA: ").append(o.getDeliveryTime());
+        if (o.getCurrentCity() != null && !o.getCurrentCity().isBlank()
+                && o.getTrackingStatus() != TrackingStatus.DELIVERED)
+            ctx.append(" | Currently at: ").append(o.getCurrentCity());
+        ctx.append("\n");
+    }
+
+    private void appendPendingRefundsContext(StringBuilder ctx, Customer c) {
         List<Refund> pendingRefunds = refundRepository.findByCustomer(c).stream()
             .filter(r -> r.getStatus() == RefundStatus.PENDING)
             .toList();
-        if (!pendingRefunds.isEmpty()) {
-            ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
-            for (Refund r : pendingRefunds) {
-                ctx.append("  - Refund #").append(r.getId())
-                   .append(" | Order #").append(r.getOrder() != null ? r.getOrder().getId() : "?")
-                   .append(" | ₹").append(String.format("%.0f", r.getAmount()))
-                   .append(" | Reason: ").append(r.getReason())
-                   .append("\n");
-            }
+        if (pendingRefunds.isEmpty()) return;
+        ctx.append("\nPENDING REFUNDS (").append(pendingRefunds.size()).append("):\n");
+        for (Refund r : pendingRefunds) {
+            ctx.append("  - Refund #").append(r.getId())
+               .append(" | Order #").append(r.getOrder() != null ? r.getOrder().getId() : "?")
+               .append(" | ₹").append(String.format("%.0f", r.getAmount()))
+               .append(" | Reason: ").append(r.getReason())
+               .append("\n");
         }
+    }
 
-        // Saved addresses
-        if (c.getAddresses() != null && !c.getAddresses().isEmpty()) {
-            ctx.append("\nSAVED ADDRESSES: ").append(c.getAddresses().size()).append("\n");
-            for (Address a : c.getAddresses()) {
-                ctx.append("  - ")
-                   .append(a.getRecipientName() != null ? a.getRecipientName() : "")
-                   .append(", ").append(a.getCity() != null ? a.getCity() : "")
-                   .append(" ").append(a.getPostalCode() != null ? a.getPostalCode() : "")
-                   .append("\n");
-            }
+    private void appendAddressesContext(StringBuilder ctx, Customer c) {
+        if (c.getAddresses() == null || c.getAddresses().isEmpty()) return;
+        ctx.append("\nSAVED ADDRESSES: ").append(c.getAddresses().size()).append("\n");
+        for (Address a : c.getAddresses()) {
+            ctx.append("  - ")
+               .append(a.getRecipientName() != null ? a.getRecipientName() : "")
+               .append(", ").append(a.getCity() != null ? a.getCity() : "")
+               .append(" ").append(a.getPostalCode() != null ? a.getPostalCode() : "")
+               .append("\n");
         }
-
-        return ctx.toString();
     }
 
     // ── PUBLIC BANNER ENDPOINTS ───────────────────────────────────────────────

@@ -44,22 +44,13 @@ public class WarehouseService {
 
 
     /**
-     * Create a new warehouse with auto-generated login credentials.
-     * 
-     * @param name Warehouse name
-     * @param city City name
-     * @param state State name
-     * @param servedPinCodes Comma-separated pin codes
-     * @param latitude Warehouse latitude
-     * @param longitude Warehouse longitude
-     * @param contactEmail Contact email for credentials delivery
-     * @param contactPhone Contact phone number
-     * @param address Physical address
-     * @return Map containing warehouse details and plain-text credentials (shown once only)
-     */
-    /**
      * Parameter object for warehouse creation (resolves java:S107 — too many parameters).
-     * All fields map 1-to-1 to the original method parameters.
+     * All fields map 1-to-1 to the original {@code createWarehouse} method parameters.
+     * <p>
+     * Parameters: {@code name}, {@code city}, {@code state}, {@code servedPinCodes},
+     * {@code latitude}, {@code longitude}, {@code contactEmail}, {@code contactPhone},
+     * {@code address}.
+     * </p>
      */
     public record WarehouseCreateRequest(
             String name,
