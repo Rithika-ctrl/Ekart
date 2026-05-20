@@ -213,8 +213,8 @@ public class FlutterApiController {
         }
     }
 
-    /**
-     * Helper method to set OTP value on customer for email template.
+    /** Helper method to set OTP value on customer for email template. */
+
     /**
      * POST /api/flutter/auth/customer/verify-otp
      * Step 2 of 2FA registration: verifies the OTP, marks account as verified.

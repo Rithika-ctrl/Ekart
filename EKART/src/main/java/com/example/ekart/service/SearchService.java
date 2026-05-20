@@ -48,16 +48,13 @@ public class SearchService {
         String q = query.trim().toLowerCase();
 
         // Adaptive threshold: stricter for short words to avoid false matches
-        int threshold;
-        if (q.length() <= 3)      threshold = 1;
-        else if (q.length() <= 5) threshold = 2;
-        else                       threshold = Math.max(2, q.length() / 3);
+        int threshold = (q.length() <= 3) ? 1 : (q.length() <= 5) ? 2 : Math.max(2, q.length() / 3);
 
         List<Product> all = productRepository.findByApprovedTrue();
 
-        String bestMatch  = null;
-        int    bestDist   = Integer.MAX_VALUE;
-        int    bestPrefix = -1;
+        String bestMatch = null;
+        int bestDist = Integer.MAX_VALUE;
+        int bestPrefix = -1;
 
         for (Product p : all) {
             // Build list of strings to match against: product name words + category
@@ -73,23 +70,54 @@ public class SearchService {
                     if (w.length() >= 2) candidates.add(w);
             }
 
-            for (String candidate : candidates) {
-                int d = levenshtein(q, candidate);
-                if (d <= threshold) {
-                    int prefix = sharedPrefixLength(q, candidate);
-                    if (d < bestDist || (d == bestDist && prefix > bestPrefix)) {
-                        bestDist = d; bestPrefix = prefix;
-                        // Return the matched word itself (e.g. "chips"), not the product name
-                        // So the caller can search by that corrected term across name+category
-                        bestMatch = candidate;
-                    }
-                }
+            CandidateMatch cm = findBestCandidateForProduct(p, q, threshold);
+            if (cm == null) continue;
+            if (cm.dist < bestDist || (cm.dist == bestDist && cm.prefix > bestPrefix)) {
+                bestDist = cm.dist;
+                bestPrefix = cm.prefix;
+                bestMatch = cm.match;
             }
         }
 
         return bestMatch;
     }
 
+    private CandidateMatch findBestCandidateForProduct(Product p, String q, int threshold) {
+        java.util.List<String> candidates = buildCandidates(p);
+        String best = null;
+        int bestDist = Integer.MAX_VALUE;
+        int bestPrefix = -1;
+        for (String candidate : candidates) {
+            int d = levenshtein(q, candidate);
+            if (d <= threshold) {
+                int prefix = sharedPrefixLength(q, candidate);
+                if (d < bestDist || (d == bestDist && prefix > bestPrefix)) {
+                    bestDist = d;
+                    bestPrefix = prefix;
+                    best = candidate;
+                }
+            }
+        }
+        if (best == null) return null;
+        return new CandidateMatch(best, bestDist, bestPrefix);
+    }
+
+    private java.util.List<String> buildCandidates(Product p) {
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        if (p.getName() != null) {
+            String name = p.getName().toLowerCase();
+            candidates.add(name);
+            for (String w : name.split("[\\s\\-]+")) if (w.length() >= 2) candidates.add(w);
+        }
+        if (p.getCategory() != null) {
+            String cat = p.getCategory().toLowerCase();
+            candidates.add(cat);
+            for (String w : cat.split("[\\s\\-]+")) if (w.length() >= 2) candidates.add(w);
+        }
+        return candidates;
+    }
+
+    private record CandidateMatch(String match, int dist, int prefix) {}
     /** Returns the number of characters shared at the start of two strings. */
     private int sharedPrefixLength(String a, String b) {
         int count = 0;
@@ -103,7 +131,8 @@ public class SearchService {
 
     // ── Levenshtein distance (standard DP implementation) ──────────────────
     private int levenshtein(String a, String b) {
-        int m = a.length(), n = b.length();
+        int m = a.length();
+        int n = b.length();
         int[][] dp = new int[m + 1][n + 1];
         for (int i = 0; i <= m; i++) dp[i][0] = i;
         for (int j = 0; j <= n; j++) dp[0][j] = j;
