@@ -905,8 +905,8 @@ public class CustomerService {
     /**
      * Creates one sub-order per vendor group, links them via parentOrderId,
      * logs a PROCESSING tracking event, and schedules the reporting callback.
+     * Groups delivery-related fields to keep createVendorSubOrders within S107 limits.
      */
-    /** Groups delivery-related fields to keep createVendorSubOrders within S107 limits. */
     private record VendorOrderContext(double deliveryFee, String deliveryPinCode,
                                       Warehouse matchedWarehouse, String addressSnapshot) {}
 
@@ -915,8 +915,10 @@ public class CustomerService {
             java.util.Map<Integer, java.util.List<Item>> vendorItems,
             java.util.Map<Integer, Vendor> vendorMap,
             VendorOrderContext ctx) {
-        double deliveryFee = ctx.deliveryFee(); String deliveryPinCode = ctx.deliveryPinCode();
-        Warehouse matchedWarehouse = ctx.matchedWarehouse(); String addressSnapshot = ctx.addressSnapshot();
+        double deliveryFee = ctx.deliveryFee();
+        String deliveryPinCode = ctx.deliveryPinCode();
+        Warehouse matchedWarehouse = ctx.matchedWarehouse();
+        String addressSnapshot = ctx.addressSnapshot();
 
         VendorOrderResult result  = new VendorOrderResult();
         boolean multiVendor       = vendorItems.size() > 1;
@@ -1104,9 +1106,14 @@ public class CustomerService {
 
     /** Builds (but does not save) a sub-order for one vendor's group of items. */
     private Order buildSubOrder(SubOrderParams p) {
-        Order baseOrder = p.baseOrder(); Customer customer = p.customer(); Vendor vendor = p.vendor();
-        java.util.List<Item> group = p.group(); double subTotal = p.subTotal(); double subDelivery = p.subDelivery();
-        String deliveryPinCode = p.deliveryPinCode(); Warehouse matchedWarehouse = p.matchedWarehouse();
+        Order baseOrder = p.baseOrder();
+        Customer customer = p.customer();
+        Vendor vendor = p.vendor();
+        java.util.List<Item> group = p.group();
+        double subTotal = p.subTotal();
+        double subDelivery = p.subDelivery();
+        String deliveryPinCode = p.deliveryPinCode();
+        Warehouse matchedWarehouse = p.matchedWarehouse();
         String addressSnapshot = p.addressSnapshot();
 
         java.util.List<Item> orderItems = new java.util.ArrayList<>();
