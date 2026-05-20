@@ -278,7 +278,7 @@ public class AdminAccountService {
         
         // Send email notification (optional)
         try {
-            emailSender.sendPasswordResetByAdmin(customer);
+            emailSender.sendPasswordResetByAdmin(customer, String.format("%06d", otp));
             result.put("emailSent", true);
         } catch (Exception e) {
             result.put("emailSent", false);

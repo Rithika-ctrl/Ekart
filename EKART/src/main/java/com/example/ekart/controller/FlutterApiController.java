@@ -199,9 +199,8 @@ public class FlutterApiController {
             c.setOtpExpiry(java.time.LocalDateTime.now().plusMinutes(10));
             deps.customerRepository.save(c);
  
-            // Send OTP email (reuses existing template with legacy setOtp field for backward compatibility)
-            setOtpForEmailTemplate(c, plainOtp);
-            deps.emailSender.send(c);
+            // Send OTP email
+            deps.emailSender.send(c, String.format("%06d", plainOtp));
  
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "OTP sent to " + email + ". Valid for 10 minutes.");
@@ -215,13 +214,6 @@ public class FlutterApiController {
 
     /**
      * Helper method to set OTP value on customer for email template.
-     * The setOtp method is deprecated but retained for email template backward compatibility.
-     */
-    @SuppressWarnings("deprecation")
-    private void setOtpForEmailTemplate(Customer customer, int plainOtp) {
-        customer.setOtp(plainOtp);
-    }
-
     /**
      * POST /api/flutter/auth/customer/verify-otp
      * Step 2 of 2FA registration: verifies the OTP, marks account as verified.

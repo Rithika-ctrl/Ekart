@@ -254,36 +254,49 @@ public class GeocodingController {
         String state = extractJson(body, "regionName");
         String zip   = extractJson(body, "zip");
 
-        if (zip != null) {
-            String pin = zip.replaceAll("\\D", "").trim();
-            if (pin.length() >= 6) pin = pin.substring(0, 6);
-            if (PinCodeValidator.isValid(pin)) {
-                res.put(K_SUCCESS, true);
-                res.put(K_PIN,    pin);
-                res.put(K_CITY,   city  != null ? city  : "");
-                res.put(K_STATE,  state != null ? state : "");
-                res.put(K_SOURCE, "ip-api");
-                return;
-            }
-        }
-
-        if (city != null && !city.isBlank()) {
-            Map<String, Object> postal = callPostalPincode(city);
-            if (!postal.isEmpty()) {
-                res.put(K_SUCCESS, true);
-                res.put(K_PIN,    postal.get(K_PIN));
-                res.put(K_CITY,   city);
-                res.put(K_STATE,  state != null ? state : "");
-                res.put(K_SOURCE, "ip-api+postalpincode");
-                return;
-            }
-        }
+        if (tryPopulateFromZip(zip, city, state, res)) return;
+        if (tryPopulateFromCity(city, state, res)) return;
 
         res.put(K_SUCCESS, false);
         res.put("pinMissing", true);
         res.put(K_CITY,   city  != null ? city  : "");
         res.put(K_STATE,  state != null ? state : "");
         res.put(K_MESSAGE, "Detected " + city + " but could not find PIN. Please enter manually.");
+    }
+
+    /**
+     * Attempts to derive a valid PIN code from the raw zip string returned by ip-api.
+     * Returns true and populates {@code res} when a valid PIN is found; false otherwise.
+     */
+    private boolean tryPopulateFromZip(String zip, String city, String state,
+                                        Map<String, Object> res) {
+        if (zip == null) return false;
+        String pin = zip.replaceAll("\\D", "").trim();
+        if (pin.length() >= 6) pin = pin.substring(0, 6);
+        if (!PinCodeValidator.isValid(pin)) return false;
+        res.put(K_SUCCESS, true);
+        res.put(K_PIN,    pin);
+        res.put(K_CITY,   city  != null ? city  : "");
+        res.put(K_STATE,  state != null ? state : "");
+        res.put(K_SOURCE, "ip-api");
+        return true;
+    }
+
+    /**
+     * Falls back to the PostalPincode API when no valid ZIP was available.
+     * Returns true and populates {@code res} when a PIN is found; false otherwise.
+     */
+    private boolean tryPopulateFromCity(String city, String state,
+                                         Map<String, Object> res) throws IOException {
+        if (city == null || city.isBlank()) return false;
+        Map<String, Object> postal = callPostalPincode(city);
+        if (postal.isEmpty()) return false;
+        res.put(K_SUCCESS, true);
+        res.put(K_PIN,    postal.get(K_PIN));
+        res.put(K_CITY,   city);
+        res.put(K_STATE,  state != null ? state : "");
+        res.put(K_SOURCE, "ip-api+postalpincode");
+        return true;
     }
 
     /** Extracted from callNominatim: parse and validate postcode string into a result map. */

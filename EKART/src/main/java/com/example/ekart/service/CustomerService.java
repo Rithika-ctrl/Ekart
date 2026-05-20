@@ -198,7 +198,7 @@ public class CustomerService {
         customerRepository.save(customer);
 
         try {
-            emailSender.send(customer);
+            emailSender.send(customer, String.format("%06d", otp));
         } catch (Exception e) {
             LOGGER.error("Customer OTP email failed: {}", e.getMessage(), e);
         }
@@ -276,7 +276,7 @@ public class CustomerService {
         int otp = RANDOM.nextInt(100000, 1000000);
         customer.setOtp(otp);
         customerRepository.save(customer);
-        emailSender.send(customer);
+        emailSender.send(customer, String.format("%06d", otp));
 
         session.setAttribute(K_SUCCESS, "OTP sent to your registered email");
         return K_REDIRECT_CUSTOMER_RESET_PASSWORD + customer.getId();

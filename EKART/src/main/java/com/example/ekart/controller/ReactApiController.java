@@ -1528,8 +1528,7 @@ public class ReactApiController {
             Customer tempCustomer = new Customer();
             tempCustomer.setEmail(email);
             tempCustomer.setName(customer.getName());
-            tempCustomer.setOtp(otp);  // Temporary for email template only
-            emailSender.send(tempCustomer);   // reuses existing OTP email template
+            emailSender.send(tempCustomer, String.format(FMT_OTP, otp));   // reuses existing OTP email template
             // Clear any previously-verified flag for this email so a fresh verify is required
             otpVerified.remove(email);
             res.put(KEY_SUCCESS, true);
@@ -1605,9 +1604,13 @@ public class ReactApiController {
                 res.put(KEY_MESSAGE, ERR_INVALID_OTP_FORMAT);
                 return ResponseEntity.badRequest().body(res);
             }
-            if (customer.getOtp() != otp) {
+            // Verify via OtpService (replaces deprecated customer.getOtp() check)
+            String formattedOtp = String.format(FMT_OTP, otp);
+            com.example.ekart.service.OtpService.VerificationResult otpResult =
+                    otpService.verifyOtp(email, formattedOtp, com.example.ekart.service.OtpService.PURPOSE_PASSWORD_RESET);
+            if (!otpResult.success) {
                 res.put(KEY_SUCCESS, false);
-                res.put(KEY_MESSAGE, "Invalid or expired OTP");
+                res.put(KEY_MESSAGE, otpResult.message);
                 return ResponseEntity.badRequest().body(res);
             }
             // Mark this email as OTP-verified so reset-password can proceed
@@ -8306,7 +8309,7 @@ public class ReactApiController {
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
 
-        DeliveryBoy db = resolveDeliveryBoyFromRequest(request, res);
+        DeliveryBoy db = resolveDeliveryBoyFromRequest(request);
         if (db == null) return buildDeliveryAuthErrorResponse(request, res);
 
         int warehouseId = parseWarehouseId(body, res);
@@ -8340,7 +8343,7 @@ public class ReactApiController {
     }
 
     /** Resolves a DeliveryBoy from JWT token attribute; returns null if missing. */
-    private DeliveryBoy resolveDeliveryBoyFromRequest(HttpServletRequest request, Map<String, Object> res) {
+    private DeliveryBoy resolveDeliveryBoyFromRequest(HttpServletRequest request) {
         Integer deliveryId = (Integer) request.getAttribute(KEY_DELIVERY_BOY_ID);
         if (deliveryId == null) return null;
         return deliveryBoyRepository.findById(deliveryId).orElse(null);

@@ -78,6 +78,10 @@ public class JwtUtil {
         if (!environment.contains("prod") && secret.equals(DEV_DEFAULT)) {
             log.warn("⚠️  JWT using development default (not secure). Set JWT_SECRET env var for production.");
         }
+        initSecret(secret);
+    }
+
+    private static void initSecret(String secret) {
         jwtSecret = secret;
     }
 

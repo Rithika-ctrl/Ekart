@@ -125,7 +125,7 @@ public class EmailSender {
 
     // ===================== SEND OTP TO CUSTOMER =====================
     @Async
-    public void send(Customer customer) {
+    public void send(Customer customer, String plainOtp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -134,7 +134,7 @@ public class EmailSender {
             helper.setSubject(SUBJECT_OTP_VERIFICATION);
             Context context = new Context();
             context.setVariable(K_NAME, customer.getName());
-            context.setVariable(K_OTP, String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
+            context.setVariable(K_OTP, plainOtp);
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);
@@ -284,7 +284,7 @@ public class EmailSender {
     }
 
     // ===================== SEND PASSWORD RESET BY ADMIN =====================
-    public void sendPasswordResetByAdmin(Customer customer) {
+    public void sendPasswordResetByAdmin(Customer customer, String plainOtp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -293,7 +293,7 @@ public class EmailSender {
             helper.setSubject("Password Reset - " + EKART_SENDER);
             Context context = new Context();
             context.setVariable(K_NAME, customer.getName());
-            context.setVariable(K_OTP, String.format("%06d", customer.getOtp()));  // 🔒 Format as 6-digit string
+            context.setVariable(K_OTP, plainOtp);
             String html = templateEngine.process(OTP_EMAIL_TEMPLATE, context);
             helper.setText(html, true);
             mailSender.send(message);

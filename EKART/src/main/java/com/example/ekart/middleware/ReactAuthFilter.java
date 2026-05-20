@@ -192,8 +192,7 @@ public class ReactAuthFilter extends OncePerRequestFilter {
                 return checkIdentityHeader(request, "X-Vendor-Id", tokenUserId);
             case "DELIVERY":
                 return checkIdentityHeader(request, "X-Delivery-Id", tokenUserId);
-            case "ADMIN":
-            case "WAREHOUSE":
+            case "ADMIN", "WAREHOUSE":
                 // These roles operate on arbitrary IDs — no identity header to check.
                 return null;
             default:
