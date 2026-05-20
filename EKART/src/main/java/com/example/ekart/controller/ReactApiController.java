@@ -528,23 +528,7 @@ public class ReactApiController {
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> registerOtpVerified =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    /**
-     * Temporary OTP storage for registration: email → { otp, timestamp, name }
-     * Used only during registration flow - NOT saved to database until OTP verified
-     */
-    private static class OtpData {
-        String otp;
-        long timestamp;
-        OtpData(String otp) {
-            this.otp = otp;
-            this.timestamp = System.currentTimeMillis();
-        }
-        boolean isExpired() {
-            return System.currentTimeMillis() - timestamp > 5 * 60 * 1000; // 5 minutes
-        }
-    }
-    private final java.util.concurrent.ConcurrentHashMap<String, OtpData> registerOtpCache =
-            new java.util.concurrent.ConcurrentHashMap<>();
+
 
     /** POST /api/react/auth/customer/send-register-otp */
     @PostMapping("/auth/customer/send-register-otp")
@@ -654,7 +638,6 @@ public class ReactApiController {
             
             // Clean up temporary data
             registerOtpVerified.remove(email);
-            registerOtpCache.remove(email);
             
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Registered successfully");
@@ -928,14 +911,12 @@ public class ReactApiController {
      * Note: {@code setOtp()} is called on a transient Customer object used only
      * for the legacy email template; will be removed once EmailSender is migrated.
      */
-    @SuppressWarnings({"deprecation", "java:S1874"}) // setOtp() required by legacy EmailSender template
     private void trySendCustomerRegisterOtp(String email, String name) {
         try {
             String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_CUSTOMER_REGISTER);
             com.example.ekart.dto.Customer tempForEmail = new com.example.ekart.dto.Customer();
             tempForEmail.setName(name);
             tempForEmail.setEmail(email);
-            tempForEmail.setOtp(Integer.parseInt(plainOtp));
             emailSender.sendCustomerOtp(email, name, plainOtp);
         } catch (Exception e) {
             LOGGER.error("Customer register OTP email failed", e);
@@ -950,14 +931,12 @@ public class ReactApiController {
      * Note: {@code setOtp()} is called on a transient Vendor object used only
      * for the legacy email template; will be removed once EmailSender is migrated.
      */
-    @SuppressWarnings({"deprecation", "java:S1874"}) // setOtp() required by legacy EmailSender template
     private void trySendVendorRegisterOtp(String email, String name) {
         try {
             String plainOtp = otpService.generateAndStoreOtp(email, com.example.ekart.service.OtpService.PURPOSE_VENDOR_REGISTER);
             com.example.ekart.dto.Vendor tempForEmail = new com.example.ekart.dto.Vendor();
             tempForEmail.setName(name);
             tempForEmail.setEmail(email);
-            tempForEmail.setOtp(Integer.parseInt(plainOtp));
             emailSender.sendVendorOtpSecure(tempForEmail, plainOtp);
         } catch (Exception e) {
             LOGGER.error("Vendor register OTP email failed", e);
@@ -1511,7 +1490,6 @@ public class ReactApiController {
 
     /** POST /api/flutter/auth/customer/forgot-password */
     @PostMapping("/auth/customer/forgot-password")
-    @SuppressWarnings({"deprecation", "java:S1874"})
     public ResponseEntity<Map<String, Object>> customerForgotPassword(
             @RequestBody Map<String, Object> body) {
         Map<String, Object> res = new HashMap<>();
