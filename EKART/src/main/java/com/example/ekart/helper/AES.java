@@ -71,8 +71,12 @@ public class AES {
 
     @PostConstruct
     private void initStaticKeys() {
-        aesSecretKey  = this.secretKeyValue;
-        aesSaltValue  = this.saltValue;
+        initStaticKeys(this.secretKeyValue, this.saltValue);
+    }
+
+    private static void initStaticKeys(String secret, String salt) {
+        aesSecretKey = secret;
+        aesSaltValue = salt;
     }
 
     // ──────────────────────────────────────────────────────────────

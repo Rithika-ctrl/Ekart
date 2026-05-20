@@ -347,14 +347,10 @@ public class ReorderService {
     /**
      * Resolves the current Product for a given order item
      * (productId first, name fallback). Returns null if not found.
+     * Delegates to {@link #resolveProduct(Item)}.
      */
     private Product resolveProductForItem(Item orderItem) {
-        if (orderItem.getProductId() != null) {
-            Product p = productRepository.findById(orderItem.getProductId()).orElse(null);
-            if (p != null) return p;
-        }
-        List<Product> byName = productRepository.findByNameContainingIgnoreCase(orderItem.getName());
-        return byName.isEmpty() ? null : byName.get(0);
+        return resolveProduct(orderItem);
     }
 
     /**
