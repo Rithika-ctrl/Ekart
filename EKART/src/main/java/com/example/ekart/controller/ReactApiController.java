@@ -15,6 +15,7 @@ import com.example.ekart.config.OAuthProviderValidator;
 import com.example.ekart.dto.Customer;
 import com.example.ekart.dto.Vendor;
 // import com.example.ekart.dto.Role; // unused
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -3295,6 +3296,7 @@ public class ReactApiController {
      * Also accepts legacy K_ADDRESS flat-text field for backward compatibility.
      */
     @PostMapping("/profile/address/add")
+    @Transactional
     public ResponseEntity<Map<String, Object>> addAddress(
             @RequestHeader(value = HEADER_CUSTOMER_ID, required = false) Integer customerId,
             @RequestBody Map<String, String> body) {

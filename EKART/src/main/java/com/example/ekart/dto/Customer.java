@@ -91,7 +91,7 @@ public class Customer implements Serializable {
 	private String providerId;
 
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
-	private transient List<Address> addresses = new ArrayList<>();
+	private List<Address> addresses = new ArrayList<>();
 
 	@Column(length = 200)
 	private String recentlyViewedProducts;
