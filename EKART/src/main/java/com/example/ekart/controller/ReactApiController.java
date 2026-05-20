@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * PRIMARY REST API Controller for Ekart Web Application.
@@ -327,8 +328,14 @@ public class ReactApiController {
         private static final int DEFAULT_STOCK_ALERT_THRESHOLD = 10;
 
 
-    // ── S2119: Reuse a single Random instance instead of creating a new one per call ──
-    private static final Random RANDOM = new Random();
+    /**
+     * Groups the optional product-update fields for {@code vendorUpdateProduct}.
+     * Introduced to reduce method parameter count below the S107 limit of 7.
+     */
+    private record ProductUpdateForm(
+            String name, String description, String price, String category,
+            String stock, String imageLink, MultipartFile image,
+            String mrp, String gstRate, String stockAlertThreshold) {}
 
     // ── Dependencies (grouped into a parameter object to satisfy java:S107) ──
     private final CustomerRepository customerRepository;
@@ -1069,7 +1076,7 @@ public class ReactApiController {
             }
             if (!db.isVerified()) {
                 // Resend OTP exactly like the web flow does
-                int otp = RANDOM.nextInt(100000, 1000000);
+                int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
                 // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
                 // For backward compatibility, we save temporarily for email notification only
                 DeliveryBoy tempDb = new DeliveryBoy();
@@ -1522,7 +1529,7 @@ public class ReactApiController {
                 res.put(KEY_MESSAGE, "If that email is registered, an OTP has been sent");
                 return ResponseEntity.ok(res);
             }
-            int otp = RANDOM.nextInt(100000, 1000000);
+            int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
             // Note: setOtp() is deprecated; OTP is handled through OtpService in modern flows
             // For backward compatibility with forgot password flow, we prepare temp object for email
             Customer tempCustomer = new Customer();
@@ -4014,17 +4021,27 @@ public class ReactApiController {
             @RequestParam(value = K_CATEGORY, required = false) String category,
             @RequestParam(value = K_STOCK, required = false) String stock,
             @RequestParam(value = KEY_IMAGE_LINK, required = false) String imageLink,
-            @RequestParam(value = K_IMAGE, required = false) org.springframework.web.multipart.MultipartFile image,
+            @RequestParam(value = K_IMAGE, required = false) MultipartFile image,
             @RequestParam(value = K_MRP, required = false) String mrp,
             @RequestParam(value = K_GST_RATE, required = false) String gstRate,
             @RequestParam(value = K_STOCK_ALERT_THRESHOLD, required = false) String stockAlertThreshold) {
+        ProductUpdateForm form = new ProductUpdateForm(
+                name, description, price, category, stock,
+                imageLink, image, mrp, gstRate, stockAlertThreshold);
+        return vendorUpdateProductInternal(vendorId, id, form);
+    }
+
+    private ResponseEntity<Map<String, Object>> vendorUpdateProductInternal(
+            int vendorId, int id, ProductUpdateForm form) {
         Map<String, Object> res = new HashMap<>();
         Vendor vendor = vendorRepository.findById(vendorId).orElse(null);
         if (vendor == null) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, ERR_VENDOR_NOT_FOUND); return ResponseEntity.badRequest().body(res); }
         Product product = productRepository.findById(id).orElse(null);
         if (product == null || product.getVendor() == null || product.getVendor().getId() != vendorId) { res.put(KEY_SUCCESS, false); res.put(KEY_MESSAGE, "Product not found or not yours"); return ResponseEntity.badRequest().body(res); }
         try {
-            applyVendorProductUpdates(product, vendor, name, description, price, category, stock, image, imageLink, mrp, gstRate, stockAlertThreshold);
+            applyVendorProductUpdates(product, vendor, form.name(), form.description(), form.price(),
+                    form.category(), form.stock(), form.image(), form.imageLink(),
+                    form.mrp(), form.gstRate(), form.stockAlertThreshold());
             productRepository.save(product);
             res.put(KEY_SUCCESS, true); res.put(KEY_MESSAGE, "Product updated successfully.");
             return ResponseEntity.ok(res);
@@ -6796,11 +6813,11 @@ public class ReactApiController {
         if (guard != null) return guard;
         Map<String, Object> res = new LinkedHashMap<>();
         try {
-            List<WarehouseChangeRequest> requests = resolveWarehouseChangeRequests(status, res);
-            if (requests == null) return ResponseEntity.badRequest().body(res);
+            Optional<List<WarehouseChangeRequest>> requests = resolveWarehouseChangeRequests(status, res);
+            if (requests.isEmpty()) return ResponseEntity.badRequest().body(res);
 
             List<Map<String, Object>> list = new ArrayList<>();
-            for (WarehouseChangeRequest r : requests) {
+            for (WarehouseChangeRequest r : requests.get()) {
                 list.add(mapWarehouseTransferRequest(r));
             }
 
@@ -6816,23 +6833,23 @@ public class ReactApiController {
 
     /**
      * Resolves the list of WarehouseChangeRequest entities based on an optional status filter.
-     * Returns null and populates res with an error if the status value is invalid.
+     * Returns {@code Optional.empty()} and populates res with an error if the status value is invalid.
      */
-    private List<WarehouseChangeRequest> resolveWarehouseChangeRequests(String status,
-                                                                         Map<String, Object> res) {
+    private Optional<List<WarehouseChangeRequest>> resolveWarehouseChangeRequests(String status,
+                                                                                   Map<String, Object> res) {
         if (status != null && !status.isBlank()) {
             try {
                 WarehouseChangeRequest.Status s = WarehouseChangeRequest.Status.valueOf(status.toUpperCase());
-                return warehouseChangeRequestRepository.findByStatusOrderByRequestedAtDesc(s);
+                return Optional.of(warehouseChangeRequestRepository.findByStatusOrderByRequestedAtDesc(s));
             } catch (IllegalArgumentException ex) {
                 res.put(KEY_SUCCESS, false);
                 res.put(KEY_MESSAGE, "Invalid status value. Use PENDING, APPROVED, or REJECTED");
-                return null;
+                return Optional.empty();
             }
         }
-        return warehouseChangeRequestRepository.findAll(
+        return Optional.of(warehouseChangeRequestRepository.findAll(
                 org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Direction.DESC, KEY_REQUESTED_AT));
+                        org.springframework.data.domain.Sort.Direction.DESC, KEY_REQUESTED_AT)));
     }
 
     /**
@@ -8128,7 +8145,7 @@ public class ReactApiController {
                 "On the way — " + city,
                 "Parcel picked up by delivery boy " + db.getName(), ROLE_DELIVERY_BOY));
 
-        int otp = RANDOM.nextInt(100000, 1000000);
+        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         deliveryOtpRepository.findByOrder(order).ifPresent(deliveryOtpRepository::delete);
         deliveryOtpRepository.save(new DeliveryOtp(order, otp));
 
@@ -10405,7 +10422,7 @@ public class ReactApiController {
 
             // Generate random 8-digit staff ID and 6-digit password
             String staffId = String.format("%08d", System.currentTimeMillis() % 100000000L);
-            String password = String.format(FMT_OTP, RANDOM.nextInt(1000000));
+            String password = String.format(FMT_OTP, ThreadLocalRandom.current().nextInt(1000000));
 
             return ResponseEntity.ok(Map.of(
                 KEY_SUCCESS, true,

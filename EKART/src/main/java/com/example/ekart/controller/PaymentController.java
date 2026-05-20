@@ -283,7 +283,7 @@ public class PaymentController {
             res.put(KEY_SUCCESS, true);
             res.put(KEY_MESSAGE, "Proceed to Razorpay payment");
             res.put(KEY_PAYMENT_METHOD, K_RAZORPAY);
-            res.put(KEY_AMOUNT, razorpayOrder.get("amount"));
+            res.put(KEY_AMOUNT, razorpayOrder.get(KEY_AMOUNT));
             res.put("currency", "INR");
             res.put("razorpayOrderId", razorpayOrder.get("razorpayOrderId"));
             res.put("razorpayKey", razorpayOrder.get("razorpayKeyId"));
