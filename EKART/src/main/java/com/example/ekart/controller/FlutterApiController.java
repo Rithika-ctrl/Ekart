@@ -2321,7 +2321,10 @@ public class FlutterApiController {
 
     private void updateExistingProduct(String[] cells, Map<String, Integer> idx,
                                        String idStr, CsvProductFields fields, int vendorId, int[] counts) {
-        String name = fields.name(); double price = fields.price(); double mrp = fields.mrp(); int stock = fields.stock();
+        String name = fields.name();
+        double price = fields.price();
+        double mrp = fields.mrp();
+        int stock = fields.stock();
         int pid = Integer.parseInt(idStr.trim());
         com.example.ekart.dto.Product p = deps.productRepository.findById(pid).orElse(null);
         if (p == null) throw new IllegalArgumentException("Product id " + pid + " not found");
@@ -2343,7 +2346,10 @@ public class FlutterApiController {
 
     private void createNewProduct(String[] cells, Map<String, Integer> idx,
                                   CsvProductFields fields, Vendor vendor, int[] counts) {
-        String name = fields.name(); double price = fields.price(); double mrp = fields.mrp(); int stock = fields.stock();
+        String name = fields.name();
+        double price = fields.price();
+        double mrp = fields.mrp();
+        int stock = fields.stock();
         String desc     = getCell(cells, idx, K_DESCRIPTION, "productdescription");
         String category = getCell(cells, idx, K_CATEGORY, "productcategory");
         String imgLink  = getCell(cells, idx, "imagelink", "imageurl", "image");

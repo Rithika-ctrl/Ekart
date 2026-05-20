@@ -4730,7 +4730,7 @@ public class ReactApiController {
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) 11 - offset);
             return new java.time.LocalDateTime[]{ ym.atDay(1).atStartOfDay(),
                     ym.atEndOfMonth().plusDays(1).atStartOfDay() };
         }
@@ -4751,7 +4751,7 @@ public class ReactApiController {
             return ym.getMonth().name().substring(0, 3) + " " + ym.getYear();
         }
         if (K_YEAR_MONTH.equals(bucketUnit)) {
-            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths(11 - offset);
+            java.time.YearMonth ym = java.time.YearMonth.now().minusMonths((long) 11 - offset);
             return ym.getMonth().name().substring(0, 3) + " '" + String.valueOf(ym.getYear()).substring(2);
         }
         // week

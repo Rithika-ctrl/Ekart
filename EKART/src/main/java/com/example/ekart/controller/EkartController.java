@@ -150,8 +150,11 @@ public class EkartController {
 
     private void buildAndSaveProduct(String[] row, Map<String, Integer> colIdx, Vendor vendor,
                                      CsvProductData data) {
-        String name = data.name(); double price = data.price(); int qty = data.qty();
-        double mrp = data.mrp(); int alertThreshold = data.alertThreshold();
+        String name = data.name();
+        double price = data.price();
+        int qty = data.qty();
+        double mrp = data.mrp();
+        int alertThreshold = data.alertThreshold();
         String desc     = getCsvValue(row, colIdx, "description");
         String category = getCsvValue(row, colIdx, "category");
         String pinCodes = getCsvValue(row, colIdx, "allowed pin codes");
