@@ -58,6 +58,13 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private static final String PROVIDER_FACEBOOK = "facebook";
     private static final String K_FAILURE = "failure";
 
+    /**
+     * Groups the OAuth identity fields extracted from the OAuth2 token.
+     * Introduced to reduce method parameter counts (java:S107).
+     */
+    private record OAuthContext(String email, String name, String provider,
+                                String pid, String providerDisplay) {}
+
     // ── Injected dependencies ────────────────────────────────────────────────
     private final SocialAuthService socialAuthService;
     private final CustomerRepository customerRepository;
@@ -91,50 +98,49 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String name            = extractName(oAuth2User, provider);
         String pid             = extractProviderId(oAuth2User, provider);
         String providerDisplay = getProviderDisplayName(provider);
+        OAuthContext ctx = new OAuthContext(email, name, provider, pid, providerDisplay);
 
         // ── React / Flutter flows ─────────────────────────────────────────────
         if (loginType.startsWith("flutter-")) {
-            handleFlutterFlow(request, response, session, loginType,
-                    email, name, provider, pid, providerDisplay);
+            handleFlutterFlow(response, session, loginType, ctx);
             return;
         }
 
         // ── Thymeleaf / web flows (unchanged) ────────────────────────────────
-        handleThymeleafFlow(response, session, loginType, email, name, provider, pid, providerDisplay);
+        handleThymeleafFlow(response, session, loginType, ctx);
     }
 
     /**
      * Handles all React/Flutter OAuth2 login flows.
      * Extracted from {@code onAuthenticationSuccess} to reduce its cognitive complexity (java:S3776).
      */
-    private void handleFlutterFlow(HttpServletRequest request, HttpServletResponse response,
+    private void handleFlutterFlow(HttpServletResponse response,
             HttpSession session, String loginType,
-            String email, String name, String provider, String pid,
-            String providerDisplay) throws IOException {
+            OAuthContext ctx) throws IOException {
 
         if ("flutter-link-customer".equals(loginType)) {
             Integer linkId = (Integer) session.getAttribute("oauth_link_customer_id");
             session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             session.removeAttribute("oauth_link_customer_id");
-            if (linkId != null) socialAuthService.linkOAuthToCustomer(linkId, provider, pid);
-            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+            if (linkId != null) socialAuthService.linkOAuthToCustomer(linkId, ctx.provider(), ctx.pid());
+            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(ctx.providerDisplay()));
             return;
         }
         if ("flutter-link-vendor".equals(loginType)) {
             Integer linkId = (Integer) session.getAttribute("oauth_link_vendor_id");
             session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             session.removeAttribute("oauth_link_vendor_id");
-            if (linkId != null) socialAuthService.linkOAuthToVendor(linkId, provider, pid);
-            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(providerDisplay));
+            if (linkId != null) socialAuthService.linkOAuthToVendor(linkId, ctx.provider(), ctx.pid());
+            response.sendRedirect(REACT_ORIGIN + "/oauth2/link-callback?status=linked&provider=" + enc(ctx.providerDisplay()));
             return;
         }
 
         session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
 
         if ("flutter-vendor".equals(loginType)) {
-            handleFlutterVendorLogin(response, email, name, provider, pid, providerDisplay);
+            handleFlutterVendorLogin(response, ctx);
         } else {
-            handleFlutterCustomerLogin(response, email, name, provider, pid, providerDisplay);
+            handleFlutterCustomerLogin(response, ctx);
         }
     }
 
@@ -143,9 +149,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
      * Extracted from {@code handleFlutterFlow} to reduce cognitive complexity (java:S3776).
      */
     private void handleFlutterVendorLogin(HttpServletResponse response,
-            String email, String name, String provider, String pid,
-            String providerDisplay) throws IOException {
-        Vendor v     = socialAuthService.processVendorOAuth(email, name, provider, pid);
+            OAuthContext ctx) throws IOException {
+        Vendor v     = socialAuthService.processVendorOAuth(ctx.email(), ctx.name(), ctx.provider(), ctx.pid());
         String token = jwtUtil.generateToken(v.getId(), v.getEmail(), "VENDOR");
         response.sendRedirect(REACT_ORIGIN + "/oauth2/callback"
                 + "?role=VENDOR"
@@ -153,7 +158,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 + "&name="     + enc(v.getName())
                 + "&email="    + enc(v.getEmail())
                 + "&token="    + token
-                + "&provider=" + enc(providerDisplay));
+                + "&provider=" + enc(ctx.providerDisplay()));
     }
 
     /**
@@ -161,9 +166,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
      * Extracted from {@code handleFlutterFlow} to reduce cognitive complexity (java:S3776).
      */
     private void handleFlutterCustomerLogin(HttpServletResponse response,
-            String email, String name, String provider, String pid,
-            String providerDisplay) throws IOException {
-        Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
+            OAuthContext ctx) throws IOException {
+        Customer c = socialAuthService.processCustomerOAuth(ctx.email(), ctx.name(), ctx.provider(), ctx.pid());
         if (!c.isActive()) {
             response.sendRedirect(REACT_ORIGIN + "/oauth2/callback?error=suspended");
             return;
@@ -177,7 +181,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 + "&name="     + enc(c.getName())
                 + "&email="    + enc(c.getEmail())
                 + "&token="    + token
-                + "&provider=" + enc(providerDisplay));
+                + "&provider=" + enc(ctx.providerDisplay()));
     }
 
     /**
@@ -185,18 +189,17 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
      * Extracted from {@code onAuthenticationSuccess} to reduce cognitive complexity (java:S3776).
      */
     private void handleThymeleafFlow(HttpServletResponse response, HttpSession session,
-            String loginType, String email, String name, String provider, String pid,
-            String providerDisplay) throws IOException {
+            String loginType, OAuthContext ctx) throws IOException {
         if (K_VENDOR.equals(loginType)) {
-            Vendor v = socialAuthService.processVendorOAuth(email, name, provider, pid);
+            Vendor v = socialAuthService.processVendorOAuth(ctx.email(), ctx.name(), ctx.provider(), ctx.pid());
             session.setAttribute(K_VENDOR, v);
-            session.setAttribute("success", "Login Successful via " + providerDisplay);
+            session.setAttribute("success", "Login Successful via " + ctx.providerDisplay());
             session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
             response.sendRedirect("/vendor/home");
             return;
         }
 
-        Customer c = socialAuthService.processCustomerOAuth(email, name, provider, pid);
+        Customer c = socialAuthService.processCustomerOAuth(ctx.email(), ctx.name(), ctx.provider(), ctx.pid());
         if (!c.isActive()) {
             session.setAttribute(K_FAILURE, "Your account has been suspended.");
             session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
@@ -206,7 +209,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         c.setLastLogin(LocalDateTime.now());
         customerRepository.save(c);
         session.setAttribute(K_CUSTOMER, c);
-        session.setAttribute("success", "Login Successful via " + providerDisplay);
+        session.setAttribute("success", "Login Successful via " + ctx.providerDisplay());
         session.removeAttribute(KEY_OAUTH_LOGIN_TYPE);
         response.sendRedirect("/customer/home");
     }

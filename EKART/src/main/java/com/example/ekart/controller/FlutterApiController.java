@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
  
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -144,9 +145,9 @@ public class FlutterApiController {
     private static final String K_REFUND                = "REFUND";
     private static final String K_TOTAL_PRODUCTS        = "totalProducts";
     private static final String K_STOCK_ALERT_THRESHOLD = "stockAlertThreshold";
+    private static final String K_RESOLVED_ADDRESS      = "_resolvedAddress";
 
     private static final Logger log = LoggerFactory.getLogger(FlutterApiController.class);
-    private static final Random RANDOM = new Random();
 
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -183,7 +184,7 @@ public class FlutterApiController {
             }
  
             // Generate 6-digit OTP and hash it
-            int plainOtp = RANDOM.nextInt(100000, 1000000);
+            int plainOtp = ThreadLocalRandom.current().nextInt(100000, 1000000);
             String otpHash = BCrypt.hashpw(String.valueOf(plainOtp), BCrypt.gensalt());
  
             // Save unverified customer (verified=false until OTP confirmed)
@@ -729,7 +730,7 @@ public class FlutterApiController {
             "Parcel picked up by delivery boy " + db.getName(), VAL_DELIVERY_BOY));
 
         // Generate and send OTP to customer
-        int otp = RANDOM.nextInt(100000, 1000000);
+        int otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         deps.deliveryOtpRepository.findByOrder(order).ifPresent(deps.deliveryOtpRepository::delete);
         deps.deliveryOtpRepository.save(new DeliveryOtp(order, otp));
 
@@ -1223,7 +1224,7 @@ public class FlutterApiController {
 
             ResponseEntity<Map<String, Object>> addrError = resolveDeliveryAddress(body, res);
             if (addrError != null) return addrError;
-            String deliveryAddress = (String) res.remove("_resolvedAddress");
+            String deliveryAddress = (String) res.remove(K_RESOLVED_ADDRESS);
 
             Order order = new Order();
             order.setCustomer(customer);
@@ -1281,7 +1282,7 @@ public class FlutterApiController {
 
     /**
      * Resolves the delivery address from structured fields or legacy city fallback.
-     * Stores the resolved address in res under "_resolvedAddress".
+     * Stores the resolved address in res under K_RESOLVED_ADDRESS.
      * Returns a 400 ResponseEntity on PIN validation failure, null on success.
      */
     private ResponseEntity<Map<String, Object>> resolveDeliveryAddress(
@@ -1302,9 +1303,9 @@ public class FlutterApiController {
                     + (city.isBlank()        ? "" : ", " + city.trim())
                     + (state.isBlank()       ? "" : ", " + state.trim())
                     + (postalCode.isBlank()  ? "" : " - " + postalCode.trim());
-            res.put("_resolvedAddress", address);
+            res.put(K_RESOLVED_ADDRESS, address);
         } else {
-            res.put("_resolvedAddress", body.getOrDefault(K_CITY, ""));
+            res.put(K_RESOLVED_ADDRESS, body.getOrDefault(K_CITY, ""));
         }
         return null;
     }
